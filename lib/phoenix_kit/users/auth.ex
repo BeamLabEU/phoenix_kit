@@ -82,6 +82,7 @@ defmodule PhoenixKit.Users.Auth do
   alias PhoenixKit.Utils.FileHash
   alias PhoenixKit.Utils.Geolocation
   alias PhoenixKit.Utils.Pagination
+  alias PhoenixKit.Utils.RecipientLocale
   alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Utils.SessionFingerprint
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
@@ -841,13 +842,36 @@ defmodule PhoenixKit.Users.Auth do
       {:ok, %{to: ..., body: ...}}
 
   """
-  def deliver_user_update_email_instructions(%User{} = user, current_email, update_email_url_fun)
+  def deliver_user_update_email_instructions(
+        %User{} = user,
+        current_email,
+        update_email_url_fun,
+        opts \\ []
+      )
       when is_function(update_email_url_fun, 1) do
     {encoded_token, user_token} = UserToken.build_email_token(user, "change:#{current_email}")
 
     Repo.insert!(user_token)
-    UserNotifier.deliver_update_email_instructions(user, update_email_url_fun.(encoded_token))
+    locale = mail_locale(user, opts)
+
+    UserNotifier.deliver_update_email_instructions(
+      user,
+      mail_url(locale, update_email_url_fun, encoded_token),
+      locale: locale
+    )
   end
+
+  # The language of an account email, its link included: the person's saved
+  # language, else the `:locale` the caller passes (the page they asked from,
+  # for mail a person requests for themselves), else the site's. One value for
+  # both, so the text and the page the link opens agree. An admin's send passes
+  # no `:locale`, so it never hands the admin's own language to someone else.
+  defp mail_locale(user, opts), do: RecipientLocale.for_mail(user, opts[:locale])
+
+  # The URL function builds its path with `Routes.url/1`, which takes the
+  # process's language; build it in the mail's.
+  defp mail_url(locale, url_fun, token),
+    do: RecipientLocale.in_locale(locale, fn -> url_fun.(token) end)
 
   @doc """
   Returns an `%Ecto.Changeset{}` for changing the user password.
@@ -1536,7 +1560,7 @@ defmodule PhoenixKit.Users.Auth do
       {:error, :already_confirmed}
 
   """
-  def deliver_user_confirmation_instructions(%User{} = user, confirmation_url_fun)
+  def deliver_user_confirmation_instructions(%User{} = user, confirmation_url_fun, opts \\ [])
       when is_function(confirmation_url_fun, 1) do
     # A service user (`api_only`) needs no confirmation and has no inbox: it counts as
     # confirmed, so no token is made and no mail is sent.
@@ -1545,7 +1569,13 @@ defmodule PhoenixKit.Users.Auth do
     else
       {encoded_token, user_token} = UserToken.build_email_token(user, "confirm")
       Repo.insert!(user_token)
-      UserNotifier.deliver_confirmation_instructions(user, confirmation_url_fun.(encoded_token))
+      locale = mail_locale(user, opts)
+
+      UserNotifier.deliver_confirmation_instructions(
+        user,
+        mail_url(locale, confirmation_url_fun, encoded_token),
+        locale: locale
+      )
     end
   end
 
@@ -1833,21 +1863,23 @@ defmodule PhoenixKit.Users.Auth do
       when is_function(reset_password_url_fun, 1) do
     if Keyword.get(opts, :rate_limit, true) do
       case RateLimiter.check_password_reset_rate_limit(user.email) do
-        :ok -> send_reset_password_instructions(user, reset_password_url_fun)
+        :ok -> send_reset_password_instructions(user, reset_password_url_fun, opts)
         {:error, :rate_limit_exceeded} -> {:error, :rate_limit_exceeded}
       end
     else
-      send_reset_password_instructions(user, reset_password_url_fun)
+      send_reset_password_instructions(user, reset_password_url_fun, opts)
     end
   end
 
-  defp send_reset_password_instructions(user, reset_password_url_fun) do
+  defp send_reset_password_instructions(user, reset_password_url_fun, opts) do
     {encoded_token, user_token} = UserToken.build_email_token(user, "reset_password")
     Repo.insert!(user_token)
+    locale = mail_locale(user, opts)
 
     UserNotifier.deliver_reset_password_instructions(
       user,
-      reset_password_url_fun.(encoded_token)
+      mail_url(locale, reset_password_url_fun, encoded_token),
+      locale: locale
     )
   end
 
@@ -1918,14 +1950,7 @@ defmodule PhoenixKit.Users.Auth do
     |> Ecto.Multi.run(:credential_user, fn repo, _ ->
       current = repo.one!(from(u in User, where: u.uuid == ^user.uuid, lock: "FOR NO KEY UPDATE"))
 
-      {:ok,
-       %{
-         current
-         | active_role_uuid: user.active_role_uuid,
-           acting_user_uuid: user.acting_user_uuid,
-           acting_session_uuid: user.acting_session_uuid,
-           organization_manager_uuid: user.organization_manager_uuid
-       }}
+      {:ok, User.put_session_fields(current, user)}
     end)
     |> Ecto.Multi.update(:user, fn %{credential_user: current} -> changeset_fun.(current) end)
     # A chat linked to the site bot acts as the user in the Machine API: a new password is
@@ -1936,15 +1961,7 @@ defmodule PhoenixKit.Users.Auth do
 
   # Session-only fields originate with the caller's token loader. Return them
   # to that same caller, never in a shared user-update broadcast.
-  defp preserve_session_fields(current, source) do
-    %{
-      current
-      | active_role_uuid: source.active_role_uuid,
-        acting_user_uuid: source.acting_user_uuid,
-        acting_session_uuid: source.acting_session_uuid,
-        organization_manager_uuid: source.organization_manager_uuid
-    }
-  end
+  defp preserve_session_fields(current, source), do: User.put_session_fields(current, source)
 
   ## Role Management Functions
 
@@ -2202,6 +2219,31 @@ defmodule PhoenixKit.Users.Auth do
       {:error, _step, changeset, _changes} -> {:error, changeset}
     end
   end
+
+  @doc """
+  Saves the language of the page a person is on as their language, when they
+  have none saved yet: at registration and at sign-in. Without it, someone who
+  registered at `/de/users/register` got their mail in the site's language.
+
+  Nothing is saved when they already have a language (the switcher sets it),
+  or when the page is in the site's own language: that is what they get
+  without a saved one, and an address without a language names none.
+
+  Returns the user, updated or not. A failed save is not an error here.
+  """
+  @spec remember_page_locale(User.t(), String.t() | nil) :: User.t()
+  def remember_page_locale(%User{} = user, page_locale) do
+    with nil <- RecipientLocale.preferred(user),
+         locale when is_binary(locale) and locale != "" <- page_locale,
+         false <- RecipientLocale.site_language?(locale),
+         {:ok, %User{} = updated} <- update_user_locale_preference(user, locale) do
+      updated
+    else
+      _ -> user
+    end
+  end
+
+  def remember_page_locale(user, _page_locale), do: user
 
   @doc """
   Updates user's preferred locale (dialect preference).
@@ -3057,7 +3099,13 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   @doc """
-  Lists users with pagination and optional role filtering.
+  Lists users with pagination and optional filters.
+
+  Filters: `:search`, `:role`, `:account_type`, `:status`, `:confirmation`,
+  and `:custom_fields`, a list of `{field_key, :yes | :no}` for boolean custom
+  fields. `:yes` matches `true` and `"true"`; `:no` matches everything else,
+  a missing key included: a user never marked is not marked. Every filter runs
+  in SQL, so the count and the pages are of the matching users.
 
   ## Examples
 
@@ -3066,6 +3114,9 @@ defmodule PhoenixKit.Users.Auth do
 
       iex> list_users_paginated(page: 1, page_size: 10, role: "Admin")
       %{users: [%User{}], total_count: 3, total_pages: 1}
+
+      iex> list_users_paginated(custom_fields: [{"approved", :no}])
+      %{users: [%User{}], total_count: 5, total_pages: 1}
   """
   def list_users_paginated(opts \\ []) do
     page = Keyword.get(opts, :page, 1)
@@ -3075,6 +3126,7 @@ defmodule PhoenixKit.Users.Auth do
     account_type_filter = Keyword.get(opts, :account_type)
     status_filter = Keyword.get(opts, :status)
     confirmation_filter = Keyword.get(opts, :confirmation)
+    custom_field_filters = Keyword.get(opts, :custom_fields, [])
 
     base_query = from(u in User, order_by: [desc: u.inserted_at])
 
@@ -3085,6 +3137,7 @@ defmodule PhoenixKit.Users.Auth do
       |> maybe_filter_by_account_type(account_type_filter)
       |> maybe_filter_by_status(status_filter)
       |> maybe_filter_by_confirmation(confirmation_filter)
+      |> maybe_filter_by_custom_fields(custom_field_filters)
 
     total_count = PhoenixKit.RepoHelper.aggregate(query, :count, :uuid)
     total_pages = Pagination.total_pages(total_count, page_size)
@@ -3147,6 +3200,37 @@ defmodule PhoenixKit.Users.Auth do
     do: from([u] in query, where: is_nil(u.confirmed_at))
 
   defp maybe_filter_by_confirmation(query, _unknown), do: query
+
+  # A boolean custom field is written as `true`, or as `"true"` by a form, so
+  # both count as yes. The key goes in as a parameter, never into the SQL.
+  defp maybe_filter_by_custom_fields(query, filters) when is_list(filters) do
+    Enum.reduce(filters, query, fn
+      {key, :yes}, query when is_binary(key) ->
+        from([u] in query,
+          where:
+            fragment(
+              "coalesce((? -> ?) IN ('true'::jsonb, '\"true\"'::jsonb), false)",
+              u.custom_fields,
+              ^key
+            )
+        )
+
+      {key, :no}, query when is_binary(key) ->
+        from([u] in query,
+          where:
+            not fragment(
+              "coalesce((? -> ?) IN ('true'::jsonb, '\"true\"'::jsonb), false)",
+              u.custom_fields,
+              ^key
+            )
+        )
+
+      _unknown, query ->
+        query
+    end)
+  end
+
+  defp maybe_filter_by_custom_fields(query, _filters), do: query
 
   defp maybe_filter_by_search(query, ""), do: query
 

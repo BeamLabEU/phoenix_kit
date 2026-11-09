@@ -84,7 +84,8 @@ defmodule PhoenixKit.Modules.Storage.CaptureDate do
   @offset_re ~r/^([+-])(\d{2}):?(\d{2})$/
   @quicktime_re ~r/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?([+-]\d{2}:?\d{2})?$/
 
-  # Each pattern captures year, month, day and optionally hour, minute, second.
+  # Each pattern captures year, month, day and optionally hour, minute, second; a `{pattern,
+  # :dmy}` captures them day first (day, month, year, then the time).
   # The year must look like one (19xx/20xx) so a run of digits in a name is not
   # mistaken for a date.
   # A compiled `~r` carries a runtime reference on OTP 28, so a list of them
@@ -100,7 +101,11 @@ defmodule PhoenixKit.Modules.Storage.CaptureDate do
       # IMG-20240315-WA0001 (WhatsApp): a date, no time
       ~r/(?<!\d)((?:19|20)\d{2})(\d{2})(\d{2})-WA\d+/,
       # a bare 2018-07-01: a date, no time
-      ~r/(?<!\d)((?:19|20)\d{2})-(\d{2})-(\d{2})(?!\d)/
+      ~r/(?<!\d)((?:19|20)\d{2})-(\d{2})-(\d{2})(?!\d)/,
+      # Telegram Desktop's chat export: photo_12@14-05-2021_18-23-45.jpg, video_3@…, file_7@…
+      # (day first, after the `@`, in the exporting computer's local time). Only after an `@`:
+      # a day-first date elsewhere cannot be told from a month-first one.
+      {~r/@(\d{2})-(\d{2})-((?:19|20)\d{2})_(\d{2})-(\d{2})-(\d{2})(?!\d)/, :dmy}
     ]
   end
 
@@ -338,7 +343,9 @@ defmodule PhoenixKit.Modules.Storage.CaptureDate do
 
   @doc """
   A capture date from the date in a file name, or `nil`. Only the base name
-  is read, and only dates in the shapes phones and cameras write.
+  is read, and only dates in the shapes phones and cameras write, and the one
+  Telegram Desktop's chat export gives a file without a name of its own
+  (`photo_12@14-05-2021_18-23-45.jpg`).
   """
   @spec from_filename(String.t() | nil) :: t() | nil
   def from_filename(nil), do: nil
@@ -347,8 +354,11 @@ defmodule PhoenixKit.Modules.Storage.CaptureDate do
     base = Path.basename(name)
 
     Enum.find_value(filename_patterns(), fn pattern ->
+      {pattern, order} = with(%Regex{} <- pattern, do: {pattern, :ymd})
+
       case Regex.run(pattern, base, capture: :all_but_first) do
         nil -> nil
+        [d, mo, y | time] when order == :dmy -> filename_date([y, mo, d | time])
         parts -> filename_date(parts)
       end
     end)

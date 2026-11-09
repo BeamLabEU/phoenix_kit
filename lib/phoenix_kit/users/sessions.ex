@@ -81,6 +81,7 @@ defmodule PhoenixKit.Users.Sessions do
         browser: token.browser,
         os: token.os,
         active_role_uuid: token.active_role_uuid,
+        organization_manager_uuid: token.organization_manager_uuid,
         created_at: token.inserted_at,
         expires_at: fragment("? + interval '60 days'", token.inserted_at)
       },
@@ -146,6 +147,7 @@ defmodule PhoenixKit.Users.Sessions do
         browser: token.browser,
         os: token.os,
         active_role_uuid: token.active_role_uuid,
+        organization_manager_uuid: token.organization_manager_uuid,
         created_at: token.inserted_at,
         expires_at: fragment("? + interval '60 days'", token.inserted_at)
       })
@@ -235,6 +237,7 @@ defmodule PhoenixKit.Users.Sessions do
         browser: token.browser,
         os: token.os,
         active_role_uuid: token.active_role_uuid,
+        organization_manager_uuid: token.organization_manager_uuid,
         created_at: token.inserted_at,
         expires_at: fragment("? + interval '60 days'", token.inserted_at)
       },
@@ -276,6 +279,7 @@ defmodule PhoenixKit.Users.Sessions do
         browser: token.browser,
         os: token.os,
         active_role_uuid: token.active_role_uuid,
+        organization_manager_uuid: token.organization_manager_uuid,
         created_at: token.inserted_at
       },
       order_by: [desc: token.inserted_at]
@@ -419,6 +423,7 @@ defmodule PhoenixKit.Users.Sessions do
         user_is_active: user.is_active,
         user_confirmed_at: user.confirmed_at,
         active_role_uuid: token.active_role_uuid,
+        organization_manager_uuid: token.organization_manager_uuid,
         created_at: token.inserted_at,
         expires_at: fragment("? + interval '60 days'", token.inserted_at)
       }
@@ -528,6 +533,31 @@ defmodule PhoenixKit.Users.Sessions do
           where:
             token.user_uuid == ^user_uuid and token.context == "session" and
               token.active_role_uuid == ^role_uuid,
+          select: %{uuid: token.uuid, token: token.token}
+        )
+      )
+
+    Enum.each(revoked, &Events.broadcast_session_revoked(&1.uuid))
+    count
+  end
+
+  @doc """
+  Revokes the sessions of one acting link that are **acting as** one of `role_uuids`,
+  called when those roles leave the link: the browser signs out instead of quietly
+  continuing in another role. `revoke_user_sessions_in_role/2` would reach every person
+  acting for the organization. Returns the number revoked.
+  """
+  @spec revoke_link_sessions_in_roles(String.t(), [String.t()]) :: non_neg_integer()
+  def revoke_link_sessions_in_roles(_link_uuid, []), do: 0
+
+  def revoke_link_sessions_in_roles(link_uuid, role_uuids)
+      when is_binary(link_uuid) and is_list(role_uuids) do
+    {count, revoked} =
+      Revocation.delete_all(
+        from(token in UserToken,
+          where:
+            token.organization_manager_uuid == ^link_uuid and token.context == "session" and
+              token.active_role_uuid in ^role_uuids,
           select: %{uuid: token.uuid, token: token.token}
         )
       )
@@ -772,6 +802,7 @@ defmodule PhoenixKit.Users.Sessions do
       browser: Map.get(session_data, :browser),
       os: Map.get(session_data, :os),
       active_role_uuid: Map.get(session_data, :active_role_uuid),
+      organization_manager_uuid: Map.get(session_data, :organization_manager_uuid),
       active_role: nil,
       created_at: session_data.created_at,
       expires_at: session_data.expires_at,

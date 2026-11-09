@@ -13,6 +13,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
   alias PhoenixKit.Admin.Events
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.CustomFields
   alias PhoenixKit.Users.FormatCountry
   alias PhoenixKit.Users.Invitations
@@ -21,6 +22,9 @@ defmodule PhoenixKitWeb.Users.UserForm do
   alias PhoenixKit.Utils.CountryData
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.Live.Components.AvatarEditor
+  alias PhoenixKitWeb.Live.Components.PersonOrganizations
+  alias PhoenixKitWeb.Users.ManageNotice
 
   def mount(params, session, socket) do
     user_uuid = params["id"]
@@ -54,13 +58,11 @@ defmodule PhoenixKitWeb.Users.UserForm do
     # get_setting_options/0: this form already loads all_roles above for
     # its own role-management UI, so building the whole options map here
     # too would query roles a second time for nothing.
-    timezone_options = [{"Use System Default", nil} | Settings.timezone_options()]
+    timezone_options = [{gettext("Use System Default"), nil} | Settings.timezone_options()]
 
     # Organization accounts
     org_accounts_enabled =
       Settings.get_setting("enable_organization_accounts", "false") == "true"
-
-    organizations = if org_accounts_enabled, do: Auth.list_organizations(), else: []
 
     socket =
       socket
@@ -84,35 +86,18 @@ defmodule PhoenixKitWeb.Users.UserForm do
       |> assign(:default_role, default_role)
       |> assign(:timezone_options, timezone_options)
       |> assign(:country_options, CountryData.countries_for_select())
-      |> assign(:show_media_selector, false)
-      |> assign(:pending_avatar_file_uuid, nil)
-      |> assign(:avatar_changed, false)
       |> assign(:registration_ip, registration_ip)
       |> assign(:org_accounts_enabled, org_accounts_enabled)
-      |> assign(:organizations, organizations)
       |> assign(:current_account_type, "person")
       |> assign(:user_agent, user_agent)
       |> assign(:page_section, gettext("Users"))
       |> assign(:page_section_path, Routes.path("/admin/users"))
       |> load_user_data(mode, user_uuid)
       |> assign_credential_authority()
-      # Resolved when the selector opens — the host hook may create a folder.
-      |> assign(:avatar_scope_folder, nil)
       |> load_form_data()
       |> maybe_set_edit_page_title()
 
     {:ok, socket}
-  end
-
-  defp assign_avatar_scope_folder(socket) do
-    actor_uuid =
-      socket.assigns[:phoenix_kit_current_user] && socket.assigns.phoenix_kit_current_user.uuid
-
-    assign(
-      socket,
-      :avatar_scope_folder,
-      PhoenixKit.UploadsParentFolder.resolve(:avatar, actor_uuid, socket.assigns[:user])
-    )
   end
 
   # Whether this actor may set a password for, mail a reset link to, or change
@@ -144,6 +129,9 @@ defmodule PhoenixKitWeb.Users.UserForm do
 
   defp maybe_set_edit_page_title(socket), do: socket
 
+  defp user_display_name(%Auth.User{account_type: "organization"} = user),
+    do: Auth.User.display_name(user)
+
   defp user_display_name(user) do
     cond do
       user.first_name && user.last_name -> "#{user.first_name} #{user.last_name}"
@@ -160,13 +148,6 @@ defmodule PhoenixKitWeb.Users.UserForm do
   end
 
   defp resolve_return_to(_return_to, _user_uuid), do: Routes.path("/admin/users")
-
-  def handle_event("open_media_selector", _params, socket) do
-    {:noreply,
-     socket
-     |> assign_avatar_scope_folder()
-     |> assign(:show_media_selector, true)}
-  end
 
   def handle_event("validate_user", %{"user" => user_params}, socket) do
     # Filter password from params if password field is not shown
@@ -288,7 +269,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
     # Prevent users from modifying their own roles
     if user.uuid == current_user.uuid do
       socket =
-        put_flash(socket, :error, "You cannot modify your own roles.")
+        put_flash(socket, :error, gettext("You cannot modify your own roles."))
 
       {:noreply, socket}
     else
@@ -304,7 +285,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
         {:ok, _assignments} ->
           socket =
             socket
-            |> put_flash(:info, "User roles updated successfully.")
+            |> put_flash(:info, gettext("User roles updated successfully."))
             |> assign(:user_roles, Roles.get_user_roles(user))
             |> assign(:pending_roles, [])
 
@@ -313,9 +294,14 @@ defmodule PhoenixKitWeb.Users.UserForm do
         {:error, reason} ->
           error_message =
             case reason do
-              :owner_role_protected -> "Owner role cannot be manually assigned."
-              :cannot_remove_last_owner -> "Cannot remove Owner role from the last Owner."
-              _ -> "Failed to update roles. Please try again."
+              :owner_role_protected ->
+                gettext("Owner role cannot be manually assigned.")
+
+              :cannot_remove_last_owner ->
+                gettext("Cannot remove Owner role from the last Owner.")
+
+              _ ->
+                gettext("Failed to update roles. Please try again.")
             end
 
           socket = put_flash(socket, :error, error_message)
@@ -331,7 +317,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
     # Prevent users from modifying their own roles
     if user.uuid == current_user.uuid do
       socket =
-        put_flash(socket, :error, "You cannot modify your own roles.")
+        put_flash(socket, :error, gettext("You cannot modify your own roles."))
 
       {:noreply, socket}
     else
@@ -352,7 +338,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
         {:ok, _assignments} ->
           socket =
             socket
-            |> put_flash(:info, "User roles updated successfully.")
+            |> put_flash(:info, gettext("User roles updated successfully."))
             |> assign(:user_roles, Roles.get_user_roles(user))
 
           {:noreply, socket}
@@ -360,9 +346,14 @@ defmodule PhoenixKitWeb.Users.UserForm do
         {:error, reason} ->
           error_message =
             case reason do
-              :owner_role_protected -> "Owner role cannot be manually assigned."
-              :cannot_remove_last_owner -> "Cannot remove Owner role from the last Owner."
-              _ -> "Failed to update roles. Please try again."
+              :owner_role_protected ->
+                gettext("Owner role cannot be manually assigned.")
+
+              :cannot_remove_last_owner ->
+                gettext("Cannot remove Owner role from the last Owner.")
+
+              _ ->
+                gettext("Failed to update roles. Please try again.")
             end
 
           socket = put_flash(socket, :error, error_message)
@@ -487,11 +478,14 @@ defmodule PhoenixKitWeb.Users.UserForm do
            actor: socket.assigns[:phoenix_kit_current_user]
          ) do
       {:ok, updated_user} ->
-        status_text = if new_status, do: "activated", else: "deactivated"
+        status_message =
+          if new_status,
+            do: gettext("User activated successfully."),
+            else: gettext("User deactivated successfully.")
 
         socket =
           socket
-          |> put_flash(:info, "User #{status_text} successfully.")
+          |> put_flash(:info, status_message)
           |> assign(:user, updated_user)
           |> reload_changeset_after_status_update(updated_user)
 
@@ -502,14 +496,16 @@ defmodule PhoenixKitWeb.Users.UserForm do
           put_flash(
             socket,
             :error,
-            "Cannot deactivate the last Owner. Assign the Owner role to another user first."
+            gettext(
+              "Cannot deactivate the last Owner. Assign the Owner role to another user first."
+            )
           )
 
         {:noreply, socket}
 
       {:error, _changeset} ->
         socket =
-          put_flash(socket, :error, "Failed to update user status. Please try again.")
+          put_flash(socket, :error, gettext("Failed to update user status. Please try again."))
 
         {:noreply, socket}
     end
@@ -527,7 +523,10 @@ defmodule PhoenixKitWeb.Users.UserForm do
           socket
           |> put_flash(
             :info,
-            "Password reset email sent to #{user.email}. The user will receive instructions to reset their password."
+            gettext(
+              "Password reset email sent to %{email}. The user will receive instructions to reset their password.",
+              email: user.email
+            )
           )
           |> assign(:show_reset_password_modal, false)
 
@@ -535,7 +534,11 @@ defmodule PhoenixKitWeb.Users.UserForm do
 
       {:error, _reason} ->
         socket =
-          put_flash(socket, :error, "Failed to send password reset email. Please try again.")
+          put_flash(
+            socket,
+            :error,
+            gettext("Failed to send password reset email. Please try again.")
+          )
 
         {:noreply, socket}
     end
@@ -656,18 +659,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
       |> Map.get("custom_fields", %{})
       |> drop_schema_identity_fields(socket)
 
-    # Include pending avatar if it was changed via media selector
-    custom_fields_params =
-      if socket.assigns[:avatar_changed] && socket.assigns[:pending_avatar_file_uuid] do
-        Map.put(custom_fields_params, "avatar_file_uuid", socket.assigns.pending_avatar_file_uuid)
-      else
-        custom_fields_params
-      end
-
     profile_params = Map.delete(user_params, "custom_fields")
-
-    avatar_changed? = socket.assigns[:avatar_changed] == true
-    avatar_file_uuid = socket.assigns[:pending_avatar_file_uuid]
 
     with :ok <- validate_custom_fields(user, custom_fields_params),
          {:ok, updated_user} <- update_user_profile(socket, user, profile_params),
@@ -675,32 +667,6 @@ defmodule PhoenixKitWeb.Users.UserForm do
          {:ok, user_with_account_type} <-
            update_account_type_fields(user_with_fields, user_params),
          result <- update_user_roles_if_changed(socket, user_with_account_type) do
-      # Log avatar change if it happened
-      if avatar_changed? && avatar_file_uuid do
-        admin = socket.assigns[:phoenix_kit_current_user]
-
-        PhoenixKit.Activity.log(%{
-          action: "user.avatar_changed",
-          module: "users",
-          mode: "manual",
-          actor_uuid: admin && admin.uuid,
-          resource_type: "user",
-          resource_uuid: user_with_account_type.uuid,
-          target_uuid: user_with_account_type.uuid,
-          metadata: %{
-            "avatar_from" => get_in(user.custom_fields, ["avatar_file_uuid"]) || "",
-            "avatar_to" => avatar_file_uuid,
-            "actor_role" => "admin"
-          }
-        })
-      end
-
-      # Clear avatar change flag after successful update
-      socket =
-        socket
-        |> assign(:avatar_changed, false)
-        |> assign(:pending_avatar_file_uuid, nil)
-
       # The credential fields were dropped for lack of rank while this
       # submission actually asked to change one. The rest of the save is
       # committed — that is the established behaviour and a test pins it — so
@@ -938,14 +904,20 @@ defmodule PhoenixKitWeb.Users.UserForm do
     account_type = Map.get(user_params, "account_type")
 
     if account_type do
-      org_uuid = Map.get(user_params, "organization_uuid")
-      org_uuid = if org_uuid == "" or is_nil(org_uuid), do: nil, else: org_uuid
-
       attrs = %{
         "account_type" => account_type,
-        "organization_name" => Map.get(user_params, "organization_name"),
-        "organization_uuid" => org_uuid
+        "organization_name" => Map.get(user_params, "organization_name")
       }
+
+      # The older company selector is on the form only while the person has
+      # that tie; a form without it leaves the tie as it is (it may have been
+      # set from the user's page meanwhile), never clears it.
+      attrs =
+        case Map.fetch(user_params, "organization_uuid") do
+          {:ok, uuid} when uuid in [nil, ""] -> Map.put(attrs, "organization_uuid", nil)
+          {:ok, uuid} -> Map.put(attrs, "organization_uuid", uuid)
+          :error -> attrs
+        end
 
       Auth.change_account_type(user, attrs)
     else
@@ -988,7 +960,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
       socket
       |> assign(:user, fresh_user)
       |> reload_changeset_with_updated_user(fresh_user)
-      |> put_flash(:info, "User updated successfully.")
+      |> put_flash(:info, gettext("User updated successfully."))
       |> push_navigate(to: socket.assigns.return_to)
 
     {:noreply, socket}
@@ -1015,11 +987,11 @@ defmodule PhoenixKitWeb.Users.UserForm do
   end
 
   defp format_role_update_error(:owner_role_protected) do
-    "User profile updated but Owner role cannot be manually assigned."
+    gettext("User profile updated but Owner role cannot be manually assigned.")
   end
 
   defp format_role_update_error(:cannot_remove_last_owner) do
-    "User profile updated but cannot remove Owner role from the last Owner."
+    gettext("User profile updated but cannot remove Owner role from the last Owner.")
   end
 
   defp format_role_update_error(:cannot_modify_own_roles) do
@@ -1027,7 +999,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
   end
 
   defp format_role_update_error(_) do
-    "User profile updated but roles failed to update."
+    gettext("User profile updated but roles failed to update.")
   end
 
   defp roles_refused_message(refused) do
@@ -1055,7 +1027,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
         :custom_fields_data,
         merge_custom_fields_data(socket.assigns.custom_fields_data, custom_fields_params)
       )
-      |> put_flash(:error, "Please fix the custom field errors below.")
+      |> put_flash(:error, gettext("Please fix the custom field errors below."))
 
     {:noreply, socket}
   end
@@ -1076,7 +1048,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
   defp handle_custom_fields_save_error(socket) do
     socket =
       socket
-      |> put_flash(:error, "User profile updated but custom fields failed to save.")
+      |> put_flash(:error, gettext("User profile updated but custom fields failed to save."))
       |> push_navigate(to: socket.assigns.return_to)
 
     {:noreply, socket}
@@ -1343,30 +1315,43 @@ defmodule PhoenixKitWeb.Users.UserForm do
     end
   end
 
-  def handle_info({:media_selected, file_uuids}, socket) do
-    # Get the first selected file UUID (single selection mode)
-    avatar_file_uuid = List.first(file_uuids)
-
-    # Store avatar selection without saving to database yet
-    # Avatar will be saved when "Update User" button is clicked
-    socket =
-      if avatar_file_uuid do
-        Logger.info("Avatar selected (pending save): #{avatar_file_uuid}")
-
-        socket
-        |> assign(:pending_avatar_file_uuid, avatar_file_uuid)
-        |> assign(:avatar_changed, true)
-        |> assign(:show_media_selector, false)
-        |> put_flash(:info, "Avatar selected. Click 'Update User' to save.")
-      else
-        socket
-        |> assign(:show_media_selector, false)
-      end
-
-    {:noreply, socket}
+  # The avatar is saved by `AvatarEditor` straight away, apart from the form. Only
+  # the custom fields are taken from the saved row: the form's own struct carries
+  # what it loaded (roles and the rest).
+  def handle_info({AvatarEditor, _id, {:saved, saved, message}}, socket) do
+    user = %{socket.assigns.user | custom_fields: saved.custom_fields}
+    {:noreply, socket |> assign(:user, user) |> put_flash(:info, message)}
   end
 
-  def handle_info({:media_selector_closed}, socket) do
-    {:noreply, assign(socket, :show_media_selector, false)}
+  def handle_info({AvatarEditor, _id, {:failed, message}}, socket) do
+    {:noreply, put_flash(socket, :error, message)}
+  end
+
+  # The Organizations row changed a tie. Only the older one sits on the
+  # person's row; the form's struct takes that and keeps what it loaded.
+  def handle_info({PersonOrganizations, :changed}, socket) do
+    user =
+      case Auth.get_user(socket.assigns.user.uuid) do
+        %Auth.User{organization_uuid: uuid} -> %{socket.assigns.user | organization_uuid: uuid}
+        nil -> socket.assigns.user
+      end
+
+    {:noreply, assign(socket, :user, user)}
+  end
+
+  # An Owner or Admin in their own account (not acting for an organization), as
+  # on the user's page; the core functions behind the row check the same again.
+  defp can_edit_organizations?(assigns) do
+    scope = assigns[:phoenix_kit_current_scope]
+
+    match?(%{current: same, root: same}, assigns.manager_actor) and
+      (Scope.owner?(scope) or Scope.has_role?(scope, "Admin"))
+  end
+
+  # Why the row offers no changes, said under it.
+  defp manage_notice(assigns) do
+    if can_edit_organizations?(assigns),
+      do: nil,
+      else: ManageNotice.message(ManageNotice.reason(assigns.manager_actor, assigns.user.uuid))
   end
 end

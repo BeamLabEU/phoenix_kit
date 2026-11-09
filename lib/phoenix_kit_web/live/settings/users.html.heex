@@ -500,7 +500,7 @@
                       value={role.uuid}
                       checked={always_on_role?(@settings, role.uuid)}
                     />
-                    <span class="text-base-content">{role.name}</span>
+                    <span class="text-base-content">{PhoenixKit.Users.Roles.display_name(role)}</span>
                   </label>
                 <% end %>
                 <.unsaved_hint dirty={
@@ -732,7 +732,10 @@
             </div>
 
             <%!-- Action Buttons (the Profile Page tab saves each switch at once) --%>
-            <div class={["flex gap-3 pt-4", @active_tab == "profile_page" && "hidden"]}>
+            <div class={[
+              "flex gap-3 pt-4",
+              @active_tab in ["profile_page", "avatars"] && "hidden"
+            ]}>
               <button
                 type="submit"
                 class={[
@@ -770,6 +773,44 @@
                 phx-click="toggle_profile_section"
                 phx-value-section={section}
               />
+            </div>
+          </div>
+
+          <%!-- Avatars tab: outside the main form, a click saves at once.
+               Each tile shows the admin's own avatar in that shape. --%>
+          <div :if={@active_tab == "avatars"} id="avatar-shapes" class="space-y-4">
+            <p class="text-sm text-base-content/70">
+              {gettext(
+                "The shape every avatar on this site is drawn in: menus, lists, profiles and the crop editor."
+              )}
+            </p>
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              <button
+                :for={shape <- @avatar_shapes}
+                type="button"
+                id={"avatar-shape-#{shape.key}"}
+                phx-click="set_avatar_shape"
+                phx-value-shape={shape.key}
+                aria-pressed={to_string(shape.key == @avatar_shape)}
+                class={[
+                  "flex flex-col items-center gap-2 rounded-box border-2 p-4 transition-colors",
+                  if(shape.key == @avatar_shape,
+                    do: "border-primary bg-primary/10",
+                    else: "border-base-300 hover:border-primary/50"
+                  )
+                ]}
+              >
+                <.user_avatar
+                  user={@phoenix_kit_current_user}
+                  size="lg"
+                  shape={shape.key}
+                  class="!w-16 !h-16 !text-2xl"
+                />
+                <span class="text-sm font-medium flex items-center gap-1">
+                  <.icon :if={shape.key == @avatar_shape} name="hero-check" class="w-4 h-4" />
+                  {shape.label}
+                </span>
+              </button>
             </div>
           </div>
 
@@ -818,6 +859,25 @@
                     />
                   </div>
 
+                  <%!-- Column name: the Users table's header. Blank = the label. --%>
+                  <div class="fieldset">
+                    <label class="label">
+                      <span class="fieldset-legend">{gettext("Column name")}</span>
+                    </label>
+                    <.input
+                      type="text"
+                      name="field[column_label]"
+                      value={if @editing_field, do: @editing_field["column_label"], else: ""}
+                    />
+                    <div class="label">
+                      <span class="fieldset-label">
+                        {gettext(
+                          "Shown as the column header in the Users table. Leave blank to use the label."
+                        )}
+                      </span>
+                    </div>
+                  </div>
+
                   <%!-- Field Type --%>
                   <div class="fieldset">
                     <label class="label">
@@ -861,6 +921,19 @@
                         {gettext(
                           "When checked, users can view and edit this field on their settings page. When unchecked, only admins can edit it."
                         )}
+                      </:description>
+                    </.checkbox>
+                  </div>
+
+                  <%!-- Yes/No fields only: a filter in the Users table. --%>
+                  <div :if={@field_form_type == "boolean"} class="fieldset">
+                    <.checkbox
+                      name="field[filterable]"
+                      checked={!!(@editing_field && @editing_field["filterable"])}
+                      label={gettext("Filter in the Users table")}
+                    >
+                      <:description>
+                        {gettext("Adds a Yes/No filter for this field to the Users table.")}
                       </:description>
                     </.checkbox>
                   </div>

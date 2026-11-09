@@ -6,8 +6,15 @@ defmodule PhoenixKitWeb.Components.Core.Input do
   use Phoenix.Component
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  alias Phoenix.LiveView.JS
+
   import PhoenixKitWeb.Components.Core.FormFieldError, only: [error: 1]
   import PhoenixKitWeb.Components.Core.FormFieldHint, only: [field_hint: 1, describe_by_hint: 2]
+  import PhoenixKitWeb.Components.Core.Icon, only: [icon: 1]
+
+  # A revealed password is a plain text input: without these a browser's
+  # enhanced spellcheck sends it to a server, and a phone capitalizes it.
+  @revealable_attrs %{spellcheck: "false", autocapitalize: "none", autocorrect: "off"}
 
   @doc """
   Renders an input with label and error messages.
@@ -29,6 +36,7 @@ defmodule PhoenixKitWeb.Components.Core.Input do
 
       <.input field={@form[:email]} type="email" />
       <.input name="my-input" errors={["oh no!"]} />
+      <.input field={@form[:password]} type="password" password_toggle />
   """
   attr :id, :any, default: nil
   attr :name, :any
@@ -68,6 +76,11 @@ defmodule PhoenixKitWeb.Components.Core.Input do
     default: false,
     doc:
       "`type=\"date\"` only: render the browser's own date input instead of `date_input/1` (a page with no LiveView). Host-wide: `config :phoenix_kit, native_date_inputs: true`"
+
+  attr :password_toggle, :boolean,
+    default: false,
+    doc:
+      "`type=\"password\"` only: an eye button at the end of the field that shows and hides what was typed. It runs in the browser, so it costs no server round trip and survives a re-render. `phoenix_kit.js` hides the password again when its form is sent. Without a field or an `id`, the id is derived from `name`"
 
   attr :checked, :boolean, doc: "the checked flag for checkbox inputs"
   attr :prompt, :string, default: nil, doc: "the prompt for select inputs"
@@ -131,6 +144,7 @@ defmodule PhoenixKitWeb.Components.Core.Input do
   def input(assigns), do: native_input(assigns)
 
   defp native_input(assigns) do
+    assigns = with_password_toggle(assigns)
     assigns = assign(assigns, :rest, describe_by_hint(assigns.rest, assigns))
 
     ~H"""
@@ -146,44 +160,97 @@ defmodule PhoenixKitWeb.Components.Core.Input do
              error colour, and the hand-rolled markup this component replaced did. --%>
         <span :if={@rest[:required]} class="text-error ml-0.5" aria-hidden="true">*</span>
       </label>
-      <%!-- Icon-inside variant: daisyUI 5 puts the `input` class on a <label>
-           wrapper so the icon sits inside the field. Focus color comes from
-           `focus-within` since the wrapping label never receives focus. --%>
-      <label
-        :if={@icon != []}
-        class={[
-          "input w-full transition-colors focus-within:input-primary",
-          @errors != [] && "input-error",
-          @class
-        ]}
-      >
-        {render_slot(@icon)}
+      <.password_toggle_box enabled={@password_toggle} input_id={@id}>
+        <%!-- Icon-inside variant: daisyUI 5 puts the `input` class on a <label>
+             wrapper so the icon sits inside the field. Focus color comes from
+             `focus-within` since the wrapping label never receives focus. --%>
+        <label
+          :if={@icon != []}
+          class={[
+            "input w-full transition-colors focus-within:input-primary",
+            @errors != [] && "input-error",
+            @password_toggle && "pe-11",
+            @class
+          ]}
+        >
+          {render_slot(@icon)}
+          <input
+            type={@type}
+            name={@name}
+            id={@id}
+            value={Phoenix.HTML.Form.normalize_value(@type, @value)}
+            class={["grow", @password_toggle && "[&::-ms-reveal]:hidden"]}
+            {@rest}
+          />
+        </label>
         <input
+          :if={@icon == []}
           type={@type}
           name={@name}
           id={@id}
           value={Phoenix.HTML.Form.normalize_value(@type, @value)}
-          class="grow"
+          class={[
+            "input w-full transition-colors focus:input-primary",
+            @errors != [] && "input-error",
+            @password_toggle && "pe-11 [&::-ms-reveal]:hidden",
+            @class
+          ]}
           {@rest}
         />
-      </label>
-      <input
-        :if={@icon == []}
-        type={@type}
-        name={@name}
-        id={@id}
-        value={Phoenix.HTML.Form.normalize_value(@type, @value)}
-        class={[
-          "input w-full transition-colors focus:input-primary",
-          @errors != [] && "input-error",
-          @class
-        ]}
-        {@rest}
-      />
+      </.password_toggle_box>
       <.field_hint id={@id} hint={@hint} />
       <.error :for={msg <- @errors}>{msg}</.error>
     </div>
     """
+  end
+
+  defp with_password_toggle(%{type: "password", password_toggle: true} = assigns) do
+    assigns
+    |> assign(:id, assigns.id || String.replace(to_string(assigns.name), ~r/[^\w-]+/, "_"))
+    |> assign(:rest, Map.merge(@revealable_attrs, assigns.rest))
+  end
+
+  defp with_password_toggle(assigns), do: assign(assigns, :password_toggle, false)
+
+  # The button lies over the end of the field, beside its markup and not in it:
+  # inside the icon variant's `<label>` its name would join the input's, and
+  # the label may not hold a second control anyway.
+  attr :enabled, :boolean, required: true
+  attr :input_id, :string, default: nil
+  slot :inner_block, required: true
+
+  defp password_toggle_box(%{enabled: false} = assigns) do
+    ~H"""
+    {render_slot(@inner_block)}
+    """
+  end
+
+  defp password_toggle_box(assigns) do
+    ~H"""
+    <div class="relative">
+      {render_slot(@inner_block)}
+      <button
+        type="button"
+        class="absolute inset-y-0 end-0 flex items-center px-3 cursor-pointer text-base-content/50 hover:text-base-content"
+        aria-label={gettext("Show password")}
+        aria-pressed="false"
+        aria-controls={@input_id}
+        data-pk-password-toggle
+        phx-click={toggle_password(@input_id)}
+      >
+        <.icon name="hero-eye" class="w-5 h-5" />
+        <.icon name="hero-eye-slash" class="w-5 h-5 hidden" />
+      </button>
+    </div>
+    """
+  end
+
+  # JS commands, so the state outlives a patch: the server keeps rendering
+  # `type="password"` and LiveView puts these changes back on top of it.
+  defp toggle_password(input_id) do
+    JS.toggle_attribute({"type", "text", "password"}, to: ~s([id="#{input_id}"]))
+    |> JS.toggle_attribute({"aria-pressed", "true", "false"})
+    |> JS.toggle_class("hidden", to: {:inner, "span"})
   end
 
   @doc """

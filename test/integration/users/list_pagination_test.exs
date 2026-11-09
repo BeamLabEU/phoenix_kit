@@ -4,8 +4,9 @@ defmodule PhoenixKit.Integration.Users.ListPaginationTest do
 
   Each tab reads `per_page` from the query string through `UrlState`, so the
   contract is the same everywhere and is pinned once per tab: the value is
-  honoured, an unlisted value falls back to the tab's default, and choosing a
-  size from `<.page_size_selector>` lands on page 1. The Users tab is in
+  honoured, an unlisted value falls back to the default (25, or the person's
+  saved size: `admin_page_size_test.exs`), and choosing a size from
+  `<.page_size_selector>` lands on page 1. The Users tab is in
   `users_tab_pagination_test.exs` and Live Sessions in
   `live_sessions_pagination_test.exs` — both need `async: false`.
   """
@@ -60,11 +61,12 @@ defmodule PhoenixKit.Integration.Users.ListPaginationTest do
       user
     end
 
-    test "per_page from the URL is honoured, unlisted values fall back to 20", %{conn: conn} do
+    test "per_page from the URL is honoured, unlisted values fall back to 25", %{conn: conn} do
+      # With the admin's own two sessions, 27: two pages of 25, one of 50.
       create_sessions!(25)
 
       {:ok, _view, html} = live(conn, Routes.path("/admin/users/sessions"))
-      assert selected_size(html) == "20"
+      assert selected_size(html) == "25"
       assert 2 in page_links(html)
 
       {:ok, _view, html} = live(conn, Routes.path("/admin/users/sessions?per_page=50"))
@@ -72,7 +74,7 @@ defmodule PhoenixKit.Integration.Users.ListPaginationTest do
       assert page_links(html) == []
 
       {:ok, _view, html} = live(conn, Routes.path("/admin/users/sessions?per_page=7"))
-      assert selected_size(html) == "20"
+      assert selected_size(html) == "25"
     end
 
     test "choosing a size resets to page 1", %{conn: conn} do
@@ -83,7 +85,9 @@ defmodule PhoenixKit.Integration.Users.ListPaginationTest do
       |> element("form[phx-change=change_per_page]")
       |> render_change(%{"per_page" => "50"})
 
-      assert_patch(view, Routes.path("/admin/users/sessions?per_page=50"))
+      # Saved as the admin's size, so the address no longer needs it.
+      assert_patch(view, Routes.path("/admin/users/sessions"))
+      assert selected_size(render(view)) == "50"
     end
 
     test "a page past the end shows the last page, not an empty one", %{conn: conn} do
@@ -91,7 +95,7 @@ defmodule PhoenixKit.Integration.Users.ListPaginationTest do
 
       {:ok, _view, html} = live(conn, Routes.path("/admin/users/sessions?page=99"))
       assert html =~ user.email
-      assert html =~ "Showing 21 to"
+      assert html =~ "Showing 26 to"
     end
   end
 
@@ -158,7 +162,9 @@ defmodule PhoenixKit.Integration.Users.ListPaginationTest do
       |> element("form[phx-change=change_per_page]")
       |> render_change(%{"per_page" => "50"})
 
-      assert_patch(view, Routes.path("/admin/users/roles?per_page=50"))
+      # Saved as the admin's size, so the address no longer needs it.
+      assert_patch(view, Routes.path("/admin/users/roles"))
+      assert selected_size(render(view)) == "50"
     end
   end
 

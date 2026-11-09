@@ -46,26 +46,58 @@
     <%!-- Edit Role Modal --%>
     <.modal show={@show_edit_form} on_close="hide_form" max_width="2xl">
       <:title>{gettext("Edit Role")}</:title>
-      <form id="edit-role-form" phx-submit="update_role" class="space-y-4">
-        <div class="fieldset">
-          <.input
-            field={@edit_role_form[:name]}
-            label={gettext("Role Name")}
-            placeholder={gettext("Enter role name (e.g., Manager, Editor)")}
-            maxlength="50"
-            required
-          />
-          <p class="label mt-1">{gettext("Must be unique, 1-50 characters.")}</p>
-        </div>
-        <div class="fieldset">
-          <.textarea
-            field={@edit_role_form[:description]}
-            label={gettext("Description")}
-            placeholder={gettext("Describe what this role can do (optional)")}
-            maxlength="500"
-          />
-          <p class="label mt-1">{gettext("Optional, up to 500 characters.")}</p>
-        </div>
+      <form
+        id="edit-role-form"
+        phx-change="validate_role"
+        phx-submit="update_role"
+        class="space-y-4"
+      >
+        <p class="text-sm text-base-content/70">
+          {gettext("Name used by code: %{name}. It can't change, so what people see goes below.",
+            name: @editing_role.name
+          )}
+        </p>
+        <.multilang_tabs
+          multilang_enabled={@multilang_enabled}
+          language_tabs={@language_tabs}
+          current_lang={@current_lang}
+          class="pb-0"
+        />
+        <.multilang_fields_wrapper
+          multilang_enabled={@multilang_enabled}
+          current_lang={@current_lang}
+          skeleton_class="pt-0"
+        >
+          <div class="space-y-4">
+            <.translatable_field
+              field_name="label"
+              form_prefix="role"
+              changeset={@edit_role_changeset}
+              schema_field={:label}
+              multilang_enabled={@multilang_enabled}
+              current_lang={@current_lang}
+              primary_language={@primary_language}
+              lang_data={get_lang_data(@edit_role_changeset, @current_lang, @multilang_enabled)}
+              label={gettext("Name shown to people")}
+              placeholder={@editing_role.name}
+              class="w-full"
+            />
+            <.translatable_field
+              field_name="description"
+              form_prefix="role"
+              changeset={@edit_role_changeset}
+              schema_field={:description}
+              multilang_enabled={@multilang_enabled}
+              current_lang={@current_lang}
+              primary_language={@primary_language}
+              lang_data={get_lang_data(@edit_role_changeset, @current_lang, @multilang_enabled)}
+              label={gettext("Description")}
+              placeholder={gettext("Describe what this role can do (optional)")}
+              type="textarea"
+              class="w-full"
+            />
+          </div>
+        </.multilang_fields_wrapper>
       </form>
       <:actions>
         <button type="button" phx-click="hide_form" class="btn btn-outline">
@@ -93,7 +125,10 @@
                   value: if(role.is_system_role, do: gettext("System"), else: gettext("Custom"))
                 },
                 %{label: gettext("Users"), value: Map.get(@role_stats, role.name, 0)},
-                %{label: gettext("Description"), value: role.description || gettext("—")}
+                %{
+                  label: gettext("Description"),
+                  value: Roles.display_description(role) || gettext("—")
+                }
               ]
             end
           }
@@ -132,7 +167,7 @@
                 <.table_row_menu_button
                   phx-click="request_delete_role"
                   phx-value-role_uuid={role.uuid}
-                  phx-value-role_name={role.name}
+                  phx-value-role_name={Roles.display_name(role)}
                   icon="hero-trash"
                   label={gettext("Delete")}
                   variant="error"
@@ -216,8 +251,8 @@
                 </.table_default_cell>
                 <.table_default_cell class="max-w-xs">
                   <div class="text-sm">
-                    <%= if role.description do %>
-                      {role.description}
+                    <%= if Roles.display_description(role) do %>
+                      {Roles.display_description(role)}
                     <% else %>
                       <span class="text-base-content/50 italic">{gettext("No description")}</span>
                     <% end %>
@@ -243,7 +278,7 @@
                       <.table_row_menu_button
                         phx-click="request_delete_role"
                         phx-value-role_uuid={role.uuid}
-                        phx-value-role_name={role.name}
+                        phx-value-role_name={Roles.display_name(role)}
                         icon="hero-trash"
                         label={gettext("Delete")}
                         variant="error"
@@ -270,15 +305,17 @@
           </.sortable_tbody>
         </.table_default>
 
-        <%!-- Pagination --%>
-        <div class="flex flex-col sm:flex-row justify-center items-center gap-4 p-4 border-t border-base-300">
-          <.pagination_controls
-            page={@page}
-            total_pages={@total_pages}
-            build_url={&url_state_path(assigns, page: &1)}
-          />
-          <.page_size_selector value={@per_page} />
-        </div>
+        <.pagination_bar
+          id="roles-pagination"
+          page={@page}
+          total_pages={@total_pages}
+          total_count={@total_count}
+          per_page={@per_page}
+          auto={@auto_fit}
+          table_id="roles-table"
+          noun_plural={gettext("roles")}
+          build_url={&url_state_path(assigns, page: &1)}
+        />
       <% else %>
         <%!-- Empty state --%>
         <.empty_state

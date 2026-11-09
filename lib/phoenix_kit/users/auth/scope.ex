@@ -74,9 +74,13 @@ defmodule PhoenixKit.Users.Auth.Scope do
   - `:authenticated?` - Boolean indicating if user is authenticated
   - `:cached_roles` - List of role name strings IN EFFECT, loaded at scope creation
   - `:cached_permissions` - MapSet of granted permission keys, loaded at scope creation
-  - `:held_roles` - List of every role name the user really holds
+  - `:held_roles` - List of every role name the account really holds
   - `:active_role` - `%{uuid, name}` of the role the user is acting as, or `nil`
   - `:switchable_roles` - `%{uuid, name}` of every role the user can switch to (`[]` when not narrowed)
+  - `:role_records` - `%{uuid, name, data}` of the roles IN EFFECT, for showing them
+    translated (`Roles.display_name/2`) without a query
+  - `:acting_link` - The person's link while acting for an organization, or `nil`
+    (`PhoenixKit.Users.ActingLink`)
 
   ## Active role
 
@@ -89,11 +93,29 @@ defmodule PhoenixKit.Users.Auth.Scope do
       Scope.held_roles(scope)   # ["Admin", "Seller", "User"]
       Scope.narrowed?(scope)    # acting as one role?
 
-  `held_roles/1` is for the switcher and for rules that protect against a
-  user's REAL roles (e.g. "cannot edit a role you hold"). Access decisions use
-  the narrowed checks. `for_user(user, narrow: false)` builds the full union.
+  `held_roles/1` is for rules that protect against an account's REAL roles (e.g.
+  "cannot edit a role you hold"). Never ask it what someone may do: access decisions
+  use the narrowed checks. The switcher reads `switchable_roles/1`.
+  `for_user(user, narrow: false)` builds the full union.
+
+  ## Acting for an organization
+
+  A person's session in a managed organization is the organization's, narrowed twice:
+  first by the managed ceiling, then by their link. `cached_roles`, `cached_permissions`
+  and the switcher all follow both, so a person with only Supplier on their link has
+  no switcher at a company holding Buyer and Supplier.
+
+  ⚠️ `held_roles/1` follows neither: there it is the company's roles, Buyer included.
+  To ask what the person has, read `user_roles/1` or `has_role?/2`.
+
+      Scope.acting_link(scope)              # %{type_key: "staff", role_uuids: [...], ...} or nil
+      Scope.can_manage_organization?(scope) # may they manage its people and profile?
+
+  A managed organization's scope built from anything but a session holds only the roles
+  every link allows (`ActingLink.outside_session/1`), so it is never wider than a session.
   """
 
+  alias PhoenixKit.Users.ActingLink
   alias PhoenixKit.Users.ActiveRole
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.Permissions
@@ -106,20 +128,28 @@ defmodule PhoenixKit.Users.Auth.Scope do
           cached_roles: [String.t()] | nil,
           cached_permissions: MapSet.t() | nil,
           held_roles: [String.t()] | nil,
+          role_records: [ActiveRole.role()],
+          acting_link: ActingLink.t() | nil,
           active_role: ActiveRole.role() | nil,
           switchable_roles: [ActiveRole.role()],
           multi_session_accounts: list(),
-          multi_session_allowed?: boolean()
+          multi_session_allowed?: boolean(),
+          impersonated_by_uuid: String.t() | nil
         }
 
   # `multi_session_*` are transient, request-scoped UI fields populated by the
   # scope-mounting hook/plug (which have the Plug session) for the header
   # account switcher; they are NOT loaded by `for_user/1` and default empty.
+  # So is `impersonated_by_uuid`: who signed in as this session's person ("sign in
+  # as this user", `MultiSession.impersonated_by/1`), carried onto its activity by
+  # `PhoenixKitWeb.Actor.opts/1`. Display and audit only, never an access decision.
   defstruct user: nil,
             authenticated?: false,
             cached_roles: nil,
             cached_permissions: nil,
             held_roles: nil,
+            role_records: [],
+            acting_link: nil,
             active_role: nil,
             switchable_roles: [],
             multi_session_accounts: [],
@@ -127,6 +157,7 @@ defmodule PhoenixKit.Users.Auth.Scope do
             acting_organizations: [],
             acting_person: nil,
             organization_root: nil,
+            impersonated_by_uuid: nil,
             pending_invitations: []
 
   use Gettext, backend: PhoenixKitWeb.Gettext
@@ -171,7 +202,8 @@ defmodule PhoenixKit.Users.Auth.Scope do
 
   def for_user(%User{} = user, opts) do
     held = Roles.get_user_role_records(user)
-    eligible = eligible_roles(user, held)
+    acting_link = ActingLink.for_user(user)
+    eligible = eligible_roles(user, held, acting_link)
 
     # Narrow to the active role (plus always-on roles) when the user is acting
     # as one. Everything below reads the EFFECTIVE roles, so an Owner acting as
@@ -222,6 +254,8 @@ defmodule PhoenixKit.Users.Auth.Scope do
       cached_roles: cached_roles,
       cached_permissions: MapSet.new(permission_ceiling(user, permission_keys)),
       held_roles: Enum.map(held, & &1.name),
+      role_records: effective,
+      acting_link: acting_link,
       active_role: active_role,
       switchable_roles: switchable
     }
@@ -236,10 +270,21 @@ defmodule PhoenixKit.Users.Auth.Scope do
     }
   end
 
-  defp eligible_roles(%User{managed_by_members: true}, roles),
-    do: Enum.reject(roles, &managed_ceiling_role?(&1.name))
+  @doc false
+  # The roles `user` may use in this session, before the role switcher: what
+  # `ActiveRole` narrows, so it cannot disagree with `for_user/2`.
+  @spec eligible_role_records(User.t()) :: [ActiveRole.role()]
+  def eligible_role_records(%User{} = user) do
+    eligible_roles(user, Roles.get_user_role_records(user), ActingLink.for_user(user))
+  end
 
-  defp eligible_roles(_user, roles), do: roles
+  defp eligible_roles(%User{managed_by_members: true} = user, roles, acting_link) do
+    roles
+    |> Enum.reject(&managed_ceiling_role?(&1.name))
+    |> ActingLink.narrow(acting_link || ActingLink.outside_session(user))
+  end
+
+  defp eligible_roles(_user, roles, _acting_link), do: roles
 
   defp permission_ceiling(%User{managed_by_members: true}, permissions),
     do: Enum.reject(permissions, &managed_ceiling_key?/1)
@@ -324,6 +369,24 @@ defmodule PhoenixKit.Users.Auth.Scope do
   @spec user_uuid(t() | nil) :: String.t() | nil
   def user_uuid(%__MODULE__{user: %User{uuid: uuid}}), do: uuid
   def user_uuid(_), do: nil
+
+  @doc """
+  The link of an acting session (`PhoenixKit.Users.ActingLink`): its `type_key`,
+  `can_manage?`, `all_roles?` and `role_uuids`. `nil` outside an acting session.
+  """
+  @spec acting_link(t() | nil) :: ActingLink.t() | nil
+  def acting_link(%__MODULE__{acting_link: link}), do: link
+  def acting_link(_), do: nil
+
+  @doc """
+  Whether the person may manage the organization they act for: its people and its
+  profile. For what to show: a change re-reads the link.
+  """
+  @spec can_manage_organization?(t() | nil) :: boolean()
+  def can_manage_organization?(%__MODULE__{acting_link: %{can_manage?: can_manage?}}),
+    do: can_manage?
+
+  def can_manage_organization?(_), do: false
 
   @doc "The person behind an acting organization session; nil for an ordinary account."
   @spec acting_user_uuid(t() | nil) :: String.t() | nil
@@ -479,11 +542,16 @@ defmodule PhoenixKit.Users.Auth.Scope do
   def user_roles(_), do: []
 
   @doc """
-  Every role the user really holds, whatever role they are acting as.
+  Every role the account really holds, whatever role it is acting as.
 
-  For the role switcher and for rules that must judge the user's REAL roles
-  (e.g. "you cannot edit a role you hold"). Access decisions belong to the
-  narrowed checks (`has_role?/2`, `can_access_admin_area?/1`, ...), never this.
+  For rules that must judge the account's REAL roles (e.g. "you cannot edit a role
+  you hold"). Access decisions belong to the narrowed checks (`user_roles/1`,
+  `has_role?/2`, `can_access_admin_area?/1`, ...), never this.
+
+  ⚠️ In an acting session the account is the organization: this is every role the
+  organization holds, including roles outside the person's link and above the managed
+  ceiling. It says nothing about what the person may do.
+
   A scope built without `held_roles` answers with its `cached_roles`.
   """
   @spec held_roles(t() | nil) :: [String.t()]

@@ -19,12 +19,15 @@ defmodule PhoenixKitWeb.Helpers.MediaSelectorHelper do
           {:ok, [file_uuid]} ->
             socket
             |> assign(:featured_image_uuid, file_uuid)
-            |> put_flash(:info, "Image selected!")
+            |> put_flash(:info, gettext("Image selected!"))
 
           {:ok, file_uuids} ->
             socket
             |> assign(:gallery_uuids, file_uuids)
-            |> put_flash(:info, "\#{length(file_uuids)} images selected!")
+            |> put_flash(
+              :info,
+              ngettext("%{count} image selected!", "%{count} images selected!", length(file_uuids))
+            )
 
           :none ->
             socket

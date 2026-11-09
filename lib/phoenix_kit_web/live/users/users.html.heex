@@ -14,7 +14,7 @@
       <div class="modal modal-open">
         <div class="modal-box max-w-2xl">
           <h3 class="font-bold text-xl mb-4">
-            Manage Roles for {User.delivery_email(@managing_user)}
+            {gettext("Manage Roles for %{name}", name: account_title(@managing_user))}
           </h3>
 
           <form phx-submit="sync_user_roles" class="space-y-4">
@@ -66,8 +66,8 @@
                           {gettext("System")}
                         </span>
                       <% end %>
-                      <%= if role.description do %>
-                        <span class="text-sm text-base-content/70">- {role.description}</span>
+                      <%= if description = PhoenixKit.Users.Roles.display_description(role) do %>
+                        <span class="text-sm text-base-content/70">- {description}</span>
                       <% end %>
                     </div>
                   </label>
@@ -96,16 +96,21 @@
 
     <%!-- Users Table --%>
     <div class="bg-base-100">
+      <%!-- `fit` drops the least important columns when the table is too wide,
+           instead of scrolling sideways (`fit_priority/1`). `fit_pack={false}`:
+           the table keeps its own column sizes, so it looks as before. --%>
       <.table_default
         id="users-table"
         variant="zebra"
         class="w-full table-fixed md:table-auto"
+        fit
+        fit_pack={false}
         toggleable={true}
         show_toggle={false}
         view_mode={@view_mode}
         view_event="set_view_mode"
         items={@users}
-        card_title={fn user -> User.delivery_email(user) end}
+        card_title={&account_title/1}
         card_fields={
           fn user ->
             build_card_fields(
@@ -113,7 +118,8 @@
               @selected_columns,
               @phoenix_kit_current_user,
               @date_time_settings,
-              @geolocation_tracking_enabled
+              @geolocation_tracking_enabled,
+              @person_orgs
             )
           end
         }
@@ -344,6 +350,54 @@
                 <% end %>
               </ul>
             </div>
+            <%!-- One per boolean custom field marked "Filter in the Users table".
+                  The button says what is filtered ("Approved: No"), so a list
+                  opened from a link shows why it is short. --%>
+            <%= for field <- @custom_filter_fields do %>
+              <% value = Map.get(@custom_filter_values, field["key"]) %>
+              <div class="dropdown" id={"users-filter-cf-#{field["key"]}"}>
+                <div
+                  tabindex="0"
+                  role="button"
+                  class={["btn btn-sm gap-2", value && "btn-active"]}
+                  title={CustomFields.column_label(field)}
+                >
+                  <.icon name="hero-check-badge" class="w-4 h-4" />
+                  <span class={["sm:inline", is_nil(value) && "hidden"]}>
+                    {custom_filter_label(field, value)}
+                  </span>
+                  <.icon
+                    name="hero-chevron-down"
+                    class="hidden sm:inline-block w-3.5 h-3.5 opacity-60"
+                  />
+                </div>
+                <ul
+                  tabindex="0"
+                  onclick="document.activeElement.blur()"
+                  class="dropdown-content menu bg-base-100 rounded-box z-20 w-44 p-2 shadow border border-base-200"
+                >
+                  <%= for {val, label, selected} <- [
+                        {"any", gettext("Any"), is_nil(value)},
+                        {"yes", gettext("Yes"), value == :yes},
+                        {"no", gettext("No"), value == :no}
+                      ] do %>
+                    <li>
+                      <%!-- `choice`, never `value`: LiveView's client overwrites a
+                           `phx-value-value` with the element's own `value`, which
+                           is "" on a button, so every pick arrived as "Any". --%>
+                      <button
+                        phx-click="filter_by_custom_field"
+                        phx-value-key={field["key"]}
+                        phx-value-choice={val}
+                        class={selected && "menu-active"}
+                      >
+                        {label}
+                      </button>
+                    </li>
+                  <% end %>
+                </ul>
+              </div>
+            <% end %>
           </div>
         </:toolbar_title>
         <:sort_bar :if={@show_search or @search_query != ""}>
@@ -405,24 +459,28 @@
         </:toolbar_actions>
         <:card_header :let={user}>
           <div class="flex items-center gap-3 min-w-0">
-            <.user_avatar user={user} size="sm" />
+            <.user_avatar
+              :if={"avatar" in @selected_columns}
+              user={user}
+              size="card"
+              peek
+            />
             <div class="flex flex-col gap-0.5 min-w-0">
               <div class="flex items-center gap-2 min-w-0">
-                <span class="font-medium text-sm truncate min-w-0">{User.delivery_email(user)}</span>
+                <span class="font-medium text-sm truncate min-w-0">{account_title(user)}</span>
                 <span
                   :if={user.managed_by_members}
                   class="badge badge-secondary badge-xs shrink-0"
-                >{gettext("Managed organization")}</span>
+                  title={gettext("Managed organization")}
+                >{gettext("Managed")}</span>
                 <%= if user.uuid == @phoenix_kit_current_user.uuid do %>
                   <span class="badge badge-info badge-xs h-auto shrink-0">{gettext("you")}</span>
                 <% end %>
               </div>
-              <% full_name =
-                if user.managed_by_members,
-                  do: User.display_name(user),
-                  else: User.full_name(user) %>
-              <%= if full_name && full_name != "" do %>
-                <span class="text-sm text-base-content/60 truncate">{full_name}</span>
+              <%!-- The email under the name, when there is a name. --%>
+              <% second_line = account_subtitle(user) %>
+              <%= if second_line do %>
+                <span class="text-sm text-base-content/60 truncate">{second_line}</span>
               <% end %>
               <%= if user.username do %>
                 <div class="text-xs text-base-content/50 truncate">@{user.username}</div>
@@ -434,10 +492,20 @@
           <.table_default_row>
             <%= for column_id <- @selected_columns do %>
               <%= if should_render_column?(column_id) do %>
-                <%!-- On mobile only the email + actions columns show; the rest
-                     collapse (hidden md:table-cell), mirroring the media list. --%>
-                <.table_default_header_cell class={mobile_col_class(column_id)}>
-                  {render_column_header(column_id)}
+                <%!-- On mobile only the avatar, account and actions columns
+                     show; the rest collapse (hidden md:table-cell), mirroring
+                     the media list. --%>
+                <.table_default_header_cell
+                  class={mobile_col_class(column_id)}
+                  priority={fit_priority(column_id)}
+                  lead={column_id == "email"}
+                  title={column_title(column_id)}
+                >
+                  <%= if column_id == "avatar" do %>
+                    <span class="sr-only">{column_header(column_id)}</span>
+                  <% else %>
+                    {column_header(column_id)}
+                  <% end %>
                 </.table_default_header_cell>
               <% end %>
             <% end %>
@@ -450,9 +518,7 @@
               <.table_default_cell colspan={
                 Enum.count(@selected_columns, &should_render_column?/1)
               }>
-                <% filters_active? =
-                  @search_query != "" or @filter_role != "all" or
-                    @filter_account_type != "all" %>
+                <% filters_active? = filters_active?(assigns) %>
                 <.empty_state
                   icon="hero-users"
                   title={gettext("No users found")}
@@ -488,36 +554,56 @@
               ]}>
                 <%= for column_id <- @selected_columns do %>
                   <%= if should_render_column?(column_id) do %>
-                    <.table_default_cell class={[
-                      mobile_col_class(column_id),
-                      column_id == "actions" && "relative z-10"
-                    ]}>
+                    <.table_default_cell
+                      class={[
+                        mobile_col_class(column_id),
+                        column_id == "actions" && "relative z-10",
+                        nowrap_column?(column_id) && "whitespace-nowrap"
+                      ]}
+                      lead={column_id == "email"}
+                    >
                       <.row_link
                         :if={column_id == link_column}
                         navigate={PhoenixKit.Utils.Routes.path("/admin/users/view/#{user.uuid}")}
-                        label={User.delivery_email(user)}
+                        label={account_title(user)}
                       />
                       <%= cond do %>
-                        <% column_id == "email" -> %>
+                        <% column_id == "avatar" -> %>
+                          <%!-- Above the row's stretched link, so the
+                               pointer reaches it for the hover preview; a
+                               link itself, so a click still opens the user. --%>
                           <.link
                             navigate={
                               PhoenixKit.Utils.Routes.path("/admin/users/view/#{user.uuid}")
                             }
-                            class="flex items-center gap-3 hover:opacity-80 transition-opacity"
+                            class="relative z-10 inline-flex"
+                            tabindex="-1"
+                            aria-hidden="true"
                           >
-                            <.user_avatar user={user} size="sm" />
+                            <.user_avatar user={user} size="lg" peek />
+                          </.link>
+                        <% column_id == "email" -> %>
+                          <% title = account_title(user) %>
+                          <% subtitle = account_subtitle(user) %>
+                          <.link
+                            navigate={
+                              PhoenixKit.Utils.Routes.path("/admin/users/view/#{user.uuid}")
+                            }
+                            class="flex hover:opacity-80 transition-opacity"
+                          >
                             <div class="flex flex-col gap-1 min-w-0 max-w-[18rem]">
                               <div class="flex items-center gap-2 min-w-0">
                                 <span
                                   class="font-medium link link-hover truncate min-w-0"
-                                  title={User.delivery_email(user)}
+                                  title={title}
                                 >
-                                  {User.delivery_email(user)}
+                                  {title}
                                 </span>
                                 <span
                                   :if={user.managed_by_members}
                                   class="badge badge-secondary badge-xs shrink-0"
-                                >{gettext("Managed organization")}</span>
+                                  title={gettext("Managed organization")}
+                                >{gettext("Managed")}</span>
                                 <%= if user.uuid == @phoenix_kit_current_user.uuid do %>
                                   <span class="badge badge-info badge-xs h-auto shrink-0">
                                     {gettext("you")}
@@ -529,6 +615,13 @@
                                   </span>
                                 <% end %>
                               </div>
+                              <div
+                                :if={subtitle}
+                                class="text-sm text-base-content/60 truncate"
+                                title={subtitle}
+                              >
+                                {subtitle}
+                              </div>
                               <%= if user.username do %>
                                 <div
                                   class="text-sm text-base-content/60 truncate"
@@ -537,35 +630,41 @@
                                   @{user.username}
                                 </div>
                               <% end %>
-                              <%!-- Name shown inline on mobile only, since the
-                                   full_name column is hidden there. --%>
-                              <% mobile_full_name = User.full_name(user) %>
-                              <%= if mobile_full_name && mobile_full_name != "" do %>
-                                <div
-                                  class="md:hidden text-sm text-base-content/60 truncate"
-                                  title={mobile_full_name}
-                                >
-                                  {mobile_full_name}
-                                </div>
-                              <% end %>
                             </div>
                           </.link>
                         <% column_id == "full_name" -> %>
-                          <div class="flex flex-col gap-1 min-w-0 max-w-[18rem]">
-                            <%= if user.first_name || user.last_name || user.organization_name do %>
-                              <% full_name = PhoenixKit.Users.Auth.User.full_name(user) %>
-                              <div class="truncate" title={full_name}>{full_name}</div>
-                            <% else %>
-                              <div class="text-base-content/50">-</div>
-                            <% end %>
-                            <%= if @org_accounts_enabled && user.organization do %>
-                              <div
-                                class="text-xs text-base-content/60 truncate"
-                                title={user.organization.organization_name}
-                              >
-                                {user.organization.organization_name}
-                              </div>
-                            <% end %>
+                          <%!-- People only: a company's name is in the first
+                               column, and a person's companies in their own. --%>
+                          <% full_name = person_name(user) %>
+                          <%= if full_name do %>
+                            <div class="truncate max-w-[18rem]" title={full_name}>
+                              {full_name}
+                            </div>
+                          <% else %>
+                            <div class="text-base-content/50">-</div>
+                          <% end %>
+                        <% column_id == "organizations" -> %>
+                          <%!-- The first few by name, then how many more. Plain
+                               text: a click here is a click on the row, which
+                               opens the person (their page links each one). --%>
+                          <% {shown, more} = organizations_cell(@person_orgs, user) %>
+                          <div class="flex flex-col gap-1 min-w-0 max-w-[16rem] text-sm">
+                            <span
+                              :for={org <- shown}
+                              id={"user-#{user.uuid}-org-#{org.uuid}"}
+                              class="truncate"
+                              title={PersonOrganizations.name(org)}
+                            >
+                              {PersonOrganizations.name(org)}
+                            </span>
+                            <span
+                              :if={more > 0}
+                              id={"user-#{user.uuid}-orgs-more"}
+                              class="text-xs text-base-content/60"
+                            >
+                              {ngettext("+%{count} more", "+%{count} more", more)}
+                            </span>
+                            <div :if={shown == []} class="text-base-content/50">-</div>
                           </div>
                         <% column_id == "role" -> %>
                           <% user_roles = get_user_roles(user) %>
@@ -583,14 +682,18 @@
                             <% end %>
                           </div>
                         <% column_id == "status" -> %>
-                          <div class="flex flex-col gap-1">
+                          <%!-- nowrap: a narrow column broke "Email pending" over two lines. --%>
+                          <div class="flex flex-col gap-1 whitespace-nowrap">
                             <%= if user.confirmed_at do %>
-                              <span class="badge badge-success badge-sm h-auto">
-                                {gettext("Email Confirmed")}
+                              <span
+                                class="badge badge-success badge-xs h-auto"
+                                title={gettext("Email confirmed")}
+                              >
+                                {gettext("Email ✓")}
                               </span>
                             <% else %>
-                              <span class="badge badge-warning badge-sm h-auto">
-                                {gettext("Email Pending")}
+                              <span class="badge badge-warning badge-xs h-auto">
+                                {gettext("Email pending")}
                               </span>
                             <% end %>
                             <%= if user.is_active do %>
@@ -878,24 +981,17 @@
         </:card_actions>
       </.table_default>
 
-      <%!-- Pagination --%>
-      <div
-        :if={@users != []}
-        class="flex flex-col sm:flex-row justify-center items-center gap-4 p-4 border-t border-base-300"
-      >
-        <.pagination_controls
-          page={@page}
-          total_pages={@total_pages}
-          build_url={&url_state_path(assigns, page: &1)}
-        />
-        <.page_size_selector
-          id="users-per-page"
-          value={@per_page}
-          auto_fit
-          auto={@auto_fit}
-          table_id="users-table"
-        />
-      </div>
+      <.pagination_bar
+        id="users-pagination"
+        page={@page}
+        total_pages={@total_pages}
+        total_count={@total_count}
+        per_page={@per_page}
+        auto={@auto_fit}
+        table_id="users-table"
+        noun_plural={gettext("users")}
+        build_url={&url_state_path(assigns, page: &1)}
+      />
     </div>
 
     <%!-- Enhanced Stats --%>

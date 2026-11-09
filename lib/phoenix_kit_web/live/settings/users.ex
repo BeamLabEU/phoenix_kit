@@ -6,12 +6,14 @@ defmodule PhoenixKitWeb.Live.Settings.Users do
   - Registration settings
   - New user defaults (role and status)
   - Custom user fields management
+  - The shape avatars are drawn in (`PhoenixKit.Users.AvatarShape`)
   """
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.ActiveRole
   alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKit.Users.AvatarShape
   alias PhoenixKit.Users.CustomFields
   alias PhoenixKit.Users.CustomFields.Events, as: CustomFieldsEvents
   alias PhoenixKit.Users.Role
@@ -81,6 +83,8 @@ defmodule PhoenixKitWeb.Live.Settings.Users do
       |> assign(:profile_hideable_sections, ProfileSettingsTabs.hideable_sections())
       |> assign(:profile_hidden_sections, ProfileSettingsTabs.hidden_sections())
       |> assign(:profile_toggle_rev, 0)
+      |> assign(:avatar_shapes, AvatarShape.all())
+      |> assign(:avatar_shape, AvatarShape.current())
 
     {:ok, socket}
   end
@@ -102,8 +106,20 @@ defmodule PhoenixKitWeb.Live.Settings.Users do
       %{id: "defaults", label: gettext("New User Defaults"), icon: "hero-user-circle"},
       %{id: "roles", label: gettext("Roles"), icon: "hero-identification"},
       %{id: "fields", label: gettext("Custom User Fields"), icon: "hero-list-bullet"},
-      %{id: "profile_page", label: gettext("Profile Page"), icon: "hero-identification"}
+      %{id: "profile_page", label: gettext("Profile Page"), icon: "hero-identification"},
+      %{id: "avatars", label: gettext("Avatars"), icon: "hero-user-circle"}
     ]
+  end
+
+  # Saved at once, like the profile page's switches.
+  def handle_event("set_avatar_shape", %{"shape" => shape}, socket) do
+    case AvatarShape.put(shape, actor_uuid: Actor.uuid(socket), source: "settings") do
+      :ok ->
+        {:noreply, assign(socket, :avatar_shape, shape)}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, gettext("Could not save that change."))}
+    end
   end
 
   def handle_event("toggle_profile_section", %{"section" => name}, socket) do

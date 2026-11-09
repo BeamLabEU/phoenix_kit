@@ -73,6 +73,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   """
 
   use Phoenix.Component
+  use Gettext, backend: PhoenixKitWeb.Gettext
 
   require Logger
 
@@ -286,7 +287,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
               class="hidden flex items-center gap-2 px-3 py-2 text-sm font-medium text-primary hover:bg-base-200 border-b border-base-200 cursor-pointer"
             >
               <Icon.icon name="hero-arrow-left" class="w-4 h-4" />
-              <span>All regions</span>
+              <span>{gettext("All regions")}</span>
             </button>
 
             <%!-- Step 2: Language panels per continent (all hidden initially) --%>
@@ -297,7 +298,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
                   <li class="pb-1">
                     <input
                       type="text"
-                      placeholder="Search languages..."
+                      placeholder={gettext("Search languages…")}
                       class="input input-sm w-full"
                       id={"ls-search-" <> slug(continent)}
                       autocomplete="off"
@@ -357,7 +358,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
                   </li>
                 <% end %>
                 <li class="ls-no-results px-3 py-2 text-sm text-base-content/50" style="display:none">
-                  No languages found
+                  {gettext("No languages found")}
                 </li>
               </ul>
             <% end %>
@@ -374,7 +375,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
                 <li class="pb-1">
                   <input
                     type="text"
-                    placeholder="Search languages..."
+                    placeholder={gettext("Search languages…")}
                     class="input input-sm w-full"
                     id="language-search-input"
                     autocomplete="off"
@@ -440,7 +441,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
               <% end %>
               <%= if @needs_scroll do %>
                 <li class="ls-no-results px-3 py-2 text-sm text-base-content/50" style="display:none">
-                  No languages found
+                  {gettext("No languages found")}
                 </li>
               <% end %>
             </ul>
@@ -468,8 +469,8 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
         <% in_flight?(@ai_translate, @base_code) -> %>
           <span
             class="flex items-center justify-center px-3 text-base-content/60"
-            aria-label="Translation in progress"
-            title="Translation in progress"
+            aria-label={gettext("Translation in progress")}
+            title={gettext("Translation in progress")}
           >
             <span class="loading loading-spinner loading-xs"></span>
           </span>
@@ -480,7 +481,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
             phx-value-lang={@base_code}
             class="flex items-center justify-center px-3 text-base-content/50 hover:text-primary hover:bg-base-200 rounded-r-lg transition"
             aria-label="Translate this language with AI"
-            title="Translate with AI"
+            title={gettext("Translate with AI")}
           >
             <span aria-hidden="true">✨</span>
           </button>
@@ -506,7 +507,9 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
           class="w-full flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-primary hover:bg-base-200 transition"
         >
           <span aria-hidden="true">✨</span>
-          <span>Translate all missing ({length(actionable_missing(@ai_translate))})</span>
+          <span>{gettext("Translate all missing (%{count})",
+            count: length(actionable_missing(@ai_translate))
+          )}</span>
         </button>
       </div>
     <% end %>

@@ -3,6 +3,7 @@ defmodule PhoenixKit.Migrations.Postgres.V227Test do
 
   alias PhoenixKit.Migrations.ExpectedSchema
   alias PhoenixKit.Migrations.Postgres.V227
+  alias PhoenixKit.Migrations.Postgres.V229
   alias PhoenixKit.Migrations.Repair.Differ
   alias PhoenixKit.Migrations.Repair.Probe
   alias PhoenixKit.Test.ManagedOrganizationFixtures, as: Fixtures
@@ -90,8 +91,11 @@ defmodule PhoenixKit.Migrations.Postgres.V227Test do
   test "up is rerunnable and down/up restores the same schema" do
     Enum.each(V227.up_statements("public"), &Repo.query!/1)
     before = Probe.snapshot(Repo, "public")
+    # V229 hangs a table off V227's, so the round trip goes through it.
+    Enum.each(V229.down_statements("public"), &Repo.query!/1)
     Enum.each(V227.down_statements("public"), &Repo.query!/1)
     Enum.each(V227.up_statements("public"), &Repo.query!/1)
+    Enum.each(V229.up_statements("public"), &Repo.query!/1)
     after_snapshot = Probe.snapshot(Repo, "public")
     # DROP/ADD changes physical column ordinals; repair compares logical shape.
     normalize = fn snapshot ->

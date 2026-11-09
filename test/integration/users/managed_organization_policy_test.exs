@@ -10,6 +10,7 @@ defmodule PhoenixKit.Users.ManagedOrganizationPolicyTest do
   alias PhoenixKit.Users.OrganizationInvitation
   alias PhoenixKit.Users.OrganizationManager
   alias PhoenixKit.Users.Permissions
+  alias PhoenixKit.Users.RelationshipType
   alias PhoenixKit.Users.RoleAssignment
   alias PhoenixKit.Users.Roles
 
@@ -146,7 +147,13 @@ defmodule PhoenixKit.Users.ManagedOrganizationPolicyTest do
       |> Repo.insert!()
 
     assert member.kind == :member
-    manager_attrs = Map.merge(attrs, %{kind: :manager, token: :crypto.strong_rand_bytes(32)})
+
+    manager_attrs =
+      Map.merge(attrs, %{
+        kind: :manager,
+        relationship_type_uuid: RelationshipType.manager_uuid(),
+        token: :crypto.strong_rand_bytes(32)
+      })
 
     assert {:ok, %{kind: :manager}} =
              %OrganizationInvitation{}

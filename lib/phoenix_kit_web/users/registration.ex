@@ -203,6 +203,9 @@ defmodule PhoenixKitWeb.Users.Registration do
 
         case registration_result do
           {:ok, user} ->
+            # The page's language becomes theirs, so their mail is in it.
+            user = Auth.remember_page_locale(user, socket.assigns[:current_locale])
+
             # Records the use AND marks the account as having satisfied
             # invite-only, so a code supplied here is not asked for again by
             # the access gate.
@@ -224,7 +227,8 @@ defmodule PhoenixKitWeb.Users.Registration do
 
             case Auth.deliver_user_confirmation_instructions(
                    user,
-                   &Routes.url("/users/confirm/#{&1}")
+                   &Routes.url("/users/confirm/#{&1}"),
+                   locale: socket.assigns[:current_locale]
                  ) do
               {:ok, _} ->
                 # Email sent successfully

@@ -790,20 +790,23 @@ defmodule PhoenixKit.Mailer do
   Sends a magic link email to the user.
 
   Uses the 'magic_link' template from the database if available,
-  falls back to hardcoded template if not found.
+  falls back to hardcoded template if not found. `locale:` sets its language
+  (default: the recipient's).
 
   ## Examples
 
       iex> PhoenixKit.Mailer.send_magic_link_email(user, "https://app.com/magic/token123")
       {:ok, %Swoosh.Email{}}
   """
-  def send_magic_link_email(%User{} = user, magic_link_url) when is_binary(magic_link_url) do
+  def send_magic_link_email(%User{} = user, magic_link_url, opts \\ [])
+      when is_binary(magic_link_url) do
     content =
       Content.resolve(
         "magic_link",
         user,
         %{"user_email" => user.email, "magic_link_url" => magic_link_url},
-        &CoreTemplates.magic_link_defaults/0
+        &CoreTemplates.magic_link_defaults/0,
+        Keyword.take(opts, [:locale])
       )
 
     email =

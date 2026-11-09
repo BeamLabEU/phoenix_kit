@@ -127,6 +127,11 @@ language satisfies it just as well as a path segment.
    end
    ```
 
+   PhoenixKit does the same after sign-in: when the sign-in page's address
+   named no language, the redirect goes to the person's saved one. And a person
+   who registers or signs in on a page in another language than the site's gets
+   that language saved, if they had none.
+
    Once a URL carries a locale, the URL wins — never consult the preference on
    a URL that already has one. (That is exactly the bug the removed session
    fallback had.) If the redirect depends on the visitor, don't let a shared

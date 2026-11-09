@@ -12,6 +12,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.Badge do
   """
 
   use Phoenix.Component
+  use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.Dashboard.Badge, as: BadgeStruct
 
@@ -161,7 +162,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.Badge do
       ]}
       data-badge-type="new"
     >
-      New
+      {gettext("New")}
     </span>
     """
   end

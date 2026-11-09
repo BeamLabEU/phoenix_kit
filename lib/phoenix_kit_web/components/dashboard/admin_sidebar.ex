@@ -41,6 +41,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.AdminSidebar do
   """
 
   use Phoenix.Component
+  use Gettext, backend: PhoenixKitWeb.Gettext
 
   require Logger
 
@@ -98,7 +99,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.AdminSidebar do
       :if={@tabs != []}
       class={["space-y-2", @class]}
       role="navigation"
-      aria-label="Admin navigation"
+      aria-label={gettext("Admin navigation")}
     >
       <%= for group <- sorted_groups(@groups, @grouped_tabs) do %>
         <.admin_tab_group

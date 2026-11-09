@@ -11,37 +11,37 @@
 msgid ""
 msgstr ""
 
-#: lib/phoenix_kit/users/invitations.ex:373
+#: lib/phoenix_kit/users/invitations.ex:377
 #, elixir-autogen, elixir-format
 msgid "A pending invitation already exists for this email"
 msgstr ""
 
-#: lib/phoenix_kit/users/invitations.ex:359
+#: lib/phoenix_kit/users/invitations.ex:363
 #, elixir-autogen, elixir-format
 msgid "This user already belongs to an organization"
 msgstr ""
 
-#: lib/phoenix_kit/users/auth.ex:1282
+#: lib/phoenix_kit/users/auth.ex:1306
 #, elixir-autogen, elixir-format
 msgid "cannot change to person while organization has members"
 msgstr ""
 
-#: lib/phoenix_kit/users/auth.ex:1262
+#: lib/phoenix_kit/users/auth.ex:1286
 #, elixir-autogen, elixir-format
 msgid "cannot reference self"
 msgstr ""
 
-#: lib/phoenix_kit/users/auth.ex:1270
+#: lib/phoenix_kit/users/auth.ex:1294
 #, elixir-autogen, elixir-format
 msgid "only person accounts can join an organization"
 msgstr ""
 
-#: lib/phoenix_kit/users/auth.ex:1257
+#: lib/phoenix_kit/users/auth.ex:1281
 #, elixir-autogen, elixir-format
 msgid "organization not found"
 msgstr ""
 
-#: lib/phoenix_kit/users/auth.ex:1256
+#: lib/phoenix_kit/users/auth.ex:1280
 #, elixir-autogen, elixir-format
 msgid "target user is not an organization"
 msgstr ""

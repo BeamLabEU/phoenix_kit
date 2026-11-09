@@ -70,8 +70,9 @@ defmodule PhoenixKit.Utils.CountryData do
 
   @doc """
   Full country name for an alpha-2 code — for display, where storage keeps
-  the compact ISO code (e.g. `registration_country`). Falls back to the
-  code itself when it isn't recognized, rather than showing nothing.
+  the compact ISO code (e.g. `registration_country`), in the active locale
+  (`get_country_name/2`; English where that locale has no name for it). Falls
+  back to the code itself when it isn't recognized, rather than showing nothing.
 
   ## Examples
 
@@ -87,12 +88,7 @@ defmodule PhoenixKit.Utils.CountryData do
   def country_name(nil), do: nil
   def country_name(""), do: nil
 
-  def country_name(code) when is_binary(code) do
-    case get_country(code) do
-      %{name: name} -> name
-      _ -> code
-    end
-  end
+  def country_name(code) when is_binary(code), do: get_country_name(code) || code
 
   @doc """
   Get standard VAT rate for a country as Decimal.

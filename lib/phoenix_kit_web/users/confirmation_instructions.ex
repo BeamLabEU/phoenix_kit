@@ -125,7 +125,8 @@ defmodule PhoenixKitWeb.Users.ConfirmationInstructions do
            %{} = user <- Auth.get_user_by_email(email) do
         Auth.deliver_user_confirmation_instructions(
           user,
-          &Routes.url("/users/confirm/#{&1}")
+          &Routes.url("/users/confirm/#{&1}"),
+          locale: socket.assigns[:current_locale]
         )
       end
 
@@ -188,7 +189,8 @@ defmodule PhoenixKitWeb.Users.ConfirmationInstructions do
         Auth.deliver_user_update_email_instructions(
           applied_user,
           user.email,
-          &Routes.url("/users/confirm/change-email/#{&1}")
+          &Routes.url("/users/confirm/change-email/#{&1}"),
+          locale: socket.assigns[:current_locale]
         )
 
         info =

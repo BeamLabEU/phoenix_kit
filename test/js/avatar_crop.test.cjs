@@ -65,6 +65,7 @@ global.sessionStorage = storage;
 const {
   avatarCropLayout,
   clampAvatarCropFocal,
+  avatarCropMinZoom,
 } = (require("../../priv/static/assets/phoenix_kit.js"), require("../../priv/static/assets/phoenix_kit_admin.js"));
 
 function near(actual, expected, message) {
@@ -127,10 +128,35 @@ test("an axis the image only just covers pins to center", () => {
   near(c.x, 0.75, "horizontal freedom is real but clamped");
 });
 
+// --- Zooming out: a wide logo shown whole (2026-11-08) ---------------------
+
+test("the zoom floor puts the whole picture inside the circle", () => {
+  // Mirrors PhoenixKit.Users.AvatarCrop.min_zoom/1: the diagonal spans the
+  // circle, so nothing of the picture is cut off.
+  for (const ar of [1, 3, 1 / 3, 1.5]) {
+    const l = avatarCropLayout({ x: 0.5, y: 0.5, zoom: avatarCropMinZoom(ar), ar: ar });
+    near(Math.hypot(l.width, l.height), 100, `diagonal for ar ${ar}`);
+  }
+  near(avatarCropMinZoom(1), 1 / Math.SQRT2, "square");
+  near(avatarCropMinZoom(3), avatarCropMinZoom(1 / 3), "portrait mirrors landscape");
+});
+
+test("an axis smaller than the frame sits in the middle", () => {
+  const zoom = avatarCropMinZoom(3);
+  const l = avatarCropLayout({ x: 0.1, y: 0.9, zoom: zoom, ar: 3 });
+  near(l.left, (100 - l.width) / 2, "left centered");
+  near(l.top, (100 - l.height) / 2, "top centered");
+
+  // 3:1 at zoom 0.5: 150% wide still pans, 50% tall is centered.
+  const half = avatarCropLayout({ x: 0, y: 0, zoom: 0.5, ar: 3 });
+  near(half.left, 0, "the covering axis keeps its freedom");
+  near(half.top, 25, "the short axis is centered");
+});
+
 // --- The AvatarCrop hook itself: pointer, wheel and pinch gestures -------
 
 // A 200×200 frame at the viewport origin, holding a square image.
-function mountCrop(crop) {
+function mountCrop(crop, opts = {}) {
   const listeners = {};
   const frame = {
     style: {},
@@ -141,12 +167,22 @@ function mountCrop(crop) {
     hasPointerCapture: () => false,
     releasePointerCapture: noop,
   };
-  const img = { style: {}, complete: false, naturalWidth: 0, addEventListener: noop };
+  const img = Object.assign(
+    { style: {}, complete: false, naturalWidth: 0, naturalHeight: 0, addEventListener: noop },
+    opts.img || {}
+  );
+  const slider = opts.slider ? { value: "", min: "", addEventListener: noop } : null;
   const el = {
-    dataset: { crop: JSON.stringify(crop) },
+    dataset: Object.assign({ crop: JSON.stringify(crop) }, opts.dataset || {}),
     closest: () => null,
     querySelector: (sel) =>
-      sel === "[data-crop-frame]" ? frame : sel === "[data-crop-img]" ? img : null,
+      sel === "[data-crop-frame]"
+        ? frame
+        : sel === "[data-crop-img]"
+          ? img
+          : sel === "[data-crop-zoom]"
+            ? slider
+            : null,
   };
   const pushes = [];
   const hook = Object.assign(Object.create(window.PhoenixKitAdminHooks.AvatarCrop), {
@@ -156,7 +192,7 @@ function mountCrop(crop) {
   hook.mounted();
   const fire = (type, e) =>
     listeners[type](Object.assign({ preventDefault: noop, pointerType: "mouse", button: 0 }, e));
-  return { hook, fire, pushes };
+  return { hook, fire, pushes, slider };
 }
 
 test("a drag keeps panning after its first move", () => {
@@ -208,4 +244,31 @@ test("two pointers pinch to zoom; lifting one carries on panning", () => {
   const x = hook.crop.x;
   fire("pointermove", { ...touch, pointerId: 1, clientX: 40, clientY: 100 });
   assert.ok(Number.isFinite(hook.crop.x) && hook.crop.x > x, "the remaining finger pans");
+});
+
+test("the wheel zooms out below the cover fit, down to the floor", () => {
+  const { hook, fire } = mountCrop({ x: 0.5, y: 0.5, zoom: 1, ar: 1 });
+  fire("wheel", { clientX: 100, clientY: 100, deltaY: 2000, deltaMode: 0 });
+  near(hook.crop.zoom, 1 / Math.SQRT2, "stops where the picture fits the circle");
+  clearTimeout(hook._wheelTimer);
+});
+
+test("the slider reaches down to this picture's floor once its shape is known", () => {
+  // A freshly picked 3:1 logo: no stored crop, so ar is 1 until the image
+  // says otherwise.
+  const { hook, slider, pushes } = mountCrop(
+    {},
+    { slider: true, img: { complete: true, naturalWidth: 300, naturalHeight: 100 } }
+  );
+  near(hook.crop.ar, 3, "the image's own ratio");
+  near(parseFloat(slider.min), avatarCropMinZoom(3), "slider floor for a 3:1 picture");
+  assert.equal(pushes.length, 1, "the real ratio is sent to the server");
+});
+
+test("the floor shrinks with the site's shape", () => {
+  // A diamond (fit 0.70): the picture must fit the diamond's centred circle.
+  const { hook, fire } = mountCrop({ x: 0.5, y: 0.5, zoom: 1, ar: 3 }, { dataset: { fit: "0.70" } });
+  fire("wheel", { clientX: 100, clientY: 100, deltaY: 5000, deltaMode: 0 });
+  near(hook.crop.zoom, avatarCropMinZoom(3) * 0.7, "stops at the diamond's floor");
+  clearTimeout(hook._wheelTimer);
 });

@@ -20,6 +20,7 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
   alias PhoenixKit.Integrations.Telegram.SiteBot
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Settings
+  alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Actor
 
@@ -862,12 +863,12 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
         diff_seconds = DateTime.diff(DateTime.utc_now(), dt, :second)
 
         cond do
-          diff_seconds < 0 -> Calendar.strftime(dt, "%b %-d %Y")
+          diff_seconds < 0 -> UtilsDate.short_with_year(dt)
           diff_seconds < 60 -> gettext("just now")
           diff_seconds < 3600 -> gettext_minutes(div(diff_seconds, 60))
           diff_seconds < 86_400 -> gettext_hours(div(diff_seconds, 3600))
           diff_seconds < 7 * 86_400 -> gettext_days(div(diff_seconds, 86_400))
-          true -> Calendar.strftime(dt, "%b %-d %Y")
+          true -> UtilsDate.short_with_year(dt)
         end
 
       _ ->

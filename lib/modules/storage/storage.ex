@@ -91,6 +91,7 @@ defmodule PhoenixKit.Modules.Storage do
   """
 
   use PhoenixKit.Module
+  use Gettext, backend: PhoenixKitWeb.Gettext
 
   import Ecto.Query, warn: false
   require Logger
@@ -5387,7 +5388,7 @@ defmodule PhoenixKit.Modules.Storage do
   def permission_metadata do
     %{
       key: "storage",
-      label: "Storage",
+      label: gettext_noop("Storage"),
       icon: "hero-circle-stack",
       description:
         "Distributed file storage with multi-location redundancy. Holders use the " <>
@@ -5395,18 +5396,18 @@ defmodule PhoenixKit.Modules.Storage do
       sub_permissions: [
         %{
           key: "create_library",
-          label: "Create libraries",
+          label: gettext_noop("Create libraries"),
           description: "Create storage libraries of their own (up to the per-user limit)"
         },
         %{
           key: "own_storage",
-          label: "Use their own storage",
+          label: gettext_noop("Use their own storage"),
           description:
             "Keep a library they create on their own S3-compatible bucket, when the site allows it (also needs the Integrations permission, for the bucket's keys)"
         },
         %{
           key: "public_library",
-          label: "Make libraries public",
+          label: gettext_noop("Make libraries public"),
           description:
             "Create a library that anyone can browse without signing in. It is chosen when the library is created and cannot be changed afterwards"
         }

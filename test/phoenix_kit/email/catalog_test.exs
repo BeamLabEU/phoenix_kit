@@ -27,7 +27,8 @@ defmodule PhoenixKit.Email.CatalogTest do
   alias PhoenixKit.Utils.Routes
 
   @translated_names ~w(register reset_password update_email magic_link magic_link_registration
-                       organization_manager_invitation organization_invitation new_login_alert
+                       organization_manager_invitation organization_link_invitation
+                       organization_invitation new_login_alert
                        failed_login_alert welcome)
   @core_names @translated_names ++ ["notification"]
 
@@ -649,6 +650,9 @@ defmodule PhoenixKit.Email.CatalogTest do
         end,
         "organization_invitation" => fn ->
           UserNotifier.deliver_organization_invitation(u.email, "Acme", url)
+        end,
+        "organization_link_invitation" => fn ->
+          UserNotifier.deliver_link_invitation(u.email, "Acme", "Staff", url)
         end,
         "organization_manager_invitation" => fn ->
           UserNotifier.deliver_manager_invitation(u.email, "Acme", url)

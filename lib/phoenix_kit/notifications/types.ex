@@ -74,14 +74,31 @@ defmodule PhoenixKit.Notifications.Types do
           sub_types: [sub_type()]
         }
 
-  @doc "Full list of types — core plus module-contributed, normalized, stable order."
+  @doc """
+  Full list of types — core plus module-contributed, normalized, stable order.
+
+  Every registered module counts, enabled or not: this list decides which
+  preference an action belongs to and which keys a save may write, and a
+  disabled module's stored preferences must survive it. For what a person is
+  shown, use `shown/0`.
+  """
   @spec list() :: [t()]
-  def list do
+  def list, do: build(ModuleRegistry.all_modules())
+
+  @doc """
+  The types to show a person: core's and those of the modules that are
+  enabled. A disabled module sends nothing, so its types would only be noise.
+  """
+  @spec shown() :: [t()]
+  def shown, do: build(ModuleRegistry.enabled_modules())
+
+  defp build(modules) do
     core = normalize_all(core_types())
     core_keys = MapSet.new(core, & &1.key)
 
     extras =
-      external_types()
+      modules
+      |> external_types()
       |> Enum.reject(&MapSet.member?(core_keys, &1.key))
       |> Enum.sort_by(& &1.label)
 
@@ -225,6 +242,7 @@ defmodule PhoenixKit.Notifications.Types do
           "organization.manager_added",
           "organization.manager_removed",
           "user.avatar_changed",
+          "user.avatar_crop_changed",
           "user.note_created",
           "user.note_deleted"
         ],
@@ -297,8 +315,8 @@ defmodule PhoenixKit.Notifications.Types do
 
   # ── External module contributions ───────────────────────────────────
 
-  defp external_types do
-    ModuleRegistry.all_modules()
+  defp external_types(modules) do
+    modules
     |> Enum.flat_map(fn mod ->
       if Code.ensure_loaded?(mod) and function_exported?(mod, :notification_types, 0) do
         safe_collect(mod)

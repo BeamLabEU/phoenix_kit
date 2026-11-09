@@ -24,7 +24,9 @@ defmodule PhoenixKitWeb.Live.Components.TelegramNotificationsCard do
 
   A link is a standing credential — a linked chat can read through the Machine API as the
   user (`PhoenixKit.API.Executor`) — so the card refuses to make one where a session must
-  not hand out a credential:
+  not hand out a credential (an account the user added to the switcher themselves, with its
+  password, is theirs and is not refused; see `PhoenixKitWeb.Users.MultiSession`, "Own and
+  borrowed accounts"):
 
     * in a **borrowed session** (an administrator impersonating the user): the host passes
       `impersonated`, a boolean computed with
@@ -247,7 +249,16 @@ defmodule PhoenixKitWeb.Live.Components.TelegramNotificationsCard do
         "Disconnect this Telegram chat? Notifications stop, and it can no longer read your data."
       )
 
-  defp refusal_message(:borrowed), do: gettext("Telegram can't be connected from this session.")
+  # What to do follows the refusal: an account added through the switcher before core told own
+  # accounts from borrowed ones is still taken for borrowed, until it is added again.
+  defp refusal_message(:borrowed),
+    do:
+      gettext("Telegram can't be connected from this session.") <>
+        " " <>
+        gettext(
+          "If this is your own account, remove it from the account switcher and add it again, or sign in to it on its own."
+        )
+
   defp refusal_message(:unspecified), do: gettext("Telegram can't be connected on this page.")
 
   defp throttled?(%{assigns: %{last_call_at: nil}}), do: false
@@ -405,7 +416,7 @@ defmodule PhoenixKitWeb.Live.Components.TelegramNotificationsCard do
               <p class="text-xs text-base-content/60">
                 {gettext("Nothing is sent to Telegram for a type you leave unchecked.")}
               </p>
-              <%= for type <- Types.list() do %>
+              <%= for type <- Types.shown() do %>
                 <.checkbox
                   name={"telegram_types[#{type.key}]"}
                   checked={type_on?(@config, type.key)}

@@ -42,6 +42,16 @@ defmodule PhoenixKitWeb.Users.MultiSession do
     stale mirror stay valid until they expire — so on a shared computer the next
     person to sign in would otherwise inherit the previous user's accounts.
 
+  ## Own and borrowed accounts
+
+  An account the user added themselves, with its password or through OAuth, is theirs; one
+  that joined on someone else's authority (an impersonation, a managed organization's slot) is
+  borrowed. The stack alone cannot tell them apart, so the tokens of the first kind are listed
+  under `:pk_own_tokens`, and `impersonated?/1` answers true only for an active account that is
+  neither the root nor on that list. The list says what is allowed, not what is refused, so a
+  session from before it existed, or one whose list was lost, errs on the safe side: its added
+  accounts count as borrowed until they are added again.
+
   The same cookie remembers which of those accounts was ACTIVE, so a lost
   session (Safari dropping a backgrounded tab's cookie, a browser restart) comes
   back on the account the user was using rather than silently on the root. Only
@@ -64,6 +74,9 @@ defmodule PhoenixKitWeb.Users.MultiSession do
   alias PhoenixKitWeb.Users.Auth, as: WebAuth
 
   @stack_key :pk_session_accounts
+  # The tokens of the stack the user added THEMSELVES (password, OAuth, or restored from the
+  # durable mirror, which only ever holds those). `impersonated?/1` reads it; see there.
+  @own_key :pk_own_tokens
   @organization_key :pk_organization_token
   @max_accounts 5
 
@@ -88,7 +101,7 @@ defmodule PhoenixKitWeb.Users.MultiSession do
     token = organization_token(session)
 
     if token && token == session["user_token"] &&
-         not bound_organization?(token, List.first(stack_tokens(session))) do
+         is_nil(bound_person_token(token, stack_tokens(session))) do
       case leave_organization(conn) do
         {:ok, conn, _user} -> conn
         _ -> conn
@@ -98,13 +111,22 @@ defmodule PhoenixKitWeb.Users.MultiSession do
     end
   end
 
-  @doc "Enters on the root person's authority, independently of multi-account switching."
+  @doc """
+  Enters an organization on the authority of `person_token/1`: the account shown, when it
+  is the session's first one or one the person added with its own password; the
+  organization's session is bound to that account's session row, so signing it out ends
+  the organization's too.
+  """
   def act_as_organization(conn, uuid) do
     session = get_session(conn)
 
-    with [root | _] <- stack_tokens(session),
+    impersonator = impersonated_by(session)
+
+    with person when is_binary(person) <- person_token(session),
          {:ok, %{token: token, user: user}} <-
-           OrganizationSessions.enter(root, uuid, organization_token(session)) do
+           OrganizationSessions.enter(person, uuid, organization_token(session),
+             impersonated_by: impersonator
+           ) do
       stack = Enum.reject(stack_tokens(session), &(&1 == organization_token(session)))
 
       conn =
@@ -112,22 +134,28 @@ defmodule PhoenixKitWeb.Users.MultiSession do
         |> put_session(@stack_key, stack ++ [token])
         |> put_session(@organization_key, token)
         |> renew_and_put_active_token(token)
-        |> persist_organization(token)
+
+      # Entered from a borrowed account, it ends with the browser session like the
+      # account it came from: never written to the durable mirror.
+      conn = if impersonator, do: conn, else: persist_organization(conn, token)
 
       {:ok, conn, user}
     else
       {:error, _} = error -> error
-      _ -> {:error, :forbidden}
+      _ -> {:error, :session_gone}
     end
   end
 
-  @doc "Deletes the organization slot and returns to the live root account."
+  @doc """
+  Deletes the organization slot and returns to the account it was entered from
+  (`person_token/1`).
+  """
   def leave_organization(conn) do
     session = get_session(conn)
 
-    with [root | _] <- stack_tokens(session),
-         %Auth.User{} = user <- root_user_from_token(root),
-         {:ok, :ok} <- OrganizationSessions.leave(root, organization_token(session)) do
+    with person when is_binary(person) <- person_token(session),
+         %Auth.User{} = user <- root_user_from_token(person),
+         {:ok, :ok} <- OrganizationSessions.leave(person, organization_token(session)) do
       conn =
         conn
         |> put_session(
@@ -135,12 +163,86 @@ defmodule PhoenixKitWeb.Users.MultiSession do
           Enum.reject(stack_tokens(session), &(&1 == organization_token(session)))
         )
         |> delete_session(@organization_key)
-        |> renew_and_put_active_token(root)
+        |> renew_and_put_active_token(person)
         |> forget_organization()
+        |> remember_active(person)
 
       {:ok, conn, user}
     else
       _ -> {:error, :root_gone}
+    end
+  end
+
+  @doc """
+  The raw session token of the person whose authority enters, leaves and lists
+  organizations, and manages them (`ManagedOrganizations.Actor.from_session/1`):
+
+    * while acting for an organization, the account its session is bound to (the one it
+      was entered from), else the stack's root;
+    * otherwise the account shown: the root, one the person added themselves with its own
+      password (2026-11-09, from WoodMatrix: an Admin who had added the account holding
+      the links could not enter its companies), or a borrowed one ("sign in as this
+      user"), which acts as that user everywhere they could go (the same day: staff
+      signing in as a client saw the client's companies and could enter none). Who signed
+      in as them is kept apart (`impersonated_by/1`), and what belongs to the person alone
+      still checks `impersonated?/1` (personal API keys, standing credentials).
+
+  `nil` without a session. Reads no database unless acting.
+  """
+  @spec person_token(map()) :: String.t() | nil
+  def person_token(session) when is_map(session) do
+    stack = stack_tokens(session)
+    active = session["user_token"]
+    organization = organization_token(session)
+
+    cond do
+      stack == [] ->
+        nil
+
+      is_binary(organization) and active == organization ->
+        bound_person_token(organization, stack) || hd(stack)
+
+      is_binary(active) ->
+        active
+
+      true ->
+        hd(stack)
+    end
+  end
+
+  @doc """
+  The uuid of whoever signed in as the person behind this session ("sign in as this
+  user"), or `nil`: the stack's root when `person_token/1` is a borrowed account (neither
+  the root nor one the person added themselves). Recorded on the activity of that session
+  (`Scope` field `impersonated_by_uuid`) and on entering an organization from it.
+  """
+  @spec impersonated_by(map()) :: String.t() | nil
+  def impersonated_by(session) when is_map(session) do
+    with [root | _] <- stack_tokens(session),
+         person when is_binary(person) and person != root <- person_token(session),
+         false <- person in own_tokens(session),
+         %Auth.User{uuid: uuid} <- root_user_from_token(root) do
+      uuid
+    else
+      _ -> nil
+    end
+  end
+
+  # The account whose authority signs in as someone else: the one shown when it is the
+  # person's own (the root, or added with its password), else the root. A borrowed account
+  # never lends its authority on: signing in as an Admin does not let anyone sign in as
+  # whom that Admin could.
+  defp own_account_token(session) do
+    case stack_tokens(session) do
+      [] -> nil
+      [root | _] -> if impersonated?(session), do: root, else: session["user_token"] || root
+    end
+  end
+
+  defp own_user(session) do
+    case own_account_token(session) do
+      token when is_binary(token) -> root_user_from_token(token)
+      _ -> nil
     end
   end
 
@@ -156,15 +258,18 @@ defmodule PhoenixKitWeb.Users.MultiSession do
   end
 
   @doc """
-  True when the session's active account is not the root of its stack: the browser is
-  acting inside an account that joined the session after the original login.
+  True when the session's active account is **borrowed**: neither the root of its stack (the
+  original login) nor an account the user added themselves (`:pk_own_tokens`, see "Own and
+  borrowed accounts").
 
-  An impersonation is always such an account (`impersonate/2` appends to the stack and
-  makes the borrowed account active). The stack does not record how an account joined
-  it, so an account added with its own password answers `true` as well: a caller that
-  must never act inside a borrowed account (an assistant spending the account's limits,
-  reading its history) errs on the safe side. Takes the string-keyed session map, so
-  it works in a plug and in a LiveView mount alike; reads no database.
+  An impersonation is always borrowed (`impersonate/2` appends to the stack and makes the
+  borrowed account active, without marking it as the user's own), and so is a managed
+  organization's slot. An account added with its own password or through OAuth
+  (`add_account/3`, `add_authenticated_user/3`) is not. A session without the list, from before
+  it existed, answers `true` for every added account: a caller that must never act inside a
+  borrowed account (an assistant spending the account's limits, reading its history, a
+  standing credential being made) errs on the safe side. Takes the string-keyed session map,
+  so it works in a plug and in a LiveView mount alike; reads no database.
 
   A nested (sticky) LiveView calls it itself, with the session LiveView hands it: the
   cookie session is merged into the session of every LiveView, in the connected mount
@@ -174,8 +279,31 @@ defmodule PhoenixKitWeb.Users.MultiSession do
   @spec impersonated?(map()) :: boolean()
   def impersonated?(session) when is_map(session) do
     case {session["user_token"], stack_tokens(session)} do
-      {active, [root | _]} when is_binary(active) -> active != root
-      _no_active_account -> false
+      {active, [root | _]} when is_binary(active) ->
+        active != root and active not in own_tokens(session)
+
+      _no_active_account ->
+        false
+    end
+  end
+
+  # The accounts the user added themselves; anything but a list of tokens is none.
+  defp own_tokens(session) do
+    case session["pk_own_tokens"] do
+      tokens when is_list(tokens) -> Enum.filter(tokens, &is_binary/1)
+      _ -> []
+    end
+  end
+
+  defp put_own(conn, token) do
+    own = conn |> get_session() |> own_tokens()
+    put_session(conn, @own_key, Enum.uniq(own ++ [token]))
+  end
+
+  defp drop_own(conn, token) do
+    case conn |> get_session() |> own_tokens() do
+      [] -> conn
+      own -> put_session(conn, @own_key, List.delete(own, token))
     end
   end
 
@@ -258,11 +386,14 @@ defmodule PhoenixKitWeb.Users.MultiSession do
     {allowed, accounts} = scope_fields(session)
     organizations_on = Auth.organization_accounts_enabled?()
     root_account = Enum.find(accounts, & &1.root?)
+    person = person_token(session)
 
+    # The person whose organizations the "Acting as" menu lists and enters with:
+    # `person_token/1`, which is the root's unless the account shown is the person's own.
     root =
       cond do
-        root_account -> root_account.user
-        organizations_on or acting?(session) -> root_user(session)
+        root_account && person == List.first(stack_tokens(session)) -> root_account.user
+        root_account || organizations_on || acting?(session) -> person_user(person)
         true -> nil
       end
 
@@ -283,7 +414,8 @@ defmodule PhoenixKitWeb.Users.MultiSession do
         multi_session_accounts: accounts,
         acting_organizations: organizations,
         acting_person: person,
-        organization_root: root
+        organization_root: root,
+        impersonated_by_uuid: impersonated_by(session)
     }
   end
 
@@ -367,6 +499,7 @@ defmodule PhoenixKitWeb.Users.MultiSession do
               conn =
                 conn
                 |> put_session(@stack_key, stack ++ [token])
+                |> put_own(token)
                 |> renew_and_put_active_token(token)
                 |> persist_account(token)
 
@@ -402,7 +535,9 @@ defmodule PhoenixKitWeb.Users.MultiSession do
       in the feed those two are the same sentence, and one of them is a user
       adding an account of their own.
     * `:persist` — whether the account joins this browser's durable stack
-      (default `true`). `impersonate/2` passes `false`; see its docstring.
+      (default `true`). `impersonate/2` passes `false`; see its docstring. It also says whether
+      the account is the user's own (`impersonated?/1`): what joins the durable stack is only
+      ever what the user added themselves, so the two cannot disagree.
   """
   def add_authenticated_user(conn, user, opts \\ [])
 
@@ -429,11 +564,14 @@ defmodule PhoenixKitWeb.Users.MultiSession do
       true ->
         token = Auth.generate_user_session_token(user)
 
+        own? = Keyword.get(opts, :persist, true)
+
         conn =
           conn
           |> put_session(@stack_key, stack ++ [token])
+          |> then(&if(own?, do: put_own(&1, token), else: &1))
           |> renew_and_put_active_token(token)
-          |> maybe_persist_account(token, Keyword.get(opts, :persist, true))
+          |> maybe_persist_account(token, own?)
 
         log_event(Keyword.get(opts, :event, "session.account_added"), root_user(session), user)
         {:ok, conn}
@@ -455,18 +593,18 @@ defmodule PhoenixKitWeb.Users.MultiSession do
   Shares every invariant of `add_authenticated_user/2` and adds the authority
   checks that separate support access from account takeover:
 
-  - the **root** account decides, never the active one. Otherwise an
-    administrator could impersonate a user and, from inside that session,
-    impersonate someone the user could never reach;
+  - the person's **own** account decides: the one shown when it is the root or
+    one they added with its password, else the root — never a borrowed one.
+    Otherwise an administrator could impersonate a user and, from inside that
+    session, impersonate someone the user could never reach;
   - the root must hold the Owner or Admin **role**. Deliberately not
     `can_access_admin_area?/1`: that is true for *any* permission holder, so a
     customer granted one self-service permission would qualify — and could then
     borrow another customer's account;
   - an Owner is never a target. The one account that can undo anything must not
     be reachable by borrowing it;
-  - an Admin root cannot take another Admin either — support access is for the
-    people being supported, not sideways between staff. An Owner root may,
-    because there is nothing above it to escalate to.
+  - an Admin may take another Admin (2026-11-09: staff check what a colleague
+    sees too); nothing an Admin holds is above another Admin's.
 
   A success is logged as `session.impersonated` — one row, written in place of
   the `session.account_added` the stack append would otherwise have written. A
@@ -484,7 +622,6 @@ defmodule PhoenixKitWeb.Users.MultiSession do
           | {:error,
              :not_allowed
              | :target_is_owner
-             | :target_is_staff
              | :stack_full
              | :already_in_stack
              | :inactive
@@ -492,7 +629,7 @@ defmodule PhoenixKitWeb.Users.MultiSession do
              | :self}
   def impersonate(conn, %Auth.User{} = target) do
     session = get_session(conn)
-    actor = root_user(session)
+    actor = own_user(session)
 
     decision =
       if acting?(session),
@@ -517,7 +654,7 @@ defmodule PhoenixKitWeb.Users.MultiSession do
   end
 
   @doc """
-  True when the session's ROOT account holds the authority `impersonate/2`
+  True when the session's own account (see `impersonate/2`) holds the authority `impersonate/2`
   requires before it will look at a target at all.
 
   Exposed so the controller can refuse an unauthorized actor *before* it resolves
@@ -528,15 +665,15 @@ defmodule PhoenixKitWeb.Users.MultiSession do
   """
   @spec may_impersonate?(map()) :: boolean()
   def may_impersonate?(session) when is_map(session) do
-    case if(!acting?(session), do: root_user(session)) do
+    case if(!acting?(session), do: own_user(session)) do
       %Auth.User{} = actor -> staff?(actor)
       _ -> false
     end
   end
 
   @doc """
-  The account an impersonation would be judged against — the session's ROOT,
-  never the account currently active.
+  The account an impersonation would be judged against — the person's own
+  account shown (the root, or one added with its password), never a borrowed one.
 
   Returns `nil` when `gate_allowed?/1` is false, which makes `impersonable?/2`
   answer false for every target and takes the offer off the menu. That check
@@ -553,7 +690,7 @@ defmodule PhoenixKitWeb.Users.MultiSession do
   """
   @spec impersonation_actor(map()) :: Auth.User.t() | nil
   def impersonation_actor(session) when is_map(session) do
-    if not acting?(session) and gate_allowed?(session), do: root_user(session)
+    if not acting?(session) and gate_allowed?(session), do: own_user(session)
   end
 
   @doc """
@@ -639,7 +776,7 @@ defmodule PhoenixKitWeb.Users.MultiSession do
   def log_impersonation_refusal(conn, target_uuid) do
     conn
     |> get_session()
-    |> root_user()
+    |> own_user()
     |> log_impersonation_refused(target_uuid, :not_allowed)
   end
 
@@ -682,12 +819,6 @@ defmodule PhoenixKitWeb.Users.MultiSession do
       system.owner in target_roles ->
         {:error, :target_is_owner}
 
-      system.owner in actor_roles ->
-        :ok
-
-      system.admin in target_roles ->
-        {:error, :target_is_staff}
-
       true ->
         :ok
     end
@@ -722,7 +853,7 @@ defmodule PhoenixKitWeb.Users.MultiSession do
           user ->
             conn = if acting?(session), do: end_organization!(conn), else: conn
             conn = conn |> renew_and_put_active_token(token) |> remember_active(token)
-            log_event("session.switched", root_user(session), user)
+            log_event("session.switched", root_user(session), user, notify: false)
             {:ok, conn, user}
         end
     end
@@ -742,22 +873,48 @@ defmodule PhoenixKitWeb.Users.MultiSession do
         {:error, :cannot_remove_root}
 
       token ->
-        if token == organization_token(session) do
-          case leave_organization(conn) do
-            {:ok, conn, _user} -> {:ok, conn}
-            error -> error
-          end
-        else
-          Auth.delete_user_session_token(token)
-          new_stack = List.delete(stack, token)
-          conn = conn |> put_session(@stack_key, new_stack) |> forget_account(token)
+        organization = organization_token(session)
 
-          conn =
-            if session["user_token"] == token,
-              do: put_active_token(conn, root_token),
-              else: conn
+        cond do
+          token == organization ->
+            case leave_organization(conn) do
+              {:ok, conn, _user} -> {:ok, conn}
+              error -> error
+            end
 
-          {:ok, conn}
+          # The organization slot was entered from this account: its session goes
+          # with this one (`OrganizationSessions.leave/2`), and the root takes over.
+          is_binary(organization) and bound_person_token(organization, stack) == token ->
+            {:ok, :ok} = OrganizationSessions.leave(token, organization)
+            Auth.delete_user_session_token(token)
+
+            conn =
+              conn
+              |> put_session(@stack_key, stack -- [token, organization])
+              |> delete_session(@organization_key)
+              |> drop_own(token)
+              |> forget_account(token)
+              |> forget_organization()
+              |> put_active_token(root_token)
+
+            {:ok, conn}
+
+          true ->
+            Auth.delete_user_session_token(token)
+            new_stack = List.delete(stack, token)
+
+            conn =
+              conn
+              |> put_session(@stack_key, new_stack)
+              |> drop_own(token)
+              |> forget_account(token)
+
+            conn =
+              if session["user_token"] == token,
+                do: put_active_token(conn, root_token),
+                else: conn
+
+            {:ok, conn}
         end
     end
   end
@@ -809,6 +966,7 @@ defmodule PhoenixKitWeb.Users.MultiSession do
         conn =
           conn
           |> put_session(@stack_key, new_stack)
+          |> drop_own(active)
           |> put_active_token(root_token)
           |> forget_account(active)
 
@@ -923,13 +1081,20 @@ defmodule PhoenixKitWeb.Users.MultiSession do
     accounts = if multi and root_live, do: Enum.filter(tokens, &ordinary_token?/1), else: []
 
     organization =
-      if root_live and active == organization and bound_organization?(organization, root_token),
-        do: organization
+      if root_live and active == organization and
+           Enum.any?([root_token | accounts], &bound_organization?(organization, &1)),
+         do: organization
 
     live = accounts ++ List.wrap(organization)
     active = if active in live, do: active
 
-    conn = conn |> restore_stack(root_token, live) |> restore_active(active)
+    # The mirror holds only accounts the user added themselves (an impersonation is never
+    # written there), so the ordinary ones come back as their own; an organization does not.
+    conn =
+      conn
+      |> restore_stack(root_token, live)
+      |> put_session(@own_key, accounts)
+      |> restore_active(active)
 
     conn =
       if organization,
@@ -958,6 +1123,24 @@ defmodule PhoenixKitWeb.Users.MultiSession do
   end
 
   defp bound_organization?(_, _), do: false
+
+  # The token of the stack (not the slot itself) whose session row the organization's
+  # session is bound to, or nil.
+  defp bound_person_token(organization, stack) when is_binary(organization) do
+    case Auth.get_user_by_session_token(organization) do
+      %Auth.User{managed_by_members: true, acting_session_uuid: parent, is_active: true}
+      when is_binary(parent) ->
+        stack |> List.delete(organization) |> find_token_by_ref(parent)
+
+      _ ->
+        nil
+    end
+  end
+
+  defp bound_person_token(_organization, _stack), do: nil
+
+  defp person_user(token) when is_binary(token), do: root_user_from_token(token)
+  defp person_user(_token), do: nil
 
   defp restore_active(conn, nil), do: conn
   defp restore_active(conn, token), do: put_active_token(conn, token)
@@ -1081,7 +1264,12 @@ defmodule PhoenixKitWeb.Users.MultiSession do
     end
   end
 
-  defp log_event(action, %Auth.User{} = actor, %Auth.User{} = target) do
+  # `notify: false` leaves `target_uuid` empty, which is what decides a
+  # notification: switching between two accounts signed in in the same browser
+  # is the person's own doing, and nobody else is affected.
+  defp log_event(action, actor, target, opts \\ [])
+
+  defp log_event(action, %Auth.User{} = actor, %Auth.User{} = target, opts) do
     PhoenixKit.Activity.log(%{
       action: action,
       module: "users",
@@ -1089,14 +1277,14 @@ defmodule PhoenixKitWeb.Users.MultiSession do
       actor_uuid: actor.uuid,
       resource_type: "user",
       resource_uuid: target.uuid,
-      target_uuid: target.uuid,
+      target_uuid: if(Keyword.get(opts, :notify, true), do: target.uuid),
       metadata: %{"email" => target.email, "actor_role" => "admin"}
     })
   rescue
     _ -> :ok
   end
 
-  defp log_event(_action, _actor, _target), do: :ok
+  defp log_event(_action, _actor, _target, _opts), do: :ok
 
   # A refused impersonation. `target` is a `%User{}` when one was resolved and a
   # bare uuid when the actor was turned away before the lookup; either way the

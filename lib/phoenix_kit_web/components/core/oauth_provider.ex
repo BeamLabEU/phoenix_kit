@@ -4,6 +4,7 @@ defmodule PhoenixKitWeb.Components.Core.OAuthProvider do
   """
 
   use Phoenix.Component
+  use Gettext, backend: PhoenixKitWeb.Gettext
 
   @doc """
   Renders an OAuth provider credential form with fields, test button, and setup instructions.
@@ -66,7 +67,7 @@ defmodule PhoenixKitWeb.Components.Core.OAuthProvider do
             phx-value-provider={@provider}
             class="btn btn-sm btn-outline mt-3 w-fit"
           >
-            Test Credentials
+            {gettext("Test Credentials")}
           </button>
         </div>
       <% else %>
@@ -96,7 +97,7 @@ defmodule PhoenixKitWeb.Components.Core.OAuthProvider do
           phx-value-provider={@provider}
           class="btn btn-sm btn-outline mt-3 w-fit"
         >
-          Test Credentials
+          {gettext("Test Credentials")}
         </button>
       <% end %>
     </div>
@@ -106,23 +107,23 @@ defmodule PhoenixKitWeb.Components.Core.OAuthProvider do
   # Private helper to get provider configuration
   defp get_provider_config(:google) do
     %{
-      title: "Google OAuth Credentials",
+      title: gettext("Google OAuth Credentials"),
       icon: "<icon_google class=\"h-5 w-5\" />",
       fields: [
         %{
-          label: "Client ID",
+          label: gettext("Client ID"),
           type: "text",
           name: "settings[oauth_google_client_id]",
           setting_key: "oauth_google_client_id",
-          placeholder: "Your Google OAuth Client ID",
+          placeholder: gettext("Your Google OAuth Client ID"),
           class: "input"
         },
         %{
-          label: "Client Secret",
+          label: gettext("Client Secret"),
           type: "password",
           name: "settings[oauth_google_client_secret]",
           setting_key: "oauth_google_client_secret",
-          placeholder: "Your Google OAuth Client Secret",
+          placeholder: gettext("Your Google OAuth Client Secret"),
           class: "input"
         }
       ]
@@ -131,23 +132,23 @@ defmodule PhoenixKitWeb.Components.Core.OAuthProvider do
 
   defp get_provider_config(:github) do
     %{
-      title: "GitHub OAuth Credentials",
+      title: gettext("GitHub OAuth Credentials"),
       icon: "<icon_github class=\"h-5 w-5\" />",
       fields: [
         %{
-          label: "Client ID",
+          label: gettext("Client ID"),
           type: "text",
           name: "settings[oauth_github_client_id]",
           setting_key: "oauth_github_client_id",
-          placeholder: "Your GitHub OAuth Client ID",
+          placeholder: gettext("Your GitHub OAuth Client ID"),
           class: "input"
         },
         %{
-          label: "Client Secret",
+          label: gettext("Client Secret"),
           type: "password",
           name: "settings[oauth_github_client_secret]",
           setting_key: "oauth_github_client_secret",
-          placeholder: "Your GitHub OAuth Client Secret",
+          placeholder: gettext("Your GitHub OAuth Client Secret"),
           class: "input"
         }
       ]
@@ -156,23 +157,23 @@ defmodule PhoenixKitWeb.Components.Core.OAuthProvider do
 
   defp get_provider_config(:facebook) do
     %{
-      title: "Facebook OAuth Credentials",
+      title: gettext("Facebook OAuth Credentials"),
       icon: "<icon_facebook class=\"h-5 w-5\" />",
       fields: [
         %{
-          label: "App ID",
+          label: gettext("App ID"),
           type: "text",
           name: "settings[oauth_facebook_app_id]",
           setting_key: "oauth_facebook_app_id",
-          placeholder: "Your Facebook App ID",
+          placeholder: gettext("Your Facebook App ID"),
           class: "input"
         },
         %{
-          label: "App Secret",
+          label: gettext("App Secret"),
           type: "password",
           name: "settings[oauth_facebook_app_secret]",
           setting_key: "oauth_facebook_app_secret",
-          placeholder: "Your Facebook App Secret",
+          placeholder: gettext("Your Facebook App Secret"),
           class: "input"
         }
       ]

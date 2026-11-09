@@ -50,44 +50,46 @@ defmodule PhoenixKit.Integration.Users.UsersTabPaginationTest do
 
   describe "/admin/users" do
     test "per_page from the URL is honoured and drives the page count", %{conn: conn} do
-      # The admin from setup makes it 13 users: 2 pages of 10, 1 page of 25.
-      create_users!(12)
+      # The admin from setup makes it 31 users: 2 pages of 25, 1 page of 50.
+      create_users!(30)
 
       {:ok, _view, html} = live(conn, Routes.path("/admin/users"))
-      assert selected_size(html) == "10"
+      assert selected_size(html) == "25"
       assert 2 in page_links(html)
 
-      {:ok, _view, html} = live(conn, Routes.path("/admin/users?per_page=25"))
-      assert selected_size(html) == "25"
+      {:ok, _view, html} = live(conn, Routes.path("/admin/users?per_page=50"))
+      assert selected_size(html) == "50"
       assert page_links(html) == []
     end
 
     test "a per_page outside the allowlist falls back to the default", %{conn: conn} do
       {:ok, _view, html} = live(conn, Routes.path("/admin/users?per_page=7"))
-      assert selected_size(html) == "10"
+      assert selected_size(html) == "25"
 
       {:ok, _view, html} = live(conn, Routes.path("/admin/users?per_page=1000000"))
-      assert selected_size(html) == "10"
+      assert selected_size(html) == "25"
     end
 
     test "choosing a size from the selector resets to page 1", %{conn: conn} do
-      create_users!(12)
+      create_users!(30)
 
       {:ok, view, _html} = live(conn, Routes.path("/admin/users?page=2"))
 
       view
       |> element("form[phx-change=change_per_page]")
-      |> render_change(%{"per_page" => "25"})
+      |> render_change(%{"per_page" => "50"})
 
-      assert_patch(view, Routes.path("/admin/users?per_page=25"))
+      # Saved as the admin's size, so the address no longer needs it.
+      assert_patch(view, Routes.path("/admin/users"))
+      assert selected_size(render(view)) == "50"
     end
 
-    test "page links preserve the chosen size", %{conn: conn} do
+    test "page links preserve a size the link named", %{conn: conn} do
       create_users!(30)
 
-      {:ok, _view, html} = live(conn, Routes.path("/admin/users?per_page=25"))
+      {:ok, _view, html} = live(conn, Routes.path("/admin/users?per_page=10"))
       assert html =~ "page=2"
-      assert html =~ ~r/per_page=25[^"]*page=2|page=2[^"]*per_page=25/
+      assert html =~ ~r/per_page=10[^"]*page=2|page=2[^"]*per_page=10/
     end
 
     test "Auto raises the fit flag, the hook's push keeps it, a hand-picked size drops it",
@@ -98,20 +100,21 @@ defmodule PhoenixKit.Integration.Users.UsersTabPaginationTest do
       |> element("form[phx-change=change_per_page]")
       |> render_change(%{"per_page" => "auto"})
 
-      assert_patch(view, Routes.path("/admin/users?fit=true"))
+      # Auto is the admin's saved choice now, so it needs no `fit` in the URL.
+      assert_patch(view, Routes.path("/admin/users"))
       assert selected_size(render(view)) == "auto"
 
       # What the PageSizeAutoFit hook pushes once it has measured the table.
       render_hook(view, "change_per_page", %{"per_page" => "50", "auto" => "1"})
-      assert query_of(assert_patch(view)) == %{"per_page" => "50", "fit" => "true"}
+      assert query_of(assert_patch(view)) == %{"per_page" => "50"}
       assert selected_size(render(view)) == "auto"
 
       view
       |> element("form[phx-change=change_per_page]")
-      |> render_change(%{"per_page" => "25"})
+      |> render_change(%{"per_page" => "10"})
 
-      assert_patch(view, Routes.path("/admin/users?per_page=25"))
-      assert selected_size(render(view)) == "25"
+      assert_patch(view, Routes.path("/admin/users"))
+      assert selected_size(render(view)) == "10"
     end
   end
 end

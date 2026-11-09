@@ -1,3 +1,317 @@
+## Unreleased
+
+Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
+
+⚠️ Two changes to check in a host:
+
+- A role can no longer be renamed: `name` is a fixed key that code and settings match
+  on. Change what people see with the new label on the Roles page.
+- `Scope.held_roles/1` does not say what someone acting for an organization may do. It
+  is the organization's roles, past their link. Read `Scope.user_roles/1`.
+
+### Added
+
+- **An organization's people on its page, changed in place.** The header of an
+  organization's admin page lists who acts for it, the mirror of a person's
+  Organizations row: each person with the link's type and what it gives ("All roles",
+  the roles, or "No roles"; "Member" for the older tie), the first five and "+N more"
+  opening the People tab. An Owner or Admin in their own account adds a person from a
+  search (Enter takes the first match, as a manager or another type), invites an
+  address nobody has an account at, and removes someone with × (the last manager stays
+  unless they say "Remove anyway"). `PhoenixKit.Users.OrganizationPeople`,
+  `PhoenixKitWeb.Live.Components.OrganizationPeople`.
+- **A Comments tab on a user's page.** It shows the Comments module's thread on the
+  user (`resource_type: "user"`), says the module is turned off with a link to Modules,
+  or, when the project lacks it, that the `phoenix_kit_comments` package can be added.
+  The older Notes tab shows only while it holds notes, or while Comments is not there to
+  write new ones in.
+- **An Organizations column in the Users table.** Every company a person belongs to,
+  linked (manager, staff…) or by the older single tie, by name, as plain text: a click
+  there opens the person, like anywhere on the row (their page links each company). Up
+  to three show; past that two and "+N more". Offered, and on by default, only while organization accounts are on;
+  an admin with a saved column choice adds it from the column picker.
+- **The Telegram client can work in groups, and talk to a self-hosted Bot API
+  server** (`PhoenixKit.Integrations.Telegram`): `get_chat/3`, `get_chat_member/4`,
+  `leave_chat/3` and `set_my_commands/3`, for a host's bot that is added to groups
+  (Fotki's media bot). Every call, `download_file/3` and the connection test included,
+  goes to `config :phoenix_kit, :telegram_api_base` when set (`Telegram.api_base/0`),
+  else Telegram's cloud; a setting that is not an http(s) URL raises rather than sending
+  the token elsewhere. `Linking.linked_users/2` lists every account that linked a
+  chat, for a bot that asks such a person which account it acts for (`linked_user/2`
+  still names nobody for that chat). No migration.
+- **A capture date from Telegram Desktop's chat export.** Its files without a name of their
+  own are named for when they were sent, day first after an `@`
+  (`photo_12@14-05-2021_18-23-45.jpg`, `video_3@…`, `file_7@…`), in the exporting computer's
+  local time; `CaptureDate.from_filename/1` now reads that shape (the `filename` source), so
+  an export dropped into a library keeps its dates. A day-first date anywhere else is still
+  not read: it cannot be told from a month-first one.
+- **The admin's user form has the person's avatar controls.** Pick a picture, frame it
+  in the crop editor, adjust or reset the crop later, as on the profile page: both pages
+  render `PhoenixKitWeb.Live.Components.AvatarEditor`. A change on the admin form is
+  saved at once instead of waiting for "Update User", and the person is told ("Your
+  avatar was updated.", for a new crop too).
+- **Zoom out to fit.** The crop editor zooms out below the fill, down to where the whole
+  picture fits inside the avatar's shape, so a wide logo shows whole, on white, instead
+  of its middle. `AvatarCrop.min_zoom/2` and `AvatarCrop.zoomed_out?/1` are new.
+- **A shape for the site's avatars.** Settings → Users → Avatars offers eleven: circle
+  (the default, drawn as before), squircle, rounded square, square, two hexagons,
+  decagon, pentagon, diamond, heart and star. Every `user_avatar` and the crop editor
+  follow the site's choice, and the editor's zoom floor fits the shape. The masks are
+  daisyUI's; the host's Tailwind build picks them up from the kit's sources.
+  `PhoenixKit.Users.AvatarShape` and `user_avatar`'s `shape` attribute are new.
+- **A person's organizations, changed from their page.** The header of a person's admin
+  page lists their companies as chips (a link's type, or Member for the older tie). An
+  Owner or Admin detaches one from its × after a one-click confirm (the last manager only
+  with "Remove anyway"), and "+ Add" opens one search: Enter attaches the first match (a
+  link of the chosen type, or the older tie for a company with its own login), and a name
+  nobody has creates a managed organization with the person as its manager.
+  `PhoenixKit.Users.PersonOrganizations` goes through the core functions that check the
+  actor.
+- **A larger avatar on hover.** In the users table and the sessions list, pointing at a
+  small avatar shows it larger beside it, in the site's shape and with its crop; a click
+  on it opens the user. `user_avatar` takes `peek` for any list; the preview floats above
+  the page (`phoenix_kit.js`), so a scrolling table does not clip it.
+- **Different roles per person at each organization.** A person's link to an
+  organization now has a type and either all its roles or a list of them, so Anna can be
+  a Buyer at a company that also sells, while Peter is only a Supplier there. A link
+  narrows: a person gets the roles the organization holds that are also on their link,
+  and a role it does not hold has no effect. Every existing grant is a manager with all
+  roles and behaves as before.
+- **A staff level.** Two relationship types are built in. `manager` is what a grant has
+  always been; `staff` can act for an organization but not manage it, so they cannot
+  invite, remove people or edit the company's profile, and they do not count for the
+  last-manager rule.
+- **Relationship types as data** (Users -> Relationship types, `RelationshipTypes`). An
+  app or an admin adds its own, in plain language: a name and what people of that type
+  can do. `ensure/3` creates one at boot and never overwrites an admin's edits.
+- **People on the company page.** A People tab lists each person's type, roles, and who
+  added them and when, with one dialog to add or change someone: an admin can find a
+  person or invite by email, a manager invites by email. Roles the person may not hand
+  out stay visible but locked. A person's page has an Organizations tab showing where
+  they can act and as what.
+- **Invitations carry the access they offer**, and acceptance creates that link. An
+  invitation for staff has its own email (`organization_link_invitation`).
+- **Translated role names.** The Roles page edits a label and description per language,
+  shown everywhere through `Roles.display_name/2`, the role switcher and account menu
+  included.
+- For hosts: `OrganizationManagers.host_add/4`, `host_update/4`, `people_of/2` and
+  `organizations_of/1`, and `Scope.acting_link/1` and `Scope.can_manage_organization?/1`.
+  A scope built from a bare organization, outside any session, holds only the roles every
+  link allows: all of them until someone is narrowed.
+- **A short column name for a custom field.** Settings -> Users -> Custom fields has an
+  optional "Column name" (`column_label`), shown as the field's header in the Users
+  table, with the full label on hover, and in the column picker, with the full label
+  under it. Blank uses the label; the cards, forms and user pages show the label.
+- **Rows per page are remembered.** Pick 10, 25, 50, 100 or Auto on any of the Users,
+  Roles, Sessions or Live Sessions lists and every one of them opens at that size from
+  then on, for you only, on any device. A link that names a size still wins, and "Clear
+  Filters" no longer resets it. Every list now starts at 25 (Users was 10, the session
+  lists 20) and offers Auto. For a list of your own: `PhoenixKitWeb.PageSize`, and
+  `UrlState.put_url_state_default/3` underneath it.
+- **One footer for admin lists** (`<.pagination_bar>`): how many rows are shown, the
+  pages and the rows-per-page selector, laid out the same on every list.
+- **A second line for a column in the column picker** (`<.column_settings_modal>`): a
+  column's optional `hint` shows under its label in both lists. A column without one
+  looks as before.
+- **Filter the Users table by a yes/no custom field.** Turn on "Filter in the Users
+  table" on a boolean field (`filterable`) and the filter bar offers Any, Yes and No for
+  it. Yes matches `true` and `"true"`; No matches everything else, a user never marked
+  included. The filter is in the URL (`?cf=approved:no`, `?cf=approved:no,vip:yes`), so
+  a dashboard card or a bookmark can link to it. `Auth.list_users_paginated/1` takes it
+  as `custom_fields: [{"approved", :no}]`.
+- **An eye button on password fields** (`<.input type="password" password_toggle>`):
+  it shows and hides what was typed. On for the login page, both registration
+  pages, password reset, the Add account dialog, and the password fields of
+  account settings and the email-change page. It is opt-in, so other password
+  fields and host forms stay as they were. The button runs in the browser and a
+  re-render keeps its state. `phoenix_kit.js` hides the password again when the
+  form is sent; with an older copy of that file the button still works, but the
+  field goes out as plain text input. A field with the button has spellcheck and
+  capitalization off, and Edge's own eye is hidden.
+
+- **Chinese.** Core ships Simplified Chinese (`zh`) for every string, used for
+  `zh-CN` and, until a catalogue of their own exists, other Chinese dialects. The
+  translations are machine-made: have someone who reads Chinese check the pages your
+  users see.
+- `Routes.url/2` takes `path/2`'s options, `locale:` included, for a link in someone
+  else's language. Also `Routes.path_locale/1`, `Routes.served_locale?/1`,
+  `PhoenixKit.Utils.Date.ago/1`, `Notifications.Types.shown/0`,
+  `Auth.remember_page_locale/2`, and `RecipientLocale.for_mail/2`,
+  `site_language?/1` and `global_locale/1`.
+
+### Changed
+
+- **A user's page reads like a page about someone.** Basic Information, Custom Fields,
+  Account Information and Registration Details are label / value rows, the values at
+  16 px (daisyUI's card body had made them 14 px, as small as their labels). Basic
+  Information gives the name on one row (an organization's name once; it was shown
+  twice), the email as a link with a Confirmed / Unconfirmed badge, the username as
+  @username and the country with its flag.
+- **A person's page has no Organizations tab any more.** It repeated the Organizations
+  row of the top card read-only. That row now says what the person can do in each
+  company ("Manager · All roles", or the roles of their link), and lists a change as
+  soon as it is made.
+- **Bigger avatars in the users list.** A grid card's avatar is 64 px instead of 32 px
+  (`user_avatar` size `"card"`), a table row's 48 px instead of 32 px, and the header
+  of a user's page 160 px instead of 80 px (96 px on a phone). That header's avatar no
+  longer moves down when the card grows (the Organizations search opening).
+- **The user form edits a person's companies with the Organizations row of their page**
+  (add, create, remove, saved straight away like the avatar), in place of the older
+  single Organization selector; that older tie shows in the row as "Member". The
+  avatar's "Browse Media" button reads "Browse" (it did not fit).
+- **The Users table's Account cell reads name, email, @username.** A person with a
+  name is named first, with the email under it; Full Name holds the name alone, no
+  longer the person's company.
+- **A user's admin page is split into tabs.** Who it is (picture, name, status, roles,
+  registration date) sits in a header every tab shares, with Edit at hand. Profile holds
+  the basic information and custom fields; the new Account tab holds the account record,
+  registration details and the CRM contact; Notes and the rest follow. The tab is in the
+  URL (`?tab=account`). Permanently Delete moved from a button beside the "..." menu,
+  where people were afraid of hitting it, to the end of that menu.
+- Removing a role from a link signs out that link's sessions acting as it, as removing a
+  role from an account does. Changing a link refreshes open pages.
+- The Managers section is now People, on its own tab of the company page instead of
+  below every tab. Removing the last manager explains itself, and only then offers an
+  administrator the override.
+- The login page's "Create an account" link moved up, right under the Log in
+  button, above the magic link, QR code and OAuth buttons.
+- **The Users table reads better on a tablet.**
+  - The first column is headed Account. A company shows its name there, with its
+    email under it, so a managed company with no contact email no longer shows a blank
+    line, and the row's link, the card view and the roles dialog name it too.
+  - Full Name is for people; a company's cell shows "-".
+  - The avatar is its own column, first and on by default. ⚠️ An admin who saved their
+    own columns, or a site with a default column set, does not get it until they tick
+    it.
+  - When the table is too wide it drops columns instead of scrolling sideways:
+    Location first, then Last Confirmed, Username, Registered, Avatar, Full Name,
+    Roles, Status and custom fields. Dates no longer wrap.
+  - Shorter labels: Roles, an "Email ✓" or "Email pending" badge, and "Managed".
+
+- **Account mail is in one language, link included.** The confirmation, password
+  reset, email change, magic link, registration link and invitation emails built their
+  link in the sender's language: an admin working in English sent a German user German
+  text and an English link. Text and link now share one language: the recipient's saved
+  one, else the site's. Mail a person asks for themselves (magic link, reset,
+  confirmation) uses the page they asked on when they have no saved language. The
+  `deliver_*` functions of `Auth` take `locale:` for that page; an admin's send passes
+  none.
+- **A person's language is saved when they register or sign in** on a page in another
+  language than the site's, if they have none saved yet. Their mail follows it.
+- **After sign-in you land in your saved language** when the sign-in page's address
+  named none (a bookmarked `/users/log-in`). A destination that names a language keeps
+  it. The URL still decides the page language: nothing reads the preference on a page.
+- The language menus (the account menus and the sign-in pages) name each language in
+  that language: "Deutsch", "Français", "简体中文". The account menus share their
+  accounts list, "Add account" dialog and language list (`AccountMenu`).
+- The notifications bell follows a language switch: its id carries the language, so a
+  switch mounts a new one (`pk-notifications-bell-de`; the primary language keeps
+  `pk-notifications-bell`). It also renders in the page's language now; its own process
+  had none.
+- Switching between two accounts signed in in the same browser is logged without a
+  target and notifies nobody. The notifications already sent read "You switched to this
+  account from another signed-in account."; an account an admin creates reads "An
+  administrator created your account."; updated roles are listed by their translated
+  names.
+- My Settings and the profile's notification list leave out the types of disabled
+  modules. Their stored preferences are kept.
+- The process-wide Gettext locale on the web is the base language (`de`), as it already
+  was in mail, so a module reads the same language in both.
+- `<.load_more>`'s default count noun is a translated "results", not "items".
+
+### Fixed
+
+- **An account added to the switcher with its own password enters its own companies.**
+  Entering, leaving and the "Acting as" menu all went by the first account of the
+  session, so an Admin who had added the account holding the company links saw its
+  companies listed and was refused each one. They now go by the account shown when it is
+  the first one or one the person added themselves (`MultiSession.person_token/1`, which
+  `ManagedOrganizations.Actor.from_session/1` follows too); the company's session is bound
+  to that account's, so signing it out of the switcher ends the company's session as well,
+  and leaving comes back to it.
+- **"Sign in as this user" gives the full experience.** A borrowed account now enters,
+  lists and manages the user's own companies as that user (their link, their roles), where
+  it used to go by the staff member's account and was refused ("Could not enter that
+  organization."). Who signed in is kept: `organization.entered`, `organization.enter_refused`
+  and every activity logged through `PhoenixKitWeb.Actor.opts/1` in that session carry
+  `impersonated_by_uuid` (`MultiSession.impersonated_by/1`, the new `Scope` field
+  `impersonated_by_uuid`). A company entered that way ends with the borrowed account and is
+  never remembered across a browser restart. What belongs to the person alone stays
+  refused as before (`impersonated?/1`: personal API keys, standing credentials).
+- **An Admin signs in as a user from any account of their own.** Who may sign in as whom
+  was judged on the session's first account, so an Admin whose admin account had been
+  added to the switcher after another one could not. It is now the account shown when it
+  is the person's own (the first one, or added with its password); a borrowed account
+  still lends nothing on. An Admin may now also sign in as another Admin; nobody signs in
+  as an Owner.
+- **Entering an organization says why it was refused**: not linked (an unknown company
+  reads the same), deactivated, signs in on its own, organization accounts off, email not
+  confirmed, session ended, too many switches. `OrganizationSessions.enter` returns those
+  reasons, and `organization.enter_refused` records them.
+- **An Owner or Admin in an account added to the switcher with its own password manages
+  organizations again.** Only the first account of a session could change who acts for an
+  organization (People and Organizations rows, the People tab, the user form), so an Owner
+  who had signed in to the switcher after a test account was told to switch back.
+  `ManagedOrganizations.Actor.from_session/1` now takes such an account as its own root,
+  as a fresh login would; a borrowed account ("sign in as this user") and an organization
+  slot are refused as before.
+- **The People tab is no longer empty for a session that may not manage.** An Owner who
+  had switched to another account of the session saw nothing there. It now lists the
+  people read-only and says why nothing can be changed ("Switch back to your own account
+  to make changes here.", or that only an Owner or Admin can, or that the session's link
+  does not allow it, `PhoenixKitWeb.Users.ManageNotice`). The Organizations and People
+  rows on a user's page say the same when they offer no changes.
+- **An organization has a name, not a first and a last one.** Its page shows
+  Organization Name where First and Last Name were, its own settings form edits the name
+  (never blank), a profile save no longer writes first or last names for it, and its page
+  title is its name even when old first or last names are stored. A person's profile no
+  longer writes an organization name. The admin form turning a company into a person
+  still saves the names typed with it.
+- **An account added to the switcher with its own password is no longer taken for a
+  borrowed one.** `MultiSession.impersonated?/1` was true for every account but the root,
+  so a person who added their second account by password could not link Telegram or make
+  a personal API key in it ("can't be connected from this session"). The session now lists
+  the accounts the user added themselves (`pk_own_tokens`: by password, by OAuth, or
+  restored from the remembered-accounts cookie), and only an account off that list (an
+  impersonation, an organization's slot) is borrowed. A session from before keeps taking
+  its added accounts for borrowed until they are added again, and the Telegram card now
+  says so. `pk_own_tokens` is a reserved session key for header widgets.
+- **A video shorter than half a second was never processed.** Its duration rounded to 0
+  seconds, which a file's changeset refuses, so the whole update failed with it: the file
+  stayed without its size, capture date and previews, and was marked failed after the last
+  try. A clip of any length is now at least 1 second; a reported length of 0 is left out.
+- **Saving the admin's user form no longer clears a company tie set meanwhile.** The
+  selector posted its "no organization" value when the person had none, so a company
+  attached from the user's page while the form was open was dropped on save. The form
+  now leaves the tie alone unless the selector is on it.
+- The profile page's "Avatar crop updated!" and "Avatar crop reset." were never shown.
+- With only the status or email filter on and no match, the Users table said "No users
+  are registered yet." and offered no way back. Every filter now counts, and the empty
+  state offers Clear Filters.
+
+### i18n
+
+- **The users admin no longer slips into English** (from a client using it in Russian):
+  role names in the users list, its cards, the account menu and the new-user hint go
+  through `Roles.display_name/2`; the system roles' seeded descriptions are translated
+  until someone rewrites them (`Roles.display_description/2`); permission labels on the
+  Permissions page, the sub-permissions included, are marked with `gettext_noop` so
+  extraction keeps them, and are translated; `CountryData.country_name/1` names the
+  country in the page's language; the browser and system breakdown on Sessions says
+  "Unknown" in it. The notifications bell and the header widgets were in English on
+  every page that did not hand the layout its `current_locale`: the layout now falls back
+  to the language the page renders in.
+- About 330 more strings are translated in every language: the account menu and its
+  "Add account" dialog, the notifications bell, profile settings (Account, Security,
+  Connected Accounts), the time zone list, the form validation messages of accounts
+  ("must have the @ sign and no spaces" and the rest), pagination's Prev and Next, the
+  language switcher, the sidebars, page titles, and admin pages: the user form, Jobs,
+  Authorization, Sitemap, the AWS forms, Languages, Sessions, OAuth and the storage
+  forms.
+- Dates no longer use English month names: the bell, the inbox, the media browser,
+  event timelines, the activity entry, integrations and the time display. "Never" is
+  translated.
+
 ## 3.4.0 - 2026-11-06
 
 Run `mix phoenix_kit.update` (V228 and the new `phoenix_kit.js`).

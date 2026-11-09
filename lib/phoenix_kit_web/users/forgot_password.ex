@@ -48,7 +48,8 @@ defmodule PhoenixKitWeb.Users.ForgotPassword do
           Auth.deliver_user_reset_password_instructions(
             user,
             &Routes.url("/users/reset-password/#{&1}"),
-            rate_limit: false
+            rate_limit: false,
+            locale: socket.assigns[:current_locale]
           )
         end
 

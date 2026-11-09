@@ -285,7 +285,7 @@ defmodule PhoenixKitWeb.Live.Settings.Authorization do
           |> assign(:saved_settings, updated_settings)
           |> assign(:changeset, changeset)
           |> assign(:saving, false)
-          |> put_flash(:info, "Authorization settings updated successfully")
+          |> put_flash(:info, gettext("Authorization settings updated successfully"))
 
         {:noreply, socket}
 

@@ -48,6 +48,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.ContextSelector do
   """
 
   use Phoenix.Component
+  use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.Dashboard.ContextSelector
 
@@ -88,7 +89,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.ContextSelector do
         class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-56 border border-base-300"
       >
         <li class="menu-title">
-          <span>Switch {@config.label}</span>
+          <span>{gettext("Switch %{context}", context: @config.label)}</span>
         </li>
         <%= for context <- @contexts do %>
           <li>
@@ -164,7 +165,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.ContextSelector do
     ~H"""
     <div class="px-2 py-3 border-b border-base-300">
       <div class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-2 px-2">
-        Current {@config.label}
+        {gettext("Current %{context}", context: @config.label)}
       </div>
       <ul class="menu menu-sm">
         <%= for context <- @contexts do %>

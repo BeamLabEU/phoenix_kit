@@ -287,7 +287,7 @@
                   name="bucket[bucket_name]"
                   value={Ecto.Changeset.get_field(@changeset, :bucket_name)}
                   class={input_class(@changeset, :bucket_name)}
-                  placeholder="e.g., my-app-files"
+                  placeholder={gettext("e.g., my-app-files")}
                   required
                 />
                 <p class="text-xs text-base-content/50 mt-1">
@@ -305,7 +305,7 @@
                     name="bucket[endpoint]"
                     value={Ecto.Changeset.get_field(@changeset, :endpoint)}
                     class={input_class(@changeset, :endpoint)}
-                    placeholder="e.g., minio.example.com:9000"
+                    placeholder={gettext("e.g., minio.example.com:9000")}
                   />
                   <p class="text-xs text-base-content/50 mt-1">
                     {gettext(

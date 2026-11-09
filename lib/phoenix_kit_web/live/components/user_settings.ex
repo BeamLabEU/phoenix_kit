@@ -67,13 +67,12 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
   alias PhoenixKit.Dashboard.Tab
   alias PhoenixKit.Integrations
   alias PhoenixKit.Integrations.Providers
-  alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Notifications.Prefs, as: NotificationPrefs
   alias PhoenixKit.Notifications.Types, as: NotificationTypes
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.ActingLink
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.Scope
-  alias PhoenixKit.Users.AvatarCrop
   alias PhoenixKit.Users.CustomFields
   alias PhoenixKit.Users.FormatCountry
   alias PhoenixKit.Users.LoginAttempts
@@ -118,6 +117,9 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
   @etcher_user_keys ~w(etcher_colors etcher_line_params)
 
   @credential_sections [:email, :password, :oauth, :sessions, :api_keys]
+  @company_profile_sections [:identity, :custom_fields]
+  # The avatar's events go to `AvatarEditor`, which refuses staff itself.
+  @company_profile_events ~w(validate_profile update_profile)
   @credential_events ~w(validate_email update_email validate_password update_password
     connect_oauth_provider disconnect_oauth_provider toggle_email_form
     toggle_password_form revoke_session revoke_other_sessions)
@@ -137,28 +139,33 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
   defp api_keys_scope(%{uuid: uuid}, %Scope{user: %{uuid: uuid}} = scope), do: scope
   defp api_keys_scope(_user, _scope), do: nil
 
-  defp allowed_sections(%{managed_by_members: true}, sections),
-    do: sections -- @credential_sections
+  defp allowed_sections(%{managed_by_members: true} = user, sections) do
+    sections = sections -- @credential_sections
+    if ActingLink.staff?(user), do: sections -- @company_profile_sections, else: sections
+  end
 
   defp allowed_sections(_user, sections), do: sections
 
-  # Picking a file no longer sets it on the spot: the crop editor opens on
-  # the picked image first, so the person frames it once instead of
-  # set-then-crop-then-set-again. Pressing Save without touching anything
-  # accepts the default fit; Cancel discards the pick and the old avatar
-  # never changed. Nothing persists until the Save in the editor.
+  # Staff (someone acting through a link that does not manage) keep only their
+  # preferences: the company's name reaches other parties, and its country sets how
+  # dates and numbers read. `ActingLink.staff?/1` reads the link each time. An admin
+  # looking at the company has no link here and is not staff.
+
+  # The avatar is saved by `AvatarEditor`, which reports each save here.
   @impl true
-  def update(%{action: :set_avatar, file_uuid: file_uuid}, socket) do
+  def update(%{avatar_editor: {:saved, updated_user, message}}, socket) do
+    send(self(), {:phoenix_kit_user_updated, updated_user})
+
     {:ok,
-     socket
-     |> assign(:show_avatar_selector, false)
-     |> assign(:pending_avatar_uuid, file_uuid)
-     |> assign(:pending_avatar_crop, nil)
-     |> assign(:show_avatar_crop, true)}
+     assign(socket,
+       user: updated_user,
+       avatar_success_message: message,
+       avatar_error_message: nil
+     )}
   end
 
-  def update(%{action: :avatar_selector_closed}, socket) do
-    {:ok, assign(socket, :show_avatar_selector, false)}
+  def update(%{avatar_editor: {:failed, message}}, socket) do
+    {:ok, assign(socket, avatar_success_message: nil, avatar_error_message: message)}
   end
 
   def update(assigns, socket) do
@@ -224,7 +231,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
       |> assign(
         :timezone_options,
         [
-          {"Use System Default", nil}
+          {gettext("Use System Default"), nil}
           | TimeZone.options(selected: user.user_timezone)
         ]
       )
@@ -249,15 +256,10 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
       |> assign_new(:custom_field_definitions, fn ->
         CustomFields.list_user_accessible_field_definitions()
       end)
-      |> assign_new(:last_uploaded_avatar_uuid, fn -> nil end)
-      |> assign_new(:show_avatar_selector, fn -> false end)
-      |> assign_new(:show_avatar_crop, fn -> false end)
-      |> assign_new(:pending_avatar_crop, fn -> nil end)
-      |> assign_new(:pending_avatar_uuid, fn -> nil end)
       |> assign_new(:show_email_form, fn -> false end)
       |> assign_new(:show_password_form, fn -> false end)
       |> assign_new(:show_notification_prefs, fn -> false end)
-      |> assign_new(:notification_types, fn -> NotificationTypes.list() end)
+      |> assign_new(:notification_types, fn -> NotificationTypes.shown() end)
       |> assign_new(:notification_prefs, fn -> NotificationPrefs.get(user) end)
       |> assign_new(:notification_success_message, fn -> nil end)
       |> assign_new(:current_session_token, fn -> assigns[:current_session_token] end)
@@ -296,6 +298,20 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
       when event in ["browser_timezone_detected", "use_browser_timezone"],
       do: {:noreply, socket}
 
+  # Checked on every event, from the link rather than the assigns, then handed to the
+  # event's own clause. `:link_checked` is an atom, which a browser's params never hold.
+  def handle_event(
+        event,
+        params,
+        %{assigns: %{user: %{organization_manager_uuid: uuid} = user}} = socket
+      )
+      when event in @company_profile_events and is_binary(uuid) and
+             not is_map_key(params, :link_checked) do
+    if ActingLink.staff?(user),
+      do: {:noreply, socket},
+      else: handle_event(event, Map.put(params, :link_checked, true), socket)
+  end
+
   def handle_event("validate_email", params, socket) do
     %{"current_password" => password, "user" => user_params} = params
 
@@ -323,7 +339,8 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
         Auth.deliver_user_update_email_instructions(
           applied_user,
           user.email,
-          socket.assigns.email_confirm_url_fn
+          socket.assigns.email_confirm_url_fn,
+          locale: PhoenixKit.Utils.Multilang.current_locale()
         )
 
         socket =
@@ -461,7 +478,10 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
 
     socket =
       socket
-      |> assign(:oauth_info_message, "Redirecting to #{format_provider_name(provider)}...")
+      |> assign(
+        :oauth_info_message,
+        gettext("Redirecting to %{provider}…", provider: format_provider_name(provider))
+      )
       |> redirect(external: oauth_url)
 
     {:noreply, socket}
@@ -528,76 +548,6 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
 
       {:noreply, socket}
     end
-  end
-
-  def handle_event("open_avatar_selector", _params, socket) do
-    {:noreply, assign(socket, :show_avatar_selector, true)}
-  end
-
-  # ---- non-destructive avatar crop -----------------------------------------
-  #
-  # The crop is data in custom_fields["avatar_crop"], never a new image file:
-  # the editor below adjusts four numbers, and rendering applies them as CSS.
-  # See PhoenixKit.Users.AvatarCrop.
-
-  def handle_event("open_avatar_crop", _params, socket) do
-    # A stale DOM click can arrive after the avatar was removed; with no
-    # file there is nothing to crop, and rendering the modal would call
-    # URLSigner.signed_url(nil, ...) and take the LiveView down.
-    if get_in(socket.assigns.user.custom_fields, ["avatar_file_uuid"]) do
-      {:noreply,
-       socket
-       |> assign(:show_avatar_crop, true)
-       |> assign(:pending_avatar_uuid, nil)
-       |> assign(:pending_avatar_crop, AvatarCrop.from_user(socket.assigns.user))}
-    else
-      {:noreply, socket}
-    end
-  end
-
-  def handle_event("close_avatar_crop", _params, socket) do
-    {:noreply,
-     socket
-     |> assign(:show_avatar_crop, false)
-     |> assign(:pending_avatar_crop, nil)
-     |> assign(:pending_avatar_uuid, nil)}
-  end
-
-  # Pushed by the AvatarCrop hook at the end of every gesture (drag release,
-  # zoom change), so "Save" always persists what the person is looking at.
-  def handle_event("avatar_crop_changed", params, socket) do
-    {:noreply, assign(socket, :pending_avatar_crop, AvatarCrop.normalize(params))}
-  end
-
-  def handle_event("save_avatar_crop", _params, socket) do
-    crop = socket.assigns.pending_avatar_crop
-
-    cond do
-      # A freshly picked file: the file and its framing land together. An
-      # untouched editor saves no crop at all — the default fit IS the
-      # uncropped avatar (see AvatarCrop.drop_identity/1).
-      uuid = socket.assigns.pending_avatar_uuid ->
-        persist_new_avatar(socket, uuid, AvatarCrop.drop_identity(crop))
-
-      crop ->
-        # Same identity rule on the adjust path: zooming back out to the
-        # default fit and saving IS a reset.
-        persist_avatar_crop(
-          socket,
-          AvatarCrop.drop_identity(crop),
-          gettext("Avatar crop updated!")
-        )
-
-      true ->
-        {:noreply, assign(socket, :show_avatar_crop, false)}
-    end
-  end
-
-  # Back to the uncropped avatar. Storing nil rather than deleting the key:
-  # update_user_fields merges custom fields, and a merged nil reads as
-  # "no crop" everywhere while needing no delete plumbing.
-  def handle_event("reset_avatar_crop", _params, socket) do
-    persist_avatar_crop(socket, nil, gettext("Avatar crop reset."))
   end
 
   def handle_event("toggle_email_form", _params, socket) do
@@ -1053,88 +1003,6 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
     end
   end
 
-  defp persist_new_avatar(socket, file_uuid, crop) do
-    user = socket.assigns.user
-
-    case Auth.update_user_fields(user, %{"avatar_file_uuid" => file_uuid, "avatar_crop" => crop}) do
-      {:ok, updated_user} ->
-        send(self(), {:phoenix_kit_user_updated, updated_user})
-
-        PhoenixKit.Activity.log(%{
-          action: "user.avatar_changed",
-          module: "users",
-          mode: "manual",
-          actor_uuid: updated_user.uuid,
-          acting_user_uuid: user.acting_user_uuid,
-          resource_type: "user",
-          resource_uuid: updated_user.uuid,
-          metadata: %{
-            "avatar_from" => get_in(user.custom_fields, ["avatar_file_uuid"]) || "",
-            "avatar_to" => file_uuid,
-            "cropped" => crop != nil,
-            "actor_role" => "user"
-          }
-        })
-
-        {:noreply,
-         socket
-         |> assign(:user, updated_user)
-         |> assign(:show_avatar_crop, false)
-         |> assign(:pending_avatar_crop, nil)
-         |> assign(:pending_avatar_uuid, nil)
-         |> assign(:last_uploaded_avatar_uuid, file_uuid)
-         |> assign(:avatar_success_message, gettext("Avatar updated successfully!"))
-         |> assign(:avatar_error_message, nil)}
-
-      {:error, _changeset} ->
-        {:noreply,
-         socket
-         |> assign(:show_avatar_crop, false)
-         |> assign(:pending_avatar_uuid, nil)
-         |> assign(:avatar_error_message, gettext("Failed to update avatar"))
-         |> assign(:avatar_success_message, nil)}
-    end
-  end
-
-  defp persist_avatar_crop(socket, crop, success_message) do
-    user = socket.assigns.user
-
-    case Auth.update_user_fields(user, %{"avatar_crop" => crop}) do
-      {:ok, updated_user} ->
-        send(self(), {:phoenix_kit_user_updated, updated_user})
-
-        PhoenixKit.Activity.log(%{
-          action: "user.avatar_crop_changed",
-          module: "users",
-          mode: "manual",
-          actor_uuid: updated_user.uuid,
-          acting_user_uuid: user.acting_user_uuid,
-          resource_type: "user",
-          resource_uuid: updated_user.uuid,
-          metadata: %{
-            "cropped" => crop != nil,
-            "actor_role" => "user"
-          }
-        })
-
-        {:noreply,
-         socket
-         |> assign(:user, updated_user)
-         |> assign(:show_avatar_crop, false)
-         |> assign(:pending_avatar_crop, nil)
-         |> assign(:pending_avatar_uuid, nil)
-         |> assign(:avatar_success_message, success_message)
-         |> assign(:avatar_error_message, nil)}
-
-      {:error, _changeset} ->
-        {:noreply,
-         socket
-         |> assign(:show_avatar_crop, false)
-         |> assign(:avatar_error_message, gettext("Failed to update avatar crop"))
-         |> assign(:avatar_success_message, nil)}
-    end
-  end
-
   defp format_provider_name("google"), do: "Google"
   defp format_provider_name("apple"), do: "Apple"
   defp format_provider_name("github"), do: "GitHub"
@@ -1166,11 +1034,11 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
               </div>
             <% end %>
 
-            <%!-- Avatar Upload Messages --%>
-            <%= if @last_uploaded_avatar_uuid do %>
+            <%!-- Avatar Messages --%>
+            <%= if @avatar_success_message do %>
               <div class="alert alert-success text-sm mb-4">
                 <.icon name="hero-check" class="stroke-current shrink-0 h-4 w-4" />
-                <span>Avatar uploaded successfully!</span>
+                <span>{@avatar_success_message}</span>
               </div>
             <% end %>
             <%= if @avatar_error_message do %>
@@ -1189,50 +1057,44 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
               phx-target={@myself}
             >
               <div class="flex flex-col gap-6 lg:flex-row lg:gap-4 lg:items-start">
-                <%!-- Avatar Section --%>
-                <div class="flex flex-col items-center gap-2 mx-auto lg:mx-0">
-                  <%!-- The shared component: same cascade as everywhere else,
-                       and the "xl" size loads the medium (800px) variant — the
-                       old inline <img> here loaded the 150px thumbnail into
-                       this 160px circle, which is what made it blurry. --%>
-                  <.user_avatar user={@user} size="xl" class="border-2 border-primary" />
-                  <button
-                    type="button"
-                    phx-click="open_avatar_selector"
-                    phx-target={@myself}
-                    class="btn btn-primary w-40"
-                  >
-                    <.icon name="hero-photo" class="w-5 h-5" /> Browse Media
-                  </button>
-                  <button
-                    :if={get_in(@user.custom_fields, ["avatar_file_uuid"])}
-                    type="button"
-                    id={"#{@id}-avatar-crop-open"}
-                    phx-click="open_avatar_crop"
-                    phx-target={@myself}
-                    class="btn btn-ghost btn-sm w-40"
-                  >
-                    <.icon name="hero-viewfinder-circle" class="w-4 h-4" /> {gettext("Adjust Crop")}
-                  </button>
-                </div>
+                <%!-- Avatar: the same control the admin's user form shows. --%>
+                <.live_component
+                  module={PhoenixKitWeb.Live.Components.AvatarEditor}
+                  id={"#{@id}-avatar"}
+                  user={@user}
+                  notify={{__MODULE__, @id}}
+                  class="mx-auto lg:mx-0"
+                />
 
                 <%!-- Name Fields --%>
                 <div class="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-3 w-full">
-                  <.input
-                    field={@profile_form[:first_name]}
-                    type="text"
-                    label="First Name"
-                  />
-                  <.input
-                    field={@profile_form[:last_name]}
-                    type="text"
-                    label="Last Name"
-                  />
+                  <%!-- An organization has a name, not a first and a last one. --%>
+                  <%= if @user.account_type == "organization" do %>
+                    <div class="col-span-1 lg:col-span-2">
+                      <.input
+                        field={@profile_form[:organization_name]}
+                        type="text"
+                        label={gettext("Organization Name")}
+                        required
+                      />
+                    </div>
+                  <% else %>
+                    <.input
+                      field={@profile_form[:first_name]}
+                      type="text"
+                      label={gettext("First Name")}
+                    />
+                    <.input
+                      field={@profile_form[:last_name]}
+                      type="text"
+                      label={gettext("Last Name")}
+                    />
+                  <% end %>
                   <div class="col-span-1 lg:col-span-2">
                     <.input
                       field={@profile_form[:username]}
                       type="text"
-                      label="Username"
+                      label={gettext("Username")}
                     />
                   </div>
                 </div>
@@ -1253,7 +1115,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
               >
                 <.select
                   field={@profile_form[:user_timezone]}
-                  label="Personal Timezone"
+                  label={gettext("Personal Timezone")}
                   options={@timezone_options}
                 />
 
@@ -1323,113 +1185,11 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
               <:actions>
                 <div class="ml-auto">
                   <.button phx-disable-with="Updating..." class="btn-primary">
-                    Update Profile
+                    {gettext("Update Profile")}
                   </.button>
                 </div>
               </:actions>
             </.simple_form>
-
-            <.live_component
-              module={PhoenixKitWeb.Live.Components.UserMediaSelectorModal}
-              id={"#{@id}-avatar-media-selector"}
-              show={@show_avatar_selector}
-              mode={:single}
-              selected_uuids={[]}
-              phoenix_kit_current_user={@user}
-              on_select={{PhoenixKitWeb.Live.Components.UserSettings, @id, :set_avatar}}
-            />
-
-            <%!-- Non-destructive crop editor. Drag to position, slider or
-                 wheel to zoom — the AvatarCrop hook previews with the same
-                 math the avatar component renders with, and the original
-                 image is never touched. --%>
-            <.modal
-              :if={@show_avatar_crop}
-              show={@show_avatar_crop}
-              on_close="close_avatar_crop"
-              id={"#{@id}-avatar-crop-modal"}
-              max_width="md"
-            >
-              <:title>{gettext("Adjust Avatar Crop")}</:title>
-              <div
-                id={"#{@id}-avatar-crop-editor"}
-                phx-hook="AvatarCrop"
-                phx-target={@myself}
-                phx-update="ignore"
-                data-crop={Phoenix.json_library().encode!(@pending_avatar_crop || %{})}
-                data-max-zoom={AvatarCrop.max_zoom()}
-                class="flex flex-col items-center gap-4 py-2"
-              >
-                <div
-                  data-crop-frame
-                  class="relative w-64 h-64 rounded-full overflow-hidden bg-neutral cursor-grab touch-none select-none ring-2 ring-primary ring-offset-2"
-                >
-                  <img
-                    data-crop-img
-                    src={
-                      URLSigner.signed_url(
-                        @pending_avatar_uuid || get_in(@user.custom_fields, ["avatar_file_uuid"]),
-                        "large"
-                      )
-                    }
-                    alt=""
-                    draggable="false"
-                    class="absolute max-w-none pointer-events-none"
-                  />
-                </div>
-                <div class="flex items-center gap-3 w-64">
-                  <.icon name="hero-magnifying-glass-minus" class="w-4 h-4 opacity-60" />
-                  <input
-                    data-crop-zoom
-                    type="range"
-                    min="1"
-                    max={AvatarCrop.max_zoom()}
-                    step="0.01"
-                    value="1"
-                    class="range range-primary range-xs flex-1"
-                    aria-label={gettext("Zoom")}
-                  />
-                  <.icon name="hero-magnifying-glass-plus" class="w-4 h-4 opacity-60" />
-                </div>
-              </div>
-              <:actions>
-                <%!-- Nothing to reset on a fresh pick — the default fit
-                     already is the uncropped image. --%>
-                <button
-                  :if={is_nil(@pending_avatar_uuid)}
-                  type="button"
-                  id={"#{@id}-avatar-crop-reset"}
-                  phx-click="reset_avatar_crop"
-                  phx-target={@myself}
-                  class="btn btn-ghost btn-sm mr-auto"
-                >
-                  {gettext("Reset")}
-                </button>
-                <button
-                  type="button"
-                  id={"#{@id}-avatar-crop-cancel"}
-                  phx-click="close_avatar_crop"
-                  phx-target={@myself}
-                  class="btn btn-sm"
-                >
-                  {gettext("Cancel")}
-                </button>
-                <%!-- data-crop-save-btn: the AvatarCrop hook flushes its
-                     pending state on this click (capture phase, so the
-                     flush is pushed before the phx-click), closing the
-                     window where a debounced wheel-zoom would be lost. --%>
-                <button
-                  type="button"
-                  id={"#{@id}-avatar-crop-save"}
-                  data-crop-save-btn
-                  phx-click="save_avatar_crop"
-                  phx-target={@myself}
-                  class="btn btn-primary btn-sm"
-                >
-                  {gettext("Save Crop")}
-                </button>
-              </:actions>
-            </.modal>
 
             <%= if Enum.any?([:custom_fields, :email, :password, :oauth], & &1 in @sections) do %>
               <div class="divider"></div>
@@ -1448,9 +1208,11 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
               phx-target={@myself}
             >
               <%= if :identity in @sections do %>
-                <div class="divider text-sm text-base-content/60">Additional Information</div>
+                <div class="divider text-sm text-base-content/60">
+                  {gettext("Additional Information")}
+                </div>
               <% else %>
-                <h2 class="text-lg font-semibold mb-2">Additional Information</h2>
+                <h2 class="text-lg font-semibold mb-2">{gettext("Additional Information")}</h2>
               <% end %>
 
               <div
@@ -1485,7 +1247,9 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                       />
                       <div class="label">
                         <span class="fieldset-label text-xs text-base-content/60">
-                          Structured value, stored by a feature rather than typed here — read-only.
+                          {gettext(
+                            "Structured value, stored by a feature rather than typed here — read-only."
+                          )}
                         </span>
                       </div>
                     <% else %>
@@ -1566,7 +1330,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
               <:actions>
                 <div class="ml-auto">
                   <.button phx-disable-with="Updating..." class="btn-primary">
-                    Update Custom Fields
+                    {gettext("Update Custom Fields")}
                   </.button>
                 </div>
               </:actions>
@@ -1582,7 +1346,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
           <div>
             <div class="flex items-center justify-between">
               <h2 class="text-lg font-semibold flex items-center gap-2">
-                <.icon name="hero-envelope" class="w-5 h-5 text-primary" /> Email Address
+                <.icon name="hero-envelope" class="w-5 h-5 text-primary" /> {gettext("Email Address")}
               </h2>
               <button
                 type="button"
@@ -1594,7 +1358,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                   name={if @show_email_form, do: "hero-x-mark", else: "hero-pencil"}
                   class="w-4 h-4"
                 />
-                {if @show_email_form, do: "Cancel", else: "Change Email"}
+                {if @show_email_form, do: gettext("Cancel"), else: gettext("Change Email")}
               </button>
             </div>
 
@@ -1624,7 +1388,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                 <.input
                   field={@email_form[:email]}
                   type="email"
-                  label="New Email"
+                  label={gettext("New Email")}
                   required
                 />
                 <.input
@@ -1632,14 +1396,15 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                   name="current_password"
                   id={"#{@id}-current-password-for-email"}
                   type="password"
-                  label="Current Password"
+                  label={gettext("Current Password")}
                   value={@email_form_current_password}
                   required
+                  password_toggle
                 />
                 <:actions>
                   <div class="ml-auto">
                     <.button phx-disable-with="Changing..." class="btn-primary">
-                      Update Email
+                      {gettext("Update Email")}
                     </.button>
                   </div>
                 </:actions>
@@ -1657,7 +1422,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
           <div>
             <div class="flex items-center justify-between">
               <h2 class="text-lg font-semibold flex items-center gap-2">
-                <.icon name="hero-lock-closed" class="w-5 h-5 text-primary" /> Password
+                <.icon name="hero-lock-closed" class="w-5 h-5 text-primary" /> {gettext("Password")}
               </h2>
               <button
                 type="button"
@@ -1669,7 +1434,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                   name={if @show_password_form, do: "hero-x-mark", else: "hero-pencil"}
                   class="w-4 h-4"
                 />
-                {if @show_password_form, do: "Cancel", else: "Change Password"}
+                {if @show_password_form, do: gettext("Cancel"), else: gettext("Change Password")}
               </button>
             </div>
 
@@ -1708,27 +1473,30 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                 <.input
                   field={@password_form[:password]}
                   type="password"
-                  label="New Password"
+                  label={gettext("New Password")}
                   required
+                  password_toggle
                 />
                 <.input
                   field={@password_form[:password_confirmation]}
                   type="password"
-                  label="Confirm New Password"
+                  label={gettext("Confirm New Password")}
+                  password_toggle
                 />
                 <.input
                   field={@password_form[:current_password]}
                   name="current_password"
                   type="password"
-                  label="Current Password"
+                  label={gettext("Current Password")}
                   id={"#{@id}-current-password-for-password"}
                   value={@current_password}
                   required
+                  password_toggle
                 />
                 <:actions>
                   <div class="ml-auto">
                     <.button phx-disable-with="Changing..." class="btn-primary">
-                      Update Password
+                      {gettext("Update Password")}
                     </.button>
                   </div>
                 </:actions>
@@ -1742,7 +1510,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
           <div class="divider"></div>
           <div>
             <h2 class="text-lg font-semibold flex items-center gap-2 mb-4">
-              <.icon name="hero-link" class="w-5 h-5 text-primary" /> Connected Accounts
+              <.icon name="hero-link" class="w-5 h-5 text-primary" /> {gettext("Connected Accounts")}
             </h2>
 
             <%= if @oauth_success_message do %>
@@ -1787,9 +1555,13 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                       phx-target={@myself}
                       phx-value-provider={provider.provider}
                       class="btn btn-sm btn-outline btn-error"
-                      data-confirm="Are you sure you want to disconnect this account? You won't be able to sign in with it anymore."
+                      data-confirm={
+                        gettext(
+                          "Are you sure you want to disconnect this account? You won't be able to sign in with it anymore."
+                        )
+                      }
                     >
-                      Disconnect
+                      {gettext("Disconnect")}
                     </button>
                   </div>
                 <% end %>
@@ -1808,7 +1580,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                     class="btn btn-outline"
                   >
                     <.icon name="hero-plus" class="w-4 h-4 mr-1" />
-                    Connect {format_provider_name(provider)}
+                    {gettext("Connect %{provider}", provider: format_provider_name(provider))}
                   </button>
                 <% end %>
               </div>
@@ -1819,9 +1591,11 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
               <div class="alert alert-warning text-sm mt-4">
                 <.icon name="hero-exclamation-triangle" class="stroke-current shrink-0 h-4 w-4" />
                 <div>
-                  <div class="font-semibold">No Password Set</div>
+                  <div class="font-semibold">{gettext("No Password Set")}</div>
                   <div class="text-xs">
-                    You signed up using OAuth. Consider setting a password above as a backup sign-in method.
+                    {gettext(
+                      "You signed up using OAuth. Consider setting a password above as a backup sign-in method."
+                    )}
                   </div>
                 </div>
               </div>

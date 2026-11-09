@@ -153,6 +153,12 @@ own without the `data-pk-admin` marker has no early start, so its window is long
 public. A new gesture of that kind does the same: a catcher of a few lines in the public file, the logic in the
 admin file.
 
+Two listeners on `document` that are not hooks follow the same rule. The eye button of `<.input password_toggle>` is
+public, because its submit listener (`hideRevealedPasswords`) has to exist on the login, registration and password-reset
+pages. The larger copy of an avatar under the pointer (`<.user_avatar peek>`, `AvatarPeek`) is admin: core sets `peek`
+only on admin pages, and a page outside the admin area and the dashboard that sets it shows no preview, because that
+page never loads the bundle (a known limit; the preview is decoration).
+
 Helpers both files need stay in `phoenix_kit.js` and reach the admin file through
 `window.PhoenixKitInternals` (private; not an API).
 

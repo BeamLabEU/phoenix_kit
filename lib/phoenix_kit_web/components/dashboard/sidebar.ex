@@ -37,6 +37,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
   """
 
   use Phoenix.Component
+  use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.Dashboard.{Group, Presence, Registry, Tab, TabHelpers}
   alias PhoenixKit.Utils.Routes
@@ -127,7 +128,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
     assigns = assign(assigns, :has_multi_selector, has_multi_selector)
 
     ~H"""
-    <nav class={["space-y-1", @class]} role="navigation" aria-label="Dashboard navigation">
+    <nav class={["space-y-1", @class]} role="navigation" aria-label={gettext("Dashboard navigation")}>
       <%!-- Context Selector(s) at top (sub_position: :start) --%>
       <%= if @has_multi_selector do %>
         <%!-- Multi-selector mode --%>
@@ -398,7 +399,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
         @class
       ]}
       role="navigation"
-      aria-label="Mobile navigation"
+      aria-label={gettext("Mobile navigation")}
     >
       <div class="flex items-center justify-around">
         <%= for tab <- @tabs do %>
@@ -429,7 +430,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
           class="flex flex-col items-center justify-center py-2 px-3 cursor-pointer text-base-content/60 hover:text-base-content"
         >
           <.icon name="hero-ellipsis-horizontal" class="w-6 h-6" />
-          <span class="text-xs mt-1">More</span>
+          <span class="text-xs mt-1">{gettext("More")}</span>
         </label>
         <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52 mb-2">
           <%= for tab <- @tabs do %>

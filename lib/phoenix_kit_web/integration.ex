@@ -619,6 +619,9 @@ defmodule PhoenixKitWeb.Integration do
       live "/admin/users/edit/:id", Users.UserForm, :edit, as: :user_form_edit
       live "/admin/users/view/:id", Live.Users.UserDetails, :show
       live "/admin/users/roles", Live.Users.Roles, :index
+      live "/admin/users/relationship-types", Live.Users.RelationshipTypes, :index
+      live "/admin/users/relationship-types/new", Live.Users.RelationshipTypeForm, :new
+      live "/admin/users/relationship-types/:uuid/edit", Live.Users.RelationshipTypeForm, :edit
       live "/admin/users/permissions", Live.Users.PermissionsMatrix, :index
       live "/admin/users/live_sessions", Live.Users.LiveSessions, :index
       live "/admin/users/sessions", Live.Users.Sessions, :index

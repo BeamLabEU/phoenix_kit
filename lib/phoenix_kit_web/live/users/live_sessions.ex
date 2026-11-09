@@ -24,16 +24,22 @@ defmodule PhoenixKitWeb.Live.Users.LiveSessions do
   # `%{by:, dir:}` map that <.sort_header_cell sort={@sort}> expects — see
   # handle_url_state/2. The template keeps reading @sort and needs no edit.
   use PhoenixKitWeb.Live.UrlState,
-    params: [
-      search_query: [default: "", url_key: "q"],
-      filter_type: [default: "all", url_key: "type"],
-      sort_by: [default: :connected_at, cast: :atom, in: [:type, :connected_at], url_key: "sort"],
-      sort_dir: [default: :desc, cast: :atom, in: [:asc, :desc], url_key: "dir"],
-      page: [default: 1, cast: :integer, min: 1],
-      # Rows per page, picked with <.page_size_selector>. Allowlisted so a
-      # hand-edited URL cannot ask for a million-row page.
-      per_page: [default: 20, cast: :integer, in: [10, 20, 25, 50, 100]]
-    ]
+    # Rows per page and Auto, remembered per person across the admin's
+    # lists (`PhoenixKitWeb.PageSize`).
+    params:
+      [
+        search_query: [default: "", url_key: "q"],
+        filter_type: [default: "all", url_key: "type"],
+        sort_by: [
+          default: :connected_at,
+          cast: :atom,
+          in: [:type, :connected_at],
+          url_key: "sort"
+        ],
+        sort_dir: [default: :desc, cast: :atom, in: [:asc, :desc], url_key: "dir"],
+        page: [default: 1, cast: :integer, min: 1]
+      ] ++
+        PhoenixKitWeb.PageSize.url_params()
 
   alias PhoenixKit.Admin.{Events, Presence}
   alias PhoenixKit.Settings
@@ -71,6 +77,7 @@ defmodule PhoenixKitWeb.Live.Users.LiveSessions do
       |> assign(:auto_refresh, true)
       |> assign(:last_updated, UtilsDate.utc_now())
       |> load_stats()
+      |> PhoenixKitWeb.PageSize.mount()
 
     {:ok, socket}
   end
@@ -113,14 +120,10 @@ defmodule PhoenixKitWeb.Live.Users.LiveSessions do
     {:noreply, push_url_state(socket, sort_by: sort_by, sort_dir: sort_dir)}
   end
 
-  # `push_url_state` resets the page along with the size: page 7 of 20 rows
-  # is not page 7 of 100.
-  def handle_event("change_per_page", %{"per_page" => per_page}, socket) do
-    case Integer.parse(per_page) do
-      {per_page, ""} -> {:noreply, push_url_state(socket, per_page: per_page)}
-      _ -> {:noreply, socket}
-    end
-  end
+  # Saved for the person and applied to every list (`PhoenixKitWeb.PageSize`);
+  # the page goes back to 1, as page 7 of 10 rows is not page 7 of 100.
+  def handle_event("change_per_page", params, socket),
+    do: {:noreply, PhoenixKitWeb.PageSize.handle_change(params, socket)}
 
   def handle_event("toggle_auto_refresh", _params, socket) do
     auto_refresh = !socket.assigns.auto_refresh

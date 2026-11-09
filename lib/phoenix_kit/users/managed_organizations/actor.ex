@@ -12,6 +12,10 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Actor do
   References carry no raw tokens. Contexts lock the organization and the actor's
   user row before `authorize/2`; authority is rebuilt from live session rows on
   every mutation. This is not a public creation or switching surface.
+
+  An acting person has authority only through a link whose type has `can_manage`:
+  every caller of `authorize/2` is a way of managing the organization, so a staff
+  link is refused here and no caller has to remember to ask.
   """
 
   import Ecto.Query
@@ -23,16 +27,29 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Actor do
   alias PhoenixKit.Users.Auth.UserToken
   alias PhoenixKit.Users.ManagedOrganizations.Locks
   alias PhoenixKit.Users.OrganizationManager
+  alias PhoenixKit.Users.RelationshipType
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
   alias PhoenixKitWeb.Users.MultiSession
 
   @enforce_keys [:current, :root]
   defstruct [:current, :root]
 
+  @doc """
+  The session's authority, from the trusted signed session map.
+
+  `root` is the session whose authority `current` stands on. That is the root of
+  the stack, except for an account the person added themselves with its own
+  password or through OAuth (`MultiSession.impersonated?/1` is false for it):
+  signing in to it proved the same as a fresh login would, so it stands on its
+  own (`current == root`), and an Owner or Admin there manages organizations as
+  in their first account (2026-11-09, from WoodMatrix). A borrowed account (an
+  impersonation) keeps the stack's root, so it never passes as an Owner's or
+  Admin's own session; an organization slot has the account it was entered from
+  as its root. `MultiSession.person_token/1` is the one rule.
+  """
   def from_session(session) when is_map(session) do
     with {:ok, current} <- SessionRef.from_session(session),
-         [root_token | _] <- MultiSession.stack_tokens(session),
-         {:ok, root} <- SessionRef.from_session(%{"user_token" => root_token}) do
+         {:ok, root} <- root_ref(session, current) do
       {:ok, %__MODULE__{current: current, root: root}}
     else
       _ -> {:error, :forbidden}
@@ -40,6 +57,16 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Actor do
   end
 
   def from_session(_), do: {:error, :forbidden}
+
+  defp root_ref(session, current) do
+    active = session["user_token"]
+
+    case MultiSession.person_token(session) do
+      ^active -> {:ok, current}
+      token when is_binary(token) -> SessionRef.from_session(%{"user_token" => token})
+      _ -> :error
+    end
+  end
 
   def person_uuid(%__MODULE__{root: {_token, uuid}}) when is_binary(uuid), do: uuid
   def person_uuid(_), do: nil
@@ -50,11 +77,11 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Actor do
     with true <- Enum.all?([token, user, parent, person], &UUIDUtils.valid?/1),
          %UserToken{} = root <- lock_token(parent),
          true <- root.user_uuid == person,
-         :ok <- lock_grant(actor, org),
+         {:ok, grant} <- lock_grant(actor, org),
          %UserToken{} <- lock_token(token),
          {:ok, root_scope} <- SessionRef.scope_for_session(parent, person),
          {:ok, scope} <- SessionRef.scope_for_session(token, user) do
-      authority(actor, org, root_scope, scope)
+      authority(actor, org, root_scope, scope, grant)
     else
       _ -> {:error, :forbidden}
     end
@@ -113,7 +140,7 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Actor do
     )
   end
 
-  defp lock_grant(%{current: ref, root: ref}, _org), do: :ok
+  defp lock_grant(%{current: ref, root: ref}, _org), do: {:ok, nil}
 
   defp lock_grant(%{root: {_parent, person}}, org) when is_binary(org) do
     case RepoHelper.repo().one(
@@ -122,14 +149,14 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Actor do
              lock: "FOR KEY SHARE"
            )
          ) do
-      %OrganizationManager{} -> :ok
+      %OrganizationManager{} = grant -> {:ok, grant}
       _ -> :error
     end
   end
 
   defp lock_grant(_, _), do: :error
 
-  defp authority(%{current: ref, root: ref}, _org, _root, scope) do
+  defp authority(%{current: ref, root: ref}, _org, _root, scope, _grant) do
     if not scope.user.managed_by_members and
          (Scope.owner?(scope) or Scope.has_role?(scope, "Admin")) do
       {:ok,
@@ -139,14 +166,24 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Actor do
     end
   end
 
-  defp authority(%{root: {parent, person}}, org, root, scope) do
+  defp authority(%{root: {parent, person}}, org, root, scope, grant) do
     user = scope.user
 
     if user.uuid == org and user.managed_by_members and user.acting_user_uuid == person and
-         user.acting_session_uuid == parent and root.user.account_type == "person" do
-      {:ok, %{kind: :manager, scope: scope, person_uuid: person, actor_uuid: user.uuid}}
+         user.acting_session_uuid == parent and root.user.account_type == "person" and
+         can_manage?(grant) do
+      {:ok,
+       %{kind: :manager, scope: scope, person_uuid: person, actor_uuid: user.uuid, link: grant}}
     else
       {:error, :forbidden}
     end
   end
+
+  # A type's `can_manage` never changes, and the caller holds the organization's
+  # lock, so the grant's type cannot move under this read.
+  defp can_manage?(%OrganizationManager{relationship_type_uuid: uuid}) do
+    match?(%RelationshipType{can_manage: true}, RepoHelper.repo().get(RelationshipType, uuid))
+  end
+
+  defp can_manage?(_grant), do: false
 end

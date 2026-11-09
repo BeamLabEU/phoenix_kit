@@ -31,100 +31,48 @@
     <%!-- User Form --%>
     <div class="max-w-2xl mx-auto">
       <div class="bg-base-100 rounded-lg shadow-md p-6">
-        <%!-- Avatar Upload Section (Edit mode only) --%>
+        <%!-- Avatar (edit mode only): the same control the person has in
+             their profile settings, picking from the site's media library. It
+             saves straight away, apart from the form below. --%>
         <%= if @mode == :edit do %>
-          <div class="mb-6">
-            <div class="flex gap-6">
-              <%!-- Avatar Preview (Left) --%>
-              <div class="flex-shrink-0">
-                <% avatar_file_uuid =
-                  @pending_avatar_file_uuid ||
-                    (@user.custom_fields && @user.custom_fields["avatar_file_uuid"]) %>
-                <% variant = "medium" %>
-                <div class="w-32 h-32 bg-primary rounded-lg overflow-hidden flex items-center justify-center relative">
-                  <%= if avatar_file_uuid do %>
-                    <% avatar_url =
-                      PhoenixKit.Modules.Storage.URLSigner.signed_url(avatar_file_uuid, variant) %>
-                    <%!-- The stored crop belongs to the CURRENT avatar; a
-                         pending selection is a different file, previewed
-                         uncropped until saved. --%>
-                    <% crop =
-                      if @pending_avatar_file_uuid,
-                        do: nil,
-                        else: PhoenixKit.Users.AvatarCrop.from_user(@user) %>
-                    <img
-                      src={avatar_url}
-                      alt="Avatar"
-                      style={crop && PhoenixKit.Users.AvatarCrop.img_style(crop)}
-                      class={if crop, do: nil, else: "w-full h-full object-cover"}
-                      onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
-                    />
-                    <div class="hidden w-full h-full bg-primary flex items-center justify-center text-center">
-                      <div>
-                        <.icon
-                          name="hero-check-circle"
-                          class="w-12 h-12 text-success mx-auto mb-2"
-                        />
-                        <p class="text-xs text-primary-content">Avatar</p>
-                      </div>
-                    </div>
-                    <%!-- Pending Badge --%>
-                    <%= if @pending_avatar_file_uuid do %>
-                      <div class="absolute top-2 right-2 badge badge-warning badge-sm h-auto">
-                        Pending
-                      </div>
-                    <% end %>
-                  <% else %>
-                    <% initials =
-                      (@user.first_name || @user.email)
-                      |> String.first()
-                      |> String.upcase() %>
-                    <div class="text-center">
-                      <p class="text-5xl font-bold text-primary-content">{initials}</p>
-                    </div>
-                  <% end %>
-                </div>
-              </div>
-
-              <%!-- Media Selector Controls (Right) --%>
-              <div class="flex-1">
-                <div class="space-y-3">
-                  <div>
-                    <label class="label">
-                      <span class="fieldset-legend font-semibold">Profile Avatar</span>
-                    </label>
-                    <p class="text-sm text-base-content/70 mb-3">
-                      Select an image from your media library
-                    </p>
-                  </div>
-
-                  <%!-- Media Selector Button --%>
-                  <button
-                    type="button"
-                    phx-click="open_media_selector"
-                    class="btn btn-outline btn-primary"
-                  >
-                    <.icon name="hero-photo" class="w-5 h-5 mr-2" />
-                    {if avatar_file_uuid, do: "Change Avatar", else: "Select Avatar"}
-                  </button>
-
-                  <%!-- Current Avatar Info --%>
-                  <%= if avatar_file_uuid do %>
-                    <%= if @pending_avatar_file_uuid do %>
-                      <div class="text-sm text-warning font-semibold">
-                        <.icon name="hero-clock" class="w-4 h-4 inline" />
-                        New avatar pending - click "Update User" to save
-                      </div>
-                    <% else %>
-                      <div class="text-sm text-base-content/60">
-                        <.icon name="hero-check-circle" class="w-4 h-4 inline text-success" />
-                        Avatar selected
-                      </div>
-                    <% end %>
-                  <% end %>
-                </div>
-              </div>
+          <div class="mb-6 flex flex-col sm:flex-row items-center sm:items-start gap-6">
+            <.live_component
+              module={PhoenixKitWeb.Live.Components.AvatarEditor}
+              id="user-form-avatar"
+              user={@user}
+              actor={@phoenix_kit_current_user}
+              picker={:media}
+            />
+            <div class="flex-1 text-center sm:text-left">
+              <span class="fieldset-legend font-semibold">{gettext("Profile Avatar")}</span>
+              <p class="text-sm text-base-content/70">
+                {gettext("Changes to the avatar are saved straight away.")}
+              </p>
             </div>
+          </div>
+
+          <div class="divider"></div>
+        <% end %>
+
+        <%!-- A person's companies, the same row as on the user's page: added,
+             created and removed straight away, apart from the form below. The
+             older single tie (`organization_uuid`) shows there as "Member". --%>
+        <%= if @mode == :edit and @org_accounts_enabled and @user.account_type == "person" do %>
+          <div id="user-form-organizations" class="mb-6 space-y-2">
+            <div>
+              <span class="fieldset-legend font-semibold">{gettext("Organizations")}</span>
+              <p class="text-sm text-base-content/70">
+                {gettext("Changes to the organizations are saved straight away.")}
+              </p>
+            </div>
+            <.live_component
+              module={PhoenixKitWeb.Live.Components.PersonOrganizations}
+              id="person-organizations"
+              person={@user}
+              actor={@manager_actor}
+              can_edit={can_edit_organizations?(assigns)}
+              notice={manage_notice(assigns)}
+            />
           </div>
 
           <div class="divider"></div>
@@ -148,8 +96,8 @@
               <.input
                 field={form[:email]}
                 type="email"
-                label="Email"
-                placeholder="user@example.com"
+                label={gettext("Email")}
+                placeholder={gettext("user@example.com")}
                 required
                 readonly={not @can_manage_credentials}
               />
@@ -160,11 +108,13 @@
               <.input
                 field={form[:username]}
                 type="text"
-                label="Username"
-                placeholder="unique_username"
+                label={gettext("Username")}
+                placeholder={gettext("unique_username")}
               />
               <div class="text-xs text-base-content/60 mt-2">
-                Unique username (3-30 characters, letters, numbers, and underscores only)
+                {gettext(
+                  "Unique username (3-30 characters, letters, numbers, and underscores only)"
+                )}
               </div>
             </div>
 
@@ -174,8 +124,8 @@
                 <.input
                   field={form[:password]}
                   type="password"
-                  label="Password"
-                  placeholder="Minimum 8 characters"
+                  label={gettext("Password")}
+                  placeholder={gettext("Minimum 8 characters")}
                   required
                 />
               </div>
@@ -233,8 +183,8 @@
                   <.input
                     field={form[:first_name]}
                     type="text"
-                    label="First Name"
-                    placeholder="Optional"
+                    label={gettext("First Name")}
+                    placeholder={gettext("Optional")}
                   />
                 </div>
 
@@ -243,28 +193,9 @@
                   <.input
                     field={form[:last_name]}
                     type="text"
-                    label="Last Name"
-                    placeholder="Optional"
+                    label={gettext("Last Name")}
+                    placeholder={gettext("Optional")}
                   />
-                </div>
-              </div>
-            <% end %>
-
-            <%!-- Organization Selector (shown for persons when feature is enabled and orgs exist) --%>
-            <%= if @org_accounts_enabled and @current_account_type != "organization" and length(@organizations) > 0 do %>
-              <div class="fieldset w-full">
-                <label class="label">
-                  <span class="fieldset-legend font-semibold">{gettext("Organization")}</span>
-                  <span class="fieldset-label text-base-content/60">{gettext("Optional")}</span>
-                </label>
-                <.select
-                  name="user[organization_uuid]"
-                  value={Map.get(@form_data, "organization_uuid")}
-                  prompt="— No organization —"
-                  options={Enum.map(@organizations, &{&1.organization_name, to_string(&1.uuid)})}
-                />
-                <div class="text-xs text-base-content/60 mt-1">
-                  Link this person to an organization account
                 </div>
               </div>
             <% end %>
@@ -273,7 +204,7 @@
             <div class="fieldset">
               <.select
                 field={form[:user_timezone]}
-                label="Personal Timezone"
+                label={gettext("Personal Timezone")}
                 options={@timezone_options}
               />
             </div>
@@ -319,7 +250,7 @@
           <%= if @mode == :edit and @can_manage_credentials do %>
             <div class="fieldset">
               <label class="label">
-                <span class="fieldset-legend font-semibold">Password Management</span>
+                <span class="fieldset-legend font-semibold">{gettext("Password Management")}</span>
               </label>
               <div class="flex items-center gap-4 mt-2">
                 <button
@@ -328,13 +259,13 @@
                   class="btn btn-outline btn-sm"
                 >
                   <%= if @show_password_field do %>
-                    Hide Password Field
+                    {gettext("Hide Password Field")}
                   <% else %>
-                    Change Password
+                    {gettext("Change Password")}
                   <% end %>
                 </button>
                 <span class="text-sm text-base-content/70">
-                  Set a new password for this user (Admin privilege required)
+                  {gettext("Set a new password for this user (Admin privilege required)")}
                 </span>
               </div>
             </div>
@@ -345,14 +276,14 @@
                 <.input
                   field={form[:password]}
                   type="password"
-                  label="New Password"
-                  placeholder="Enter new password (minimum 8 characters)"
+                  label={gettext("New Password")}
+                  placeholder={gettext("Enter new password (minimum 8 characters)")}
                   required
                 />
                 <div class="text-xs text-base-content/60 mt-2">
                   <.icon name="hero-information-circle-solid" class="w-4 h-4 inline mr-1" />
-                  <strong>Note:</strong>
-                  This will immediately invalidate all current sessions for this user.
+                  <strong>{gettext("Note:")}</strong>
+                  {gettext("This will immediately invalidate all current sessions for this user.")}
                 </div>
               </div>
             <% end %>
@@ -362,11 +293,11 @@
           <%= if @mode == :edit do %>
             <div class="fieldset">
               <label class="label">
-                <span class="fieldset-legend font-semibold">Account Status</span>
+                <span class="fieldset-legend font-semibold">{gettext("Account Status")}</span>
                 <%= if @user.is_active do %>
-                  <span class="badge badge-success badge-sm h-auto">Active</span>
+                  <span class="badge badge-success badge-sm h-auto">{gettext("Active")}</span>
                 <% else %>
-                  <span class="badge badge-error badge-sm h-auto">Inactive</span>
+                  <span class="badge badge-error badge-sm h-auto">{gettext("Inactive")}</span>
                 <% end %>
               </label>
 
@@ -379,9 +310,9 @@
                         class="w-5 h-5 mt-0.5 text-info"
                       />
                       <div class="text-sm">
-                        <p class="font-medium">Cannot modify own status</p>
+                        <p class="font-medium">{gettext("Cannot modify own status")}</p>
                         <p class="text-base-content/70 mt-1">
-                          You cannot deactivate your own account for security reasons.
+                          {gettext("You cannot deactivate your own account for security reasons.")}
                         </p>
                       </div>
                     </div>
@@ -398,9 +329,9 @@
                         class="w-5 h-5 mt-0.5 text-info"
                       />
                       <div class="text-sm">
-                        <p class="font-medium">Cannot modify this user's status</p>
+                        <p class="font-medium">{gettext("Cannot modify this user's status")}</p>
                         <p class="text-base-content/70 mt-1">
-                          Only an Owner can activate or deactivate this account.
+                          {gettext("Only an Owner can activate or deactivate this account.")}
                         </p>
                       </div>
                     </div>
@@ -413,16 +344,16 @@
                       class={"btn btn-sm #{if @user.is_active, do: "btn-error btn-outline", else: "btn-success"}"}
                     >
                       <%= if @user.is_active do %>
-                        Deactivate User
+                        {gettext("Deactivate User")}
                       <% else %>
-                        Activate User
+                        {gettext("Activate User")}
                       <% end %>
                     </button>
                     <span class="text-sm text-base-content/70">
                       <%= if @user.is_active do %>
-                        Deactivating will prevent this user from logging in
+                        {gettext("Deactivating will prevent this user from logging in")}
                       <% else %>
-                        Activating will allow this user to log in
+                        {gettext("Activating will allow this user to log in")}
                       <% end %>
                     </span>
                   </div>
@@ -433,8 +364,10 @@
                         name="hero-exclamation-triangle-solid"
                         class="w-4 h-4 inline mr-1 text-warning"
                       />
-                      <strong>Note:</strong>
-                      Cannot deactivate if this is the last active Owner in the system.
+                      <strong>{gettext("Note:")}</strong>
+                      {gettext(
+                        "Cannot deactivate if this is the last active Owner in the system."
+                      )}
                     </div>
                   <% end %>
               <% end %>
@@ -448,12 +381,16 @@
                 <div class="flex items-start gap-3">
                   <.icon name="hero-information-circle-solid" class="w-5 h-5 mt-0.5 text-info" />
                   <div class="text-sm">
-                    <p class="font-medium">Cannot modify own roles</p>
+                    <p class="font-medium">{gettext("Cannot modify own roles")}</p>
                     <p class="text-base-content/70 mt-1">
-                      You cannot modify your own roles for security reasons. Ask another admin to change your roles.
+                      {gettext(
+                        "You cannot modify your own roles for security reasons. Ask another admin to change your roles."
+                      )}
                     </p>
                     <div class="mt-3">
-                      <p class="font-medium text-base-content">Your current roles:</p>
+                      <p class="font-medium text-base-content">
+                        {gettext("Your current roles:")}
+                      </p>
                       <div class="flex flex-wrap gap-2 mt-2">
                         <%= for role_name <- @user_roles do %>
                           <.role_badge
@@ -462,7 +399,9 @@
                           />
                         <% end %>
                         <%= if Enum.empty?(@user_roles) do %>
-                          <span class="badge badge-ghost badge-sm h-auto">No roles assigned</span>
+                          <span class="badge badge-ghost badge-sm h-auto">{gettext(
+                            "No roles assigned"
+                          )}</span>
                         <% end %>
                       </div>
                     </div>
@@ -472,7 +411,7 @@
             <% else %>
               <div class="fieldset w-full">
                 <label class="label">
-                  <span class="fieldset-legend font-semibold">User Roles</span>
+                  <span class="fieldset-legend font-semibold">{gettext("User Roles")}</span>
                 </label>
 
                 <%!-- Multi-select Dropdown --%>
@@ -485,7 +424,7 @@
                   >
                     <div class="flex flex-wrap gap-2 items-center overflow-hidden">
                       <%= if Enum.empty?(@user_roles) do %>
-                        <span class="text-base-content/60">Select roles...</span>
+                        <span class="text-base-content/60">{gettext("Select roles...")}</span>
                       <% else %>
                         <%= for role_name <- @user_roles do %>
                           <.role_badge
@@ -518,7 +457,7 @@
                     <%= if Enum.empty?(@all_roles) do %>
                       <div class="text-center py-4 text-base-content/70 px-4">
                         <p class="text-sm">
-                          No roles available. Create roles first in Role Management.
+                          {gettext("No roles available. Create roles first in Role Management.")}
                         </p>
                       </div>
                     <% else %>
@@ -546,16 +485,18 @@
                               <div class="flex-1 flex flex-wrap items-center gap-2">
                                 <.role_badge role={role} size={:sm} />
                                 <%= if role.is_system_role do %>
-                                  <span class="badge badge-outline badge-xs h-auto">System</span>
+                                  <span class="badge badge-outline badge-xs h-auto">{gettext(
+                                    "System"
+                                  )}</span>
                                 <% end %>
-                                <%= if role.description do %>
+                                <%= if description = PhoenixKit.Users.Roles.display_description(role) do %>
                                   <span class="text-xs text-base-content/70">
-                                    - {role.description}
+                                    - {description}
                                   </span>
                                 <% end %>
                                 <%= if owner_role? do %>
                                   <span class="badge badge-warning badge-xs h-auto">
-                                    Protected
+                                    {gettext("Protected")}
                                   </span>
                                 <% end %>
                               </div>
@@ -569,9 +510,10 @@
 
                 <div class="text-xs text-base-content/60 mt-2">
                   <.icon name="hero-information-circle-solid" class="w-4 h-4 inline mr-1" />
-                  <strong>Note:</strong>
-                  Owner role is protected and can only be assigned during initial setup.
-                  Removing the last Owner is not allowed.
+                  <strong>{gettext("Note:")}</strong>
+                  {gettext(
+                    "Owner role is protected and can only be assigned during initial setup. Removing the last Owner is not allowed."
+                  )}
                 </div>
               </div>
             <% end %>
@@ -579,7 +521,7 @@
 
           <%!-- Custom User Fields Section (Edit mode only) --%>
           <%= if @mode == :edit && length(@field_definitions) > 0 do %>
-            <div class="divider text-base-content/60 mt-6">Custom User Fields</div>
+            <div class="divider text-base-content/60 mt-6">{gettext("Custom User Fields")}</div>
 
             <%= for field_def <- Enum.sort_by(@field_definitions, & &1["position"]) do %>
               <% field_key = field_def["key"] %>
@@ -623,7 +565,9 @@
                   />
                   <div class="label">
                     <span class="fieldset-label text-xs text-base-content/60">
-                      Structured value, stored by a feature rather than typed here — read-only.
+                      {gettext(
+                        "Structured value, stored by a feature rather than typed here — read-only."
+                      )}
                     </span>
                   </div>
                 <% else %>
@@ -666,7 +610,7 @@
                         name={"user[custom_fields][#{field_key}]"}
                         value={field_value}
                         class={field_error && "input-error"}
-                        placeholder="user@example.com"
+                        placeholder={gettext("user@example.com")}
                         required={field_def["required"]}
                       />
                     <% "url" -> %>
@@ -675,7 +619,7 @@
                         name={"user[custom_fields][#{field_key}]"}
                         value={field_value}
                         class={field_error && "input-error"}
-                        placeholder="https://example.com"
+                        placeholder={gettext("https://example.com")}
                         required={field_def["required"]}
                       />
                     <% "uuid" -> %>
@@ -692,7 +636,7 @@
                         value={field_value}
                         required={field_def["required"]}
                         class={field_error && "select-error"}
-                        prompt="Select an option"
+                        prompt={gettext("Select an option")}
                         options={(field_def["options"] || []) |> Enum.with_index()}
                       />
                     <% _default -> %>
@@ -719,20 +663,22 @@
           <% end %>
 
           <%= if @mode == :new do %>
-            <div class="divider">Additional Information</div>
+            <div class="divider">{gettext("Additional Information")}</div>
 
             <div class="bg-base-200 p-4 rounded-lg">
               <div class="flex items-start gap-3">
                 <.icon name="hero-information-circle-solid" class="w-5 h-5 mt-0.5 text-info" />
                 <div class="text-sm">
-                  <p class="font-medium">Default Settings:</p>
+                  <p class="font-medium">{gettext("Default Settings:")}</p>
                   <ul class="mt-1 text-base-content/70">
                     <li>
-                      • User will be assigned default "<span class="font-semibold text-primary">{@default_role}</span>" role
+                      {gettext("• User will be assigned default \"%{role}\" role",
+                        role: PhoenixKit.Users.Roles.display_name(%{name: @default_role})
+                      )}
                     </li>
-                    <li>• Account will be active by default</li>
-                    <li>• Confirmation email will be sent automatically</li>
-                    <li>• User can update their profile after first login</li>
+                    <li>{gettext("• Account will be active by default")}</li>
+                    <li>{gettext("• Confirmation email will be sent automatically")}</li>
+                    <li>{gettext("• User can update their profile after first login")}</li>
                   </ul>
                 </div>
               </div>
@@ -746,19 +692,21 @@
               phx-click="cancel"
               class="btn btn-outline"
             >
-              Cancel
+              {gettext("Cancel")}
             </button>
             <button
               type="submit"
               class="btn btn-primary"
               phx-disable-with={
-                if @mode == :new, do: "Creating user...", else: "Updating user..."
+                if @mode == :new,
+                  do: gettext("Creating user..."),
+                  else: gettext("Updating user...")
               }
             >
               <%= if @mode == :new do %>
-                Create User
+                {gettext("Create User")}
               <% else %>
-                Update User
+                {gettext("Update User")}
               <% end %>
             </button>
           </div>
@@ -956,21 +904,25 @@
             />
             <div class="flex-1">
               <h3 class="font-semibold text-yellow-800 dark:text-warning mb-2">
-                Password Reset via Email
+                {gettext("Password Reset via Email")}
               </h3>
               <p class="text-sm text-yellow-700 dark:text-base-content/80 mb-6">
-                Send a password reset email to this user. They will receive a secure link to create a new password.
+                {gettext(
+                  "Send a password reset email to this user. They will receive a secure link to create a new password."
+                )}
                 <strong class="text-yellow-800 dark:text-warning">
-                  This action cannot be undone
+                  {gettext("This action cannot be undone")}
                 </strong>
-                and will invalidate their current password immediately.
+                {gettext("and will invalidate their current password immediately.")}
               </p>
               <button
                 type="button"
                 phx-click="show_reset_password_modal"
                 class="btn btn-warning btn-sm mt-3"
               >
-                <.icon name="hero-lock-closed" class="w-4 h-4 mr-2" /> Reset User Password
+                <.icon name="hero-lock-closed" class="w-4 h-4 mr-2" /> {gettext(
+                  "Reset User Password"
+                )}
               </button>
             </div>
           </div>
@@ -984,36 +936,40 @@
         <div class="modal-box max-w-lg">
           <div class="flex items-center gap-3 mb-4">
             <.icon name="hero-exclamation-triangle-solid" class="w-8 h-8 text-error" />
-            <h3 class="font-bold text-xl text-error">Confirm Password Reset</h3>
+            <h3 class="font-bold text-xl text-error">{gettext("Confirm Password Reset")}</h3>
           </div>
 
           <div class="space-y-4 mb-6">
             <div class="bg-error/10 border border-error/20 rounded-lg p-4">
-              <p class="text-sm"><strong>Warning:</strong> This action cannot be undone!</p>
+              <p class="text-sm">
+                <strong>{gettext("Warning:")}</strong> {gettext("This action cannot be undone!")}
+              </p>
             </div>
 
             <div class="space-y-2 text-sm">
-              <p>You are about to reset the password for:</p>
+              <p>{gettext("You are about to reset the password for:")}</p>
               <div class="bg-base-200 p-3 rounded font-mono text-primary">
-                {@user.email || "Unknown user"}
+                {@user.email || gettext("Unknown user")}
               </div>
             </div>
 
             <div class="space-y-2 text-sm text-base-content/80">
-              <p><strong>What will happen:</strong></p>
+              <p><strong>{gettext("What will happen:")}</strong></p>
               <ul class="list-disc list-inside space-y-1 ml-4">
-                <li>Their current password will be immediately invalidated</li>
-                <li>They will receive an email with reset instructions</li>
-                <li>They must create a new password using the emailed link</li>
-                <li>The reset link expires in 1 hour</li>
+                <li>{gettext("Their current password will be immediately invalidated")}</li>
+                <li>{gettext("They will receive an email with reset instructions")}</li>
+                <li>{gettext("They must create a new password using the emailed link")}</li>
+                <li>{gettext("The reset link expires in 1 hour")}</li>
               </ul>
             </div>
 
             <div class="bg-info/10 border border-info/20 rounded-lg p-4">
               <p class="text-sm">
                 <.icon name="hero-information-circle-solid" class="w-4 h-4 inline mr-1" />
-                <strong>Note:</strong>
-                Make sure the user has access to their email account before proceeding.
+                <strong>{gettext("Note:")}</strong>
+                {gettext(
+                  "Make sure the user has access to their email account before proceeding."
+                )}
               </p>
             </div>
           </div>
@@ -1024,50 +980,21 @@
               phx-click="hide_reset_password_modal"
               class="btn btn-outline"
             >
-              Cancel
+              {gettext("Cancel")}
             </button>
             <button
               type="button"
               phx-click="admin_reset_password"
               class="btn btn-error"
-              phx-disable-with="Sending email..."
+              phx-disable-with={gettext("Sending email...")}
             >
-              <.icon name="hero-lock-closed" class="w-4 h-4 mr-2" /> Yes, Reset Password
+              <.icon name="hero-lock-closed" class="w-4 h-4 mr-2" /> {gettext(
+                "Yes, Reset Password"
+              )}
             </button>
           </div>
         </div>
       </div>
     <% end %>
   </div>
-
-  <%!-- Media Selector Modal --%>
-  <%= if @mode == :edit do %>
-    <% current_avatar_uuid = @user.custom_fields && @user.custom_fields["avatar_file_uuid"] %>
-    <%= if current_avatar_uuid do %>
-      <.live_component
-        module={PhoenixKitWeb.Live.Components.MediaSelectorModal}
-        id="media-selector-modal"
-        show={@show_media_selector}
-        mode={:single}
-        file_type_filter={:image}
-        lock_file_type
-        title={gettext("Select Avatar")}
-        selected_uuids={[current_avatar_uuid]}
-        phoenix_kit_current_user={@phoenix_kit_current_user}
-        scope_folder_id={@avatar_scope_folder}
-      />
-    <% else %>
-      <.live_component
-        module={PhoenixKitWeb.Live.Components.MediaSelectorModal}
-        id="media-selector-modal"
-        show={@show_media_selector}
-        mode={:single}
-        file_type_filter={:image}
-        lock_file_type
-        title={gettext("Select Avatar")}
-        phoenix_kit_current_user={@phoenix_kit_current_user}
-        scope_folder_id={@avatar_scope_folder}
-      />
-    <% end %>
-  <% end %>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>

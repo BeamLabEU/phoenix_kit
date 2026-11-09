@@ -409,4 +409,79 @@ defmodule PhoenixKit.Utils.MultilangTest do
       assert Map.has_key?(result, "et")
     end
   end
+
+  describe "text_field/3" do
+    @data %{
+      "_primary_language" => "en",
+      "en" => %{"_name" => "Buyer", "_description" => "Buys"},
+      "de" => %{"_name" => "Käufer", "_description" => "   "}
+    }
+
+    test "reads the language, inheriting from the primary language" do
+      assert Multilang.text_field(@data, "name", "de") == "Käufer"
+      assert Multilang.text_field(@data, "name", "fr") == "Buyer"
+      assert Multilang.text_field(@data, "name") == "Buyer"
+    end
+
+    test "reads a blank as absent" do
+      assert Multilang.text_field(@data, "description", "de") == "Buys"
+      assert Multilang.text_field(%{"_name" => " "}, "name") == nil
+    end
+
+    test "reads a bare field from data written by hand, and answers nil for the rest" do
+      assert Multilang.text_field(%{"name" => "Plain"}, "name") == "Plain"
+      assert Multilang.text_field(%{}, "name") == nil
+      assert Multilang.text_field(nil, "name") == nil
+      assert Multilang.text_field("a string", "name") == nil
+    end
+  end
+
+  describe "valid_text_data?/1" do
+    test "accepts flat text and the multilang shape" do
+      assert Multilang.valid_text_data?(%{})
+      assert Multilang.valid_text_data?(%{"_name" => "Buyer"})
+      assert Multilang.valid_text_data?(%{"_primary_language" => "en", "en" => %{"_name" => "x"}})
+    end
+
+    test "refuses what would crash a reader" do
+      refute Multilang.valid_text_data?("a string")
+      refute Multilang.valid_text_data?(["a list"])
+      refute Multilang.valid_text_data?(nil)
+      refute Multilang.valid_text_data?(%{"_name" => 1})
+      refute Multilang.valid_text_data?(%{"_primary_language" => "en"})
+      refute Multilang.valid_text_data?(%{"_primary_language" => "en", "en" => "x"})
+
+      refute Multilang.valid_text_data?(%{
+               "_primary_language" => "en",
+               "en" => %{"_name" => "x"},
+               "de" => "y"
+             })
+    end
+  end
+
+  describe "build_text_data/1" do
+    test "stores fields language by language, under an existing primary" do
+      assert %{
+               "_primary_language" => primary,
+               "en" => %{"_name" => "Buyer", "_inverse_name" => "Buyers"},
+               "de" => %{"_name" => "Käufer"}
+             } =
+               Multilang.build_text_data(%{
+                 "_name" => %{"en" => "Buyer", "de" => "Käufer"},
+                 "_inverse_name" => %{"en" => "Buyers"}
+               })
+
+      assert primary in ["en", "de"]
+    end
+
+    test "drops blanks, and gives an empty map for nothing" do
+      assert Multilang.build_text_data(%{"_name" => nil}) == %{}
+      assert Multilang.build_text_data(%{"_name" => %{"en" => "  "}}) == %{}
+    end
+
+    test "a string goes under the primary language" do
+      data = Multilang.build_text_data(%{"_name" => "Buyer"})
+      assert Multilang.text_field(data, "name") == "Buyer"
+    end
+  end
 end

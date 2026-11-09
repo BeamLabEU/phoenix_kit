@@ -36,6 +36,28 @@ defmodule PhoenixKitWeb.Users.MultiSessionTest do
              })
     end
 
+    test "false for an added account the user added themselves" do
+      refute MultiSession.impersonated?(%{
+               "user_token" => "b",
+               "pk_session_accounts" => ["a", "b"],
+               "pk_own_tokens" => ["b"]
+             })
+    end
+
+    test "true for an added account that is not on the own list, or with a broken list" do
+      assert MultiSession.impersonated?(%{
+               "user_token" => "c",
+               "pk_session_accounts" => ["a", "b", "c"],
+               "pk_own_tokens" => ["b"]
+             })
+
+      assert MultiSession.impersonated?(%{
+               "user_token" => "b",
+               "pk_session_accounts" => ["a", "b"],
+               "pk_own_tokens" => "b"
+             })
+    end
+
     test "false without an active token" do
       refute MultiSession.impersonated?(%{})
       refute MultiSession.impersonated?(%{"pk_session_accounts" => ["a", "b"]})

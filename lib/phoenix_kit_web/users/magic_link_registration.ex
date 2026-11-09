@@ -78,7 +78,7 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistration do
 
         {:ok,
          socket
-         |> assign(:page_title, "Complete Registration")
+         |> assign(:page_title, gettext("Complete Registration"))
          |> assign(:token, token)
          |> assign(:email, email)
          |> assign(:ip_address, ip_address)

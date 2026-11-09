@@ -175,6 +175,13 @@ defmodule PhoenixKitWeb.Users.Auth do
 
     token = Auth.generate_user_session_token(user, opts)
 
+    # The page's language becomes the person's when they have none saved, so
+    # their mail is in it (`Auth.remember_page_locale/2` saves nothing for the
+    # site's own language, which is all a sign-in without one in its address
+    # tells).
+    page_locale = conn.assigns[:current_locale]
+    user = Auth.remember_page_locale(user, page_locale)
+
     # Destination: an explicit `return_to` in params wins, then whatever a gate
     # stashed in the session, then the `after_login_path` setting. Honoring the
     # param matters because callers pass it (the OAuth callback has always
@@ -198,11 +205,10 @@ defmodule PhoenixKitWeb.Users.Auth do
     # beats a standing preference — and BEFORE the configured default, which
     # is the thing a personal choice is meant to override.
     user_return_to =
-      Routes.post_auth_path(
-        [params["return_to"], get_session(conn, :user_return_to)] ++ start_page_candidates(user),
-        context: conn,
-        scope: Scope.for_user(user)
-      )
+      [params["return_to"], get_session(conn, :user_return_to)]
+      |> Kernel.++(start_page_candidates(user))
+      |> Routes.post_auth_path(context: conn, scope: Scope.for_user(user))
+      |> in_saved_language(user, page_locale)
 
     # Merge guest cart into user cart before session renewal clears session data.
     # The shop_session_id cookie survives renew_session (only session data is cleared).
@@ -222,6 +228,24 @@ defmodule PhoenixKitWeb.Users.Auth do
     # user of this browser had stacked cannot be restored under the new login.
     |> MultiSession.forget_persisted_accounts()
     |> redirect(to: user_return_to)
+  end
+
+  # After sign-in, land in the person's saved language: a bookmarked
+  # `/users/log-in` otherwise opens everything in the site's language. The URL
+  # still decides the page language; this only picks where the redirect goes.
+  # Left alone when the sign-in page was in another language (the newer
+  # choice), when the destination names a language (a `return_to` keeps its
+  # own), and when the saved one is not served.
+  defp in_saved_language(path, user, page_locale) do
+    saved = RecipientLocale.preferred(user)
+    page_in_site_language? = is_nil(page_locale) or RecipientLocale.site_language?(page_locale)
+
+    if is_binary(saved) and page_in_site_language? and not RecipientLocale.site_language?(saved) and
+         is_nil(Routes.path_locale(path)) and Routes.served_locale?(saved) do
+      Routes.locale_switch_path(path, saved)
+    else
+      path
+    end
   end
 
   defp maybe_merge_guest_cart(conn, user) do
@@ -1390,7 +1414,12 @@ defmodule PhoenixKitWeb.Users.Auth do
 
     Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
 
-    unless leave_host_locale?(view), do: Gettext.put_locale(locale)
+    # The global locale, which feature modules' backends read, is the base
+    # language, as in mail (`RecipientLocale.in_locale/2`): module catalogues
+    # are named `de`, `zh`, and a dialect catalogue core ships (`pt_BR`) must
+    # not hand modules a name they have none for.
+    unless leave_host_locale?(view),
+      do: Gettext.put_locale(RecipientLocale.global_locale(dialect))
 
     # The undowngraded dialect, for per-language content (see
     # `Languages.put_request_locale/1`).
@@ -2508,6 +2537,8 @@ defmodule PhoenixKitWeb.Users.Auth do
     PhoenixKitWeb.Live.Users.ManagedOrganizationNew => "users",
     PhoenixKitWeb.Live.Users.UserDetails => "users",
     PhoenixKitWeb.Live.Users.Roles => "users",
+    PhoenixKitWeb.Live.Users.RelationshipTypes => "users",
+    PhoenixKitWeb.Live.Users.RelationshipTypeForm => "users",
     PhoenixKitWeb.Live.Users.PermissionsMatrix => "users",
     PhoenixKitWeb.Live.Users.LiveSessions => "users",
     PhoenixKitWeb.Live.Users.Sessions => "users",
@@ -3053,7 +3084,8 @@ defmodule PhoenixKitWeb.Users.Auth do
         multi_session_allowed?: previous.multi_session_allowed?,
         acting_organizations: previous.acting_organizations,
         acting_person: previous.acting_person,
-        organization_root: previous.organization_root
+        organization_root: previous.organization_root,
+        impersonated_by_uuid: previous.impersonated_by_uuid
     }
   end
 
@@ -3366,7 +3398,7 @@ defmodule PhoenixKitWeb.Users.Auth do
               |> put_flash(
                 :error,
                 gettext("You must have the %{role_name} role to access this page.",
-                  role_name: role_name
+                  role_name: PhoenixKit.Users.Roles.display_name(%{name: role_name})
                 )
               )
               |> redirect(to: Routes.safe_destination(conn, scope: scope))

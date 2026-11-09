@@ -8,6 +8,7 @@ defmodule PhoenixKit.Users.Role do
 
   - `name`: Role name (unique, required for identification)
   - `description`: Human-readable description of the role
+  - `data`: Label and description per language; shown through `Roles.display_name/2`
   - `is_system_role`: Whether this is a system-defined role that shouldn't be deleted
 
   ## System Roles
@@ -29,6 +30,8 @@ defmodule PhoenixKit.Users.Role do
   use PhoenixKit.SchemaPrefix
   import Ecto.Changeset
 
+  alias PhoenixKit.Utils.Multilang
+
   @type t :: %__MODULE__{
           uuid: UUIDv7.t() | nil,
           name: String.t(),
@@ -49,6 +52,11 @@ defmodule PhoenixKit.Users.Role do
   schema "phoenix_kit_user_roles" do
     field :name, :string
     field :description, :string
+    # Label and description per language (`PhoenixKit.Utils.Multilang`). `name` above
+    # stays the key code and settings match on; see `Roles.display_name/2`.
+    field :data, :map, default: %{}
+    # The primary-language label, for the form's primary tab. Never persisted.
+    field :label, :string, virtual: true
     field :is_system_role, :boolean, default: false
     # Operator-defined order (V190): decides the default role of a new session
     # and the order the role switcher lists roles in. See
@@ -84,10 +92,11 @@ defmodule PhoenixKit.Users.Role do
   """
   def changeset(role, attrs) do
     role
-    |> cast(attrs, [:name, :description, :is_system_role, :position])
+    |> cast(attrs, [:name, :description, :is_system_role, :position, :data])
     |> validate_required([:name])
     |> validate_length(:name, min: 1, max: 50)
     |> validate_length(:description, max: 500)
+    |> validate_data_shape()
     |> unique_constraint(:name)
     |> validate_system_role_protection()
   end
@@ -122,6 +131,49 @@ defmodule PhoenixKit.Users.Role do
   end
 
   # Protect system roles from being modified
+  @doc """
+  Changeset for editing an existing role. `name` is a fixed key: code and settings
+  match on it (the `new_user_default_role` setting, a host's `%{name: "Buyer"}`), so a
+  changed one is an error. A different label belongs in `data`.
+  """
+  def update_changeset(%__MODULE__{} = role, attrs) do
+    role
+    |> cast(attrs, [:name, :label, :description, :position, :data])
+    |> validate_length(:label, max: 50)
+    |> validate_length(:description, max: 500)
+    |> validate_data_shape()
+    |> validate_name_unchanged()
+    |> sync_label()
+  end
+
+  # With translations off the form has no `data`: the label folds in under the primary
+  # language. When `data` is supplied it is the truth: the form already merged it.
+  defp sync_label(%Ecto.Changeset{valid?: true, params: %{"label" => _} = params} = changeset)
+       when not is_map_key(params, "data") do
+    existing = get_field(changeset, :data) || %{}
+    primary = existing["_primary_language"] || Multilang.primary_language()
+
+    merged =
+      Map.put(Multilang.get_primary_data(existing), "_label", get_field(changeset, :label) || "")
+
+    put_change(changeset, :data, Multilang.put_language_data(existing, primary, merged))
+  end
+
+  defp sync_label(changeset), do: changeset
+
+  defp validate_name_unchanged(changeset) do
+    if Map.has_key?(changeset.changes, :name),
+      do: add_error(changeset, :name, "cannot be changed"),
+      else: changeset
+  end
+
+  # `data` is free-form once cast, and a string or list there would crash every reader.
+  defp validate_data_shape(changeset) do
+    if Multilang.valid_text_data?(get_field(changeset, :data)),
+      do: changeset,
+      else: add_error(changeset, :data, "is invalid")
+  end
+
   defp validate_system_role_protection(changeset) do
     if changeset.data.is_system_role &&
          get_change(changeset, :is_system_role) == false do

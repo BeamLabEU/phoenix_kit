@@ -63,8 +63,6 @@ defmodule PhoenixKitWeb.Users.AdminPasswordChangeTest do
         phoenix_kit_current_user: actor,
         show_password_field: Keyword.get(opts, :password_field_open, true),
         can_manage_credentials: true,
-        avatar_changed: false,
-        pending_avatar_file_uuid: nil,
         current_account_type: target.account_type,
         # Roles untouched by this save: `pending_roles` equals `user_roles`,
         # so `update_user_roles_if_changed/2` short-circuits.

@@ -164,7 +164,7 @@ defmodule PhoenixKitWeb.Live.Components.SearchableSelect do
           <div class="overflow-y-auto max-h-52">
             <%= if @filtered == [] do %>
               <div class="p-3 text-sm text-base-content/50 text-center">
-                No results found
+                {gettext("No results found")}
               </div>
             <% else %>
               <%= for item <- @filtered do %>

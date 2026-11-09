@@ -149,7 +149,8 @@
           </h3>
           <div class="flex flex-wrap gap-2">
             <span :for={{name, count} <- @stats.by_os} class="badge badge-ghost gap-1">
-              {name} <span class="font-semibold">{count}</span>
+              {if name == "Unknown", do: gettext("Unknown"), else: name}
+              <span class="font-semibold">{count}</span>
             </span>
           </div>
         </div>
@@ -161,7 +162,8 @@
           </h3>
           <div class="flex flex-wrap gap-2">
             <span :for={{name, count} <- @stats.by_browser} class="badge badge-ghost gap-1">
-              {name} <span class="font-semibold">{count}</span>
+              {if name == "Unknown", do: gettext("Unknown"), else: name}
+              <span class="font-semibold">{count}</span>
             </span>
           </div>
         </div>
@@ -179,13 +181,21 @@
             </p>
             <div class="bg-base-200 rounded p-3 mb-4">
               <div class="text-sm">
-                <div><strong>Token:</strong> {@selected_session.token_preview}...</div>
                 <div>
-                  <strong>Created:</strong> {UtilsDate.format_datetime_with_user_format(
+                  <strong>{gettext("Token:")}</strong> {@selected_session.token_preview}...
+                </div>
+                <div>
+                  <strong>{gettext("Created:")}</strong> {UtilsDate.format_datetime_with_user_format(
                     @selected_session.created_at
                   )}
                 </div>
-                <div><strong>Age:</strong> {@selected_session.age_in_days} days</div>
+                <div>
+                  <strong>{gettext("Age:")}</strong> {ngettext(
+                    "%{count} day",
+                    "%{count} days",
+                    @selected_session.age_in_days
+                  )}
+                </div>
               </div>
             </div>
           <% end %>
@@ -447,23 +457,16 @@
       </.table_default_body>
     </.table_default>
 
-    <%!-- Pagination --%>
-    <div
-      :if={@total_count > 0}
-      class="flex flex-col sm:flex-row justify-between items-center gap-4"
-    >
-      <.pagination_info
-        page={@page}
-        per_page={@per_page}
-        total_count={@total_count}
-        noun_plural={gettext("sessions")}
-      />
-      <.pagination_controls
-        page={@page}
-        total_pages={@total_pages}
-        build_url={&url_state_path(assigns, page: &1)}
-      />
-      <.page_size_selector value={@per_page} options={[10, 20, 25, 50, 100]} />
-    </div>
+    <.pagination_bar
+      id="sessions-pagination"
+      page={@page}
+      total_pages={@total_pages}
+      total_count={@total_count}
+      per_page={@per_page}
+      auto={@auto_fit}
+      table_id="sessions-table"
+      noun_plural={gettext("sessions")}
+      build_url={&url_state_path(assigns, page: &1)}
+    />
   </div>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>

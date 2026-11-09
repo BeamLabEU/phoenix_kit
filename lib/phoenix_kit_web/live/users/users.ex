@@ -11,25 +11,27 @@ defmodule PhoenixKitWeb.Live.Users.Users do
   # previous query instead of leaving the page. `role` and `account_type`
   # default to "all", which is therefore what gets omitted from the URL.
   use PhoenixKitWeb.Live.UrlState,
-    params: [
-      search_query: [default: "", url_key: "q", alias: "search"],
-      filter_role: [default: "all", url_key: "role"],
-      filter_account_type: [default: "all", url_key: "account_type"],
-      # Deep-linked from the admin dashboard's user cards, so each number there
-      # opens the list behind it. Values mirror the predicates
-      # `Roles.get_extended_stats/0` counts with.
-      filter_status: [default: "all", url_key: "status"],
-      filter_confirmation: [default: "all", url_key: "confirmation"],
-      page: [default: 1, cast: :integer, min: 1],
-      # Rows per page, picked with <.page_size_selector>. Allowlisted rather
-      # than bounded: an arbitrary integer out of the URL is a LIMIT clause.
-      per_page: [default: 10, cast: :integer, in: [10, 25, 50, 100]],
-      # The selector's "Auto" mode (pilot on this tab only): the client
-      # measures the viewport and pushes the per_page that fits. Only the
-      # flag lives here — the size it resolved to is `per_page` as usual, so
-      # the URL stays fully self-describing.
-      auto_fit: [default: false, cast: :boolean, url_key: "fit"]
-    ]
+    # Rows per page and Auto, remembered per person across the admin's
+    # lists (`PhoenixKitWeb.PageSize`).
+    params:
+      [
+        search_query: [default: "", url_key: "q", alias: "search"],
+        filter_role: [default: "all", url_key: "role"],
+        filter_account_type: [default: "all", url_key: "account_type"],
+        # Deep-linked from the admin dashboard's user cards, so each number there
+        # opens the list behind it. Values mirror the predicates
+        # `Roles.get_extended_stats/0` counts with.
+        filter_status: [default: "all", url_key: "status"],
+        filter_confirmation: [default: "all", url_key: "confirmation"],
+        # Boolean custom field filters, one declared key for all of them:
+        # `?cf=approved:no,vip:yes`. Field keys exist only at runtime, and a
+        # key UrlState doesn't know survives every patch, "Clear Filters"
+        # included. Read through `custom_filters/2`, which drops what no
+        # filterable field offers.
+        filter_custom: [default: "", url_key: "cf"],
+        page: [default: 1, cast: :integer, min: 1]
+      ] ++
+        PhoenixKitWeb.PageSize.url_params()
 
   # Imported per-LiveView rather than from `PhoenixKitWeb, :live_view`: a host
   # app that defines its own `row_link/1` would get an ambiguous import the
@@ -40,10 +42,11 @@ defmodule PhoenixKitWeb.Live.Users.Users do
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
-  alias PhoenixKit.Users.{CustomFields, Roles, TableColumns}
+  alias PhoenixKit.Users.{CustomFields, PersonOrganizations, Roles, TableColumns}
   alias PhoenixKit.Utils.CountryData
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKitWeb.Actor
+  alias PhoenixKitWeb.PageSize
   alias PhoenixKitWeb.TableColumns, as: ColumnPrefs
   alias PhoenixKitWeb.Users.MultiSession
 
@@ -104,6 +107,7 @@ defmodule PhoenixKitWeb.Live.Users.Users do
         :geolocation_tracking_enabled,
         Settings.get_boolean_setting("track_registration_geolocation", false)
       )
+      |> assign(:person_orgs, %{})
       |> assign(:show_role_modal, false)
       |> assign(:managing_user, nil)
       |> assign(:user_roles, [])
@@ -116,6 +120,7 @@ defmodule PhoenixKitWeb.Live.Users.Users do
       |> assign(:date_time_settings, date_time_settings)
       |> assign_columns()
       |> load_stats()
+      |> PageSize.mount()
 
     {:ok, socket}
   end
@@ -205,30 +210,28 @@ defmodule PhoenixKitWeb.Live.Users.Users do
     {:noreply, push_url_state(socket, filter_confirmation: confirmation)}
   end
 
+  # The pick comes as `choice`: a browser sends a button's own `value` ("")
+  # in place of a `phx-value-value`.
+  def handle_event("filter_by_custom_field", %{"key" => key, "choice" => choice}, socket) do
+    values =
+      case choice do
+        "yes" -> Map.put(socket.assigns.custom_filter_values, key, :yes)
+        "no" -> Map.put(socket.assigns.custom_filter_values, key, :no)
+        _any -> Map.delete(socket.assigns.custom_filter_values, key)
+      end
+
+    cf = encode_custom_filters(values, socket.assigns.custom_filter_fields)
+    {:noreply, push_url_state(socket, filter_custom: cf)}
+  end
+
   def handle_event("clear_filters", _params, socket) do
     {:noreply, reset_url_state(socket)}
   end
 
-  # Picking "Auto" only raises the flag; the PageSizeAutoFit hook then
-  # measures and pushes the size it fits, tagged `auto: "1"` so the flag
-  # survives. A number picked by hand lowers it. Either way `push_url_state`
-  # resets the page: page 7 of 10 rows is not page 7 of 100.
-  def handle_event("change_per_page", %{"per_page" => "auto"}, socket) do
-    {:noreply, push_url_state(socket, auto_fit: true)}
-  end
-
-  def handle_event("change_per_page", %{"per_page" => per_page} = params, socket) do
-    case {Integer.parse(per_page), Map.has_key?(params, "auto")} do
-      {{per_page, ""}, true} ->
-        {:noreply, push_url_state(socket, per_page: per_page)}
-
-      {{per_page, ""}, false} ->
-        {:noreply, push_url_state(socket, per_page: per_page, auto_fit: false)}
-
-      _ ->
-        {:noreply, socket}
-    end
-  end
+  # Saved for the person and applied to every list (`PageSize`); the page
+  # goes back to 1, as page 7 of 10 rows is not page 7 of 100.
+  def handle_event("change_per_page", params, socket),
+    do: {:noreply, PageSize.handle_change(params, socket)}
 
   def handle_event("show_role_management", %{"user_uuid" => user_uuid}, socket) do
     user = Auth.get_user!(user_uuid)
@@ -603,6 +606,9 @@ defmodule PhoenixKitWeb.Live.Users.Users do
   defp maybe_put_role_diff(map, key, roles), do: Map.put(map, key, Enum.join(roles, ", "))
 
   defp load_users(socket) do
+    filter_fields = CustomFields.list_filterable_field_definitions()
+    custom_filters = custom_filters(socket.assigns.filter_custom, filter_fields)
+
     params = [
       page: socket.assigns.page,
       page_size: socket.assigns.per_page,
@@ -610,7 +616,8 @@ defmodule PhoenixKitWeb.Live.Users.Users do
       role: socket.assigns.filter_role,
       account_type: socket.assigns.filter_account_type,
       status: socket.assigns.filter_status,
-      confirmation: socket.assigns.filter_confirmation
+      confirmation: socket.assigns.filter_confirmation,
+      custom_fields: custom_filters
     ]
 
     %{users: users, total_count: total_count, total_pages: total_pages} =
@@ -619,14 +626,39 @@ defmodule PhoenixKitWeb.Live.Users.Users do
     # Force refresh by clearing users first, then setting new ones
     # This ensures LiveView doesn't reuse stale user objects with cached roles
     socket
+    |> assign(:custom_filter_fields, filter_fields)
+    |> assign(:custom_filter_values, Map.new(custom_filters))
     |> assign(:users, [])
     |> assign(:users, users)
+    |> assign(:person_orgs, person_orgs(socket, users))
     |> assign(
       :impersonable_uuids,
       MultiSession.impersonable_uuids(socket.assigns[:impersonation_actor], users)
     )
     |> assign(:total_count, total_count)
     |> assign(:total_pages, total_pages)
+  end
+
+  # Each person's companies, for the Organizations column and card field
+  # (two queries for the page); nothing while organization accounts are off.
+  defp person_orgs(socket, users) do
+    if socket.assigns.org_accounts_enabled,
+      do: PersonOrganizations.organizations_by_person(users),
+      else: %{}
+  end
+
+  # How many of a person's companies a cell lists: all of up to three, else
+  # two and "+N more" (the person's page has them all), so the cell is never
+  # taller than the account's three lines.
+  @org_cell_max 3
+
+  @doc false
+  def organizations_cell(person_orgs, user) do
+    orgs = Map.get(person_orgs, user.uuid, [])
+
+    if length(orgs) <= @org_cell_max,
+      do: {orgs, 0},
+      else: {Enum.take(orgs, @org_cell_max - 1), length(orgs) - (@org_cell_max - 1)}
   end
 
   defp load_stats(socket) do
@@ -674,6 +706,8 @@ defmodule PhoenixKitWeb.Live.Users.Users do
   end
 
   defp persist_user_view_mode(user, _mode), do: user
+
+  defp role_label(role_name), do: Map.get(Roles.display_names(), role_name, role_name)
 
   defp get_user_roles(user) do
     # Use preloaded roles if available
@@ -729,7 +763,7 @@ defmodule PhoenixKitWeb.Live.Users.Users do
           put_flash(
             socket,
             :error,
-            gettext("You are not allowed to change the %{role} role", role: role_name)
+            gettext("You are not allowed to change the %{role} role", role: role_label(role_name))
           )
 
         {:noreply, socket}
@@ -737,8 +771,9 @@ defmodule PhoenixKitWeb.Live.Users.Users do
       {:ok, action} ->
         role_flash_msg =
           if action == :added,
-            do: gettext("Role %{role} added to user successfully", role: role_name),
-            else: gettext("Role %{role} removed from user successfully", role: role_name)
+            do: gettext("Role %{role} added to user successfully", role: role_label(role_name)),
+            else:
+              gettext("Role %{role} removed from user successfully", role: role_label(role_name))
 
         socket =
           socket
@@ -790,25 +825,36 @@ defmodule PhoenixKitWeb.Live.Users.Users do
         selected_columns,
         current_user,
         date_time_settings,
-        geolocation_tracking_enabled
+        geolocation_tracking_enabled,
+        person_orgs \\ %{}
       ) do
+    # The card's header already shows the account and its avatar.
     selected_columns
-    |> Enum.reject(&(&1 in ["email", "actions"]))
+    |> Enum.reject(&(&1 in ["avatar", "email", "actions"]))
     |> Enum.filter(&should_render_column?/1)
     |> Enum.map(fn column_id ->
       label = render_column_header(column_id) || column_id
 
       value =
-        build_card_field_value(
-          user,
-          column_id,
-          current_user,
-          date_time_settings,
-          geolocation_tracking_enabled
-        )
+        if column_id == "organizations",
+          do: card_organizations(person_orgs, user),
+          else:
+            build_card_field_value(
+              user,
+              column_id,
+              current_user,
+              date_time_settings,
+              geolocation_tracking_enabled
+            )
 
-      %{label: label, value: value}
+      %{label: label, value: if(nowrap_column?(column_id), do: nowrap(value), else: value)}
     end)
+  end
+
+  # A date breaks at its hyphens ("2026-11-" / "06") when its cell is narrow.
+  defp nowrap(value) do
+    {:safe,
+     [~s(<span class="whitespace-nowrap">), Phoenix.HTML.html_escape(value) |> elem(1), "</span>"]}
   end
 
   defp build_card_field_value(
@@ -829,17 +875,28 @@ defmodule PhoenixKitWeb.Live.Users.Users do
     end
   end
 
-  defp card_full_name(user) do
-    case User.full_name(user) do
-      nil -> "-"
-      "" -> "-"
-      name -> name
+  defp card_full_name(user), do: person_name(user) || "-"
+
+  defp card_organizations(person_orgs, user) do
+    case organizations_cell(person_orgs, user) do
+      {[], _} ->
+        "-"
+
+      {shown, 0} ->
+        Enum.map_join(shown, ", ", &PersonOrganizations.name/1)
+
+      {shown, more} ->
+        Enum.map_join(shown, ", ", &PersonOrganizations.name/1) <>
+          " " <> ngettext("+%{count} more", "+%{count} more", more)
     end
   end
 
   defp card_roles(user) do
     roles = get_user_roles(user)
-    if Enum.empty?(roles), do: gettext("No roles"), else: Enum.join(roles, ", ")
+
+    if Enum.empty?(roles),
+      do: gettext("No roles"),
+      else: Enum.map_join(roles, ", ", &Roles.display_name(%{name: &1}))
   end
 
   defp card_status(user) do
@@ -880,7 +937,153 @@ defmodule PhoenixKitWeb.Live.Users.Users do
     if Enum.empty?(parts), do: "-", else: Enum.join(parts, " · ")
   end
 
+  # Account helpers. The first column names the account: a company by its
+  # name, with its email under it, and a person by their email. A managed
+  # company may have no email to show at all.
+
+  @doc "The account's name in the list: a company's name, else its email."
+  def account_title(%User{account_type: "organization", organization_name: name} = user) do
+    present(name) || User.delivery_email(user) || User.display_name(user)
+  end
+
+  def account_title(user),
+    do: person_name(user) || User.delivery_email(user) || User.display_name(user)
+
+  @doc "The line under a name: the email, when the name is not the email."
+  def account_subtitle(%User{account_type: "organization", organization_name: name} = user) do
+    if present(name), do: User.delivery_email(user)
+  end
+
+  def account_subtitle(user), do: if(person_name(user), do: User.delivery_email(user))
+
+  @doc """
+  A person's name, for the Full Name column. `nil` for a company, whose name
+  is already in the first column, and for a person with none.
+  """
+  def person_name(%User{account_type: "organization"}), do: nil
+  def person_name(user), do: present(User.full_name(user))
+
+  defp present(value) when is_binary(value) do
+    case String.trim(value) do
+      "" -> nil
+      trimmed -> trimmed
+    end
+  end
+
+  defp present(_value), do: nil
+
+  @doc "Whether any filter narrows the list, for the empty state."
+  def filters_active?(assigns) do
+    assigns.search_query != "" or
+      Enum.any?(
+        [
+          assigns.filter_role,
+          assigns.filter_account_type,
+          assigns.filter_status,
+          assigns.filter_confirmation
+        ],
+        &(&1 != "all")
+      ) or assigns.custom_filter_values != %{}
+  end
+
+  # Custom field filters (`?cf=`)
+
+  # `"approved:no,vip:yes"` -> `[{"approved", :no}, {"vip", :yes}]`, keeping only
+  # fields the table offers a filter for and the first value given for each.
+  defp custom_filters(cf, fields) when is_binary(cf) do
+    keys = MapSet.new(fields, & &1["key"])
+
+    cf
+    |> String.split(",", trim: true)
+    |> Enum.flat_map(fn part ->
+      case String.split(part, ":", parts: 2) do
+        [key, "yes"] -> [{key, :yes}]
+        [key, "no"] -> [{key, :no}]
+        _ -> []
+      end
+    end)
+    |> Enum.filter(fn {key, _} -> MapSet.member?(keys, key) end)
+    |> Enum.uniq_by(fn {key, _} -> key end)
+  end
+
+  defp custom_filters(_cf, _fields), do: []
+
+  # The other way, in the fields' order, so one filter set has one URL.
+  defp encode_custom_filters(values, fields) do
+    fields
+    |> Enum.flat_map(fn %{"key" => key} ->
+      case Map.get(values, key) do
+        nil -> []
+        value -> ["#{key}:#{value}"]
+      end
+    end)
+    |> Enum.join(",")
+  end
+
+  @doc "The filter button: the field's name, and the value when one is picked."
+  def custom_filter_label(field, nil), do: CustomFields.column_label(field)
+
+  def custom_filter_label(field, value) do
+    gettext("%{field}: %{value}",
+      field: CustomFields.column_label(field),
+      value: if(value == :yes, do: gettext("Yes"), else: gettext("No"))
+    )
+  end
+
   # Column rendering helpers
+
+  @doc """
+  The Users table's header for a column: a custom field's column name when
+  it has one, else its label. Cards and the picker use the label
+  (`render_column_header/1`).
+  """
+  def column_header(column_id) do
+    case TableColumns.get_column_metadata(column_id) do
+      %{column_label: name} when is_binary(name) and name != "" -> name
+      _ -> render_column_header(column_id)
+    end
+  end
+
+  @doc "The header's hover text: the full label, when a column name shortens it."
+  def column_title(column_id) do
+    case TableColumns.get_column_metadata(column_id) do
+      %{column_label: name, label: label} when is_binary(name) and name != "" -> label
+      _ -> nil
+    end
+  end
+
+  # Which columns a narrow table drops first (`<.table_default fit>`): the
+  # highest number goes first, and among equals the rightmost. The account
+  # and the actions never go. Custom fields go last: they hold what a site
+  # added the table for, such as an approval flag.
+  @fit_priorities %{
+    "location" => 10,
+    "last_confirmed" => 9,
+    "username" => 8,
+    # The name is in the account column too.
+    "full_name" => 7,
+    "registered" => 6,
+    "avatar" => 5,
+    "organizations" => 4,
+    "role" => 3,
+    "status" => 2
+  }
+
+  def fit_priority("custom_" <> _key), do: 1
+  def fit_priority(column_id), do: Map.get(@fit_priorities, column_id)
+
+  # A date or a time never splits over two lines.
+  def nowrap_column?(column_id) when column_id in ["registered", "last_confirmed"], do: true
+
+  def nowrap_column?("custom_" <> _ = column_id) do
+    match?(
+      %{field_type: type} when type in ["date", "datetime"],
+      TableColumns.get_column_metadata(column_id)
+    )
+  end
+
+  def nowrap_column?(_column_id), do: false
+
   def render_column_header(column_id) do
     case TableColumns.get_column_metadata(column_id) do
       %{label: label} -> label
@@ -897,14 +1100,15 @@ defmodule PhoenixKitWeb.Live.Users.Users do
   end
 
   # Per-column responsive class for the table view. On mobile (table-fixed)
-  # only the email + actions columns are shown — the rest collapse — so the
-  # list reads as a compact row (avatar/email/name + a `…` menu) like the
-  # media browser. The actions column is pinned narrow and right-aligned at all
-  # sizes so the `…` menu always sits at the far-right edge (with the cell's
-  # padding) instead of drifting into a wide auto-width cell when columns are
-  # hidden.
+  # only the avatar, account and actions columns are shown — the rest
+  # collapse — so the list reads as a compact row (avatar/email/name + a `…`
+  # menu) like the media browser. The avatar is pinned narrow too. The
+  # actions column is pinned narrow and right-aligned at all sizes so the `…`
+  # menu always sits at the far-right edge (with the cell's padding) instead
+  # of drifting into a wide auto-width cell when columns are hidden.
   def mobile_col_class("actions"), do: "w-12 text-right"
   def mobile_col_class("email"), do: ""
+  def mobile_col_class("avatar"), do: "w-12"
   def mobile_col_class(_), do: "hidden md:table-cell"
 
   # Text truncation helper - limits display to max_length characters with ellipsis
@@ -983,7 +1187,7 @@ defmodule PhoenixKitWeb.Live.Users.Users do
          _current_user,
          _date_time_settings
        ) do
-    get_primary_role_name_unsafe(user)
+    Roles.display_name(%{name: get_primary_role_name_unsafe(user)})
   end
 
   defp render_cell_by_type(
@@ -1040,7 +1244,7 @@ defmodule PhoenixKitWeb.Live.Users.Users do
   end
 
   defp render_composite_cell(user, "full_name") do
-    truncate_text(User.full_name(user), @max_cell_length)
+    truncate_text(person_name(user), @max_cell_length)
   end
 
   defp render_composite_cell(_user, _column_id), do: "-"
@@ -1250,10 +1454,12 @@ defmodule PhoenixKitWeb.Live.Users.Users do
   # A custom field added, changed or deleted changes what the table offers;
   # the admin's saved choice is read again, never rewritten here (a deleted
   # field's column simply stops showing).
+  # The filters too: a field can stop being filterable.
   def handle_info({:custom_field_deleted, _field_key}, socket),
-    do: {:noreply, assign_columns(socket)}
+    do: {:noreply, socket |> assign_columns() |> load_users()}
 
-  def handle_info(:custom_fields_changed, socket), do: {:noreply, assign_columns(socket)}
+  def handle_info(:custom_fields_changed, socket),
+    do: {:noreply, socket |> assign_columns() |> load_users()}
 
   defp assign_columns(socket) do
     spec = TableColumns.columns_spec()

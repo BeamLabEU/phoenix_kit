@@ -135,18 +135,31 @@ real uploader because the bundle replaces the stand-in in the turn the hooks mou
 (`upload_resume_reload.test.cjs`).
 
 At design time the public hooks were estimated at ~107 KB of ~507 KB of hook code. **As built** (esbuild 0.25.4
-`--minify`, `gzip -9 -n`): `phoenix_kit.js` is 266 820 B raw, 76 138 gzip, 101 264 minified, 31 059 minified + gzip;
-`phoenix_kit_admin.js` is 426 222 / 120 055 / 160 877 / 47 229. The size budget in `admin_split.test.cjs` (272 KiB for
+`--minify`, `gzip -9 -n`): `phoenix_kit.js` is 270 756 B raw, 77 219 gzip, 102 575 minified, 31 420 minified + gzip;
+`phoenix_kit_admin.js` is 431 453 / 121 749 / 162 968 / 47 968. The size budget in `admin_split.test.cjs` (272 KiB for
 the public file) is a coarse backstop; what keeps an admin hook out of the public file is the name check in the same
 test.
 
 `AudioRecorder` (the `<.audio_recorder>` of 3.4.0, a microphone recorder "any page can use") is public by the rule above:
 a generic form primitive, imported into every page's helpers next to `file_upload`, and documented with a public
-form as its example, so a page that renders it must not wait for the admin bundle (47 KB min+gz, against the hook's
+form as its example, so a page that renders it must not wait for the admin bundle (48 KB min+gz, against the hook's
 own 2.3 KB). Core renders it nowhere itself and no known module puts it on a page yet. It added 13 087 B raw (the hook and its line in the header) /
-2 032 B min+gz to the public file, which is why the budget went from 256 to 272 KiB (the test says so); its body is
+2 032 B min+gz to the public file at 3.4.0, and 2 677 B raw more with the follow-up of #1023 (the recorder started from
+a page's own button, a clip joining a page's own upload), which is why the budget went from 256 to 272 KiB (the test says so); its body is
 main's, character for character. A lazy chunk of its own, the other way to keep it off pages without a
 recorder, would cost a third vendored file (compiler, facts, doctor) for those 2 KB.
+
+The last merge with main brought three more things to classify. The eye button of
+`<.input password_toggle>` is not a hook but a `submit` listener on `document` (`hideRevealedPasswords`) that presses a
+revealed field's button again before the form is sent, so the browser's form history and the password manager see a
+masked field. Core's own login, registration, magic-link, reset-password and confirmation pages carry the toggle, so the
+listener is public (1 259 B raw): in the admin file it would not exist on the pages that need it. `AvatarPeek` (a
+larger copy of a small avatar under the pointer, 3 656 B raw) is a `document` listener too, and admin: core sets `peek`
+only on the users table and the live sessions page, whose layout starts the download at `DOMContentLoaded`
+(`data-pk-admin`), so the listener is there without any hook mounting. Its known limit is that `peek` is an ordinary
+attribute of a core component: a page outside the admin area and the dashboard that sets it shows no preview, because
+that page never loads the bundle (the preview is decoration, so nothing else breaks). `AvatarCrop`'s newer zoom-out
+code (`avatarCropMinZoom`, the site's shape as `data-fit`) moved into the admin file with the hook.
 
 The same pass classifies the **non-hook top-level code** (the collapse scroll keeper, the change cue, the global
 textarea / stray-click / unsaved-changes listeners, the Etcher tooltip bridges): code that runs for every page
@@ -182,8 +195,8 @@ the output of one and of two esbuild passes). The vendored `phoenix_kit.js` and
 
 Expected (same esbuild, measured above): `phoenix_kit_modules.js` 132 KB → 77 KB gzip for the 19-bundle build; the vendored
 `phoenix_kit.js` 226 KB gzip as shipped → 25 KB gzip minified for the public part (**as built**:
-267 KB raw / 76 KB gzip readable, 31 KB gzip minified, the mention field, the two upload hooks and the audio recorder being public;
-the admin bundle is 426 KB / 120 KB readable, 161 KB / 47 KB gzip minified;
+271 KB raw / 77 KB gzip readable, 31 KB gzip minified, the mention field, the two upload hooks and the audio recorder being public;
+the admin bundle is 431 KB / 122 KB readable, 163 KB / 48 KB gzip minified;
 Chart.js stays its own 208 KB / 70 KB file that only the email dashboard fetches).
 
 `dev` builds stay readable, so a stack trace points at real lines.
@@ -234,7 +247,7 @@ module's admin stubs are registered whichever of `phoenix_kit.js` and `phoenix_k
    file's keys equal `ADMIN_HOOKS`; stubs load once for N mounts, delegate `mounted/updated/destroyed` with the
    right `this`, survive destroy-while-loading and a failed load; a public-size budget. Then move the code; the
    existing `test/js` files that exercise admin hooks are pointed at the file that now holds what they test (as built:
-   27 of main's 50; there were 39 test files when this was written).
+   28 of main's 52; there were 39 test files when this was written).
 3. **Delivery.** Tests: `vendor_all` writes the admin file under a content-hash name, the facts name it, an
    unchanged compile writes nothing, `minify?` true + esbuild present yields smaller files for the three outputs,
    absent esbuild yields the readable ones. Facts file sets the library base. Doctor check.

@@ -19,6 +19,7 @@ defmodule PhoenixKit.Users.ManagedOrganizationLifecycleTest do
   alias PhoenixKit.Users.OrganizationManagers
   alias PhoenixKit.Users.Permissions
   alias PhoenixKit.Users.Referrals
+  alias PhoenixKit.Users.RelationshipType
   alias PhoenixKit.Users.RoleAssignment
   alias PhoenixKit.Users.Roles
   alias PhoenixKit.Users.Sessions
@@ -98,18 +99,19 @@ defmodule PhoenixKit.Users.ManagedOrganizationLifecycleTest do
     assert Repo.aggregate(User, :count) == baseline + 3
   end
 
-  test "a borrowed admin, a bare User/Scope and a revoked admin session cannot create", %{
+  test "a borrowed non-admin, a bare User/Scope and a revoked admin session cannot create", %{
     actor: actor,
     admin: admin
   } do
     root = F.person()
-    {root_token, _} = F.session(root)
     {admin_token, _} = F.session(admin)
+    {root_token, _} = F.session(root)
 
+    # Signed in as `root` (a borrowed account acts as that person, 2026-11-09).
     {:ok, borrowed} =
       Actor.from_session(%{
-        "user_token" => admin_token,
-        "pk_session_accounts" => [root_token, admin_token]
+        "user_token" => root_token,
+        "pk_session_accounts" => [admin_token, root_token]
       })
 
     for invalid <- [borrowed, admin, Scope.for_user(admin), nil] do
@@ -570,6 +572,7 @@ defmodule PhoenixKit.Users.ManagedOrganizationLifecycleTest do
     |> Ecto.Changeset.change(%{
       organization_uuid: org.uuid,
       kind: kind,
+      relationship_type_uuid: if(kind == :manager, do: RelationshipType.manager_uuid()),
       status: status,
       email: "invite-#{UUIDv7.generate()}@example.com",
       token: :crypto.strong_rand_bytes(32),

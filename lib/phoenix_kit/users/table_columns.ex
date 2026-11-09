@@ -26,7 +26,7 @@ defmodule PhoenixKit.Users.TableColumns do
 
       iex> PhoenixKit.Users.TableColumns.get_available_columns()
       %{
-        "email" => %{label: "Email", field: "email", required: true},
+        "email" => %{label: "Account", field: "email", required: false},
         "username" => %{label: "Username", field: "username", required: false},
         "custom_123" => %{label: "Department", field: "custom_data.department", field_id: 123, field_type: "select", required: false}
       }
@@ -43,7 +43,7 @@ defmodule PhoenixKit.Users.TableColumns do
   end
 
   # The standard columns in the order the column picker offers them.
-  @standard_order ~w(email username full_name role status registered location last_confirmed)
+  @standard_order ~w(avatar email username full_name organizations role status registered location last_confirmed)
 
   @doc """
   The spec `PhoenixKitWeb.TableColumns` needs for the Users table: every
@@ -59,9 +59,17 @@ defmodule PhoenixKit.Users.TableColumns do
         %{id: id, label: meta.label, group: gettext("Standard fields")}
       end
 
+    # A custom field reads as its column name, as in the table's header, with
+    # the full label under it when the two differ.
     custom =
       for {id, meta} <- Enum.sort_by(available.custom, fn {id, _} -> id end) do
-        %{id: id, label: meta.label, group: gettext("Custom fields")}
+        case meta do
+          %{column_label: name} when is_binary(name) and name != "" ->
+            %{id: id, label: name, hint: meta.label, group: gettext("Custom fields")}
+
+          _ ->
+            %{id: id, label: meta.label, group: gettext("Custom fields")}
+        end
       end
 
     %{
@@ -93,23 +101,24 @@ defmodule PhoenixKit.Users.TableColumns do
   if no user preference is saved in settings.
   """
   def get_default_columns do
-    # Return all standard (non-custom) fields by default
-    available = get_available_columns()
-
-    # "username" is redundant here — the "email" column already shows it
-    # inline (@username under the email). Still fully available via the
-    # column customizer for admins who want it as its own column.
+    # Every standard column, in the order they have always shown, with the
+    # avatar first: it was drawn inside the first column before it became a
+    # column of its own. "username" is left out — the first column already
+    # shows it (@username under the email) — but the picker still offers it.
+    # "organizations" sits after the person's name rather than in
+    # alphabetical order.
     standard_fields =
-      available.standard
+      get_standard_columns()
       |> Map.keys()
-      |> Enum.reject(&(&1 == "username"))
+      |> Enum.sort()
+      |> Enum.reject(&(&1 in ["avatar", "username", "organizations"]))
+      |> then(fn fields ->
+        if Map.has_key?(get_standard_columns(), "organizations"),
+          do: insert_after(fields, "full_name", "organizations"),
+          else: fields
+      end)
 
-    # Ensure actions is included at the end
-    fields_with_actions = Enum.uniq(standard_fields ++ ["actions"])
-
-    # Ensure actions is at the end
-    other_fields = Enum.reject(fields_with_actions, &(&1 == "actions"))
-    other_fields ++ ["actions"]
+    ["avatar" | standard_fields] ++ ["actions"]
   end
 
   @doc """
@@ -246,7 +255,7 @@ defmodule PhoenixKit.Users.TableColumns do
   ## Examples
 
       iex> PhoenixKit.Users.TableColumns.get_column_metadata("email")
-      %{label: "Email", field: "email", required: true}
+      %{label: "Account", field: "email", required: false, type: :email}
   """
   def get_column_metadata(column_id) do
     available = get_available_columns()
@@ -260,10 +269,49 @@ defmodule PhoenixKit.Users.TableColumns do
 
   # Private functions
 
+  defp insert_after(list, after_item, item) do
+    case Enum.find_index(list, &(&1 == after_item)) do
+      nil -> list ++ [item]
+      index -> List.insert_at(list, index + 1, item)
+    end
+  end
+
   defp get_standard_columns do
+    Map.merge(base_standard_columns(), organization_columns())
+  end
+
+  # The companies a person belongs to: offered only while organization
+  # accounts are on, so a site without them never sees an empty column.
+  defp organization_columns do
+    if Settings.get_boolean_setting("enable_organization_accounts", false) do
+      %{
+        "organizations" => %{
+          label: gettext("Organizations"),
+          field: nil,
+          required: false,
+          type: :organizations
+        }
+      }
+    else
+      %{}
+    end
+  end
+
+  defp base_standard_columns do
     %{
+      # Its own column so an admin can hide it. The header is read by screen
+      # readers and the column picker only.
+      "avatar" => %{
+        label: gettext("Avatar"),
+        field: nil,
+        required: false,
+        type: :avatar
+      },
+      # Still "email" as an id, so saved column choices keep working. It holds
+      # a person's email, or a company's name over its email, so it is headed
+      # "Account".
       "email" => %{
-        label: gettext("Email"),
+        label: gettext("Account"),
         field: "email",
         required: false,
         type: :email
@@ -282,7 +330,7 @@ defmodule PhoenixKit.Users.TableColumns do
         formatter: &format_full_name/1
       },
       "role" => %{
-        label: gettext("Role"),
+        label: gettext("Roles"),
         field: "roles",
         required: false,
         type: :roles
@@ -332,6 +380,9 @@ defmodule PhoenixKit.Users.TableColumns do
             field_key,
             %{
               label: field["label"],
+              # The Users table's header when set; `label` stays the full
+              # label, which the picker, the cards and the forms show.
+              column_label: field["column_label"],
               field: "custom_data.#{field["key"]}",
               field_key: field["key"],
               field_type: field["type"],

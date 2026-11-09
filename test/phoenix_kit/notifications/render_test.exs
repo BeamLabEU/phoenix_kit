@@ -19,7 +19,7 @@ defmodule PhoenixKit.Notifications.RenderTest do
     @account_actions ~w(
       user.roles_updated user.status_changed user.password_changed user.password_reset
       user.email_changed user.email_confirmed user.email_unconfirmed user.avatar_changed
-      user.profile_updated user.note_created user.note_deleted
+      user.avatar_crop_changed user.profile_updated user.note_created user.note_deleted
     )
 
     test "each account action links to the prefix/locale-correct settings path" do
@@ -41,6 +41,15 @@ defmodule PhoenixKit.Notifications.RenderTest do
     test "render/1 (no locale) falls back to Routes.path's default-locale resolution" do
       assert Render.render(notif("user.note_created")).link ==
                Routes.user_settings_path()
+    end
+
+    test "an admin re-framing someone's avatar reads like a new avatar" do
+      # AvatarEditor logs it with the person as target when an admin does it.
+      view = Render.render(notif("user.avatar_crop_changed"), "en")
+
+      assert view.icon == "hero-user-circle"
+      assert view.text == "Your avatar was updated."
+      assert Types.key_for_action("user.avatar_crop_changed") == "account"
     end
 
     test "user.email_unconfirmed renders a dedicated icon/text, not the generic fallback" do

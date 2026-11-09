@@ -733,6 +733,43 @@ defmodule PhoenixKit.Integration.Integrations.TelegramLinkingTest do
     end
   end
 
+  describe "linked_users/2" do
+    test "every account that linked this chat of this bot, oldest link first",
+         %{connection: connection} do
+      first = user()
+      second = user()
+      {:ok, _} = Linking.link_chat(first, connection, 888)
+      Process.sleep(1100)
+      {:ok, _} = Linking.link_chat(second, connection, 888)
+      {:ok, _} = Linking.link_chat(user(), connection, 889)
+
+      assert [a, b] = Linking.linked_users(connection, 888)
+      assert {a.uuid, b.uuid} == {first.uuid, second.uuid}
+      assert [_] = Linking.linked_users(connection, "889")
+      assert Linking.linked_users(Ecto.UUID.generate(), 888) == []
+
+      # What acts on the chat's authority still names nobody.
+      assert Linking.linked_user(connection, 888) == nil
+    end
+
+    test "leaves out service users and managed organizations", %{connection: connection} do
+      service = user()
+      managed = user()
+      kept = user()
+      for u <- [service, managed, kept], do: {:ok, _} = Linking.link_chat(u, connection, 990)
+      set_user(service, api_only: true)
+      set_user(managed, @managed)
+
+      assert [%Auth.User{uuid: uuid}] = Linking.linked_users(connection, 990)
+      assert uuid == kept.uuid
+    end
+
+    test "a malformed argument is [], never an exception" do
+      assert Linking.linked_users(nil, 1) == []
+      assert Linking.linked_users("x", %{}) == []
+    end
+  end
+
   describe "who may be linked" do
     test "a managed organization and a service user get no token and no link", %{
       connection: connection

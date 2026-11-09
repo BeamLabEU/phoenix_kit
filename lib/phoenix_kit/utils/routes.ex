@@ -898,6 +898,36 @@ defmodule PhoenixKit.Utils.Routes do
     |> path(locale: base)
   end
 
+  @doc """
+  The language a path names in its first segment (after the mount prefix), or
+  `nil` when it names none. Only languages the site serves count, so a host
+  path such as `/nl/products` names none when Dutch is not served.
+
+      Routes.path_locale("/de/admin")  # "de"
+      Routes.path_locale("/admin")     # nil
+  """
+  @spec path_locale(String.t() | nil) :: String.t() | nil
+  def path_locale(path) when is_binary(path) do
+    url_prefix = Config.get_url_prefix()
+    prefix = if url_prefix == "/", do: "", else: url_prefix
+
+    case path |> String.replace_prefix(prefix, "") |> String.split(["/", "?", "#"], parts: 3) do
+      ["", segment | _] -> if segment in switchable_locale_codes(nil), do: segment
+      _ -> nil
+    end
+  end
+
+  def path_locale(_path), do: nil
+
+  @doc "Whether the site serves pages in `locale` (compared by base language too)."
+  @spec served_locale?(String.t() | nil) :: boolean()
+  def served_locale?(locale) when is_binary(locale) do
+    known = switchable_locale_codes(nil)
+    locale in known or DialectMapper.extract_base(locale) in known
+  end
+
+  def served_locale?(_locale), do: false
+
   # Drop a leading locale segment, leaving "/" when it was the whole path.
   defp strip_locale_segment(path, current_locale) do
     known = switchable_locale_codes(current_locale)
@@ -1471,10 +1501,16 @@ defmodule PhoenixKit.Utils.Routes do
   This ensures that magic links and other email links work correctly in both
   development and production environments, with full control over the base URL
   through the Settings admin panel.
+
+  Takes the options of `path/2`. A link in an email passes `locale:` (the
+  recipient's language), or the path is built in the current process's
+  language, which in an admin's request is the admin's.
+
+      Routes.url("/users/log-in", locale: "de-DE")
   """
-  def url(url_path) do
+  def url(url_path, opts \\ []) do
     base_url = get_base_url_for_emails()
-    full_path = path(url_path)
+    full_path = path(url_path, opts)
 
     normalized_base = String.trim_trailing(base_url, "/")
     "#{normalized_base}#{full_path}"

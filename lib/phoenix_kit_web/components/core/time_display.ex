@@ -219,7 +219,7 @@ defmodule PhoenixKitWeb.Components.Core.TimeDisplay do
   defp format_expiration(nil), do: gettext("No expiration")
 
   defp format_expiration(date) do
-    Calendar.strftime(date, "%B %d, %Y")
+    UtilsDate.short_with_year(date)
   end
 
   defp format_age(days) when days < 1, do: {"badge-success", gettext("Today")}

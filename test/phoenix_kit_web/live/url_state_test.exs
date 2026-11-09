@@ -468,4 +468,61 @@ defmodule PhoenixKitWeb.Live.UrlStateTest do
       assert round_tripped == original
     end
   end
+
+  describe "put_url_state_default/3" do
+    defp socket_with(cfg) do
+      %Phoenix.LiveView.Socket{
+        assigns: %{
+          :__changed__ => %{},
+          :__phoenix_kit_url_cfg__ => cfg,
+          :__phoenix_kit_url_state__ => UrlState.decode(%{}, cfg),
+          :__phoenix_kit_url_path__ => "/admin/users",
+          :__phoenix_kit_url_extra__ => %{}
+        }
+      }
+    end
+
+    defp spec_default(socket, key) do
+      Enum.find(socket.assigns.__phoenix_kit_url_cfg__.params, &(&1.key == key)).default
+    end
+
+    test "a new default is what a URL without the key reads, and is left out of URLs" do
+      cfg =
+        cfg(
+          page: [default: 1, cast: :integer, min: 1],
+          per_page: [default: 25, cast: :integer, in: [10, 25, 50]]
+        )
+
+      socket = UrlState.put_url_state_default(socket_with(cfg), :per_page, 50)
+      new_cfg = socket.assigns.__phoenix_kit_url_cfg__
+
+      assert UrlState.decode(%{}, new_cfg).per_page == 50
+      # A URL that names another value still wins.
+      assert UrlState.decode(%{"per_page" => "10"}, new_cfg).per_page == 10
+      assert UrlState.build_path("/l", %{page: 1, per_page: 50}, new_cfg) == "/l"
+      assert UrlState.build_path("/l", %{page: 1, per_page: 25}, new_cfg) == "/l?per_page=25"
+    end
+
+    test "a value the parameter would refuse from a URL leaves the default alone" do
+      cfg =
+        cfg(
+          per_page: [default: 25, cast: :integer, in: [10, 25, 50]],
+          fit: [default: false, cast: :boolean]
+        )
+
+      socket = socket_with(cfg)
+
+      for {key, bad} <- [per_page: 7, per_page: "50", fit: "true"] do
+        refute spec_default(UrlState.put_url_state_default(socket, key, bad), key) == bad
+      end
+
+      assert spec_default(UrlState.put_url_state_default(socket, :fit, true), :fit) == true
+    end
+
+    test "an undeclared parameter raises" do
+      assert_raise ArgumentError, ~r/unknown UrlState parameter/, fn ->
+        UrlState.put_url_state_default(socket_with(cfg()), :nope, 1)
+      end
+    end
+  end
 end

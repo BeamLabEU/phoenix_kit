@@ -8,11 +8,14 @@ defmodule PhoenixKitWeb.Test.AudioRecorderHostLive do
   `file_input/4` cannot reach into a portal; `"shipped_defaults"` renders one with
   nothing but its id. `"second"` adds a recorder `other`, on the same page. With
   `"consumer"` set the recorder sits in `Consumer`, a LiveComponent, which is what
-  `target={@myself}` is for. Not routed; rendered with
+  `target={@myself}` is for. With `"page_upload"` the page has an upload of its own,
+  `:attachment`, and the recorder `into` puts its clips there (`upload=`), started
+  from the page's own button (`start_button={false}`). Not routed; rendered with
   `Phoenix.LiveViewTest.live_isolated/3`.
   """
   use Phoenix.LiveView
 
+  alias PhoenixKitWeb.Components.Core.AudioRecorder
   import PhoenixKitWeb.Components.Core.AudioRecorder, only: [audio_recorder: 1]
 
   defmodule Consumer do
@@ -46,12 +49,18 @@ defmodule PhoenixKitWeb.Test.AudioRecorderHostLive do
 
   @impl true
   def mount(_params, session, socket) do
+    socket =
+      if session["page_upload"] == true,
+        do: allow_upload(socket, :attachment, accept: ~w(audio/* .pdf), max_entries: 2),
+        else: socket
+
     {:ok,
      assign(socket,
        test_pid: session["test_pid"],
        attrs: attrs(session),
        consumer: session["consumer"] == true,
        second: session["second"] == true,
+       page_upload: session["page_upload"] == true,
        busy: false
      ), layout: false}
   end
@@ -68,12 +77,26 @@ defmodule PhoenixKitWeb.Test.AudioRecorderHostLive do
   end
 
   @impl true
+  def handle_event("validate_attachment", _params, socket), do: {:noreply, socket}
+
+  @impl true
   def render(assigns) do
     ~H"""
     <div>
       <.live_component :if={@consumer} module={Consumer} id="consumer" test_pid={@test_pid} />
       <.audio_recorder :if={!@consumer} busy={@busy} {@attrs} />
       <.audio_recorder :if={@second} id="other" portal={false} />
+      <form :if={@page_upload} id="page-form" phx-change="validate_attachment">
+        <.live_file_input upload={@uploads.attachment} />
+        <button
+          type="button"
+          id="page-record"
+          phx-click={AudioRecorder.start("into")}
+        >
+          Record
+        </button>
+        <.audio_recorder id="into" upload={@uploads.attachment} start_button={false} />
+      </form>
     </div>
     """
   end

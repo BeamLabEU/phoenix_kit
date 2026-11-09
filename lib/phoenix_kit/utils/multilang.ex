@@ -199,6 +199,108 @@ defmodule PhoenixKit.Utils.Multilang do
   end
 
   @doc """
+  The text of a short translated `field` ("name", "description"), in `lang` or
+  the primary language, with blanks read as absent.
+
+  Reads the multilang form's `"_name"` first, then a bare `"name"` from data written
+  by hand. A language with no text inherits the primary language's. `nil` when
+  there is none, so the caller can fall back to something of its own.
+  """
+  @spec text_field(term(), String.t(), String.t() | nil) :: String.t() | nil
+  def text_field(data, field, lang \\ nil)
+
+  def text_field(%{} = data, field, lang) when is_binary(field) do
+    primary = get_primary_data(data)
+    entry = if lang, do: get_raw_language_data(data, lang), else: primary
+
+    entry_text(entry, field) || entry_text(primary, field)
+  end
+
+  def text_field(_data, _field, _lang), do: nil
+
+  defp entry_text(entry, field) do
+    case Map.get(entry, "_" <> field) || Map.get(entry, field) do
+      value when is_binary(value) ->
+        case String.trim(value) do
+          "" -> nil
+          text -> text
+        end
+
+      _ ->
+        nil
+    end
+  end
+
+  @doc """
+  Whether `data` is a map `text_field/3` can read: flat text fields, or the multilang
+  shape with text fields under each language. For a castable `data` field, where a
+  string or a list would crash every reader.
+  """
+  @spec valid_text_data?(term()) :: boolean()
+  def valid_text_data?(%{@primary_language_key => primary} = data) do
+    is_binary(primary) and String.trim(primary) != "" and is_map(data[primary]) and
+      data
+      |> Map.delete(@primary_language_key)
+      |> Enum.all?(fn {_lang, entry} -> valid_text_fields?(entry) end)
+  end
+
+  def valid_text_data?(%{} = data), do: valid_text_fields?(data)
+  def valid_text_data?(_data), do: false
+
+  defp valid_text_fields?(%{} = entry) do
+    Enum.all?(entry, fn {key, value} -> is_binary(key) and is_binary(value) end)
+  end
+
+  defp valid_text_fields?(_entry), do: false
+
+  @doc """
+  Builds multilang `data` from short text fields, as a host passes them at boot:
+
+      build_text_data(%{"_name" => %{"en" => "Buyer", "de" => "Käufer"}})
+
+  A string goes under the primary language, a `%{lang => text}` map language by
+  language, and blanks are dropped. The primary entry is one that exists, because
+  every other language overrides it: the site's primary language or its base code,
+  else the first language given.
+  """
+  @spec build_text_data(map()) :: map()
+  def build_text_data(fields) when is_map(fields) do
+    site_primary = primary_language()
+
+    entries =
+      for {key, value} <- fields,
+          {lang, text} <- texts_by_language(value, site_primary),
+          reduce: %{} do
+        acc -> Map.update(acc, lang, %{key => text}, &Map.put(&1, key, text))
+      end
+
+    if entries == %{} do
+      %{}
+    else
+      Map.put(entries, @primary_language_key, primary_among(Map.keys(entries), site_primary))
+    end
+  end
+
+  defp texts_by_language(text, primary) when is_binary(text),
+    do: texts_by_language(%{primary => text}, primary)
+
+  defp texts_by_language(%{} = texts, _primary) do
+    for {lang, text} <- texts, is_binary(text), String.trim(text) != "", into: %{} do
+      {to_string(lang), String.trim(text)}
+    end
+  end
+
+  defp texts_by_language(_value, _primary), do: %{}
+
+  defp primary_among(langs, site_primary) do
+    base = DialectMapper.extract_base(site_primary)
+
+    Enum.find(langs, &(&1 == site_primary)) ||
+      Enum.find(langs, &(DialectMapper.extract_base(&1) == base)) ||
+      hd(Enum.sort(langs))
+  end
+
+  @doc """
   Checks if a data map uses the multilang structure.
   Presence of `_primary_language` key indicates multilang.
   """

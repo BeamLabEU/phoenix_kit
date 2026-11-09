@@ -135,6 +135,30 @@ defmodule PhoenixKit.Utils.Date do
   end
 
   @doc """
+  How long ago `datetime` was, in the current Gettext locale: "just now",
+  "5m ago", "3h ago", "2d ago", and from a week back the date itself
+  (`short/1`, with the year when it is not this year's).
+
+  `nil` gives `""`.
+  """
+  @spec ago(DateTime.t() | nil) :: String.t()
+  def ago(nil), do: ""
+
+  def ago(%DateTime{} = datetime) do
+    now = DateTime.utc_now()
+    seconds = DateTime.diff(now, datetime)
+
+    cond do
+      seconds < 60 -> gettext("just now")
+      seconds < 3600 -> gettext("%{n}m ago", n: div(seconds, 60))
+      seconds < 86_400 -> gettext("%{n}h ago", n: div(seconds, 3600))
+      seconds < 604_800 -> gettext("%{n}d ago", n: div(seconds, 86_400))
+      datetime.year == now.year -> short(datetime)
+      true -> short_with_year(datetime)
+    end
+  end
+
+  @doc """
   A short, localized "MMM D, YYYY at HH:MM" rendering of a datetime.
 
   For the places that reached for `Calendar.strftime(dt, "%b %d, %Y at %H:%M")`
@@ -149,8 +173,12 @@ defmodule PhoenixKit.Utils.Date do
   def format_short_datetime(datetime) do
     datetime = in_site_zone(datetime)
 
-    "#{short_month(datetime.month)} #{pad2(datetime.day)}, #{datetime.year}" <>
-      " at #{pad2(datetime.hour)}:#{pad2(datetime.minute)}"
+    gettext("%{month} %{day}, %{year} at %{time}",
+      month: short_month(datetime.month),
+      day: pad2(datetime.day),
+      year: datetime.year,
+      time: "#{pad2(datetime.hour)}:#{pad2(datetime.minute)}"
+    )
   end
 
   @doc """
@@ -307,7 +335,7 @@ defmodule PhoenixKit.Utils.Date do
       iex> PhoenixKit.Utils.Date.format_datetime(nil, "Y-m-d")
       "Never"
   """
-  def format_datetime(nil, _format), do: "Never"
+  def format_datetime(nil, _format), do: gettext("Never")
 
   def format_datetime(datetime, format) do
     date = NaiveDateTime.to_date(datetime)
@@ -459,7 +487,7 @@ defmodule PhoenixKit.Utils.Date do
       iex> PhoenixKit.Utils.Date.format_datetime_full(nil, "Y-m-d", "H:i")
       "Never"
   """
-  def format_datetime_full(nil, _date_format, _time_format), do: "Never"
+  def format_datetime_full(nil, _date_format, _time_format), do: gettext("Never")
 
   def format_datetime_full(datetime, date_format, time_format) do
     date = NaiveDateTime.to_date(datetime)
@@ -548,7 +576,7 @@ defmodule PhoenixKit.Utils.Date do
   defp format_datetime_with_timezone(datetime, format, user) do
     case datetime do
       nil ->
-        "Never"
+        gettext("Never")
 
       %NaiveDateTime{} = naive_dt ->
         # Convert NaiveDateTime to UTC DateTime first, then shift timezone
@@ -682,7 +710,7 @@ defmodule PhoenixKit.Utils.Date do
   defp format_datetime_with_timezone_cached(datetime, format, user, settings) do
     case datetime do
       nil ->
-        "Never"
+        gettext("Never")
 
       %NaiveDateTime{} = naive_dt ->
         utc_datetime = DateTime.from_naive!(naive_dt, "Etc/UTC")
@@ -784,7 +812,7 @@ defmodule PhoenixKit.Utils.Date do
       iex> PhoenixKit.Utils.Date.format_datetime_with_cached_settings(nil, %{})
       "Never"
   """
-  def format_datetime_with_cached_settings(nil, _settings), do: "Never"
+  def format_datetime_with_cached_settings(nil, _settings), do: gettext("Never")
 
   def format_datetime_with_cached_settings(datetime, settings) do
     date_format = viewer_date_format(Map.get(settings, "date_format", "Y-m-d"))

@@ -389,7 +389,9 @@ Acting as
 The session is the organization, so `Scope.for_user/1` gives the
 organization's roles and the role switcher works per session as usual. One
 manager level (decided): a manager acts with the organization's full
-authority; there is no "may act, but only as role X" in v1.
+authority; there is no "may act, but only as role X" in v1. Replaced by
+[Account relationships](2026-11-07-account-relationships.md): a link can now
+carry a type and a list of roles, and a person without `can_manage` is staff.
 
 A managed organization's authority has a ceiling, **applied when the scope is
 built** (`Scope.for_user/1`), not only when a role is assigned, because a

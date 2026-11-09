@@ -65,6 +65,8 @@ defmodule PhoenixKit.Utils.TimeZone do
   against the compiled tz database in `time_zone_test.exs`.
   """
 
+  use Gettext, backend: PhoenixKitWeb.Gettext
+
   @database Tz.TimeZoneDatabase
 
   # Zones grouped by IDENTICAL year-round behaviour — same offset AND same
@@ -1000,7 +1002,7 @@ defmodule PhoenixKit.Utils.TimeZone do
   end
 
   defp group_label(offset, group) do
-    suffix = if group.dst, do: " — summer time", else: ""
+    suffix = if group.dst, do: " — " <> gettext("summer time"), else: ""
     "(UTC#{format_offset(offset)}) #{group.cities}#{suffix}"
   end
 
@@ -1112,7 +1114,7 @@ defmodule PhoenixKit.Utils.TimeZone do
 
   """
   @spec label(String.t() | nil) :: String.t()
-  def label(value) when value in [nil, ""], do: "Use System Default"
+  def label(value) when value in [nil, ""], do: gettext("Use System Default")
 
   def label(value) do
     cond do

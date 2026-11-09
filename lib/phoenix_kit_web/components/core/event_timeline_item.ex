@@ -7,6 +7,7 @@ defmodule PhoenixKitWeb.Components.Core.EventTimelineItem do
   """
 
   use Phoenix.Component
+  use Gettext, backend: PhoenixKitWeb.Gettext
   import PhoenixKitWeb.Components.Core.Icon
 
   @doc """
@@ -39,7 +40,10 @@ defmodule PhoenixKitWeb.Components.Core.EventTimelineItem do
             {format_title(@event.event_type)}
           </h3>
           <time class="text-xs text-base-content/60">
-            {Calendar.strftime(@event.occurred_at, "%b %d, %H:%M:%S")}
+            {PhoenixKit.Utils.Date.short(@event.occurred_at)}, {Calendar.strftime(
+              @event.occurred_at,
+              "%H:%M:%S"
+            )}
           </time>
         </div>
 
@@ -87,17 +91,17 @@ defmodule PhoenixKitWeb.Components.Core.EventTimelineItem do
   defp event_icon(_), do: "hero-clock"
 
   # Event title formatting
-  defp format_title("queued"), do: "Email Queued"
-  defp format_title("send"), do: "Email Sent"
-  defp format_title("delivery"), do: "Email Delivered"
-  defp format_title("bounce"), do: "Email Bounced"
-  defp format_title("reject"), do: "Email Rejected"
-  defp format_title("delivery_delay"), do: "Delivery Delayed"
-  defp format_title("subscription"), do: "Subscription Event"
-  defp format_title("complaint"), do: "Spam Complaint"
-  defp format_title("open"), do: "Email Opened"
-  defp format_title("click"), do: "Link Clicked"
-  defp format_title("rendering_failure"), do: "Rendering Failed"
+  defp format_title("queued"), do: gettext("Email Queued")
+  defp format_title("send"), do: gettext("Email Sent")
+  defp format_title("delivery"), do: gettext("Email Delivered")
+  defp format_title("bounce"), do: gettext("Email Bounced")
+  defp format_title("reject"), do: gettext("Email Rejected")
+  defp format_title("delivery_delay"), do: gettext("Delivery Delayed")
+  defp format_title("subscription"), do: gettext("Subscription Event")
+  defp format_title("complaint"), do: gettext("Spam Complaint")
+  defp format_title("open"), do: gettext("Email Opened")
+  defp format_title("click"), do: gettext("Link Clicked")
+  defp format_title("rendering_failure"), do: gettext("Rendering Failed")
   defp format_title(type), do: String.capitalize(type)
 
   # Render event-specific details
@@ -106,7 +110,7 @@ defmodule PhoenixKitWeb.Components.Core.EventTimelineItem do
 
     ~H"""
     <div class="text-xs text-base-content/60">
-      <div>Email queued for sending</div>
+      <div>{gettext("Email queued for sending")}</div>
       <%= if get_in(@event.event_data, ["timestamp"]) do %>
         <div class="text-xs opacity-70">{get_in(@event.event_data, ["timestamp"])}</div>
       <% end %>
@@ -121,7 +125,8 @@ defmodule PhoenixKitWeb.Components.Core.EventTimelineItem do
     <div class="text-xs text-base-content/60">
       <%= if get_in(@event.event_data, ["provider"]) do %>
         <div>
-          Provider: <span class="font-medium">{get_in(@event.event_data, ["provider"])}</span>
+          {gettext("Provider:")}
+          <span class="font-medium">{get_in(@event.event_data, ["provider"])}</span>
         </div>
       <% end %>
       <%= if get_in(@event.event_data, ["timestamp"]) do %>
@@ -138,19 +143,20 @@ defmodule PhoenixKitWeb.Components.Core.EventTimelineItem do
     <div class="text-xs text-base-content/60">
       <%= if get_in(@event.event_data, ["processingTimeMillis"]) do %>
         <div>
-          Processing time:
+          {gettext("Processing time:")}
           <span class="font-medium">{get_in(@event.event_data, ["processingTimeMillis"])} ms</span>
         </div>
       <% end %>
       <%= if get_in(@event.event_data, ["smtpResponse"]) do %>
         <div>
-          SMTP:
+          {gettext("SMTP:")}
           <span class="font-mono text-success">{get_in(@event.event_data, ["smtpResponse"])}</span>
         </div>
       <% end %>
       <%= if get_in(@event.event_data, ["reportingMTA"]) do %>
         <div>
-          Server: <span class="font-mono">{get_in(@event.event_data, ["reportingMTA"])}</span>
+          {gettext("Server:")}
+          <span class="font-mono">{get_in(@event.event_data, ["reportingMTA"])}</span>
         </div>
       <% end %>
     </div>
@@ -163,16 +169,16 @@ defmodule PhoenixKitWeb.Components.Core.EventTimelineItem do
     ~H"""
     <div class="text-xs text-base-content/60">
       <div>
-        Type:
+        {gettext("Type:")}
         <span class={[
           "font-medium",
           if(@event.bounce_type == "hard", do: "text-error", else: "text-warning")
         ]}>
-          {@event.bounce_type || "unknown"}
+          {@event.bounce_type || gettext("unknown")}
         </span>
       </div>
       <%= if get_in(@event.event_data, ["reason"]) do %>
-        <div>Reason: {get_in(@event.event_data, ["reason"])}</div>
+        <div>{gettext("Reason:")} {get_in(@event.event_data, ["reason"])}</div>
       <% end %>
     </div>
     """
@@ -184,7 +190,9 @@ defmodule PhoenixKitWeb.Components.Core.EventTimelineItem do
     ~H"""
     <div class="text-xs text-base-content/60">
       <%= if @event.reject_reason do %>
-        <div>Reason: <span class="font-medium text-error">{@event.reject_reason}</span></div>
+        <div>
+          {gettext("Reason:")} <span class="font-medium text-error">{@event.reject_reason}</span>
+        </div>
       <% end %>
       <%= if get_in(@event.event_data, ["diagnosticCode"]) do %>
         <div class="mt-1 font-mono text-xs">{get_in(@event.event_data, ["diagnosticCode"])}</div>
@@ -199,13 +207,13 @@ defmodule PhoenixKitWeb.Components.Core.EventTimelineItem do
     ~H"""
     <div class="text-xs text-base-content/60">
       <%= if @event.delay_type do %>
-        <div>Type: <span class="font-medium">{@event.delay_type}</span></div>
+        <div>{gettext("Type:")} <span class="font-medium">{@event.delay_type}</span></div>
       <% end %>
       <%= if get_in(@event.event_data, ["delayedUntil"]) do %>
-        <div>Delayed until: {get_in(@event.event_data, ["delayedUntil"])}</div>
+        <div>{gettext("Delayed until:")} {get_in(@event.event_data, ["delayedUntil"])}</div>
       <% end %>
       <%= if get_in(@event.event_data, ["expirationTime"]) do %>
-        <div>Expires: {get_in(@event.event_data, ["expirationTime"])}</div>
+        <div>{gettext("Expires:")} {get_in(@event.event_data, ["expirationTime"])}</div>
       <% end %>
     </div>
     """
@@ -216,9 +224,12 @@ defmodule PhoenixKitWeb.Components.Core.EventTimelineItem do
 
     ~H"""
     <div class="text-xs text-base-content/60">
-      <div>Type: <span class="font-medium">{@event.complaint_type || "abuse"}</span></div>
+      <div>
+        {gettext("Type:")}
+        <span class="font-medium">{@event.complaint_type || gettext("abuse")}</span>
+      </div>
       <%= if get_in(@event.event_data, ["feedback_id"]) do %>
-        <div>Feedback ID: {get_in(@event.event_data, ["feedback_id"])}</div>
+        <div>{gettext("Feedback ID:")} {get_in(@event.event_data, ["feedback_id"])}</div>
       <% end %>
     </div>
     """
@@ -230,10 +241,10 @@ defmodule PhoenixKitWeb.Components.Core.EventTimelineItem do
     ~H"""
     <div class="text-xs text-base-content/60">
       <%= if @event.ip_address do %>
-        <div>IP: <span class="font-mono">{@event.ip_address}</span></div>
+        <div>{gettext("IP:")} <span class="font-mono">{@event.ip_address}</span></div>
       <% end %>
       <%= if get_in(@event.geo_location, ["country"]) do %>
-        <div>Location: {get_in(@event.geo_location, ["country"])}</div>
+        <div>{gettext("Location:")} {get_in(@event.geo_location, ["country"])}</div>
       <% end %>
     </div>
     """
@@ -246,14 +257,14 @@ defmodule PhoenixKitWeb.Components.Core.EventTimelineItem do
     <div class="text-xs text-base-content/60">
       <%= if @event.link_url do %>
         <div class="mb-1">
-          Link:
+          {gettext("Link:")}
           <a href={@event.link_url} target="_blank" class="text-blue-600 hover:underline break-all">
             {String.slice(@event.link_url, 0, 50)}{if String.length(@event.link_url) > 50, do: "..."}
           </a>
         </div>
       <% end %>
       <%= if @event.ip_address do %>
-        <div>IP: <span class="font-mono">{@event.ip_address}</span></div>
+        <div>{gettext("IP:")} <span class="font-mono">{@event.ip_address}</span></div>
       <% end %>
     </div>
     """
@@ -265,17 +276,17 @@ defmodule PhoenixKitWeb.Components.Core.EventTimelineItem do
     ~H"""
     <div class="text-xs text-base-content/60">
       <%= if @event.subscription_type do %>
-        <div>Type: <span class="font-medium">{@event.subscription_type}</span></div>
+        <div>{gettext("Type:")} <span class="font-medium">{@event.subscription_type}</span></div>
       <% end %>
       <%= if get_in(@event.event_data, ["newTopicPreferences"]) do %>
         <div class="mt-1">
-          Preferences updated:
+          {gettext("Preferences updated:")}
           <span class="font-mono text-xs">{get_in(@event.event_data, ["newTopicPreferences"])}</span>
         </div>
       <% end %>
       <%= if get_in(@event.event_data, ["oldTopicPreferences"]) do %>
         <div>
-          Previous:
+          {gettext("Previous:")}
           <span class="font-mono text-xs">{get_in(@event.event_data, ["oldTopicPreferences"])}</span>
         </div>
       <% end %>
@@ -289,14 +300,17 @@ defmodule PhoenixKitWeb.Components.Core.EventTimelineItem do
     ~H"""
     <div class="text-xs text-base-content/60">
       <%= if @event.failure_reason do %>
-        <div>Reason: <span class="font-medium text-error">{@event.failure_reason}</span></div>
+        <div>
+          {gettext("Reason:")} <span class="font-medium text-error">{@event.failure_reason}</span>
+        </div>
       <% end %>
       <%= if get_in(@event.event_data, ["errorMessage"]) do %>
-        <div class="mt-1">Error: {get_in(@event.event_data, ["errorMessage"])}</div>
+        <div class="mt-1">{gettext("Error:")} {get_in(@event.event_data, ["errorMessage"])}</div>
       <% end %>
       <%= if get_in(@event.event_data, ["templateName"]) do %>
         <div>
-          Template: <span class="font-mono">{get_in(@event.event_data, ["templateName"])}</span>
+          {gettext("Template:")}
+          <span class="font-mono">{get_in(@event.event_data, ["templateName"])}</span>
         </div>
       <% end %>
     </div>
@@ -308,7 +322,7 @@ defmodule PhoenixKitWeb.Components.Core.EventTimelineItem do
 
     ~H"""
     <%= if map_size(@event.event_data) > 0 do %>
-      <div class="text-xs text-base-content/60">Additional data available</div>
+      <div class="text-xs text-base-content/60">{gettext("Additional data available")}</div>
     <% end %>
     """
   end

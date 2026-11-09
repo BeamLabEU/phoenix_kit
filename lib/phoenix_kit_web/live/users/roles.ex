@@ -7,15 +7,14 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  import PhoenixKitWeb.Components.MultilangForm
+
   # Page and rows-per-page live in the query string, so a page of the list is
   # a real URL: shareable, reload-proof, and Back returns to the previous
-  # page. `per_page` is allowlisted rather than bounded: an arbitrary integer
-  # out of the URL is a LIMIT clause.
+  # page. Rows per page and Auto are remembered per person across the admin's
+  # lists (`PhoenixKitWeb.PageSize`).
   use PhoenixKitWeb.Live.UrlState,
-    params: [
-      page: [default: 1, cast: :integer, min: 1],
-      per_page: [default: 25, cast: :integer, in: [10, 25, 50, 100]]
-    ]
+    params: [page: [default: 1, cast: :integer, min: 1]] ++ PhoenixKitWeb.PageSize.url_params()
 
   alias PhoenixKit.Admin.Events
   alias PhoenixKit.Settings
@@ -49,6 +48,7 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
       |> assign(:show_edit_form, false)
       |> assign(:create_role_form, nil)
       |> assign(:edit_role_form, nil)
+      |> assign(:edit_role_changeset, nil)
       |> assign(:editing_role, nil)
       |> assign(:delete_confirmation, %{show: false})
       |> assign(:show_permissions_editor, false)
@@ -60,6 +60,8 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
       |> assign(:role_stats, role_stats)
       |> assign(:project_title, project_title)
       |> assign(:can_manage_permissions, false)
+      |> mount_multilang()
+      |> PhoenixKitWeb.PageSize.mount()
 
     {:ok, socket}
   end
@@ -73,14 +75,10 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
   # mount/handle_event/handle_info carry none.
   def handle_url_state(_state, socket), do: load_roles(socket)
 
-  # `push_url_state` resets the page along with the size: page 3 of 25 rows
-  # is not page 3 of 100.
-  def handle_event("change_per_page", %{"per_page" => per_page}, socket) do
-    case Integer.parse(per_page) do
-      {per_page, ""} -> {:noreply, push_url_state(socket, per_page: per_page)}
-      _ -> {:noreply, socket}
-    end
-  end
+  # Saved for the person and applied to every list (`PhoenixKitWeb.PageSize`);
+  # the page goes back to 1, as page 7 of 10 rows is not page 7 of 100.
+  def handle_event("change_per_page", params, socket),
+    do: {:noreply, PhoenixKitWeb.PageSize.handle_change(params, socket)}
 
   # Role ORDER (`PhoenixKit.Users.ActiveRole`): a drop from the SortableGrid
   # hook sends this page's rows in their new order; the ids are re-checked
@@ -123,13 +121,11 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
     role = find_role_by_uuid(socket.assigns.roles, role_uuid)
 
     if role && !role.is_system_role do
-      form = to_form(Role.changeset(role, %{}))
-
       socket =
         socket
         |> assign(:show_edit_form, true)
-        |> assign(:edit_role_form, form)
         |> assign(:editing_role, role)
+        |> assign_edit_changeset(Role.update_changeset(Roles.hydrate(role), %{}))
 
       {:noreply, socket}
     else
@@ -150,6 +146,16 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
     {:noreply, socket}
   end
 
+  def handle_event("validate_role", %{"role" => params}, socket) do
+    changeset =
+      socket.assigns.editing_role
+      |> Roles.hydrate()
+      |> Role.update_changeset(translated_params(params, socket))
+      |> Map.put(:action, :validate)
+
+    {:noreply, assign_edit_changeset(socket, changeset)}
+  end
+
   def handle_event("create_role", %{"role" => role_params}, socket) do
     case Roles.create_role(role_params) do
       {:ok, role} ->
@@ -158,7 +164,7 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
             do:
               gettext(
                 "Role \"%{role_name}\" created. Click Permissions to configure access.",
-                role_name: role.name
+                role_name: Roles.display_name(role)
               ),
             else: gettext("Role created successfully")
 
@@ -187,7 +193,7 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
        |> assign(:edit_role_form, nil)
        |> assign(:editing_role, nil)}
     else
-      case Roles.update_role(editing_role, role_params) do
+      case Roles.update_role(editing_role, translated_params(role_params, socket)) do
         {:ok, _role} ->
           socket =
             socket
@@ -200,7 +206,7 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
           {:noreply, socket}
 
         {:error, changeset} ->
-          {:noreply, assign(socket, :edit_role_form, to_form(changeset))}
+          {:noreply, assign_edit_changeset(socket, changeset)}
       end
     end
   end
@@ -376,7 +382,9 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
               socket
               |> put_flash(
                 :info,
-                gettext("Permissions updated for %{role_name}", role_name: role.name)
+                gettext("Permissions updated for %{role_name}",
+                  role_name: Roles.display_name(role)
+                )
               )
               |> assign(:show_permissions_editor, false)
               |> assign(:permissions_role, nil)
@@ -441,6 +449,21 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
     all = Roles.list_roles() |> Enum.map(& &1.uuid)
     offset = (socket.assigns.page - 1) * socket.assigns.per_page
     Enum.take(all, offset) ++ ordered ++ Enum.drop(all, offset + length(ordered))
+  end
+
+  defp assign_edit_changeset(socket, changeset) do
+    socket
+    |> assign(:edit_role_changeset, changeset)
+    |> assign(:edit_role_form, to_form(changeset))
+  end
+
+  # Folds the language tabs into `data`. The role's `name` never comes from this form.
+  defp translated_params(params, socket) do
+    params
+    |> Map.delete("name")
+    |> merge_translatable_params(socket, ["label", "description"],
+      changeset: socket.assigns.edit_role_changeset
+    )
   end
 
   defp load_roles(socket) do
@@ -568,7 +591,9 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
         |> assign(:permissions_preserved_keys, MapSet.new())
         |> put_flash(
           :info,
-          gettext("Role \"%{role_name}\" was deleted", role_name: deleted_role.name)
+          gettext("Role \"%{role_name}\" was deleted",
+            role_name: Roles.display_name(deleted_role)
+          )
         )
       else
         s
@@ -582,7 +607,9 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
         |> assign(:editing_role, nil)
         |> put_flash(
           :info,
-          gettext("Role \"%{role_name}\" was deleted", role_name: deleted_role.name)
+          gettext("Role \"%{role_name}\" was deleted",
+            role_name: Roles.display_name(deleted_role)
+          )
         )
       else
         s

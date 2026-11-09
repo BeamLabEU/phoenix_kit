@@ -18,24 +18,25 @@ defmodule PhoenixKitWeb.Live.Users.Sessions do
   # instead of leaving the page. `filter_user_status` defaults to "all", which
   # is therefore what gets omitted from the URL.
   use PhoenixKitWeb.Live.UrlState,
-    params: [
-      search_query: [default: "", url_key: "q"],
-      filter_user_status: [default: "all", url_key: "status"],
-      # Deep-linked from the dashboard's three session cards. Without it,
-      # "Today's Sessions" and "Expired Sessions" had no report at all — and
-      # linking them at the active list would have shown a set that does not
-      # contain what the card counted.
-      filter_scope: [
-        default: :active,
-        cast: :atom,
-        in: [:active, :today, :expired],
-        url_key: "scope"
-      ],
-      page: [default: 1, cast: :integer, min: 1],
-      # Rows per page, picked with <.page_size_selector>. Allowlisted rather
-      # than bounded: an arbitrary integer out of the URL is a LIMIT clause.
-      per_page: [default: 20, cast: :integer, in: [10, 20, 25, 50, 100]]
-    ]
+    # Rows per page and Auto, remembered per person across the admin's
+    # lists (`PhoenixKitWeb.PageSize`).
+    params:
+      [
+        search_query: [default: "", url_key: "q"],
+        filter_user_status: [default: "all", url_key: "status"],
+        # Deep-linked from the dashboard's three session cards. Without it,
+        # "Today's Sessions" and "Expired Sessions" had no report at all — and
+        # linking them at the active list would have shown a set that does not
+        # contain what the card counted.
+        filter_scope: [
+          default: :active,
+          cast: :atom,
+          in: [:active, :today, :expired],
+          url_key: "scope"
+        ],
+        page: [default: 1, cast: :integer, min: 1]
+      ] ++
+        PhoenixKitWeb.PageSize.url_params()
 
   alias PhoenixKit.Admin.Events
   alias PhoenixKit.Settings
@@ -72,6 +73,7 @@ defmodule PhoenixKitWeb.Live.Users.Sessions do
       |> assign(:selected_session, nil)
       |> assign(:revoke_type, nil)
       |> load_stats()
+      |> PhoenixKitWeb.PageSize.mount()
 
     {:ok, socket}
   end
@@ -115,14 +117,10 @@ defmodule PhoenixKitWeb.Live.Users.Sessions do
     {:noreply, push_url_state(socket, filter_scope: scope)}
   end
 
-  # `push_url_state` resets the page along with the size: page 7 of 20 rows
-  # is not page 7 of 100.
-  def handle_event("change_per_page", %{"per_page" => per_page}, socket) do
-    case Integer.parse(per_page) do
-      {per_page, ""} -> {:noreply, push_url_state(socket, per_page: per_page)}
-      _ -> {:noreply, socket}
-    end
-  end
+  # Saved for the person and applied to every list (`PhoenixKitWeb.PageSize`);
+  # the page goes back to 1, as page 7 of 10 rows is not page 7 of 100.
+  def handle_event("change_per_page", params, socket),
+    do: {:noreply, PhoenixKitWeb.PageSize.handle_change(params, socket)}
 
   # Ending someone's sessions takes the rank rule of changing their status
   # (`Sessions.can_revoke_sessions_of?/2`): checked when the dialog opens, and

@@ -2,10 +2,13 @@ defmodule PhoenixKit.Test.ManagedOrganizationFixtures do
   @moduledoc false
 
   alias PhoenixKit.Test.Repo
+  alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.Auth.UserToken
   alias PhoenixKit.Users.ManagedOrganizations.Actor
   alias PhoenixKit.Users.OrganizationManager
+  alias PhoenixKit.Users.OrganizationManagerRole
+  alias PhoenixKit.Users.Permissions
   alias PhoenixKit.Users.Roles
 
   def person(attrs \\ %{}) do
@@ -49,6 +52,58 @@ defmodule PhoenixKit.Test.ManagedOrganizationFixtures do
       user_uuid: person.uuid
     })
     |> Repo.insert!()
+  end
+
+  @doc "A link narrowed to `roles`: `[]` means none. `attrs` go on the link."
+  def narrowed_link(organization, person, roles, attrs \\ %{}) do
+    link =
+      %OrganizationManager{}
+      |> OrganizationManager.changeset(
+        Map.merge(
+          %{organization_uuid: organization.uuid, user_uuid: person.uuid, all_roles: false},
+          attrs
+        )
+      )
+      |> Repo.insert!()
+
+    for role <- roles do
+      Repo.insert!(%OrganizationManagerRole{
+        organization_manager_uuid: link.uuid,
+        role_uuid: role.uuid
+      })
+    end
+
+    link
+  end
+
+  @doc "A custom role holding `keys`, optionally given to `organization`."
+  def role(keys \\ [], organization \\ nil) do
+    {:ok, role} = Roles.create_role(%{name: "Role #{System.unique_integer([:positive])}"})
+    for key <- keys, do: {:ok, _} = Permissions.grant_permission(role.uuid, key)
+    if organization, do: {:ok, _} = Roles.assign_role(organization, role.name)
+    role
+  end
+
+  @doc "A live acting session of `person` through `link`, as the token loader gives it."
+  def enter(organization, person, link) do
+    {root_token, root} = session(person)
+
+    {token, row} =
+      session(organization, %{
+        acting_session_uuid: root.uuid,
+        organization_manager_uuid: link.uuid
+      })
+
+    %{
+      person: person,
+      organization: organization,
+      manager: link,
+      root_token: root_token,
+      root: root,
+      token: token,
+      row: row,
+      user: Auth.get_user_by_session_token(token)
+    }
   end
 
   def session(user, attrs \\ %{}) do
@@ -98,7 +153,8 @@ defmodule PhoenixKit.Test.ManagedOrganizationFixtures do
     {:ok, actor} =
       Actor.from_session(%{
         "user_token" => s.token,
-        "pk_session_accounts" => [s.root_token]
+        "pk_session_accounts" => [s.root_token, s.token],
+        "pk_organization_token" => s.token
       })
 
     actor

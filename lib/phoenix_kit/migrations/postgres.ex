@@ -7,7 +7,15 @@ defmodule PhoenixKit.Migrations.Postgres do
 
   ## Migration Versions
 
-  ### V228 - A reconcile lease on a file ⚡ LATEST
+  ### V229 - Relationship types and roles on an acting link ⚡ LATEST
+
+  `phoenix_kit_relationship_types` (kinds of link as data, built-in `manager` and `staff`),
+  `phoenix_kit_organization_managers.relationship_type_uuid`, `all_roles` and `metadata`,
+  `phoenix_kit_organization_manager_roles` (the roles of a narrowed link), the same facts on
+  `phoenix_kit_organization_invitations`, and `phoenix_kit_user_roles.data` (translations). Every existing
+  grant becomes a `manager` link with all roles. Rolling back returns narrowed links to full authority.
+
+  ### V228 - A reconcile lease on a file
 
   `phoenix_kit_files.reconcile_lock_token` (`uuid`) and `reconcile_locked_until` (`timestamp(0)`): the
   reconciler holds a file by a lease in its row, renewed while it works and left to run out if the holder
@@ -1058,7 +1066,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   alias PhoenixKit.Migrations.Repair.Environment
 
   @initial_version 135
-  @current_version 228
+  @current_version 229
 
   # Core 3.0 no longer creates or changes any module's table (plan
   # `dev_docs/plans/2026-10-25-module-table-ownership.md`, step 8): V135..V225

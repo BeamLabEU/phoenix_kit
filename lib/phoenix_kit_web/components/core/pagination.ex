@@ -10,6 +10,8 @@ defmodule PhoenixKitWeb.Components.Core.Pagination do
       `<.pagination_info>`) — URL-param driven, suits standalone admin
       pages with deep-linkable state. `<.page_size_selector>` sits next to
       either and lets the viewer pick the rows per page.
+      `<.pagination_bar>` is the three together, the footer every admin list
+      uses, with the size remembered per person (`PhoenixKitWeb.PageSize`).
 
     * Load-more (`<.load_more>`) — click-driven LV event that grows
       the loaded set in place. Suits embeddable LVs (no URL routing),
@@ -109,7 +111,7 @@ defmodule PhoenixKitWeb.Components.Core.Pagination do
     <div :if={@total_pages > 1} class={["join", @class]}>
       <%= if @page > 1 do %>
         <.link patch={@build_url.(@page - 1)} class="join-item btn btn-sm">
-          « Prev
+          « {gettext("Prev")}
         </.link>
       <% end %>
 
@@ -124,7 +126,7 @@ defmodule PhoenixKitWeb.Components.Core.Pagination do
 
       <%= if @page < @total_pages do %>
         <.link patch={@build_url.(@page + 1)} class="join-item btn btn-sm">
-          Next »
+          {gettext("Next")} »
         </.link>
       <% end %>
     </div>
@@ -241,7 +243,7 @@ defmodule PhoenixKitWeb.Components.Core.Pagination do
               patch={build_page_url(@base_path, @params, @current_page - 1)}
               class="join-item btn btn-sm"
             >
-              « Prev
+              « {gettext("Prev")}
             </.link>
           <% end %>
           <%!-- Page numbers (show current ± 2 pages) --%>
@@ -262,12 +264,84 @@ defmodule PhoenixKitWeb.Components.Core.Pagination do
               patch={build_page_url(@base_path, @params, @current_page + 1)}
               class="join-item btn btn-sm"
             >
-              Next »
+              {gettext("Next")} »
             </.link>
           <% end %>
         </div>
       </div>
     <% end %>
+    """
+  end
+
+  @doc """
+  The footer of an admin list, the same on every list: how many rows are
+  shown on the left, the page buttons in the middle, and the rows-per-page
+  selector with Auto on the right. Stacked on a narrow screen. Renders
+  nothing for an empty list.
+
+  The selector sends `change_per_page`; hand it to
+  `PhoenixKitWeb.PageSize.handle_change/2`, which remembers the size for
+  the person across every list.
+
+  ## Attributes
+  - `id` - DOM id of the bar; the selector gets `id <> "-per-page"` (required)
+  - `page`, `total_pages`, `total_count`, `per_page` - the list's state (required)
+  - `build_url` - page number -> URL, as for `<.pagination_controls>` (required)
+  - `table_id` - DOM id of the table, which Auto measures (required)
+  - `auto` - whether Auto is on (`@auto_fit` from `PageSize.url_params/0`)
+  - `noun_plural` - what is counted, already translated ("users")
+
+  ## Example
+
+      <.pagination_bar
+        id="users-pagination"
+        page={@page}
+        total_pages={@total_pages}
+        total_count={@total_count}
+        per_page={@per_page}
+        auto={@auto_fit}
+        table_id="users-table"
+        noun_plural={gettext("users")}
+        build_url={&url_state_path(assigns, page: &1)}
+      />
+  """
+  attr :id, :string, required: true
+  attr :page, :integer, required: true
+  attr :total_pages, :integer, required: true
+  attr :total_count, :integer, required: true
+  attr :per_page, :integer, required: true
+  attr :build_url, :any, required: true
+  attr :table_id, :string, required: true
+  attr :auto, :boolean, default: false
+  attr :noun_plural, :string, default: nil
+  attr :class, :string, default: ""
+
+  def pagination_bar(assigns) do
+    ~H"""
+    <div
+      :if={@total_count > 0}
+      id={@id}
+      class={["flex flex-col sm:flex-row items-center gap-4 py-4", @class]}
+    >
+      <.pagination_info
+        page={@page}
+        per_page={@per_page}
+        total_count={@total_count}
+        noun_plural={@noun_plural}
+        class="sm:flex-1"
+      />
+      <.pagination_controls page={@page} total_pages={@total_pages} build_url={@build_url} />
+      <div class="sm:flex-1 flex sm:justify-end">
+        <.page_size_selector
+          id={@id <> "-per-page"}
+          value={@per_page}
+          options={PhoenixKitWeb.PageSize.sizes()}
+          auto_fit
+          auto={@auto}
+          table_id={@table_id}
+        />
+      </div>
+    </div>
     """
   end
 
@@ -379,8 +453,8 @@ defmodule PhoenixKitWeb.Components.Core.Pagination do
   - `total` — total rows matching the current filter/sort (required)
   - `on_load_more` — LV event name pushed on button click
     (default `"load_more"`)
-  - `noun_plural` — used in the "Showing N of M %{noun}" line
-    (default `"items"`)
+  - `noun_plural` — used in the "Showing N of M %{noun}" line, already
+    translated (default: "results", translated)
   - `class` — additional classes on the outer wrapper
   - `infinite` — when `true`, the footer also auto-loads on scroll via
     the `InfiniteScroll` hook (the manual button stays as a fallback).
@@ -414,7 +488,7 @@ defmodule PhoenixKitWeb.Components.Core.Pagination do
   attr :loaded, :integer, required: true
   attr :total, :integer, required: true
   attr :on_load_more, :string, default: "load_more"
-  attr :noun_plural, :string, default: "items"
+  attr :noun_plural, :string, default: nil
   attr :class, :string, default: ""
   attr :id, :string, default: nil
   attr :infinite, :boolean, default: false
@@ -435,11 +509,9 @@ defmodule PhoenixKitWeb.Components.Core.Pagination do
 
     # Only the infinite variant renders data-cursor; skip the work otherwise.
     assigns =
-      assign(
-        assigns,
-        :effective_cursor,
-        if(assigns.infinite, do: resolve_cursor(assigns), else: "")
-      )
+      assigns
+      |> assign(:effective_cursor, if(assigns.infinite, do: resolve_cursor(assigns), else: ""))
+      |> assign(:noun_plural, assigns.noun_plural || gettext("results"))
 
     ~H"""
     <div

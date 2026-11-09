@@ -41,7 +41,7 @@ defmodule PhoenixKitWeb.Components.InvitationBanner do
       <div class="flex w-full items-center justify-between gap-4 flex-wrap">
         <span class="text-sm">
           <strong>{@invitation.organization.organization_name}</strong>
-          {" "}{if @invitation.kind == :manager,
+          {" "}{if manages?(@invitation),
             do: gettext("invited you to manage their organization."),
             else: gettext("invited you to join their organization.")}
         </span>
@@ -67,4 +67,9 @@ defmodule PhoenixKitWeb.Components.InvitationBanner do
     </div>
     """
   end
+
+  defp manages?(%{kind: :manager, relationship_type: %{can_manage: can_manage?}}),
+    do: can_manage?
+
+  defp manages?(_invitation), do: false
 end

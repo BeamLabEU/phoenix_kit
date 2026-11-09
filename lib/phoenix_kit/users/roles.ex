@@ -49,17 +49,21 @@ defmodule PhoenixKit.Users.Roles do
       [%User{}, %User{}]
   """
 
+  use Gettext, backend: PhoenixKitWeb.Gettext
+
   import Ecto.Query, warn: false
   alias Ecto.Adapters.SQL
   alias PhoenixKit.Admin.Events
   alias PhoenixKit.RepoHelper
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.Auth.User
+  alias PhoenixKit.Users.OrganizationManagerRole
   alias PhoenixKit.Users.Permissions
   alias PhoenixKit.Users.{Role, RoleAssignment, ScopeNotifier}
   alias PhoenixKit.Users.Sessions
   alias PhoenixKit.Users.Sessions.Revocation
   alias PhoenixKit.Utils.Date, as: UtilsDate
+  alias PhoenixKit.Utils.Multilang
 
   @doc """
   Assigns a role to a user.
@@ -338,7 +342,7 @@ defmodule PhoenixKit.Users.Roles do
   role names are editable — and relies on this order: the first switchable
   role here is a session's default.
   """
-  @spec get_user_role_records(User.t()) :: [%{uuid: String.t(), name: String.t()}]
+  @spec get_user_role_records(User.t()) :: [%{uuid: String.t(), name: String.t(), data: map()}]
   def get_user_role_records(%User{} = user) do
     repo = RepoHelper.repo()
 
@@ -346,7 +350,7 @@ defmodule PhoenixKit.Users.Roles do
       from assignment in RoleAssignment,
         join: role in assoc(assignment, :role),
         where: assignment.user_uuid == ^user.uuid,
-        select: %{uuid: role.uuid, name: role.name},
+        select: %{uuid: role.uuid, name: role.name, data: role.data},
         order_by: [asc: role.position, asc: role.name]
 
     repo.all(query)
@@ -368,7 +372,7 @@ defmodule PhoenixKit.Users.Roles do
       from assignment in RoleAssignment,
         join: role in assoc(assignment, :role),
         where: assignment.user_uuid in ^Enum.uniq(user_uuids),
-        select: {assignment.user_uuid, %{uuid: role.uuid, name: role.name}},
+        select: {assignment.user_uuid, %{uuid: role.uuid, name: role.name, data: role.data}},
         order_by: [asc: role.position, asc: role.name]
 
     query
@@ -435,6 +439,67 @@ defmodule PhoenixKit.Users.Roles do
         {:error, changeset}
     end
   end
+
+  @doc """
+  The name to show for a role, in `lang` (default: the viewer's language).
+
+  Takes a `%Role{}` or the role records a scope holds. Reads the role's label in that
+  language, then the primary language's, then the gettext string of a system role, then
+  `name`. Never match on this in code: `name` is the key.
+  """
+  @spec display_name(Role.t() | %{name: String.t()}, String.t() | nil) :: String.t()
+  def display_name(%{name: name} = role, lang \\ nil) when is_binary(name) do
+    Multilang.text_field(Map.get(role, :data), "label", lang || Multilang.current_locale()) ||
+      system_role_label(name) || name
+  end
+
+  @doc "Fills the virtual `label` from the primary-language `data`, for the edit form."
+  @spec hydrate(Role.t()) :: Role.t()
+  def hydrate(%Role{} = role), do: %{role | label: Multilang.text_field(role.data, "label")}
+
+  @doc "The description to show for a role, in `lang`, or `nil`."
+  @spec display_description(Role.t(), String.t() | nil) :: String.t() | nil
+  def display_description(%Role{} = role, lang \\ nil) do
+    Multilang.text_field(role.data, "description", lang || Multilang.current_locale()) ||
+      system_role_description(role) || role.description
+  end
+
+  # A system role's description as the migration seeded it, translated; one an
+  # admin has rewritten is theirs and shows as written.
+  defp system_role_description(%Role{
+         name: "Owner",
+         description: "System owner with full access"
+       }),
+       do: gettext("System owner with full access")
+
+  defp system_role_description(%Role{
+         name: "Admin",
+         description: "Administrator with elevated privileges"
+       }),
+       do: gettext("Administrator with elevated privileges")
+
+  defp system_role_description(%Role{
+         name: "User",
+         description: "Standard user with basic access"
+       }),
+       do: gettext("Standard user with basic access")
+
+  defp system_role_description(_role), do: nil
+
+  @doc """
+  `%{name => label}` for every role, for a page that holds role names as strings.
+  Load it once per page: it is one query.
+  """
+  @spec display_names(String.t() | nil) :: %{optional(String.t()) => String.t()}
+  def display_names(lang \\ nil) do
+    lang = lang || Multilang.current_locale()
+    Map.new(list_roles(), &{&1.name, display_name(&1, lang)})
+  end
+
+  defp system_role_label("Owner"), do: gettext("Owner")
+  defp system_role_label("Admin"), do: gettext("Admin")
+  defp system_role_label("User"), do: gettext("User")
+  defp system_role_label(_name), do: nil
 
   @doc """
   Gets a role by its name.
@@ -1123,14 +1188,22 @@ defmodule PhoenixKit.Users.Roles do
       iex> update_role(role, %{description: "Updated description"})
       {:ok, %Role{}}
 
-      iex> update_role(system_role, %{name: "NewName"})
+      iex> update_role(role, %{name: "NewName"})
       {:error, %Ecto.Changeset{}}
+
+  A role's `name` is a fixed key and cannot change. What people see is its label, in
+  `data`, built by `PhoenixKit.Utils.Multilang.build_text_data/1` (give the primary
+  language too: it is what every other language falls back to):
+
+      iex> data = Multilang.build_text_data(%{"_label" => %{"en" => "Buyer", "de" => "Käufer"}})
+      iex> update_role(role, %{data: data})
+      {:ok, %Role{}}
   """
   def update_role(%Role{} = role, attrs) do
     repo = RepoHelper.repo()
 
     case role
-         |> Role.changeset(attrs)
+         |> Role.update_changeset(attrs)
          |> repo.update() do
       {:ok, updated_role} ->
         # Broadcast role update event
@@ -1179,15 +1252,31 @@ defmodule PhoenixKit.Users.Roles do
         {:error, :role_in_use}
 
       true ->
-        case repo.delete(role) do
-          {:ok, deleted_role} ->
-            # Broadcast role deletion event
-            Events.broadcast_role_deleted(deleted_role)
-            {:ok, deleted_role}
+        delete_unused_role(repo, role)
+    end
+  end
 
-          {:error, changeset} ->
-            {:error, changeset}
-        end
+  # The check above is not atomic: a link landing between it and the DELETE trips the
+  # RESTRICT key, which is the same answer.
+  defp delete_unused_role(repo, role) do
+    role
+    |> Ecto.Changeset.change()
+    |> Ecto.Changeset.foreign_key_constraint(:uuid,
+      name: :phoenix_kit_organization_manager_roles_role_uuid_fkey,
+      message: "in use"
+    )
+    |> repo.delete()
+    |> case do
+      {:ok, deleted_role} ->
+        # Broadcast role deletion event
+        Events.broadcast_role_deleted(deleted_role)
+        {:ok, deleted_role}
+
+      {:error, %Ecto.Changeset{errors: [uuid: _]}} ->
+        {:error, :role_in_use}
+
+      {:error, changeset} ->
+        {:error, changeset}
     end
   end
 
@@ -1559,14 +1648,12 @@ defmodule PhoenixKit.Users.Roles do
     end
   end
 
+  # A role on an acting link is in use too, even when no account holds it right now.
   defp role_has_assignments?(%Role{} = role) do
     repo = RepoHelper.repo()
 
-    query =
-      from assignment in RoleAssignment,
-        where: assignment.role_uuid == ^role.uuid
-
-    repo.exists?(query)
+    repo.exists?(from(a in RoleAssignment, where: a.role_uuid == ^role.uuid)) or
+      repo.exists?(from(l in OrganizationManagerRole, where: l.role_uuid == ^role.uuid))
   end
 
   defp get_assignment(user_uuid, role_name) when is_binary(user_uuid) do

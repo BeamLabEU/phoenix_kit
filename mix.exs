@@ -198,14 +198,16 @@ defmodule PhoenixKit.MixProject do
       # `priv/static/assets/phoenix_kit.js` loads the browser half from the
       # host's own copy of the Hex package's file, so an open ceiling lets a
       # host float past the API phoenix_kit.js was written against.
-      # `~> 0.10.0` is `>= 0.10.0 and < 0.11.0`, so the next leaf minor needs a
+      # `~> 0.11.0` is `>= 0.11.0 and < 0.12.0`, so the next leaf minor needs a
       # requirement move and a read of phoenix_kit.js's use of it. No test
       # holds the ceiling (leaf_bundle_pin_test.exs went with the CDN pin).
       # 0.9 added tag previews and `media_url`; 0.10 sanitizes what it renders
-      # and writes typed text back as text — phoenix_kit.js only looks up
-      # `window.LeafHooks.Leaf` to register the hook, unchanged in both.
+      # and writes typed text back as text; 0.11 adds `notify` (an editor inside
+      # a LiveComponent sends its messages to that component) and `autofocus` —
+      # both off by default. phoenix_kit.js only looks up `window.LeafHooks.Leaf`
+      # to register the hook, unchanged in all three.
       {:leaf,
-       "~> 0.4.1 or ~> 0.5.0 or ~> 0.6.0 or ~> 0.7.0 or ~> 0.8.0 or ~> 0.9.0 or ~> 0.10.0"},
+       "~> 0.4.1 or ~> 0.5.0 or ~> 0.6.0 or ~> 0.7.0 or ~> 0.8.0 or ~> 0.9.0 or ~> 0.10.0 or ~> 0.11.0"},
 
       # Markdown → HTML (comrak). Declared here in core so every module shares
       # one resolved version instead of each pulling its own and risking

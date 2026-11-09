@@ -168,7 +168,7 @@ defmodule PhoenixKitWeb.Live.Settings do
             updated_settings["project_title"] ||
               PhoenixKit.Config.get(:project_title, "PhoenixKit")
           )
-          |> put_flash(:info, "Settings reset to defaults successfully")
+          |> put_flash(:info, gettext("Settings reset to defaults successfully"))
 
         {:noreply, socket}
 
@@ -269,7 +269,7 @@ defmodule PhoenixKitWeb.Live.Settings do
         :project_title,
         updated_settings["project_title"] || PhoenixKit.Config.get(:project_title, "PhoenixKit")
       )
-      |> put_flash(:info, "Settings updated successfully")
+      |> put_flash(:info, gettext("Settings updated successfully"))
 
     {:noreply, socket}
   end

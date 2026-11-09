@@ -1,0 +1,181 @@
+# V229's post-squash delta, generated from the V228 -> V229 catalog diff.
+#
+# PGDATABASE=<scratch-test-db> MIX_ENV=test mix run --no-start \
+#   dev_docs/squash/generate_v229_manifest.exs
+#
+# Do NOT regenerate the historical baseline by replaying the squashed chain:
+# that discards pre-floor history (README, Manifest + reference policy). This
+# tool preserves every historical object and revision verbatim and emits only
+# the delta overlay. It never rewrites the baseline or its reference dumps.
+# The two schema snapshots below supply every new shape. The built-in relationship
+# types are row data, so their `seed` objects are added here by hand.
+# Run restamp_chain_hash.exs after formatting the migration.
+
+System.put_env("PK_GEN_LIBRARY", "1")
+Code.require_file("generate_baseline.exs", __DIR__)
+
+alias PhoenixKit.Migrations.Postgres
+alias PhoenixKit.Squash.DumpHelper
+alias PhoenixKit.Squash.Generate.Catalog
+alias PhoenixKit.Squash.Generate.Differ
+alias PhoenixKit.Squash.Generate.Emitter
+alias PhoenixKit.Squash.RepoHelper
+
+# Expose the existing RAW data in a temporary module, without materializing
+# schema/name markers or changing anything in the committed manifest.
+{:defmodule, meta, [_name, body]} =
+  "lib/phoenix_kit/migrations/expected_schema.ex" |> File.read!() |> Code.string_to_quoted!()
+
+body =
+  Macro.prewalk(body, fn
+    {:defp, meta, [{:raw_objects, _, _}, _] = args} -> {:def, meta, args}
+    node -> node
+  end)
+
+Code.compile_quoted(
+  {:defmodule, meta,
+   [{:__aliases__, [], [:PhoenixKit, :Migrations, :ExpectedSchemaSnapshot]}, body]}
+)
+
+previous =
+  apply(PhoenixKit.Migrations.ExpectedSchemaSnapshot, :raw_objects, [])
+  |> Map.new(&{&1.id, &1})
+
+defmodule PhoenixKit.Squash.V229Before do
+  use Ecto.Migration
+  @disable_ddl_transaction true
+  def up, do: PhoenixKit.Migrations.Postgres.up(prefix: prefix(), version: 228)
+end
+
+defmodule PhoenixKit.Squash.V229After do
+  use Ecto.Migration
+  @disable_ddl_transaction true
+  def up, do: PhoenixKit.Migrations.Postgres.V229.up(%{prefix: prefix()})
+end
+
+repo = RepoHelper.start!()
+schema = "pk_v229_#{System.unique_integer([:positive])}"
+Postgres.Helpers.validate_prefix!(schema)
+
+# Unique scratch namespace, never an existing installation.
+%{rows: [[false]]} =
+  repo.query!(
+    "SELECT EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name = $1)",
+    [schema],
+    log: false
+  )
+
+repo.query!("CREATE SCHEMA #{schema}", [], log: false)
+
+try do
+  :ok = Ecto.Migrator.up(repo, 1, PhoenixKit.Squash.V229Before, prefix: schema, log: false)
+  before = Catalog.snapshot(repo, schema)
+  :ok = Ecto.Migrator.up(repo, 2, PhoenixKit.Squash.V229After, prefix: schema, log: false)
+  after_snapshot = Catalog.snapshot(repo, schema)
+
+  changes =
+    [{228, before}, {229, after_snapshot}]
+    |> Differ.history()
+    |> Differ.catalog(after_snapshot)
+    |> Map.fetch!(:objects)
+    |> Enum.filter(fn object -> Enum.any?(object.revisions, &(elem(&1, 0) == 229)) end)
+    # A seeded role row reads as changed only because the table gained `data`, and
+    # the baseline's seed objects stay as they are.
+    |> Enum.reject(&(&1.class == :seed))
+    |> Emitter.build_objects()
+    |> Enum.map(fn object ->
+      case previous[object.id] do
+        nil ->
+          object
+
+        old ->
+          %{object | since: old.since, revisions: old.revisions ++ [List.last(object.revisions)]}
+      end
+    end)
+
+  if changes == [], do: raise("V229 produced no catalog changes")
+
+  seed = fn uuid, key, can_manage, position ->
+    %{
+      id: "seed:phoenix_kit_relationship_types:#{key}",
+      owner: :core,
+      check:
+        "SELECT EXISTS (SELECT 1 FROM __SCHEMA__.phoenix_kit_relationship_types WHERE \"key\" = '#{key}')",
+      create:
+        "INSERT INTO __SCHEMA__.phoenix_kit_relationship_types (\"uuid\", \"key\", \"from_kind\", \"to_kind\", \"can_act\", \"can_manage\", \"position\", \"builtin\")\nVALUES ('#{uuid}', '#{key}', 'person', 'organization', TRUE, #{String.upcase(to_string(can_manage))}, #{position}, TRUE)\nON CONFLICT DO NOTHING",
+      since: 229,
+      class: :seed,
+      revisions: [
+        {229,
+         %{
+           values: %{
+             "builtin" => true,
+             "can_act" => true,
+             "can_manage" => can_manage,
+             "from_kind" => "person",
+             "key" => key,
+             "position" => position,
+             "to_kind" => "organization"
+           },
+           key_value: key,
+           key_column: "key"
+         }}
+      ],
+      presence: :required,
+      backfill: nil
+    }
+  end
+
+  changes =
+    changes ++
+      [
+        seed.("019a0000-0000-7000-8000-000000000229", "manager", true, 10),
+        seed.("019a0000-0000-7000-8000-00000000022a", "staff", false, 20)
+      ]
+  literal = inspect(changes, pretty: true, limit: :infinity, printable_limit: :infinity)
+
+  source = """
+  defmodule PhoenixKit.Migrations.ExpectedSchema.V229 do
+    @moduledoc false
+    # Generated by dev_docs/squash/generate_v229_manifest.exs. Do not hand-edit.
+    # Historical baseline data is preserved; only V229's catalog diff is overlaid.
+
+    def merge(objects) do
+      updates = objects()
+      ids = MapSet.new(updates, & &1.id)
+      Enum.reject(objects, &MapSet.member?(ids, &1.id)) ++ updates
+    end
+
+    def objects do
+      #{literal}
+    end
+  end
+  """
+
+  Code.string_to_quoted!(source)
+  File.mkdir_p!("lib/phoenix_kit/migrations/expected_schema")
+  path = "lib/phoenix_kit/migrations/expected_schema/v229.ex"
+  File.write!(path, [Code.format_string!(source), "\n"])
+
+  # A standalone, normalized reference for the tables touched by V229.
+  # Created by pg_dump, not transcribed from the migration or edited by hand.
+  tables =
+    ~w(phoenix_kit_relationship_types phoenix_kit_organization_managers phoenix_kit_organization_manager_roles phoenix_kit_organization_invitations phoenix_kit_user_roles)
+
+  args =
+    ["--schema-only", "--no-owner", "--no-privileges", "--no-comments"] ++
+      Enum.flat_map(tables, &["--table", "#{schema}.#{&1}"])
+
+  {dump, 0} = System.cmd("pg_dump", args, stderr_to_stdout: true)
+  reference = "dev_docs/squash/reference/v229_account_relationships.sql"
+
+  File.write!(
+    reference,
+    "-- Generated V229 reference: types, links, link roles, invitations and roles.\n" <>
+      DumpHelper.normalise(dump, schema)
+  )
+
+  IO.puts("Generated #{path} (#{length(changes)} objects) and #{reference}")
+after
+  repo.query!("DROP SCHEMA #{schema} CASCADE", [], log: false)
+end

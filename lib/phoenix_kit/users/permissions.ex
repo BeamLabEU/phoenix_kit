@@ -145,12 +145,12 @@ defmodule PhoenixKit.Users.Permissions do
     "media" => [
       %{
         key: "media.view_all",
-        label: "See everyone's files",
+        label: gettext_noop("See everyone's files"),
         description: "See the files other people uploaded to the site's libraries"
       },
       %{
         key: "media.manage",
-        label: "Manage storage",
+        label: gettext_noop("Manage storage"),
         description: "Buckets, sizes and health, and the site-wide trash and orphan actions"
       }
     ],
@@ -163,7 +163,7 @@ defmodule PhoenixKit.Users.Permissions do
     "jobs" => [
       %{
         key: "jobs.manage",
-        label: "Manage jobs",
+        label: gettext_noop("Manage jobs"),
         description: "Start, pause, resume, cancel and retry background jobs"
       }
     ],
@@ -177,7 +177,7 @@ defmodule PhoenixKit.Users.Permissions do
     "settings" => [
       %{
         key: "settings.security",
-        label: "Security settings",
+        label: gettext_noop("Security settings"),
         description:
           "Sign-in methods and OAuth secrets, website access (password gate, site close, allowed addresses), registration and the new-user default role"
       }
@@ -742,15 +742,15 @@ defmodule PhoenixKit.Users.Permissions do
 
   # Core section metadata (always present, not from registry)
   @core_labels %{
-    "dashboard" => "Dashboard",
-    "users" => "Users",
-    "media" => "Media",
-    "settings" => "Settings",
-    "modules" => "Modules",
-    "jobs" => "Jobs",
+    "dashboard" => gettext_noop("Dashboard"),
+    "users" => gettext_noop("Users"),
+    "media" => gettext_noop("Media"),
+    "settings" => gettext_noop("Settings"),
+    "modules" => gettext_noop("Modules"),
+    "jobs" => gettext_noop("Jobs"),
     # Languages is core and always on: the page that holds the site's
     # multi-language switch must stay reachable while the switch is off.
-    "languages" => "Languages",
+    "languages" => gettext_noop("Languages"),
     # `db` was extracted into `phoenix_kit_db` but core still
     # references the key (e.g. `auth.ex` `/admin/db` route).
     # `phoenix_kit_db` registers `"db" => "DB"` via its
@@ -760,12 +760,12 @@ defmodule PhoenixKit.Users.Permissions do
     # produces `String.capitalize("db")` = `"Db"`. Pin the canonical
     # label here so the display is correct regardless of whether
     # the external module is installed.
-    "db" => "DB",
-    "integrations" => "My Integrations",
-    "integrations_system" => "System Integrations",
-    "api" => "API keys",
-    "api_personal_keys" => "Personal API keys",
-    "*" => "Full Access (Superadmin)"
+    "db" => gettext_noop("DB"),
+    "integrations" => gettext_noop("My Integrations"),
+    "integrations_system" => gettext_noop("System Integrations"),
+    "api" => gettext_noop("API keys"),
+    "api_personal_keys" => gettext_noop("Personal API keys"),
+    "*" => gettext_noop("Full Access (Superadmin)")
   }
 
   @core_icons %{

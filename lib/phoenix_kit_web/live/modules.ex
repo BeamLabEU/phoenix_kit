@@ -148,7 +148,7 @@ defmodule PhoenixKitWeb.Live.Modules do
   def handle_event("toggle_module", %{"key" => key}, socket) do
     case authorize_toggle(socket, key) do
       :ok -> dispatch_toggle(socket, key)
-      {:error, :access_denied} -> {:noreply, put_flash(socket, :error, "Access denied")}
+      {:error, :access_denied} -> {:noreply, put_flash(socket, :error, gettext("Access denied"))}
     end
   end
 
@@ -387,7 +387,7 @@ defmodule PhoenixKitWeb.Live.Modules do
     mod = ModuleRegistry.get_by_key(key)
 
     if is_nil(mod) do
-      {:noreply, put_flash(socket, :error, "Module not found")}
+      {:noreply, put_flash(socket, :error, gettext("Module not found"))}
     else
       configs = socket.assigns.module_configs
       current_config = configs[key] || %{}
@@ -418,13 +418,21 @@ defmodule PhoenixKitWeb.Live.Modules do
             |> refresh_tab_counts()
             |> put_flash(
               :info,
-              "#{mod.module_name()} #{if new_enabled, do: "enabled", else: "disabled"}"
+              if(new_enabled,
+                do: gettext("%{module} enabled", module: mod.module_name()),
+                else: gettext("%{module} disabled", module: mod.module_name())
+              )
             )
 
           {:noreply, socket}
 
         {:error, _reason} ->
-          {:noreply, put_flash(socket, :error, "Failed to update #{mod.module_name()}")}
+          {:noreply,
+           put_flash(
+             socket,
+             :error,
+             gettext("Failed to update %{module}", module: mod.module_name())
+           )}
       end
     end
   end
@@ -499,7 +507,7 @@ defmodule PhoenixKitWeb.Live.Modules do
       if emails_enabled do
         generic_toggle(socket, "newsletters")
       else
-        {:noreply, put_flash(socket, :error, "Please enable Emails module first")}
+        {:noreply, put_flash(socket, :error, gettext("Please enable Emails module first"))}
       end
     end
   end

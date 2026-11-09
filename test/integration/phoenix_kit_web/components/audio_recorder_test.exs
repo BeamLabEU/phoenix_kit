@@ -5,6 +5,7 @@ defmodule PhoenixKitWeb.Components.Core.AudioRecorderTest do
   """
   use PhoenixKitWeb.ConnCase, async: true
 
+  alias Phoenix.LiveView.JS
   alias PhoenixKitWeb.Components.Core.AudioRecorder
   alias PhoenixKitWeb.Test.AudioRecorderHostLive, as: Host
 
@@ -379,6 +380,83 @@ defmodule PhoenixKitWeb.Components.Core.AudioRecorderTest do
 
       assert LazyHTML.attribute(template, "data-phx-portal") == ["body"]
       assert LazyHTML.to_html(template) =~ ~s(id="rec-upload")
+    end
+  end
+
+  describe "started from the page's own button" do
+    test "start/2 dispatches to the recorder, and chains" do
+      assert %JS{ops: [["dispatch", dispatch]]} = AudioRecorder.start("voice")
+      assert dispatch == %{event: "phoenix_kit:audio_recorder_start", to: "#voice-recorder"}
+
+      chained = JS.push("close_menu") |> AudioRecorder.start("voice")
+      assert length(chained.ops) == 2
+    end
+
+    test "without a start button there is no button of its own", %{conn: conn} do
+      {_view, html} = host(conn, %{"attrs" => %{start_button: false}})
+      recorder = html |> LazyHTML.from_fragment() |> LazyHTML.query("#rec-recorder")
+
+      assert LazyHTML.attribute(recorder, "data-start-button") == ["false"]
+      assert recorder |> LazyHTML.query("[data-recorder-start]") |> Enum.count() == 0
+      # Send and Cancel are still there for the recording itself.
+      assert recorder |> LazyHTML.query("[data-recorder-send]") |> Enum.count() == 1
+    end
+
+    test "with one, by default", %{conn: conn} do
+      {_view, html} = host(conn)
+      recorder = html |> LazyHTML.from_fragment() |> LazyHTML.query("#rec-recorder")
+      assert LazyHTML.attribute(recorder, "data-start-button") == ["true"]
+      assert recorder |> LazyHTML.query("[data-recorder-start]") |> Enum.count() == 1
+    end
+  end
+
+  describe "into the page's own upload" do
+    test "points the hook at that upload, with no upload or form of its own", %{conn: conn} do
+      {view, html} = host(conn, %{"page_upload" => true})
+      doc = LazyHTML.from_fragment(html)
+      recorder = LazyHTML.query(doc, "#into-recorder")
+      input = LazyHTML.query(doc, "#page-form input[type=file]")
+
+      assert LazyHTML.attribute(recorder, "data-upload-ref") == LazyHTML.attribute(input, "id")
+      assert LazyHTML.attribute(recorder, "data-upload-name") == ["attachment"]
+      assert LazyHTML.attribute(recorder, "data-upload-form") == []
+      assert doc |> LazyHTML.query("#into-upload") |> Enum.count() == 0
+      assert doc |> LazyHTML.query("#into-portal") |> Enum.count() == 0
+
+      # The page's button starts it.
+      assert view |> element("#page-record") |> render() =~ "phoenix_kit:audio_recorder_start"
+    end
+
+    test "a clip lands in the page's upload like any picked file", %{conn: conn} do
+      {view, _html} = host(conn, %{"page_upload" => true})
+
+      view
+      |> file_input("#page-form", :attachment, [
+        %{name: "recording-2026-11-06-203005.webm", type: "audio/webm", content: "webm"}
+      ])
+      |> render_upload("recording-2026-11-06-203005.webm")
+
+      assert [%{client_name: "recording-2026-11-06-203005.webm", done?: true}] =
+               :sys.get_state(view.pid).socket.assigns.uploads.attachment.entries
+
+      refute_received {:audio_recorded, "into", _clip}
+    end
+
+    test "a recorder error leaves the page's files alone", %{conn: conn} do
+      {view, _html} = host(conn, %{"page_upload" => true})
+
+      view
+      |> file_input("#page-form", :attachment, [
+        %{name: "notes.pdf", type: "application/pdf", content: "%PDF"}
+      ])
+      |> render_upload("notes.pdf")
+
+      view |> element("#into-recorder") |> render_hook("recorder_error", %{"reason" => "denied"})
+
+      assert [%{client_name: "notes.pdf"}] =
+               :sys.get_state(view.pid).socket.assigns.uploads.attachment.entries
+
+      assert render(view) =~ AudioRecorder.error_message(:denied)
     end
   end
 end

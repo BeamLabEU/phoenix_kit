@@ -108,7 +108,9 @@ current scope until then.
 - ⚠️ **Access decisions read the scope; rules protecting against a user's real
   roles read `held_roles/1`.** Example: "you cannot edit a role you hold"
   (`Permissions.can_edit_role_permissions?/2`) uses `held_roles`, so acting as
-  Seller does not make the user's Buyer role editable by them.
+  Seller does not make the user's Buyer role editable by them. Never ask it what
+  someone may do: in a session acting for an organization it is the organization's
+  roles, including ones outside the person's link. `user_roles/1` answers that.
 - ⚠️ **Code that reads roles straight from the database ignores the active
   role.** `Roles.user_has_role_owner?/1`, `Roles.get_user_roles/1`,
   `User.get_roles/1` return real roles. Use the scope for access decisions.

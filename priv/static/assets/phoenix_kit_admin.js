@@ -7789,9 +7789,25 @@
     return {
       width: width,
       height: height,
-      left: clamp(50 - crop.x * width, 100 - width, 0),
-      top: clamp(50 - crop.y * height, 100 - height, 0)
+      left: avatarCropOffset(crop.x, width),
+      top: avatarCropOffset(crop.y, height)
     };
+  }
+
+  // The frame never sees past an edge of an image that covers it; an image
+  // smaller than the frame along this axis (zoomed out) sits in the middle.
+  function avatarCropOffset(focal, size) {
+    return size < 100 ? (100 - size) / 2 : clamp(50 - focal * size, 100 - size, 0);
+  }
+
+  // The lowest zoom for aspect ratio `ar`: the whole picture inside the round
+  // frame, its diagonal across the circle. Mirror of
+  // PhoenixKit.Users.AvatarCrop.min_zoom/2 at fit 1; the hook scales it by
+  // the shape's fit.
+  function avatarCropMinZoom(ar) {
+    var a = clamp(ar, 0.05, 20);
+    var long = Math.max(a, 1 / a);
+    return 1 / Math.sqrt(1 + long * long);
   }
 
   // Focal coordinates that would render clamped are snapped back into the
@@ -7809,6 +7825,13 @@
     mounted() {
       var self = this;
       var maxZoom = parseFloat(this.el.dataset.maxZoom || "8");
+      // The site's avatar shape: the largest circle centred in it, against
+      // half the frame (PhoenixKit.Users.AvatarShape.fit/1). The zoom floor
+      // shrinks with it so a picture zoomed all the way out fits the shape.
+      var fit = parseFloat(this.el.dataset.fit || "1") || 1;
+      var minZoom = function () {
+        return avatarCropMinZoom(self.crop.ar) * fit;
+      };
 
       var stored = {};
       try {
@@ -7828,6 +7851,17 @@
       this.img = this.el.querySelector("[data-crop-img]");
       this.slider = this.el.querySelector("[data-crop-zoom]");
 
+      // The slider reaches down to where this picture fits the circle, which
+      // depends on its shape: set again once the image tells its real ratio.
+      this._syncMinZoom = function () {
+        var min = minZoom();
+        if (self.crop.zoom < min) self.crop.zoom = min;
+        if (self.slider) {
+          self.slider.min = String(min);
+          self.slider.value = String(self.crop.zoom);
+        }
+      };
+
       // The stored aspect ratio was captured from this same file, but the
       // image itself is the authority once it arrives — a freshly picked
       // avatar has no stored crop and starts from ar = 1 until then.
@@ -7838,9 +7872,11 @@
           // value — on a reopened editor they already match.
           if (Math.abs(ar - self.crop.ar) > 0.001) {
             self.crop.ar = ar;
+            self._syncMinZoom();
             self._render();
             self._push();
           } else {
+            self._syncMinZoom();
             self._render();
           }
         }
@@ -7852,7 +7888,7 @@
       }
 
       if (this.slider) {
-        this.slider.value = String(this.crop.zoom);
+        this._syncMinZoom();
         this.slider.addEventListener("input", function () {
           // About the frame's centre: what is in the middle stays there.
           var r = self.frame.getBoundingClientRect();
@@ -7874,7 +7910,7 @@
         var before = avatarCropLayout(self.crop);
         var u = (px - before.left) / before.width;
         var v = (py - before.top) / before.height;
-        self.crop.zoom = clamp(zoom, 1, maxZoom);
+        self.crop.zoom = clamp(zoom, minZoom(), maxZoom);
         var after = avatarCropLayout(self.crop);
         self.crop.x = (50 - (px - u * after.width)) / after.width;
         self.crop.y = (50 - (py - v * after.height)) / after.height;
@@ -8034,6 +8070,101 @@
   if (typeof module === "object" && module.exports) {
     module.exports.avatarCropLayout = avatarCropLayout;
     module.exports.clampAvatarCropFocal = clampAvatarCropFocal;
+    module.exports.avatarCropMinZoom = avatarCropMinZoom;
+  }
+})();
+
+// ---------------------------------------------------------------------------
+// AvatarPeek — a larger copy of a small avatar while the pointer is over it.
+//
+// `<.user_avatar peek>` marks its wrapper `data-avatar-peek="<url of a
+// picture sized for the preview>"` and its frame `data-avatar-frame`. One
+// delegated listener (no hook, no ids) clones the frame — shape, crop and
+// all, since every geometry in it is a percentage — into a panel fixed to
+// the viewport, so a scrolling table cannot clip it. Decorative only: it
+// repeats a picture the row already shows.
+// ---------------------------------------------------------------------------
+(function () {
+  if (typeof window === "undefined" || window.PhoenixKitAvatarPeek) return;
+  window.PhoenixKitAvatarPeek = true;
+
+  var SIZE = 176; // UserInfo's @peek_px
+  var GAP = 12;
+  var PAD = 8;
+
+  // Beside the avatar, on the right unless that runs off the viewport,
+  // vertically centred on it and kept inside the viewport.
+  function avatarPeekPosition(rect, size, viewport) {
+    var box = size + 2 * PAD;
+    var left = rect.right + GAP;
+    if (left + box > viewport.width - GAP) left = rect.left - GAP - box;
+    if (left < GAP) left = GAP;
+    var top = rect.top + rect.height / 2 - box / 2;
+    top = Math.max(GAP, Math.min(top, viewport.height - GAP - box));
+    return { left: left, top: top };
+  }
+
+  var current = null;
+  var panel = null;
+
+  function hide() {
+    if (panel && panel.parentNode) panel.parentNode.removeChild(panel);
+    panel = null;
+    current = null;
+  }
+
+  function show(el) {
+    var frame = el.querySelector("[data-avatar-frame]");
+    if (!frame) return;
+    var clone = frame.cloneNode(true);
+    clone.removeAttribute("data-avatar-frame");
+    clone.style.width = SIZE + "px";
+    clone.style.height = SIZE + "px";
+    clone.style.fontSize = "4rem";
+    var img = clone.querySelector("img");
+    var src = el.getAttribute("data-avatar-peek");
+    if (img && src) img.src = src;
+
+    var pos = avatarPeekPosition(el.getBoundingClientRect(), SIZE, {
+      width: window.innerWidth,
+      height: window.innerHeight
+    });
+    panel = document.createElement("div");
+    panel.setAttribute("data-avatar-peek-panel", "");
+    panel.setAttribute("aria-hidden", "true");
+    panel.style.cssText =
+      "position:fixed;z-index:1000;pointer-events:none;" +
+      "left:" + pos.left + "px;top:" + pos.top + "px;padding:" + PAD + "px;" +
+      "background:var(--color-base-100,#fff);border-radius:var(--radius-box,1rem);" +
+      "box-shadow:0 12px 32px rgba(0,0,0,.28);" +
+      "opacity:0;transform:scale(.94);transition:opacity .12s ease,transform .12s ease;";
+    panel.appendChild(clone);
+    document.body.appendChild(panel);
+    // Next frame, so the transition runs from the starting values.
+    requestAnimationFrame(function () {
+      if (!panel) return;
+      panel.style.opacity = "1";
+      panel.style.transform = "scale(1)";
+    });
+    current = el;
+  }
+
+  if (typeof document !== "undefined" && document.addEventListener) {
+    document.addEventListener("mouseover", function (e) {
+      var target = e.target;
+      var el = target && target.closest ? target.closest("[data-avatar-peek]") : null;
+      if (el === current && panel) return;
+      hide();
+      if (el) show(el);
+    });
+    // Anything that moves the page moves the avatar away from its preview.
+    document.addEventListener("scroll", hide, true);
+    window.addEventListener("blur", hide);
+    window.addEventListener("phx:page-loading-start", hide);
+  }
+
+  if (typeof module === "object" && module.exports) {
+    module.exports.avatarPeekPosition = avatarPeekPosition;
   }
 })();
 

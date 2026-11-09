@@ -107,7 +107,10 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
     case result do
       {:ok, _} ->
         config = Sitemap.get_config()
-        message = if new_enabled, do: "Sitemap enabled", else: "Sitemap disabled"
+
+        message =
+          if new_enabled, do: gettext("Sitemap enabled"), else: gettext("Sitemap disabled")
+
         new_version = UtilsDate.utc_now() |> DateTime.to_unix()
         broadcast_settings_change(:sitemap_toggled, %{enabled: new_enabled, version: new_version})
 
@@ -118,7 +121,7 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
          |> put_flash(:info, message)}
 
       {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Failed to update sitemap status")}
+        {:noreply, put_flash(socket, :error, gettext("Failed to update sitemap status"))}
     end
   end
 
@@ -149,8 +152,8 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
 
         message =
           if new_value,
-            do: "Router Discovery enabled — flat sitemap mode active",
-            else: "Router Discovery disabled — per-module sitemap mode"
+            do: gettext("Router Discovery enabled — flat sitemap mode active"),
+            else: gettext("Router Discovery disabled — per-module sitemap mode")
 
         {:noreply,
          socket
@@ -161,7 +164,7 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
          |> put_flash(:info, message)}
 
       {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Failed to update source setting")}
+        {:noreply, put_flash(socket, :error, gettext("Failed to update source setting"))}
     end
   end
 
@@ -189,7 +192,7 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
          |> assign(:sitemap_version, new_version)}
 
       {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Failed to update source setting")}
+        {:noreply, put_flash(socket, :error, gettext("Failed to update source setting"))}
     end
   end
 
@@ -208,11 +211,14 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
          |> assign(:sitemap_version, new_version)
          |> put_flash(
            :info,
-           "Registration page #{if new_value, do: "included", else: "excluded"}"
+           if(new_value,
+             do: gettext("Registration page included"),
+             else: gettext("Registration page excluded")
+           )
          )}
 
       {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Failed to update registration setting")}
+        {:noreply, put_flash(socket, :error, gettext("Failed to update registration setting"))}
     end
   end
 
@@ -231,11 +237,15 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
          |> assign(:sitemap_version, new_version)
          |> put_flash(
            :info,
-           "Publishing #{if new_value, do: "split by blog", else: "combined into one file"}"
+           if(new_value,
+             do: gettext("Publishing split by blog"),
+             else: gettext("Publishing combined into one file")
+           )
          )}
 
       {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Failed to update publishing split setting")}
+        {:noreply,
+         put_flash(socket, :error, gettext("Failed to update publishing split setting"))}
     end
   end
 
@@ -256,7 +266,7 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
          |> assign(:sitemap_version, new_version)}
 
       {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Failed to update HTML sitemap setting")}
+        {:noreply, put_flash(socket, :error, gettext("Failed to update HTML sitemap setting"))}
     end
   end
 
@@ -282,7 +292,7 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
          |> assign(:sitemap_version, new_version)}
 
       {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Failed to update schedule setting")}
+        {:noreply, put_flash(socket, :error, gettext("Failed to update schedule setting"))}
     end
   end
 
@@ -299,10 +309,10 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
          socket
          |> assign(:config, config)
          |> assign(:sitemap_version, new_version)
-         |> put_flash(:info, "Style updated. Sitemap will use new style on next load.")}
+         |> put_flash(:info, gettext("Style updated. Sitemap will use new style on next load."))}
 
       {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Failed to update style")}
+        {:noreply, put_flash(socket, :error, gettext("Failed to update style"))}
     end
   end
 
@@ -326,11 +336,11 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
              |> assign(:sitemap_version, new_version)}
 
           {:error, _} ->
-            {:noreply, put_flash(socket, :error, "Failed to update interval")}
+            {:noreply, put_flash(socket, :error, gettext("Failed to update interval"))}
         end
 
       _ ->
-        {:noreply, put_flash(socket, :error, "Invalid interval value")}
+        {:noreply, put_flash(socket, :error, gettext("Invalid interval value"))}
     end
   end
 
@@ -344,17 +354,23 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
           {:noreply,
            socket
            |> assign(:generating, true)
-           |> put_flash(:info, "Sitemap generation queued. Stats will update automatically.")}
+           |> put_flash(
+             :info,
+             gettext("Sitemap generation queued. Stats will update automatically.")
+           )}
 
         {:error, reason} ->
           {:noreply,
            socket
-           |> put_flash(:error, "Failed to queue generation: #{inspect(reason)}")}
+           |> put_flash(
+             :error,
+             gettext("Failed to queue generation: %{reason}", reason: inspect(reason))
+           )}
       end
     else
       {:noreply,
        socket
-       |> put_flash(:error, "Please configure Base URL before generating")}
+       |> put_flash(:error, gettext("Please configure Base URL before generating"))}
     end
   end
 
@@ -372,7 +388,7 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
     content =
       case Generator.generate_all(opts) do
         {:ok, %{index_xml: xml}} -> xml
-        _ -> "Error generating XML preview"
+        _ -> gettext("Error generating XML preview")
       end
 
     {:noreply,
@@ -403,10 +419,15 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
          |> assign(:generating, true)
          |> assign(:module_stats, [])
          |> assign(:module_files, [])
-         |> put_flash(:info, "All sitemaps cleared. Regeneration started...")}
+         |> put_flash(:info, gettext("All sitemaps cleared. Regeneration started..."))}
 
       {:error, reason} ->
-        {:noreply, put_flash(socket, :error, "Failed to regenerate: #{inspect(reason)}")}
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           gettext("Failed to regenerate: %{reason}", reason: inspect(reason))
+         )}
     end
   end
 
@@ -426,10 +447,10 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
              |> assign(:exclude_patterns_text, Enum.join(patterns, "\n"))
              |> assign(:exclude_patterns_error, nil)
              |> bump_and_broadcast("router_discovery_exclude_patterns")
-             |> put_flash(:info, "Exclude patterns updated")}
+             |> put_flash(:info, gettext("Exclude patterns updated"))}
 
           {:error, _} ->
-            {:noreply, put_flash(socket, :error, "Failed to update exclude patterns")}
+            {:noreply, put_flash(socket, :error, gettext("Failed to update exclude patterns"))}
         end
 
       invalid ->
@@ -438,7 +459,9 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
          |> assign(:exclude_patterns_text, text)
          |> assign(
            :exclude_patterns_error,
-           "Invalid regex pattern(s), not saved: #{Enum.join(invalid, ", ")}"
+           gettext("Invalid regex pattern(s), not saved: %{patterns}",
+             patterns: Enum.join(invalid, ", ")
+           )
          )}
     end
   end
@@ -456,10 +479,10 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
              |> assign(:protected_pipelines_text, Enum.join(names, "\n"))
              |> assign(:protected_pipelines_error, nil)
              |> bump_and_broadcast("protected_pipelines")
-             |> put_flash(:info, "Protected pipelines updated")}
+             |> put_flash(:info, gettext("Protected pipelines updated"))}
 
           {:error, _} ->
-            {:noreply, put_flash(socket, :error, "Failed to update protected pipelines")}
+            {:noreply, put_flash(socket, :error, gettext("Failed to update protected pipelines"))}
         end
 
       invalid ->
@@ -468,8 +491,10 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
          |> assign(:protected_pipelines_text, text)
          |> assign(
            :protected_pipelines_error,
-           "Invalid pipeline name(s) — use letters, digits and underscores only, not saved: " <>
-             Enum.join(invalid, ", ")
+           gettext(
+             "Invalid pipeline name(s) — use letters, digits and underscores only, not saved: %{names}",
+             names: Enum.join(invalid, ", ")
+           )
          )}
     end
   end
@@ -485,10 +510,10 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
              |> assign(:custom_urls_text, Json.encode_pretty!(list))
              |> assign(:custom_urls_error, nil)
              |> bump_and_broadcast("custom_urls")
-             |> put_flash(:info, "Custom URLs updated")}
+             |> put_flash(:info, gettext("Custom URLs updated"))}
 
           {:error, _} ->
-            {:noreply, put_flash(socket, :error, "Failed to update custom URLs")}
+            {:noreply, put_flash(socket, :error, gettext("Failed to update custom URLs"))}
         end
 
       {:error, message} ->
@@ -510,10 +535,10 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
              |> assign(:static_routes_text, Json.encode_pretty!(list))
              |> assign(:static_routes_error, nil)
              |> bump_and_broadcast("static_routes")
-             |> put_flash(:info, "Static routes updated")}
+             |> put_flash(:info, gettext("Static routes updated"))}
 
           {:error, _} ->
-            {:noreply, put_flash(socket, :error, "Failed to update static routes")}
+            {:noreply, put_flash(socket, :error, gettext("Failed to update static routes"))}
         end
 
       {:error, message} ->
@@ -539,11 +564,11 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
             {:noreply, socket |> refresh_extension_sources() |> bump_and_broadcast(key)}
 
           {:error, _} ->
-            {:noreply, put_flash(socket, :error, "Failed to update setting")}
+            {:noreply, put_flash(socket, :error, gettext("Failed to update setting"))}
         end
 
       _ ->
-        {:noreply, put_flash(socket, :error, "Unknown setting")}
+        {:noreply, put_flash(socket, :error, gettext("Unknown setting"))}
     end
   end
 
@@ -553,14 +578,14 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
       %{type: :integer} ->
         case Integer.parse(raw_value) do
           {int, _} -> {:noreply, save_extension_value(socket, key, Integer.to_string(int))}
-          :error -> {:noreply, put_flash(socket, :error, "Invalid number")}
+          :error -> {:noreply, put_flash(socket, :error, gettext("Invalid number"))}
         end
 
       %{type: :string} ->
         {:noreply, save_extension_value(socket, key, raw_value)}
 
       _ ->
-        {:noreply, put_flash(socket, :error, "Unknown setting")}
+        {:noreply, put_flash(socket, :error, gettext("Unknown setting"))}
     end
   end
 
@@ -579,7 +604,7 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
      |> assign(:sitemap_version, sitemap_version)
      |> assign(:module_stats, module_stats)
      |> assign(:module_files, module_files)
-     |> put_flash(:info, "Sitemap generated successfully (#{count} URLs)")}
+     |> put_flash(:info, gettext("Sitemap generated successfully (%{count} URLs)", count: count))}
   end
 
   @impl true
@@ -652,7 +677,7 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
     Enum.filter(module_files, &String.starts_with?(&1, source_prefix))
   end
 
-  def format_timestamp(nil), do: "Never"
+  def format_timestamp(nil), do: gettext("Never")
 
   def format_timestamp(iso_string) when is_binary(iso_string) do
     case DateTime.from_iso8601(iso_string) do
@@ -667,7 +692,7 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
     end
   end
 
-  def format_timestamp(_), do: "Never"
+  def format_timestamp(_), do: gettext("Never")
 
   # ============================================================================
   # Advanced settings (Router Discovery exclude patterns, protected pipelines,
@@ -749,14 +774,14 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
         if Enum.all?(list, &is_map/1) do
           {:ok, list}
         else
-          {:error, "Must be a JSON array of objects"}
+          {:error, gettext("Must be a JSON array of objects")}
         end
 
       _other ->
-        {:error, "Must be a JSON array of objects"}
+        {:error, gettext("Must be a JSON array of objects")}
     end
   rescue
-    e in JSON.DecodeError -> {:error, "Invalid JSON: #{e.message}"}
+    e in JSON.DecodeError -> {:error, gettext("Invalid JSON: %{message}", message: e.message)}
   end
 
   # Shared tail for every advanced/extension setting save: bust the generated
@@ -837,10 +862,10 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
         socket
         |> refresh_extension_sources()
         |> bump_and_broadcast(key)
-        |> put_flash(:info, "Setting updated")
+        |> put_flash(:info, gettext("Setting updated"))
 
       {:error, _} ->
-        put_flash(socket, :error, "Failed to update setting")
+        put_flash(socket, :error, gettext("Failed to update setting"))
     end
   end
 

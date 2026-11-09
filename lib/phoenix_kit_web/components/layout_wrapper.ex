@@ -870,9 +870,8 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
       admin_panel_text: admin_panel_text(),
       # The small "[dev]" tag beside the project title — see `resolve_dev_environment/1`.
       dev_environment?: resolve_dev_environment(assigns[:dev_environment]),
-      current_locale: assigns[:current_locale],
-      current_locale_base:
-        assigns[:current_locale] && DialectMapper.extract_base(assigns[:current_locale]),
+      current_locale: page_locale(assigns),
+      current_locale_base: DialectMapper.extract_base(page_locale(assigns)),
       scope: assigns[:phoenix_kit_current_scope],
       # Whether this visitor gets a navigation sidebar at all.
       #
@@ -947,6 +946,13 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   # each with its session built from this render's assigns. Like the bell, they need
   # the parent socket to embed a nested LiveView and a signed-in user; without either
   # there are none, and so no dock column either.
+  # The page's language: the one it passes, else the one its process renders in
+  # (the navigation hook sets it from the URL on every page). Pages that did not
+  # pass `current_locale` mounted the bell and the header widgets, nested
+  # LiveViews with processes of their own, in English (2026-11-09).
+  defp page_locale(assigns),
+    do: assigns[:current_locale] || Gettext.get_locale(PhoenixKitWeb.Gettext)
+
   defp header_widgets(assigns) do
     user = widget_user(assigns)
 
@@ -954,10 +960,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
       assigns
       |> Map.put(:phoenix_kit_current_user, user)
       # The same locale the bell gets: `current_locale_base` is computed after this call.
-      |> Map.put_new(
-        :current_locale_base,
-        assigns[:current_locale] && DialectMapper.extract_base(assigns[:current_locale])
-      )
+      |> Map.put_new(:current_locale_base, DialectMapper.extract_base(page_locale(assigns)))
       |> Map.put(
         :impersonating?,
         HeaderWidget.impersonating?(assigns[:phoenix_kit_current_scope])
@@ -967,6 +970,17 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
       []
     end
   end
+
+  # The bell is sticky: it keeps its process, and so its Gettext locale, across
+  # navigation. With the language in its id, a language switch mounts a new one.
+  # The site's primary language keeps the plain id.
+  defp bell_id(locale) when is_binary(locale) and locale != "" do
+    if locale == Routes.get_default_admin_locale(),
+      do: "pk-notifications-bell",
+      else: "pk-notifications-bell-" <> locale
+  end
+
+  defp bell_id(_locale), do: "pk-notifications-bell"
 
   defp widget_user(assigns) do
     assigns[:phoenix_kit_current_user] ||
@@ -1254,11 +1268,12 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   <% end %>
                   <%= if @socket && bell_user && PhoenixKit.Notifications.enabled?() do %>
                     {Phoenix.Component.live_render(@socket, PhoenixKitWeb.Live.NotificationsBell,
-                      id: "pk-notifications-bell",
+                      id: bell_id(assigns[:current_locale_base]),
                       sticky: true,
                       session: %{
                         "user_uuid" => bell_user.uuid,
                         "locale" => assigns[:current_locale_base],
+                        "dialect" => assigns[:current_locale],
                         "can_open_inbox" => @can_open_inbox
                       }
                     )}

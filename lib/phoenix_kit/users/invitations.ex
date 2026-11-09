@@ -30,6 +30,7 @@ defmodule PhoenixKit.Users.Invitations do
   alias PhoenixKit.Users.ManagedOrganizations.Invitations, as: ManagerInvitations
   alias PhoenixKit.Users.OrganizationInvitation
   alias PhoenixKit.Users.Referrals
+  alias PhoenixKit.Utils.RecipientLocale
   alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
@@ -40,7 +41,9 @@ defmodule PhoenixKit.Users.Invitations do
 
   `kind: :member` (the default) takes the inviting User. `kind: :manager`
   takes a ManagedOrganizations.Actor from the trusted signed browser session;
-  it resolves the inviting person itself and rechecks the live grant/admin.
+  it resolves the inviting person itself and rechecks the live grant/admin. It also
+  takes the link to create on acceptance: `:type`, `:roles` and `:all_roles`, as
+  `PhoenixKit.Users.OrganizationManagers` describes.
   Manager responses and duplicate responses are presented generically by the UI.
 
   Returns `{:ok, invitation, encoded_token}` on success.
@@ -58,7 +61,8 @@ defmodule PhoenixKit.Users.Invitations do
       when is_binary(email) do
     case Keyword.get(opts, :kind, :member) do
       :manager ->
-        ManagerInvitations.create(organization.uuid, email, actor)
+        link_opts = Keyword.take(opts, [:type, :roles, :all_roles])
+        ManagerInvitations.create(organization.uuid, email, actor, link_opts)
 
       :member ->
         create_member_invitation(organization, email, invited_by_user(actor))
@@ -133,7 +137,7 @@ defmodule PhoenixKit.Users.Invitations do
         i.email == ^email and
           i.status == :pending and
           i.expires_at > ^now,
-      preload: [:organization]
+      preload: [:organization, :relationship_type]
     )
     |> repo.all()
   end
@@ -157,7 +161,7 @@ defmodule PhoenixKit.Users.Invitations do
               i.token == ^hashed_token and
                 i.status == :pending and
                 i.expires_at > ^now,
-            preload: [:organization]
+            preload: [:organization, :relationship_type]
           )
           |> repo.one()
 
@@ -383,7 +387,12 @@ defmodule PhoenixKit.Users.Invitations do
 
     case repo.get_by(User, email: invitation.email) do
       nil ->
-        url = Routes.url("/users/register?invitation=#{encoded_token}")
+        # In the language of the mail (an address has no saved one: the
+        # site's), not in the inviting admin's.
+        url =
+          Routes.url("/users/register?invitation=#{encoded_token}",
+            locale: RecipientLocale.for_rendering(invitation.email)
+          )
 
         UserNotifier.deliver_organization_invitation(
           invitation.email,

@@ -100,6 +100,38 @@ defmodule PhoenixKit.Utils.RecipientLocale do
   end
 
   @doc """
+  The language of a mail a person asked for themselves (a magic link, a
+  password reset, a confirmation), from the page they asked on: their saved
+  preference, else `page_locale`, else the site's content language.
+
+  Only for mail the recipient requested. A mail someone else sends (an admin)
+  uses `for_rendering/1`, so it never carries the sender's language.
+
+      iex> alias PhoenixKit.Utils.RecipientLocale
+      iex> RecipientLocale.for_mail(%{custom_fields: %{"preferred_locale" => "uk"}}, "de-DE")
+      "uk"
+      iex> RecipientLocale.for_mail(%{custom_fields: %{}}, "de-DE")
+      "de-DE"
+  """
+  @spec for_mail(term(), String.t() | nil) :: String.t()
+  def for_mail(recipient, page_locale) do
+    case page_locale do
+      locale when is_binary(locale) and locale != "" -> preferred(recipient) || locale
+      _ -> for_rendering(recipient)
+    end
+  end
+
+  @doc """
+  Whether `locale` is the site's content language, compared by base language
+  (`"en"` and `"en-US"` are the same).
+  """
+  @spec site_language?(String.t() | nil) :: boolean()
+  def site_language?(locale) when is_binary(locale),
+    do: base_locale(locale) == base_locale(site_default())
+
+  def site_language?(_locale), do: false
+
+  @doc """
   Runs `fun` with `locale` installed on the process, restoring it afterwards.
 
   A `nil` locale runs `fun` untouched, so a caller with no recipient preference
@@ -189,6 +221,19 @@ defmodule PhoenixKit.Utils.RecipientLocale do
   # The base language of `locale`, as module catalogues name it: `es` for
   # "es-ES", "ES_es" or "es". The fallback for an empty one, like
   # `gettext_locale/2`.
+  @doc """
+  The process-global Gettext locale for `locale`: its base language
+  (`"es"` for `"es-ES"`), the way feature modules name their catalogues. The
+  web (`PhoenixKitWeb.Users.Auth.put_gettext_locale/2`) and mail
+  (`in_locale/2`) both install this one, so a module reads the same language
+  in both.
+
+      iex> PhoenixKit.Utils.RecipientLocale.global_locale("pt-BR")
+      "pt"
+  """
+  @spec global_locale(String.t()) :: String.t()
+  def global_locale(locale) when is_binary(locale), do: base_locale(locale)
+
   defp base_locale(locale) do
     case locale |> String.split(["-", "_"]) |> hd() do
       "" -> @fallback

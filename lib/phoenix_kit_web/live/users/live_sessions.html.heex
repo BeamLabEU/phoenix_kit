@@ -152,7 +152,7 @@
           <%= if session.type == :authenticated do %>
             <% user = Map.get(@users_map, session.user_uuid) %>
             <div class="flex items-center gap-2 min-w-0">
-              <.user_avatar user={user || %{email: session.user_email}} size="sm" />
+              <.user_avatar user={user || %{email: session.user_email}} size="sm" peek />
               <div class="min-w-0">
                 <div class="font-medium text-sm truncate">{session.user_email}</div>
                 <div class="text-xs text-base-content/70 font-mono truncate">
@@ -224,7 +224,7 @@
                 <%= if session.type == :authenticated do %>
                   <% user = Map.get(@users_map, session.user_uuid) %>
                   <div class="flex items-center gap-2">
-                    <.user_avatar user={user || %{email: session.user_email}} size="sm" />
+                    <.user_avatar user={user || %{email: session.user_email}} size="sm" peek />
                     <div>
                       <div class="font-medium text-sm">{session.user_email}</div>
                       <div class="text-xs text-base-content/70">ID: {session.user_uuid}</div>
@@ -273,17 +273,16 @@
       </.table_default_body>
     </.table_default>
 
-    <%!-- Pagination --%>
-    <div
-      :if={@total_sessions > 0}
-      class="flex flex-col sm:flex-row justify-center items-center gap-4 mt-6"
-    >
-      <.pagination_controls
-        page={@page}
-        total_pages={@total_pages}
-        build_url={&url_state_path(assigns, page: &1)}
-      />
-      <.page_size_selector value={@per_page} options={[10, 20, 25, 50, 100]} />
-    </div>
+    <.pagination_bar
+      id="live-sessions-pagination"
+      page={@page}
+      total_pages={@total_pages}
+      total_count={@total_sessions}
+      per_page={@per_page}
+      auto={@auto_fit}
+      table_id="live-sessions-table"
+      noun_plural={gettext("sessions")}
+      build_url={&url_state_path(assigns, page: &1)}
+    />
   </div>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>

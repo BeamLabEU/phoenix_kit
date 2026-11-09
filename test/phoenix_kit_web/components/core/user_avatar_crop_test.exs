@@ -46,6 +46,57 @@ defmodule PhoenixKitWeb.Components.Core.UserAvatarCropTest do
     refute html =~ "object-cover"
   end
 
+  test "a zoomed-out crop paints the circle white behind the picture" do
+    # A wide logo shown whole leaves part of the circle uncovered; without
+    # the fill the initials placeholder showed there.
+    out =
+      avatar(%{
+        "avatar_file_uuid" => @uuid,
+        "avatar_crop" => %{"x" => 0.5, "y" => 0.5, "zoom" => 0.4, "ar" => 3}
+      })
+
+    assert out =~ "box-shadow:0 0 0 9999px #fff"
+    assert out =~ "background:#fff"
+    assert out =~ "top:30.00%"
+
+    zoomed_in =
+      avatar(%{
+        "avatar_file_uuid" => @uuid,
+        "avatar_crop" => %{"x" => 0.5, "y" => 0.5, "zoom" => 2, "ar" => 1}
+      })
+
+    refute zoomed_in =~ "box-shadow"
+  end
+
+  describe "peek (the hover preview)" do
+    test "carries a picture sized for the preview, and marks the frame it clones" do
+      html = avatar(%{"avatar_file_uuid" => @uuid}, peek: true)
+
+      assert html =~ ~s(data-avatar-peek="/phoenix_kit/file/#{@uuid}/medium/)
+      assert html =~ "data-avatar-frame"
+    end
+
+    test "a zoomed crop asks the preview for enough pixels too" do
+      html =
+        avatar(
+          %{
+            "avatar_file_uuid" => @uuid,
+            "avatar_crop" => %{"x" => 0.5, "y" => 0.5, "zoom" => 4, "ar" => 1}
+          },
+          peek: true
+        )
+
+      assert html =~ ~s(data-avatar-peek="/phoenix_kit/file/#{@uuid}/large/)
+    end
+
+    test "off by default: an avatar renders as it always did" do
+      html = avatar(%{"avatar_file_uuid" => @uuid})
+
+      refute html =~ "data-avatar-peek"
+      refute html =~ "data-avatar-frame"
+    end
+  end
+
   test "zoom buys a sharper variant for the same box" do
     # A small (sm = 32px) box normally loads "small"; the xl settings
     # preview at 3x zoom needs more source than medium holds.
