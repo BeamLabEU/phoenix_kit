@@ -22,9 +22,9 @@ defmodule PhoenixKitWeb.JsCompilerWarningTest do
 
   alias PhoenixKitWeb.Integration
 
-  defp warning(modules, compiler_configured?) do
+  defp warning(modules, compiler_configured?, package? \\ false) do
     capture_io(:stderr, fn ->
-      assert Integration.warn_missing_js_compiler(modules, compiler_configured?) == :ok
+      assert Integration.warn_missing_js_compiler(modules, compiler_configured?, package?) == :ok
     end)
   end
 
@@ -56,16 +56,70 @@ defmodule PhoenixKitWeb.JsCompilerWarningTest do
     end
   end
 
-  describe "silence" do
-    test "when the compiler is configured" do
-      refute warning([SomeModule.WithHooks], true) =~ "will not be loaded"
+  # The admin area's own hooks ride in a bundle that the same compiler writes
+  # (the install facts name its file), so a host without the compiler loses them
+  # whether or not a module ships JavaScript of its own: it compiles cleanly and
+  # every sortable list, table, editor and the media browser does nothing.
+  describe "a host without the compiler and without any module bundle" do
+    test "is warned about the admin area, which needs the compiler for core alone" do
+      output = warning([], false)
+
+      assert output =~ "warning: PhoenixKit"
+      assert output =~ "admin"
+      assert output =~ "will not be loaded"
+      assert output =~ "no further error"
     end
 
-    test "when nothing declares a bundle" do
-      # A host with no JS-bearing modules has nothing to be warned about,
-      # compiler or not.
-      assert warning([], false) == ""
+    test "is told the fix, as the module case is" do
+      output = warning([], false)
+
+      assert output =~ ":phoenix_kit_js_sources"
+      assert output =~ "compilers:"
+      assert output =~ "vendor/phoenix_kit_modules.js"
+      assert output =~ "mix phoenix_kit.update"
+      refute output =~ "these modules ship", "no module is named: there is none"
+    end
+
+    test "with modules, the modules are named as before" do
+      output = warning([SomeModule.WithHooks], false)
+
+      assert output =~ "these modules ship JavaScript hooks"
+      assert output =~ "SomeModule.WithHooks"
+    end
+  end
+
+  describe "silence" do
+    test "when the compiler is configured, with or without modules" do
+      refute warning([SomeModule.WithHooks], true) =~ "will not be loaded"
       assert warning([], true) == ""
+    end
+
+    test "for a module package that declares no bundle of its own" do
+      # `phoenix_kit_*` packages compile a test router, find no module with
+      # `js_sources/0` among their own and have no reason to carry the compiler:
+      # the host they ship to is where it belongs. Their mix.exs has `package:`.
+      assert warning([], false, true) == ""
+    end
+
+    test "a package is not excused from a module it depends on that does ship a bundle" do
+      assert warning([SomeModule.WithHooks], false, true) =~ "SomeModule.WithHooks"
+    end
+  end
+
+  describe "telling a package from a host" do
+    test "a project with package metadata is a package, one without is a host" do
+      assert Integration.package_declared?(
+               app: :phoenix_kit_billing,
+               package: [licenses: ["MIT"]]
+             )
+
+      refute Integration.package_declared?(app: :my_shop, compilers: [:phoenix_live_view])
+      refute Integration.package_declared?(app: :my_shop, package: nil)
+      refute Integration.package_declared?([])
+    end
+
+    test "this library's own mix.exs declares a package" do
+      assert Integration.module_package?()
     end
   end
 

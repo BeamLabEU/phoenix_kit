@@ -24,7 +24,10 @@ A host without the compiler, or one that only `import`s `phoenix_kit.js` into it
 never had the facts script tag (`vendor/phoenix_kit_modules.js`) in its root layout, runs
 `mix phoenix_kit.update` once: that vendors the files and adds the tag. Without the facts the browser
 does not know the admin bundle's file name, and the admin hooks do nothing (the viewer libraries
-already need the same facts).
+already need the same facts). A host without the compiler in its `:compilers` gets a warning when its router compiles (whether or
+not a module ships JavaScript of its own); there is no switch to turn it off, because the compiler is what writes the admin bundle
+and the facts that name it, so what silences it is adding the compiler (`mix phoenix_kit.update` does), and a module package, which
+has `package:` in its `mix.exs`, is not warned.
 
 A host that `import`s `phoenix_kit.js` into `app.js` and spreads `window.PhoenixKitHooks` into
 `LiveSocket` keeps doing exactly that. Every hook name is still in `window.PhoenixKitHooks`: the admin
