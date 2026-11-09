@@ -140,6 +140,19 @@ defmodule PhoenixKitWeb.JsCompilerWarningTest do
 
       assert diagnostics == []
     end
+
+    test "nor does the warning for a host with no module bundle at all" do
+      # The branch added for the core's own admin bundle: same promise.
+      {captured, diagnostics} =
+        Code.with_diagnostics(fn ->
+          capture_io(:stderr, fn ->
+            Integration.warn_missing_js_compiler([], false, false)
+          end)
+        end)
+
+      assert captured =~ "will not be loaded"
+      assert diagnostics == []
+    end
   end
 
   describe "discovery" do
