@@ -27,7 +27,7 @@ Discovery is automatic at compile time via the `:phoenix_kit_css_sources` compil
 
 ## JavaScript Hooks for External Modules
 
-PhoenixKit ships hooks (RowMenu, TableCardView, SortableGrid, etc.) in `priv/static/assets/phoenix_kit.js`, exposed as `window.PhoenixKitHooks`. Parent spreads into LiveSocket:
+PhoenixKit ships hooks (RowMenu, TableCardView, SortableGrid, etc.) in `priv/static/assets/phoenix_kit.js`, exposed as `window.PhoenixKitHooks`. (The code of the admin and user-dashboard ones is in `phoenix_kit_admin.js`, fetched on the first mount of any of them, with a stub of the same name here; see `guides/public-and-admin-javascript.md`. A module's own admin-only hooks go there too: `scope: :admin` in `js_sources/0`.) Parent spreads into LiveSocket:
 
 ```javascript
 hooks: { ...window.PhoenixKitHooks, ...colocatedHooks }

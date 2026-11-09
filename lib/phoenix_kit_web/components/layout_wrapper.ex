@@ -1350,9 +1350,11 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
               <%!-- id + hook: AdminSidebarScroll keeps the menu's scroll
                    position across navigations (a live redirect replaces
                    this whole container; cross-live_session navigation is
-                   a full reload). The hook restores pre-paint; the save
-                   side lives in phoenix_kit.js as document-level
-                   listeners so no per-element cleanup is needed. --%>
+                   a full reload). The hook (phoenix_kit_admin.js) restores pre-paint
+                   on a live redirect, and phoenix_kit.js restores a full page load
+                   as soon as it is parsed; the save side is document-level
+                   listeners in phoenix_kit_admin.js so no per-element cleanup is
+                   needed. --%>
               <PhoenixKitWeb.Components.LayoutWrapper.admin_sidebar_compact_bootstrap :if={@show_admin_nav} />
               <div
                 :if={@show_admin_nav}
