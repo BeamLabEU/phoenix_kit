@@ -54,6 +54,30 @@
           <div class="divider"></div>
         <% end %>
 
+        <%!-- A person's companies, the same row as on the user's page: added,
+             created and removed straight away, apart from the form below. The
+             older single tie (`organization_uuid`) shows there as "Member". --%>
+        <%= if @mode == :edit and @org_accounts_enabled and @user.account_type == "person" do %>
+          <div id="user-form-organizations" class="mb-6 space-y-2">
+            <div>
+              <span class="fieldset-legend font-semibold">{gettext("Organizations")}</span>
+              <p class="text-sm text-base-content/70">
+                {gettext("Changes to the organizations are saved straight away.")}
+              </p>
+            </div>
+            <.live_component
+              module={PhoenixKitWeb.Live.Components.PersonOrganizations}
+              id="person-organizations"
+              person={@user}
+              actor={@manager_actor}
+              can_edit={can_edit_organizations?(assigns)}
+              notice={manage_notice(assigns)}
+            />
+          </div>
+
+          <div class="divider"></div>
+        <% end %>
+
         <.form
           :let={form}
           for={@changeset}
@@ -174,41 +198,6 @@
                   />
                 </div>
               </div>
-            <% end %>
-
-            <%!-- The older single company tie (`organization_uuid`), kept only
-                 for a person who still has one: to change it or let it go.
-                 Companies are attached on the user's page, which also creates
-                 them, so a person without the tie gets a pointer there. --%>
-            <% legacy_tie? = @mode == :edit and not is_nil(@user.organization_uuid) %>
-            <%= if @org_accounts_enabled and @current_account_type != "organization" and legacy_tie? and @organizations != [] do %>
-              <div id="user-form-legacy-organization" class="fieldset w-full">
-                <label class="label">
-                  <span class="fieldset-legend font-semibold">{gettext("Organization")}</span>
-                  <span class="fieldset-label text-base-content/60">{gettext("Optional")}</span>
-                </label>
-                <.select
-                  name="user[organization_uuid]"
-                  value={Map.get(@form_data, "organization_uuid")}
-                  prompt={gettext("— No organization —")}
-                  options={Enum.map(@organizations, &{&1.organization_name, to_string(&1.uuid)})}
-                />
-                <div class="text-xs text-base-content/60 mt-1">
-                  {gettext(
-                    "The person's earlier company link. Other companies are added on the user's page."
-                  )}
-                </div>
-              </div>
-            <% end %>
-            <%= if @org_accounts_enabled and @mode == :edit and @current_account_type != "organization" and not legacy_tie? do %>
-              <.link
-                id="user-form-organizations-hint"
-                navigate={PhoenixKit.Utils.Routes.path("/admin/users/view/#{@user.uuid}")}
-                class="link link-primary text-sm inline-flex items-center gap-1"
-              >
-                <.icon name="hero-building-office-2" class="w-4 h-4" />
-                {gettext("Add or remove organizations on the user's page")}
-              </.link>
             <% end %>
 
             <%!-- Personal Timezone --%>

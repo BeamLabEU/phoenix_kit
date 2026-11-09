@@ -149,10 +149,10 @@ Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
   (`user_avatar` size `"card"`), a table row's 48 px instead of 32 px, and the header
   of a user's page 160 px instead of 80 px (96 px on a phone). That header's avatar no
   longer moves down when the card grows (the Organizations search opening).
-- **The user form's Organization selector shows only for a person who still has
-  that older company tie**, to change it or let it go; a person without one gets a link
-  to their page, where companies are added and removed. The avatar's "Browse Media"
-  button reads "Browse" (it did not fit).
+- **The user form edits a person's companies with the Organizations row of their page**
+  (add, create, remove, saved straight away like the avatar), in place of the older
+  single Organization selector; that older tie shows in the row as "Member". The
+  avatar's "Browse Media" button reads "Browse" (it did not fit).
 - **The Users table's Account cell reads name, email, @username.** A person with a
   name is named first, with the email under it; Full Name holds the name alone, no
   longer the person's company.

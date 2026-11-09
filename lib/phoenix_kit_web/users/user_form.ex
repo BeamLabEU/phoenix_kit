@@ -13,6 +13,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
   alias PhoenixKit.Admin.Events
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.CustomFields
   alias PhoenixKit.Users.FormatCountry
   alias PhoenixKit.Users.Invitations
@@ -22,6 +23,8 @@ defmodule PhoenixKitWeb.Users.UserForm do
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Live.Components.AvatarEditor
+  alias PhoenixKitWeb.Live.Components.PersonOrganizations
+  alias PhoenixKitWeb.Users.ManageNotice
 
   def mount(params, session, socket) do
     user_uuid = params["id"]
@@ -61,8 +64,6 @@ defmodule PhoenixKitWeb.Users.UserForm do
     org_accounts_enabled =
       Settings.get_setting("enable_organization_accounts", "false") == "true"
 
-    organizations = if org_accounts_enabled, do: Auth.list_organizations(), else: []
-
     socket =
       socket
       |> assign(
@@ -87,7 +88,6 @@ defmodule PhoenixKitWeb.Users.UserForm do
       |> assign(:country_options, CountryData.countries_for_select())
       |> assign(:registration_ip, registration_ip)
       |> assign(:org_accounts_enabled, org_accounts_enabled)
-      |> assign(:organizations, organizations)
       |> assign(:current_account_type, "person")
       |> assign(:user_agent, user_agent)
       |> assign(:page_section, gettext("Users"))
@@ -1325,5 +1325,33 @@ defmodule PhoenixKitWeb.Users.UserForm do
 
   def handle_info({AvatarEditor, _id, {:failed, message}}, socket) do
     {:noreply, put_flash(socket, :error, message)}
+  end
+
+  # The Organizations row changed a tie. Only the older one sits on the
+  # person's row; the form's struct takes that and keeps what it loaded.
+  def handle_info({PersonOrganizations, :changed}, socket) do
+    user =
+      case Auth.get_user(socket.assigns.user.uuid) do
+        %Auth.User{organization_uuid: uuid} -> %{socket.assigns.user | organization_uuid: uuid}
+        nil -> socket.assigns.user
+      end
+
+    {:noreply, assign(socket, :user, user)}
+  end
+
+  # An Owner or Admin in their own account (not acting for an organization), as
+  # on the user's page; the core functions behind the row check the same again.
+  defp can_edit_organizations?(assigns) do
+    scope = assigns[:phoenix_kit_current_scope]
+
+    match?(%{current: same, root: same}, assigns.manager_actor) and
+      (Scope.owner?(scope) or Scope.has_role?(scope, "Admin"))
+  end
+
+  # Why the row offers no changes, said under it.
+  defp manage_notice(assigns) do
+    if can_edit_organizations?(assigns),
+      do: nil,
+      else: ManageNotice.message(ManageNotice.reason(assigns.manager_actor, assigns.user.uuid))
   end
 end
