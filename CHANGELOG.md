@@ -141,6 +141,12 @@ Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
 
 ### Changed
 
+- **A user's page reads like a page about someone.** Basic Information, Custom Fields,
+  Account Information and Registration Details are label / value rows, the values at
+  16 px (daisyUI's card body had made them 14 px, as small as their labels). Basic
+  Information gives the name on one row (an organization's name once; it was shown
+  twice), the email as a link with a Confirmed / Unconfirmed badge, the username as
+  @username and the country with its flag.
 - **A person's page has no Organizations tab any more.** It repeated the Organizations
   row of the top card read-only. That row now says what the person can do in each
   company ("Manager · All roles", or the roles of their link), and lists a change as

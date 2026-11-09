@@ -209,109 +209,70 @@
           <div class="card bg-base-200 shadow-sm">
             <div class="card-body">
               <h3 class="card-title text-lg">{gettext("Basic Information")}</h3>
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                <%= if @org_accounts_enabled do %>
-                  <div>
-                    <label class="text-sm font-medium text-base-content/70">
-                      {gettext("Account Type")}
-                    </label>
-                    <p class="text-base-content">
-                      <span class={
-                          "badge badge-sm h-auto #{if @user.account_type == "organization", do: "badge-info", else: "badge-ghost"}"
-                        }>
-                        {if @user.account_type == "organization",
-                          do: gettext("Organization"),
-                          else: gettext("Personal")}
-                      </span>
-                    </p>
-                  </div>
-                <% end %>
-                <%= if @user.account_type == "organization" do %>
-                  <div>
-                    <label class="text-sm font-medium text-base-content/70">
-                      {gettext("Organization Name")}
-                    </label>
-                    <p class="text-base-content">{@user.organization_name || "-"}</p>
-                  </div>
-                <% else %>
-                  <%= if @user.organization_uuid do %>
-                    <div>
-                      <label class="text-sm font-medium text-base-content/70">
-                        {gettext("Organization")}
-                      </label>
-                      <p class="text-base-content">
-                        <.pk_link
-                          navigate={"/admin/users/view/#{@user.organization_uuid}"}
-                          class="link link-primary text-sm"
-                        >
-                          {(Ecto.assoc_loaded?(@user.organization) && @user.organization &&
-                              PhoenixKit.Users.Auth.User.full_name(@user.organization)) ||
-                            to_string(@user.organization_uuid)}
-                        </.pk_link>
-                      </p>
-                    </div>
-                  <% end %>
-                <% end %>
-                <div>
-                  <label class="text-sm font-medium text-base-content/70">
-                    {gettext("Email")}
-                  </label>
-                  <p class="text-base-content flex items-center gap-2 flex-wrap">
-                    {Auth.User.delivery_email(@user)}
-                    <%= if @user.confirmed_at do %>
-                      <span class="badge badge-success badge-sm h-auto">
-                        {gettext("Email Confirmed")}
-                      </span>
-                    <% else %>
-                      <span class="badge badge-warning badge-sm h-auto">
-                        {gettext("Email Unconfirmed")}
-                      </span>
-                    <% end %>
-                  </p>
-                </div>
-                <div>
-                  <label class="text-sm font-medium text-base-content/70">
-                    {gettext("Username")}
-                  </label>
-                  <p class="text-base-content">{@user.username || "-"}</p>
-                </div>
+              <.info_list id="user-basic-info">
                 <%!-- An organization has a name, not a first and a last one. --%>
-                <%= if @user.account_type == "organization" do %>
-                  <div>
-                    <label class="text-sm font-medium text-base-content/70">
-                      {gettext("Organization Name")}
-                    </label>
-                    <p class="text-base-content">{@user.organization_name || "-"}</p>
-                  </div>
-                <% else %>
-                  <div>
-                    <label class="text-sm font-medium text-base-content/70">
-                      {gettext("First Name")}
-                    </label>
-                    <p class="text-base-content">{@user.first_name || "-"}</p>
-                  </div>
-                  <div>
-                    <label class="text-sm font-medium text-base-content/70">
-                      {gettext("Last Name")}
-                    </label>
-                    <p class="text-base-content">{@user.last_name || "-"}</p>
-                  </div>
-                <% end %>
-                <div>
-                  <label class="text-sm font-medium text-base-content/70">
-                    {gettext("Timezone")}
-                  </label>
-                  <p class="text-base-content">{format_timezone(@user.user_timezone)}</p>
-                </div>
-                <div>
-                  <label class="text-sm font-medium text-base-content/70">
-                    {gettext("Country")}
-                  </label>
-                  <p class="text-base-content">
-                    {CountryData.country_name(@user.country) || gettext("Not set")}
-                  </p>
-                </div>
-              </div>
+                <.info_row
+                  id="user-info-name"
+                  label={
+                    if @user.account_type == "organization",
+                      do: gettext("Organization Name"),
+                      else: gettext("Name")
+                  }
+                >
+                  {Auth.User.full_name(@user) || "-"}
+                </.info_row>
+                <.info_row
+                  :if={@org_accounts_enabled}
+                  id="user-info-type"
+                  label={gettext("Account Type")}
+                >
+                  {if @user.account_type == "organization",
+                    do: gettext("Organization"),
+                    else: gettext("Personal")}
+                </.info_row>
+                <.info_row id="user-info-email" label={gettext("Email")}>
+                  <span class="inline-flex flex-wrap items-center gap-2">
+                    <a href={"mailto:#{Auth.User.delivery_email(@user)}"} class="link link-hover">
+                      {Auth.User.delivery_email(@user)}
+                    </a>
+                    <span
+                      id="user-info-email-status"
+                      class={[
+                        "badge badge-sm badge-soft h-auto",
+                        if(@user.confirmed_at, do: "badge-success", else: "badge-warning")
+                      ]}
+                    >
+                      {if @user.confirmed_at,
+                        do: gettext("Confirmed"),
+                        else: gettext("Unconfirmed")}
+                    </span>
+                  </span>
+                </.info_row>
+                <.info_row id="user-info-username" label={gettext("Username")}>
+                  {if @user.username, do: "@" <> @user.username, else: "-"}
+                </.info_row>
+                <.info_row id="user-info-country" label={gettext("Country")}>
+                  {country_label(@user.country) || gettext("Not set")}
+                </.info_row>
+                <.info_row id="user-info-timezone" label={gettext("Timezone")}>
+                  {format_timezone(@user.user_timezone)}
+                </.info_row>
+                <%!-- The older single company tie, for a person who still has it. --%>
+                <.info_row
+                  :if={@user.account_type != "organization" and @user.organization_uuid}
+                  id="user-info-organization"
+                  label={gettext("Organization")}
+                >
+                  <.pk_link
+                    navigate={"/admin/users/view/#{@user.organization_uuid}"}
+                    class="link link-hover"
+                  >
+                    {(Ecto.assoc_loaded?(@user.organization) && @user.organization &&
+                        Auth.User.full_name(@user.organization)) ||
+                      to_string(@user.organization_uuid)}
+                  </.pk_link>
+                </.info_row>
+              </.info_list>
             </div>
           </div>
 
@@ -320,22 +281,15 @@
             <div class="card bg-base-200 shadow-sm">
               <div class="card-body">
                 <h3 class="card-title text-lg">{gettext("Custom Fields")}</h3>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                  <%= for field <- @custom_field_definitions do %>
-                    <div>
-                      <label class="text-sm font-medium text-base-content/70">
-                        {field["label"]}
-                      </label>
-                      <p class="text-base-content">
-                        {format_custom_field_value(
-                          get_custom_field_value(@user, field["key"]),
-                          field["type"],
-                          field["key"]
-                        )}
-                      </p>
-                    </div>
-                  <% end %>
-                </div>
+                <.info_list id="user-custom-fields">
+                  <.info_row :for={field <- @custom_field_definitions} label={field["label"]}>
+                    {format_custom_field_value(
+                      get_custom_field_value(@user, field["key"]),
+                      field["type"],
+                      field["key"]
+                    )}
+                  </.info_row>
+                </.info_list>
               </div>
             </div>
           <% else %>
@@ -343,18 +297,14 @@
               <div class="card bg-base-200 shadow-sm">
                 <div class="card-body">
                   <h3 class="card-title text-lg">{gettext("Custom Fields")}</h3>
-                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                    <%= for {key, value} <- Enum.sort(@user.custom_fields) do %>
-                      <div>
-                        <label class="text-sm font-medium text-base-content/70">
-                          {Phoenix.Naming.humanize(key)}
-                        </label>
-                        <p class="text-base-content">
-                          {format_custom_field_value(value, nil, key)}
-                        </p>
-                      </div>
-                    <% end %>
-                  </div>
+                  <.info_list id="user-custom-fields">
+                    <.info_row
+                      :for={{key, value} <- Enum.sort(@user.custom_fields)}
+                      label={Phoenix.Naming.humanize(key)}
+                    >
+                      {format_custom_field_value(value, nil, key)}
+                    </.info_row>
+                  </.info_list>
                 </div>
               </div>
             <% end %>
@@ -369,87 +319,57 @@
           <div class="card bg-base-200 shadow-sm">
             <div class="card-body">
               <h3 class="card-title text-lg">{gettext("Account Information")}</h3>
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                <div>
-                  <label class="text-sm font-medium text-base-content/70">
-                    {gettext("User UUID")}
-                  </label>
-                  <p class="text-base-content font-mono text-sm">{@user.uuid}</p>
-                </div>
-                <div>
-                  <label class="text-sm font-medium text-base-content/70">
-                    {gettext("Status")}
-                  </label>
-                  <p class="text-base-content">
-                    {if @user.is_active, do: gettext("Active"), else: gettext("Inactive")}
-                  </p>
-                </div>
-                <div>
-                  <label class="text-sm font-medium text-base-content/70">
-                    {gettext("Email Confirmed")}
-                  </label>
-                  <p class="text-base-content">
-                    <%= if @user.confirmed_at do %>
-                      {format_datetime(
-                        @user.confirmed_at,
-                        @phoenix_kit_current_user,
-                        @date_time_settings
-                      )}
-                    <% else %>
-                      {gettext("Not confirmed")}
-                    <% end %>
-                  </p>
-                </div>
-                <div>
-                  <label class="text-sm font-medium text-base-content/70">
-                    {gettext("Registered")}
-                  </label>
-                  <p class="text-base-content">
+              <.info_list id="user-account-info">
+                <.info_row label={gettext("User UUID")}>
+                  <span class="font-mono text-sm">{@user.uuid}</span>
+                </.info_row>
+                <.info_row label={gettext("Status")}>
+                  {if @user.is_active, do: gettext("Active"), else: gettext("Inactive")}
+                </.info_row>
+                <.info_row label={gettext("Email Confirmed")}>
+                  <%= if @user.confirmed_at do %>
                     {format_datetime(
-                      @user.inserted_at,
+                      @user.confirmed_at,
                       @phoenix_kit_current_user,
                       @date_time_settings
                     )}
-                  </p>
-                </div>
+                  <% else %>
+                    {gettext("Not confirmed")}
+                  <% end %>
+                </.info_row>
+                <.info_row label={gettext("Registered")}>
+                  {format_datetime(
+                    @user.inserted_at,
+                    @phoenix_kit_current_user,
+                    @date_time_settings
+                  )}
+                </.info_row>
                 <%!-- Who added this user from the admin panel. "-" covers a
                        self-registered user, a user added before V191 whose
                        activity entry was already pruned, and one whose
                        creator has since been deleted (ON DELETE SET NULL). --%>
-                <div>
-                  <label class="text-sm font-medium text-base-content/70">
-                    {gettext("Added By")}
-                  </label>
-                  <p class="text-base-content">
-                    <%= if @user.created_by do %>
-                      <.link
-                        navigate={
-                          PhoenixKit.Utils.Routes.path(
-                            "/admin/users/view/#{@user.created_by.uuid}"
-                          )
-                        }
-                        class="link link-primary"
-                      >
-                        {user_display_name(@user.created_by)}
-                      </.link>
-                    <% else %>
-                      -
-                    <% end %>
-                  </p>
-                </div>
-                <div>
-                  <label class="text-sm font-medium text-base-content/70">
-                    {gettext("Last Updated")}
-                  </label>
-                  <p class="text-base-content">
-                    {format_datetime(
-                      @user.updated_at,
-                      @phoenix_kit_current_user,
-                      @date_time_settings
-                    )}
-                  </p>
-                </div>
-              </div>
+                <.info_row label={gettext("Added By")}>
+                  <%= if @user.created_by do %>
+                    <.link
+                      navigate={
+                        PhoenixKit.Utils.Routes.path("/admin/users/view/#{@user.created_by.uuid}")
+                      }
+                      class="link link-primary"
+                    >
+                      {user_display_name(@user.created_by)}
+                    </.link>
+                  <% else %>
+                    -
+                  <% end %>
+                </.info_row>
+                <.info_row label={gettext("Last Updated")}>
+                  {format_datetime(
+                    @user.updated_at,
+                    @phoenix_kit_current_user,
+                    @date_time_settings
+                  )}
+                </.info_row>
+              </.info_list>
             </div>
           </div>
 
@@ -471,26 +391,17 @@
                     </.link>
                   </div>
                 <% @user.registration_ip || format_location(@user) -> %>
-                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                    <%= if @user.registration_ip do %>
-                      <div>
-                        <label class="text-sm font-medium text-base-content/70">
-                          {gettext("Registration IP")}
-                        </label>
-                        <p class="text-base-content font-mono text-sm">
-                          {@user.registration_ip}
-                        </p>
-                      </div>
-                    <% end %>
-                    <%= if format_location(@user) do %>
-                      <div>
-                        <label class="text-sm font-medium text-base-content/70">
-                          {gettext("Registration Location")}
-                        </label>
-                        <p class="text-base-content">{format_location(@user)}</p>
-                      </div>
-                    <% end %>
-                  </div>
+                  <.info_list id="user-registration-info">
+                    <.info_row :if={@user.registration_ip} label={gettext("Registration IP")}>
+                      <span class="font-mono text-sm">{@user.registration_ip}</span>
+                    </.info_row>
+                    <.info_row
+                      :if={format_location(@user)}
+                      label={gettext("Registration Location")}
+                    >
+                      {format_location(@user)}
+                    </.info_row>
+                  </.info_list>
                 <% true -> %>
                   <p class="mt-2 text-sm text-base-content/50">{gettext("No data")}</p>
               <% end %>

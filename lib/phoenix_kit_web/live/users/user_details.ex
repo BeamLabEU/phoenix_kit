@@ -893,6 +893,46 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
     end
   end
 
+  # A card's facts as label / value rows. daisyUI's `card-body` sets 14px, which
+  # made every value as small as its label, so the values set 16px themselves.
+  attr :id, :string, default: nil
+  slot :inner_block, required: true
+
+  defp info_list(assigns) do
+    ~H"""
+    <dl id={@id} class="mt-2 divide-y divide-base-300">{render_slot(@inner_block)}</dl>
+    """
+  end
+
+  attr :label, :string, required: true
+  attr :id, :string, default: nil
+  slot :inner_block, required: true
+
+  defp info_row(assigns) do
+    ~H"""
+    <div
+      id={@id}
+      class="grid grid-cols-1 sm:grid-cols-[11rem_minmax(0,1fr)] gap-x-6 gap-y-0.5 py-3"
+    >
+      <dt class="text-sm text-base-content/60 sm:pt-0.5">{@label}</dt>
+      <dd class="text-base text-base-content break-words min-w-0">{render_slot(@inner_block)}</dd>
+    </div>
+    """
+  end
+
+  # The country's flag before its name; a code the data does not know shows as is.
+  defp country_label(code) when is_binary(code) and code != "" do
+    case CountryData.get_country(code) do
+      %{flag: flag} when is_binary(flag) and flag != "" ->
+        flag <> " " <> CountryData.country_name(code)
+
+      _ ->
+        CountryData.country_name(code)
+    end
+  end
+
+  defp country_label(_code), do: nil
+
   defp format_timezone(nil), do: gettext("Not set")
 
   defp format_timezone(value) when is_binary(value) do

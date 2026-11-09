@@ -112,18 +112,66 @@ defmodule PhoenixKit.Integration.Users.UserDetailsLayoutTest do
     end
   end
 
-  test "an organization's profile shows its name, not a first and a last one", %{conn: conn} do
+  test "an organization's profile shows its name once, not a first and a last one",
+       %{conn: conn} do
     org =
       ManagedOrganizationFixtures.organization(%{
         organization_name: "Oak Trading",
         first_name: "Stale"
       })
 
-    html = render(open(conn, org))
+    view = open(conn, org)
+    html = render(view)
 
-    assert html =~ "Organization Name"
+    assert has_element?(view, "#user-info-name", "Organization Name")
+    assert has_element?(view, "#user-info-name", "Oak Trading")
+    assert html |> String.split("Organization Name") |> length() == 2
     refute html =~ "First Name"
     refute html =~ "Stale"
+  end
+
+  describe "Basic Information" do
+    test "reads as one row per fact, at a size made for reading", %{conn: conn} do
+      target = plain_user()
+
+      {:ok, target} =
+        AuthCtx.update_user_profile(target, %{
+          "first_name" => "Teemu",
+          "last_name" => "Korhonen",
+          "username" => "teemu_korhonen",
+          "country" => "AT"
+        })
+
+      view = open(conn, target)
+
+      assert view |> element("#user-info-name dd") |> render() =~ "Teemu Korhonen"
+      refute view |> element("#user-basic-info") |> render() =~ "First Name"
+      assert has_element?(view, "#user-info-username dd", "@teemu_korhonen")
+      assert has_element?(view, "#user-info-country dd", "🇦🇹 Austria")
+      assert has_element?(view, "#user-info-email-status.badge-success", "Confirmed")
+      refute view |> element("#user-basic-info") |> render() =~ "Email Confirmed"
+
+      assert has_element?(
+               view,
+               ~s(#user-info-email a[href="mailto:#{target.email}"]),
+               target.email
+             )
+
+      # daisyUI's card-body is 14px; the values say 16px themselves.
+      assert has_element?(view, "#user-basic-info dd.text-base")
+    end
+
+    test "says when the email is not confirmed yet", %{conn: conn} do
+      {:ok, target} =
+        AuthCtx.register_user(%{
+          email: "unconfirmed_#{System.unique_integer([:positive])}@example.com",
+          password: "ValidPassword123!"
+        })
+
+      view = open(conn, target)
+
+      assert has_element?(view, "#user-info-email-status.badge-warning", "Unconfirmed")
+    end
   end
 
   test "a link can open a tab, and one the page does not show opens Profile", %{conn: conn} do
