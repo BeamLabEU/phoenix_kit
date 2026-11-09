@@ -2001,27 +2001,20 @@
   //   * RESTORE: the AdminSidebarScroll hook's mounted() — which re-fires
   //     on every live redirect because the container is replaced — runs
   //     synchronously with the DOM patch, before paint (no flash at 0).
-  //     Full page loads restore at DOMContentLoaded, before the LiveView
-  //     socket connects.
+  //     On a full page load phoenix_kit.js has already applied the saved offset
+  //     when the document was parsed; this file, which arrives with the admin
+  //     bundle, only corrects it (below), and `early()` below does that.
   //   * CORRECTION: when nothing is saved (fresh tab, deep link) or the
   //     restored offset leaves the current page's [aria-current="page"]
   //     link off-screen (menu shape changed: permissions, locale, module
   //     set), center the active link instead. Direct scrollTop math, not
   //     scrollIntoView — the latter can scroll ancestor containers too.
   (function () {
-    const EL_ID = "pk-admin-sidebar";
-    const KEY = "phoenix_kit:admin:sidebar:scroll";
-
-    function readSaved() {
-      try {
-        const v = sessionStorage.getItem(KEY);
-        if (v == null) return null;
-        const n = parseInt(v, 10);
-        return isNaN(n) ? null : n;
-      } catch (_e) {
-        return null;
-      }
-    }
+    // The id, the key and the reader belong to phoenix_kit.js, which also applies the
+    // saved offset when a full page load has been parsed (this file arrives later).
+    const EL_ID = PK.sidebarScroll.id;
+    const KEY = PK.sidebarScroll.key;
+    const readSaved = PK.sidebarScroll.saved;
 
     function save(el) {
       try {

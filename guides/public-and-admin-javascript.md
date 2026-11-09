@@ -162,6 +162,11 @@ pages. The larger copy of an avatar under the pointer (`<.user_avatar peek>`, `A
 only on admin pages, and a page outside the admin area and the dashboard that sets it shows no preview, because that
 page never loads the bundle (a known limit; the preview is decoration).
 
+The admin menu's scroll position (`AdminSidebarScroll`) is the same kind of case: on a full page load `phoenix_kit.js` puts the
+saved offset back as soon as the document is parsed, because the bundle is requested at `DOMContentLoaded` at the earliest and a
+menu painted at the top would jump; the admin file keeps the save side, the restore on a live redirect and the centring of the
+active link, and takes the key from `window.PhoenixKitInternals`.
+
 Helpers both files need stay in `phoenix_kit.js` and reach the admin file through
 `window.PhoenixKitInternals` (private; not an API).
 

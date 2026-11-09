@@ -172,7 +172,10 @@ code (`avatarCropMinZoom`, the site's shape as `data-fit`) moved into the admin 
 
 The same pass classifies the **non-hook top-level code** (the collapse scroll keeper, the change cue, the global
 textarea / stray-click / unsaved-changes listeners, the Etcher tooltip bridges): code that runs for every page
-stays public, code that only serves admin hooks moves with them. A helper used from both sides stays public and is
+stays public, code that only serves admin hooks moves with them. One piece of an admin hook has to run earlier than its bundle: the
+admin menu's saved scroll offset is applied by `phoenix_kit.js` once a full page load has been parsed (the bundle is requested at
+`DOMContentLoaded` at the earliest, and a menu painted at the top would jump), and its key and reader are shared with the admin
+file through `PhoenixKitInternals`; the save, the live-redirect restore and the centring of the active link stay in the admin file. A helper used from both sides stays public and is
 handed to the admin bundle through a private `window.PhoenixKitInternals` object — the admin file is a plain
 script and cannot see the public file's closure. Which helpers those are is found mechanically: a TypeScript
 `checkJs` pass over each file lists every identifier it uses and does not define (it reports exactly two on today's

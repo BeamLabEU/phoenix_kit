@@ -4879,6 +4879,39 @@
     window.addEventListener("pointercancel", drop, true);
   }, true);
 
+  // The admin menu's scroll position on a full page load. AdminSidebarScroll
+  // (phoenix_kit_admin.js) saves it, restores it on a live redirect and centres
+  // the active link when the saved offset does not show it, but its first run waits
+  // for the bundle, which is requested at DOMContentLoaded at the earliest: the menu
+  // would paint at the top and then jump. So the saved offset is applied here, as
+  // soon as the document is parsed. The key and the reader are shared with the admin
+  // file through PhoenixKitInternals, so the two cannot drift apart.
+  var SIDEBAR_SCROLL = {
+    id: "pk-admin-sidebar",
+    key: "phoenix_kit:admin:sidebar:scroll",
+    saved: function() {
+      try {
+        var v = sessionStorage.getItem(SIDEBAR_SCROLL.key);
+        if (v == null) return null;
+        var n = parseInt(v, 10);
+        return isNaN(n) ? null : n;
+      } catch (_e) {
+        return null;
+      }
+    }
+  };
+
+  function restoreSidebarOffset() {
+    var el = document.getElementById(SIDEBAR_SCROLL.id);
+    var saved = el ? SIDEBAR_SCROLL.saved() : null;
+    if (saved != null) el.scrollTop = Math.min(saved, Math.max(0, el.scrollHeight - el.clientHeight));
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", restoreSidebarOffset);
+  } else {
+    restoreSidebarOffset();
+  }
+
   // What phoenix_kit_admin.js reads from this file. Not an API: it is the
   // closure this file's own helpers live in, handed to the one file that was
   // cut out of it.
@@ -4887,7 +4920,8 @@
     lazyHook: lazyHook,
     loadChartJs: loadChartJs,
     loadVendored: loadVendored,
-    pkLoaders: pkLoaders
+    pkLoaders: pkLoaders,
+    sidebarScroll: SIDEBAR_SCROLL
   };
 
 
