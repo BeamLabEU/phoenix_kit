@@ -44,7 +44,7 @@ the override. Such an override does not survive for the callbacks the real hook 
 
 In this order:
 
-1. **`window.PHOENIX_KIT_LIB_BASE`** — set by the host itself, or by `config :phoenix_kit,
+1. **`window.PHOENIX_KIT_LIB_BASE`** — a string, set by the host itself (an element that the page's markup names so, with `id="PHOENIX_KIT_LIB_BASE"`, is not one and is ignored), or by `config :phoenix_kit,
    library_base_url: "…"` (the install facts turn it into that variable without overriding one the host
    set).
 2. **Next to the tag that loads `phoenix_kit.js`**, when it is the vendored bundle (`phoenix_kit.js` or the

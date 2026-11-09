@@ -138,3 +138,48 @@ test("a vendored copy that was renamed is not taken for the bundle's tag", () =>
     page({ src: "https://app.test/assets/js/phoenix_kit_host.js" }),
     "https://app.test/assets/vendor/lib/" + FILE);
 });
+
+// `<a id="PHOENIX_KIT_LIB_BASE" href="https://evil.test/x/">` anywhere in the body (markup
+// a host renders without sanitising its ids) puts that element on `window` under the
+// name. `String(element)` is its href, so a loader that takes any truthy value would
+// fetch and run a file from there. Only a string is the host's word.
+const clobbering = (href) => ({ href, toString() { return href; } });
+
+test("an element that a page's markup names PHOENIX_KIT_LIB_BASE is not the host's word", () => {
+  assert.equal(
+    page({
+      src: "https://cdn.example.test/assets/vendor/phoenix_kit.js",
+      kind: "none",
+      before: (env) => { env.window.PHOENIX_KIT_LIB_BASE = clobbering("https://evil.test/x/"); },
+    }),
+    "https://cdn.example.test/assets/vendor/lib/" + FILE,
+    "the tag's own directory decides, as if nothing were set");
+});
+
+test("and one named PHOENIX_KIT_LIB_BASE_DEFAULT is not the compiler's default", () => {
+  assert.equal(
+    page({
+      src: "https://app.test/assets/js/app.js",
+      kind: "none",
+      before: (env) => { env.window.PHOENIX_KIT_LIB_BASE_DEFAULT = clobbering("https://evil.test/y/"); },
+    }),
+    "https://app.test/assets/js/lib/" + FILE,
+    "the directory of the script decides");
+});
+
+test("a host's string still wins, and an empty string is no word at all", () => {
+  assert.equal(
+    page({
+      src: "https://app.test/assets/vendor/phoenix_kit.js",
+      kind: "none",
+      before: (env) => { env.window.PHOENIX_KIT_LIB_BASE = "/own/lib"; },
+    }),
+    "https://app.test/own/lib/" + FILE);
+  assert.equal(
+    page({
+      src: "https://app.test/assets/vendor/phoenix_kit.js",
+      kind: "none",
+      before: (env) => { env.window.PHOENIX_KIT_LIB_BASE = ""; },
+    }),
+    "https://app.test/assets/vendor/lib/" + FILE);
+});

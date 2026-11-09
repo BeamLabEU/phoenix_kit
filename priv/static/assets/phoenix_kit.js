@@ -155,10 +155,20 @@
     return src.split(/[?#]/)[0].replace(/[^\/]*$/, "") + "lib/";
   }
 
+  // Only a string is the host's word. `<a id="PHOENIX_KIT_LIB_BASE" href="…">` in the
+  // page's markup puts an element on `window` under that name, and `String()` of it
+  // is its href: the loader would fetch and run a file from wherever the markup says.
+  function pkLibSetting(name) {
+    var value = window[name];
+    return typeof value === "string" && value ? value : null;
+  }
+
   function pkLibBase() {
-    if (window.PHOENIX_KIT_LIB_BASE) return String(window.PHOENIX_KIT_LIB_BASE).replace(/\/?$/, "/");
+    var own = pkLibSetting("PHOENIX_KIT_LIB_BASE");
+    if (own) return own.replace(/\/?$/, "/");
     if (PK_SCRIPT_IS_BUNDLE) return pkLibDir(PK_SCRIPT_SRC);
-    if (window.PHOENIX_KIT_LIB_BASE_DEFAULT) return String(window.PHOENIX_KIT_LIB_BASE_DEFAULT).replace(/\/?$/, "/");
+    var dflt = pkLibSetting("PHOENIX_KIT_LIB_BASE_DEFAULT");
+    if (dflt) return dflt.replace(/\/?$/, "/");
     if (!PK_SCRIPT_SRC) return null;
     return pkLibDir(PK_SCRIPT_SRC);
   }
