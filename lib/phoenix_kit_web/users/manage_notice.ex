@@ -20,10 +20,10 @@ defmodule PhoenixKitWeb.Users.ManageNotice do
     * `:no_session` — no session to act from;
     * `:acting` — the session acts for this organization through a link
       that does not let it do this;
-    * `:switched` — the session is in another account of its stack (an added
-      account, a borrowed one, another organization);
-    * `:not_admin` — the person's own account, which is neither an Owner nor
-      an Admin.
+    * `:switched` — the session is in a borrowed account of its stack (an
+      impersonation) or another organization's slot;
+    * `:not_admin` — an account of the person's own (the first one or one
+      added with its password), which is neither an Owner nor an Admin.
   """
   @spec reason(term(), String.t() | nil) :: reason()
   def reason(%Actor{current: same, root: same}, _organization_uuid), do: :not_admin

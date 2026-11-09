@@ -52,18 +52,25 @@ defmodule PhoenixKitWeb.Users.OrganizationPeopleTest do
 
   defp named(attrs), do: F.person(Map.merge(%{first_name: "Ann", last_name: "Lee"}, attrs))
 
-  # An Admin whose session is in a second account of its stack: the case
-  # WoodMatrix met (an Owner who had added test accounts to the switcher).
+  # An Admin whose session is in a borrowed account of its stack (signed in
+  # as another Admin, which nobody's password added).
   defp switched_conn do
     {_actor, root} = F.admin_actor()
     {_actor, other} = F.admin_actor()
+    stacked_conn(root, other, own?: false)
+  end
+
+  # `active` sits second in a stack opened by `root`; with `own?: true` it was
+  # added with its own password (the case WoodMatrix met: an Owner signed in to
+  # the switcher after a test account).
+  defp stacked_conn(root, active, own?: own?) do
     {root_token, _} = F.session(root)
-    {token, _} = F.session(other)
+    {token, _} = F.session(active)
 
     init_test_session(build_conn(), %{
       user_token: token,
       pk_session_accounts: [root_token, token],
-      pk_own_tokens: [root_token, token]
+      pk_own_tokens: if(own?, do: [token], else: [])
     })
   end
 
@@ -261,6 +268,58 @@ defmodule PhoenixKitWeb.Users.OrganizationPeopleTest do
 
       refute has_element?(view, "#person-organizations-open")
       assert has_element?(view, "#person-organizations-notice", "Switch back to your own account")
+    end
+  end
+
+  describe "an account the person added with its own password" do
+    test "an Admin there manages the people as in a first account", %{org: org} do
+      {_actor, admin} = F.admin_actor()
+      ann = named(%{email: "ann@example.com"})
+      conn = stacked_conn(F.person(), admin, own?: true)
+
+      view = open(conn, org)
+
+      refute has_element?(view, "#{@row}-notice")
+      view |> open_search() |> type_in("ann@")
+      view |> element("#{@row}-pick-#{ann.uuid}") |> render_click()
+
+      assert people(org) == [{"ann@example.com", "manager"}]
+      assert has_element?(open(conn, org, "?tab=people"), "#organization-managers")
+      refute has_element?(open(conn, org, "?tab=people"), "#organization-managers-read-only")
+    end
+
+    test "the person page's Organizations row is editable there too" do
+      {_actor, admin} = F.admin_actor()
+      view = open(stacked_conn(F.person(), admin, own?: true), F.person())
+
+      assert has_element?(view, "#person-organizations-open")
+      refute has_element?(view, "#person-organizations-notice")
+    end
+
+    test "one that is not an Owner or Admin is told so, not to switch back", %{org: org} do
+      viewer = F.person()
+      {:ok, _} = Roles.assign_role(viewer, F.role(["users"]).name)
+      {_actor, admin} = F.admin_actor()
+
+      view = open(stacked_conn(admin, viewer, own?: true), org)
+
+      assert has_element?(view, "#{@row}-notice", "Only an Owner or Admin")
+    end
+
+    test "the Actor stands on the added account; a borrowed one on the stack's root" do
+      {_actor, root} = F.admin_actor()
+      {_actor, other} = F.admin_actor()
+      {root_token, _} = F.session(root)
+      {token, _} = F.session(other)
+      session = %{"user_token" => token, "pk_session_accounts" => [root_token, token]}
+
+      assert {:ok, %Actor{current: same, root: same}} =
+               Actor.from_session(Map.put(session, "pk_own_tokens", [token]))
+
+      assert {:ok, %Actor{current: {_, uuid}, root: {_, root_uuid}}} =
+               Actor.from_session(session)
+
+      assert {uuid, root_uuid} == {other.uuid, root.uuid}
     end
   end
 

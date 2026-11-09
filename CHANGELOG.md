@@ -211,6 +211,13 @@ Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
 
 ### Fixed
 
+- **An Owner or Admin in an account added to the switcher with its own password manages
+  organizations again.** Only the first account of a session could change who acts for an
+  organization (People and Organizations rows, the People tab, the user form), so an Owner
+  who had signed in to the switcher after a test account was told to switch back.
+  `ManagedOrganizations.Actor.from_session/1` now takes such an account as its own root,
+  as a fresh login would; a borrowed account ("sign in as this user") and an organization
+  slot are refused as before.
 - **The People tab is no longer empty for a session that may not manage.** An Owner who
   had switched to another account of the session saw nothing there. It now lists the
   people read-only and says why nothing can be changed ("Switch back to your own account
