@@ -58,6 +58,29 @@ defmodule PhoenixKit.Integration.Users.UsersAdminRussianTest do
     refute html =~ "Administrator with elevated privileges"
   end
 
+  test "a system role saved with its English text untouched still reads in Russian; a rewritten one as written",
+       %{conn: conn} do
+    admin_role = Roles.get_role_by_name("Admin")
+
+    {:ok, _} =
+      Roles.update_role(admin_role, %{
+        "label" => "Admin",
+        "description" => "Administrator with elevated privileges"
+      })
+
+    user_role = Roles.get_role_by_name("User")
+    {:ok, _} = Roles.update_role(user_role, %{"description" => "Our customers"})
+
+    html = render(open(conn, "/admin/users/roles"))
+
+    assert html =~ "Администратор с расширенными правами"
+    refute html =~ "Administrator with elevated privileges"
+    assert html =~ "Our customers"
+    saved = Roles.get_role_by_name("Admin")
+    assert saved.data != nil
+    assert Roles.display_name(saved, "ru") =~ "Администратор"
+  end
+
   test "permission labels are translated, the sub-permissions too", %{conn: conn} do
     html = render(open(conn, "/admin/users/permissions"))
 

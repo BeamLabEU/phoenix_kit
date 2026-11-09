@@ -26,10 +26,13 @@ defmodule PhoenixKit.Users.PersonOrganizations do
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.ManagedOrganizations
+  alias PhoenixKit.Users.ManagedOrganizations.Actor
+  alias PhoenixKit.Users.ManagedOrganizations.Locks
   alias PhoenixKit.Users.OrganizationManager
   alias PhoenixKit.Users.OrganizationManagers
   alias PhoenixKit.Users.RelationshipTypes
   alias PhoenixKit.Users.Role
+  alias PhoenixKit.Users.Sessions.Revocation
 
   @search_limit 8
 
@@ -182,7 +185,7 @@ defmodule PhoenixKit.Users.PersonOrganizations do
         OrganizationManagers.add(actor, org.uuid, person.uuid, opts)
 
       %User{account_type: "organization"} = org ->
-        Auth.set_organization(person, org.uuid)
+        change_older_tie(actor, person, org.uuid, :attach)
 
       _ ->
         {:error, :organization_not_found}
@@ -204,11 +207,39 @@ defmodule PhoenixKit.Users.PersonOrganizations do
         |> ok()
 
       %{kind: :member} ->
-        person |> Auth.remove_from_organization() |> ok()
+        actor |> change_older_tie(person, organization_uuid, :detach) |> ok()
 
       nil ->
         :ok
     end
+  end
+
+  # The older Auth setters authorize nothing. Re-read both the actor and the
+  # person under the same locks used by managed links before changing this tie.
+  defp change_older_tie(actor, person, organization_uuid, action) do
+    Revocation.transaction(fn ->
+      Locks.person!(person.uuid)
+      org = Locks.organization!(organization_uuid)
+      Locks.users!([person.uuid])
+      Locks.users!([Actor.person_uuid(actor)], "FOR KEY SHARE")
+      actor |> Actor.admin() |> Locks.value!()
+
+      current =
+        RepoHelper.repo().get(User, person.uuid) || RepoHelper.repo().rollback(:user_not_found)
+
+      case action do
+        :attach ->
+          if org.managed_by_members or not org.is_active,
+            do: RepoHelper.repo().rollback(:organization_not_active_managed)
+
+          current |> Auth.set_organization(org.uuid) |> Locks.value!()
+
+        :detach ->
+          if current.organization_uuid == org.uuid,
+            do: current |> Auth.remove_from_organization() |> Locks.value!(),
+            else: current
+      end
+    end)
   end
 
   @doc "Creates a managed organization called `name` with the person as its first manager."

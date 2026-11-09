@@ -240,6 +240,7 @@ defmodule PhoenixKit.Notifications.Types do
           "user.profile_updated",
           "user.timezone_mismatch",
           "organization.manager_added",
+          "organization.manager_changed",
           "organization.manager_removed",
           "user.avatar_changed",
           "user.avatar_crop_changed",

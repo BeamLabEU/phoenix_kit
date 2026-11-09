@@ -312,6 +312,40 @@ defmodule PhoenixKit.Users.OrganizationLinksTest do
                )
     end
 
+    test "removing a link checks the roles it takes away" do
+      %{organization: organization, buyer: buyer, supplier: supplier} = company()
+      s = manager_session(organization, [buyer])
+      other = Fixtures.narrowed_link(organization, Fixtures.person(), [supplier])
+
+      assert {:error, :not_permitted} =
+               OrganizationManagers.remove(s.actor, organization.uuid, other.user_uuid)
+
+      assert Repo.get(OrganizationManager, other.uuid)
+
+      full = Fixtures.manager(organization, Fixtures.person())
+
+      assert {:error, :not_permitted} =
+               OrganizationManagers.remove(s.actor, organization.uuid, full.user_uuid)
+
+      assert Repo.get(OrganizationManager, full.uuid)
+
+      allowed = Fixtures.narrowed_link(organization, Fixtures.person(), [buyer])
+
+      assert {:ok, :ok} =
+               OrganizationManagers.remove(s.actor, organization.uuid, allowed.user_uuid)
+    end
+
+    test "removing one's own link is refused even when another manager remains" do
+      %{organization: organization} = company()
+      s = manager_session(organization)
+      manager_session(organization)
+
+      assert {:error, :cannot_modify_own_roles} =
+               OrganizationManagers.remove(s.actor, organization.uuid, s.person.uuid)
+
+      assert Repo.get(OrganizationManager, s.manager.uuid)
+    end
+
     test "a role they may not hand out stays on someone's link, untouched" do
       %{organization: organization, buyer: buyer, supplier: supplier} = company()
       s = manager_session(organization, [buyer])

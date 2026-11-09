@@ -1,13 +1,17 @@
-## Unreleased
+## 3.5.0 - 2026-11-09
 
 Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
 
-⚠️ Two changes to check in a host:
+⚠️ Three changes to check in a host:
 
 - A role can no longer be renamed: `name` is a fixed key that code and settings match
   on. Change what people see with the new label on the Roles page.
 - `Scope.held_roles/1` does not say what someone acting for an organization may do. It
   is the organization's roles, past their link. Read `Scope.user_roles/1`.
+- "Sign in as this user" now acts as that user everywhere, their companies included, and
+  an Admin may sign in as another Admin (never an Owner). Who signed in is recorded as
+  `impersonated_by_uuid` on activity logged through `PhoenixKitWeb.Actor.opts/1`. What
+  belongs to the person alone still checks `MultiSession.impersonated?/1`.
 
 ### Added
 
@@ -221,6 +225,20 @@ Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
 
 ### Fixed
 
+- **Fixes from the review of the week's changes** (`dev_docs/reviews/2026-11-09-since-friday/`):
+  removing someone's company link now checks the same things as editing it (only an
+  Owner removes their own, and only roles the person may hand out), and the two rows say
+  why in words when it is refused; the older single company tie is changed only by a
+  live Owner or Admin session, re-read under the links' locks; "sign in as this user"
+  records the account that actually authorized it (an Admin added to the switcher, not
+  the first account), keeps it through switches, and link changes made in that session
+  carry it; a role's description edited without language tabs is saved to its
+  translations too; `organization.manager_changed` notifications can be muted with
+  account notifications and read as a sentence; header widgets no longer treat an
+  account added with its own password as borrowed; a read-only People panel ignores
+  stale clicks instead of crashing; a saved language no longer rewrites a host page that
+  has no translated route into a 404. A system role saved with its English name or
+  description untouched still reads in the page's language.
 - **An account added to the switcher with its own password enters its own companies.**
   Entering, leaving and the "Acting as" menu all went by the first account of the
   session, so an Admin who had added the account holding the company links saw its

@@ -302,6 +302,8 @@ defmodule PhoenixKit.Users.OrganizationManagers do
 
       grant ->
         ensure_can_lose!(org, person_uuid, override?(authority, opts))
+        require_own_link_untouched!(authority, person_uuid)
+        require_rank!(org, authority, grant.all_roles, link_roles(grant))
         facts = link_facts(grant)
 
         Revocation.delete_manager_grants(
@@ -311,6 +313,13 @@ defmodule PhoenixKit.Users.OrganizationManagers do
         log_change("organization.manager_removed", org, person_uuid, authority, facts)
         :ok
     end
+  end
+
+  defp link_roles(grant) do
+    grant
+    |> RepoHelper.repo().preload(role_links: :role)
+    |> Map.fetch!(:role_links)
+    |> Enum.map(& &1.role)
   end
 
   @doc false
@@ -866,6 +875,7 @@ defmodule PhoenixKit.Users.OrganizationManagers do
       module: "users",
       mode: "manual",
       actor_uuid: authority.actor_uuid,
+      impersonated_by_uuid: Map.get(authority, :impersonated_by_uuid),
       target_uuid: person_uuid,
       resource_type: "organization",
       resource_uuid: org.uuid,

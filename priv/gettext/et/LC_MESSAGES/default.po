@@ -26845,3 +26845,7 @@ msgstr "Süsteemi omanik täieliku juurdepääsuga"
 #, elixir-autogen, elixir-format
 msgid "Use their own storage"
 msgstr "Oma salvestuse kasutamine"
+
+#, elixir-autogen, elixir-format
+msgid "Your access to act for %{organization} was updated."
+msgstr "Teie ligipääsu organisatsiooni %{organization} nimel tegutsemiseks uuendati."

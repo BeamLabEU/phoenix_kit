@@ -108,7 +108,15 @@ defmodule PhoenixKit.Integration.Users.ModuleOptInSubPermissionTest do
 
       assert MapSet.member?(Permissions.enabled_module_keys(), @opt_in)
       refute MapSet.member?(perms, @opt_in)
-      assert Scope.holds_all_enabled_permissions?(%Scope{cached_permissions: perms})
+
+      required =
+        MapSet.difference(
+          Permissions.enabled_module_keys(),
+          MapSet.new(Permissions.admin_baseline_exclusions())
+        )
+
+      assert Scope.holds_all_enabled_permissions?(%Scope{cached_permissions: perms}),
+             "Missing Admin baseline keys: #{inspect(MapSet.difference(required, perms))}"
     end
 
     test "a role missing the module's plain sub-permission does not pass" do

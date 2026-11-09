@@ -26826,3 +26826,7 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "Use their own storage"
 msgstr ""
+
+#, elixir-autogen, elixir-format
+msgid "Your access to act for %{organization} was updated."
+msgstr ""

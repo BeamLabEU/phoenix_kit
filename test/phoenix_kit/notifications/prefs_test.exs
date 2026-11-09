@@ -14,6 +14,11 @@ defmodule PhoenixKit.Notifications.PrefsTest do
   end
 
   describe "user_wants?/2 — hierarchical master switch" do
+    test "muting account changes also mutes organization link changes" do
+      user = user_with_prefs(%{"account" => false})
+      refute Prefs.user_wants?(user.uuid, "organization.manager_changed")
+    end
+
     test "empty prefs → sub-types delivered per their default (true)" do
       user = user_with_prefs(%{})
       assert Prefs.user_wants?(user.uuid, "comment.replied")

@@ -79,6 +79,9 @@ defmodule PhoenixKitWeb.Live.Components.OrganizationManagers do
   end
 
   @impl true
+  def handle_event(_event, _params, %{assigns: %{details: nil}} = socket),
+    do: {:noreply, socket}
+
   def handle_event("open_add", _params, socket) do
     {:noreply,
      socket

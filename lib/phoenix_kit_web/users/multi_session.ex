@@ -77,6 +77,7 @@ defmodule PhoenixKitWeb.Users.MultiSession do
   # The tokens of the stack the user added THEMSELVES (password, OAuth, or restored from the
   # durable mirror, which only ever holds those). `impersonated?/1` reads it; see there.
   @own_key :pk_own_tokens
+  @impersonators_key :pk_impersonators
   @organization_key :pk_organization_token
   @max_accounts 5
 
@@ -212,31 +213,68 @@ defmodule PhoenixKitWeb.Users.MultiSession do
 
   @doc """
   The uuid of whoever signed in as the person behind this session ("sign in as this
-  user"), or `nil`: the stack's root when `person_token/1` is a borrowed account (neither
-  the root nor one the person added themselves). Recorded on the activity of that session
+  user"), or `nil`: the own account that authorized the borrowed session, falling back to
+  the stack's root for sessions created before that provenance was recorded.
+  Recorded on the activity of that session
   (`Scope` field `impersonated_by_uuid`) and on entering an organization from it.
   """
   @spec impersonated_by(map()) :: String.t() | nil
   def impersonated_by(session) when is_map(session) do
     with [root | _] <- stack_tokens(session),
          person when is_binary(person) and person != root <- person_token(session),
-         false <- person in own_tokens(session),
-         %Auth.User{uuid: uuid} <- root_user_from_token(root) do
-      uuid
+         false <- person in own_tokens(session) do
+      case Map.get(impersonators(session), person) do
+        %{user_uuid: uuid} ->
+          uuid
+
+        _ ->
+          case root_user_from_token(root) do
+            %Auth.User{uuid: uuid} -> uuid
+            _ -> nil
+          end
+      end
     else
       _ -> nil
     end
   end
 
   # The account whose authority signs in as someone else: the one shown when it is the
-  # person's own (the root, or added with its password), else the root. A borrowed account
+  # person's own (the root, or added with its password), else the own account that
+  # authorized the impersonation (the root for older sessions). A borrowed account
   # never lends its authority on: signing in as an Admin does not let anyone sign in as
   # whom that Admin could.
   defp own_account_token(session) do
     case stack_tokens(session) do
-      [] -> nil
-      [root | _] -> if impersonated?(session), do: root, else: session["user_token"] || root
+      [] ->
+        nil
+
+      [root | _] ->
+        if impersonated?(session),
+          do: impersonator_token(session, session["user_token"]),
+          else: session["user_token"] || root
     end
+  end
+
+  defp impersonators(session) do
+    case session["pk_impersonators"] do
+      value when is_map(value) -> value
+      _ -> %{}
+    end
+  end
+
+  defp impersonator_token(session, token) do
+    root = List.first(stack_tokens(session))
+
+    case Map.get(impersonators(session), token) do
+      %{token: operator} -> operator
+      _ -> root
+    end
+  end
+
+  defp remember_impersonator(conn, token, operator, actor) do
+    origins = conn |> get_session() |> impersonators()
+    origins = Map.put(origins, token, %{token: operator, user_uuid: actor.uuid})
+    put_session(conn, @impersonators_key, origins)
   end
 
   defp own_user(session) do
@@ -301,6 +339,9 @@ defmodule PhoenixKitWeb.Users.MultiSession do
   end
 
   defp drop_own(conn, token) do
+    origins = conn |> get_session() |> impersonators() |> Map.delete(token)
+    conn = put_session(conn, @impersonators_key, origins)
+
     case conn |> get_session() |> own_tokens() do
       [] -> conn
       own -> put_session(conn, @own_key, List.delete(own, token))
@@ -329,7 +370,7 @@ defmodule PhoenixKitWeb.Users.MultiSession do
 
   @doc """
   Resolves each stack token to a render struct:
-  `%{ref, user, email, role, active?, root?}`. Tokens that no longer resolve to a
+  `%{ref, user, email, role, active?, root?, own?}`. Tokens that no longer resolve to a
   user (expired/deleted) are dropped. `role` labels the roles in effect for
   that account's session (`PhoenixKit.Users.ActiveRole`).
   """
@@ -349,7 +390,8 @@ defmodule PhoenixKitWeb.Users.MultiSession do
               email: Auth.User.delivery_email(user),
               role: role_label(user),
               active?: token == active,
-              root?: index == 0
+              root?: index == 0,
+              own?: index == 0 or token in own_tokens(session)
             }
           ]
 
@@ -573,7 +615,12 @@ defmodule PhoenixKitWeb.Users.MultiSession do
           |> renew_and_put_active_token(token)
           |> maybe_persist_account(token, own?)
 
-        log_event(Keyword.get(opts, :event, "session.account_added"), root_user(session), user)
+        log_event(
+          Keyword.get(opts, :event, "session.account_added"),
+          if(own?, do: root_user(session), else: own_user(session)),
+          user
+        )
+
         {:ok, conn}
     end
   end
@@ -640,7 +687,13 @@ defmodule PhoenixKitWeb.Users.MultiSession do
       :ok ->
         case add_authenticated_user(conn, target, event: "session.impersonated", persist: false) do
           {:ok, conn} ->
-            {:ok, conn}
+            {:ok,
+             remember_impersonator(
+               conn,
+               get_session(conn, :user_token),
+               own_account_token(session),
+               actor
+             )}
 
           {:error, reason} = error ->
             log_impersonation_refused(actor, target, reason)

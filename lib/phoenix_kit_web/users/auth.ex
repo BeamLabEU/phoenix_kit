@@ -208,7 +208,7 @@ defmodule PhoenixKitWeb.Users.Auth do
       [params["return_to"], get_session(conn, :user_return_to)]
       |> Kernel.++(start_page_candidates(user))
       |> Routes.post_auth_path(context: conn, scope: Scope.for_user(user))
-      |> in_saved_language(user, page_locale)
+      |> in_saved_language(user, page_locale, conn)
 
     # Merge guest cart into user cart before session renewal clears session data.
     # The shop_session_id cookie survives renew_session (only session data is cleared).
@@ -236,13 +236,16 @@ defmodule PhoenixKitWeb.Users.Auth do
   # Left alone when the sign-in page was in another language (the newer
   # choice), when the destination names a language (a `return_to` keeps its
   # own), and when the saved one is not served.
-  defp in_saved_language(path, user, page_locale) do
+  defp in_saved_language(path, user, page_locale, conn) do
     saved = RecipientLocale.preferred(user)
     page_in_site_language? = is_nil(page_locale) or RecipientLocale.site_language?(page_locale)
 
     if is_binary(saved) and page_in_site_language? and not RecipientLocale.site_language?(saved) and
          is_nil(Routes.path_locale(path)) and Routes.served_locale?(saved) do
-      Routes.locale_switch_path(path, saved)
+      localized = Routes.locale_switch_path(path, saved)
+      # The destination may belong to a host that has no localized version of
+      # that page. Keep its chosen path unless the router serves the new one.
+      if Routes.routable?(conn, localized), do: localized, else: path
     else
       path
     end

@@ -41,8 +41,9 @@ defmodule PhoenixKit.HeaderWidget do
   of an admin-layout page. The widget has to check the permission itself from the session
   (see `c:PhoenixKit.Module.header_widgets/0`).
 
-  The keys `user_token`, `pk_session_accounts`, `pk_own_tokens`, `live_socket_id` and
-  `phoenix_kit_session_uuid` are reserved (`reserved_session_keys/0`): they belong to the cookie session, which LiveView
+  The keys `user_token`, `pk_session_accounts`, `pk_own_tokens`, `pk_impersonators`,
+  `pk_organization_token`, `live_socket_id` and `phoenix_kit_session_uuid` are reserved
+  (`reserved_session_keys/0`): they belong to the cookie session, which LiveView
   merges under the signed session of the nested LiveView, so a value here would hide the real
   one from the session and impersonation checks. They are dropped from the session (one
   warning per module and widget, without the values).
@@ -63,7 +64,7 @@ defmodule PhoenixKit.HeaderWidget do
   # nested LiveView is merged OVER the cookie session (Phoenix.LiveView.Channel), so a widget
   # session carrying one of them would replace what `SessionRef.from_session/1` and
   # `MultiSession.impersonated?/1` read in the widget's `mount/3`.
-  @reserved_session_keys ~w(user_token pk_session_accounts pk_own_tokens live_socket_id phoenix_kit_session_uuid)
+  @reserved_session_keys ~w(user_token pk_session_accounts pk_own_tokens pk_impersonators pk_organization_token live_socket_id phoenix_kit_session_uuid)
 
   @doc "The session keys a widget's session function cannot set: they are dropped."
   @spec reserved_session_keys() :: [String.t()]
@@ -159,19 +160,22 @@ defmodule PhoenixKit.HeaderWidget do
   defp describe_type(_value), do: "of another type"
 
   @doc """
-  True while the account the session acts as is not the root account of the browser's
-  multi-session stack, which is what an impersonation ("log in as this user") looks like.
+  True while acting through a borrowed account or an organization's slot.
 
-  The layout passes this as `:impersonating?` to the session functions. It is an
-  over-approximation: the stack does not tell an impersonated account from one the user
-  added with a password, so both read as `true`. False without a stack (the
-  `multi_session_enabled` setting off, or a single account). A widget that must not run for
+  The layout passes this as `:impersonating?` to the session functions. The
+  account list distinguishes accounts added with their own credentials (`own?`) from
+  borrowed ones. Older lists without that field treat a non-root account as borrowed.
+  Token-loaded organization provenance and impersonator attribution also count when the
+  switcher is off. A widget that must not run for
   an operator borrowing a user's session returns `nil` from its session function when it is
   `true`.
   """
   @spec impersonating?(PhoenixKit.Users.Auth.Scope.t() | nil) :: boolean()
+  def impersonating?(%{user: %{acting_user_uuid: uuid}}) when is_binary(uuid), do: true
+  def impersonating?(%{impersonated_by_uuid: uuid}) when is_binary(uuid), do: true
+
   def impersonating?(%{multi_session_accounts: [_ | _] = accounts}) do
-    Enum.any?(accounts, &(&1.active? and not &1.root?))
+    Enum.any?(accounts, &(&1.active? and not Map.get(&1, :own?, &1.root?)))
   end
 
   def impersonating?(_scope), do: false

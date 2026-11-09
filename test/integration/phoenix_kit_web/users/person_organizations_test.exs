@@ -10,6 +10,7 @@ defmodule PhoenixKitWeb.Users.PersonOrganizationsTest do
   alias PhoenixKit.Test.ManagedOrganizationFixtures, as: F
   alias PhoenixKit.Users.OrganizationManager
   alias PhoenixKit.Users.OrganizationManagers
+  alias PhoenixKit.Users.PersonOrganizations
   alias PhoenixKit.Utils.Routes
 
   @row "#person-organizations"
@@ -183,6 +184,27 @@ defmodule PhoenixKitWeb.Users.PersonOrganizationsTest do
     view |> element("#{@row}-detach-#{own.uuid}") |> render_click()
 
     assert reload(person).organization_uuid == nil
+  end
+
+  test "legacy ties require a live admin actor in the context", %{person: person} do
+    own = F.organization(%{managed_by_members: false})
+    {actor, admin} = F.admin_actor()
+
+    assert {:error, :forbidden} = PersonOrganizations.attach(nil, person, own.uuid)
+    assert reload(person).organization_uuid == nil
+
+    assert {:ok, person} = PersonOrganizations.attach(actor, person, own.uuid)
+    assert {:error, :forbidden} = PersonOrganizations.detach(nil, person, own.uuid)
+    assert reload(person).organization_uuid == own.uuid
+
+    {:ok, _} = Roles.remove_role(admin, "Admin")
+
+    assert {:error, :forbidden} = PersonOrganizations.detach(actor, person, own.uuid)
+    assert reload(person).organization_uuid == own.uuid
+
+    other = F.organization(%{managed_by_members: false})
+    assert {:error, :forbidden} = PersonOrganizations.attach(actor, person, other.uuid)
+    assert reload(person).organization_uuid == own.uuid
   end
 
   test "someone who is not an Owner or Admin sees the chips and changes nothing",

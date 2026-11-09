@@ -58,6 +58,18 @@ defmodule PhoenixKit.Notifications.RenderTest do
       assert view.icon == "hero-exclamation-circle"
       assert view.text == "Your email is no longer confirmed."
     end
+
+    test "a link change has account preferences, copy and a settings link" do
+      action = "organization.manager_changed"
+      view = Render.render(notif(action, %{"organization_name" => "Oak Trading"}), "en")
+
+      assert Types.key_for_action(action) == "account"
+      assert view.text == "Your access to act for Oak Trading was updated."
+      assert view.link == Routes.user_settings_path(locale: "en")
+
+      assert Render.render(notif(action), "de").text !=
+               Render.render(notif(action), "en").text
+    end
   end
 
   describe "render/2 — session actions reach the recipient's inbox" do

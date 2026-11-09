@@ -149,6 +149,9 @@ defmodule PhoenixKit.ModuleRegistryHeaderWidgetsTest do
              "label" => "kept",
              "user_token" => "forged",
              "pk_session_accounts" => [],
+             "pk_own_tokens" => [],
+             "pk_impersonators" => %{},
+             "pk_organization_token" => "forged",
              "live_socket_id" => "x",
              "phoenix_kit_session_uuid" => "y"
            }
@@ -394,6 +397,23 @@ defmodule PhoenixKit.ModuleRegistryHeaderWidgetsTest do
       assert HeaderWidget.impersonating?(
                scope_with([%{active?: false, root?: true}, %{active?: true, root?: false}])
              )
+    end
+
+    test "an account added with its own credentials is not borrowed" do
+      refute HeaderWidget.impersonating?(
+               scope_with([
+                 %{active?: false, root?: true, own?: true},
+                 %{active?: true, root?: false, own?: true}
+               ])
+             )
+    end
+
+    test "organization and support provenance count without a switcher list" do
+      assert HeaderWidget.impersonating?(%Scope{impersonated_by_uuid: Ecto.UUID.generate()})
+
+      assert HeaderWidget.impersonating?(%Scope{
+               user: %PhoenixKit.Users.Auth.User{acting_user_uuid: Ecto.UUID.generate()}
+             })
     end
   end
 

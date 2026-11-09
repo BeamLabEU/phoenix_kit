@@ -12,6 +12,7 @@ defmodule PhoenixKitWeb.Users.OrganizationSwitchingTest do
   alias PhoenixKit.Users.ManagedOrganizations.Actor, as: ActorRef
   alias PhoenixKit.Users.ManagedOrganizations.Sessions, as: OrganizationSessions
   alias PhoenixKit.Users.OrganizationManager
+  alias PhoenixKit.Users.OrganizationManagers
   alias PhoenixKit.Users.RoleAssignment
   alias PhoenixKit.Users.Roles
   alias PhoenixKit.Users.Sessions
@@ -224,6 +225,23 @@ defmodule PhoenixKitWeb.Users.OrganizationSwitchingTest do
       assert entry.action == "organization.entered"
       assert entry.metadata["acting_user_uuid"] == b.igor.uuid
       assert entry.metadata["impersonated_by_uuid"] == s.person.uuid
+
+      # Context-owned link changes must retain the operator too, not only page
+      # actions that explicitly pass Actor.opts/1.
+      other = F.narrowed_link(b.dailrade, F.person(), [])
+      {:ok, actor} = ActorRef.from_session(get_session(conn))
+
+      assert {:ok, _} =
+               OrganizationManagers.update(
+                 actor,
+                 b.dailrade.uuid,
+                 other.user_uuid,
+                 metadata: %{"reviewed" => true}
+               )
+
+      assert [changed] = Activity.list(action: "organization.manager_changed").entries
+      assert changed.metadata["acting_user_uuid"] == b.igor.uuid
+      assert changed.metadata["impersonated_by_uuid"] == s.person.uuid
 
       # It ends with the browser session, like the borrowed account: never mirrored.
       refute conn.resp_cookies[@mirror]
