@@ -121,7 +121,7 @@ it on a public page. Its script is also a standalone file for projects outside P
 (`phoenix_kit_upload_manager.js`), of which `phoenix_kit_admin.js` holds a copy, identical but for the lines that
 register the hook (`PhoenixKitAdminHooks` instead of `PhoenixKitHooks`; `upload_manager_bundle.test.cjs`). Public, it
 would have been 55 KB raw / 8.2 KB min+gz more in every page's file (303 603 B raw when measured, over the 256 KiB
-budget it had then, and over today's 272 KiB as well).
+budget it had then, and over today's 280 KiB as well).
 Behind a stub it has the limit of every stub, and one more cost: the manager registers the chunked uploader
 (`PkChunked`) when it starts, and a file chosen before the bundle has arrived is preflighted regardless, so the stub
 of `UploadManager` keeps a stand-in under that name (`holdChunkedUploader`) which takes the entries LiveView hands
@@ -145,7 +145,7 @@ real uploader because the bundle replaces the stand-in in the turn the hooks mou
 
 At design time the public hooks were estimated at ~107 KB of ~507 KB of hook code. **As built** (esbuild 0.25.4
 `--minify`, `gzip -9 -n`): `phoenix_kit.js` is 276 092 B raw, 78 808 gzip, 103 719 minified, 31 857 minified + gzip;
-`phoenix_kit_admin.js` is 431 542 / 121 815 / 162 841 / 47 928. The size budget in `admin_split.test.cjs` (272 KiB for
+`phoenix_kit_admin.js` is 431 542 / 121 815 / 162 841 / 47 928. The size budget in `admin_split.test.cjs` (280 KiB for
 the public file) is a coarse backstop; what keeps an admin hook out of the public file is the name check in the same
 test.
 
@@ -154,7 +154,7 @@ a generic form primitive, imported into every page's helpers next to `file_uploa
 form as its example, so a page that renders it must not wait for the admin bundle (48 KB min+gz, against the hook's
 own 2.3 KB). Core renders it nowhere itself and no known module puts it on a page yet. It added 13 087 B raw (the hook and its line in the header) /
 2 032 B min+gz to the public file at 3.4.0, and 2 677 B raw more with the follow-up of #1023 (the recorder started from
-a page's own button, a clip joining a page's own upload), which is why the budget went from 256 to 272 KiB (the test says so); its body is
+a page's own button, a clip joining a page's own upload), which is why the budget went from 256 to 272 KiB (the test says so; it went to 280 KiB later, for the review fixes, which added about 5 KB of their own); its body is
 main's, character for character. A lazy chunk of its own, the other way to keep it off pages without a
 recorder, would cost a third vendored file (compiler, facts, doctor) for those 2 KB.
 
