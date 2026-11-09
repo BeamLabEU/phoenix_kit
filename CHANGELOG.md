@@ -221,6 +221,15 @@ Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
 
 ### Fixed
 
+- **An account added to the switcher with its own password enters its own companies.**
+  Entering, leaving and the "Acting as" menu all went by the first account of the
+  session, so an Admin who had added the account holding the company links saw its
+  companies listed and was refused each one. They now go by the account shown when it is
+  the first one or one the person added themselves (`MultiSession.person_token/1`, which
+  `ManagedOrganizations.Actor.from_session/1` follows too); the company's session is bound
+  to that account's, so signing it out of the switcher ends the company's session as well,
+  and leaving comes back to it. A borrowed account ("sign in as this user") still enters
+  on the first account's authority, never its own.
 - **An Owner or Admin in an account added to the switcher with its own password manages
   organizations again.** Only the first account of a session could change who acts for an
   organization (People and Organizations rows, the People tab, the user form), so an Owner

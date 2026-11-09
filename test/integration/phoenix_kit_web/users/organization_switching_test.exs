@@ -9,6 +9,7 @@ defmodule PhoenixKitWeb.Users.OrganizationSwitchingTest do
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.Auth.UserToken
+  alias PhoenixKit.Users.ManagedOrganizations.Actor, as: ActorRef
   alias PhoenixKit.Users.ManagedOrganizations.Sessions, as: OrganizationSessions
   alias PhoenixKit.Users.OrganizationManager
   alias PhoenixKit.Users.RoleAssignment
@@ -96,6 +97,8 @@ defmodule PhoenixKitWeb.Users.OrganizationSwitchingTest do
         conn
       end)
 
+    # The company is the root's: enter it from there.
+    {:ok, conn, _} = MultiSession.switch_to(conn, s.root.uuid)
     assert {:ok, conn, _} = MultiSession.act_as_organization(conn, s.org.uuid)
     assert length(get_session(conn, :pk_session_accounts)) == 6
     assert length(MultiSession.list_accounts(get_session(conn))) == 5
@@ -117,12 +120,96 @@ defmodule PhoenixKitWeb.Users.OrganizationSwitchingTest do
     refute get_session(refused, :oauth_add_account_intent)
   end
 
-  test "the root decides; an added person or acting organization cannot lend its grant", s do
-    other = F.person()
+  describe "an account the person added with its own password (2026-11-09, from WoodMatrix)" do
+    # The root (no link to `organization`) adds `other`, who manages it.
+    defp added(s) do
+      other = F.person(%{first_name: "Denis", last_name: "Sivovol"})
+      organization = F.organization(%{organization_name: "Trinity Wood"})
+      grant = F.manager(organization, other)
+      {:ok, conn} = MultiSession.add_authenticated_user(s.conn, other)
+      token = get_session(conn, :user_token)
+      %{other: other, organization: organization, grant: grant, conn: conn, token: token}
+    end
+
+    test "enters its own companies, bound to its own session; the root's stay out", s do
+      a = added(s)
+      row = Auth.get_session_token_record(a.token)
+
+      assert {:error, :forbidden} = MultiSession.act_as_organization(a.conn, s.org.uuid)
+      assert {:ok, conn, user} = MultiSession.act_as_organization(a.conn, a.organization.uuid)
+      assert user.uuid == a.organization.uuid
+      assert user.acting_user_uuid == a.other.uuid
+      assert user.acting_session_uuid == row.uuid
+      assert user.organization_manager_uuid == a.grant.uuid
+
+      # Managing it from there stands on the added account, not on the root.
+      assert {:ok, %ActorRef{root: {root_row, root_uuid}}} =
+               ActorRef.from_session(get_session(conn))
+
+      assert {root_row, root_uuid} == {row.uuid, a.other.uuid}
+    end
+
+    test "the Acting as menu lists the shown account's companies, there and while acting", s do
+      a = added(s)
+      other = Auth.get_user_by_session_token(a.token)
+
+      scope = MultiSession.populate_scope(Scope.for_user(other), get_session(a.conn))
+      assert Enum.map(scope.acting_organizations, & &1.uuid) == [a.organization.uuid]
+      assert scope.organization_root.uuid == a.other.uuid
+
+      {:ok, conn, user} = MultiSession.act_as_organization(a.conn, a.organization.uuid)
+      scope = MultiSession.populate_scope(Scope.for_user(user), get_session(conn))
+      assert Enum.map(scope.acting_organizations, & &1.uuid) == [a.organization.uuid]
+      assert scope.acting_person.uuid == a.other.uuid
+    end
+
+    test "leaving comes back to the added account, not to the root", s do
+      a = added(s)
+      {:ok, conn, _} = MultiSession.act_as_organization(a.conn, a.organization.uuid)
+
+      assert {:ok, back, user} = MultiSession.leave_organization(conn)
+      assert user.uuid == a.other.uuid
+      assert get_session(back, :user_token) == a.token
+      refute get_session(back, :pk_organization_token)
+    end
+
+    test "signing that account out of the switcher ends the company's session too", s do
+      a = added(s)
+      {:ok, conn, _} = MultiSession.act_as_organization(a.conn, a.organization.uuid)
+      organization_token = get_session(conn, :user_token)
+      ref = Auth.get_session_token_record(a.token).uuid
+
+      assert {:ok, conn} = MultiSession.remove_account(conn, ref)
+
+      refute Auth.get_user_by_session_token(organization_token)
+      refute Auth.get_user_by_session_token(a.token)
+      assert get_session(conn, :user_token) == s.token
+      assert get_session(conn, :pk_session_accounts) == [s.token]
+      refute get_session(conn, :pk_organization_token)
+    end
+
+    test "a borrowed account still enters on the root's authority, never its own", s do
+      borrowed = F.person()
+      organization = F.organization()
+      F.manager(organization, borrowed)
+      {borrowed_token, _} = F.session(borrowed)
+
+      conn =
+        init_test_session(build_conn(), %{
+          user_token: borrowed_token,
+          pk_session_accounts: [s.token, borrowed_token],
+          pk_own_tokens: []
+        })
+
+      assert {:error, :forbidden} = MultiSession.act_as_organization(conn, organization.uuid)
+      assert {:ok, _conn, user} = MultiSession.act_as_organization(conn, s.org.uuid)
+      assert user.acting_user_uuid == s.person.uuid
+      assert user.acting_session_uuid == s.root.uuid
+    end
+  end
+
+  test "an acting organization cannot lend its grant", s do
     organization = F.organization()
-    F.manager(organization, other)
-    {:ok, conn} = MultiSession.add_authenticated_user(s.conn, other)
-    assert {:error, :forbidden} = MultiSession.act_as_organization(conn, organization.uuid)
     {:ok, conn, _} = MultiSession.act_as_organization(s.conn, s.org.uuid)
 
     Repo.insert!(%OrganizationManager{
@@ -176,6 +263,7 @@ defmodule PhoenixKitWeb.Users.OrganizationSwitchingTest do
     {:ok, conn} = MultiSession.add_authenticated_user(s.conn, other)
     [_, other_token] = get_session(conn, :pk_session_accounts)
     ref = Auth.get_session_token_record(other_token).uuid
+    {:ok, conn, _} = MultiSession.switch_to(conn, s.root.uuid)
     {:ok, conn, _} = MultiSession.act_as_organization(conn, s.org.uuid)
     org_token = get_session(conn, :user_token)
     assert {:ok, conn, user} = MultiSession.switch_to(conn, ref)
@@ -289,7 +377,10 @@ defmodule PhoenixKitWeb.Users.OrganizationSwitchingTest do
         user: %{email: other.email, password: "ValidPassword123!"}
       })
 
-    entered = post(added, Routes.path("/users/session/organizations/#{s.org.uuid}"))
+    # The company is the root's: back to the root, then in.
+    root_ref = Auth.get_session_token_record(get_session(login, :user_token)).uuid
+    back = put(added, Routes.path("/users/session/active"), %{ref: root_ref})
+    entered = post(back, Routes.path("/users/session/organizations/#{s.org.uuid}"))
     org_token = get_session(entered, :user_token)
     Settings.update_setting("multi_session_enabled", "false")
 
@@ -315,7 +406,7 @@ defmodule PhoenixKitWeb.Users.OrganizationSwitchingTest do
     refute get_session(recovered, :pk_organization_token)
   end
 
-  test "the My account row clears a remembered ordinary-account active marker", s do
+  test "the My account row keeps the account shown, and a restart resumes on it", s do
     Settings.update_setting("multi_session_enabled", "true")
     login = remembered_login(s.person)
     other = F.person()
@@ -325,13 +416,14 @@ defmodule PhoenixKitWeb.Users.OrganizationSwitchingTest do
         user: %{email: other.email, password: "ValidPassword123!"}
       })
 
+    # "My account" is the account whose companies the menu lists: the one shown.
     returned = delete(added, Routes.path("/users/session/organization"))
-    assert get_session(returned, :user_token) == get_session(login, :user_token)
+    assert get_session(returned, :user_token) == get_session(added, :user_token)
 
     recovered =
       restart(%{@remember => cookie(login, @remember), @mirror => cookie(returned, @mirror)})
 
-    assert get_session(recovered, :user_token) == get_session(login, :user_token)
+    assert get_session(recovered, :user_token) == get_session(added, :user_token)
     assert length(get_session(recovered, :pk_session_accounts)) == 2
   end
 

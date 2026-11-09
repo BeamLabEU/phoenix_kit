@@ -101,7 +101,7 @@ defmodule PhoenixKitWeb.Users.MultiSession do
     token = organization_token(session)
 
     if token && token == session["user_token"] &&
-         not bound_organization?(token, List.first(stack_tokens(session))) do
+         is_nil(bound_person_token(token, stack_tokens(session))) do
       case leave_organization(conn) do
         {:ok, conn, _user} -> conn
         _ -> conn
@@ -111,13 +111,18 @@ defmodule PhoenixKitWeb.Users.MultiSession do
     end
   end
 
-  @doc "Enters on the root person's authority, independently of multi-account switching."
+  @doc """
+  Enters an organization on the authority of `person_token/1`: the account shown, when it
+  is the session's first one or one the person added with its own password; the
+  organization's session is bound to that account's session row, so signing it out ends
+  the organization's too.
+  """
   def act_as_organization(conn, uuid) do
     session = get_session(conn)
 
-    with [root | _] <- stack_tokens(session),
+    with person when is_binary(person) <- person_token(session),
          {:ok, %{token: token, user: user}} <-
-           OrganizationSessions.enter(root, uuid, organization_token(session)) do
+           OrganizationSessions.enter(person, uuid, organization_token(session)) do
       stack = Enum.reject(stack_tokens(session), &(&1 == organization_token(session)))
 
       conn =
@@ -134,13 +139,16 @@ defmodule PhoenixKitWeb.Users.MultiSession do
     end
   end
 
-  @doc "Deletes the organization slot and returns to the live root account."
+  @doc """
+  Deletes the organization slot and returns to the account it was entered from
+  (`person_token/1`).
+  """
   def leave_organization(conn) do
     session = get_session(conn)
 
-    with [root | _] <- stack_tokens(session),
-         %Auth.User{} = user <- root_user_from_token(root),
-         {:ok, :ok} <- OrganizationSessions.leave(root, organization_token(session)) do
+    with person when is_binary(person) <- person_token(session),
+         %Auth.User{} = user <- root_user_from_token(person),
+         {:ok, :ok} <- OrganizationSessions.leave(person, organization_token(session)) do
       conn =
         conn
         |> put_session(
@@ -148,12 +156,52 @@ defmodule PhoenixKitWeb.Users.MultiSession do
           Enum.reject(stack_tokens(session), &(&1 == organization_token(session)))
         )
         |> delete_session(@organization_key)
-        |> renew_and_put_active_token(root)
+        |> renew_and_put_active_token(person)
         |> forget_organization()
+        |> remember_active(person)
 
       {:ok, conn, user}
     else
       _ -> {:error, :root_gone}
+    end
+  end
+
+  @doc """
+  The raw session token of the person whose authority enters, leaves and lists
+  organizations, and manages them (`ManagedOrganizations.Actor.from_session/1`):
+
+    * while acting for an organization, the account its session is bound to (the one it
+      was entered from), else the stack's root;
+    * in a borrowed account (an impersonation, `impersonated?/1`), the stack's root, as
+      ever: a borrowed account never acts as itself here;
+    * otherwise the account shown: the root, or one the person added themselves with its
+      own password, which signing in to proved the same as a fresh login (2026-11-09, from
+      WoodMatrix: an Admin who had added the account holding the links could not enter
+      its companies).
+
+  `nil` without a session. Reads no database unless acting.
+  """
+  @spec person_token(map()) :: String.t() | nil
+  def person_token(session) when is_map(session) do
+    stack = stack_tokens(session)
+    active = session["user_token"]
+    organization = organization_token(session)
+
+    cond do
+      stack == [] ->
+        nil
+
+      is_binary(organization) and active == organization ->
+        bound_person_token(organization, stack) || hd(stack)
+
+      impersonated?(session) ->
+        hd(stack)
+
+      is_binary(active) ->
+        active
+
+      true ->
+        hd(stack)
     end
   end
 
@@ -297,11 +345,14 @@ defmodule PhoenixKitWeb.Users.MultiSession do
     {allowed, accounts} = scope_fields(session)
     organizations_on = Auth.organization_accounts_enabled?()
     root_account = Enum.find(accounts, & &1.root?)
+    person = person_token(session)
 
+    # The person whose organizations the "Acting as" menu lists and enters with:
+    # `person_token/1`, which is the root's unless the account shown is the person's own.
     root =
       cond do
-        root_account -> root_account.user
-        organizations_on or acting?(session) -> root_user(session)
+        root_account && person == List.first(stack_tokens(session)) -> root_account.user
+        root_account || organizations_on || acting?(session) -> person_user(person)
         true -> nil
       end
 
@@ -787,24 +838,48 @@ defmodule PhoenixKitWeb.Users.MultiSession do
         {:error, :cannot_remove_root}
 
       token ->
-        if token == organization_token(session) do
-          case leave_organization(conn) do
-            {:ok, conn, _user} -> {:ok, conn}
-            error -> error
-          end
-        else
-          Auth.delete_user_session_token(token)
-          new_stack = List.delete(stack, token)
+        organization = organization_token(session)
 
-          conn =
-            conn |> put_session(@stack_key, new_stack) |> drop_own(token) |> forget_account(token)
+        cond do
+          token == organization ->
+            case leave_organization(conn) do
+              {:ok, conn, _user} -> {:ok, conn}
+              error -> error
+            end
 
-          conn =
-            if session["user_token"] == token,
-              do: put_active_token(conn, root_token),
-              else: conn
+          # The organization slot was entered from this account: its session goes
+          # with this one (`OrganizationSessions.leave/2`), and the root takes over.
+          is_binary(organization) and bound_person_token(organization, stack) == token ->
+            {:ok, :ok} = OrganizationSessions.leave(token, organization)
+            Auth.delete_user_session_token(token)
 
-          {:ok, conn}
+            conn =
+              conn
+              |> put_session(@stack_key, stack -- [token, organization])
+              |> delete_session(@organization_key)
+              |> drop_own(token)
+              |> forget_account(token)
+              |> forget_organization()
+              |> put_active_token(root_token)
+
+            {:ok, conn}
+
+          true ->
+            Auth.delete_user_session_token(token)
+            new_stack = List.delete(stack, token)
+
+            conn =
+              conn
+              |> put_session(@stack_key, new_stack)
+              |> drop_own(token)
+              |> forget_account(token)
+
+            conn =
+              if session["user_token"] == token,
+                do: put_active_token(conn, root_token),
+                else: conn
+
+            {:ok, conn}
         end
     end
   end
@@ -971,8 +1046,9 @@ defmodule PhoenixKitWeb.Users.MultiSession do
     accounts = if multi and root_live, do: Enum.filter(tokens, &ordinary_token?/1), else: []
 
     organization =
-      if root_live and active == organization and bound_organization?(organization, root_token),
-        do: organization
+      if root_live and active == organization and
+           Enum.any?([root_token | accounts], &bound_organization?(organization, &1)),
+         do: organization
 
     live = accounts ++ List.wrap(organization)
     active = if active in live, do: active
@@ -1012,6 +1088,24 @@ defmodule PhoenixKitWeb.Users.MultiSession do
   end
 
   defp bound_organization?(_, _), do: false
+
+  # The token of the stack (not the slot itself) whose session row the organization's
+  # session is bound to, or nil.
+  defp bound_person_token(organization, stack) when is_binary(organization) do
+    case Auth.get_user_by_session_token(organization) do
+      %Auth.User{managed_by_members: true, acting_session_uuid: parent, is_active: true}
+      when is_binary(parent) ->
+        stack |> List.delete(organization) |> find_token_by_ref(parent)
+
+      _ ->
+        nil
+    end
+  end
+
+  defp bound_person_token(_organization, _stack), do: nil
+
+  defp person_user(token) when is_binary(token), do: root_user_from_token(token)
+  defp person_user(_token), do: nil
 
   defp restore_active(conn, nil), do: conn
   defp restore_active(conn, token), do: put_active_token(conn, token)

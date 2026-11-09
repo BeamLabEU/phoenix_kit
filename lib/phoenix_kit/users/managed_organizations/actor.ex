@@ -43,8 +43,9 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Actor do
   signing in to it proved the same as a fresh login would, so it stands on its
   own (`current == root`), and an Owner or Admin there manages organizations as
   in their first account (2026-11-09, from WoodMatrix). A borrowed account (an
-  impersonation) and an organization slot keep the stack's root, so they still
-  never pass as an Owner's or Admin's own session.
+  impersonation) keeps the stack's root, so it never passes as an Owner's or
+  Admin's own session; an organization slot has the account it was entered from
+  as its root. `MultiSession.person_token/1` is the one rule.
   """
   def from_session(session) when is_map(session) do
     with {:ok, current} <- SessionRef.from_session(session),
@@ -58,15 +59,12 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Actor do
   def from_session(_), do: {:error, :forbidden}
 
   defp root_ref(session, current) do
-    # An organization slot is never on the own list; the second test keeps it
-    # that way should one ever be added there.
-    if MultiSession.impersonated?(session) or
-         session["user_token"] == session["pk_organization_token"] do
-      with [root_token | _] <- MultiSession.stack_tokens(session) do
-        SessionRef.from_session(%{"user_token" => root_token})
-      end
-    else
-      {:ok, current}
+    active = session["user_token"]
+
+    case MultiSession.person_token(session) do
+      ^active -> {:ok, current}
+      token when is_binary(token) -> SessionRef.from_session(%{"user_token" => token})
+      _ -> :error
     end
   end
 
