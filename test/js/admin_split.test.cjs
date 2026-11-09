@@ -201,7 +201,7 @@ test("a size budget keeps the public file public", () => {
 
 // A stand-in admin bundle, so the stub's behaviour is tested without any real
 // hook's logic in the way.
-function fakeAdmin(calls) {
+function fakeAdmin(calls, throwIn) {
   return (
     "window.PhoenixKitAdminHooks = window.PhoenixKitAdminHooks || {};\n" +
     "var calls = " + JSON.stringify([]) + ";\n" +
@@ -209,7 +209,7 @@ function fakeAdmin(calls) {
     "function rec(name, self) { window.__calls.push([name, self]); }\n" +
     ["SortableGrid", "RowMenu", "ListFilter"].map((n) =>
       "window.PhoenixKitAdminHooks." + n + " = {\n" +
-      "  mounted() { rec('" + n + ".mounted', this); this.handleEvent('ping', () => rec('" + n + ".event', this)); this.pushEvent('hello', {n: '" + n + "'}); },\n" +
+      "  mounted() { rec('" + n + ".mounted', this); " + (n === throwIn ? "throw new Error('boom in " + n + "'); " : "") + "this.handleEvent('ping', () => rec('" + n + ".event', this)); this.pushEvent('hello', {n: '" + n + "'}); },\n" +
       "  beforeUpdate() { rec('" + n + ".beforeUpdate', this); },\n" +
       "  updated() { rec('" + n + ".updated', this); },\n" +
       "  disconnected() { rec('" + n + ".disconnected', this); },\n" +
@@ -221,10 +221,10 @@ function fakeAdmin(calls) {
   );
 }
 
-function withFakeAdmin() {
+function withFakeAdmin(throwIn) {
   const dir = tmpDir("pk_admin_");
   const file = path.join(dir, "fake_admin.js");
-  fs.writeFileSync(file, fakeAdmin());
+  fs.writeFileSync(file, fakeAdmin(undefined, throwIn));
   const env = publicPage();
   const arrive = () => { env.load(file); env.loaded(0); };
   const calls = () => env.window.__calls || [];
@@ -926,5 +926,59 @@ test("a stub that mounted before the late facts arrived becomes the real hook at
 
   assert.deepEqual(Array.from(env.window.__calls, (c) => c[0]), ["SortableGrid.mounted"]);
   assert.equal(typeof hook.handlers.ping, "function");
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+// ── One hook that throws does not strand the others ──────────────────────
+
+// The stubs that gave up are taken off the waiting list before they are mounted, so a real
+// mounted() that threw in the middle of the loop would leave the rest on no list at all.
+test("a real mounted() that throws is reported by name and does not strand the stubs that wait behind it", async () => {
+  const t = withFakeAdmin("RowMenu");
+  const hooks = ["SortableGrid", "RowMenu", "ListFilter"].map((n) => makeHook(t.env.window.PhoenixKitHooks[n]));
+  hooks[0].mounted();
+  t.env.failed(0);
+  await tick();
+  hooks[1].mounted(); // refused in the pause
+  hooks[2].mounted();
+  await tick();
+
+  t.env.advance(RETRY_PAUSE_MS);
+  t.env.runTimers();
+  t.env.load(t.file);
+  t.env.loaded(1);
+  await tick();
+
+  assert.deepEqual(t.names(), ["SortableGrid.mounted", "RowMenu.mounted", "ListFilter.mounted"], "the third still mounted");
+  assert.ok(t.env.errors.some((m) => m.includes("RowMenu") && m.includes("boom in RowMenu")), JSON.stringify(t.env.errors));
+  t.cleanup();
+});
+
+test("and the mount that fetched the bundle may throw without stranding the stubs that were waiting", async () => {
+  const t = withFakeAdmin("ListFilter");
+  const waiting = makeHook(t.env.window.PhoenixKitHooks.SortableGrid);
+  waiting.mounted();
+  t.env.failed(0);
+  await tick();
+
+  t.env.advance(RETRY_PAUSE_MS + 1);
+  makeHook(t.env.window.PhoenixKitHooks.ListFilter).mounted(); // asks again, and its real mounted throws
+  t.env.load(t.file);
+  t.env.loaded(1);
+  await tick();
+
+  assert.deepEqual(t.names().sort(), ["ListFilter.mounted", "SortableGrid.mounted"]);
+  assert.equal(typeof waiting.handlers.ping, "function");
+  t.cleanup();
+});
+
+test("with the bundle loaded, a throwing mounted() does not stop the waiting stubs either", () => {
+  const dir = tmpDir("pk_admin_");
+  const file = path.join(dir, "fake_admin.js");
+  fs.writeFileSync(file, fakeAdmin(undefined, "RowMenu"));
+  const env = publicPage();
+  env.load(file);
+  assert.doesNotThrow(() => makeHook(env.window.PhoenixKitHooks.RowMenu).mounted());
+  assert.ok(env.errors.some((m) => m.includes("RowMenu")));
   fs.rmSync(dir, { recursive: true, force: true });
 });

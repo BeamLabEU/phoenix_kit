@@ -4768,8 +4768,16 @@
           Object.keys(real).forEach(function(key) {
             if (key !== "mounted") self[key] = real[key];
           });
-          if (typeof real.mounted === "function") real.mounted.call(self);
-          if (typeof started === "function") started(self);
+          // One hook that throws must not take the others with it: the stubs that
+          // waited are mounted in a loop, off the list they were on, so an exception
+          // here would leave the rest on no list at all (and it would surface as an
+          // unhandled rejection instead of a message that names the hook).
+          try {
+            if (typeof real.mounted === "function") real.mounted.call(self);
+            if (typeof started === "function") started(self);
+          } catch (err) {
+            console.error("[PhoenixKit] The " + name + " hook threw while mounting:", err);
+          }
         }
         // With the bundle here, mount in this very turn. LiveView mounts the hooks of a
         // diff and then dispatches the diff's events in one synchronous stack, so a
