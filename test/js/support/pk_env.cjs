@@ -90,6 +90,9 @@ function createEnv(opts) {
 
   function CustomEvent(type, init) { this.type = type; this.detail = init && init.detail; }
 
+  const timers = [];
+  let timerIds = 0;
+
   const sandbox = {
     console: {
       error: (...a) => errors.push(a.join(" ")),
@@ -103,8 +106,19 @@ function createEnv(opts) {
     localStorage,
     CustomEvent,
     URL,
-    setTimeout,
-    clearTimeout,
+    // A delay of a second or more is a pause or a retry of the page (the admin
+    // bundle's), which a test must not sit through: it waits in `timers` and runs
+    // when the test moves the clock past it and calls `env.runTimers()`.
+    setTimeout: (fn, ms, ...args) => {
+      if (!(ms >= 1000)) return setTimeout(fn, ms, ...args);
+      const timer = { id: ++timerIds, at: clock.t + ms, ms, fn, args };
+      timers.push(timer);
+      return timer.id;
+    },
+    clearTimeout: (id) => {
+      const at = timers.findIndex((t) => t.id === id);
+      if (at !== -1) timers.splice(at, 1); else clearTimeout(id);
+    },
     setInterval,
     clearInterval,
     requestAnimationFrame: (fn) => setTimeout(fn, 0),
@@ -173,8 +187,24 @@ function createEnv(opts) {
   // The page finished parsing: what DOMContentLoaded listeners were waiting for.
   const fireDocument = (name, ev) => (docListeners[name] || []).slice().forEach((l) => l.fn(ev || { type: name }));
 
+  // Runs the long timers that are due at the clock's time (and any a due one
+  // sets that is due as well), oldest first. Returns how many ran.
+  const runTimers = () => {
+    let ran = 0;
+    for (;;) {
+      const due = timers.filter((t) => t.at <= clock.t).sort((a, b) => a.at - b.at || a.id - b.id)[0];
+      if (!due) return ran;
+      timers.splice(timers.indexOf(due), 1);
+      due.fn(...due.args);
+      ran += 1;
+    }
+  };
+
   return {
     advance: (ms) => { clock.t += ms; },
+    runTimers,
+    // The long timers still waiting: [{ ms, at }].
+    pendingTimers: () => timers.map((t) => ({ ms: t.ms, at: t.at })),
     fireDocument,
     // How many listeners the page holds for an event, on the document and on the window.
     listenerCount: (target, name) => ((target === "window" ? winListeners : docListeners)[name] || []).length,

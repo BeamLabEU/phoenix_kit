@@ -177,7 +177,7 @@ limits of a stubbed hook: `PhoenixKit.Module.js_sources/0`.
 
 | Symptom | Cause |
 |---|---|
-| admin page renders, sortable lists / tables / editors do nothing, console: "The … hook did not start: the admin bundle could not be loaded" | the file named in the facts is missing, blocked by the page's CSP, or served from another URL than the library base points at. `mix phoenix_kit.doctor`; see "Where the browser finds the files". Every later mount asks again, so a transient failure heals on the next admin page. |
+| admin page renders, sortable lists / tables / editors do nothing, console: "The … hook did not start: the admin bundle could not be loaded" | the file named in the facts is missing, blocked by the page's CSP, or served from another URL than the library base points at. `mix phoenix_kit.doctor`; see "Where the browser finds the files". The page asks again by itself, after 4 seconds and then at doubling intervals up to a minute, for as long as a hook is waiting, and the hooks that gave up mount when the file arrives; a mount inside the pause is refused at once with the same message. |
 | console: "phoenix_kit_admin.js must load after phoenix_kit.js" | `phoenix_kit_admin.js` ran before `phoenix_kit.js`. |
 | console: "The admin hook X has no stub in phoenix_kit.js" | a hook was added to the admin file without being added to `ADMIN_HOOKS`. |
 | console: "The admin bundle loaded but defines no hook named X" | X is a module's hook that its `hooks:` list names but its bundle does not export under that name, or `phoenix_kit.js` and the admin bundle are from different PhoenixKit versions. |

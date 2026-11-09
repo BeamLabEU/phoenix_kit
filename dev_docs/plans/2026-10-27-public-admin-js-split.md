@@ -69,7 +69,12 @@ window.PhoenixKitHooks[name] = adminStub(name);   // mounted() loads the bundle,
 (`updated`, `destroyed`, `beforeUpdate`, `reconnected`, … — `this` is the LiveView `ViewHook`, so
 `this.el`, `this.pushEvent`, `this.handleEvent` all work) and calls its `mounted` with that `this`. A hook
 destroyed while loading never mounts late. Every stub shares the one in-flight promise, so N admin hooks on a page
-cost one request. A failed load leaves the feature absent and reports through the existing library notice.
+cost one request. With the bundle already loaded the real `mounted` runs in the same turn as the stub's, not after a
+microtask: LiveView mounts the hooks of a diff and dispatches the diff's events in one synchronous stack, and a
+`handleEvent` registered a turn later misses them. A failed load reports through the existing library notice, and LiveView
+mounts a hook once per element, so the stub that was refused or failed is kept by the page and retried: after the pause
+that follows a failure (4 s), then at doubling intervals up to a minute, for as long as one still waits; whichever request gets
+the bundle (a retry or another hook's mount) mounts all of them, and a stub destroyed meanwhile is dropped.
 
 Because **every name stays in `PhoenixKitHooks`**, nothing a host (or an external module) already references can
 become an "unknown hook", and the classification below only decides *performance*, never *correctness*: a hook
@@ -77,7 +82,7 @@ sorted into the wrong list costs a lazy request on a page that did not need it, 
 
 Known limits, accepted and documented: `updated` calls and `push_event`s that reach a stubbed hook in the window
 between its mount and the bundle's arrival are not replayed (`real.mounted` reads the DOM as it is then). That
-window is only the first admin page of a session, and it is closed in practice by an **early start**: the admin
+window is only until the bundle arrives, i.e. the first admin page of a session, and it is narrowed in practice by an **early start**: the admin
 layout (`LayoutWrapper`) carries a marker attribute and `phoenix_kit.js` starts the download at
 `DOMContentLoaded` when it finds it, i.e. before the socket has joined. The marker is an optimisation, not a
 requirement.
@@ -288,7 +293,7 @@ sortable list and the media browser with the console open.
   kept but starts no box (`startBoxSelect` decides).
 - **A first-mount flash** on admin pages that change layout in `mounted` (`TableFit`, `RowMenuAuto`,
   `CrumbSwitcher`, `SortableGrid`): only the first admin page of a session; reduced by the early start; later
-  pages resolve the cached promise in a microtask, before paint.
+  pages mount the real hook in the stub's own turn, before paint.
 - **Lost `push_event` during the load window** for a stubbed hook that listens with `handleEvent` and is pushed to
   at mount. The hooks that do so are audited in step 2; any that matters stays public.
 - **`window.Chart`** is no longer present at load (only `EmailCharts` used it, in this tree and in every sibling

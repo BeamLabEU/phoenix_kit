@@ -4566,13 +4566,23 @@
   // there is a short pause (ADMIN_RETRY_PAUSE_MS) in which a mount is refused at
   // once, without a request — a page with thirty admin hooks would otherwise
   // ask thirty times, one after another — and the first mount after it asks again.
+  //
+  // A stub that was refused or whose request failed is not mounted again by
+  // LiveView (a hook mounts once per element), and the first mount after the pause
+  // may never come on a page the person is reading. So the page keeps such stubs
+  // (adminWaiting) and asks for the bundle itself: after the pause, then at doubling
+  // intervals up to ADMIN_RETRY_MAX_MS, for as long as one still waits. Whichever
+  // request gets the bundle, a retry or the mount of another hook, mounts every
+  // stub that waits.
   var ADMIN_RETRY_PAUSE_MS = 4000;
+  var ADMIN_RETRY_MAX_MS = 60000;
   var adminRetryAt = 0;
+  var adminWaiting = [];
+  var adminRetryTimer = null;
+  var adminRetryDelay = ADMIN_RETRY_PAUSE_MS;
 
-  function loadAdminBundle() {
-    if (Date.now() < adminRetryAt) {
-      return Promise.reject(new Error("the admin bundle failed a moment ago"));
-    }
+  // The request itself: no pause in front of it, because a retry is the pause's end.
+  function requestAdminBundle() {
     return loadVendored("PhoenixKit admin", "admin", {
       check: function() { return !!window.PhoenixKitAdminLoaded; },
       unlimitedAttempts: true
@@ -4580,6 +4590,40 @@
       adminRetryAt = Date.now() + ADMIN_RETRY_PAUSE_MS;
       throw err;
     });
+  }
+
+  function loadAdminBundle() {
+    if (Date.now() < adminRetryAt) {
+      return Promise.reject(new Error("the admin bundle failed a moment ago"));
+    }
+    return requestAdminBundle();
+  }
+
+  // The bundle is here: every stub that gave up mounts, and the retry stops.
+  function mountWaitingStubs() {
+    clearTimeout(adminRetryTimer);
+    adminRetryTimer = null;
+    adminRetryDelay = ADMIN_RETRY_PAUSE_MS;
+    var waiting = adminWaiting;
+    adminWaiting = [];
+    waiting.forEach(function(stub) { stub.mount(); });
+  }
+
+  function scheduleAdminRetry() {
+    if (adminRetryTimer !== null) return;
+    adminRetryTimer = setTimeout(function() {
+      adminRetryTimer = null;
+      // A stub destroyed meanwhile (its element is gone) needs nothing.
+      adminWaiting = adminWaiting.filter(function(stub) { return !stub.hook.__pkGone; });
+      if (!adminWaiting.length) {
+        adminRetryDelay = ADMIN_RETRY_PAUSE_MS;
+        return;
+      }
+      requestAdminBundle().then(mountWaitingStubs, function() {
+        adminRetryDelay = Math.min(adminRetryDelay * 2, ADMIN_RETRY_MAX_MS);
+        scheduleAdminRetry();
+      });
+    }, adminRetryDelay);
   }
 
   var DROPPED_MESSAGE = "[PhoenixKit] A file chosen before the admin bundle arrived was dropped: the page reconnected to the server meanwhile. Choose it again.";
@@ -4716,12 +4760,22 @@
         // diff and then dispatches the diff's events in one synchronous stack, so a
         // `handleEvent` registered a microtask later would miss an event the same diff
         // pushed. A promise would have deferred it even when it had already settled.
-        if (window.PhoenixKitAdminLoaded) return mountReal();
-        loadAdminBundle().then(mountReal, function() {
+        if (window.PhoenixKitAdminLoaded) {
+          mountReal();
+          if (adminWaiting.length) mountWaitingStubs();
+          return;
+        }
+        loadAdminBundle().then(function() {
+          mountReal();
+          mountWaitingStubs();
+        }, function() {
           // loadLibrary has reported the failure; this names the hook that went without.
           var urls = pkLibUrls("admin");
           console.error("[PhoenixKit] The " + name + " hook did not start: the admin bundle could not be loaded (" +
-            (urls ? urls.local : "no install facts name it") + "). Run mix phoenix_kit.update, then check the network and the page's Content-Security-Policy.");
+            (urls ? urls.local : "no install facts name it") + "). Run mix phoenix_kit.update, then check the network and the page's Content-Security-Policy. " +
+            "It is tried again in a few seconds.");
+          adminWaiting.push({ hook: self, mount: mountReal });
+          scheduleAdminRetry();
         });
       },
       destroyed: function() {

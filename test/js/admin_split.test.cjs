@@ -226,7 +226,7 @@ function withFakeAdmin() {
   const arrive = () => { env.load(file); env.loaded(0); };
   const calls = () => env.window.__calls || [];
   const names = () => Array.from(calls(), (c) => c[0]);
-  return { env, arrive, calls, names, cleanup: () => fs.rmSync(dir, { recursive: true, force: true }) };
+  return { env, file, arrive, calls, names, cleanup: () => fs.rmSync(dir, { recursive: true, force: true }) };
 }
 
 test("mounting fetches the admin bundle once, however many admin hooks mount", async () => {
@@ -358,7 +358,8 @@ test("a retry after a failure works", async () => {
   t.env.loaded(1);
   await tick();
 
-  assert.deepEqual(t.names(), ["RowMenu.mounted"]);
+  // The mount that asked is the real hook, and so is the stub that had given up on the failed request.
+  assert.deepEqual(t.names(), ["RowMenu.mounted", "SortableGrid.mounted"]);
   fs.rmSync(dir, { recursive: true, force: true });
   t.cleanup();
 });
@@ -538,7 +539,8 @@ test("the admin bundle is asked for again after every failure, however many ther
   t.arrive2 = () => { t.env.load(fakeAdminFile(t)); t.env.loaded(4); };
   t.arrive2();
   await tick();
-  assert.deepEqual(t.names(), ["SortableGrid.mounted"]);
+  // The mount that asked, then the four that had given up on the earlier failures.
+  assert.deepEqual(t.names(), new Array(5).fill("SortableGrid.mounted"));
   assert.equal(t.calls()[0][1], hook);
   t.cleanup();
 });
@@ -745,4 +747,110 @@ test("a stub destroyed right after a synchronous mount still reaches the real de
 
   assert.deepEqual(Array.from(env.window.__calls, (c) => c[0]), ["RowMenu.mounted", "RowMenu.destroyed"]);
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+// ── A stub that missed the bundle is revived by a retry ───────────────────
+
+// A hook that mounts once and finds the bundle's request failed (or is refused
+// during the pause after a failure) is not remounted by LiveView, so the page
+// retries for it: after the pause, then at growing intervals, for as long as a
+// stub is still waiting.
+test("a stub whose request failed becomes the real hook when the retry after the pause gets the bundle", async () => {
+  const t = withFakeAdmin();
+  const hook = makeHook(t.env.window.PhoenixKitHooks.SortableGrid);
+  hook.mounted();
+  t.env.failed(0);
+  await tick();
+
+  assert.deepEqual(t.names(), []);
+  assert.deepEqual(t.env.pendingTimers().map((x) => x.ms), [RETRY_PAUSE_MS], "one retry waits, a pause away");
+
+  t.env.advance(RETRY_PAUSE_MS);
+  t.env.runTimers();
+  assert.equal(t.env.scripts.length, 2, "the retry asks for the bundle again");
+  t.env.load(t.file);
+  t.env.loaded(1);
+  await tick();
+
+  assert.deepEqual(t.names(), ["SortableGrid.mounted"], "the stub that had given up is the real hook now");
+  assert.equal(typeof hook.handlers.ping, "function", "on the very instance LiveView made");
+  assert.deepEqual(t.env.pendingTimers(), [], "nothing is left to retry");
+  t.cleanup();
+});
+
+test("a mount refused during the pause is revived by the same retry", async () => {
+  const t = withFakeAdmin();
+  const first = makeHook(t.env.window.PhoenixKitHooks.SortableGrid);
+  first.mounted();
+  t.env.failed(0);
+  await tick();
+  const second = makeHook(t.env.window.PhoenixKitHooks.RowMenu);
+  second.mounted(); // inside the pause: refused without a request
+  await tick();
+  assert.equal(t.env.scripts.length, 1);
+  assert.equal(t.env.pendingTimers().length, 1, "both wait on one timer");
+
+  t.env.advance(RETRY_PAUSE_MS);
+  t.env.runTimers();
+  t.env.load(t.file);
+  t.env.loaded(1);
+  await tick();
+
+  assert.deepEqual(t.names(), ["SortableGrid.mounted", "RowMenu.mounted"]);
+  t.cleanup();
+});
+
+test("a stub destroyed while it waits for a retry never mounts, and a retry with nobody waiting asks for nothing", async () => {
+  const t = withFakeAdmin();
+  const hook = makeHook(t.env.window.PhoenixKitHooks.SortableGrid);
+  hook.mounted();
+  t.env.failed(0);
+  await tick();
+  assert.equal(t.env.pendingTimers().length, 1, "a retry is waiting for it");
+  hook.destroyed();
+
+  t.env.advance(RETRY_PAUSE_MS);
+  t.env.runTimers();
+  assert.equal(t.env.scripts.length, 1, "no request for a page that has no stub left");
+  assert.deepEqual(t.env.pendingTimers(), []);
+  assert.deepEqual(t.names(), []);
+  t.cleanup();
+});
+
+test("each failed retry waits twice as long as the one before, up to a minute", async () => {
+  const t = withFakeAdmin();
+  makeHook(t.env.window.PhoenixKitHooks.SortableGrid).mounted();
+  t.env.failed(0);
+  await tick();
+
+  const waits = [];
+  for (let i = 1; i <= 7; i++) {
+    const [timer] = t.env.pendingTimers();
+    waits.push(timer.ms);
+    t.env.advance(timer.ms);
+    t.env.runTimers();
+    t.env.failed(i);
+    await tick();
+  }
+  assert.deepEqual(waits, [4000, 8000, 16000, 32000, 60000, 60000, 60000]);
+  t.cleanup();
+});
+
+test("a bundle that arrives through another mount's request revives the waiting stubs and stops the timer", async () => {
+  const t = withFakeAdmin();
+  const waiting = makeHook(t.env.window.PhoenixKitHooks.SortableGrid);
+  waiting.mounted();
+  t.env.failed(0);
+  await tick();
+
+  t.env.advance(RETRY_PAUSE_MS + 1); // the pause is over; the timer has not fired yet
+  makeHook(t.env.window.PhoenixKitHooks.ListFilter).mounted(); // asks again at once
+  assert.equal(t.env.scripts.length, 2);
+  t.env.load(t.file);
+  t.env.loaded(1);
+  await tick();
+
+  assert.deepEqual(t.names().sort(), ["ListFilter.mounted", "SortableGrid.mounted"]);
+  assert.deepEqual(t.env.pendingTimers(), [], "the retry that was waiting is gone");
+  t.cleanup();
 });
