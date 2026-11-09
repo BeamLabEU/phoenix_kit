@@ -355,7 +355,9 @@
     var urls = pkLibUrls(key);
     if (!urls) {
       pkLibFail(name, "lib/" + key, "facts");
-      return Promise.reject(new Error(name + ": no install facts name its file"));
+      var noFacts = new Error(name + ": no install facts name its file");
+      noFacts.pkNoFacts = true; // no request was made, so a caller's pause after a failed request has nothing to protect
+      return Promise.reject(noFacts);
     }
     return loadLibrary(name, urls.local, Object.assign({}, opts, { fallback: urls.cdn }));
   }
@@ -4587,7 +4589,10 @@
       check: function() { return !!window.PhoenixKitAdminLoaded; },
       unlimitedAttempts: true
     }).catch(function(err) {
-      adminRetryAt = Date.now() + ADMIN_RETRY_PAUSE_MS;
+      // The pause keeps thirty mounts from making thirty requests; with the facts
+      // missing there is no request to keep them from, and the facts file may be
+      // only late (a deferred tag), so the next mount must be free to try.
+      if (!(err && err.pkNoFacts)) adminRetryAt = Date.now() + ADMIN_RETRY_PAUSE_MS;
       throw err;
     });
   }
@@ -4807,14 +4812,23 @@
   // the same request. An optimisation only: a page without the marker (a live
   // navigation from a public page, a host's own layout) still works, one
   // round trip later.
+  //
+  // The file names come from the install facts (phoenix_kit_modules.js), which
+  // may not have run yet: a host that defers both tags runs this file while the
+  // document is "interactive", ahead of a slower facts file. Asking then would
+  // report a failure that is only lateness and open the pause that refuses the
+  // first real mounts. So with no facts the start waits, and tries once more when
+  // the document has been parsed, which is after every deferred script.
   function startAdminBundleEarly() {
     if (!document.querySelector("[data-pk-admin]")) return;
+    if (!window.PHOENIX_KIT_LIBS) return;
     loadAdminBundle().catch(function() { /* reported by the loader */ });
   }
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", startAdminBundleEarly);
   } else {
     setTimeout(startAdminBundleEarly, 0);
+    if (document.readyState === "interactive") document.addEventListener("DOMContentLoaded", startAdminBundleEarly);
   }
 
   // The first moments of a box select on the media browser. The box select is

@@ -113,7 +113,10 @@ until `ViewerKeydown` shows it, the double-click confirm of a single pick, the u
 from the computer) waits for that one request; picking a card is a plain LiveView click and does not. The
 lightbox of `MediaGallery` / `MediaViewer` behaves the same way: `MediaViewerDialog` opens its `<dialog>` in
 `mounted`, that is, once the admin bundle has arrived.
-Marking the page's layout with `data-pk-admin` starts the download while the socket connects. Keeping these
+Marking the page's layout with `data-pk-admin` starts the download while the socket connects. (The file names come from
+`phoenix_kit_modules.js`; when that file has not run yet, as with two `defer` tags and a slower second one, the early start
+says nothing and tries again once the document has been parsed, and a mount that finds no facts opens no pause, so the next
+one is free to ask.) Keeping these
 hooks public instead would add at least 10 KB (minified, gzipped) to every public page.
 
 The upload manager (`UploadManager`, the queue and panel that `<.upload_manager>` renders) is an admin hook

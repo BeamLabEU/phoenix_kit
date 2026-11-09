@@ -85,7 +85,11 @@ between its mount and the bundle's arrival are not replayed (`real.mounted` read
 window is only until the bundle arrives, i.e. the first admin page of a session, and it is narrowed in practice by an **early start**: the admin
 layout (`LayoutWrapper`) carries a marker attribute and `phoenix_kit.js` starts the download at
 `DOMContentLoaded` when it finds it, i.e. before the socket has joined. The marker is an optimisation, not a
-requirement.
+requirement. The early start needs the install facts, which a host that defers both tags may not have yet when it runs
+(`phoenix_kit.js` first, a slower `phoenix_kit_modules.js` after it); asking then used to report a failure that was only lateness
+and to open the pause that refused the first real mounts. With no facts the early start now does nothing, tries again when the
+document has been parsed (after every deferred script), and a failure for missing facts opens no pause, since no request was
+refused. A stub that mounted before the facts arrived is kept and retried like any other (see above).
 
 ### 4. What is public and what is admin
 

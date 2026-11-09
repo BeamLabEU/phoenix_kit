@@ -854,3 +854,74 @@ test("a bundle that arrives through another mount's request revives the waiting 
   assert.deepEqual(t.env.pendingTimers(), [], "the retry that was waiting is gone");
   t.cleanup();
 });
+
+
+// ── The early start waits for the install facts ───────────────────────────
+
+// A host that defers both tags runs phoenix_kit.js at readyState "interactive",
+// before a slower phoenix_kit_modules.js (the facts) has run. Asking for the
+// admin bundle then fails on facts that are late, not missing, and the pause
+// after the failure refuses the first real mounts.
+test("an early start that finds the facts not there yet neither complains nor opens a pause", async () => {
+  const env = createEnv({ readyState: "interactive", adminLayout: true }); // no facts yet
+  env.load("phoenix_kit.js", { src: "https://app.test/assets/vendor/phoenix_kit.js" });
+  await new Promise((r) => setTimeout(r, 5)); // the setTimeout(0) of the early start
+
+  assert.equal(env.scripts.length, 0);
+  assert.deepEqual(env.errors, [], "late facts are not a failure to report");
+
+  env.window.PHOENIX_KIT_LIBS = FACTS; // the deferred facts file runs
+  makeHook(env.window.PhoenixKitHooks.SortableGrid).mounted();
+  assert.equal(env.scripts.length, 1, "the first mount asks for the bundle: no pause was opened");
+  assert.equal(env.scripts[0].src, ADMIN_URL);
+});
+
+test("and the early start still happens, once the document has been parsed and the facts are there", async () => {
+  const env = createEnv({ readyState: "interactive", adminLayout: true });
+  env.load("phoenix_kit.js", { src: "https://app.test/assets/vendor/phoenix_kit.js" });
+  await new Promise((r) => setTimeout(r, 5));
+  assert.equal(env.scripts.length, 0);
+
+  env.window.PHOENIX_KIT_LIBS = FACTS;
+  env.fireDocument("DOMContentLoaded");
+  assert.equal(env.scripts.length, 1);
+  assert.equal(env.scripts[0].src, ADMIN_URL);
+  assert.deepEqual(env.errors, []);
+});
+
+test("a mount that finds no facts says so, but opens no pause: the facts may still arrive", async () => {
+  const env = createEnv({}); // a complete page without facts
+  env.load("phoenix_kit.js", { src: "https://app.test/assets/vendor/phoenix_kit.js" });
+  makeHook(env.window.PhoenixKitHooks.SortableGrid).mounted();
+  await tick();
+  assert.ok(env.errors.some((m) => m.includes("SortableGrid")), "the hook that went without is named");
+  assert.equal(env.scripts.length, 0, "nothing to request");
+
+  env.window.PHOENIX_KIT_LIBS = FACTS;
+  makeHook(env.window.PhoenixKitHooks.RowMenu).mounted();
+  assert.equal(env.scripts.length, 1, "not refused by a pause that protects no request");
+});
+
+test("a stub that mounted before the late facts arrived becomes the real hook at the retry", async () => {
+  const dir = tmpDir("pk_admin_");
+  const file = path.join(dir, "fake_admin.js");
+  fs.writeFileSync(file, fakeAdmin());
+  const env = createEnv({});
+  env.load("phoenix_kit.js", { src: "https://app.test/assets/vendor/phoenix_kit.js" });
+  const hook = makeHook(env.window.PhoenixKitHooks.SortableGrid);
+  hook.mounted();
+  await tick();
+  assert.equal(env.pendingTimers().length, 1, "it waits for a retry");
+
+  env.window.PHOENIX_KIT_LIBS = FACTS; // the facts file has run since
+  env.advance(RETRY_PAUSE_MS);
+  env.runTimers();
+  assert.equal(env.scripts.length, 1);
+  env.load(file);
+  env.loaded(0);
+  await tick();
+
+  assert.deepEqual(Array.from(env.window.__calls, (c) => c[0]), ["SortableGrid.mounted"]);
+  assert.equal(typeof hook.handlers.ping, "function");
+  fs.rmSync(dir, { recursive: true, force: true });
+});
