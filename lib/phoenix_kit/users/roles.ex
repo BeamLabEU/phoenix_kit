@@ -449,8 +449,14 @@ defmodule PhoenixKit.Users.Roles do
   """
   @spec display_name(Role.t() | %{name: String.t()}, String.t() | nil) :: String.t()
   def display_name(%{name: name} = role, lang \\ nil) when is_binary(name) do
-    Multilang.text_field(Map.get(role, :data), "label", lang || Multilang.current_locale()) ||
-      system_role_label(name) || name
+    label =
+      Multilang.text_field(Map.get(role, :data), "label", lang || Multilang.current_locale())
+
+    # A system role saved with its label untouched stores its English name as the
+    # label (the form writes the primary language): that is still the name, translated.
+    if label in [nil, name],
+      do: system_role_label(name) || label || name,
+      else: label
   end
 
   @doc "Fills the virtual `label` from the primary-language `data`, for the edit form."
@@ -466,31 +472,26 @@ defmodule PhoenixKit.Users.Roles do
   @doc "The description to show for a role, in `lang`, or `nil`."
   @spec display_description(Role.t(), String.t() | nil) :: String.t() | nil
   def display_description(%Role{} = role, lang \\ nil) do
-    Multilang.text_field(role.data, "description", lang || Multilang.current_locale()) ||
-      system_role_description(role) || role.description
+    text =
+      Multilang.text_field(role.data, "description", lang || Multilang.current_locale()) ||
+        role.description
+
+    system_role_description(role.name, text) || text
   end
 
-  # A system role's description as the migration seeded it, translated; one an
-  # admin has rewritten is theirs and shows as written.
-  defp system_role_description(%Role{
-         name: "Owner",
-         description: "System owner with full access"
-       }),
-       do: gettext("System owner with full access")
+  # A system role's description as the migration seeded it, translated, wherever it is
+  # stored (the column, or `data` once the form saved it unchanged); one an admin has
+  # rewritten is theirs and shows as written.
+  defp system_role_description("Owner", "System owner with full access"),
+    do: gettext("System owner with full access")
 
-  defp system_role_description(%Role{
-         name: "Admin",
-         description: "Administrator with elevated privileges"
-       }),
-       do: gettext("Administrator with elevated privileges")
+  defp system_role_description("Admin", "Administrator with elevated privileges"),
+    do: gettext("Administrator with elevated privileges")
 
-  defp system_role_description(%Role{
-         name: "User",
-         description: "Standard user with basic access"
-       }),
-       do: gettext("Standard user with basic access")
+  defp system_role_description("User", "Standard user with basic access"),
+    do: gettext("Standard user with basic access")
 
-  defp system_role_description(_role), do: nil
+  defp system_role_description(_name, _text), do: nil
 
   @doc """
   `%{name => label}` for every role, for a page that holds role names as strings.

@@ -191,6 +191,12 @@ defmodule PhoenixKitWeb.Live.Components.OrganizationPeople do
   defp error_text(:organization_accounts_disabled),
     do: gettext("Organization accounts are turned off in Settings → Users.")
 
+  defp error_text(:cannot_modify_own_roles),
+    do: gettext("You can't change your own access. Ask another manager to do it.")
+
+  defp error_text(:not_permitted),
+    do: gettext("You can only hand out roles you have yourself.")
+
   defp error_text(_reason), do: gettext("This change is not available.")
 
   @doc false
