@@ -12,7 +12,8 @@ The design and its reasoning are in the repository: `dev_docs/plans/2026-10-27-p
 
 ## How a host upgrades
 
-Nothing in the host's code changes. `mix deps.update phoenix_kit`, then `mix compile` — the
+A host that includes PhoenixKit's JavaScript as it does today changes nothing in its code (the one exception, a host that
+extends an admin hook of its own, is described at the end of this section). `mix deps.update phoenix_kit`, then `mix compile` — the
 `:phoenix_kit_js_sources` compiler runs on every compile and vendors, under
 `priv/static/assets/vendor/`:
 
@@ -38,7 +39,10 @@ core's hooks only; the one the compiler writes to `vendor/lib/` also carries the
 modules.) A host that overrides an admin hook in its own `LiveSocket` hooks — for instance
 `{...window.PhoenixKitHooks.RowMenu, updated() {…}}` — gets the stub plus its `updated`; once the bundle
 has loaded, the real hook's callbacks are set on the hook instance and replace a same-named callback of
-the override. Such an override does not survive for the callbacks the real hook defines.
+the override. Such an override does not survive for the callbacks the real hook defines. And until the bundle has loaded the
+stub has none of the real hook's methods: an `updated()` of the override that calls one of them (`this.applyMode()` of
+`TableCardView`, say) throws a `TypeError` when a patch reaches the element in that window. Guard such a call
+(`if (typeof this.applyMode === "function")`), or leave the hook alone and add behaviour from a hook of your own.
 
 ## Where the browser finds the files
 
