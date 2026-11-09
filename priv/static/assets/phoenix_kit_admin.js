@@ -2006,20 +2006,19 @@
   //   * RESTORE: the AdminSidebarScroll hook's mounted() — which re-fires
   //     on every live redirect because the container is replaced — runs
   //     synchronously with the DOM patch, before paint (no flash at 0).
-  //     On a full page load phoenix_kit.js has already applied the saved offset
-  //     when the document was parsed; this file, which arrives with the admin
-  //     bundle, only corrects it (below), and `early()` below does that.
-  //   * CORRECTION: when nothing is saved (fresh tab, deep link) or the
-  //     restored offset leaves the current page's [aria-current="page"]
-  //     link off-screen (menu shape changed: permissions, locale, module
-  //     set), center the active link instead. Direct scrollTop math, not
-  //     scrollIntoView — the latter can scroll ancestor containers too.
+  //     The restore itself lives in phoenix_kit.js (PK.sidebarScroll.restore)
+  //     and runs there as soon as a full page load has been parsed, because
+  //     this file arrives with the admin bundle, after the first paint.
+  //   * CORRECTION (in the same function): when nothing is saved (fresh tab,
+  //     deep link) or the restored offset leaves the current page's
+  //     [aria-current="page"] link off-screen (menu shape changed:
+  //     permissions, locale, module set), center the active link instead.
+  //     Direct scrollTop math, not scrollIntoView — the latter can scroll
+  //     ancestor containers too.
   (function () {
-    // The id, the key and the reader belong to phoenix_kit.js, which also applies the
-    // saved offset when a full page load has been parsed (this file arrives later).
+    // The id and the key belong to phoenix_kit.js, which restores the menu on a full load.
     const EL_ID = PK.sidebarScroll.id;
     const KEY = PK.sidebarScroll.key;
-    const readSaved = PK.sidebarScroll.saved;
 
     function save(el) {
       try {
@@ -2027,24 +2026,6 @@
       } catch (_e) {
         // Storage unavailable (private browsing etc.) — degrade to the
         // active-item fallback on the next load.
-      }
-    }
-
-    function restore(el) {
-      const max = Math.max(0, el.scrollHeight - el.clientHeight);
-      const saved = readSaved();
-      if (saved != null) {
-        el.scrollTop = Math.min(saved, max);
-      }
-
-      const active = el.querySelector('[aria-current="page"]');
-      if (!active) return;
-      const er = el.getBoundingClientRect();
-      const ar = active.getBoundingClientRect();
-      const visible = ar.top >= er.top && ar.bottom <= er.bottom;
-      if (saved == null || !visible) {
-        const target = el.scrollTop + (ar.top - er.top) - (el.clientHeight - ar.height) / 2;
-        el.scrollTop = Math.min(Math.max(0, target), max);
       }
     }
 
@@ -2072,22 +2053,11 @@
     window.addEventListener("phx:page-loading-start", flush);
     window.addEventListener("pagehide", flush);
 
-    // Restore on full page loads (before the socket connects).
-    function early() {
-      const el = document.getElementById(EL_ID);
-      if (el) restore(el);
-    }
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", early);
-    } else {
-      early();
-    }
-
     // Restore on live redirects (mounted re-fires on the fresh container,
-    // pre-paint). Idempotent with the early restore on full loads.
+    // pre-paint). Idempotent with the restore phoenix_kit.js did on a full load.
     window.PhoenixKitAdminHooks.AdminSidebarScroll = {
       mounted() {
-        restore(this.el);
+        PK.sidebarScroll.restore(this.el);
       }
     };
   })();

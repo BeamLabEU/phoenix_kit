@@ -4923,12 +4923,12 @@
   }, true);
 
   // The admin menu's scroll position on a full page load. AdminSidebarScroll
-  // (phoenix_kit_admin.js) saves it, restores it on a live redirect and centres
-  // the active link when the saved offset does not show it, but its first run waits
-  // for the bundle, which is requested at DOMContentLoaded at the earliest: the menu
-  // would paint at the top and then jump. So the saved offset is applied here, as
-  // soon as the document is parsed. The key and the reader are shared with the admin
-  // file through PhoenixKitInternals, so the two cannot drift apart.
+  // (phoenix_kit_admin.js) saves it and restores it on a live redirect, but a full load
+  // waits for the bundle, which is requested at DOMContentLoaded at the earliest: the menu
+  // would paint at the top and then jump. So the restore is here, run as soon as the
+  // document is parsed: the saved offset, and, when nothing is saved (a fresh tab, a deep
+  // link) or the offset hides the current page's link, the link centred. The admin
+  // hook calls this same function through PhoenixKitInternals, so the two cannot drift apart.
   var SIDEBAR_SCROLL = {
     id: "pk-admin-sidebar",
     key: "phoenix_kit:admin:sidebar:scroll",
@@ -4944,15 +4944,30 @@
     }
   };
 
-  function restoreSidebarOffset() {
+  // Direct scrollTop arithmetic rather than scrollIntoView, which can scroll ancestors too.
+  function restoreSidebar(el) {
+    var max = Math.max(0, el.scrollHeight - el.clientHeight);
+    var saved = SIDEBAR_SCROLL.saved();
+    if (saved != null) el.scrollTop = Math.min(saved, max);
+    var active = el.querySelector('[aria-current="page"]');
+    if (!active) return;
+    var er = el.getBoundingClientRect();
+    var ar = active.getBoundingClientRect();
+    if (saved == null || ar.top < er.top || ar.bottom > er.bottom) {
+      var target = el.scrollTop + (ar.top - er.top) - (el.clientHeight - ar.height) / 2;
+      el.scrollTop = Math.min(Math.max(0, target), max);
+    }
+  }
+  SIDEBAR_SCROLL.restore = restoreSidebar;
+
+  function restoreSidebarOnLoad() {
     var el = document.getElementById(SIDEBAR_SCROLL.id);
-    var saved = el ? SIDEBAR_SCROLL.saved() : null;
-    if (saved != null) el.scrollTop = Math.min(saved, Math.max(0, el.scrollHeight - el.clientHeight));
+    if (el) restoreSidebar(el);
   }
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", restoreSidebarOffset);
+    document.addEventListener("DOMContentLoaded", restoreSidebarOnLoad);
   } else {
-    restoreSidebarOffset();
+    restoreSidebarOnLoad();
   }
 
   // What phoenix_kit_admin.js reads from this file. Not an API: it is the
