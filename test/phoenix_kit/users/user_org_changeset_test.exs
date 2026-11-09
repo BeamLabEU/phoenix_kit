@@ -217,9 +217,19 @@ defmodule PhoenixKit.Users.UserOrgChangesetTest do
   # --- profile_changeset/3 — organization_name ---
 
   describe "profile_changeset/3 — organization_name" do
-    test "casts organization_name" do
-      changeset = User.profile_changeset(%User{}, %{organization_name: "NewName"})
+    test "casts organization_name for an organization" do
+      changeset =
+        User.profile_changeset(%User{account_type: "organization"}, %{
+          organization_name: "NewName"
+        })
+
       assert get_change(changeset, :organization_name) == "NewName"
+    end
+
+    # A person has no organization name (2026-11-09).
+    test "a person's profile drops it" do
+      changeset = User.profile_changeset(%User{}, %{organization_name: "NewName"})
+      assert get_change(changeset, :organization_name) == nil
     end
 
     test "allows nil organization_name" do

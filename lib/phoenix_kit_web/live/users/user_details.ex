@@ -5,7 +5,9 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
   Displays user profile information in a tabbed interface with:
   - Profile tab: Basic info, status, roles, registration details
   - Connections tab: Follower/following/connection stats (if enabled)
-  - Notes tab: Admin notes about the user
+  - Notes tab: Admin notes about the user (shown while it holds some, or
+    while the Comments module is not available)
+  - Comments tab: the Comments module's thread on the user, or how to add it
   """
   use PhoenixKitWeb, :live_view
 
@@ -18,6 +20,8 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
   # Guarded soft-dependency on the optional CRM module, same shape as the
   # PhoenixKitUserConnections guard above — core cannot hard-depend on it.
   @compile {:no_warn_undefined, [PhoenixKitCRM, PhoenixKitCRM.Contacts]}
+  # The optional Comments module, same guard (`comments_state/0`).
+  @compile {:no_warn_undefined, [PhoenixKitComments, PhoenixKitComments.Web.CommentsComponent]}
 
   alias PhoenixKit.Admin.Events
   alias PhoenixKit.Settings
@@ -35,6 +39,7 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
   alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Utils.TimeZone
   alias PhoenixKitWeb.Live.Settings.UrlTabs
+  alias PhoenixKitWeb.Users.ManageNotice
   alias PhoenixKitWeb.Users.MultiSession
 
   @impl true
@@ -132,6 +137,7 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
           )
           |> assign(:impersonation_actor, impersonation_actor)
           |> assign(:admin_notes, admin_notes)
+          |> assign(:comments_state, comments_state())
           |> assign(:note_form, to_form(Auth.change_admin_note(%AdminNote{})))
           |> assign(:editing_note_uuid, nil)
           |> assign(:org_accounts_enabled, org_accounts_enabled)
@@ -170,10 +176,14 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
       %{id: "account", label: gettext("Account"), icon: "hero-identification"},
       assigns.connections_enabled &&
         %{id: "connections", label: gettext("Connections"), icon: "hero-user-group"},
-      with_badge(
-        %{id: "notes", label: gettext("Notes"), icon: "hero-document-text"},
-        length(assigns.admin_notes)
-      ),
+      # The older notes: kept while there are some, and while the Comments
+      # module (their successor) is not there to write new ones in.
+      (assigns.admin_notes != [] or assigns.comments_state != :enabled) &&
+        with_badge(
+          %{id: "notes", label: gettext("Notes"), icon: "hero-document-text"},
+          length(assigns.admin_notes)
+        ),
+      %{id: "comments", label: gettext("Comments"), icon: "hero-chat-bubble-left-right"},
       user.account_type == "organization" &&
         (assigns.org_accounts_enabled || user.managed_by_members) &&
         with_badge(
@@ -204,6 +214,26 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
 
     match?(%{current: same, root: same}, assigns.manager_actor) and
       (Scope.owner?(scope) or Scope.has_role?(scope, "Admin"))
+  end
+
+  # Why the Organizations / People rows offer no changes, said under them.
+  defp manage_notice(assigns) do
+    if can_edit_organizations?(assigns),
+      do: nil,
+      else: ManageNotice.message(ManageNotice.reason(assigns.manager_actor, assigns.user.uuid))
+  end
+
+  # The optional Comments module: `:enabled`, `:disabled` (installed, turned
+  # off on the Modules page) or `:missing` (not a dependency of this project).
+  @dialyzer {:nowarn_function, comments_state: 0}
+  defp comments_state do
+    cond do
+      not Code.ensure_loaded?(PhoenixKitComments) -> :missing
+      PhoenixKitComments.enabled?() -> :enabled
+      true -> :disabled
+    end
+  rescue
+    _ -> :missing
   end
 
   defp with_badge(tab, 0), do: tab
@@ -577,6 +607,23 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
      )}
   end
 
+  # The People row changed a tie: reload the organization and its counts.
+  def handle_info({PhoenixKitWeb.Live.Components.OrganizationPeople, :changed}, socket) do
+    socket = maybe_refresh_user(socket, socket.assigns.user)
+
+    {:noreply,
+     assign(
+       socket,
+       :people_count,
+       people_count(socket.assigns.user, socket.assigns.org_accounts_enabled)
+     )}
+  end
+
+  # The Comments thread's rich-text editor reports to the LiveView; hand it
+  # back, or "Post" sends an empty comment (`PhoenixKitWeb.CommentsForwarding`).
+  def handle_info({:leaf_changed, _} = msg, socket),
+    do: PhoenixKitWeb.CommentsForwarding.forward_leaf_changed(msg, socket)
+
   def handle_info({:user_updated, user}, socket) do
     {:noreply, maybe_refresh_user(socket, user)}
   end
@@ -825,7 +872,8 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
   defp crm_contact_label(%{email: email}) when is_binary(email) and email != "", do: email
   defp crm_contact_label(_contact), do: gettext("Unnamed contact")
 
-  defp user_display_name(%Auth.User{managed_by_members: true} = user),
+  # An organization by its name, never by a first or last name.
+  defp user_display_name(%Auth.User{account_type: "organization"} = user),
     do: Auth.User.display_name(user)
 
   defp user_display_name(user) do

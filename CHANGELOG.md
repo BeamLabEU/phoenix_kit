@@ -11,6 +11,20 @@ Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
 
 ### Added
 
+- **An organization's people on its page, changed in place.** The header of an
+  organization's admin page lists who acts for it, the mirror of a person's
+  Organizations row: each person with the link's type and what it gives ("All roles",
+  the roles, or "No roles"; "Member" for the older tie), the first five and "+N more"
+  opening the People tab. An Owner or Admin in their own account adds a person from a
+  search (Enter takes the first match, as a manager or another type), invites an
+  address nobody has an account at, and removes someone with × (the last manager stays
+  unless they say "Remove anyway"). `PhoenixKit.Users.OrganizationPeople`,
+  `PhoenixKitWeb.Live.Components.OrganizationPeople`.
+- **A Comments tab on a user's page.** It shows the Comments module's thread on the
+  user (`resource_type: "user"`), says the module is turned off with a link to Modules,
+  or, when the project lacks it, that the `phoenix_kit_comments` package can be added.
+  The older Notes tab shows only while it holds notes, or while Comments is not there to
+  write new ones in.
 - **An Organizations column in the Users table.** Every company a person belongs to,
   linked (manager, staff…) or by the older single tie, by name, each opening the
   company's page. Up to three show; past that two and "+N more", which opens the
@@ -197,6 +211,18 @@ Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
 
 ### Fixed
 
+- **The People tab is no longer empty for a session that may not manage.** An Owner who
+  had switched to another account of the session saw nothing there. It now lists the
+  people read-only and says why nothing can be changed ("Switch back to your own account
+  to make changes here.", or that only an Owner or Admin can, or that the session's link
+  does not allow it, `PhoenixKitWeb.Users.ManageNotice`). The Organizations and People
+  rows on a user's page say the same when they offer no changes.
+- **An organization has a name, not a first and a last one.** Its page shows
+  Organization Name where First and Last Name were, its own settings form edits the name
+  (never blank), a profile save no longer writes first or last names for it, and its page
+  title is its name even when old first or last names are stored. A person's profile no
+  longer writes an organization name. The admin form turning a company into a person
+  still saves the names typed with it.
 - **An account added to the switcher with its own password is no longer taken for a
   borrowed one.** `MultiSession.impersonated?/1` was true for every account but the root,
   so a person who added their second account by password could not link Telegram or make

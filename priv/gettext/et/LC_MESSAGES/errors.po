@@ -122,12 +122,12 @@ msgid "must be equal to %{number}"
 msgstr "peab olema võrdne %{number}"
 
 #: lib/phoenix_kit/users/auth/user.ex:480
-#: lib/phoenix_kit/users/auth/user.ex:642
+#: lib/phoenix_kit/users/auth/user.ex:671
 #, elixir-autogen, elixir-format
 msgid "cannot be changed for a managed organization"
 msgstr "ei saa hallatava organisatsiooni puhul muuta"
 
-#: lib/phoenix_kit/users/auth/user.ex:734
+#: lib/phoenix_kit/users/auth/user.ex:763
 #, elixir-autogen, elixir-format
 msgid "cannot reference self"
 msgstr "ei saa viidata iseendale"
@@ -147,17 +147,17 @@ msgstr "ei ühti parooliga"
 msgid "is not valid"
 msgstr "ei ole kehtiv"
 
-#: lib/phoenix_kit/users/auth/user.ex:1218
+#: lib/phoenix_kit/users/auth/user.ex:1247
 #, elixir-autogen, elixir-format
 msgid "must be a timezone identifier"
 msgstr "peab olema ajavööndi identifikaator"
 
-#: lib/phoenix_kit/users/auth/user.ex:1236
+#: lib/phoenix_kit/users/auth/user.ex:1265
 #, elixir-autogen, elixir-format
 msgid "must be a timezone identifier like Europe/Warsaw"
 msgstr "peab olema ajavööndi identifikaator, näiteks Europe/Warsaw"
 
-#: lib/phoenix_kit/users/auth/user.ex:1170
+#: lib/phoenix_kit/users/auth/user.ex:1199
 #, elixir-autogen, elixir-format
 msgid "must be a valid country code"
 msgstr "peab olema kehtiv riigikood"
@@ -167,8 +167,8 @@ msgstr "peab olema kehtiv riigikood"
 msgid "must be a valid email address"
 msgstr "peab olema kehtiv e-posti aadress"
 
-#: lib/phoenix_kit/users/auth/user.ex:671
-#: lib/phoenix_kit/users/auth/user.ex:1260
+#: lib/phoenix_kit/users/auth/user.ex:700
+#: lib/phoenix_kit/users/auth/user.ex:1289
 #, elixir-autogen, elixir-format
 msgid "must be a valid map"
 msgstr "peab olema kehtiv map"
@@ -199,7 +199,7 @@ msgstr "peab sisaldama vähemalt ühte suurtähte"
 msgid "must have the @ sign and no spaces"
 msgstr "peab sisaldama @-märki ja mitte sisaldama tühikuid"
 
-#: lib/phoenix_kit/users/auth/user.ex:983
+#: lib/phoenix_kit/users/auth/user.ex:1012
 #, elixir-autogen, elixir-format
 msgid "must start with a letter and contain only letters, numbers, and underscores"
 msgstr "peab algama tähega ja sisaldama ainult tähti, numbreid ja alakriipse"

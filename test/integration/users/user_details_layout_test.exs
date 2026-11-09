@@ -7,6 +7,7 @@ defmodule PhoenixKit.Integration.Users.UserDetailsLayoutTest do
   """
   use PhoenixKitWeb.ConnCase, async: true
 
+  alias PhoenixKit.Test.ManagedOrganizationFixtures
   alias PhoenixKit.Utils.Routes
 
   defp plain_user do
@@ -95,6 +96,34 @@ defmodule PhoenixKit.Integration.Users.UserDetailsLayoutTest do
     assert html =~ "Account Information"
     assert html =~ "Registration Details"
     refute html =~ "Basic Information"
+  end
+
+  describe "notes and comments" do
+    test "a Comments tab says how to get the module when this project lacks it", %{conn: conn} do
+      view = open(conn, plain_user(), "?tab=comments")
+
+      assert has_element?(view, ~s(a[role=tab][href$="tab=comments"]))
+      assert has_element?(view, "#user-comments-missing", "phoenix_kit_comments")
+    end
+
+    test "without the module the older notes stay, even empty, to write in", %{conn: conn} do
+      view = open(conn, plain_user())
+      assert has_element?(view, ~s(a[role=tab][href$="tab=notes"]))
+    end
+  end
+
+  test "an organization's profile shows its name, not a first and a last one", %{conn: conn} do
+    org =
+      ManagedOrganizationFixtures.organization(%{
+        organization_name: "Oak Trading",
+        first_name: "Stale"
+      })
+
+    html = render(open(conn, org))
+
+    assert html =~ "Organization Name"
+    refute html =~ "First Name"
+    refute html =~ "Stale"
   end
 
   test "a link can open a tab, and one the page does not show opens Profile", %{conn: conn} do

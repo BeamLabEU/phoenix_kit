@@ -20,12 +20,15 @@ defmodule PhoenixKitWeb.Live.Components.OrganizationManagers do
   alias PhoenixKit.Users.ManagedOrganizations
   alias PhoenixKit.Users.OrganizationManager
   alias PhoenixKit.Users.OrganizationManagers
+  alias PhoenixKit.Users.OrganizationPeople
   alias PhoenixKit.Users.RelationshipType
   alias PhoenixKit.Users.RelationshipTypes
   alias PhoenixKit.Users.Roles
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Components.Core.Input
+  alias PhoenixKitWeb.Live.Components.OrganizationPeople, as: PeopleRow
+  alias PhoenixKitWeb.Users.ManageNotice
 
   @impl true
   def update(assigns, socket) do
@@ -44,10 +47,34 @@ defmodule PhoenixKitWeb.Live.Components.OrganizationManagers do
      |> load()}
   end
 
+  # A session that may not manage still sees who acts for the organization,
+  # read-only, with the reason nothing can be changed: the panel used to stay
+  # empty (an Owner switched to another account of the session).
   defp load(socket) do
-    case OrganizationManagers.details(socket.assigns.actor, socket.assigns.organization_uuid) do
-      {:ok, details} -> assign(socket, :details, details)
-      _ -> assign(socket, :details, nil)
+    %{actor: actor, organization_uuid: organization_uuid} = socket.assigns
+
+    case OrganizationManagers.details(actor, organization_uuid) do
+      {:ok, details} ->
+        assign(socket, details: details, read_only: nil)
+
+      _ ->
+        assign(socket,
+          details: nil,
+          read_only: %{
+            people: read_only_people(organization_uuid),
+            notice: ManageNotice.message(ManageNotice.reason(actor, organization_uuid))
+          }
+        )
+    end
+  end
+
+  defp read_only_people(organization_uuid) do
+    case Auth.get_user(organization_uuid) do
+      %User{account_type: "organization"} = org ->
+        org |> OrganizationPeople.list() |> Enum.filter(&(&1.kind == :link))
+
+      _ ->
+        []
     end
   end
 
@@ -564,6 +591,32 @@ defmodule PhoenixKitWeb.Live.Components.OrganizationManagers do
   def render(assigns) do
     ~H"""
     <section id={@id} class="card bg-base-100 shadow-sm my-6">
+      <div :if={!@details && @read_only} id={"#{@id}-read-only"} class="card-body gap-4">
+        <h2 class="card-title">{gettext("People")}</h2>
+        <div class="alert alert-info text-sm" role="status">
+          <.icon name="hero-information-circle" class="w-5 h-5" />
+          <span>{@read_only.notice}</span>
+        </div>
+        <p :if={@read_only.people == []}>{gettext("Nobody can act for this organization yet.")}</p>
+        <div
+          :for={entry <- @read_only.people}
+          id={"#{@id}-read-only-#{entry.person.uuid}"}
+          class="border-b border-base-300 py-3 last:border-b-0 space-y-1"
+        >
+          <.pk_link
+            navigate={"/admin/users/view/#{entry.person.uuid}"}
+            class="font-medium link link-hover"
+          >
+            {User.display_name(entry.person)}
+          </.pk_link>
+          <div class="text-sm opacity-70 break-all">{User.delivery_email(entry.person)}</div>
+          <div class="flex flex-wrap gap-1">
+            <span :for={part <- PeopleRow.access_label(entry)} class="badge badge-sm badge-outline">
+              {part}
+            </span>
+          </div>
+        </div>
+      </div>
       <div :if={@details} class="card-body gap-5">
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div>

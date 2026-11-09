@@ -111,12 +111,12 @@ msgid "must be equal to %{number}"
 msgstr "musi być równe %{number}"
 
 #: lib/phoenix_kit/users/auth/user.ex:480
-#: lib/phoenix_kit/users/auth/user.ex:642
+#: lib/phoenix_kit/users/auth/user.ex:671
 #, elixir-autogen, elixir-format
 msgid "cannot be changed for a managed organization"
 msgstr "nie można zmienić dla zarządzanej organizacji"
 
-#: lib/phoenix_kit/users/auth/user.ex:734
+#: lib/phoenix_kit/users/auth/user.ex:763
 #, elixir-autogen, elixir-format
 msgid "cannot reference self"
 msgstr "nie może odwoływać się do samego siebie"
@@ -136,17 +136,17 @@ msgstr "nie zgadza się z hasłem"
 msgid "is not valid"
 msgstr "jest nieprawidłowe"
 
-#: lib/phoenix_kit/users/auth/user.ex:1218
+#: lib/phoenix_kit/users/auth/user.ex:1247
 #, elixir-autogen, elixir-format
 msgid "must be a timezone identifier"
 msgstr "musi być identyfikatorem strefy czasowej"
 
-#: lib/phoenix_kit/users/auth/user.ex:1236
+#: lib/phoenix_kit/users/auth/user.ex:1265
 #, elixir-autogen, elixir-format
 msgid "must be a timezone identifier like Europe/Warsaw"
 msgstr "musi być identyfikatorem strefy czasowej, np. Europe/Warsaw"
 
-#: lib/phoenix_kit/users/auth/user.ex:1170
+#: lib/phoenix_kit/users/auth/user.ex:1199
 #, elixir-autogen, elixir-format
 msgid "must be a valid country code"
 msgstr "musi być prawidłowym kodem kraju"
@@ -156,8 +156,8 @@ msgstr "musi być prawidłowym kodem kraju"
 msgid "must be a valid email address"
 msgstr "musi być prawidłowym adresem e-mail"
 
-#: lib/phoenix_kit/users/auth/user.ex:671
-#: lib/phoenix_kit/users/auth/user.ex:1260
+#: lib/phoenix_kit/users/auth/user.ex:700
+#: lib/phoenix_kit/users/auth/user.ex:1289
 #, elixir-autogen, elixir-format
 msgid "must be a valid map"
 msgstr "musi być prawidłową mapą"
@@ -188,7 +188,7 @@ msgstr "musi zawierać co najmniej jedną wielką literę"
 msgid "must have the @ sign and no spaces"
 msgstr "musi zawierać znak @ i nie może zawierać spacji"
 
-#: lib/phoenix_kit/users/auth/user.ex:983
+#: lib/phoenix_kit/users/auth/user.ex:1012
 #, elixir-autogen, elixir-format
 msgid "must start with a letter and contain only letters, numbers, and underscores"
 msgstr "musi zaczynać się od litery i zawierać tylko litery, cyfry i podkreślenia"

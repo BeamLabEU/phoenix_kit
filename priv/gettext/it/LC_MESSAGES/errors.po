@@ -102,12 +102,12 @@ msgid "must be equal to %{number}"
 msgstr "deve essere uguale a %{number}"
 
 #: lib/phoenix_kit/users/auth/user.ex:480
-#: lib/phoenix_kit/users/auth/user.ex:642
+#: lib/phoenix_kit/users/auth/user.ex:671
 #, elixir-autogen, elixir-format
 msgid "cannot be changed for a managed organization"
 msgstr "non può essere modificato per un'organizzazione gestita"
 
-#: lib/phoenix_kit/users/auth/user.ex:734
+#: lib/phoenix_kit/users/auth/user.ex:763
 #, elixir-autogen, elixir-format
 msgid "cannot reference self"
 msgstr "non può riferirsi a sé stesso"
@@ -127,17 +127,17 @@ msgstr "non corrisponde alla password"
 msgid "is not valid"
 msgstr "non è valido"
 
-#: lib/phoenix_kit/users/auth/user.ex:1218
+#: lib/phoenix_kit/users/auth/user.ex:1247
 #, elixir-autogen, elixir-format
 msgid "must be a timezone identifier"
 msgstr "deve essere un identificatore di fuso orario"
 
-#: lib/phoenix_kit/users/auth/user.ex:1236
+#: lib/phoenix_kit/users/auth/user.ex:1265
 #, elixir-autogen, elixir-format
 msgid "must be a timezone identifier like Europe/Warsaw"
 msgstr "deve essere un identificatore di fuso orario come Europe/Warsaw"
 
-#: lib/phoenix_kit/users/auth/user.ex:1170
+#: lib/phoenix_kit/users/auth/user.ex:1199
 #, elixir-autogen, elixir-format
 msgid "must be a valid country code"
 msgstr "deve essere un codice paese valido"
@@ -147,8 +147,8 @@ msgstr "deve essere un codice paese valido"
 msgid "must be a valid email address"
 msgstr "deve essere un indirizzo email valido"
 
-#: lib/phoenix_kit/users/auth/user.ex:671
-#: lib/phoenix_kit/users/auth/user.ex:1260
+#: lib/phoenix_kit/users/auth/user.ex:700
+#: lib/phoenix_kit/users/auth/user.ex:1289
 #, elixir-autogen, elixir-format
 msgid "must be a valid map"
 msgstr "deve essere una map valida"
@@ -179,7 +179,7 @@ msgstr "deve contenere almeno una lettera maiuscola"
 msgid "must have the @ sign and no spaces"
 msgstr "deve contenere il simbolo @ e nessuno spazio"
 
-#: lib/phoenix_kit/users/auth/user.ex:983
+#: lib/phoenix_kit/users/auth/user.ex:1012
 #, elixir-autogen, elixir-format
 msgid "must start with a letter and contain only letters, numbers, and underscores"
 msgstr "deve iniziare con una lettera e contenere solo lettere, numeri e trattini bassi"

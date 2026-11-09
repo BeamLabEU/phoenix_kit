@@ -111,12 +111,12 @@ msgid "must be equal to %{number}"
 msgstr "має дорівнювати %{number}"
 
 #: lib/phoenix_kit/users/auth/user.ex:480
-#: lib/phoenix_kit/users/auth/user.ex:642
+#: lib/phoenix_kit/users/auth/user.ex:671
 #, elixir-autogen, elixir-format
 msgid "cannot be changed for a managed organization"
 msgstr "не можна змінити для керованої організації"
 
-#: lib/phoenix_kit/users/auth/user.ex:734
+#: lib/phoenix_kit/users/auth/user.ex:763
 #, elixir-autogen, elixir-format
 msgid "cannot reference self"
 msgstr "не може посилатися на себе"
@@ -136,17 +136,17 @@ msgstr "не збігається з паролем"
 msgid "is not valid"
 msgstr "недійсне"
 
-#: lib/phoenix_kit/users/auth/user.ex:1218
+#: lib/phoenix_kit/users/auth/user.ex:1247
 #, elixir-autogen, elixir-format
 msgid "must be a timezone identifier"
 msgstr "має бути ідентифікатором часового поясу"
 
-#: lib/phoenix_kit/users/auth/user.ex:1236
+#: lib/phoenix_kit/users/auth/user.ex:1265
 #, elixir-autogen, elixir-format
 msgid "must be a timezone identifier like Europe/Warsaw"
 msgstr "має бути ідентифікатором часового поясу, наприклад Europe/Warsaw"
 
-#: lib/phoenix_kit/users/auth/user.ex:1170
+#: lib/phoenix_kit/users/auth/user.ex:1199
 #, elixir-autogen, elixir-format
 msgid "must be a valid country code"
 msgstr "має бути дійсним кодом країни"
@@ -156,8 +156,8 @@ msgstr "має бути дійсним кодом країни"
 msgid "must be a valid email address"
 msgstr "має бути дійсною адресою електронної пошти"
 
-#: lib/phoenix_kit/users/auth/user.ex:671
-#: lib/phoenix_kit/users/auth/user.ex:1260
+#: lib/phoenix_kit/users/auth/user.ex:700
+#: lib/phoenix_kit/users/auth/user.ex:1289
 #, elixir-autogen, elixir-format
 msgid "must be a valid map"
 msgstr "має бути дійсним словником"
@@ -188,7 +188,7 @@ msgstr "має містити щонайменше одну велику літ�
 msgid "must have the @ sign and no spaces"
 msgstr "має містити символ @ і не містити пробілів"
 
-#: lib/phoenix_kit/users/auth/user.ex:983
+#: lib/phoenix_kit/users/auth/user.ex:1012
 #, elixir-autogen, elixir-format
 msgid "must start with a letter and contain only letters, numbers, and underscores"
 msgstr "має починатися з літери та містити лише літери, цифри та підкреслення"

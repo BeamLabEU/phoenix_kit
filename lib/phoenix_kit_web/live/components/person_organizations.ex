@@ -13,6 +13,8 @@ defmodule PhoenixKitWeb.Live.Components.PersonOrganizations do
     * `can_edit` — whether to offer the changes (an Owner or Admin not acting
       for an organization). Without it the chips are read-only; the context
       refuses anyway.
+    * `notice` — a line saying why nothing can be changed, when `can_edit`
+      is false (`PhoenixKitWeb.Users.ManageNotice`).
 
   After every change the LiveView gets `{PhoenixKitWeb.Live.Components.PersonOrganizations, :changed}`
   and should reload the person.
@@ -43,6 +45,7 @@ defmodule PhoenixKitWeb.Live.Components.PersonOrganizations do
      |> assign(:person, assigns.person)
      |> assign(:actor, Map.get(assigns, :actor))
      |> assign(:can_edit, Map.get(assigns, :can_edit, false))
+     |> assign(:notice, Map.get(assigns, :notice))
      |> assign(:entries, PersonOrganizations.list(assigns.person))
      |> assign_new(:types, fn -> PersonOrganizations.link_types() end)}
   end
@@ -312,6 +315,10 @@ defmodule PhoenixKitWeb.Live.Components.PersonOrganizations do
           <.icon name="hero-plus" class="w-3 h-3" /> {gettext("Add")}
         </button>
       </div>
+
+      <p :if={not @can_edit and @notice} id={"#{@id}-notice"} class="text-xs text-base-content/60">
+        <.icon name="hero-information-circle" class="w-3.5 h-3.5 inline -mt-0.5" /> {@notice}
+      </p>
 
       <%!-- One box: type to find a company, Enter attaches the first match;
            a name nobody has creates the company (button or Enter). --%>

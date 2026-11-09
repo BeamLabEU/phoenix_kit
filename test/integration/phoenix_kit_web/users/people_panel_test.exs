@@ -427,16 +427,18 @@ defmodule PhoenixKitWeb.Users.PeoplePanelTest do
     test "cannot change the company's profile by forging the event", ctx do
       manager = manager(ctx.organization)
       staff = staff_member(ctx.organization, ctx.staff)
-      forged = %{"user" => %{"first_name" => "Forged"}}
+      # An organization's own field: it has a name, not a first and a last one.
+      forged = %{"user" => %{"organization_name" => "Forged Co"}}
+      name = Repo.get!(User, ctx.organization.uuid).organization_name
 
       {:ok, view, _} = settings(staff.conn, "account")
       render_click(with_target(view, "[data-phx-component='1']"), "update_profile", forged)
-      assert Repo.get!(User, ctx.organization.uuid).first_name == nil
+      assert Repo.get!(User, ctx.organization.uuid).organization_name == name
 
       # The same event from a manager goes through, so the refusal above is the gate.
       {:ok, view, _} = settings(manager.conn, "account")
       render_click(with_target(view, "[data-phx-component='1']"), "update_profile", forged)
-      assert Repo.get!(User, ctx.organization.uuid).first_name == "Forged"
+      assert Repo.get!(User, ctx.organization.uuid).organization_name == "Forged Co"
     end
 
     test "keep their preferences", ctx do

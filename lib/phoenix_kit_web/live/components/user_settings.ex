@@ -1068,16 +1068,28 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
 
                 <%!-- Name Fields --%>
                 <div class="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-3 w-full">
-                  <.input
-                    field={@profile_form[:first_name]}
-                    type="text"
-                    label={gettext("First Name")}
-                  />
-                  <.input
-                    field={@profile_form[:last_name]}
-                    type="text"
-                    label={gettext("Last Name")}
-                  />
+                  <%!-- An organization has a name, not a first and a last one. --%>
+                  <%= if @user.account_type == "organization" do %>
+                    <div class="col-span-1 lg:col-span-2">
+                      <.input
+                        field={@profile_form[:organization_name]}
+                        type="text"
+                        label={gettext("Organization Name")}
+                        required
+                      />
+                    </div>
+                  <% else %>
+                    <.input
+                      field={@profile_form[:first_name]}
+                      type="text"
+                      label={gettext("First Name")}
+                    />
+                    <.input
+                      field={@profile_form[:last_name]}
+                      type="text"
+                      label={gettext("Last Name")}
+                    />
+                  <% end %>
                   <div class="col-span-1 lg:col-span-2">
                     <.input
                       field={@profile_form[:username]}

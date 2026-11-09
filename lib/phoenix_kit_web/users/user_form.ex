@@ -129,6 +129,9 @@ defmodule PhoenixKitWeb.Users.UserForm do
 
   defp maybe_set_edit_page_title(socket), do: socket
 
+  defp user_display_name(%Auth.User{account_type: "organization"} = user),
+    do: Auth.User.display_name(user)
+
   defp user_display_name(user) do
     cond do
       user.first_name && user.last_name -> "#{user.first_name} #{user.last_name}"

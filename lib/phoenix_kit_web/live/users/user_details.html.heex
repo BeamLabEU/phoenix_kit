@@ -83,6 +83,22 @@
               person={@user}
               actor={@manager_actor}
               can_edit={can_edit_organizations?(assigns)}
+              notice={manage_notice(assigns)}
+            />
+
+            <%!-- An organization's people, the mirror of the row above:
+                 attached, detached or invited here. --%>
+            <.live_component
+              :if={
+                @user.account_type == "organization" and
+                  (@org_accounts_enabled or @user.managed_by_members)
+              }
+              module={PhoenixKitWeb.Live.Components.OrganizationPeople}
+              id="organization-people"
+              organization={@user}
+              actor={@manager_actor}
+              can_edit={can_edit_organizations?(assigns)}
+              notice={manage_notice(assigns)}
             />
           </div>
 
@@ -259,18 +275,28 @@
                   </label>
                   <p class="text-base-content">{@user.username || "-"}</p>
                 </div>
-                <div>
-                  <label class="text-sm font-medium text-base-content/70">
-                    {gettext("First Name")}
-                  </label>
-                  <p class="text-base-content">{@user.first_name || "-"}</p>
-                </div>
-                <div>
-                  <label class="text-sm font-medium text-base-content/70">
-                    {gettext("Last Name")}
-                  </label>
-                  <p class="text-base-content">{@user.last_name || "-"}</p>
-                </div>
+                <%!-- An organization has a name, not a first and a last one. --%>
+                <%= if @user.account_type == "organization" do %>
+                  <div>
+                    <label class="text-sm font-medium text-base-content/70">
+                      {gettext("Organization Name")}
+                    </label>
+                    <p class="text-base-content">{@user.organization_name || "-"}</p>
+                  </div>
+                <% else %>
+                  <div>
+                    <label class="text-sm font-medium text-base-content/70">
+                      {gettext("First Name")}
+                    </label>
+                    <p class="text-base-content">{@user.first_name || "-"}</p>
+                  </div>
+                  <div>
+                    <label class="text-sm font-medium text-base-content/70">
+                      {gettext("Last Name")}
+                    </label>
+                    <p class="text-base-content">{@user.last_name || "-"}</p>
+                  </div>
+                <% end %>
                 <div>
                   <label class="text-sm font-medium text-base-content/70">
                     {gettext("Timezone")}
@@ -668,6 +694,53 @@
             </div>
           <% end %>
         </div>
+      <% end %>
+
+      <%!-- Comments: the Comments module's thread on this user, the successor
+           of the notes above. The tab is there without the module too, to say
+           how to get it. --%>
+      <%= if @active_tab == "comments" do %>
+        <%= case @comments_state do %>
+          <% :enabled -> %>
+            <div id="user-comments" class="card bg-base-200 shadow-sm">
+              <div class="card-body">
+                <.live_component
+                  module={PhoenixKitComments.Web.CommentsComponent}
+                  id={"user-comments-#{@user.uuid}"}
+                  resource_type="user"
+                  resource_uuid={@user.uuid}
+                  current_user={@phoenix_kit_current_user}
+                  title={gettext("Comments")}
+                />
+              </div>
+            </div>
+          <% :disabled -> %>
+            <div id="user-comments-off" class="card bg-base-200 shadow-sm">
+              <div class="card-body items-center text-center py-12">
+                <.icon name="hero-chat-bubble-left-right" class="w-12 h-12 text-base-content/30" />
+                <p class="text-base-content/70 mt-2">
+                  {gettext("The Comments module is installed but turned off.")}
+                </p>
+                <.pk_link navigate="/admin/modules" class="btn btn-sm btn-primary mt-2">
+                  {gettext("Open Modules")}
+                </.pk_link>
+              </div>
+            </div>
+          <% :missing -> %>
+            <div id="user-comments-missing" class="card bg-base-200 shadow-sm">
+              <div class="card-body items-center text-center py-12">
+                <.icon name="hero-chat-bubble-left-right" class="w-12 h-12 text-base-content/30" />
+                <p class="text-base-content/70 mt-2">
+                  {gettext("Comments about a user need the Comments module.")}
+                </p>
+                <p class="text-sm text-base-content/60 max-w-md">
+                  {gettext(
+                    "It is not part of this project yet. A developer can add the phoenix_kit_comments package to it."
+                  )}
+                </p>
+              </div>
+            </div>
+        <% end %>
       <% end %>
 
       <%!-- Members Tab Content --%>

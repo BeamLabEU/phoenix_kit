@@ -623,6 +623,7 @@ defmodule PhoenixKit.Users.Auth.User do
       :organization_name
     ])
     |> validate_names()
+    |> validate_profile_organization_name(attrs)
     |> validate_email(opts)
     |> validate_google_email()
     |> validate_username(opts)
@@ -630,6 +631,34 @@ defmodule PhoenixKit.Users.Auth.User do
     |> validate_country()
     |> cast_user_custom_fields(attrs)
     |> protect_managed_profile_credentials()
+  end
+
+  # An organization has a name, not a first and a last one, and a profile save
+  # that changes the name may not blank it. A person's profile carries no
+  # organization name. The type is the one submitted, when the same form
+  # changes it (the admin's user form saves the profile first).
+  defp validate_profile_organization_name(changeset, attrs) do
+    type =
+      case attrs do
+        %{"account_type" => type} when type in ["person", "organization"] -> type
+        %{account_type: type} when type in ["person", "organization"] -> type
+        _ -> get_field(changeset, :account_type)
+      end
+
+    case type do
+      "organization" ->
+        changeset = changeset |> delete_change(:first_name) |> delete_change(:last_name)
+
+        if changed?(changeset, :organization_name),
+          do:
+            changeset
+            |> validate_required([:organization_name])
+            |> validate_length(:organization_name, max: 255),
+          else: changeset
+
+      _ ->
+        delete_change(changeset, :organization_name)
+    end
   end
 
   defp protect_managed_profile_credentials(%{data: %{managed_by_members: true}} = changeset) do
