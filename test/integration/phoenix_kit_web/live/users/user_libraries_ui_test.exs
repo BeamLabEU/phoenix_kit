@@ -546,41 +546,51 @@ defmodule PhoenixKitWeb.Live.Users.UserLibrariesUITest do
       assert html =~ "Private"
       # The first library a user makes is their default.
       assert html =~ "Default"
-      assert html =~ "2 of 10 libraries"
+      assert html =~ "You own 2 libraries (up to 10)"
+      refute html =~ "My libraries"
     end
 
-    test "the site's Media is listed, read-only, even before the user has a library", %{
-      conn: conn,
-      role: role
-    } do
+    test "without the media permission the site's Media is not listed; Create is still offered",
+         %{
+           conn: conn,
+           role: role
+         } do
       user = user!(role)
       media = Libraries.media_uuid()
 
       {:ok, view, html} = live(log_in_user(conn, user), Routes.path("/profile/settings/media"))
 
-      assert has_element?(view, "#library-row-#{media}")
-      assert html =~ "System"
-      # Media is served like the site's media; the user's own libraries are private.
-      assert html =~ "Public"
-      assert html =~ "You have no libraries of your own yet"
-      assert html =~ "Create library"
-
-      # Nothing to manage on it: no rename, trash, members or renditions, and
-      # without the `media` permission there is no page to open it on.
-      refute has_element?(view, "#library-row-#{media} button")
-      refute html =~ "library-menu-#{media}"
+      # A row they could neither open nor change would read as a library of theirs.
+      refute has_element?(view, "#library-row-#{media}")
+      refute html =~ "System"
+      assert html =~ "You own 0 libraries (up to 10)"
+      assert html =~ "No libraries yet. Create one"
+      assert has_element?(view, "#profile-library-settings-open-create")
     end
 
-    test "a holder of media can open Media from its row", %{conn: conn} do
+    test "someone who may not make libraries is not told how many they own", %{conn: conn} do
+      {:ok, _view, html} =
+        live(log_in_user(conn, user!()), Routes.path("/profile/settings/media"))
+
+      refute html =~ "You own"
+      refute html =~ "Create library"
+    end
+
+    test "a holder of media can open Media from its row, read-only, with its size", %{conn: conn} do
       role = media_role!()
       {:ok, _} = Permissions.grant_permission(role.uuid, "storage")
       holder = user!(role)
       media = Libraries.media_uuid()
 
-      {:ok, _view, html} = live(log_in_user(conn, holder), Routes.path("/profile/settings/media"))
+      {:ok, view, html} = live(log_in_user(conn, holder), Routes.path("/profile/settings/media"))
 
       assert html =~ "library-menu-#{media}"
       assert html =~ "/admin/media"
+      assert html =~ "System"
+      assert has_element?(view, "#library-row-#{media}", "file")
+      # Nothing to manage on it: no rename, trash, members or renditions.
+      refute has_element?(view, "#library-row-#{media} button", "Rename")
+      refute has_element?(view, "#library-row-#{media} button", "Trash")
     end
 
     test "rename, make default and trash are in the row's menu; the trash can restore", %{

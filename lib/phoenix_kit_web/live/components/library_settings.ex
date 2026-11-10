@@ -111,6 +111,7 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
     storage_profile = storage_library && Profiles.for_library(storage_library)
     storage_rows = if storage_profile, do: storage_profile.buckets, else: []
     usage = bucket_usage(connections, owned, own_storage, storage_library, storage_rows)
+    media = media_row(scope)
 
     socket
     |> assign(:membership_history, history)
@@ -118,8 +119,13 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
     |> assign(:trashed, Libraries.list_trashed_user_libraries(Scope.user_uuid(scope)))
     |> assign(:owned, owned)
     |> assign(:shared, shared)
-    |> assign(:content_stats, Libraries.content_stats(Enum.map(entries, & &1.library.uuid)))
-    |> assign(:media, media_row(scope))
+    |> assign(:media, media)
+    |> assign(
+      :content_stats,
+      Libraries.content_stats(
+        Enum.map(entries, & &1.library.uuid) ++ if(media, do: [media.library.uuid], else: [])
+      )
+    )
     |> assign(:can_create, Libraries.may_create_library?(scope))
     |> assign(:can_public, Libraries.may_create_public_library?(scope))
     |> assign(:can_own_storage, Libraries.may_use_own_storage?(scope))
@@ -140,20 +146,21 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
     )
   end
 
-  # The site's own library, Media, shown read-only beside the user's: they keep
-  # files in it too, but it belongs to the site, so nothing here renames, shares
-  # or trashes it. It can be opened only where there is a page for it (the media
-  # browser needs the `media` permission).
+  # The site's own library, Media, shown read-only beside the user's to someone
+  # who may open it (the `media` permission): it belongs to the site, so nothing
+  # here renames, shares or trashes it. Everyone else is not shown it at all: a
+  # row they can neither open nor change only reads as a library of theirs.
+  # It opens on the host's page for it when the host has one, as the user's own
+  # libraries do (`LibraryPreferences.library_path/2`).
   defp media_row(scope) do
-    case Libraries.get_library(Libraries.media_uuid()) do
-      %Library{trashed_at: nil} = library ->
-        %{
-          library: library,
-          path: if(Scope.has_module_access?(scope, "media"), do: Routes.path("/admin/media"))
-        }
-
-      _ ->
-        nil
+    with true <- Scope.has_module_access?(scope, "media"),
+         %Library{trashed_at: nil} = library <- Libraries.get_library(Libraries.media_uuid()) do
+      %{
+        library: library,
+        path: LibraryPreferences.public_path(library) || Routes.path("/admin/media")
+      }
+    else
+      _ -> nil
     end
   end
 
@@ -1156,10 +1163,10 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
 
   defp dialog_library(_assigns), do: nil
 
-  # Where a row opens its library. `Libraries.browse_path/2` is the path inside
-  # the app; the link components used in a table take it as it is, so the
-  # install's URL prefix is added here (`pk_link` used to).
-  defp open_href(scope, library), do: Routes.path(Libraries.browse_path(scope, library))
+  # Where a row opens its library: the host's page for it when the host has one
+  # (`:library_public_path`), else the admin browser. The link components used
+  # in a table take the path as it is, so it carries the install's URL prefix.
+  defp open_href(scope, library), do: LibraryPreferences.library_path(library, scope)
 
   @impl true
   def render(assigns) do
@@ -1211,16 +1218,23 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
         refresh={@activity_refresh}
       />
 
-      <div :if={@media_view == "libraries" and (@owned != [] or @shared != [] or @media)}>
+      <div :if={
+        @media_view == "libraries" and (@owned != [] or @shared != [] or @media != nil or @can_create)
+      }>
         <.table_default id={"#{@id}-table"}>
           <:toolbar_title>
             <div>
               <h2 class="text-lg font-semibold flex items-center gap-2">
                 <.icon name="hero-rectangle-stack" class="w-5 h-5 text-primary" />
-                {gettext("My libraries")}
+                {gettext("Libraries")}
               </h2>
-              <p class="text-sm text-base-content/60">
-                {gettext("%{count} of %{limit} libraries", count: length(@owned), limit: @limit)}
+              <p :if={@can_create} class="text-sm text-base-content/60">
+                {ngettext(
+                  "You own %{count} library (up to %{limit})",
+                  "You own %{count} libraries (up to %{limit})",
+                  length(@owned),
+                  limit: @limit
+                )}
               </p>
             </div>
           </:toolbar_title>
@@ -1480,17 +1494,19 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
             <.table_default_row
               :if={@media}
               id={"library-row-#{@media.library.uuid}"}
-              class="relative transform-gpu"
+              class="relative transform-gpu cursor-pointer"
             >
               <.table_default_cell>
-                <.row_link
-                  :if={@media.path}
-                  navigate={@media.path}
-                  label={@media.library.name}
-                />
+                <.row_link navigate={@media.path} label={@media.library.name} />
                 <div class="flex items-center gap-2">
                   <.icon name="hero-globe-alt" class="w-4 h-4 text-base-content/60" />
-                  <span class="font-medium">{@media.library.name}</span>
+                  <div>
+                    <span class="font-medium">{@media.library.name}</span>
+                    <.library_content_stats
+                      :if={@content_stats[@media.library.uuid]}
+                      stats={@content_stats[@media.library.uuid]}
+                    />
+                  </div>
                   <span
                     class="badge badge-ghost badge-sm"
                     title={gettext("The site's own library, managed by the site's administrators")}
@@ -1507,7 +1523,6 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
               </.table_default_cell>
               <.table_default_cell class="relative z-10">
                 <.table_row_menu
-                  :if={@media.path}
                   id={"library-menu-#{@media.library.uuid}"}
                   label={gettext("Actions")}
                 >
@@ -1526,9 +1541,12 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
           :if={@owned == [] and @shared == []}
           class="mt-3 text-sm text-base-content/60"
         >
-          {gettext(
-            "You have no libraries of your own yet. Create one to keep your files apart from the site's media."
-          )}
+          {if @can_create,
+            do:
+              gettext(
+                "No libraries yet. Create one to keep your files together and choose who can see them."
+              ),
+            else: gettext("No libraries yet. Libraries shared with you will appear here.")}
         </p>
       </div>
 
