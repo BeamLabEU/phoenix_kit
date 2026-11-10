@@ -182,6 +182,7 @@ defmodule PhoenixKit.Settings do
     magic_link_registration_enabled
     qr_login_enabled
     new_login_alert_enabled
+    new_country_login_alert_enabled
     email_welcome_enabled
     login_attempt_logging_enabled
     login_attempt_retention_days
@@ -314,6 +315,9 @@ defmodule PhoenixKit.Settings do
       "magic_link_registration_enabled" => "true",
       "qr_login_enabled" => "false",
       "new_login_alert_enabled" => "false",
+      # The second sign-in alarm: a country none of the account's devices were
+      # seen in (PhoenixKit.Users.LoginAlerts). OFF, like the one above.
+      "new_country_login_alert_enabled" => "false",
       # Recording failed sign-ins. Defaults ON, unlike the alert above: it
       # writes one aggregated row and sends nothing, and the data is useless
       # retroactively — an install that switches it on after an incident has
@@ -1552,6 +1556,7 @@ defmodule PhoenixKit.Settings do
     qr_login_enabled
     multi_session_enabled
     new_login_alert_enabled
+    new_country_login_alert_enabled
     failed_login_alert_enabled
     failed_login_alert_threshold
     login_attempt_logging_enabled

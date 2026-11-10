@@ -144,8 +144,15 @@ defmodule PhoenixKit.Utils.Geolocation do
   # keeps this single-shot — geolocation is best-effort on the registration path,
   # so Req's default transient retries would only add latency before we fall back
   # to IP-only tracking.
+  # Extra `Req` options for both lookup services — tests route them through
+  # `Req.Test` with `config :phoenix_kit, :geolocation_req_options, plug: ...`.
+  # Unset in production.
+  defp req_options do
+    :phoenix_kit |> Application.get_env(:geolocation_req_options, []) |> Keyword.take([:plug])
+  end
+
   defp make_http_request(url) do
-    case Req.get(url, receive_timeout: 5_000, retry: false) do
+    case Req.get(url, [receive_timeout: 5_000, retry: false] ++ req_options()) do
       {:ok, %{status: 200, body: body}} when is_map(body) ->
         {:ok, body}
 

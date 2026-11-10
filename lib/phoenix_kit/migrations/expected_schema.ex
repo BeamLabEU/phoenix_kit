@@ -202,6 +202,14 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   # access to; the real-database integration suite re-ran clean against a DB
   # migrated through V196, which is the property s7/s8 exist to prove.
   #
+  # V230 (2026-11-10, the country and device cookie of a known device) DECLARES two objects
+  # here by hand: `column:phoenix_kit_user_known_devices.country_code` (varchar(2), nullable,
+  # no default, `pos` 10 after V147's `location` at 9) and
+  # `column:phoenix_kit_user_known_devices.device_token_hash` (varchar(64), nullable, `pos`
+  # 11), built by `v230_objects/0`. Kept honest by
+  # `PhoenixKit.Migrations.Postgres.V230Test`, which runs the repair differ over every
+  # `since: 230` object of a freshly migrated database. `chain_hash` restamped.
+  #
   # V229 (2026-11-07, relationship types and roles on an acting link) adds a generated
   # overlay, `ExpectedSchema.V229` (dev_docs/squash/generate_v229_manifest.exs: the
   # catalog diff V228 -> V229 in a scratch schema), merged after `V227`. Its hand-declared
@@ -683,7 +691,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   @schema_token "__SCHEMA__"
   @name_marker_exempt "__PK_NAME_EXEMPT__"
   @name_marker_always "__PK_NAME_ALWAYS__"
-  @chain_hash "157ce0078efd4f9cdfe81ce28fff0ba805daf327794f4dffb91ffed5d82074bc"
+  @chain_hash "e477356b1f4a525f8b6738ed3726c630b59e0a90b1d16bcea3bd954e47ec37d5"
 
   def objects(prefix) do
     prefix = normalize_prefix!(prefix)
@@ -75724,7 +75732,8 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
       v224_objects() ++
       v225_objects() ++
       v226_objects() ++
-      v228_objects()
+      v228_objects() ++
+      v230_objects()
   end
 
   # --- V220: the dangerous-operation flow (built, not typed; see the header) ---
@@ -75867,6 +75876,31 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
           "timestamp_ops"
         ])
       ] ++ v222_objects(conf)
+  end
+
+  # --- V230: the country and device cookie of a known device (see the header) ---
+
+  defp v230_objects do
+    [
+      v230_column("country_code", "character varying(2)", 10),
+      v230_column("device_token_hash", "character varying(64)", 11)
+    ]
+  end
+
+  defp v230_column(column, type, pos) do
+    %{
+      id: "column:phoenix_kit_user_known_devices.#{column}",
+      owner: :core,
+      check:
+        {:catalog, %{table: "phoenix_kit_user_known_devices", column: column, kind: :column}},
+      create:
+        "ALTER TABLE __SCHEMA__.phoenix_kit_user_known_devices ADD COLUMN IF NOT EXISTS \"#{column}\" #{type}",
+      since: 230,
+      class: :column,
+      revisions: [{230, %{default: nil, type: type, pos: pos, not_null: false}}],
+      presence: :required,
+      backfill: nil
+    }
   end
 
   # --- V228: a reconcile lease on a file (see the header) ---

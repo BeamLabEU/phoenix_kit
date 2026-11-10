@@ -1,3 +1,36 @@
+## Unreleased
+
+Run `mix phoenix_kit.update` (V230).
+
+### Added
+
+- **An alert for a sign-in from a new country.** A second switch under Settings →
+  Authorization → Login Notifications (`new_country_login_alert_enabled`, off by
+  default): the account holder gets the new-login email and in-app notice when they
+  sign in from a country none of their earlier devices was seen in, a browser they
+  already use included. A failed lookup never alerts, and an account with no known
+  country yet records one first. The country comes from the IP address, so a VPN can
+  set it off. V230 adds `phoenix_kit_user_known_devices.country_code`.
+  `LoginAlerts.place_for/1`, `device_alerts_enabled?/0`, `country_alerts_enabled?/0`.
+
+### Changed
+
+- The new-login email now says "a new device or location" (it can be either), and the
+  Security notification type's description says the same.
+- `LoginAlerts.check/2` returns the conn (it sets the device cookie) instead of `:ok`.
+
+### Fixed
+
+- **A browser update no longer reads as a new device.** A browser was recognized by a
+  hash of its whole user-agent string, version number included, so each update sent a
+  "new login" email, about once a month per browser. Every sign-in now gives the
+  browser a device cookie (`_phoenix_kit_device`, random, http-only, 400 days), and the
+  device row keeps a per-account hash of it (V230,
+  `phoenix_kit_user_known_devices.device_token_hash`; the raw value is never stored). A
+  browser that carries it is known at any version and any address. Without it the old
+  user-agent match still applies, so nothing alerts less than before: a stranger with
+  the same browser and OS still alerts.
+
 ## 3.5.0 - 2026-11-09
 
 Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).

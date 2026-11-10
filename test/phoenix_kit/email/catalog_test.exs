@@ -287,7 +287,7 @@ defmodule PhoenixKit.Email.CatalogTest do
                  markdown: """
                  Hi {{user_email}},
 
-                 We noticed a new login to your account from an unrecognized device:
+                 We noticed a login to your account from a new device or location:
 
                  - Time: {{login_time}}
                  - IP address: {{ip_address}}

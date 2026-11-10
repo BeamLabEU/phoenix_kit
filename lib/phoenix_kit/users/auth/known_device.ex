@@ -12,6 +12,15 @@ defmodule PhoenixKit.Users.Auth.KnownDevice do
   IPv6 is its `/64`). The unique index and stored `ip_address` stay the
   full address so Active Sessions / geo / audit still see it.
 
+  `country_code` (V230) is the ISO 3166-1 alpha-2 country the device first
+  signed in from, or `nil` when the lookup failed or the row predates V230.
+  It backs the new-country alert (`new_country_login_alert_enabled`).
+
+  `device_token_hash` (V230) recognizes the browser across updates and IP
+  changes: a SHA-256 of the account's uuid and the browser's device cookie
+  (`PhoenixKit.Users.LoginAlerts`, "Recognizing a browser"). `nil` on rows
+  from before V230 until that browser signs in again from the same address.
+
   The user agent is stored pre-hashed (SHA-256 hex, via
   `PhoenixKit.Utils.SessionFingerprint.hash_user_agent/1`) — the raw UA
   string is never persisted.
@@ -29,6 +38,8 @@ defmodule PhoenixKit.Users.Auth.KnownDevice do
     field :browser, :string
     field :os, :string
     field :location, :string
+    field :country_code, :string
+    field :device_token_hash, :string
     field :first_seen_at, :utc_datetime
     field :last_seen_at, :utc_datetime
 
@@ -45,6 +56,8 @@ defmodule PhoenixKit.Users.Auth.KnownDevice do
       :browser,
       :os,
       :location,
+      :country_code,
+      :device_token_hash,
       :first_seen_at,
       :last_seen_at
     ])
@@ -55,6 +68,7 @@ defmodule PhoenixKit.Users.Auth.KnownDevice do
       :first_seen_at,
       :last_seen_at
     ])
+    |> Ecto.Changeset.validate_format(:country_code, ~r/\A[A-Z]{2}\z/)
     |> Ecto.Changeset.unique_constraint([:user_uuid, :ip_address, :user_agent_hash],
       name: :phoenix_kit_known_devices_user_ip_ua_index
     )

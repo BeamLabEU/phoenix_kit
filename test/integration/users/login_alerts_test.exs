@@ -31,7 +31,7 @@ defmodule PhoenixKit.Integration.Users.LoginAlertsTest do
       user = create_user()
       conn = conn_with_ua(@chrome_mac)
 
-      assert :ok = LoginAlerts.check(user, conn)
+      assert %Plug.Conn{} = LoginAlerts.check(user, conn)
       assert Repo.all(KnownDevice) == []
     end
   end
@@ -46,7 +46,7 @@ defmodule PhoenixKit.Integration.Users.LoginAlertsTest do
       user = create_user()
       conn = conn_with_ua(@chrome_mac)
 
-      assert :ok = LoginAlerts.check(user, conn)
+      assert %Plug.Conn{} = LoginAlerts.check(user, conn)
 
       assert [%KnownDevice{user_uuid: user_uuid, browser: "Chrome", os: "macOS"}] =
                Repo.all(KnownDevice)
@@ -61,7 +61,7 @@ defmodule PhoenixKit.Integration.Users.LoginAlertsTest do
     test "a first-time login does not send an alert email" do
       user = create_user()
 
-      assert :ok = LoginAlerts.check(user, conn_with_ua(@chrome_mac))
+      assert %Plug.Conn{} = LoginAlerts.check(user, conn_with_ua(@chrome_mac))
 
       refute_email_sent()
     end
@@ -69,20 +69,20 @@ defmodule PhoenixKit.Integration.Users.LoginAlertsTest do
     test "a genuinely new device (the account's second) does send an alert email" do
       user = create_user()
 
-      assert :ok = LoginAlerts.check(user, conn_with_ua(@chrome_mac))
-      assert :ok = LoginAlerts.check(user, conn_with_ua(@firefox_linux))
+      assert %Plug.Conn{} = LoginAlerts.check(user, conn_with_ua(@chrome_mac))
+      assert %Plug.Conn{} = LoginAlerts.check(user, conn_with_ua(@firefox_linux))
 
       assert_email_sent(fn email -> assert email.subject =~ "New login" end)
     end
 
-    test "the alert names the unrecognized device and qualifies the location" do
+    test "the alert says the device or location is new and qualifies the location" do
       user = create_user()
 
-      assert :ok = LoginAlerts.check(user, conn_with_ua(@chrome_mac))
-      assert :ok = LoginAlerts.check(user, conn_with_ua(@firefox_linux))
+      assert %Plug.Conn{} = LoginAlerts.check(user, conn_with_ua(@chrome_mac))
+      assert %Plug.Conn{} = LoginAlerts.check(user, conn_with_ua(@firefox_linux))
 
       assert_email_sent(fn email ->
-        assert email.text_body =~ "from an unrecognized device"
+        assert email.text_body =~ "from a new device or location"
 
         # Whether geolocation resolves here depends on a live lookup, so the
         # invariant is asserted instead of one of the two outcomes: a resolved
@@ -95,8 +95,8 @@ defmodule PhoenixKit.Integration.Users.LoginAlertsTest do
       user = create_user()
       local = {127, 0, 0, 1}
 
-      assert :ok = LoginAlerts.check(user, conn_with_ua(@chrome_mac, local))
-      assert :ok = LoginAlerts.check(user, conn_with_ua(@firefox_linux, local))
+      assert %Plug.Conn{} = LoginAlerts.check(user, conn_with_ua(@chrome_mac, local))
+      assert %Plug.Conn{} = LoginAlerts.check(user, conn_with_ua(@firefox_linux, local))
 
       assert_email_sent(fn email ->
         refute email.text_body =~ "(approximate)"
@@ -111,8 +111,8 @@ defmodule PhoenixKit.Integration.Users.LoginAlertsTest do
       user = create_user()
       {:ok, user} = Auth.update_user_profile(user, %{"user_timezone" => "Europe/Paris"})
 
-      assert :ok = LoginAlerts.check(user, conn_with_ua(@chrome_mac))
-      assert :ok = LoginAlerts.check(user, conn_with_ua(@firefox_linux))
+      assert %Plug.Conn{} = LoginAlerts.check(user, conn_with_ua(@chrome_mac))
+      assert %Plug.Conn{} = LoginAlerts.check(user, conn_with_ua(@firefox_linux))
 
       assert_email_sent(fn email ->
         assert [_, time_line] = Regex.run(~r/^- Time: (.+)$/m, email.text_body)
@@ -125,8 +125,8 @@ defmodule PhoenixKit.Integration.Users.LoginAlertsTest do
       user = create_user()
       conn = conn_with_ua(@chrome_mac)
 
-      assert :ok = LoginAlerts.check(user, conn)
-      assert :ok = LoginAlerts.check(user, conn)
+      assert %Plug.Conn{} = LoginAlerts.check(user, conn)
+      assert %Plug.Conn{} = LoginAlerts.check(user, conn)
 
       assert [%KnownDevice{}] = Repo.all(KnownDevice)
     end
@@ -134,8 +134,8 @@ defmodule PhoenixKit.Integration.Users.LoginAlertsTest do
     test "a different browser from the same user is tracked as a separate device" do
       user = create_user()
 
-      assert :ok = LoginAlerts.check(user, conn_with_ua(@chrome_mac))
-      assert :ok = LoginAlerts.check(user, conn_with_ua(@firefox_linux))
+      assert %Plug.Conn{} = LoginAlerts.check(user, conn_with_ua(@chrome_mac))
+      assert %Plug.Conn{} = LoginAlerts.check(user, conn_with_ua(@firefox_linux))
 
       assert [_, _] = Repo.all(KnownDevice)
     end
@@ -146,8 +146,8 @@ defmodule PhoenixKit.Integration.Users.LoginAlertsTest do
       # ignore the email. See the LoginAlerts moduledoc.
       user = create_user()
 
-      assert :ok = LoginAlerts.check(user, conn_with_ua(@chrome_mac, {203, 0, 113, 42}))
-      assert :ok = LoginAlerts.check(user, conn_with_ua(@chrome_mac, {198, 51, 100, 7}))
+      assert %Plug.Conn{} = LoginAlerts.check(user, conn_with_ua(@chrome_mac, {203, 0, 113, 42}))
+      assert %Plug.Conn{} = LoginAlerts.check(user, conn_with_ua(@chrome_mac, {198, 51, 100, 7}))
 
       refute_email_sent()
     end
@@ -157,8 +157,8 @@ defmodule PhoenixKit.Integration.Users.LoginAlertsTest do
       # session token's (network, ua) against a KnownDevice row.
       user = create_user()
 
-      assert :ok = LoginAlerts.check(user, conn_with_ua(@chrome_mac, {203, 0, 113, 42}))
-      assert :ok = LoginAlerts.check(user, conn_with_ua(@chrome_mac, {198, 51, 100, 7}))
+      assert %Plug.Conn{} = LoginAlerts.check(user, conn_with_ua(@chrome_mac, {203, 0, 113, 42}))
+      assert %Plug.Conn{} = LoginAlerts.check(user, conn_with_ua(@chrome_mac, {198, 51, 100, 7}))
 
       assert [_, _] = Repo.all(KnownDevice)
     end
@@ -170,8 +170,8 @@ defmodule PhoenixKit.Integration.Users.LoginAlertsTest do
       first = {0x2A0D, 0x3344, 0x6A, 0xC310, 0x88F8, 0x482C, 0xE41A, 0x9EF5}
       rotated = {0x2A0D, 0x3344, 0x6A, 0xC310, 0x1111, 0x2222, 0x3333, 0x4444}
 
-      assert :ok = LoginAlerts.check(user, conn_with_ua(@chrome_mac, first))
-      assert :ok = LoginAlerts.check(user, conn_with_ua(@chrome_mac, rotated))
+      assert %Plug.Conn{} = LoginAlerts.check(user, conn_with_ua(@chrome_mac, first))
+      assert %Plug.Conn{} = LoginAlerts.check(user, conn_with_ua(@chrome_mac, rotated))
 
       assert [_] = Repo.all(KnownDevice)
     end
@@ -181,8 +181,8 @@ defmodule PhoenixKit.Integration.Users.LoginAlertsTest do
       first = {0x2A0D, 0x3344, 0x6A, 0xC310, 0, 0, 0, 1}
       other = {0x2A0D, 0x3344, 0x6A, 0xC311, 0, 0, 0, 1}
 
-      assert :ok = LoginAlerts.check(user, conn_with_ua(@chrome_mac, first))
-      assert :ok = LoginAlerts.check(user, conn_with_ua(@chrome_mac, other))
+      assert %Plug.Conn{} = LoginAlerts.check(user, conn_with_ua(@chrome_mac, first))
+      assert %Plug.Conn{} = LoginAlerts.check(user, conn_with_ua(@chrome_mac, other))
 
       assert [_, _] = Repo.all(KnownDevice)
     end
@@ -190,8 +190,8 @@ defmodule PhoenixKit.Integration.Users.LoginAlertsTest do
     test "the same browser from a new IP still logs the activity for the audit trail" do
       user = create_user()
 
-      assert :ok = LoginAlerts.check(user, conn_with_ua(@chrome_mac, {203, 0, 113, 42}))
-      assert :ok = LoginAlerts.check(user, conn_with_ua(@chrome_mac, {198, 51, 100, 7}))
+      assert %Plug.Conn{} = LoginAlerts.check(user, conn_with_ua(@chrome_mac, {203, 0, 113, 42}))
+      assert %Plug.Conn{} = LoginAlerts.check(user, conn_with_ua(@chrome_mac, {198, 51, 100, 7}))
 
       assert PhoenixKit.Activity.count(action: "user.new_login_detected", actor_uuid: user.uuid) ==
                2
@@ -200,8 +200,10 @@ defmodule PhoenixKit.Integration.Users.LoginAlertsTest do
     test "a genuinely new browser on a brand-new IP still sends an alert email" do
       user = create_user()
 
-      assert :ok = LoginAlerts.check(user, conn_with_ua(@chrome_mac, {203, 0, 113, 42}))
-      assert :ok = LoginAlerts.check(user, conn_with_ua(@firefox_linux, {198, 51, 100, 7}))
+      assert %Plug.Conn{} = LoginAlerts.check(user, conn_with_ua(@chrome_mac, {203, 0, 113, 42}))
+
+      assert %Plug.Conn{} =
+               LoginAlerts.check(user, conn_with_ua(@firefox_linux, {198, 51, 100, 7}))
 
       assert_email_sent(fn email -> assert email.subject =~ "New login" end)
     end
@@ -211,10 +213,121 @@ defmodule PhoenixKit.Integration.Users.LoginAlertsTest do
       user2 = create_user()
       conn = conn_with_ua(@chrome_mac)
 
-      assert :ok = LoginAlerts.check(user1, conn)
-      assert :ok = LoginAlerts.check(user2, conn)
+      assert %Plug.Conn{} = LoginAlerts.check(user1, conn)
+      assert %Plug.Conn{} = LoginAlerts.check(user2, conn)
 
       assert [_, _] = Repo.all(KnownDevice)
+    end
+  end
+
+  # A browser update changes the user agent (it carries the version), so the
+  # browser is recognized by the device cookie it was given at its last
+  # sign-in. See "Recognizing a browser" in the LoginAlerts moduledoc.
+  describe "the device cookie" do
+    setup do
+      {:ok, _} = Settings.update_setting("new_login_alert_enabled", "true")
+      :ok
+    end
+
+    @chrome_mac_updated "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Chrome/131.0"
+    @cookie LoginAlerts.device_cookie()
+
+    defp device_cookie(conn), do: conn.resp_cookies[@cookie]
+
+    defp with_cookie(conn, token), do: Plug.Test.put_req_cookie(conn, @cookie, token)
+
+    test "is given at sign-in: http-only, secure, 400 days" do
+      user = create_user()
+
+      conn = LoginAlerts.check(user, conn_with_ua(@chrome_mac))
+
+      assert %{value: token, http_only: true, secure: true, same_site: "Lax", max_age: max_age} =
+               device_cookie(conn)
+
+      assert token =~ ~r/\A[A-Za-z0-9_-]{43}\z/
+      assert max_age == 60 * 60 * 24 * 400
+    end
+
+    test "is kept, not replaced, when the browser already has one" do
+      user = create_user()
+      token = device_cookie(LoginAlerts.check(user, conn_with_ua(@chrome_mac))).value
+
+      again = LoginAlerts.check(user, with_cookie(conn_with_ua(@chrome_mac), token))
+
+      assert device_cookie(again).value == token
+    end
+
+    test "a junk value is replaced with a new token" do
+      user = create_user()
+
+      conn = LoginAlerts.check(user, with_cookie(conn_with_ua(@chrome_mac), "not-a-token"))
+
+      assert device_cookie(conn).value =~ ~r/\A[A-Za-z0-9_-]{43}\z/
+    end
+
+    test "an updated browser that carries it is not a new device, at a new address too" do
+      user = create_user()
+      token = device_cookie(LoginAlerts.check(user, conn_with_ua(@chrome_mac))).value
+
+      LoginAlerts.check(
+        user,
+        with_cookie(conn_with_ua(@chrome_mac_updated, {198, 51, 100, 7}), token)
+      )
+
+      refute_email_sent()
+      # Still a row of its own, for the Active Sessions list.
+      assert [_, _] = Repo.all(KnownDevice)
+    end
+
+    # The intruder case: the same browser and OS as the account holder, but
+    # not their browser. Matching on browser/OS family would stay silent here.
+    test "the same kind of browser without it is a new device" do
+      user = create_user()
+      LoginAlerts.check(user, conn_with_ua(@chrome_mac))
+
+      LoginAlerts.check(user, conn_with_ua(@chrome_mac_updated, {198, 51, 100, 7}))
+
+      assert_email_sent(fn email -> assert email.subject =~ "New login" end)
+    end
+
+    test "is stored only as a hash, and differently for each account" do
+      user1 = create_user()
+      user2 = create_user()
+      token = device_cookie(LoginAlerts.check(user1, conn_with_ua(@chrome_mac))).value
+      LoginAlerts.check(user2, with_cookie(conn_with_ua(@chrome_mac), token))
+
+      hashes = KnownDevice |> Repo.all() |> Enum.map(& &1.device_token_hash)
+
+      assert [a, b] = hashes
+      assert a =~ ~r/\A[0-9a-f]{64}\z/ and b =~ ~r/\A[0-9a-f]{64}\z/
+      assert a != b
+      refute token in hashes
+    end
+
+    test "a row from before the cookie learns it at the next sign-in from the same address" do
+      user = create_user()
+      LoginAlerts.check(user, conn_with_ua(@chrome_mac))
+      Repo.update_all(KnownDevice, set: [device_token_hash: nil])
+
+      token = device_cookie(LoginAlerts.check(user, conn_with_ua(@chrome_mac))).value
+      assert [%KnownDevice{device_token_hash: hash}] = Repo.all(KnownDevice)
+      assert is_binary(hash)
+
+      LoginAlerts.check(
+        user,
+        with_cookie(conn_with_ua(@chrome_mac_updated, {198, 51, 100, 7}), token)
+      )
+
+      refute_email_sent()
+    end
+
+    test "is not given while both alerts are off" do
+      {:ok, _} = Settings.update_setting("new_login_alert_enabled", "false")
+      user = create_user()
+
+      conn = LoginAlerts.check(user, conn_with_ua(@chrome_mac))
+
+      assert device_cookie(conn) == nil
     end
   end
 end
