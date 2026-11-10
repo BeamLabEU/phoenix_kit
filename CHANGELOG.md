@@ -1,8 +1,23 @@
 ## Unreleased
 
-Run `mix phoenix_kit.update` (V230).
+Run `mix phoenix_kit.update` (V230, V231 and the new `phoenix_kit.js`).
 
 ### Added
+
+- **Sign in with a passkey** (Face ID, Touch ID, Windows Hello, a phone or a
+  security key), off by default: Settings → Authorization → Passkeys
+  (`passkey_login_enabled`). The sign-in page offers the passkey in the email field
+  as it loads and through a "Sign in with passkey" button; people add, rename and
+  remove passkeys on the Security tab of their account settings, and an admin can
+  remove a person's passkeys from the user page. Adding one needs the person's own
+  session from the last 15 minutes (not while impersonated or acting for an
+  organization), and adding or removing one sends an email (`passkey_added`,
+  `passkey_removed`) and an in-app notice. The site keeps only public keys
+  (V231, `phoenix_kit_user_passkeys`). ⚠️ A passkey works only on the domain it was
+  made for (the `site_url` host): turn this on once that is final.
+  `mix phoenix_kit.doctor` warns about passkeys made for another domain. New
+  dependency: `wax_`. `PhoenixKit.Users.Passkeys`,
+  `PhoenixKitWeb.Live.Components.Passkeys`.
 
 - **An alert for a sign-in from a new country.** A second switch under Settings →
   Authorization → Login Notifications (`new_country_login_alert_enabled`, off by

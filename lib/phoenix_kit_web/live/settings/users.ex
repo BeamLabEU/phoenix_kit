@@ -476,6 +476,7 @@ defmodule PhoenixKitWeb.Live.Settings.Users do
   defp profile_section_label(:etcher), do: gettext("Annotation tools reset")
   defp profile_section_label(:password), do: gettext("Password")
   defp profile_section_label(:oauth), do: gettext("Connected sign-in accounts")
+  defp profile_section_label(:passkeys), do: gettext("Passkeys")
   defp profile_section_label(:sessions), do: gettext("Sessions")
   defp profile_section_label(:notifications), do: gettext("Notifications")
 

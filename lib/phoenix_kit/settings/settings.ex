@@ -181,6 +181,7 @@ defmodule PhoenixKit.Settings do
     magic_link_login_enabled
     magic_link_registration_enabled
     qr_login_enabled
+    passkey_login_enabled
     new_login_alert_enabled
     new_country_login_alert_enabled
     email_welcome_enabled
@@ -314,6 +315,9 @@ defmodule PhoenixKit.Settings do
       "magic_link_login_enabled" => "true",
       "magic_link_registration_enabled" => "true",
       "qr_login_enabled" => "false",
+      # Passkey sign-in (PhoenixKit.Users.Passkeys). OFF until the host's site_url is
+      # final: a passkey belongs to one domain.
+      "passkey_login_enabled" => "false",
       "new_login_alert_enabled" => "false",
       # The second sign-in alarm: a country none of the account's devices were
       # seen in (PhoenixKit.Users.LoginAlerts). OFF, like the one above.
@@ -1554,6 +1558,7 @@ defmodule PhoenixKit.Settings do
     magic_link_login_enabled
     magic_link_registration_enabled
     qr_login_enabled
+    passkey_login_enabled
     multi_session_enabled
     new_login_alert_enabled
     new_country_login_alert_enabled

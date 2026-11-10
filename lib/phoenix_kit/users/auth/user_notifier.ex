@@ -358,6 +358,60 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
   # `Utils.Date.format_datetime_with_user_timezone/2` returns the date ALONE --
   # it ends in `format_datetime/2`, which drops to `NaiveDateTime.to_date/1`.
   # This is the same pairing the admin lists use.
+  @doc """
+  Tells `user` a passkey was added to their account (`PhoenixKit.Users.Passkeys`).
+
+  A passkey is a standing way back in, so this is the email an account holder needs
+  when it was not them.
+  """
+  def deliver_passkey_added(user, attrs) do
+    variables =
+      RecipientLocale.in_locale(RecipientLocale.for_rendering(user), fn ->
+        %{
+          "user_email" => User.delivery_email(user),
+          "passkey_name" => attrs.name,
+          "time" => login_time(user, attrs.at),
+          "browser_os" =>
+            (attrs[:browser_os] in [nil, ""] && gettext("Unknown")) || attrs.browser_os,
+          "security_url" => Routes.base_url() <> Routes.user_settings_path()
+        }
+      end)
+
+    deliver_templated(
+      user,
+      User.delivery_email(user),
+      "passkey_added",
+      variables,
+      &CoreTemplates.passkey_added_defaults/0
+    )
+  end
+
+  @doc """
+  Tells `user` a passkey was removed from their account, by them or by an
+  administrator (`attrs.by_owner?`).
+  """
+  def deliver_passkey_removed(user, attrs) do
+    variables =
+      RecipientLocale.in_locale(RecipientLocale.for_rendering(user), fn ->
+        %{
+          "user_email" => User.delivery_email(user),
+          "passkey_name" => attrs.name,
+          "time" => login_time(user, DateTime.utc_now() |> DateTime.truncate(:second)),
+          "removed_by" =>
+            if(attrs.by_owner?, do: gettext("You"), else: gettext("An administrator")),
+          "security_url" => Routes.base_url() <> Routes.user_settings_path()
+        }
+      end)
+
+    deliver_templated(
+      user,
+      User.delivery_email(user),
+      "passkey_removed",
+      variables,
+      &CoreTemplates.passkey_removed_defaults/0
+    )
+  end
+
   defp login_time(user, at) do
     date = UtilsDate.format_date_with_user_timezone(at, user)
     time = UtilsDate.format_time_with_user_timezone(at, user)

@@ -263,6 +263,7 @@ defmodule PhoenixKit.Migrations.ModuleOwnedTables do
     phoenix_kit_storage_profiles
     phoenix_kit_user_known_devices
     phoenix_kit_user_oauth_providers
+    phoenix_kit_user_passkeys
     phoenix_kit_user_role_assignments
     phoenix_kit_user_roles
     phoenix_kit_user_view_prefs

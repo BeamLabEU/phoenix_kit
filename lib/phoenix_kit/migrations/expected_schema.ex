@@ -202,6 +202,12 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   # access to; the real-database integration suite re-ran clean against a DB
   # migrated through V196, which is the property s7/s8 exist to prove.
   #
+  # V231 (2026-11-10, passkeys) adds a generated overlay, `ExpectedSchema.V231`
+  # (dev_docs/squash/generate_v231_manifest.exs: the catalog diff V230 -> V231 in a scratch
+  # schema), merged after `V229`: the new `phoenix_kit_user_passkeys` table with its
+  # columns, primary key, user foreign key and two indexes. No seed rows. Kept honest by
+  # `PhoenixKit.Migrations.Postgres.V231Test`. `chain_hash` restamped.
+  #
   # V230 (2026-11-10, the country and device cookie of a known device) DECLARES two objects
   # here by hand: `column:phoenix_kit_user_known_devices.country_code` (varchar(2), nullable,
   # no default, `pos` 10 after V147's `location` at 9) and
@@ -686,12 +692,13 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
 
   alias PhoenixKit.Migrations.ExpectedSchema.V227
   alias PhoenixKit.Migrations.ExpectedSchema.V229
+  alias PhoenixKit.Migrations.ExpectedSchema.V231
   alias PhoenixKit.Migrations.Postgres.Helpers
 
   @schema_token "__SCHEMA__"
   @name_marker_exempt "__PK_NAME_EXEMPT__"
   @name_marker_always "__PK_NAME_ALWAYS__"
-  @chain_hash "e477356b1f4a525f8b6738ed3726c630b59e0a90b1d16bcea3bd954e47ec37d5"
+  @chain_hash "7fd84ac7426bcf7bf4dd76264b75119bd67f365b7b4a39de94e0ffe4ea2cc9a0"
 
   def objects(prefix) do
     prefix = normalize_prefix!(prefix)
@@ -702,6 +709,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
     # and generate_v229_manifest.exs.
     |> V227.merge()
     |> V229.merge()
+    |> V231.merge()
     |> Enum.reject(&module_owned_object?/1)
     |> Enum.map(&materialize_object(&1, prefix))
   end
@@ -758,7 +766,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   # `ModuleOwnedTablesTest` still has to prove the ownership lists cover all
   # of core's chain. Goes when step 7 rewrites this file.
   def created_table_names do
-    objects = raw_objects() |> V227.merge() |> V229.merge()
+    objects = raw_objects() |> V227.merge() |> V229.merge() |> V231.merge()
 
     for %{class: :table, check: {:catalog, %{name: name}}} <- objects,
         into: MapSet.new(),

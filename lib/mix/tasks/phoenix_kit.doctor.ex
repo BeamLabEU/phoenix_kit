@@ -188,6 +188,7 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
         run_check("User Dashboard (deprecated)", fn -> check_user_dashboard_deprecation() end),
         run_check("Sitemap Discoverability", fn -> check_sitemap_serving(prefix) end),
         run_check("Crawler Visibility", fn -> check_crawler_visibility(prefix) end),
+        run_check("Passkey Domain", fn -> check_passkey_domains(prefix) end),
         run_check("Demo Auth Pages", fn -> check_demo_routes() end),
         run_check("Variant Set Standard Sizes", fn -> check_variant_sets(prefix) end),
         run_check("Image Sizes From an Older Pipeline", fn -> check_variant_pipeline(prefix) end),
@@ -2587,6 +2588,64 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
     _ -> {:pass, "Crawler settings unreadable (no database?) — skipping."}
   catch
     :exit, _ -> {:pass, "Crawler settings unreadable (no database?) — skipping."}
+  end
+
+  # A passkey works only on the domain it was made for (V231): one made before the
+  # site moved signs nobody in. Compared with the host of the `site_url` setting,
+  # the first rung of the passkeys' own origin (`PhoenixKit.API.MCP.Origin`); with
+  # no `site_url` the endpoint decides at runtime, which this task cannot see.
+  defp check_passkey_domains(prefix) do
+    repo = get_repo!()
+    p = if prefix == "public", do: "public.", else: "#{prefix}."
+
+    %{rows: rows} =
+      repo.query!(
+        "SELECT rp_id, count(*) FROM #{p}phoenix_kit_user_passkeys GROUP BY rp_id ORDER BY rp_id",
+        []
+      )
+
+    total = Enum.reduce(rows, 0, fn [_, n], acc -> acc + n end)
+
+    case {rows, site_host(repo, p)} do
+      {[], _} ->
+        {:pass, "No passkeys."}
+
+      {_, nil} ->
+        {:pass,
+         "#{total} passkey(s); site_url is not set, so their domain cannot be compared here."}
+
+      {rows, host} ->
+        case for([rp_id, n] <- rows, rp_id != host, do: "#{rp_id} (#{n})") do
+          [] ->
+            {:pass, "#{total} passkey(s), all for #{host}."}
+
+          other ->
+            {:warn,
+             "Passkeys made for another domain no longer work on #{host}: " <>
+               Enum.join(other, ", ") <>
+               ". Their owners sign in with a password or a magic link and can add new ones."}
+        end
+    end
+  rescue
+    _ -> {:pass, "Passkeys unreadable (no database, or before V231) — skipping."}
+  catch
+    :exit, _ -> {:pass, "Passkeys unreadable (no database, or before V231) — skipping."}
+  end
+
+  defp site_host(repo, p) do
+    case repo.query!("SELECT value FROM #{p}phoenix_kit_settings WHERE key = 'site_url'", []) do
+      %{rows: [[value] | _]} when is_binary(value) and value != "" ->
+        case URI.parse(String.trim(value)) do
+          %URI{scheme: scheme, host: host} when scheme in ["http", "https"] and is_binary(host) ->
+            String.downcase(host)
+
+          _ ->
+            nil
+        end
+
+      _ ->
+        nil
+    end
   end
 
   # A boolean settings row, read straight from the table (see moduledoc of the

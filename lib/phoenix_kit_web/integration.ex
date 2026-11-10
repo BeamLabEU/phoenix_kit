@@ -317,6 +317,8 @@ defmodule PhoenixKitWeb.Integration do
         get "/users/magic-link/:token", Users.MagicLinkVerify, :verify
         # QR device-handoff login — completion endpoint (single-use login token)
         get "/users/qr-login/finish/:token", Users.QrLoginComplete, :complete
+        # Passkey sign-in — completion endpoint (single-use sign-in token)
+        get "/users/passkey/finish/:token", Users.PasskeyLoginComplete, :complete
 
         # Dashboard context switching (multi-selector with key, must come before legacy route)
         post "/context/:key/:id", ContextController, :set
@@ -1654,6 +1656,8 @@ defmodule PhoenixKitWeb.Integration do
         get "/users/magic-link/:token", Users.MagicLinkVerify, :verify
         # QR device-handoff login — completion endpoint (single-use login token)
         get "/users/qr-login/finish/:token", Users.QrLoginComplete, :complete
+        # Passkey sign-in — completion endpoint (single-use sign-in token)
+        get "/users/passkey/finish/:token", Users.PasskeyLoginComplete, :complete
 
         # OAuth routes
         get "/users/auth/:provider", Users.OAuth, :request

@@ -10,6 +10,8 @@ defmodule PhoenixKitWeb.Users.Login do
 
   alias PhoenixKit.Admin.Presence
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.Passkeys
+  alias PhoenixKit.Users.RateLimiter
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
@@ -25,6 +27,13 @@ defmodule PhoenixKitWeb.Users.Login do
 
       :cont ->
         # Track anonymous visitor session
+        socket =
+          assign(socket,
+            # `connect_info` is readable in mount only; the passkey rate limit needs it.
+            client_ip: if(connected?(socket), do: IpAddress.extract_from_socket(socket)),
+            passkey_challenge: nil
+          )
+
         if connected?(socket) do
           session_id = session["live_socket_id"] || generate_session_id()
 
@@ -41,6 +50,7 @@ defmodule PhoenixKitWeb.Users.Login do
         allow_registration = Settings.get_boolean_setting("allow_registration", true)
         magic_link_enabled = Settings.get_boolean_setting("magic_link_login_enabled", true)
         qr_login_enabled = Settings.get_boolean_setting("qr_login_enabled", false)
+        passkey_enabled = Passkeys.enabled?()
 
         # Support both old :email flash and new :email_or_username flash for backwards compatibility
         email_or_username =
@@ -61,6 +71,7 @@ defmodule PhoenixKitWeb.Users.Login do
             allow_registration: allow_registration,
             magic_link_enabled: magic_link_enabled,
             qr_login_enabled: qr_login_enabled,
+            passkey_enabled: passkey_enabled,
             remember_me_available: Auth.remember_me_enabled?(),
             remember_me: Auth.remember_me_default?(),
             return_to: return_to,
@@ -70,6 +81,69 @@ defmodule PhoenixKitWeb.Users.Login do
 
         {:ok, socket, temporary_assigns: [form: form]}
     end
+  end
+
+  # ── Passkeys ──────────────────────────────────────────────────────
+  #
+  # The challenge lives in this process only (`passkey_challenge`); the browser
+  # gets its bytes and answers with a signature over them. Each attempt asks for
+  # a fresh one, and an answer clears it whatever the result, so nothing can be
+  # replayed. A success hands over to `PasskeyLoginComplete` through a one-time
+  # token, the way QR sign-in does: only a controller can write the session.
+
+  def handle_event("passkey_options", _params, socket) do
+    if Passkeys.enabled?() do
+      {challenge, options} = Passkeys.authentication_options()
+      {:reply, %{options: options}, assign(socket, :passkey_challenge, challenge)}
+    else
+      {:reply, %{}, socket}
+    end
+  end
+
+  def handle_event("passkey_sign_in", params, socket) do
+    challenge = socket.assigns.passkey_challenge
+    socket = assign(socket, :passkey_challenge, nil)
+
+    # Rate limit first, before any lookup, as every public sign-in endpoint does.
+    with :ok <- passkey_rate_limit(socket.assigns.client_ip),
+         %Wax.Challenge{} <- challenge,
+         {:ok, user} <- Passkeys.authenticate(challenge, params) do
+      token = Passkeys.mint_login_token(user)
+
+      query =
+        URI.encode_query(
+          Enum.reject(
+            [
+              {"remember_me", if(params["remember_me"] == "true", do: "true")},
+              {"return_to", socket.assigns.return_to}
+            ],
+            fn {_k, v} -> is_nil(v) end
+          )
+        )
+
+      path = Routes.path("/users/passkey/finish/#{token}")
+      {:noreply, redirect(socket, to: if(query == "", do: path, else: path <> "?" <> query))}
+    else
+      {:error, :rate_limit_exceeded} ->
+        {:noreply,
+         put_flash(socket, :error, gettext("Too many attempts. Wait a minute and try again."))}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, passkey_failed_message())}
+    end
+  end
+
+  def handle_event("passkey_failed", _params, socket) do
+    {:noreply, put_flash(socket, :error, passkey_failed_message())}
+  end
+
+  defp passkey_rate_limit(ip) when is_binary(ip),
+    do: RateLimiter.check_passkey_login_rate_limit(ip)
+
+  defp passkey_rate_limit(_ip), do: RateLimiter.check_passkey_login_rate_limit("unknown")
+
+  defp passkey_failed_message do
+    gettext("That passkey did not work. Try again, or sign in another way.")
   end
 
   defp generate_session_id do

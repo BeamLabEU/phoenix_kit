@@ -289,6 +289,26 @@
                 </div>
               </div>
 
+              <%!-- Passkeys --%>
+              <div class="mb-3">
+                <div class="text-sm font-semibold text-base-content/70 mb-2">
+                  {gettext("Passkeys")}
+                </div>
+                <.checkbox
+                  name="settings[passkey_login_enabled]"
+                  checked={@settings["passkey_login_enabled"] == "true"}
+                  wrapper_class="ml-4"
+                >
+                  {gettext("Enable sign-in with a passkey (Face ID, Touch ID, Windows Hello)")}
+                  <:description>
+                    {gettext(
+                      "A passkey works only on the domain it was made for: %{domain}. Moving the site to another domain makes every passkey stop working, and people sign in with their password or a magic link instead.",
+                      domain: @passkey_domain
+                    )}
+                  </:description>
+                </.checkbox>
+              </div>
+
               <%!-- New Login Alerts --%>
               <div class="mb-3">
                 <div class="text-sm font-semibold text-base-content/70 mb-2">

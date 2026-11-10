@@ -11,6 +11,7 @@ defmodule PhoenixKitWeb.Live.Settings.Authorization do
   alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.OAuthConfig
+  alias PhoenixKit.Users.Passkeys
   alias PhoenixKit.Utils.CssValue
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Actor
@@ -65,6 +66,8 @@ defmodule PhoenixKitWeb.Live.Settings.Authorization do
         :project_title,
         merged_settings["project_title"] || PhoenixKit.Config.get(:project_title, "PhoenixKit")
       )
+      # The domain passkeys are made for, named next to the switch.
+      |> assign(:passkey_domain, Passkeys.relying_party().rp_id)
       |> assign(:show_media_selector, false)
       |> assign(:media_selection_target, nil)
       # Resolved when the selector opens — the host hook may create a folder.

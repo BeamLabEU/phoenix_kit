@@ -14465,6 +14465,252 @@ if (typeof window.Chart === "undefined") {
   }
 })();
 
+// ---------------------------------------------------------------------------
+// PasskeySignIn / PasskeyRegister
+//
+// WebAuthn for `PhoenixKit.Users.Passkeys`. The server makes every challenge
+// and keeps it (in the LiveView's memory); these hooks only carry bytes between
+// the server and `navigator.credentials`, base64url both ways. Each attempt
+// asks for a fresh challenge (a `pushEvent` with a reply), so nothing is made
+// for a visitor who never uses a passkey, and a failed attempt cannot be
+// replayed.
+//
+// PasskeySignIn (the sign-in page): starts the browser's passkey suggestions in
+// the email field (conditional mediation) when the browser has them, and the
+// modal prompt from a `[data-passkey-sign-in]` button inside the hook element.
+// The suggestion request is aborted before the modal one starts, and on destroy.
+//
+// PasskeyRegister (account settings, a LiveComponent): a
+// `[data-passkey-register]` button inside the hook element runs
+// `navigator.credentials.create`; events go to the component (`pushEventTo`).
+//
+// Where the browser has no WebAuthn, the hook element gets
+// `data-passkey-unsupported` and its buttons are hidden.
+// ---------------------------------------------------------------------------
+(function () {
+  function toBase64Url(buffer) {
+    var bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+    var binary = "";
+    for (var i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+
+  function fromBase64Url(text) {
+    var base64 = String(text).replace(/-/g, "+").replace(/_/g, "/");
+    while (base64.length % 4) base64 += "=";
+    var binary = atob(base64);
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  }
+
+  function descriptors(list) {
+    return (list || []).map(function (d) {
+      var out = { type: d.type || "public-key", id: fromBase64Url(d.id) };
+      if (d.transports && d.transports.length) out.transports = d.transports;
+      return out;
+    });
+  }
+
+  // The server's JSON options for navigator.credentials.create, with every
+  // byte field turned into bytes.
+  function creationOptions(json) {
+    var options = Object.assign({}, json);
+    options.challenge = fromBase64Url(json.challenge);
+    options.user = Object.assign({}, json.user, { id: fromBase64Url(json.user.id) });
+    options.excludeCredentials = descriptors(json.excludeCredentials);
+    return options;
+  }
+
+  // The same for navigator.credentials.get.
+  function requestOptions(json) {
+    var options = Object.assign({}, json);
+    options.challenge = fromBase64Url(json.challenge);
+    options.allowCredentials = descriptors(json.allowCredentials);
+    return options;
+  }
+
+  function registrationPayload(credential, userAgent) {
+    var response = credential.response;
+    return {
+      rawId: toBase64Url(credential.rawId),
+      attestationObject: toBase64Url(response.attestationObject),
+      clientDataJSON: toBase64Url(response.clientDataJSON),
+      transports: typeof response.getTransports === "function" ? response.getTransports() : [],
+      userAgent: userAgent || ""
+    };
+  }
+
+  function assertionPayload(credential) {
+    var response = credential.response;
+    return {
+      rawId: toBase64Url(credential.rawId),
+      authenticatorData: toBase64Url(response.authenticatorData),
+      clientDataJSON: toBase64Url(response.clientDataJSON),
+      signature: toBase64Url(response.signature),
+      userHandle: response.userHandle ? toBase64Url(response.userHandle) : null
+    };
+  }
+
+  function supported() {
+    return (
+      typeof window !== "undefined" &&
+      typeof window.PublicKeyCredential === "function" &&
+      typeof navigator !== "undefined" &&
+      !!navigator.credentials
+    );
+  }
+
+  function markUnsupported(el, selector) {
+    el.setAttribute("data-passkey-unsupported", "");
+    el.querySelectorAll(selector).forEach(function (button) {
+      button.classList.add("hidden");
+    });
+  }
+
+  // A cancelled prompt and an aborted suggestion are not failures to report.
+  function quietError(error) {
+    return error && (error.name === "AbortError" || error.name === "NotAllowedError");
+  }
+
+  var PasskeySignIn = {
+    mounted() {
+      this.controller = null;
+
+      if (!supported()) {
+        markUnsupported(this.el, "[data-passkey-sign-in]");
+        return;
+      }
+
+      this.onClick = (event) => {
+        if (!event.target.closest("[data-passkey-sign-in]")) return;
+        event.preventDefault();
+        this.start(false);
+      };
+
+      this.el.addEventListener("click", this.onClick);
+
+      var conditional = window.PublicKeyCredential.isConditionalMediationAvailable;
+
+      if (typeof conditional === "function") {
+        conditional.call(window.PublicKeyCredential).then((available) => {
+          if (available && !this.destroyedAt) this.start(true);
+        });
+      }
+    },
+
+    start(conditional) {
+      this.abort();
+      var controller = new AbortController();
+      this.controller = controller;
+
+      this.pushEvent("passkey_options", {}, (reply) => {
+        if (!reply || !reply.options || controller.signal.aborted) return;
+
+        var request = { publicKey: requestOptions(reply.options), signal: controller.signal };
+        if (conditional) request.mediation = "conditional";
+
+        navigator.credentials
+          .get(request)
+          .then((credential) => {
+            if (!credential) return;
+            var payload = assertionPayload(credential);
+            // The page's "Keep me logged in" box, when the site offers one.
+            var selector = this.el.getAttribute("data-remember-me");
+            var remember = selector ? document.querySelector(selector) : null;
+            payload.remember_me = remember && remember.checked ? "true" : "false";
+            this.pushEvent("passkey_sign_in", payload);
+          })
+          .catch((error) => {
+            if (!quietError(error)) this.pushEvent("passkey_failed", { name: String(error.name) });
+            // Give the suggestions back after a cancelled or failed prompt.
+            if (!conditional && !this.destroyedAt) this.resumeSuggestions();
+          });
+      });
+    },
+
+    resumeSuggestions() {
+      var conditional = window.PublicKeyCredential.isConditionalMediationAvailable;
+      if (typeof conditional !== "function") return;
+      conditional.call(window.PublicKeyCredential).then((available) => {
+        if (available && !this.destroyedAt) this.start(true);
+      });
+    },
+
+    abort() {
+      if (this.controller) {
+        this.controller.abort();
+        this.controller = null;
+      }
+    },
+
+    destroyed() {
+      this.destroyedAt = Date.now();
+      this.abort();
+      if (this.onClick) this.el.removeEventListener("click", this.onClick);
+    }
+  };
+
+  var PasskeyRegister = {
+    mounted() {
+      if (!supported()) {
+        markUnsupported(this.el, "[data-passkey-register]");
+        return;
+      }
+
+      this.onClick = (event) => {
+        if (!event.target.closest("[data-passkey-register]")) return;
+        event.preventDefault();
+        this.register();
+      };
+
+      this.el.addEventListener("click", this.onClick);
+    },
+
+    register() {
+      this.pushEventTo(this.el, "passkey_registration_options", {}, (reply) => {
+        if (!reply || !reply.options) return;
+
+        navigator.credentials
+          .create({ publicKey: creationOptions(reply.options) })
+          .then((credential) => {
+            if (!credential) return;
+            this.pushEventTo(
+              this.el,
+              "passkey_register",
+              registrationPayload(credential, navigator.userAgent)
+            );
+          })
+          .catch((error) => {
+            this.pushEventTo(this.el, "passkey_register_failed", {
+              name: quietError(error) ? "cancelled" : String(error.name)
+            });
+          });
+      });
+    },
+
+    destroyed() {
+      if (this.onClick) this.el.removeEventListener("click", this.onClick);
+    }
+  };
+
+  if (typeof window !== "undefined") {
+    window.PhoenixKitHooks = window.PhoenixKitHooks || {};
+    window.PhoenixKitHooks.PasskeySignIn = PasskeySignIn;
+    window.PhoenixKitHooks.PasskeyRegister = PasskeyRegister;
+  }
+
+  // Exported for the Node test harness (test/js); harmless in a browser.
+  if (typeof module === "object" && module.exports) {
+    module.exports.passkeyToBase64Url = toBase64Url;
+    module.exports.passkeyFromBase64Url = fromBase64Url;
+    module.exports.passkeyCreationOptions = creationOptions;
+    module.exports.passkeyRequestOptions = requestOptions;
+    module.exports.passkeyRegistrationPayload = registrationPayload;
+    module.exports.passkeyAssertionPayload = assertionPayload;
+  }
+})();
+
 // >>> phoenix_kit_upload_manager.js >>> (a verbatim copy; edit that file, then copy it back between these markers)
 // ============================================================================
 // UploadManager — a queue, a speed readout and per-file controls for any

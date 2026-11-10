@@ -20,7 +20,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
 
   ## Optional assigns
 
-    * `sections` — list of sections to display: `:identity`, `:custom_fields`, `:email`, `:password`, `:oauth`, `:notifications`, `:sessions`
+    * `sections` — list of sections to display: `:identity`, `:custom_fields`, `:email`, `:password`, `:oauth`, `:passkeys`, `:notifications`, `:sessions`
       (default: all; `:integrations` and `:api_keys` are opt-in, see below). `:profile` is accepted as a legacy alias that expands to `[:identity, :custom_fields]`
     * `manager_actor` — a `ManagedOrganizations.Actor` from the host's trusted
       signed session. Required to embed the `:managers` section while acting;
@@ -78,6 +78,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
   alias PhoenixKit.Users.LoginAttempts
   alias PhoenixKit.Users.OAuth
   alias PhoenixKit.Users.OAuthAvailability
+  alias PhoenixKit.Users.Passkeys
   alias PhoenixKit.Users.Sessions
   alias PhoenixKit.Utils.CountryData
   alias PhoenixKit.Utils.Date, as: UtilsDate
@@ -99,6 +100,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
     :email,
     :password,
     :oauth,
+    :passkeys,
     :notifications,
     :sessions,
     :managers,
@@ -116,7 +118,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
   # which is the whole reason this is a single button.
   @etcher_user_keys ~w(etcher_colors etcher_line_params)
 
-  @credential_sections [:email, :password, :oauth, :sessions, :api_keys]
+  @credential_sections [:email, :password, :oauth, :passkeys, :sessions, :api_keys]
   @company_profile_sections [:identity, :custom_fields]
   # The avatar's events go to `AvatarEditor`, which refuses staff itself.
   @company_profile_events ~w(validate_profile update_profile)
@@ -213,6 +215,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
         :api_keys_impersonated,
         Map.get(assigns, :impersonated, socket.assigns[:api_keys_impersonated])
       )
+      |> assign(:passkeys_enabled, Passkeys.enabled?())
       |> assign_new(:profile_success_message, fn -> nil end)
       |> assign_new(:email_success_message, fn -> assigns[:email_success_message] end)
       |> assign_new(:email_error_message, fn -> assigns[:email_error_message] end)
@@ -1601,6 +1604,19 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
               </div>
             <% end %>
           </div>
+        <% end %>
+
+        <%!-- Passkeys Section: its own component (PhoenixKitWeb.Live.Components.Passkeys), --%>
+        <%!-- which checks every event itself. Shown only while passkeys are on.           --%>
+        <%= if :passkeys in @sections and @passkeys_enabled do %>
+          <div class="divider"></div>
+          <.live_component
+            module={PhoenixKitWeb.Live.Components.Passkeys}
+            id="user-settings-passkeys"
+            user={@user}
+            impersonated={@api_keys_impersonated}
+            session_token={@current_session_token}
+          />
         <% end %>
 
         <%!-- Notifications Section --%>

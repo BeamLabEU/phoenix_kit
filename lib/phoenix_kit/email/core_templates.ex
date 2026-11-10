@@ -168,6 +168,36 @@ defmodule PhoenixKit.Email.CoreTemplates do
         end
       },
       %{
+        name: "passkey_added",
+        label: gettext("Passkey added"),
+        description: gettext("Sent when a passkey is added to an account."),
+        defaults: &passkey_added_defaults/0,
+        variables: fn ->
+          %{
+            "user_email" => @sample_email,
+            "passkey_name" => "Safari on iOS",
+            "time" => Calendar.strftime(DateTime.utc_now(), "%Y-%m-%d %H:%M UTC"),
+            "browser_os" => "Safari on iOS",
+            "security_url" => Routes.base_url() <> Routes.user_settings_path()
+          }
+        end
+      },
+      %{
+        name: "passkey_removed",
+        label: gettext("Passkey removed"),
+        description: gettext("Sent when a passkey is removed from an account."),
+        defaults: &passkey_removed_defaults/0,
+        variables: fn ->
+          %{
+            "user_email" => @sample_email,
+            "passkey_name" => "Safari on iOS",
+            "time" => Calendar.strftime(DateTime.utc_now(), "%Y-%m-%d %H:%M UTC"),
+            "removed_by" => gettext("You"),
+            "security_url" => Routes.base_url() <> Routes.user_settings_path()
+          }
+        end
+      },
+      %{
         name: "welcome",
         label: gettext("Welcome"),
         description:
@@ -435,6 +465,58 @@ defmodule PhoenixKit.Email.CoreTemplates do
         If you do not, your password may be being guessed. Change it to something you do not use anywhere else:
 
         [Change password]({{security_url}})
+
+        If the button doesn't work, open this link: [{{security_url}}]({{security_url}})
+        """)
+    }
+  end
+
+  @doc "Default copy of the passkey-added email (`passkey_added`)."
+  @spec passkey_added_defaults() :: PhoenixKit.Templates.defaults()
+  def passkey_added_defaults do
+    %{
+      subject: gettext("A passkey was added to your account"),
+      markdown:
+        gettext("""
+        Hi {{user_email}},
+
+        A passkey was added to your account:
+
+        - Name: {{passkey_name}}
+        - Time: {{time}}
+        - Added on: {{browser_os}}
+
+        A passkey signs in to your account without a password. If you added it, no action is needed.
+
+        If you did not, remove it and change your password:
+
+        [Review your passkeys]({{security_url}})
+
+        If the button doesn't work, open this link: [{{security_url}}]({{security_url}})
+        """)
+    }
+  end
+
+  @doc "Default copy of the passkey-removed email (`passkey_removed`)."
+  @spec passkey_removed_defaults() :: PhoenixKit.Templates.defaults()
+  def passkey_removed_defaults do
+    %{
+      subject: gettext("A passkey was removed from your account"),
+      markdown:
+        gettext("""
+        Hi {{user_email}},
+
+        A passkey was removed from your account:
+
+        - Name: {{passkey_name}}
+        - Time: {{time}}
+        - Removed by: {{removed_by}}
+
+        It can no longer be used to sign in. If you expected this, no action is needed.
+
+        If you did not, secure your account:
+
+        [Review account security]({{security_url}})
 
         If the button doesn't work, open this link: [{{security_url}}]({{security_url}})
         """)

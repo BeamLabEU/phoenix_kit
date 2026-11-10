@@ -211,6 +211,21 @@ defmodule PhoenixKit.Notifications.Render do
     {"hero-identification", gettext("An administrator signed in to your account for support.")}
   end
 
+  # Reaches the inbox through the activity only when someone else removed it (an
+  # administrator); the owner's own removal is told by `PhoenixKit.Users.Passkeys`.
+  defp icon_and_text("user.passkey_removed", meta) do
+    name = Map.get(meta, "passkey_name")
+
+    text =
+      if blank?(name) do
+        gettext("An administrator removed a passkey from your account.")
+      else
+        gettext("An administrator removed a passkey from your account: %{name}.", name: name)
+      end
+
+    {"hero-finger-print", text}
+  end
+
   defp icon_and_text("session.account_added", _meta) do
     {"hero-user-plus", gettext("Your account was added to another sign-in session.")}
   end
@@ -247,6 +262,7 @@ defmodule PhoenixKit.Notifications.Render do
     user.email_changed user.email_confirmed user.email_unconfirmed user.avatar_changed
     user.avatar_crop_changed user.profile_updated user.note_created user.note_deleted user.timezone_mismatch
     organization.manager_added organization.manager_changed organization.manager_removed
+    user.passkey_removed
   )
 
   defp link_for(%_{action: action}, locale) when action in @account_actions do

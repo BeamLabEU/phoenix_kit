@@ -220,7 +220,9 @@ defmodule PhoenixKit.Notifications.Types do
         actions: [
           "user.new_login_detected",
           "session.account_added",
-          "session.impersonated"
+          "session.impersonated",
+          "user.passkey_added",
+          "user.passkey_removed"
         ],
         default: true
       },

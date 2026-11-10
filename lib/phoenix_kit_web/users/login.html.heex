@@ -27,7 +27,7 @@
         id="user_email_or_username"
         name="user[email_or_username]"
         value={@form.params["email_or_username"] || ""}
-        autocomplete="username"
+        autocomplete={if @passkey_enabled, do: "username webauthn", else: "username"}
         required
       >
         <:icon>
@@ -99,7 +99,7 @@
 
   <%!-- Alternative authentication methods --%>
   <%!-- Only show this section if at least one alternative method is available --%>
-  <%= if @magic_link_enabled or @qr_login_enabled or PhoenixKit.Users.OAuthAvailability.oauth_available?() do %>
+  <%= if @passkey_enabled or @magic_link_enabled or @qr_login_enabled or PhoenixKit.Users.OAuthAvailability.oauth_available?() do %>
     <div class="mt-6">
       <div class="relative">
         <div class="absolute inset-0 flex items-center">
@@ -113,6 +113,23 @@
       </div>
 
       <div class="mt-4 space-y-2">
+        <%!-- Passkey: the button for the browser's prompt. The same hook also
+             starts the passkey suggestions in the email field as the page loads. --%>
+        <div
+          :if={@passkey_enabled}
+          id="passkey-sign-in"
+          phx-hook="PasskeySignIn"
+          data-remember-me="#user_remember_me"
+        >
+          <button
+            type="button"
+            data-passkey-sign-in
+            class="btn btn-outline w-full transition-all hover:scale-[1.02] active:scale-[0.98] hover:shadow-lg"
+          >
+            <.icon name="hero-finger-print" class="w-5 h-5 mr-2" />
+            {gettext("Sign in with passkey")}
+          </button>
+        </div>
         <%!-- Magic Link authentication --%>
         <%= if @magic_link_enabled do %>
           <.link

@@ -408,6 +408,24 @@
             </div>
           </div>
 
+          <%!-- Passkeys: listed, and removable under the rule for ending this
+                 person's sessions (checked in Passkeys.delete/3). Never added
+                 here: only the person adds their own. --%>
+          <div
+            :if={@passkeys_enabled and not @user.api_only and not @user.managed_by_members}
+            class="card bg-base-200 shadow-sm"
+          >
+            <div class="card-body">
+              <.live_component
+                module={PhoenixKitWeb.Live.Components.Passkeys}
+                id="user-details-passkeys"
+                user={@user}
+                actor={@phoenix_kit_current_user}
+                impersonated={@session_impersonated}
+              />
+            </div>
+          </div>
+
           <%!-- CRM contact (guarded: only rendered when the optional CRM
                  module is installed and enabled, the viewer holds the `crm`
                  permission, and this user has a linked contact — see
