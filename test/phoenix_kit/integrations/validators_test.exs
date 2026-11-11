@@ -1001,6 +1001,78 @@ defmodule PhoenixKit.Integrations.ValidatorsTest do
     end
   end
 
+  describe "brevo_api/2" do
+    # what Brevo answers /v3/account (status, body)
+    @brevo_ok %{
+      "email" => "ops@example.com",
+      "plan" => [%{"type" => "free", "credits" => 300, "creditsType" => "sendLimit"}]
+    }
+    @brevo_bad_key %{"code" => "unauthorized", "message" => "Key not found"}
+    @brevo_ip %{
+      "code" => "unauthorized",
+      "message" =>
+        "We have detected you are using an unrecognised IP address 203.0.113.7. If you performed this action make sure to add the new IP address in this link: https://app.brevo.com/security/authorised_ips"
+    }
+
+    test "a missing key is reported without a network round trip" do
+      for creds <- [%{}, %{"api_key" => ""}, %{"api_key" => "   "}] do
+        assert {:error, "No credentials configured"} =
+                 Validators.brevo_api(creds, plug: &flunk_request/1),
+               inspect(creds)
+      end
+    end
+
+    test "an SMTP key is named as one, without a network round trip" do
+      for key <- ["xsmtpsib-0123abcd-XyZ", "  xsmtpsib-0123abcd-XyZ"] do
+        assert {:error, message} =
+                 Validators.brevo_api(%{"api_key" => key}, plug: &flunk_request/1)
+
+        assert message =~ "SMTP key"
+        assert message =~ "xkeysib-"
+      end
+    end
+
+    test "asks /v3/account with the key in the api-key header, and reports the credits" do
+      plug = fn conn ->
+        assert conn.method == "GET"
+        assert conn.host == "api.brevo.com"
+        assert conn.request_path == "/v3/account"
+        assert Plug.Conn.get_req_header(conn, "api-key") == ["xkeysib-good"]
+        Req.Test.json(conn, @brevo_ok)
+      end
+
+      assert {:ok, %{reading: reading}} =
+               Validators.brevo_api(%{"api_key" => "xkeysib-good"}, plug: plug)
+
+      assert reading =~ "300"
+    end
+
+    test "a refused key says what Brevo said" do
+      plug = fn conn -> conn |> Plug.Conn.put_status(401) |> Req.Test.json(@brevo_bad_key) end
+
+      assert {:error, message} = Validators.brevo_api(%{"api_key" => "xkeysib-wrong"}, plug: plug)
+      assert message =~ "Invalid credentials"
+      assert message =~ "Key not found"
+    end
+
+    test "a good key from an IP outside Authorised IPs is not called invalid" do
+      assert {:error, message} = Validators.interpret_brevo(401, @brevo_ip)
+      assert message =~ "Authorised IPs"
+      refute message =~ "Invalid credentials"
+    end
+
+    test "other answers" do
+      assert {:error, "Invalid credentials"} = Validators.interpret_brevo(401, "")
+      assert {:error, "Access denied"} = Validators.interpret_brevo(403, %{})
+
+      assert {:error, "Brevo error 500: busy"} =
+               Validators.interpret_brevo(500, %{"message" => "busy"})
+
+      assert {:error, "Brevo error 502"} = Validators.interpret_brevo(502, "<html>")
+      assert {:error, "Unexpected answer from Brevo"} = Validators.interpret_brevo(200, "<html>")
+    end
+  end
+
   describe "serpapi/2 refuses to guess" do
     test "a missing key is reported without a network round trip" do
       for creds <- [%{}, %{"api_key" => ""}, %{"api_key" => "   "}] do
