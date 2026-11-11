@@ -108,8 +108,8 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
     * The menu is positioned inside the component (not portaled), so an ancestor
       with `overflow: hidden` that clips the strip would clip it as well.
     * A strip that is content-sized (a flex-row parent, `w-fit`) re-fits when its
-      PARENT resizes, not only when it does; a grandparent that grows while the
-      parent stays content-sized is not noticed.
+      PARENT or an adjacent SIBLING resizes, not only when it does; a grandparent
+      that grows while the parent stays content-sized is not noticed.
     * The "⋯" button is 44px wide but only as tall as a tab (40px, 32px with
       `tabs-sm`), so it is under the 44px touch floor vertically.
     * Until the hook mounts (the dead render) the strip is one clipped row with
@@ -211,7 +211,8 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
 
   def nav_tabs(%{overflow: :menu} = assigns) do
     tabs = Enum.map(assigns.tabs, &normalize(&1, assigns.on_change))
-    id = assigns.id || raise(ArgumentError, @menu_id_message)
+    id = assigns.id
+    if id in [nil, ""], do: raise(ArgumentError, @menu_id_message)
 
     assigns =
       assigns

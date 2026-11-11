@@ -6319,7 +6319,7 @@ msgstr "管理用户媒体和上传"
 msgid "More actions"
 msgstr "更多操作"
 
-#: lib/phoenix_kit_web/components/core/nav_tabs.ex:273
+#: lib/phoenix_kit_web/components/core/nav_tabs.ex:274
 #, elixir-autogen, elixir-format
 msgid "More tabs"
 msgstr "更多标签页"

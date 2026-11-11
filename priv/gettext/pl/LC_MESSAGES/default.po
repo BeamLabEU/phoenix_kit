@@ -6341,7 +6341,7 @@ msgstr "Zarządzaj mediami i przesłanymi plikami użytkowników"
 msgid "More actions"
 msgstr "Więcej akcji"
 
-#: lib/phoenix_kit_web/components/core/nav_tabs.ex:273
+#: lib/phoenix_kit_web/components/core/nav_tabs.ex:274
 #, elixir-autogen, elixir-format
 msgid "More tabs"
 msgstr "Więcej kart"

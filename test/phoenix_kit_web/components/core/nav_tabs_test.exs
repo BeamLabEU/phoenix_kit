@@ -449,9 +449,11 @@ defmodule PhoenixKitWeb.Components.Core.NavTabsTest do
       assert html =~ ~s(aria-controls="order-tabs-menu")
     end
 
-    test "overflow :menu without an id raises" do
-      assert_raise ArgumentError, ~r/needs an `id`/, fn ->
-        render_tabs(%{tabs: @tabs, overflow: :menu})
+    test "overflow :menu without an id (or with a blank one) raises" do
+      for id <- [nil, ""] do
+        assert_raise ArgumentError, ~r/needs an `id`/, fn ->
+          render_tabs(%{tabs: @tabs, overflow: :menu, id: id})
+        end
       end
     end
 

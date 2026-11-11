@@ -7126,7 +7126,6 @@ if (typeof window.Chart === "undefined") {
     mounted() {
       this._open = false;
       this._applying = false;
-      this._width = -1;
 
       this._onClick = (e) => {
         var t = e.target;
@@ -7195,20 +7194,24 @@ if (typeof window.Chart === "undefined") {
         attributeFilter: ["class", "data-nav-active"]
       });
       if (typeof ResizeObserver === "function") {
-        // The parent too: a content-sized wrapper (a flex-row parent) shrinks to
-        // the visible tabs once some are hidden, so when the parent later widens
-        // the wrapper itself would never resize and the hidden tabs would stay
-        // in the menu beside free space. Widths are recorded at the end of
-        // sync(), so our own hiding does not retrigger it.
+        // The parent and the neighbours too: a content-sized wrapper (a flex-row
+        // parent) shrinks to the visible tabs once some are hidden, so when the
+        // parent widens or a sibling shrinks the wrapper itself would never
+        // resize and the hidden tabs would stay in the menu beside free space.
+        // Coalesced into one frame: sync() can resize what is observed, and
+        // doing that inside the callback makes browsers report a "ResizeObserver
+        // loop" error. sync() is idempotent, so a repeat settles at once.
         this._resize = new ResizeObserver(() => {
-          var parent = this.el.parentElement;
-          if (this.el.clientWidth !== this._width ||
-              (parent && parent.clientWidth !== this._parentWidth)) {
-            this.sync();
-          }
+          if (this._raf) return;
+          this._raf = requestAnimationFrame(() => {
+            this._raf = null;
+            if (!this._destroyed) this.sync();
+          });
         });
-        this._resize.observe(this.el);
-        if (this.el.parentElement) this._resize.observe(this.el.parentElement);
+        [this.el, this.el.parentElement, this.el.previousElementSibling,
+         this.el.nextElementSibling].forEach((node) => {
+          if (node) this._resize.observe(node);
+        });
       }
       if (document.fonts && document.fonts.ready) {
         document.fonts.ready.then(() => { if (!this._destroyed) this.sync(); });
@@ -7227,6 +7230,7 @@ if (typeof window.Chart === "undefined") {
       window.removeEventListener("phx:page-loading-start", this._onNavigate);
       if (this._mutations) this._mutations.disconnect();
       if (this._resize) this._resize.disconnect();
+      if (this._raf) cancelAnimationFrame(this._raf);
     },
     // A menu item carries no link or phx-* attributes: the strip tab does, so a
     // pick is forwarded to it (hidden, but still clickable) and LiveView handles
@@ -7303,8 +7307,6 @@ if (typeof window.Chart === "undefined") {
         if (items[i]) items[i].classList.toggle("hidden", !h);
       });
       more.classList.toggle("hidden", !any);
-      this._width = this.el.clientWidth;
-      this._parentWidth = this.el.parentElement ? this.el.parentElement.clientWidth : 0;
       this.setOpen(this._open && any, true);
       // Our own class changes are not a reason to run again.
       this._mutations.takeRecords();
