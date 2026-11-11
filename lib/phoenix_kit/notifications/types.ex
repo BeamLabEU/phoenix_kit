@@ -312,6 +312,17 @@ defmodule PhoenixKit.Notifications.Types do
             default: true
           }
         ]
+      },
+      # `PhoenixKit.Mentions.notify/2`: an @ ping from any module (a comment,
+      # a task, a description). A type of its own so it can be muted, and so
+      # it can be routed to email or another channel at all — routing is
+      # fail-closed, and an action no type owns never leaves the inbox.
+      %{
+        key: "mentions",
+        label: gettext_noop("Mentions"),
+        description: gettext_noop("When someone mentions you with @"),
+        actions: ["mention.created"],
+        default: true
       }
     ]
   end

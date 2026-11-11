@@ -81,6 +81,8 @@ defmodule PhoenixKit.Mentions do
   alias PhoenixKit.RepoHelper
   alias PhoenixKit.ResourceLinks
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Utils.Routes
 
   # A typeahead that takes longer than this is worse than one with fewer
@@ -657,7 +659,22 @@ defmodule PhoenixKit.Mentions do
 
   Delivery itself is core's activity → notification bridge, so a ping lands
   wherever that person already reads things and obeys their existing
-  preferences and channels.
+  preferences and channels: the `mentions` notification type (in-app on by
+  default; email and other channels as the person routes it).
+
+  Options:
+
+    * `:source_type`, `:source_uuid` — the record the mention sits in, which
+      the access check and the activity row are about (default: the
+      mention's own source).
+    * `:preview` — the text around the mention, shown only to someone the
+      source's handler says may read it.
+    * `:link` — where clicking the notification goes: a local path built with
+      `PhoenixKit.Utils.Routes.path/1`, pointing at the mention itself where
+      the caller can (a comment's anchor on its record's page). Anything that
+      is not a local path (`Routes.local_path?/1`) is dropped — a notification
+      never sends its reader off-site. Without one the notification has no
+      link and the bell shows it as information only.
   """
   @spec notify(list(), keyword()) :: :ok
   def notify(mentions, opts \\ [])
@@ -668,6 +685,7 @@ defmodule PhoenixKit.Mentions do
     source_type = Keyword.get(opts, :source_type)
     source_uuid = Keyword.get(opts, :source_uuid)
     preview = opts |> Keyword.get(:preview) |> preview_text()
+    link = local_link(Keyword.get(opts, :link))
 
     mentions
     |> Enum.filter(&(&1.kind == "user" and is_nil(&1.notified_at)))
@@ -680,7 +698,11 @@ defmodule PhoenixKit.Mentions do
       claimed = pairs |> Enum.map(&elem(&1, 0)) |> claim_for_delivery() |> MapSet.new(& &1.uuid)
       Enum.filter(pairs, fn {mention, _} -> MapSet.member?(claimed, mention.uuid) end)
     end)
-    |> Enum.each(fn {mention, visibility} ->
+    |> then(fn pairs ->
+      names = actor_names(Enum.map(pairs, fn {mention, _} -> mention.actor_uuid end))
+      Enum.map(pairs, fn {mention, visibility} -> {mention, visibility, names} end)
+    end)
+    |> Enum.each(fn {mention, visibility, names} ->
       Activity.log(%{
         action: "mention.created",
         module: "mentions",
@@ -689,13 +711,19 @@ defmodule PhoenixKit.Mentions do
         resource_type: source_type || mention.source_type,
         resource_uuid: source_uuid || mention.source_uuid,
         target_uuid: mention.target_uuid,
-        metadata: %{
-          "notification_text" => "You were mentioned",
-          # Only when something affirmatively said this person may read the
-          # source. Otherwise they get the ping and a link, and the link
-          # answers for itself.
-          "preview" => if(visibility == :yes, do: preview)
-        }
+        # No `notification_text`: `Notifications.Render` words a
+        # `mention.created` in the reader's language ("Ada mentioned you."),
+        # which a sentence stored here in the writer's could not be.
+        metadata:
+          %{
+            "actor_name" => Map.get(names, mention.actor_uuid),
+            # Only when something affirmatively said this person may read the
+            # source. Otherwise they get the ping and a link, and the link
+            # answers for itself.
+            "preview" => if(visibility == :yes, do: preview),
+            "notification_link" => link
+          }
+          |> Map.reject(fn {_key, value} -> is_nil(value) end)
       })
     end)
 
@@ -740,6 +768,39 @@ defmodule PhoenixKit.Mentions do
     end
   rescue
     _ -> :no
+  end
+
+  # Only a path on this site: the link is followed by the person mentioned,
+  # who did not choose it.
+  defp local_link(link) when is_binary(link) and link != "" do
+    if Routes.local_path?(link), do: link
+  end
+
+  defp local_link(_link), do: nil
+
+  # Who mentioned them, by the name the notification shows — one query for
+  # every author in the batch. Stored with the activity: the bell renders
+  # without reading users again.
+  defp actor_names([]), do: %{}
+
+  defp actor_names(uuids) do
+    uuids
+    |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
+    |> Auth.get_users_by_uuids()
+    |> Map.new(&{&1.uuid, display_name(&1)})
+  rescue
+    _ -> %{}
+  end
+
+  # The name, else the username — never `User.display_name/1`'s fallback to
+  # the start of the email address, which the person mentioned has no
+  # business reading. No name: the notification says "You were mentioned."
+  defp display_name(user) do
+    Enum.find_value([User.full_name(user), user.username], fn
+      value when is_binary(value) -> if String.trim(value) != "", do: String.trim(value)
+      _ -> nil
+    end)
   end
 
   defp preview_text(nil), do: nil

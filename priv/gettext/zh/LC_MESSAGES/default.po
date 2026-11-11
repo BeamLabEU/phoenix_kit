@@ -27141,3 +27141,18 @@ msgstr "已同步"
 #, elixir-autogen, elixir-format
 msgid "this device only"
 msgstr "仅限此设备"
+
+#: lib/phoenix_kit/notifications/render.ex
+#, elixir-autogen, elixir-format
+msgid "%{name} mentioned you."
+msgstr "%{name} 提到了你。"
+
+#: lib/phoenix_kit/notifications/render.ex
+#, elixir-autogen, elixir-format
+msgid "You were mentioned."
+msgstr "有人提到了你。"
+
+#: lib/phoenix_kit/notifications/types.ex
+#, elixir-autogen, elixir-format
+msgid "When someone mentions you with @"
+msgstr "有人用 @ 提到你时"
