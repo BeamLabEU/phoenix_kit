@@ -7449,6 +7449,12 @@ defmodule PhoenixKit.Modules.Storage do
 
   # ===== LINK COPY (explicit, by donor) =====
 
+  # The buckets are asked before the transaction (see "The buckets, asked
+  # before the lock" below).
+  @bucket_rechecks 1
+  @bucket_checks_at_once 4
+  @default_bucket_check_timeout_ms 8_000
+
   @doc """
   A copy of `donor_file` in another library that names the donor's stored
   objects instead of writing the bytes again: a record of its own (its own
@@ -7470,7 +7476,19 @@ defmodule PhoenixKit.Modules.Storage do
   The `original` object and each variant instance whose `spec_hash` is set and
   equals the `spec_hash` of that variant in the set of the copy's library.
   Decided per instance, under the donor's directory lock, so a burn racing
-  with the copy cannot be taken. A burned thumbnail (it is written into the
+  with the copy cannot be taken. The buckets are asked before that lock (is
+  each object there, does the thumbnail hold its bytes), with nothing locked
+  and no connection held, since object storage can take longer to answer
+  than a transaction may live; an answer counts only for an instance row that
+  is still the same under the lock, so a size whose row a burn changed in
+  between is not shared. Each answer waits at most
+  `config :phoenix_kit, :storage_check_timeout_ms` (8 s by default); a size
+  with no answer in that time is not shared, and the original without one is
+  `:storage_unavailable`. What the rows refuse (`:incompatible`, a donor that
+  is gone) is refused before any bucket is asked. Called inside a
+  transaction of the caller's own, the buckets are asked one after another
+  with no time limit, while that transaction holds its connection; call it
+  outside one where storage may be slow. A burned thumbnail (it is written into the
   `thumbnail` slot, or `thumbnail_annotated`, without a `spec_hash`) is never
   shared. A variant is not shared either when its object is not in the bucket,
   or when another row names the same key with other bytes or without a
@@ -7512,12 +7530,16 @@ defmodule PhoenixKit.Modules.Storage do
       system-managed, is being edited, has no original instance, its original
       is not in the bucket, or differs from `:checksum`/`:size`
     * `{:error, :donor_changed}` - the donor was deleted, or its bytes
-      changed, since the caller read it
+      changed, since the caller read it (or its original's row changed
+      twice while the buckets were being asked)
+    * `{:error, :storage_unavailable}` - the bucket gave no answer about the
+      donor's original in time: nothing is written, and the same call may
+      succeed a moment later. Not a reason to store the bytes again
     * `{:error, :managed}` - the donor is in a managed library and the copy
       goes to another library, without `managed: :owner` in `opts` (into the
       donor's own managed library it is allowed as it is)
 
-  The caller then makes a full copy.
+  The caller then makes a full copy (not after `:storage_unavailable`).
 
   ## Permissions
 
@@ -7536,10 +7558,34 @@ defmodule PhoenixKit.Modules.Storage do
              | :donor_changed
              | :other_library
              | :managed
+             | :storage_unavailable
              | Ecto.Changeset.t()}
   def link_copy(%PhoenixKit.Modules.Storage.File{} = donor_file, user_uuid, opts) do
     library_uuid = Keyword.fetch!(opts, :library_uuid)
+    link_copy_once_checked(donor_file, user_uuid, library_uuid, opts, @bucket_rechecks)
+  end
 
+  defp link_copy_once_checked(donor_file, user_uuid, library_uuid, opts, rechecks) do
+    # The buckets first, with nothing locked and no connection held: object
+    # storage may take many seconds to answer, longer than the pool lets a
+    # transaction live (see "The buckets, asked before the lock").
+    with {:ok, checked} <- link_copy_answers(donor_file, library_uuid, opts) do
+      link_copy_locked(donor_file, user_uuid, library_uuid, opts, checked, rechecks)
+    end
+  end
+
+  # What the rows refuse is refused here, before a bucket is asked anything: a
+  # copy between libraries placed differently costs no request.
+  defp link_copy_answers(donor_file, library_uuid, opts) do
+    with {:ok, donor} <- reread_donor(donor_file),
+         instances = list_file_instances(donor.uuid),
+         :ok <- check_folder(opts[:folder_uuid], library_uuid),
+         :ok <- check_donor_rows(donor, instances, library_uuid, opts) do
+      {:ok, check_buckets(donor, instances, library_uuid)}
+    end
+  end
+
+  defp link_copy_locked(donor_file, user_uuid, library_uuid, opts, checked, rechecks) do
     # A refusal found before anything is written is the value of the function,
     # not a rollback: inside a caller's own transaction a rollback would doom
     # it too.
@@ -7549,8 +7595,8 @@ defmodule PhoenixKit.Modules.Storage do
       with {:ok, donor} <- lock_donor(donor_file),
            instances = list_file_instances(donor.uuid),
            :ok <- check_folder(opts[:folder_uuid], library_uuid),
-           :ok <- check_donor(donor, instances, library_uuid, opts) do
-        write_link_copy(donor, instances, user_uuid, library_uuid, opts)
+           :ok <- check_donor(donor, instances, library_uuid, opts, checked) do
+        write_link_copy(donor, instances, user_uuid, library_uuid, opts, checked)
       end
     end)
     |> case do
@@ -7558,6 +7604,12 @@ defmodule PhoenixKit.Modules.Storage do
         Logger.info("Link copy created: #{new_file.uuid} from donor #{donor_file.uuid}")
         unless complete?, do: make_missing_variants(new_file)
         {:ok, new_file}
+
+      {:ok, {:error, :recheck}} when rechecks > 0 ->
+        link_copy_once_checked(donor_file, user_uuid, library_uuid, opts, rechecks - 1)
+
+      {:ok, {:error, :recheck}} ->
+        {:error, :donor_changed}
 
       {:ok, {:error, reason}} ->
         {:error, reason}
@@ -7567,8 +7619,8 @@ defmodule PhoenixKit.Modules.Storage do
     end
   end
 
-  defp write_link_copy(donor, instances, user_uuid, library_uuid, opts) do
-    {shared, complete?} = shareable_instances(donor, instances, library_uuid)
+  defp write_link_copy(donor, instances, user_uuid, library_uuid, opts, checked) do
+    {shared, complete?} = shareable_instances(donor, instances, library_uuid, checked)
     uuid = UUIDv7.generate()
 
     attrs =
@@ -7678,6 +7730,7 @@ defmodule PhoenixKit.Modules.Storage do
              | :not_found
              | :in_transaction
              | :managed
+             | :storage_unavailable
              | Ecto.Changeset.t()}
   def relink_file(
         %PhoenixKit.Modules.Storage.File{} = file,
@@ -7692,11 +7745,29 @@ defmodule PhoenixKit.Modules.Storage do
         {:error, :in_transaction}
 
       true ->
-        do_relink_file(file, donor_file, opts)
+        do_relink_file(file, donor_file, opts, @bucket_rechecks)
     end
   end
 
-  defp do_relink_file(file, donor_file, opts) do
+  defp do_relink_file(file, donor_file, opts, rechecks) do
+    # The buckets before any lock, as for `link_copy/3`.
+    with {:ok, checked} <- relink_answers(file, donor_file, opts) do
+      relink_locked(file, donor_file, opts, checked, rechecks)
+    end
+  end
+
+  defp relink_answers(file, donor_file, opts) do
+    with :ok <- distinct_files(file, donor_file),
+         {:ok, record} <- reread_record(file),
+         {:ok, donor} <- reread_donor(donor_file),
+         instances = list_file_instances(donor.uuid),
+         :ok <- check_donor_rows(donor, instances, record.library_uuid, opts),
+         :ok <- same_bytes(record, donor) do
+      {:ok, check_buckets(donor, instances, record.library_uuid)}
+    end
+  end
+
+  defp relink_locked(file, donor_file, opts, checked, rechecks) do
     repo().transaction(fn ->
       # The record for update, the donor for share, then both directories
       # (sorted by `lock_storage_paths/1`). Refusals are values, not rollbacks
@@ -7709,9 +7780,9 @@ defmodule PhoenixKit.Modules.Storage do
         with {:ok, record} <- reread_record(file),
              {:ok, donor} <- reread_donor(donor_file),
              instances = list_file_instances(donor.uuid),
-             :ok <- check_donor(donor, instances, record.library_uuid, opts),
+             :ok <- check_donor(donor, instances, record.library_uuid, opts, checked),
              :ok <- same_bytes(record, donor) do
-          write_relink(record, donor, instances)
+          write_relink(record, donor, instances, checked)
         end
       end
     end)
@@ -7726,6 +7797,12 @@ defmodule PhoenixKit.Modules.Storage do
 
         {:ok, updated, left}
 
+      {:ok, {:error, :recheck}} when rechecks > 0 ->
+        do_relink_file(file, donor_file, opts, rechecks - 1)
+
+      {:ok, {:error, :recheck}} ->
+        {:error, :donor_changed}
+
       {:ok, {:error, reason}} ->
         {:error, reason}
 
@@ -7734,8 +7811,8 @@ defmodule PhoenixKit.Modules.Storage do
     end
   end
 
-  defp write_relink(record, donor, instances) do
-    {shared, complete?} = shareable_instances(donor, instances, record.library_uuid)
+  defp write_relink(record, donor, instances, checked) do
+    {shared, complete?} = shareable_instances(donor, instances, record.library_uuid, checked)
     old_keys = list_file_instances(record.uuid) |> Enum.map(& &1.file_name)
 
     from(fi in FileInstance, where: fi.file_uuid == ^record.uuid) |> repo().delete_all()
@@ -7875,17 +7952,32 @@ defmodule PhoenixKit.Modules.Storage do
   end
 
   # The donor's conditions, on the locked and re-read row: `:ok` or the
-  # reason, writing nothing.
-  defp check_donor(donor, instances, library_uuid, opts) do
+  # reason, writing nothing. Whether the original is in the bucket was asked
+  # before the lock (`check_buckets/3`); an original row that changed since
+  # then is `:recheck`. No answer is not "it is gone": the caller would store
+  # the bytes again (a video, say) because storage was slow for a moment.
+  defp check_donor(donor, instances, library_uuid, opts, checked) do
+    with :ok <- check_donor_rows(donor, instances, library_uuid, opts) do
+      original = Enum.find(instances, &(&1.variant_name == "original"))
+
+      case Map.fetch(checked, bucket_fingerprint(original)) do
+        {:ok, true} -> :ok
+        {:ok, false} -> {:error, :donor_unavailable}
+        {:ok, :no_answer} -> {:error, :storage_unavailable}
+        :error -> {:error, :recheck}
+      end
+    end
+  end
+
+  # What the rows alone say of the donor (no bucket is asked).
+  defp check_donor_rows(donor, instances, library_uuid, opts) do
     original = Enum.find(instances, &(&1.variant_name == "original"))
 
     with %Library{} = target <- Libraries.get_library(library_uuid) || {:error, :incompatible},
          :ok <- donor_managed_fit(donor, library_uuid, opts),
          :ok <- donor_usable(donor, original),
          :ok <- placed_alike(donor, target) do
-      if original_as_expected?(original, opts) and Manager.file_exists?(original.file_name),
-        do: :ok,
-        else: {:error, :donor_unavailable}
+      if original_as_expected?(original, opts), do: :ok, else: {:error, :donor_unavailable}
     end
   end
 
@@ -7918,67 +8010,175 @@ defmodule PhoenixKit.Modules.Storage do
 
   # What of the donor a record in `library_uuid` can name: the original, and
   # each completed variant made from a size (`spec_hash`) that is the same
-  # spec as that size in the library's set now, whose object is in the bucket
-  # and whose key no other row holds with other content (`key_usable?/2`).
-  # `complete?` when every size of that set is among them.
-  defp shareable_instances(donor, instances, library_uuid) do
-    expected =
-      %{donor | library_uuid: library_uuid}
-      |> VariantGenerator.expected_variants()
-      |> Map.new(fn {dimension, name, format} ->
-        {name, VariantSets.spec_hash(dimension, format)}
-      end)
+  # spec as that size in the library's set now, whose key no other row holds
+  # with other content (`rows_agree?/2`), and whose object the buckets showed
+  # (`checked`, from `check_buckets/3`, for this very row: one that changed
+  # since is not shared). `complete?` when every size of that set is among
+  # them.
+  defp shareable_instances(donor, instances, library_uuid, checked) do
+    expected = expected_specs(donor, library_uuid)
 
     shared =
       Enum.filter(instances, fn
         %{variant_name: "original"} ->
           true
 
-        %{spec_hash: nil} ->
-          false
-
         instance ->
-          instance.processing_status == "completed" and
-            Map.get(expected, instance.variant_name) == instance.spec_hash and
-            key_usable?(instance, donor.uuid)
+          share_candidate?(instance, expected, donor.uuid) and
+            Map.get(checked, bucket_fingerprint(instance)) == true
       end)
 
     names = MapSet.new(shared, & &1.variant_name)
     {shared, expected |> Map.keys() |> Enum.all?(&MapSet.member?(names, &1))}
   end
 
+  # Each size of the set of `library_uuid`, by its name, with its spec hash.
+  defp expected_specs(donor, library_uuid) do
+    %{donor | library_uuid: library_uuid}
+    |> VariantGenerator.expected_variants()
+    |> Map.new(fn {dimension, name, format} ->
+      {name, VariantSets.spec_hash(dimension, format)}
+    end)
+  end
+
+  # What the rows say of a variant: made, from this spec, with its bytes known,
+  # and on a key no other row holds otherwise.
+  defp share_candidate?(%{spec_hash: nil}, _expected, _donor_uuid), do: false
+  defp share_candidate?(%{checksum: nil}, _expected, _donor_uuid), do: false
+
+  defp share_candidate?(instance, expected, donor_uuid) do
+    instance.processing_status == "completed" and
+      Map.get(expected, instance.variant_name) == instance.spec_hash and
+      rows_agree?(instance, donor_uuid)
+  end
+
+  # ===== The buckets, asked before the lock =====
+  #
+  # A copy reads the buckets: is the original there, is each size to share
+  # there, and does the thumbnail hold the bytes its row says. Object storage
+  # can take many seconds to answer one request (ExAws waits 30 s, and retries),
+  # and the pool ends a connection held for 15 s: asked inside the transaction,
+  # one slow request rolled a copy back (fotki.ee, 2026-11-10). So the buckets
+  # are asked first, with no lock taken and no connection held, and the
+  # transaction then uses the answers only for the rows they were given for:
+  # `bucket_fingerprint/1` names a row's uuid, key, bytes, spec and status, and
+  # a burn changes at least one of them. A variant whose row changed since is
+  # not shared (the reconciler makes that size again); an original whose row
+  # changed is asked about again (`:recheck`), once, then `:donor_changed`.
+  #
+  # The rows are read first as well, unlocked: what they refuse (libraries
+  # placed differently, a donor that is trashed or gone) is refused before a
+  # bucket is asked anything.
+  #
+  # Each question gets `bucket_check_timeout/0`, a few in parallel. The answer
+  # is `true`, `false` (the bucket said so) or `:no_answer` (it ran out of
+  # time, or the check itself failed). Without a `true` a size is not shared.
+  # For the original, `false` is `:donor_unavailable` (the caller makes a full
+  # copy) and `:no_answer` is `:storage_unavailable` (the caller tries later).
+
+  defp check_buckets(donor, instances, library_uuid) do
+    expected = expected_specs(donor, library_uuid)
+
+    to_ask =
+      Enum.filter(instances, fn
+        %{variant_name: "original"} -> true
+        instance -> share_candidate?(instance, expected, donor.uuid)
+      end)
+
+    if repo().in_transaction?() do
+      # The caller's own transaction holds a connection already, and a check
+      # also reads and records where an object is: from other processes that
+      # would need a second connection (none at all under a test's sandbox),
+      # so the checks run here, one after another, without a time limit.
+      Map.new(to_ask, &{bucket_fingerprint(&1), bucket_answer(&1, check_tmp_path())})
+    else
+      ask_buckets(to_ask)
+    end
+  end
+
+  defp ask_buckets(to_ask) do
+    timeout = bucket_check_timeout()
+    asked = Enum.map(to_ask, &{&1, check_tmp_path()})
+
+    asked
+    |> Task.async_stream(fn {instance, tmp} -> bucket_answer(instance, tmp) end,
+      max_concurrency: @bucket_checks_at_once,
+      timeout: timeout,
+      on_timeout: :kill_task,
+      ordered: true
+    )
+    |> Enum.zip(asked)
+    |> Map.new(fn
+      {{:ok, answer}, {instance, _tmp}} ->
+        {bucket_fingerprint(instance), answer}
+
+      {{:exit, reason}, {instance, tmp}} ->
+        # The killed check could not remove what it had downloaded. Raw: a
+        # local bucket's copy may still occupy the file server.
+        _ = :file.delete(tmp, [:raw])
+
+        Logger.warning(
+          "Storage: no answer about #{instance.file_name} within #{timeout} ms " <>
+            "(#{inspect(reason)})"
+        )
+
+        {bucket_fingerprint(instance), :no_answer}
+    end)
+  end
+
+  defp check_tmp_path,
+    do: Path.join(System.tmp_dir!(), "pk_link_copy_#{System.unique_integer([:positive])}")
+
+  # How long a copy waits for one answer from the buckets, in ms:
+  # `config :phoenix_kit, :storage_check_timeout_ms` (8 s by default).
+  defp bucket_check_timeout do
+    case Application.get_env(:phoenix_kit, :storage_check_timeout_ms) do
+      ms when is_integer(ms) and ms > 0 -> ms
+      _ -> @default_bucket_check_timeout_ms
+    end
+  end
+
+  defp bucket_fingerprint(instance) do
+    {instance.uuid, instance.file_name, instance.checksum, instance.spec_hash,
+     instance.processing_status}
+  end
+
   # A key that another row (a cross-user clone) names with no spec hash, or
-  # with other bytes, is not the size's object any more: before burns got keys
-  # of their own, one wrote its markup over the shared key in place and only
-  # its own row said so. Such a key is not shared.
+  # with other bytes, is not the size's object any more (`rows_agree?/2`):
+  # before burns got keys of their own, one wrote its markup over the shared
+  # key in place and only its own row said so. Such a key is not shared.
   #
   # The row that said so can leave the key (its owner burns again, or is
   # deleted) while the markup stays in the object, and a burn only ever wrote
   # into the `thumbnail` slot. So that slot's object is also read (a few KB)
   # and must hold the bytes its row says.
   #
-  # Reading the thumbnail's object also shows it is there; the other sizes are
-  # only asked for.
-  defp key_usable?(%{checksum: nil}, _donor_uuid), do: false
-
-  defp key_usable?(%{variant_name: "thumbnail"} = instance, donor_uuid) do
-    rows_agree?(instance, donor_uuid) and object_holds?(instance)
+  # Reading the thumbnail's object also shows it is there; the original and
+  # the other sizes are only asked for.
+  #
+  # A check that raises or exits is `:no_answer`: in a task linked to the
+  # caller it would otherwise end the caller, a whole bulk copy.
+  defp bucket_answer(instance, tmp) do
+    bucket_holds?(instance, tmp)
+  rescue
+    error -> no_answer(instance, Exception.message(error))
+  catch
+    kind, reason -> no_answer(instance, "#{kind}: #{inspect(reason, limit: 5)}")
   end
 
-  defp key_usable?(instance, donor_uuid) do
-    rows_agree?(instance, donor_uuid) and Manager.file_exists?(instance.file_name)
+  defp no_answer(instance, why) do
+    Logger.warning("Storage: checking #{instance.file_name} failed: #{why}")
+    :no_answer
   end
 
-  defp object_holds?(instance) do
-    tmp = Path.join(System.tmp_dir!(), "pk_link_copy_#{System.unique_integer([:positive])}")
-
-    try do
-      match?({:ok, _}, Manager.retrieve_file(instance.file_name, destination_path: tmp)) and
-        FileHash.sha256!(tmp) == instance.checksum
-    after
-      File.rm(tmp)
-    end
+  defp bucket_holds?(%{variant_name: "thumbnail"} = instance, tmp) do
+    match?({:ok, _}, Manager.retrieve_file(instance.file_name, destination_path: tmp)) and
+      FileHash.sha256!(tmp) == instance.checksum
+  after
+    File.rm(tmp)
   end
+
+  defp bucket_holds?(instance, _tmp), do: Manager.file_exists?(instance.file_name)
 
   defp rows_agree?(instance, donor_uuid) do
     not repo().exists?(

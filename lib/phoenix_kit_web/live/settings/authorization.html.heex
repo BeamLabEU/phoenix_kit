@@ -289,6 +289,26 @@
                 </div>
               </div>
 
+              <%!-- Passkeys --%>
+              <div class="mb-3">
+                <div class="text-sm font-semibold text-base-content/70 mb-2">
+                  {gettext("Passkeys")}
+                </div>
+                <.checkbox
+                  name="settings[passkey_login_enabled]"
+                  checked={@settings["passkey_login_enabled"] == "true"}
+                  wrapper_class="ml-4"
+                >
+                  {gettext("Enable sign-in with a passkey (Face ID, Touch ID, Windows Hello)")}
+                  <:description>
+                    {gettext(
+                      "A passkey works only on the domain it was made for: %{domain}. Moving the site to another domain makes every passkey stop working, and people sign in with their password or a magic link instead.",
+                      domain: @passkey_domain
+                    )}
+                  </:description>
+                </.checkbox>
+              </div>
+
               <%!-- New Login Alerts --%>
               <div class="mb-3">
                 <div class="text-sm font-semibold text-base-content/70 mb-2">
@@ -300,6 +320,18 @@
                   wrapper_class="ml-4"
                 >
                   {gettext("Email users when their account is signed in from a new device")}
+                </.checkbox>
+                <.checkbox
+                  name="settings[new_country_login_alert_enabled]"
+                  checked={@settings["new_country_login_alert_enabled"] == "true"}
+                  wrapper_class="ml-4 mt-2"
+                >
+                  {gettext("Email users when their account is signed in from a new country")}
+                  <:description>
+                    {gettext(
+                      "Also for a browser they already use. The country comes from the IP address, so a VPN can set it off. An account's first sign-in after this is turned on only records its country."
+                    )}
+                  </:description>
                 </.checkbox>
                 <.checkbox
                   name="settings[failed_login_alert_enabled]"

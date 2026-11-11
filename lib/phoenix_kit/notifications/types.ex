@@ -215,12 +215,14 @@ defmodule PhoenixKit.Notifications.Types do
         label: gettext_noop("Security"),
         description:
           gettext_noop(
-            "New sign-ins to your account from an unrecognized device, and sessions opened on your account by someone else"
+            "New sign-ins to your account from a new device or country, and sessions opened on your account by someone else"
           ),
         actions: [
           "user.new_login_detected",
           "session.account_added",
-          "session.impersonated"
+          "session.impersonated",
+          "user.passkey_added",
+          "user.passkey_removed"
         ],
         default: true
       },

@@ -51,7 +51,7 @@ defmodule PhoenixKitWeb.Live.Users.ProfileSettingsTabsTest do
 
     assert html =~ "Annotation tools"
     assert html =~ "Open media ready to annotate"
-    assert html =~ "My libraries"
+    assert html =~ "Libraries"
     refute html =~ "Create library"
     refute html =~ "Active Sessions"
   end

@@ -388,6 +388,10 @@ defmodule PhoenixKit.MixProject do
       # has expired" was both the honest answer and the same outcome.
       {:keyfob, "~> 0.1.1"},
 
+      # Passkeys (WebAuthn): challenges and the verification of what a device
+      # answers. `PhoenixKit.Users.Passkeys` is the only caller.
+      {:wax_, "~> 0.7"},
+
       # Cloud provider regions
       {:aws_regions, "~> 0.1.0"},
       {:backblaze_regions, "~> 0.1.0"},

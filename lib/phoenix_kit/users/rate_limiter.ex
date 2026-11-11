@@ -144,6 +144,9 @@ defmodule PhoenixKit.Users.RateLimiter do
     # QR login request creation: 10 per minute per IP (pre-auth, no email to key on)
     qr_login_limit: 10,
     qr_login_window_ms: 60_000,
+    # Passkey sign-in answers: 10 per minute per IP (pre-auth, checked before any lookup)
+    passkey_login_limit: 10,
+    passkey_login_window_ms: 60_000,
     manager_invitation_limit: 10,
     manager_invitation_window_ms: 60_000,
     organization_enter_limit: 30,
@@ -463,6 +466,32 @@ defmodule PhoenixKit.Users.RateLimiter do
 
       {:error, :rate_limit_exceeded} = error ->
         log_rate_limit_violation("qr_login", "ip:#{ip}", limit, window)
+        error
+    end
+  end
+
+  @doc """
+  Checks if a passkey sign-in answer is within rate limit.
+
+  Returns `:ok` if the attempt is allowed, or `{:error, :rate_limit_exceeded}`. IP-only:
+  the device answers before anyone is known. Checked before the passkey is looked up,
+  as every public sign-in endpoint is, so the limit says nothing about which passkeys
+  exist.
+  """
+  def check_passkey_login_rate_limit(ip_address) when is_binary(ip_address) do
+    config = get_config()
+
+    ip = IpAddress.network(ip_address)
+    key = "auth:passkey_login:ip:#{ip}"
+    limit = Keyword.get(config, :passkey_login_limit)
+    window = Keyword.get(config, :passkey_login_window_ms)
+
+    case check_rate_limit(key, window, limit) do
+      :ok ->
+        :ok
+
+      {:error, :rate_limit_exceeded} = error ->
+        log_rate_limit_violation("passkey_login", "ip:#{ip}", limit, window)
         error
     end
   end

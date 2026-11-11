@@ -93,12 +93,18 @@ defmodule PhoenixKitWeb.Live.Components.LibraryPreferences do
   end
 
   @doc "The full, host-configured browsing URL for a library."
-  def library_url(library, scope) do
-    path = public_path(library) || Routes.path(Libraries.browse_path(scope, library))
-    Routes.base_url() <> path
-  end
+  def library_url(library, scope), do: Routes.base_url() <> library_path(library, scope)
 
-  defp public_path(library) do
+  @doc """
+  Where a library is opened: the host's own page for it when the host names one
+  (`config :phoenix_kit, :library_public_path, {module, function}`), else the
+  admin browser (`Libraries.browse_path/2`, with the URL prefix).
+  """
+  def library_path(library, scope),
+    do: public_path(library) || Routes.path(Libraries.browse_path(scope, library))
+
+  @doc "The host's own page for `library`, or nil when the host names none."
+  def public_path(library) do
     case Application.get_env(:phoenix_kit, :library_public_path) do
       {module, function} -> apply(module, function, [library])
       _ -> nil

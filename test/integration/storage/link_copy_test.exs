@@ -320,6 +320,121 @@ defmodule PhoenixKit.Modules.Storage.LinkCopyTest do
     end
   end
 
+  # Storage is asked before the transaction (fotki.ee, 2026-11-10: a slow S3
+  # answer inside it outlived the pool's 15 s and rolled the copy back). The
+  # donor's thumbnail object is swapped for a named pipe: the copy's check
+  # reads it, and blocks until the test writes the bytes, so the test can look
+  # at the copying process in the middle of the check.
+  describe "the buckets are asked before the transaction" do
+    test "no connection is held while storage answers", ctx do
+      assert map_size(keys(ctx.donor)) > 1, "the donor has no variants to share"
+      {fifo, bytes} = thumbnail_pipe!(ctx)
+      copier = Task.async(fn -> link_copy(ctx) end)
+
+      {:ok, writer} = open_pipe(fifo)
+      refute holds_connection?(copier.pid)
+      IO.binwrite(writer, bytes)
+      :ok = File.close(writer)
+
+      assert {:ok, copy} = Task.await(copier, 30_000)
+      assert keys(copy) == keys(ctx.donor)
+      assert copy.placed_variant_revision == reload(ctx.donor).placed_variant_revision
+    end
+
+    test "the probe sees a held connection (so the test above can fail)", _ctx do
+      test = self()
+
+      holder =
+        Task.async(fn ->
+          Repo.transaction(fn ->
+            send(test, :inside)
+
+            receive do
+              :done -> :ok
+            end
+          end)
+        end)
+
+      assert_receive :inside, 5_000
+      assert holds_connection?(holder.pid)
+      send(holder.pid, :done)
+      Task.await(holder)
+    end
+
+    test "a size whose row changed while storage answered is not shared", ctx do
+      {fifo, bytes} = thumbnail_pipe!(ctx)
+      small = instance(ctx.donor, "small")
+      assert small, "the donor has no small size"
+      copier = Task.async(fn -> link_copy(ctx) end)
+
+      {:ok, writer} = open_pipe(fifo)
+      # What a burn does to the row of the size it rewrites.
+      Repo.update_all(from(i in Storage.FileInstance, where: i.uuid == ^small.uuid),
+        set: [checksum: String.duplicate("0", 64)]
+      )
+
+      IO.binwrite(writer, bytes)
+      :ok = File.close(writer)
+
+      assert {:ok, copy} = Task.await(copier, 30_000)
+      copy_keys = keys(copy)
+      refute Map.has_key?(copy_keys, "small")
+      assert copy_keys["thumbnail"] == keys(ctx.donor)["thumbnail"]
+      assert copy.placed_variant_revision == 0
+    end
+
+    test "an original whose row changed is asked about again", ctx do
+      {fifo, bytes} = thumbnail_pipe!(ctx)
+      original = instance(ctx.donor, "original")
+      copier = Task.async(fn -> link_copy(ctx) end)
+
+      {:ok, writer} = open_pipe(fifo)
+
+      Repo.update_all(from(i in Storage.FileInstance, where: i.uuid == ^original.uuid),
+        set: [size: original.size + 1, checksum: String.duplicate("1", 64)]
+      )
+
+      # The second round reads an ordinary file (raw, as `open_pipe/1`).
+      :ok = :file.delete(fifo, [:raw])
+      File.write!(fifo, bytes, [:raw])
+      IO.binwrite(writer, bytes)
+      :ok = File.close(writer)
+
+      assert {:ok, copy} = Task.await(copier, 30_000)
+      assert keys(copy)["original"] == original.file_name
+      assert instance(copy, "original").checksum == String.duplicate("1", 64)
+    end
+
+    test "what the rows refuse is refused without asking a bucket", ctx do
+      # Nobody writes to the pipe: a check reading it would wait out its 8 s.
+      {_fifo, _bytes} = thumbnail_pipe!(ctx)
+
+      {micros, result} =
+        :timer.tc(fn ->
+          Storage.link_copy(ctx.donor, ctx.copier.uuid, library_uuid: Ecto.UUID.generate())
+        end)
+
+      assert result == {:error, :incompatible}
+      assert micros < 3_000_000
+    end
+
+    test "a check that runs out of time does not share that size", ctx do
+      Application.put_env(:phoenix_kit, :storage_check_timeout_ms, 300)
+      on_exit(fn -> Application.delete_env(:phoenix_kit, :storage_check_timeout_ms) end)
+      {fifo, _bytes} = thumbnail_pipe!(ctx)
+
+      result = link_copy(ctx)
+      # The killed check is still opening the pipe; let it go.
+      release_pipe(fifo)
+
+      assert {:ok, copy} = result
+      copy_keys = keys(copy)
+      refute Map.has_key?(copy_keys, "thumbnail")
+      assert Map.delete(copy_keys, "thumbnail") == Map.delete(keys(ctx.donor), "thumbnail")
+      assert copy.placed_variant_revision == 0
+    end
+  end
+
   describe "inside the caller's transaction" do
     test "a refusal leaves the outer transaction usable", ctx do
       record = upload!(ctx.owner, image!(ctx.tmp, "record.jpg", "blue"))
@@ -619,6 +734,36 @@ defmodule PhoenixKit.Modules.Storage.LinkCopyTest do
       assert {:error, :donor_changed} =
                Storage.link_copy(ctx.donor, ctx.copier.uuid, library_uuid: ctx.target.uuid)
     end
+  end
+
+  defp link_copy(ctx),
+    do: Storage.link_copy(ctx.donor, ctx.copier.uuid, library_uuid: ctx.target.uuid)
+
+  # Replaces the donor's thumbnail object (local bucket) with a named pipe and
+  # returns its path and the bytes it held.
+  defp thumbnail_pipe!(ctx) do
+    path = Path.join(ctx.root, keys(ctx.donor)["thumbnail"])
+    bytes = File.read!(path)
+    File.rm!(path)
+    {_, 0} = System.cmd("mkfifo", [path])
+    {path, bytes}
+  end
+
+  # Opening a pipe for writing returns once a reader has it open. Raw: the
+  # reader (the check's `File.cp`) holds the file server until then, and an
+  # ordinary open would wait behind it.
+  defp open_pipe(fifo), do: File.open(fifo, [:write, :binary, :raw])
+
+  defp release_pipe(fifo) do
+    writer = Task.async(fn -> with {:ok, w} <- open_pipe(fifo), do: File.close(w) end)
+    Task.yield(writer, 1_000) || Task.shutdown(writer, :brutal_kill)
+  end
+
+  # Ecto keeps the connection a process has checked out (a transaction, a
+  # `checkout`) in its dictionary under `{Ecto.Adapters.SQL, pool}`.
+  defp holds_connection?(pid) do
+    {:dictionary, dictionary} = Process.info(pid, :dictionary)
+    Enum.any?(dictionary, &match?({{Ecto.Adapters.SQL, _pool}, _conn}, &1))
   end
 
   defp locations(instance) do

@@ -51,13 +51,14 @@ defmodule PhoenixKitWeb.Components.ProfileSettingsTabs do
   alias PhoenixKit.Notifications.Types, as: NotificationTypes
   alias PhoenixKit.ProfileSettingsTab
   alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKit.Users.Passkeys
   alias PhoenixKit.Utils.Routes
 
   # The `UserSettings` sections each tab renders, in page order.
   @sections %{
     "account" => [:identity, :custom_fields, :email, :start_page],
     "managers" => [:managers],
-    "security" => [:password, :oauth],
+    "security" => [:password, :oauth, :passkeys],
     "sessions" => [:sessions],
     "notifications" => [:notifications],
     "media" => [:etcher]
@@ -76,6 +77,7 @@ defmodule PhoenixKitWeb.Components.ProfileSettingsTabs do
     :etcher,
     :password,
     :oauth,
+    :passkeys,
     :sessions,
     :notifications
   ]
@@ -172,8 +174,18 @@ defmodule PhoenixKitWeb.Components.ProfileSettingsTabs do
   def sections(tab) do
     case Map.get(@sections, tab) do
       nil -> nil
-      sections -> sections -- hidden_sections()
+      sections -> sections -- (hidden_sections() ++ switched_off())
     end
+  end
+
+  # A section whose feature is off renders nothing, so it must not keep a tab
+  # alive on its own (a Security tab with password and OAuth hidden).
+  defp switched_off do
+    if Passkeys.enabled?(), do: [], else: [:passkeys]
+  rescue
+    _ -> [:passkeys]
+  catch
+    :exit, _ -> [:passkeys]
   end
 
   @doc "Whether `ProfileSettings` renders the tab itself (every tab but integrations and api-keys)."

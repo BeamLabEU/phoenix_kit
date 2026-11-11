@@ -97,6 +97,13 @@ defmodule PhoenixKit.Supervisor do
         {PhoenixKit.Cache, name: :trashed_file_access, ttl: :timer.seconds(5)},
         id: :trashed_file_access_cache
       ),
+      # Known devices whose missing country was looked up again in the last day
+      # (`PhoenixKit.Users.LoginAlerts`), so an address that never resolves is
+      # not asked about at every sign-in.
+      Supervisor.child_spec(
+        {PhoenixKit.Cache, name: :login_country_lookups, ttl: :timer.hours(24)},
+        id: :login_country_lookups_cache
+      ),
       # API key rows (`PhoenixKit.API.Keys`), for 60 seconds, so that verifying a
       # bearer token is not a query per request. Owner rights are never cached.
       # The second child drops a row when another node revokes or rotates the key.

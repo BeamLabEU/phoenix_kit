@@ -164,4 +164,9 @@ defmodule PhoenixKitWeb.Live.Users.ProfileSettings do
       {:noreply, push_navigate(socket, to: Routes.path("/users/log-in"))}
     end
   end
+
+  # Anything else this page did not ask for (a mailer's test adapter writes to the
+  # sending process, for one) must not take the page down. Hooks attached on mount
+  # see their messages before this.
+  def handle_info(_message, socket), do: {:noreply, socket}
 end

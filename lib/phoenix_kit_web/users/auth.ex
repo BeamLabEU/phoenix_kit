@@ -216,8 +216,9 @@ defmodule PhoenixKitWeb.Users.Auth do
 
     # New-device login alert. Every login path (password, magic link,
     # OAuth, QR) funnels through here, so this is the single integration
-    # point. No-ops when new_login_alert_enabled is off; never raises.
-    LoginAlerts.check(user, conn)
+    # point. No-ops when both new-login alerts are off; never raises. Hands
+    # the browser its device cookie, which is how it is recognized next time.
+    conn = LoginAlerts.check(user, conn)
 
     conn
     |> renew_session()

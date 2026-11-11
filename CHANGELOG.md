@@ -1,3 +1,79 @@
+## Unreleased
+
+Run `mix phoenix_kit.update` (V230, V231 and the new `phoenix_kit.js`).
+
+### Added
+
+- **Sign in with a passkey** (Face ID, Touch ID, Windows Hello, a phone or a
+  security key), off by default: Settings → Authorization → Passkeys
+  (`passkey_login_enabled`). The sign-in page offers the passkey in the email field
+  as it loads and through a "Sign in with passkey" button; people add, rename and
+  remove passkeys on the Security tab of their account settings, and an admin can
+  remove a person's passkeys from the user page. Adding one needs the person's own
+  session from the last 15 minutes (not while impersonated or acting for an
+  organization), and adding or removing one sends an email (`passkey_added`,
+  `passkey_removed`) and an in-app notice. The site keeps only public keys
+  (V231, `phoenix_kit_user_passkeys`). ⚠️ A passkey works only on the domain it was
+  made for (the `site_url` host): turn this on once that is final.
+  `mix phoenix_kit.doctor` warns about passkeys made for another domain. New
+  dependency: `wax_`. `PhoenixKit.Users.Passkeys`,
+  `PhoenixKitWeb.Live.Components.Passkeys`.
+
+- **An alert for a sign-in from a new country.** A second switch under Settings →
+  Authorization → Login Notifications (`new_country_login_alert_enabled`, off by
+  default): the account holder gets the new-login email and in-app notice when they
+  sign in from a country none of their earlier devices was seen in, a browser they
+  already use included. A failed lookup never alerts, and an account with no known
+  country yet records one first. The country comes from the IP address, so a VPN can
+  set it off. V230 adds `phoenix_kit_user_known_devices.country_code`.
+  `LoginAlerts.place_for/1`, `device_alerts_enabled?/0`, `country_alerts_enabled?/0`.
+
+### Changed
+
+- The new-login email now says "a new device or location" (it can be either), and the
+  Security notification type's description says the same.
+- `LoginAlerts.check/2` returns the conn (it sets the device cookie) instead of `:ok`.
+
+### Fixed
+
+- **A copy between libraries no longer fails when object storage is slow.**
+  `Storage.link_copy/3` and `relink_file/3` asked the buckets (is each object there,
+  does the thumbnail hold its bytes) inside their transaction, so one request that
+  took longer than the pool's 15 s rolled the copy back. The buckets are now asked
+  first, with nothing locked and no connection held, a few requests at once, each
+  for at most `config :phoenix_kit, :storage_check_timeout_ms` (8 s by default); the
+  transaction uses an answer only for an instance row that is still the same. A size
+  without an answer is not shared and is made again. New error
+  `{:error, :storage_unavailable}`: no answer about the donor's original in time,
+  nothing written, worth trying again (not a reason to store the bytes again). What
+  the rows refuse (`:incompatible`, a donor that is gone) is refused before any
+  bucket is asked.
+
+- The profile's Media row counts only the files the viewer can see. Viewers
+  restricted to their own uploads see those uploads' count and size.
+- A returning device with no country on file can establish the sign-in country
+  baseline before the account holder travels: a row with no country is looked up
+  again at a sign-in, at most once a day (new `:login_country_lookups` cache). A
+  country resolved this way after a failed lookup, and that the account was never
+  seen in, alerts like any new country; a device from before V230 never does.
+- `Passkeys.mint_login_token/1` returns `{:ok, token}` or `:error` (the account
+  was deleted since it was verified) instead of raising.
+- Passkey verification refuses, instead of crashing the page, whatever the
+  WebAuthn library raises on malformed input.
+- The passkey button keeps its prompt when browser suggestions arrive late.
+  Concurrent passkey sign-ins preserve the highest recorded signature count
+  and keep a single outstanding completion token per account.
+
+- **A browser update no longer reads as a new device.** A browser was recognized by a
+  hash of its whole user-agent string, version number included, so each update sent a
+  "new login" email, about once a month per browser. Every sign-in now gives the
+  browser a device cookie (`_phoenix_kit_device`, random, http-only, 400 days), and the
+  device row keeps a per-account hash of it (V230,
+  `phoenix_kit_user_known_devices.device_token_hash`; the raw value is never stored). A
+  browser that carries it is known at any version and any address. Without it the old
+  user-agent match still applies, so nothing alerts less than before: a stranger with
+  the same browser and OS still alerts.
+
 ## 3.5.0 - 2026-11-09
 
 Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).

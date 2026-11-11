@@ -37,7 +37,8 @@ holds by construction: with `remember_me_enabled` off, no caller — nor a forge
 `remember_me` param — can leave a persistent cookie.
 
 Every flow with a UI (password login, registration, magic-link completion, QR
-handoff) renders the same pre-checked "Keep me logged in" box. Flows with
+handoff) renders the same pre-checked "Keep me logged in" box. A passkey is
+used on the sign-in page itself, so it carries that page's box. Flows with
 nothing to tick — **magic-link login** (arrives from an email) and **OAuth**
 (external round-trip) — call `Auth.remember_me_params/0` and follow
 `remember_me_default`.
@@ -175,7 +176,8 @@ link would otherwise sign the user out the instant they signed in.
 
 Every route that can start a login threads the pending destination:
 `Routes.return_to_query/1` appends it to the links between login, register,
-magic-link, QR and the OAuth buttons, the magic-link *email* carries it in its
+magic-link, QR and the OAuth buttons, the passkey's one-time finish link carries it,
+the magic-link *email* carries it in its
 URL (re-sanitized by `MagicLinkVerify` before it reaches the session), and
 `log_in_user/3` honors a `"return_to"` param as well as the session key. Adding
 a new sign-in entry point means threading it there too, or the destination dies
@@ -209,6 +211,40 @@ It subscribes **before** re-reading the user, so a confirmation committed
 between the on_mount load and the subscribe cannot be missed. The email-link
 LiveView (`Users.Confirmation`) resolves the same destination, so the two tabs
 can never diverge.
+
+## Passkeys
+
+Opt-in (`passkey_login_enabled`, Settings → Authorization). Plan and decisions:
+`dev_docs/plans/2026-11-10-passkeys.md`; code: `PhoenixKit.Users.Passkeys`.
+
+- **The challenge never leaves the server.** The sign-in LiveView (and the
+  Passkeys component on the account page) keeps it in an assign, hands the browser
+  only its bytes, and clears it on the first answer. Each attempt asks for a fresh
+  one (`passkey_options` with a reply), so nothing is minted for visitors who never
+  use a passkey.
+- **The session is written by a controller.** A verified passkey mints a one-time
+  token (`Passkeys.mint_login_token/1`, 60 s, hashed, one per person) and the
+  LiveView redirects to `/users/passkey/finish/:token`
+  (`PasskeyLoginComplete`), which consumes it once and calls `log_in_user/3`.
+  Every rule of that function applies: remember-me policy, `return_to`, alerts,
+  the `api_only` / managed-organization refusals.
+- **Rate-limited before the lookup** (`check_passkey_login_rate_limit/1`, by IP),
+  and every refusal is the same message, so no answer says whether a passkey
+  exists.
+- **Adding one** needs the person's own session (not impersonated, not acting for
+  an organization: `:passkeys` is a credential section) and a sign-in from the last
+  15 minutes (`Passkeys.check_may_add/2`, read from the session token's age).
+  Adding and removing send an email (`passkey_added` / `passkey_removed`) and an
+  in-app notice. An admin may remove a person's passkeys from the user page under
+  the session-revocation rank rule, never add one.
+- ⚠️ **A passkey belongs to one domain**, the host of the canonical origin
+  (`site_url`). Moving the site makes every passkey stop working; the row keeps
+  its `rp_id`, the list says so, and `mix phoenix_kit.doctor` warns. Password and
+  magic link stay as the way back in, which is why the password stays required.
+- **Testing:** `PhoenixKit.Test.SoftAuthenticator` makes real keys, CBOR and
+  signatures, so `Wax` verifies for real. A LiveView test that sends hook events
+  for passkeys gives each test its own public peer address, or the shared rate
+  limit of one test reaches the next.
 
 ## Enumeration and abuse surfaces
 

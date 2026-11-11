@@ -7,7 +7,21 @@ defmodule PhoenixKit.Migrations.Postgres do
 
   ## Migration Versions
 
-  ### V229 - Relationship types and roles on an acting link ⚡ LATEST
+  ### V231 - Passkeys ⚡ LATEST
+
+  `phoenix_kit_user_passkeys`: a person's passkeys (WebAuthn credentials), the public key only, with the
+  domain each was made for, its signature counter, and when it was last used. Cascades with the user.
+  New table, nothing existing touched.
+
+  ### V230 - The country and the device cookie of a known device
+
+  `phoenix_kit_user_known_devices.country_code` (`varchar(2)`, nullable): the ISO country a device first
+  signed in from, resolved once with its `location`; backs the "sign-in from a new country" alert
+  (`new_country_login_alert_enabled`). `device_token_hash` (`varchar(64)`, nullable): a per-account hash of
+  the browser's device cookie, so a browser update is no longer "a new device". Existing rows stay `NULL`.
+  Additive, catalog-only, no backfill.
+
+  ### V229 - Relationship types and roles on an acting link
 
   `phoenix_kit_relationship_types` (kinds of link as data, built-in `manager` and `staff`),
   `phoenix_kit_organization_managers.relationship_type_uuid`, `all_roles` and `metadata`,
@@ -1066,7 +1080,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   alias PhoenixKit.Migrations.Repair.Environment
 
   @initial_version 135
-  @current_version 229
+  @current_version 231
 
   # Core 3.0 no longer creates or changes any module's table (plan
   # `dev_docs/plans/2026-10-25-module-table-ownership.md`, step 8): V135..V225

@@ -31,6 +31,7 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
   alias PhoenixKit.Users.CustomFields
   alias PhoenixKit.Users.ManagedOrganizations.Actor, as: OrganizationActor
   alias PhoenixKit.Users.OrganizationManagers
+  alias PhoenixKit.Users.Passkeys
   alias PhoenixKit.Users.Roles
   alias PhoenixKit.Utils.CountryData
   alias PhoenixKit.Utils.Date, as: UtilsDate
@@ -134,6 +135,9 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
             end
           )
           |> assign(:impersonation_actor, impersonation_actor)
+          # The passkeys card refuses every change from a borrowed session.
+          |> assign(:session_impersonated, MultiSession.impersonated?(session))
+          |> assign(:passkeys_enabled, Passkeys.enabled?())
           |> assign(:admin_notes, admin_notes)
           |> assign(:comments_state, comments_state())
           |> assign(:note_form, to_form(Auth.change_admin_note(%AdminNote{})))

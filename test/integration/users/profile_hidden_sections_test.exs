@@ -22,6 +22,7 @@ defmodule PhoenixKit.Integration.Users.ProfileHiddenSectionsTest do
 
   test "a hidden section leaves its tab; a tab of hidden sections only is not offered" do
     :ok = ProfileSettingsTabs.set_section_hidden(:password, true)
+    # Passkeys are off by default, so their section does not count.
     assert ProfileSettingsTabs.sections("security") == [:oauth]
     assert "security" in ProfileSettingsTabs.tab_ids(nil)
 
@@ -31,6 +32,20 @@ defmodule PhoenixKit.Integration.Users.ProfileHiddenSectionsTest do
 
     :ok = ProfileSettingsTabs.set_section_hidden(:password, false)
     assert ProfileSettingsTabs.sections("security") == [:password]
+  end
+
+  test "the passkeys section counts only while passkeys are on" do
+    on_exit(fn -> PhoenixKit.Settings.update_setting("passkey_login_enabled", "false") end)
+    :ok = ProfileSettingsTabs.set_section_hidden(:password, true)
+    :ok = ProfileSettingsTabs.set_section_hidden(:oauth, true)
+    refute "security" in ProfileSettingsTabs.tab_ids(nil)
+
+    {:ok, _} = PhoenixKit.Settings.update_setting("passkey_login_enabled", "true")
+    assert ProfileSettingsTabs.sections("security") == [:passkeys]
+    assert "security" in ProfileSettingsTabs.tab_ids(nil)
+
+    :ok = ProfileSettingsTabs.set_section_hidden(:passkeys, true)
+    refute "security" in ProfileSettingsTabs.tab_ids(nil)
   end
 
   test "the Google field hides on its own; identity cannot be hidden" do

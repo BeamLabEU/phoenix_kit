@@ -172,7 +172,7 @@ French, Italian, Polish and Russian. Every email also sees `{{logo_url}}` and
 | `magic_link` | signing in with a one-time link | `user_email`, `magic_link_url` |
 | `magic_link_registration` | registering with a one-time link | `user_email`, `registration_url` |
 | `organization_invitation` | an address is invited to an organization | `user_email`, `organization_name`, `registration_url` |
-| `new_login_alert` | a sign-in from a device the account has not used | `user_email`, `login_time`, `ip_address`, `location`, `browser_os`, `failed_attempts`, `security_url` |
+| `new_login_alert` | a sign-in from a device, or a country, the account has not used | `user_email`, `login_time`, `ip_address`, `location`, `browser_os`, `failed_attempts`, `security_url` |
 | `failed_login_alert` | repeated failed sign-ins | `user_email`, `attempt_count`, `window_hours`, `security_url` |
 | `welcome` | once, after the address is confirmed — [off by default](#the-welcome-email) | `user_email`, `site_name`, `site_url` |
 | `notification` | a notification the reader routes to email | `subject`, `text`, `url` |
