@@ -85,6 +85,9 @@ test("every hook name is still registered after the public bundle alone has run"
     assert.ok(window.PhoenixKitHooks[name], name + " must stay in PhoenixKitHooks: a host spreads it once");
     assert.equal(typeof window.PhoenixKitHooks[name].mounted, "function", name + " has a mounted()");
   }
+  // And nothing else: a hook the bundle registers that neither list names (one main added, say) is
+  // unclassified, and would otherwise be noticed by nothing but the size budget.
+  assert.deepEqual(Array.from(Object.keys(window.PhoenixKitHooks)).sort(), [...PUBLIC, ...ADMIN].sort());
 });
 
 test("exactly the admin hooks are stubs; the public ones are the real thing", () => {
@@ -194,7 +197,8 @@ test("a size budget keeps the public file public", () => {
   // The budget went 256 -> 272 KiB (the recorder), -> 280 (headroom for the next public hook from main),
   // -> 288 (main's passkey hooks). What it is for has not changed: an admin hook that lands in the public
   // file by mistake pushes it over (AvatarCrop alone is 13 158 B). A coarse backstop only: a small admin
-  // hook would still fit in the margin, and it is the name checks above that catch one put in the wrong file.
+  // hook would still fit in the margin, and it is the name checks above that catch one put in the wrong file
+  // (or one that neither list names: the inventory test compares every registered hook with the two lists).
   assert.ok(publicBytes < 288 * 1024, "phoenix_kit.js is " + publicBytes + " bytes");
   assert.ok(adminBytes > publicBytes / 2, "the admin file is where the weight went");
 });
