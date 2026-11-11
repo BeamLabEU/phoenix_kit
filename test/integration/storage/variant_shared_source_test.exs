@@ -142,6 +142,44 @@ defmodule PhoenixKit.Modules.Storage.VariantSharedSourceTest do
     end
   end
 
+  test "read_metadata/2 makes a new file active from a local copy, and says so", ctx do
+    if imagemagick?() do
+      {file, path} = store!(ctx)
+      uuid = file.uuid
+      assert file.status == "processing"
+      Storage.subscribe_to_file_events()
+
+      assert ProcessFileJob.read_metadata(uuid, path) == :ok
+      assert_received {:phoenix_kit_file_processed, ^uuid}
+
+      assert %{status: "active", width: 2400, height: 1200} = Storage.get_file(uuid)
+      # Its sizes are still to be made: that is the job's work.
+      assert names(file) == ~w(original)
+
+      # Not a second time, and not for a file that is not there.
+      assert ProcessFileJob.read_metadata(uuid, path) == :skipped
+      assert ProcessFileJob.read_metadata(Ecto.UUID.generate(), path) == :skipped
+      refute_received {:phoenix_kit_file_processed, ^uuid}
+
+      # The job after it says nothing until the small sizes are in.
+      :ok =
+        ProcessFileJob.perform(%Oban.Job{args: %{"file_uuid" => uuid, "filename" => "p.jpg"}})
+
+      assert_received {:phoenix_kit_file_processed, ^uuid}
+      assert_received {:phoenix_kit_file_processed, ^uuid}
+      refute_received {:phoenix_kit_file_processed, ^uuid}
+    end
+  end
+
+  test "read_metadata/2 leaves a file it cannot read to the job", ctx do
+    if imagemagick?() do
+      {file, _path} = store!(ctx)
+      missing = Path.join(ctx.dir, "gone.jpg")
+      assert ProcessFileJob.read_metadata(file.uuid, missing) == :skipped
+      assert Storage.get_file(file.uuid).status == "processing"
+    end
+  end
+
   test "the job says the file is processed early and again at the end", ctx do
     if imagemagick?() do
       {file, _path} = store!(ctx)
@@ -151,6 +189,8 @@ defmodule PhoenixKit.Modules.Storage.VariantSharedSourceTest do
       :ok =
         ProcessFileJob.perform(%Oban.Job{args: %{"file_uuid" => uuid, "filename" => "p.jpg"}})
 
+      # When its metadata is in, when its small sizes are, and at the end.
+      assert_received {:phoenix_kit_file_processed, ^uuid}
       assert_received {:phoenix_kit_file_processed, ^uuid}
       assert_received {:phoenix_kit_file_processed, ^uuid}
       assert Storage.get_file(uuid).status == "active"
