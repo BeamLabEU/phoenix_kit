@@ -36,6 +36,19 @@ Run `mix phoenix_kit.update` (V230, V231 and the new `phoenix_kit.js`).
 
 ### Fixed
 
+- **A copy between libraries no longer fails when object storage is slow.**
+  `Storage.link_copy/3` and `relink_file/3` asked the buckets (is each object there,
+  does the thumbnail hold its bytes) inside their transaction, so one request that
+  took longer than the pool's 15 s rolled the copy back. The buckets are now asked
+  first, with nothing locked and no connection held, a few requests at once, each
+  for at most `config :phoenix_kit, :storage_check_timeout_ms` (8 s by default); the
+  transaction uses an answer only for an instance row that is still the same. A size
+  without an answer is not shared and is made again. New error
+  `{:error, :storage_unavailable}`: no answer about the donor's original in time,
+  nothing written, worth trying again (not a reason to store the bytes again). What
+  the rows refuse (`:incompatible`, a donor that is gone) is refused before any
+  bucket is asked.
+
 - The profile's Media row counts only the files the viewer can see. Viewers
   restricted to their own uploads see those uploads' count and size.
 - A returning device with no country on file can establish the sign-in country
@@ -43,6 +56,7 @@ Run `mix phoenix_kit.update` (V230, V231 and the new `phoenix_kit.js`).
 - The passkey button keeps its prompt when browser suggestions arrive late.
   Concurrent passkey sign-ins preserve the highest recorded signature count
   and keep a single outstanding completion token per account.
+
 - **A browser update no longer reads as a new device.** A browser was recognized by a
   hash of its whole user-agent string, version number included, so each update sent a
   "new login" email, about once a month per browser. Every sign-in now gives the
