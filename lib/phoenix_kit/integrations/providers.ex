@@ -1436,7 +1436,7 @@ defmodule PhoenixKit.Integrations.Providers do
       # validation map `do_validate/2` falls through to `:ok` and stamps the
       # connection "connected" without ever checking the key. Checked against
       # the account endpoint itself, which also reports remaining credits —
-      # see PhoenixKit.Integrations.Validators.brevo_api/1.
+      # see PhoenixKit.Integrations.Validators.brevo_api/2.
       validation: %{strategy: :brevo_api},
       setup_fields: [
         %{

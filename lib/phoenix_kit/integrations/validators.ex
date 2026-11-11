@@ -857,7 +857,7 @@ defmodule PhoenixKit.Integrations.Validators do
          )}
 
       true ->
-        request_account(api_key, req_options)
+        Probe.run(fn -> request_account(api_key, req_options) end)
     end
   end
 
@@ -868,6 +868,8 @@ defmodule PhoenixKit.Integrations.Validators do
           headers: [{"api-key", api_key}],
           receive_timeout: @http_timeout,
           retry: false,
+          # the key travels in a custom header: no redirect may carry it elsewhere
+          redirect: false,
           decode_body: false
         ],
         req_options
@@ -878,8 +880,10 @@ defmodule PhoenixKit.Integrations.Validators do
         interpret_brevo(status, decode_json(body))
 
       {:error, reason} ->
-        Logger.warning("Brevo connection check failed: #{inspect(reason)}")
-        {:error, gettext("Could not reach Brevo")}
+        case request_failure("Brevo", reason) do
+          :unreachable -> {:error, gettext("Could not reach Brevo")}
+          :unreadable -> {:error, gettext("Unexpected answer from Brevo")}
+        end
     end
   end
 
