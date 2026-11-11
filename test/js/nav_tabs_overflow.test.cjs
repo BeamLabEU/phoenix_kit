@@ -206,3 +206,74 @@ test("an outside pointerdown closes the menu; one on its own button or menu does
   captured.pointerdown({ target: "other-strips-menu-node" });
   assert.deepEqual(closes, [false]);
 });
+
+// Ctrl/Cmd/Shift-click or middle-click on the menu item of a LINK tab opens its
+// URL in a new browser tab, like the tab itself would; a plain click delegates.
+test("modifier and middle clicks on a link tab's menu item open it in a new tab", () => {
+  global.MutationObserver = class { observe() {} takeRecords() { return []; } disconnect() {} };
+  const clicks = [];
+  const opened = [];
+  global.window.open = (...args) => opened.push(args);
+
+  const tabs = [
+    { id: "link", href: "/p?tab=l" },
+    { id: "event", href: null },
+  ].map(({ id, href }) => ({
+    getAttribute: (n) => (n === "data-nav-tab" ? id : n === "href" ? href : null),
+    click: () => clicks.push(id),
+  }));
+  const handlers = {};
+  const el = {
+    addEventListener: (type, fn) => { handlers[type] = fn; },
+    removeEventListener: noop,
+    querySelector: () => null,
+    querySelectorAll: () => tabs,
+  };
+  const hook = Object.assign(Object.create(global.window.PhoenixKitHooks.NavTabsOverflow), { el });
+  hook.mounted();
+  const states = [];
+  hook.setOpen = (open) => states.push(open);
+
+  const event = (type, id, extra) => {
+    const e = {
+      type,
+      target: {
+        closest: (sel) =>
+          sel === "[data-nav-menu] [role='menuitem']"
+            ? { getAttribute: () => id }
+            : null,
+      },
+      prevented: false,
+      preventDefault() { this.prevented = true; },
+      ...extra,
+    };
+    (type === "auxclick" ? handlers.auxclick : handlers.click)(e);
+    return e;
+  };
+
+  // Plain click: delegated, menu closed.
+  event("click", "link", {});
+  assert.deepEqual(clicks, ["link"]);
+  assert.deepEqual(opened, []);
+
+  // Modifier clicks: new tab, no delegation.
+  for (const mod of ["ctrlKey", "metaKey", "shiftKey"]) {
+    const e = event("click", "link", { [mod]: true });
+    assert.equal(e.prevented, true);
+  }
+  assert.equal(opened.length, 3);
+  assert.deepEqual(opened[0], ["/p?tab=l", "_blank", "noopener"]);
+  assert.deepEqual(clicks, ["link"]);
+
+  // Middle click.
+  event("auxclick", "link", { button: 1 });
+  assert.equal(opened.length, 4);
+  // Not the middle button: ignored.
+  event("auxclick", "link", { button: 2 });
+  assert.equal(opened.length, 4);
+
+  // An event tab has no URL: a modifier click is just a click.
+  event("click", "event", { ctrlKey: true });
+  assert.deepEqual(clicks, ["link", "event"]);
+  assert.equal(opened.length, 4);
+});

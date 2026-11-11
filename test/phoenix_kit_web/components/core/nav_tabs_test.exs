@@ -424,7 +424,7 @@ defmodule PhoenixKitWeb.Components.Core.NavTabsTest do
     ]
 
     defp menu_tabs(assigns) do
-      html = render_tabs(Map.put(assigns, :overflow, :menu))
+      html = render_tabs(assigns |> Map.put(:overflow, :menu) |> Map.put_new(:id, "tabs"))
       [before_menu, menu] = String.split(html, "data-nav-menu", parts: 2)
       {html, before_menu, menu}
     end
@@ -433,7 +433,7 @@ defmodule PhoenixKitWeb.Components.Core.NavTabsTest do
       {html, strip, _menu} = menu_tabs(%{tabs: @tabs})
 
       assert html =~ ~s(phx-hook="NavTabsOverflow")
-      assert html =~ ~r/id="nav-tabs-\d+"/
+      assert html =~ ~s(id="tabs")
       assert strip =~ ~s(role="tablist")
       assert strip =~ "data-nav-strip"
       assert length(Regex.scan(~r/role="tab"/, strip)) == 3
@@ -441,16 +441,18 @@ defmodule PhoenixKitWeb.Components.Core.NavTabsTest do
       assert length(Regex.scan(~r/role="menuitem"/, html)) == 3
     end
 
-    test "the id is stable across renders and overridable" do
-      {first, _, _} = menu_tabs(%{tabs: @tabs})
-      {second, _, _} = menu_tabs(%{tabs: @tabs})
-      {custom, _, _} = menu_tabs(%{tabs: @tabs, id: "order-tabs"})
+    test "the id is the caller's, and the menu id follows it" do
+      {html, _, _} = menu_tabs(%{tabs: @tabs, id: "order-tabs"})
 
-      [id] = Regex.run(~r/id="nav-tabs-\d+"/, first)
-      assert second =~ id
-      assert custom =~ ~s(id="order-tabs")
-      assert custom =~ ~s(id="order-tabs-menu")
-      assert custom =~ ~s(aria-controls="order-tabs-menu")
+      assert html =~ ~s(id="order-tabs")
+      assert html =~ ~s(id="order-tabs-menu")
+      assert html =~ ~s(aria-controls="order-tabs-menu")
+    end
+
+    test "overflow :menu without an id raises" do
+      assert_raise ArgumentError, ~r/needs an `id`/, fn ->
+        render_tabs(%{tabs: @tabs, overflow: :menu})
+      end
     end
 
     test "the more button starts hidden and is labelled for assistive tech" do
@@ -585,6 +587,7 @@ defmodule PhoenixKitWeb.Components.Core.NavTabsTest do
         rendered_to_string(~H"""
         <.nav_tabs
           active_tab="a"
+          id="tabs"
           overflow={:menu}
           on_change="pick"
           tabs={[%{id: "a", label: "A"}, %{id: "b", label: "B"}]}
@@ -617,6 +620,7 @@ defmodule PhoenixKitWeb.Components.Core.NavTabsTest do
         rendered_to_string(~H"""
         <.nav_tabs
           active_tab="a"
+          id="tabs"
           overflow={:menu}
           on_change="pick"
           tabs={[%{id: "a", label: "A"}, %{id: "b", label: "B"}]}
@@ -648,18 +652,6 @@ defmodule PhoenixKitWeb.Components.Core.NavTabsTest do
 
       [strip] = Regex.run(~r/<div[^>]*data-nav-strip[^>]*>/s, html)
       assert strip =~ "overflow-hidden"
-    end
-
-    test "the derived id tells differently configured strips apart" do
-      same = %{tabs: @tabs, on_change: "pick", target: "#a"}
-      {first, _, _} = menu_tabs(same)
-      {other_target, _, _} = menu_tabs(%{same | target: "#b"})
-      {other_event, _, _} = menu_tabs(%{same | on_change: "other"})
-
-      ids =
-        for html <- [first, other_target, other_event], do: Regex.run(~r/id="nav-tabs-\d+"/, html)
-
-      assert length(Enum.uniq(ids)) == 3
     end
   end
 

@@ -6349,7 +6349,7 @@ msgstr "Управление медиа и загрузками пользова
 msgid "More actions"
 msgstr "Ещё действия"
 
-#: lib/phoenix_kit_web/components/core/nav_tabs.ex:263
+#: lib/phoenix_kit_web/components/core/nav_tabs.ex:268
 #, elixir-autogen, elixir-format
 msgid "More tabs"
 msgstr "Ещё вкладки"

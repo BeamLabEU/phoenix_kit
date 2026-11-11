@@ -6338,7 +6338,7 @@ msgstr "Halda kasutajate meediat ja üleslaadimisi"
 msgid "More actions"
 msgstr "Veel toiminguid"
 
-#: lib/phoenix_kit_web/components/core/nav_tabs.ex:263
+#: lib/phoenix_kit_web/components/core/nav_tabs.ex:268
 #, elixir-autogen, elixir-format
 msgid "More tabs"
 msgstr "Rohkem vahekaarte"

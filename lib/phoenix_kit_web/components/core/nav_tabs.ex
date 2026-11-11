@@ -85,7 +85,7 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
   exactly as daisyUI lays them out. On a phone that turns a long strip into a
   stack of rows; `overflow={:menu}` keeps it to ONE row instead:
 
-      <.nav_tabs active_tab={@tab} overflow={:menu} class="tabs-sm" tabs={@tabs}>
+      <.nav_tabs id="order-tabs" active_tab={@tab} overflow={:menu} class="tabs-sm" tabs={@tabs}>
         <:trailing><span class="text-xs">{@count} items</span></:trailing>
       </.nav_tabs>
 
@@ -95,9 +95,9 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
   single element carrying the link / `phx-click` / `phx-target` / `phx-value-tab`
   attributes. Choosing a menu item makes the `NavTabsOverflow` hook
   (`phoenix_kit.js`) click that strip tab — LiveView handles it exactly as a
-  direct click, but a link tab picked from the menu is a button press, so it has
-  no open-in-new-tab. The hook also measures, and toggles which of each pair is
-  visible.
+  direct click. Ctrl/Cmd/Shift-click or middle-click on the menu item of a link
+  tab opens the tab's URL in a new browser tab instead. The hook also measures,
+  and toggles which of each pair is visible.
 
     * The active tab always stays in the strip: earlier tabs make room for it,
       and when it is wider than the strip on its own its label is truncated.
@@ -116,10 +116,9 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
   a trailing slot), so layout classes meant for the strip's own row — `flex-1`,
   `inline-flex` — belong on a parent instead.
 
-  The hook needs a DOM id. One is derived from the tab ids, `on_change` and
-  `target`, so strips that differ in those do not collide; pass `id` whenever the same
-  strip can appear twice on a page, and to keep the menu's open state when the
-  tab list changes (a changed derived id remounts the hook).
+  `overflow={:menu}` requires an `id` (an `ArgumentError` without one): the hook
+  binds to it, so it must be unique on the page — a derived id would collide for
+  two strips with the same tabs.
 
   Tests: select a tab with `[role=tab]` or `[data-nav-tab=ID]`. A menu item has
   the same label text but no link or `phx-*` attributes, so attribute selectors
@@ -191,7 +190,7 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
   attr :id, :string,
     default: nil,
     doc:
-      "DOM id of the strip. In `overflow={:menu}` the hook needs one and a derived id is used when nil; in :wrap it is rendered only when given"
+      "DOM id of the strip. REQUIRED for `overflow={:menu}` (raises without it): the hook binds to it and it must be unique on the page. In :wrap it is rendered only when given"
 
   attr :class, :string, default: nil
 
@@ -199,9 +198,15 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
     doc:
       "Controls that belong to the strip but are not tabs — a sort select, a count, a note — rendered inside the same frame at its end. A strip with a trailing slot stretches to fill its row (`flex-1`) so the frame visibly holds both; without it a strip with a control beside it reads as two unrelated bars."
 
+  # NOT derived from the tabs: a derived id collides as soon as two strips with
+  # the same tab ids share a page (two components, say), and LiveView then
+  # patches the wrong node.
+  @menu_id_message "nav_tabs: overflow={:menu} needs an `id` — the NavTabsOverflow hook " <>
+                     "binds to it, and it must be unique on the page"
+
   def nav_tabs(%{overflow: :menu} = assigns) do
     tabs = Enum.map(assigns.tabs, &normalize(&1, assigns.on_change))
-    id = assigns.id || derived_id(tabs, assigns)
+    id = assigns.id || raise(ArgumentError, @menu_id_message)
 
     assigns =
       assigns
@@ -350,14 +355,6 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
       {@tab.badge}
     </span>
     """
-  end
-
-  # The hook needs an id, and two strips with one id on a page confuse LiveView's
-  # patching. Derive one from everything that tells strips apart without the
-  # caller's help; a page that renders identical strips must pass `id`.
-  defp derived_id(tabs, assigns) do
-    key = {Enum.map(tabs, & &1.id), assigns.on_change, assigns.target}
-    "nav-tabs-" <> Integer.to_string(:erlang.phash2(key))
   end
 
   # Overflow-mode tabs never wrap their content and never shrink — except the

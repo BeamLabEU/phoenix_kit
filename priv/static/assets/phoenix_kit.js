@@ -7135,18 +7135,13 @@ if (typeof window.Chart === "undefined") {
           e.preventDefault();
           this.setOpen(!this._open);
         } else {
-          var item = t.closest("[data-nav-menu] [role='menuitem']");
-          if (!item) return;
-          // The menu item carries no link or phx-* attributes: forward the pick
-          // to the strip tab (hidden, but still clickable), which LiveView
-          // handles as a direct click. Focus goes back to the "⋯" button first —
-          // the item is about to be hidden and would drop it on <body>.
-          var tab = navTabsFind(this.el, item.getAttribute("data-nav-item"));
-          var more = this.el.querySelector("[data-nav-more]");
-          this.setOpen(false);
-          if (more && more.focus) more.focus({ preventScroll: true });
-          if (tab) tab.click();
+          this.pick(e, t);
         }
+      };
+      // Middle-click fires `auxclick`, not `click`.
+      this._onAuxClick = (e) => {
+        if (e.button !== 1 || !e.target || !e.target.closest) return;
+        this.pick(e, e.target);
       };
       // Scoped to THIS strip's own button and menu: another strip's pointerdown
       // (or a tap on this strip's tabs) must close this menu.
@@ -7186,6 +7181,7 @@ if (typeof window.Chart === "undefined") {
       };
       this._onNavigate = () => { this.setOpen(false); };
       this.el.addEventListener("click", this._onClick);
+      this.el.addEventListener("auxclick", this._onAuxClick);
       document.addEventListener("pointerdown", this._onPointerDown, true);
       document.addEventListener("keydown", this._onKeydown);
       window.addEventListener("phx:page-loading-start", this._onNavigate);
@@ -7215,11 +7211,35 @@ if (typeof window.Chart === "undefined") {
     destroyed() {
       this._destroyed = true;
       this.el.removeEventListener("click", this._onClick);
+      this.el.removeEventListener("auxclick", this._onAuxClick);
       document.removeEventListener("pointerdown", this._onPointerDown, true);
       document.removeEventListener("keydown", this._onKeydown);
       window.removeEventListener("phx:page-loading-start", this._onNavigate);
       if (this._mutations) this._mutations.disconnect();
       if (this._resize) this._resize.disconnect();
+    },
+    // A menu item carries no link or phx-* attributes: the strip tab does, so a
+    // pick is forwarded to it (hidden, but still clickable) and LiveView handles
+    // it as a direct click. Ctrl/Cmd/Shift-click or middle-click on a link tab
+    // opens its URL in a new browser tab instead, as the tab itself would.
+    pick(e, target) {
+      var item = target.closest("[data-nav-menu] [role='menuitem']");
+      if (!item) return;
+      var tab = navTabsFind(this.el, item.getAttribute("data-nav-item"));
+      var href = tab && tab.getAttribute("href");
+      var newTab = e.type === "auxclick" || e.ctrlKey || e.metaKey || e.shiftKey;
+      if (href && newTab) {
+        e.preventDefault();
+        window.open(href, "_blank", "noopener");
+        return;
+      }
+      if (e.type === "auxclick") return;
+      // Focus goes back to the "⋯" button first: the item is about to be hidden
+      // and would drop it on <body>.
+      var more = this.el.querySelector("[data-nav-more]");
+      this.setOpen(false);
+      if (more && more.focus) more.focus({ preventScroll: true });
+      if (tab) tab.click();
     },
     visibleItems() {
       var menu = this.el.querySelector("[data-nav-menu]");
