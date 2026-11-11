@@ -20,8 +20,8 @@ defmodule PhoenixKit.Modules.Storage.AnnotationThumbnail do
   like the grid.
 
   Label text needs a font ImageMagick can read: the first of DejaVu-Sans,
-  Liberation-Sans, Helvetica, Arial it lists (else any listed one), or the one
-  named by `config :phoenix_kit, :annotation_font` (a font name or file path).
+  Liberation-Sans, Helvetica, Arial that is installed (else any installed one
+  that is not a symbol set), or the one named by `config :phoenix_kit, :annotation_font` (a font name or file path).
 
   Regeneration is meant to run in the background (see `AnnotationThumbnailJob`),
   debounced so a flurry of edits collapses into one render.
@@ -239,9 +239,14 @@ defmodule PhoenixKit.Modules.Storage.AnnotationThumbnail do
 
   defp text_draw?(arg), do: is_binary(arg) and String.starts_with?(arg, "text ")
 
-  # The font for labels: `config :phoenix_kit, :annotation_font` (a name known
-  # to ImageMagick or a font file path), else the first of `@font_candidates`
-  # ImageMagick lists, else any listed font. Resolved once per node.
+  # The font for labels: `config :phoenix_kit, :annotation_font` (a font name
+  # ImageMagick lists, or a font file path), else the first of
+  # `@font_candidates` that is installed, else any installed font that is not a
+  # symbol set. "Installed" means the file named by the `glyphs:` line exists:
+  # ImageMagick also lists names whose files are missing (the ghostscript
+  # Helvetica that made text draws fail), so a listed name alone proves nothing.
+  # Resolved once per node and kept, `nil` ("no usable font") included — fonts
+  # installed later are picked up after a restart.
   defp font do
     case :persistent_term.get(@font_cache_key, :unresolved) do
       :unresolved -> resolve_font()
@@ -250,21 +255,15 @@ defmodule PhoenixKit.Modules.Storage.AnnotationThumbnail do
   end
 
   defp resolve_font do
-    case Application.get_env(:phoenix_kit, :annotation_font) do
-      font when is_binary(font) and font != "" ->
-        remember_font(font)
+    case installed_fonts() do
+      {:ok, installed} ->
+        installed
+        |> choose_font(Application.get_env(:phoenix_kit, :annotation_font))
+        |> remember_font()
 
-      _ ->
-        case listed_fonts() do
-          {:ok, listed} ->
-            listed
-            |> pick_font()
-            |> remember_font()
-
-          :error ->
-            # ImageMagick could not be asked — try again next time.
-            nil
-        end
+      :error ->
+        # ImageMagick could not be asked — try again next time.
+        nil
     end
   end
 
@@ -273,12 +272,45 @@ defmodule PhoenixKit.Modules.Storage.AnnotationThumbnail do
     font
   end
 
-  defp pick_font(listed), do: Enum.find(@font_candidates, &(&1 in listed)) || List.first(listed)
+  defp choose_font(installed, configured) do
+    names = Enum.map(installed, &elem(&1, 0))
 
-  defp listed_fonts do
+    cond do
+      not (is_binary(configured) and configured != "") ->
+        pick_font(names)
+
+      configured in names or File.exists?(configured) ->
+        configured
+
+      true ->
+        picked = pick_font(names)
+
+        Logger.warning(
+          "AnnotationThumbnail: :annotation_font #{inspect(configured)} is neither an " <>
+            "installed ImageMagick font nor a font file; using #{inspect(picked)}"
+        )
+
+        picked
+    end
+  end
+
+  defp pick_font(names) do
+    Enum.find(@font_candidates, &(&1 in names)) ||
+      Enum.find(names, &(not String.match?(&1, ~r/symbol|dingbat|wingding/i)))
+  end
+
+  # `{name, glyphs_path}` of every font `convert -list font` names whose file
+  # is there.
+  defp installed_fonts do
     case System.cmd("convert", ["-list", "font"], stderr_to_stdout: true) do
       {out, 0} ->
-        {:ok, for(<<"  Font: ", name::binary>> <- String.split(out, "\n"), do: String.trim(name))}
+        fonts =
+          out
+          |> String.split(~r/^\s*Font: /m, trim: true)
+          |> Enum.flat_map(&parse_font_block/1)
+          |> Enum.filter(fn {_name, glyphs} -> File.exists?(glyphs) end)
+
+        {:ok, fonts}
 
       _ ->
         :error
@@ -286,6 +318,22 @@ defmodule PhoenixKit.Modules.Storage.AnnotationThumbnail do
   rescue
     # No `convert` on the PATH.
     ErlangError -> :error
+  end
+
+  defp parse_font_block(block) do
+    with [name | rest] <- String.split(block, "\n"),
+         glyphs when is_binary(glyphs) <- Enum.find_value(rest, &glyphs_path/1) do
+      [{String.trim(name), glyphs}]
+    else
+      _ -> []
+    end
+  end
+
+  defp glyphs_path(line) do
+    case String.split(line, "glyphs:", parts: 2) do
+      [_, path] -> String.trim(path)
+      _ -> nil
+    end
   end
 
   # Etcher owns the geometry → draw mapping. Convert our `Annotation` structs to

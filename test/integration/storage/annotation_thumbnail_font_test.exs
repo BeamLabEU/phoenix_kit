@@ -20,6 +20,10 @@ defmodule PhoenixKit.Modules.Storage.AnnotationThumbnailFontTest do
   unless imagemagick?(),
     do: @moduletag(skip: "ImageMagick (convert, identify) is not installed")
 
+  # Text can only be drawn with a font that is installed.
+  if imagemagick?() and AnnotationThumbnail.font_args(["-draw", "text 0,0 'x'"]) == [],
+    do: @moduletag(skip: "ImageMagick has no installed font")
+
   setup %{tmp_dir: tmp} do
     if imagemagick?() do
       env = setup_storage(tmp)

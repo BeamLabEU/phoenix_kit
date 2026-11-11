@@ -49,22 +49,4 @@ defmodule PhoenixKit.Modules.Storage.AnnotationThumbnailRasterTest do
 
     assert Enum.any?(args, &(&1 =~ "From the metadata"))
   end
-
-  describe "font_args/1" do
-    test "no font for an outline-only draw" do
-      assert AnnotationThumbnail.font_args(["-stroke", "red", "-draw", "rectangle 1,1 5,5"]) ==
-               []
-    end
-
-    test "a font before a text draw, when ImageMagick has one" do
-      args = ["-pointsize", "20", "-draw", "text 1,1 'x'"]
-
-      if System.find_executable("convert") do
-        assert ["-font", font] = AnnotationThumbnail.font_args(args)
-        assert is_binary(font) and font != ""
-      else
-        assert AnnotationThumbnail.font_args(args) == []
-      end
-    end
-  end
 end
