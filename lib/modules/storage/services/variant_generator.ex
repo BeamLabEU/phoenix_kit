@@ -59,6 +59,14 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
   ## Options
 
   - `:dimensions` - List of specific dimensions to generate (default: all enabled)
+  - `:source` - `{path, source_key}`: a copy of the original the caller already has on
+    disk (for a drawn type, the picture drawn from it) and the storage key it was read
+    from. Every size is made from it, so the original is not fetched again per size.
+    The caller keeps the file and removes it afterwards.
+  - `:on_early` - a zero-arity function called once, when the small still sizes
+    (`early_size?/1`) are stored and bigger ones or video renditions are still being
+    made: the file can be shown from then on. Not called when there is nothing left to
+    wait for after them.
 
   Variant generation is always synchronous from the caller's perspective.
   Internally `process_variants/2` parallelizes the per-dimension work via
@@ -92,7 +100,7 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
         {result, complete?} =
           case dimensions do
             [] -> {{:ok, []}, true}
-            _ -> process_variants(file, dimensions)
+            _ -> process_variants(file, dimensions, opts)
           end
 
         # A full run records whether every size of the set was made; one
@@ -750,26 +758,58 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
     end)
   end
 
-  defp process_variants(file, dimensions) do
+  # A still no bigger than this on its longer side is an "early" size: what a grid or a
+  # list shows a file with.
+  @early_max_side 1000
+
+  @doc """
+  Whether a size of `file` is one of the small stills it is first shown with: a picture
+  (for a video, a still frame, not a video rendition) whose box is at most
+  #{@early_max_side} px on its longer side. `generate_variants/2` reports through
+  `:on_early` when these are stored.
+  """
+  @spec early_size?(map(), map(), String.t() | nil) :: boolean()
+  def early_size?(file, dimension, format \\ nil) do
+    format = format || Map.get(dimension, :format)
+    sides = Enum.filter([Map.get(dimension, :width), Map.get(dimension, :height)], &is_integer/1)
+
+    sides != [] and Enum.max(sides) <= @early_max_side and
+      (Map.get(file, :file_type) != "video" or still_frame?(%{format: format}))
+  end
+
+  defp process_variants(file, dimensions, opts) do
     expanded = expand_dimensions_with_alternatives(dimensions)
 
-    # A picture that has to be drawn (a raw file's development can take seconds and
-    # most of a gigabyte) is made once for every size, not once per size.
+    # A copy the caller already holds is used for every size. Otherwise a picture that
+    # has to be drawn (a raw file's development can take seconds and most of a
+    # gigabyte) is made once for every size, not once per size.
     {shared, owned} =
-      if DrawnSource.drawn?(file.mime_type) do
-        case source_picture(file, nil) do
-          {:ok, path, key, owned} -> {{path, key}, owned}
-          {:error, _} -> {nil, []}
-        end
-      else
-        {nil, []}
+      case Keyword.get(opts, :source) do
+        {path, key} when is_binary(path) ->
+          {{path, key}, []}
+
+        _ ->
+          if DrawnSource.drawn?(file.mime_type) do
+            case source_picture(file, nil) do
+              {:ok, path, key, owned} -> {{path, key}, owned}
+              {:error, _} -> {nil, []}
+            end
+          else
+            {nil, []}
+          end
       end
+
+    early_done = early_reporter(file, expanded, Keyword.get(opts, :on_early))
 
     results =
       try do
         expanded
         |> Enum.map(fn {dim, vname, fmt} ->
-          Task.async(fn -> do_generate_variant(file, dim, vname, fmt, "", shared) end)
+          Task.async(fn ->
+            result = do_generate_variant(file, dim, vname, fmt, "", shared)
+            if early_size?(file, dim, fmt), do: early_done.(result)
+            result
+          end)
         end)
         # Video transcoding can take several minutes for large files
         |> Task.await_many(:timer.minutes(10))
@@ -792,6 +832,36 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
       end
 
     {result, failed == []}
+  end
+
+  # What each early size calls when it is done. The last of them calls `on_early`, if
+  # at least one was stored and other sizes are still being made.
+  defp early_reporter(_file, _expanded, on_early) when not is_function(on_early, 0),
+    do: fn _ -> :ok end
+
+  defp early_reporter(file, expanded, on_early) do
+    early = Enum.count(expanded, fn {dim, _name, fmt} -> early_size?(file, dim, fmt) end)
+
+    if early == 0 or early == length(expanded) do
+      fn _ -> :ok end
+    else
+      left = :atomics.new(2, signed: true)
+      :atomics.put(left, 1, early)
+
+      fn result ->
+        if match?({:ok, _}, result), do: :atomics.add(left, 2, 1)
+
+        if :atomics.sub_get(left, 1, 1) == 0 and :atomics.get(left, 2) > 0 do
+          try do
+            on_early.()
+          rescue
+            error -> Logger.warning("on_early failed: #{Exception.message(error)}")
+          end
+        end
+
+        :ok
+      end
+    end
   end
 
   @alpha_capable ~w(png webp gif avif)

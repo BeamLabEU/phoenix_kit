@@ -163,7 +163,7 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
              metadata = with_animation(metadata, picture, file),
              :ok <- update_and_log_metadata(file, source, metadata),
              :ok <- log_dimensions_info() do
-          generate_and_log_variants(file)
+          generate_and_log_variants(file, {picture, source})
         end
       end)
     end
@@ -212,8 +212,15 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
     :ok
   end
 
-  defp generate_and_log_variants(file) do
-    case VariantGenerator.generate_variants(file) do
+  # Every size is made from the copy this job already fetched (`source`), and the page
+  # is told as soon as the small stills are stored: a photo or a video shows in a grid
+  # then, while its large size or its video renditions are still being made.
+  defp variant_opts(file, source) do
+    [source: source, on_early: fn -> Storage.broadcast_file_processed(file.uuid) end]
+  end
+
+  defp generate_and_log_variants(file, source) do
+    case VariantGenerator.generate_variants(file, variant_opts(file, source)) do
       {:ok, variants} = success ->
         Logger.info("ProcessFileJob: Generated #{length(variants)} variants successfully")
         success
@@ -229,7 +236,7 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
         with {:ok, metadata} <- extract_video_metadata(temp_path),
              metadata = with_capture_date(metadata, temp_path, file),
              :ok <- update_file_with_metadata(file, source, metadata) do
-          VariantGenerator.generate_variants(file)
+          VariantGenerator.generate_variants(file, variant_opts(file, {temp_path, source}))
         end
       end)
     end
@@ -265,7 +272,7 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
                  source,
                  PdfProcessor.file_attrs(file.metadata, metadata)
                ) do
-          generate_and_log_variants(file)
+          generate_and_log_variants(file, {temp_path, source})
         end
       end)
     end
