@@ -158,15 +158,22 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerEyeTest do
   end
 
   describe "the live layer's nav buttons" do
-    test "an annotator gets Etcher's pencil alone — their eye is the hook's" do
+    test "an annotator gets Etcher's View | Annotate switch alone — their eye is the hook's" do
       # The annotator's eye must end the editing session (composing the
       # burn while the overlay is still up) before swapping to the clean
       # picture; Etcher's client-side overlay toggle cannot do that, so
       # the AnnotationBurn hook owns the eye on every surface of theirs.
+      # `modes` is the switch that replaces the pencil (Etcher 0.25).
       html = render_html(%{burn_canvas: nil, burn_version: nil})
 
-      assert html =~ ~s(data-nav-buttons="pencil")
-      refute html =~ ~s(data-nav-buttons="pencil,visibility")
+      assert html =~ ~s(data-nav-buttons="modes")
+      refute html =~ ~s(data-nav-buttons="pencil")
+      refute html =~ ~s(data-nav-buttons="modes,visibility")
+    end
+
+    test "the viewer's buttons are drawn as one dark bar, Etcher's tool bar look" do
+      html = render_html(%{burn_canvas: nil, burn_version: nil})
+      assert html =~ ~s(data-nav-style="bar")
     end
 
     test "a read-only viewer gets Etcher's eye — no session to end, nothing to swap" do
