@@ -13,6 +13,7 @@ defmodule PhoenixKit.Modules.Storage.ImageProcessor do
   require Logger
 
   alias PhoenixKit.Modules.Storage.ImageEdit
+  alias PhoenixKit.Modules.Storage.ProbeCache
   alias PhoenixKit.Modules.Storage.Sniff
 
   # Resource ceilings on EVERY ImageMagick call, applied here rather than
@@ -86,9 +87,11 @@ defmodule PhoenixKit.Modules.Storage.ImageProcessor do
   - `{:error, reason}` - If extraction fails
   """
   def extract_dimensions(file_path) do
-    with {:ok, input} <- pinned_input(file_path, "[0]") do
-      identify_dimensions(input)
-    end
+    ProbeCache.fetch(:dimensions, file_path, fn ->
+      with {:ok, input} <- pinned_input(file_path, "[0]") do
+        identify_dimensions(input)
+      end
+    end)
   end
 
   # The canvas (`%W x %H`, the page geometry), not the first frame's own size: an
@@ -823,7 +826,10 @@ defmodule PhoenixKit.Modules.Storage.ImageProcessor do
   """
   @spec oriented_info(String.t()) ::
           {:ok, {pos_integer(), pos_integer(), pos_integer()}} | {:error, String.t()}
-  def oriented_info(file_path) do
+  def oriented_info(file_path),
+    do: ProbeCache.fetch(:oriented_info, file_path, fn -> read_oriented_info(file_path) end)
+
+  defp read_oriented_info(file_path) do
     with {:ok, input} <- pinned_input(file_path, "[0]"),
          {:ok, frames} <- frame_count(file_path),
          {output, 0} <-
@@ -1059,7 +1065,10 @@ defmodule PhoenixKit.Modules.Storage.ImageProcessor do
   end
 
   @doc false
-  def has_alpha_channel?(file_path) do
+  def has_alpha_channel?(file_path),
+    do: ProbeCache.fetch(:alpha, file_path, fn -> read_alpha_channel?(file_path) end)
+
+  defp read_alpha_channel?(file_path) do
     with {:ok, input} <- pinned_input(file_path, "[0]"),
          {output, 0} <-
            System.cmd("identify", @probe_args ++ ["-format", "%[channels]", input],

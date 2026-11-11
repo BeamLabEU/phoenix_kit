@@ -43,6 +43,7 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
   alias PhoenixKit.Modules.Storage.Hdr
   alias PhoenixKit.Modules.Storage.ImageProcessor
   alias PhoenixKit.Modules.Storage.PdfProcessor
+  alias PhoenixKit.Modules.Storage.ProbeCache
   alias PhoenixKit.Modules.Storage.VariantGenerator
 
   @doc """
@@ -108,6 +109,80 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
     end
   end
 
+  @doc """
+  Reads a new file's size, capture date and EXIF from a copy of it the caller has on
+  disk, and makes the file active with them, before this job has run.
+
+  An upload's bytes are on the server's disk when it is stored, and the job starts by
+  fetching them back from a bucket (for a video, all of it) to learn the same things.
+  Called right after `Storage.store_file_in_buckets/7`, with the file that was
+  stored, this lets a timeline give the file its place at once, as a file whose sizes
+  are still being made, and says so (`Storage.broadcast_file_processed/1`). The job
+  then runs as usual and reads the same again.
+
+  Only a photo or a video that is still `"processing"`, and not one that has to be
+  drawn first (camera raw, SVG): developing a raw file is the job's work. Returns `:ok`
+  or `:skipped`; never raises.
+  """
+  @spec read_metadata(String.t(), Path.t()) :: :ok | :skipped
+  def read_metadata(file_uuid, path) do
+    with %Storage.File{status: "processing"} = file <- Storage.get_file(file_uuid),
+         %{file_name: source} <- Storage.get_file_instance_by_name(file.uuid, "original"),
+         {:ok, metadata} <- local_metadata(file, path),
+         true <- is_integer(metadata[:width]) and is_integer(metadata[:height]),
+         :ok <- update_file_with_metadata(file, source, metadata) do
+      Storage.broadcast_file_processed(file.uuid)
+      :ok
+    else
+      _ -> :skipped
+    end
+  rescue
+    error ->
+      Logger.warning("ProcessFileJob: read_metadata failed: #{Exception.message(error)}")
+      :skipped
+  end
+
+  defp local_metadata(%{file_type: "image"} = file, path) do
+    if DrawnSource.drawn?(file.mime_type) do
+      :skipped
+    else
+      ProbeCache.run(fn ->
+        warm_probes(path, path)
+        image_metadata(file, path, path)
+      end)
+    end
+  end
+
+  defp local_metadata(%{file_type: "video"} = file, path), do: video_metadata(file, path)
+  defp local_metadata(_file, _path), do: :skipped
+
+  # What is read from a picture (`picture`; `tagged` is where its EXIF is, the raw file
+  # itself for a developed one) and from a video.
+  defp image_metadata(file, tagged, picture) do
+    with {:ok, metadata} <- extract_and_log_image_metadata(picture) do
+      {:ok,
+       metadata
+       |> with_capture_date(tagged, file)
+       |> with_exif(tagged, picture, file)
+       |> with_animation(picture, file)}
+    end
+  end
+
+  defp video_metadata(file, path) do
+    with {:ok, metadata} <- extract_video_metadata(path),
+         do: {:ok, with_capture_date(metadata, path, file)}
+  end
+
+  # A file this run made active is told to the page as soon as its metadata is in, so
+  # it takes its place before its sizes are made. One that was active already (a
+  # regeneration, or `read_metadata/2` got there first) has its place.
+  defp announce_read(%{status: "processing", uuid: uuid}) do
+    Storage.broadcast_file_processed(uuid)
+    :ok
+  end
+
+  defp announce_read(_file), do: :ok
+
   defp mark_failed_on_last_attempt(%Oban.Job{attempt: attempt, max_attempts: max}, file_uuid)
        when attempt >= max do
     {count, _} =
@@ -148,7 +223,11 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
     end
   end
 
-  defp process_image(file) do
+  # One `ProbeCache` for the whole of it: what reading the picture's metadata learns
+  # about it (its size) is not asked again by each of its sizes.
+  defp process_image(file), do: ProbeCache.run(fn -> read_and_make_image(file) end)
+
+  defp read_and_make_image(file) do
     Logger.info("ProcessFileJob: process_image/1 called for file_uuid=#{file.uuid}")
 
     with {:ok, temp_path, source} <- retrieve_and_log_file(file.uuid),
@@ -156,14 +235,13 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
       with_temp_file([temp_path, picture], fn ->
         # A raw file's EXIF is in the raw file, not in the JPEG developed from it.
         tagged = if CameraRaw.mime?(file.mime_type), do: temp_path, else: picture
+        warm_probes(picture, tagged)
 
-        with {:ok, metadata} <- extract_and_log_image_metadata(picture),
-             metadata = with_capture_date(metadata, tagged, file),
-             metadata = with_exif(metadata, tagged, picture, file),
-             metadata = with_animation(metadata, picture, file),
+        with {:ok, metadata} <- image_metadata(file, tagged, picture),
              :ok <- update_and_log_metadata(file, source, metadata),
+             :ok <- announce_read(file),
              :ok <- log_dimensions_info() do
-          generate_and_log_variants(file)
+          generate_and_log_variants(file, {picture, source})
         end
       end)
     end
@@ -175,6 +253,34 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
         Logger.error("ProcessFileJob: Failed to process image: #{inspect(reason)}")
         error
     end
+  end
+
+  # What the steps below ask of the picture one after another, and its sizes after
+  # them, each a full decode: asked all at once here, so each step finds its answer
+  # ready or on its way (`ProbeCache` hands a second asker the first one's answer).
+  defp warm_probes(picture, tagged) do
+    cache = ProbeCache.current()
+
+    for probe <- [
+          fn -> ImageProcessor.oriented_info(picture) end,
+          fn -> ImageProcessor.extract_dimensions(picture) end,
+          fn -> ImageProcessor.has_alpha_channel?(picture) end,
+          fn -> Exif.read(tagged) end
+        ] do
+      Task.start(fn ->
+        ProbeCache.adopt(cache)
+
+        try do
+          probe.()
+        rescue
+          _ -> :ok
+        catch
+          _, _ -> :ok
+        end
+      end)
+    end
+
+    :ok
   end
 
   defp retrieve_and_log_file(file_uuid) do
@@ -212,8 +318,15 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
     :ok
   end
 
-  defp generate_and_log_variants(file) do
-    case VariantGenerator.generate_variants(file) do
+  # Every size is made from the copy this job already fetched (`source`), and the page
+  # is told as soon as the small stills are stored: a photo or a video shows in a grid
+  # then, while its large size or its video renditions are still being made.
+  defp variant_opts(file, source) do
+    [source: source, on_early: fn -> Storage.broadcast_file_processed(file.uuid) end]
+  end
+
+  defp generate_and_log_variants(file, source) do
+    case VariantGenerator.generate_variants(file, variant_opts(file, source)) do
       {:ok, variants} = success ->
         Logger.info("ProcessFileJob: Generated #{length(variants)} variants successfully")
         success
@@ -226,10 +339,10 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
   defp process_video(file) do
     with {:ok, temp_path, source} <- retrieve_and_log_file(file.uuid) do
       with_temp_file(temp_path, fn ->
-        with {:ok, metadata} <- extract_video_metadata(temp_path),
-             metadata = with_capture_date(metadata, temp_path, file),
-             :ok <- update_file_with_metadata(file, source, metadata) do
-          VariantGenerator.generate_variants(file)
+        with {:ok, metadata} <- video_metadata(file, temp_path),
+             :ok <- update_file_with_metadata(file, source, metadata),
+             :ok <- announce_read(file) do
+          VariantGenerator.generate_variants(file, variant_opts(file, {temp_path, source}))
         end
       end)
     end
@@ -265,7 +378,7 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
                  source,
                  PdfProcessor.file_attrs(file.metadata, metadata)
                ) do
-          generate_and_log_variants(file)
+          generate_and_log_variants(file, {temp_path, source})
         end
       end)
     end
