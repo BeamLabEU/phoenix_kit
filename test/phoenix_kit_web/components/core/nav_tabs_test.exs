@@ -367,4 +367,239 @@ defmodule PhoenixKitWeb.Components.Core.NavTabsTest do
       refute html =~ "ml-auto"
     end
   end
+
+  describe "overflow: :wrap (default)" do
+    @fixtures Path.expand("../../../fixtures/nav_tabs", __DIR__)
+
+    # Captured from the component BEFORE overflow existed. Whitespace included:
+    # every existing caller must keep rendering byte-identical markup.
+    @link_set %{
+      active_tab: "a",
+      variant: :border,
+      class: "tabs-sm mb-4",
+      tabs: [
+        %{id: "a", label: "General", icon: "hero-cog-6-tooth", navigate: "/admin/settings"},
+        %{id: "b", label: "Followers", patch: "/p?tab=f", badge: 3, badge_class: "badge-warning"},
+        %{id: "c", label: "Legacy", path: "/admin/x", badge: 0}
+      ]
+    }
+    @event_set %{
+      active_tab: "y",
+      on_change: "switch",
+      target: "#cmp",
+      tabs: [
+        %{id: "x", label: "Oban"},
+        %{id: "y", label: "Sched", icon: "hero-clock", badge: 12}
+      ]
+    }
+
+    test "link tabs render exactly as before" do
+      expected = File.read!(Path.join(@fixtures, "link_wrap.html"))
+
+      assert render_tabs(@link_set) == expected
+      assert render_tabs(Map.put(@link_set, :overflow, :wrap)) == expected
+    end
+
+    test "event tabs render exactly as before" do
+      expected = File.read!(Path.join(@fixtures, "event_wrap.html"))
+
+      assert render_tabs(@event_set) == expected
+      assert render_tabs(Map.put(@event_set, :overflow, :wrap)) == expected
+    end
+
+    test "carries no overflow markup" do
+      html = render_tabs(@link_set)
+
+      refute html =~ "phx-hook"
+      refute html =~ "data-nav"
+      refute html =~ "More tabs"
+    end
+  end
+
+  describe "overflow: :menu" do
+    @tabs [
+      %{id: "a", label: "General", icon: "hero-cog-6-tooth", navigate: "/admin/settings"},
+      %{id: "b", label: "Followers", patch: "/p?tab=f", badge: 3},
+      %{id: "c", label: "Legacy", path: "/admin/x", badge: 0, badge_class: "badge-warning"}
+    ]
+
+    defp menu_tabs(assigns) do
+      html = render_tabs(Map.put(assigns, :overflow, :menu))
+      [before_menu, menu] = String.split(html, "data-nav-menu", parts: 2)
+      {html, before_menu, menu}
+    end
+
+    test "renders the hook on a wrapper with an id, around a strip that keeps the tab roles" do
+      {html, strip, _menu} = menu_tabs(%{tabs: @tabs})
+
+      assert html =~ ~s(phx-hook="NavTabsOverflow")
+      assert html =~ ~r/id="nav-tabs-\d+"/
+      assert strip =~ ~s(role="tablist")
+      assert strip =~ "data-nav-strip"
+      assert length(Regex.scan(~r/role="tab"/, strip)) == 3
+      assert html =~ ~s(role="menu")
+      assert length(Regex.scan(~r/role="menuitem"/, html)) == 3
+    end
+
+    test "the id is stable across renders and overridable" do
+      {first, _, _} = menu_tabs(%{tabs: @tabs})
+      {second, _, _} = menu_tabs(%{tabs: @tabs})
+      {custom, _, _} = menu_tabs(%{tabs: @tabs, id: "order-tabs"})
+
+      [id] = Regex.run(~r/id="nav-tabs-\d+"/, first)
+      assert second =~ id
+      assert custom =~ ~s(id="order-tabs")
+      assert custom =~ ~s(id="order-tabs-menu")
+      assert custom =~ ~s(aria-controls="order-tabs-menu")
+    end
+
+    test "the more button starts hidden and is labelled for assistive tech" do
+      {_html, strip, _menu} = menu_tabs(%{tabs: @tabs})
+
+      [button] = Regex.run(~r/<button[^>]*data-nav-more[^>]*>/s, strip)
+      assert button =~ ~r/class="[^"]*\bhidden\b/
+      assert button =~ ~s(aria-label="More tabs")
+      assert button =~ ~s(aria-haspopup="menu")
+      assert button =~ ~s(aria-expanded="false")
+      # Not a tab: the roving tab strip must not count it.
+      refute button =~ ~s(role="tab")
+      assert strip =~ "hero-ellipsis-horizontal"
+    end
+
+    test "menu items mirror each tab's link attributes, in order" do
+      {html, strip, menu} = menu_tabs(%{tabs: @tabs})
+
+      for chunk <- [strip, menu] do
+        assert chunk =~ ~s(href="/admin/settings")
+        assert chunk =~ ~s(data-phx-link="redirect")
+        assert chunk =~ ~s(href="/p?tab=f")
+        assert chunk =~ ~s(data-phx-link="patch")
+        assert chunk =~ ~s(href="#{Routes.path("/admin/x")}")
+      end
+
+      ids = Regex.scan(~r/data-nav-item="(\w+)"/, html, capture: :all_but_first)
+      assert ids == [["a"], ["b"], ["c"]]
+    end
+
+    test "event tabs get the same phx-click / phx-target / phx-value-tab in the menu" do
+      {_html, strip, menu} =
+        menu_tabs(%{
+          on_change: "switch",
+          target: "#cmp",
+          tabs: [%{id: "x", label: "Oban"}, %{id: "y", label: "Sched"}]
+        })
+
+      for chunk <- [strip, menu], id <- ["x", "y"] do
+        assert chunk =~ ~s(phx-click="switch")
+        assert chunk =~ ~s(phx-target="#cmp")
+        assert chunk =~ ~s(phx-value-tab="#{id}")
+      end
+
+      assert menu =~ ~s(role="menuitem")
+      refute menu =~ ~s(role="tab")
+    end
+
+    test "a strip may mix link and event tabs" do
+      {_html, strip, menu} =
+        menu_tabs(%{
+          on_change: "switch",
+          tabs: [
+            %{id: "a", label: "Linked", navigate: "/admin/settings"},
+            %{id: "b", label: "Evented"}
+          ]
+        })
+
+      for chunk <- [strip, menu] do
+        assert chunk =~ ~s(data-phx-link="redirect")
+        assert chunk =~ ~s(phx-value-tab="b")
+      end
+    end
+
+    test "the active tab is marked in the strip and in the menu, and only it" do
+      {_html, strip, menu} = menu_tabs(%{active_tab: "b", tabs: @tabs})
+
+      assert length(Regex.scan(~r/data-nav-active/, strip)) == 1
+      assert [tab] = Regex.run(~r/<a[^>]*data-nav-active[^>]*>/s, strip)
+      assert tab =~ ~s(data-nav-tab="b")
+      assert tab =~ "tab-active"
+
+      assert length(Regex.scan(~r/aria-current="true"/, menu)) == 1
+      assert [item] = Regex.run(~r/<a[^>]*aria-current[^>]*>/s, menu)
+      assert item =~ ~s(data-nav-item="b")
+    end
+
+    test "icons and badges appear in the menu items too" do
+      {_html, strip, menu} = menu_tabs(%{tabs: @tabs})
+
+      for chunk <- [strip, menu] do
+        assert chunk =~ "hero-cog-6-tooth"
+        assert chunk =~ "General"
+        assert chunk =~ ~r/badge[^>]*>\s*3\s*</
+        assert chunk =~ ~r/badge-warning[^>]*>\s*0\s*</
+      end
+    end
+
+    test "menu items are 44px touch targets" do
+      {_html, _strip, menu} = menu_tabs(%{tabs: @tabs})
+
+      assert menu =~ "min-h-11"
+    end
+
+    test "works with every variant, with tabs-sm through class, and nowrap" do
+      for {variant, marker} <- [boxed: "tabs-box", plain: nil, border: "tabs-border"] do
+        {html, _, _} = menu_tabs(%{variant: variant, class: "tabs-sm mb-4", tabs: @tabs})
+
+        [wrapper] = Regex.run(~r/<div[^>]*phx-hook[^>]*>/s, html)
+        assert wrapper =~ "tabs-sm mb-4"
+        assert wrapper =~ "flex-nowrap"
+        if marker, do: assert(wrapper =~ marker)
+        if variant != :boxed, do: refute(wrapper =~ "tabs-box")
+      end
+    end
+
+    test "the trailing slot stays last: strip, then the more button, then trailing, then the menu" do
+      import Phoenix.Component, only: [sigil_H: 2]
+      import PhoenixKitWeb.Components.Core.NavTabs, only: [nav_tabs: 1]
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <.nav_tabs
+          active_tab="a"
+          overflow={:menu}
+          on_change="pick"
+          tabs={[%{id: "a", label: "A"}, %{id: "b", label: "B"}]}
+        >
+          <:trailing>
+            <select name="sort"><option>Manual</option></select>
+          </:trailing>
+        </.nav_tabs>
+        """)
+
+      pos = fn needle -> elem(:binary.match(html, needle), 0) end
+
+      assert pos.("data-nav-strip") < pos.("data-nav-more")
+      assert pos.("data-nav-more") < pos.(~s(<select name="sort">))
+      assert pos.(~s(<select name="sort">)) < pos.("data-nav-menu")
+      assert [wrapper] = Regex.run(~r/<div[^>]*phx-hook[^>]*>/s, html)
+      assert wrapper =~ "flex-1"
+    end
+
+    test "without trailing the wrapper does not stretch" do
+      {html, _, _} = menu_tabs(%{tabs: @tabs})
+      [wrapper] = Regex.run(~r/<div[^>]*phx-hook[^>]*>/s, html)
+
+      refute wrapper =~ "flex-1"
+    end
+
+    test "the menu is outside the clipped strip" do
+      {_html, strip, _menu} = menu_tabs(%{tabs: @tabs})
+
+      # `overflow-hidden` is on the strip only; the menu must not live inside it.
+      [strip_open] = Regex.run(~r/<div[^>]*data-nav-strip[^>]*>/s, strip)
+      assert strip_open =~ "overflow-hidden"
+      [inside_strip, _rest] = String.split(strip, "data-nav-more", parts: 2)
+      refute inside_strip =~ ~s(role="menu")
+    end
+  end
 end

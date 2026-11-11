@@ -7069,6 +7069,191 @@ if (typeof window.Chart === "undefined") {
   }
 
   // ---------------------------------------------------------------------------
+  // NavTabsOverflow Hook
+  // ---------------------------------------------------------------------------
+  //
+  // Overflow mode of PhoenixKitWeb.Components.Core.NavTabs (`overflow={:menu}`).
+  // The server renders every tab twice — once in the one-row strip, once in the
+  // dropdown — and this only toggles the `hidden` class on each pair:
+  //   * tabs that do not fit leave the strip and appear in the menu, in order;
+  //   * the active tab always stays in the strip: earlier non-active tabs make
+  //     room for it (and it truncates when it is alone and still too wide);
+  //   * the "⋯" button shows only while something is hidden.
+  // Measured on mount, on container resize, after web fonts load, and whenever
+  // the strip's DOM changes — a LiveView patch resets JS-set classes to the
+  // server's markup, so a MutationObserver re-applies them before the next paint.
+  //
+  // The menu opens on click/tap (not :focus-within, which iOS Safari handles
+  // badly) and closes on an outside pointerdown, Escape, picking an item and
+  // LiveView navigation. It is absolutely positioned inside the component, not
+  // portaled, so a click on an item is never detached mid-dispatch.
+  // ---------------------------------------------------------------------------
+
+  // Which tabs to hide. `widths` are the natural widths, `avail` is the strip's
+  // width with the "⋯" button already showing, `active` the index of the tab
+  // that must stay (-1 for none). Tabs are kept in order until one does not fit;
+  // that one and everything after it (except the active tab) is hidden.
+  function navTabsHidden(widths, gap, avail, active) {
+    var reserve = active >= 0 ? widths[active] + gap : 0;
+    var used = 0;
+    var full = false;
+    return widths.map(function(w, i) {
+      if (i === active) {
+        used += w + gap;
+        reserve = 0;
+        return false;
+      }
+      if (!full && used + w + gap + reserve <= avail + gap + 0.5) {
+        used += w + gap;
+        return false;
+      }
+      full = true;
+      return true;
+    });
+  }
+
+  window.PhoenixKitHooks.NavTabsOverflow = {
+    mounted() {
+      this._open = false;
+      this._applying = false;
+      this._width = -1;
+
+      this._onClick = (e) => {
+        var t = e.target;
+        if (!t || !t.closest) return;
+        if (t.closest("[data-nav-more]")) {
+          e.preventDefault();
+          this.setOpen(!this._open);
+        } else if (t.closest("[data-nav-menu] [role='menuitem']")) {
+          this.setOpen(false);
+        }
+      };
+      this._onPointerDown = (e) => {
+        if (!this._open) return;
+        var t = e.target;
+        if (t && t.closest && (t.closest("[data-nav-menu]") || t.closest("[data-nav-more]"))) return;
+        this.setOpen(false);
+      };
+      this._onKeydown = (e) => {
+        if (e.key !== "Escape" || !this._open) return;
+        this.setOpen(false);
+        var more = this.el.querySelector("[data-nav-more]");
+        if (more) more.focus();
+      };
+      this._onNavigate = () => { this.setOpen(false); };
+      this.el.addEventListener("click", this._onClick);
+      document.addEventListener("pointerdown", this._onPointerDown, true);
+      document.addEventListener("keydown", this._onKeydown);
+      window.addEventListener("phx:page-loading-start", this._onNavigate);
+
+      this._mutations = new MutationObserver(() => { if (!this._applying) this.sync(); });
+      this._mutations.observe(this.el, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+        attributes: true,
+        attributeFilter: ["class", "data-nav-active"]
+      });
+      if (typeof ResizeObserver === "function") {
+        this._resize = new ResizeObserver(() => {
+          if (this.el.clientWidth !== this._width) this.sync();
+        });
+        this._resize.observe(this.el);
+      }
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(() => { if (!this._destroyed) this.sync(); });
+      }
+      this.sync();
+    },
+    updated() {
+      this.sync();
+    },
+    destroyed() {
+      this._destroyed = true;
+      this.el.removeEventListener("click", this._onClick);
+      document.removeEventListener("pointerdown", this._onPointerDown, true);
+      document.removeEventListener("keydown", this._onKeydown);
+      window.removeEventListener("phx:page-loading-start", this._onNavigate);
+      if (this._mutations) this._mutations.disconnect();
+      if (this._resize) this._resize.disconnect();
+    },
+    sync() {
+      var strip = this.el.querySelector("[data-nav-strip]");
+      var more = this.el.querySelector("[data-nav-more]");
+      var menu = this.el.querySelector("[data-nav-menu]");
+      if (!strip || !more || !menu) return;
+      this._applying = true;
+      var tabs = Array.prototype.slice.call(strip.querySelectorAll("[data-nav-tab]"));
+      var items = Array.prototype.slice.call(menu.querySelectorAll("[data-nav-item]"));
+      var hide = tabs.map(function() { return false; });
+
+      tabs.forEach(function(t) { t.classList.remove("hidden"); });
+      more.classList.add("hidden");
+
+      // A strip that is not laid out (inside a hidden pane) measures 0 and
+      // would hide everything; leave it fully shown until the resize observer
+      // reports a real width.
+      if (strip.clientWidth > 0) {
+        // Natural widths: the active tab is allowed to shrink, so freeze it.
+        tabs.forEach(function(t) { t.style.flexShrink = "0"; });
+        var widths = tabs.map(function(t) { return t.getBoundingClientRect().width; });
+        var gap = parseFloat(window.getComputedStyle(strip).columnGap) || 0;
+        var total = widths.reduce(function(a, w) { return a + w; }, 0) +
+          gap * Math.max(tabs.length - 1, 0);
+        if (total > strip.clientWidth + 0.5) {
+          more.classList.remove("hidden");
+          var active = tabs.findIndex(function(t) { return t.hasAttribute("data-nav-active"); });
+          hide = navTabsHidden(widths, gap, strip.clientWidth, active);
+        }
+        tabs.forEach(function(t) { t.style.flexShrink = ""; });
+      }
+
+      var any = false;
+      hide.forEach(function(h, i) {
+        if (h) any = true;
+        tabs[i].classList.toggle("hidden", h);
+        if (items[i]) items[i].classList.toggle("hidden", !h);
+      });
+      more.classList.toggle("hidden", !any);
+      this._width = this.el.clientWidth;
+      this.setOpen(this._open && any);
+      // Our own class changes are not a reason to run again.
+      this._mutations.takeRecords();
+      this._applying = false;
+    },
+    setOpen(open) {
+      var more = this.el.querySelector("[data-nav-more]");
+      var menu = this.el.querySelector("[data-nav-menu]");
+      if (!more || !menu) return;
+      this._open = open;
+      more.setAttribute("aria-expanded", String(open));
+      menu.classList.toggle("hidden", !open);
+      if (open) this.position(more, menu);
+      this._mutations.takeRecords();
+    },
+    // Right-aligned under the button, then nudged to stay inside the viewport.
+    position(more, menu) {
+      var edge = 8;
+      var vw = document.documentElement.clientWidth;
+      var host = this.el.getBoundingClientRect();
+      var right = host.right - more.getBoundingClientRect().right;
+      menu.style.right = right + "px";
+      var rect = menu.getBoundingClientRect();
+      if (rect.right > vw - edge) {
+        right += rect.right - (vw - edge);
+        menu.style.right = right + "px";
+        rect = menu.getBoundingClientRect();
+      }
+      if (rect.left < edge) menu.style.right = (right - (edge - rect.left)) + "px";
+    }
+  };
+
+  // Exported for the Node test harness (test/js); harmless in a browser.
+  if (typeof module === "object" && module.exports) {
+    module.exports.navTabsHidden = navTabsHidden;
+  }
+
+  // ---------------------------------------------------------------------------
   // LanguageSwitcherPosition Hook
   // ---------------------------------------------------------------------------
   //

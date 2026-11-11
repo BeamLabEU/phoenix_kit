@@ -78,9 +78,41 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
   It exists because `class` can only ADD to the container: with the frame
   baked in, a caller had no way to take it off, and hand-rolling the markup
   was the only escape. That is how the copies started.
+
+  ## Overflow
+
+  By default (`overflow={:wrap}`) tabs that do not fit wrap onto further rows,
+  exactly as daisyUI lays them out. On a phone that turns a long strip into a
+  stack of rows; `overflow={:menu}` keeps it to ONE row instead:
+
+      <.nav_tabs active_tab={@tab} overflow={:menu} class="tabs-sm" tabs={@tabs}>
+        <:trailing><span class="text-xs">{@count} items</span></:trailing>
+      </.nav_tabs>
+
+  Tabs that do not fit leave the strip and are listed, in order, in a dropdown
+  behind a trailing "⋯" button. A menu item behaves exactly like its tab: the
+  same `navigate`/`patch`/`href` link, or the same `phx-click`/`phx-target`/
+  `phx-value-tab` button. The server renders both the strip tab and the menu
+  item for every tab; the `NavTabsOverflow` hook (`phoenix_kit.js`) measures and
+  toggles which of each pair is visible. Before the hook mounts the strip looks
+  like the default one and the "⋯" button is hidden.
+
+    * The active tab always stays in the strip: earlier tabs make room for it,
+      and when it is wider than the strip on its own its label is truncated.
+    * "⋯" shows only while at least one tab is hidden.
+    * The menu opens on tap/click and closes on an outside tap, Escape,
+      choosing an item, or LiveView navigation. Items are 44px touch targets.
+    * The menu is positioned inside the component (not portaled), so an ancestor
+      with `overflow: hidden` that clips the strip would clip it as well.
+
+  Works with every variant, with `tabs-sm` etc. passed through `class`, and with
+  the `trailing` slot (the "⋯" button sits before it). The hook needs a DOM id:
+  pass `id` when a page renders two strips with the same tab ids; otherwise one
+  is derived from the tab ids.
   """
 
   use Phoenix.Component
+  use Gettext, backend: PhoenixKitWeb.Gettext
 
   require Logger
 
@@ -135,11 +167,133 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
     default: :boxed,
     doc: ":boxed fills the strip; :plain drops the frame; :border is the underline look"
 
+  attr :overflow, :atom,
+    values: [:wrap, :menu],
+    default: :wrap,
+    doc:
+      ":wrap lets tabs wrap onto further rows; :menu keeps one row and moves the tabs that do not fit into a \"⋯\" dropdown"
+
+  attr :id, :string,
+    default: nil,
+    doc: "DOM id for `overflow={:menu}` (the hook needs one); derived from the tab ids when nil"
+
   attr :class, :string, default: nil
 
   slot :trailing,
     doc:
       "Controls that belong to the strip but are not tabs — a sort select, a count, a note — rendered inside the same frame at its end. A strip with a trailing slot stretches to fill its row (`flex-1`) so the frame visibly holds both; without it a strip with a control beside it reads as two unrelated bars."
+
+  def nav_tabs(%{overflow: :menu} = assigns) do
+    tabs = Enum.map(assigns.tabs, &normalize(&1, assigns.on_change))
+    id = assigns.id || "nav-tabs-" <> Integer.to_string(:erlang.phash2(Enum.map(tabs, & &1.id)))
+
+    assigns =
+      assigns
+      |> assign(:tabs, tabs)
+      |> assign(:id, id)
+      |> assign(:menu_id, id <> "-menu")
+
+    ~H"""
+    <%!-- The frame (and `class`) sit on this wrapper, which has no overflow
+         clipping so the absolutely positioned menu is never cut off; the
+         clipping lives on the inner strip. --%>
+    <div
+      id={@id}
+      phx-hook="NavTabsOverflow"
+      class={
+        tablist_class(@variant, [
+          "relative flex-nowrap items-center min-w-0 max-w-full",
+          @class,
+          @trailing != [] && "flex-1"
+        ])
+      }
+    >
+      <div
+        role="tablist"
+        data-nav-strip
+        class="flex flex-1 flex-nowrap items-center min-w-0 overflow-hidden"
+      >
+        <%= for tab <- @tabs do %>
+          <.link
+            :if={tab.link_attrs != nil}
+            {tab.link_attrs}
+            role="tab"
+            data-nav-tab={tab.id}
+            data-nav-active={tab.id == @active_tab || nil}
+            class={tab_class(tab.id == @active_tab, strip_tab_class(tab.id == @active_tab))}
+          >
+            <.overflow_tab_body tab={tab} active?={tab.id == @active_tab} />
+          </.link>
+          <button
+            :if={tab.link_attrs == nil}
+            type="button"
+            role="tab"
+            phx-click={@on_change}
+            phx-target={@target}
+            phx-value-tab={tab.id}
+            data-nav-tab={tab.id}
+            data-nav-active={tab.id == @active_tab || nil}
+            class={
+              tab_class(tab.id == @active_tab, [
+                strip_tab_class(tab.id == @active_tab),
+                "[&.phx-click-loading]:animate-pulse"
+              ])
+            }
+          >
+            <.overflow_tab_body tab={tab} active?={tab.id == @active_tab} />
+          </button>
+        <% end %>
+      </div>
+      <%!-- Hidden until the hook finds a tab that does not fit. --%>
+      <button
+        type="button"
+        data-nav-more
+        class="tab shrink-0 hidden"
+        aria-label={gettext("More tabs")}
+        aria-haspopup="menu"
+        aria-expanded="false"
+        aria-controls={@menu_id}
+      >
+        <.icon name="hero-ellipsis-horizontal" class="w-5 h-5" />
+      </button>
+      <div :if={@trailing != []} class="flex shrink-0 items-center gap-2 pl-2 pr-1">
+        {render_slot(@trailing)}
+      </div>
+      <div
+        id={@menu_id}
+        role="menu"
+        data-nav-menu
+        class="hidden absolute right-0 top-full z-50 mt-1 w-max min-w-44 max-w-[calc(100vw-1rem)] max-h-[70vh] overflow-y-auto rounded-box border border-base-300 bg-base-100 p-1 shadow-lg"
+      >
+        <%= for tab <- @tabs do %>
+          <.link
+            :if={tab.link_attrs != nil}
+            {tab.link_attrs}
+            role="menuitem"
+            data-nav-item={tab.id}
+            aria-current={tab.id == @active_tab && "true"}
+            class={menu_item_class(tab.id == @active_tab)}
+          >
+            <.overflow_tab_body tab={tab} active?={tab.id == @active_tab} />
+          </.link>
+          <button
+            :if={tab.link_attrs == nil}
+            type="button"
+            role="menuitem"
+            phx-click={@on_change}
+            phx-target={@target}
+            phx-value-tab={tab.id}
+            data-nav-item={tab.id}
+            aria-current={tab.id == @active_tab && "true"}
+            class={[menu_item_class(tab.id == @active_tab), "[&.phx-click-loading]:animate-pulse"]}
+          >
+            <.overflow_tab_body tab={tab} active?={tab.id == @active_tab} />
+          </button>
+        <% end %>
+      </div>
+    </div>
+    """
+  end
 
   def nav_tabs(assigns) do
     assigns = assign(assigns, :tabs, Enum.map(assigns.tabs, &normalize(&1, assigns.on_change)))
@@ -188,6 +342,32 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
     <.icon :if={@tab[:icon] != nil} name={@tab.icon} class="w-4 h-4" />
     {@tab.label}
     <span :if={@tab[:badge] != nil} class={["badge badge-sm", badge_tone(@tab, @active?)]}>
+      {@tab.badge}
+    </span>
+    """
+  end
+
+  # Overflow-mode tabs never wrap their content and never shrink — except the
+  # active one, which may, so that its label can truncate when it is the only
+  # tab that fits.
+  defp strip_tab_class(true), do: "flex-nowrap whitespace-nowrap min-w-0"
+  defp strip_tab_class(false), do: "flex-nowrap whitespace-nowrap shrink-0"
+
+  # 44px (`min-h-11`) is the touch-target floor; the badge is pushed to the end.
+  defp menu_item_class(active?) do
+    [
+      "flex w-full min-h-11 items-center gap-2 rounded-lg px-3 py-2 text-left text-sm",
+      "whitespace-nowrap hover:bg-base-200 focus-visible:bg-base-200 [&_.badge]:ml-auto",
+      active? && "bg-base-200 font-medium"
+    ]
+  end
+
+  # `tab_body/1` with a truncatable label, for the overflow-mode strip and menu.
+  defp overflow_tab_body(assigns) do
+    ~H"""
+    <.icon :if={@tab[:icon] != nil} name={@tab.icon} class="w-4 h-4 shrink-0" />
+    <span class="min-w-0 truncate">{@tab.label}</span>
+    <span :if={@tab[:badge] != nil} class={["badge badge-sm shrink-0", badge_tone(@tab, @active?)]}>
       {@tab.badge}
     </span>
     """
