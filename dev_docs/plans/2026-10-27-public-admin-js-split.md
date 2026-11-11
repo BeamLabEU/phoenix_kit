@@ -205,10 +205,10 @@ passkey hooks are why the budget is 288 KiB.
 
 **`NavTabsOverflow`** (the opt-in `overflow={:menu}` of `<.nav_tabs>`, #1024: 13 294 B raw, 1 453 B min+gz) is admin, behind a
 stub, because nothing outside the admin area renders it. The hook is attached only by the `:menu` branch of `nav_tabs/1`
-(`nav_tabs.ex:212`, `phx-hook` on `:230`); the default `:wrap` renders none. No call in `lib/` sets `overflow`: of the 21 files that
-use `<.nav_tabs>`, the ones outside the admin area (`profile_settings_tabs.ex:306`, `library_preferences.ex:220`) do not, and the
+(`nav_tabs.ex:221`, `phx-hook` on `:239`); the default `:wrap` renders none. No call in `lib/` sets `overflow`: of the 19 call sites of
+`<.nav_tabs>`, the ones outside the admin area (`profile_settings_tabs.ex:306`, `library_preferences.ex:220`) do not, and the
 other mentions are the moduledoc example and the tests (the review of #1024 says "no core page opts in yet"). It is not
-`AudioRecorder`, whose documentation says any page can use it: this is an opt-in mode that nobody has opted into. Public, it
+`AudioRecorder`, whose changelog entry says any page can use it: this is an opt-in mode that nobody has opted into. Public, it
 would have taken the public file to 301 847 B (over the 288 KiB budget by 6 935 B) for a hook no page uses. The condition for
 changing this is written once: **the first change that sets `overflow={:menu}` on a page outside the admin area and the user
 dashboard (`profile_settings_tabs`, say) moves the hook into `phoenix_kit.js` in the same commit**, with a new budget if it
@@ -332,7 +332,7 @@ sortable list and the media browser with the console open.
   box), a press older than 10 s or on a detached page is dropped, and a press on a card, link or button is
   kept but starts no box (`startBoxSelect` decides).
 - **A first-mount flash** on admin pages that change layout in `mounted` (`TableFit`, `RowMenuAuto`,
-  `CrumbSwitcher`, `SortableGrid`): only the first admin page of a session; reduced by the early start; later
+  `CrumbSwitcher`, `SortableGrid`, `NavTabsOverflow`): only the first admin page of a session; reduced by the early start; later
   pages mount the real hook in the stub's own turn, before paint.
 - **Lost `push_event` during the load window** for a stubbed hook that listens with `handleEvent` and is pushed to
   at mount. The hooks that do so are audited in step 2; any that matters stays public.
