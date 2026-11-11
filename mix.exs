@@ -198,16 +198,18 @@ defmodule PhoenixKit.MixProject do
       # `priv/static/assets/phoenix_kit.js` loads the browser half from the
       # host's own copy of the Hex package's file, so an open ceiling lets a
       # host float past the API phoenix_kit.js was written against.
-      # `~> 0.11.0` is `>= 0.11.0 and < 0.12.0`, so the next leaf minor needs a
+      # `~> 0.12.0` is `>= 0.12.0 and < 0.13.0`, so the next leaf minor needs a
       # requirement move and a read of phoenix_kit.js's use of it. No test
       # holds the ceiling (leaf_bundle_pin_test.exs went with the CDN pin).
       # 0.9 added tag previews and `media_url`; 0.10 sanitizes what it renders
       # and writes typed text back as text; 0.11 adds `notify` (an editor inside
       # a LiveComponent sends its messages to that component) and `autofocus` —
-      # both off by default. phoenix_kit.js only looks up `window.LeafHooks.Leaf`
-      # to register the hook, unchanged in all three.
+      # both off by default; 0.12 adds `mentions` (mention tokens shown as chips,
+      # off by default — phoenix_kit_comments turns it on). phoenix_kit.js only
+      # looks up `window.LeafHooks.Leaf` to register the hook, unchanged in all
+      # four.
       {:leaf,
-       "~> 0.4.1 or ~> 0.5.0 or ~> 0.6.0 or ~> 0.7.0 or ~> 0.8.0 or ~> 0.9.0 or ~> 0.10.0 or ~> 0.11.0"},
+       "~> 0.4.1 or ~> 0.5.0 or ~> 0.6.0 or ~> 0.7.0 or ~> 0.8.0 or ~> 0.9.0 or ~> 0.10.0 or ~> 0.11.0 or ~> 0.12.0"},
 
       # Markdown → HTML (comrak). Declared here in core so every module shares
       # one resolved version instead of each pulling its own and risking
@@ -339,6 +341,11 @@ defmodule PhoenixKit.MixProject do
       # six pixels when it panned — a viewer that reads as broken rather
       # than as slow.
       #
+      # 0.16 is a floor because the media viewer passes `nav_style={:bar}` (the
+      # viewer's buttons as one dark bar, the look of etcher's tool bar).
+      # Older fresco does not declare it: the host's compile warns and the
+      # nav keeps a square per button.
+      #
       # 0.15 is a floor because the media viewer passes `pan_centre={:bounds}`
       # (picture and ink framed as one, so the pencil does not move the
       # picture) and its `ViewerGallery` hook calls `Fresco.gallery` (the
@@ -361,9 +368,9 @@ defmodule PhoenixKit.MixProject do
       # `invert_two_finger_pan`, the per-user "Invert two-finger pan" switch.
       # Older fresco does not declare the attributes, so the host's compile
       # warns and the viewer keeps the old column.
-      {:fresco, "~> 0.15.0"},
-      # 0.3.10 is the first tessera that admits fresco 0.15 (above; 0.3.9
-      # was the first to admit 0.14): with an older one locked,
+      {:fresco, "~> 0.16.0"},
+      # 0.3.11 is the first tessera that admits fresco 0.16 (0.3.10 was the
+      # first to admit 0.15, 0.3.9 0.14): with an older one locked,
       # `mix deps.update phoenix_kit` cannot resolve fresco 0.15 at all, and
       # the failure names neither library. The same holds for etcher: 0.23 is
       # the first that admits fresco 0.15 (it also brings a scaling and
@@ -375,8 +382,13 @@ defmodule PhoenixKit.MixProject do
       # a speck a person has to scale up by hand, on every paste. Core is what
       # serves etcher's JS to the media viewer and to the boards module's
       # canvases, so a host resolving 0.23 here is the one that keeps that.
-      {:tessera, "~> 0.3.10"},
-      {:etcher, "~> 0.24.0"},
+      #
+      # 0.25 is a floor because the media viewer passes `nav_buttons: [:modes]`
+      # (the View | Annotate switch in place of the pencil); 0.25 is also the
+      # first etcher that admits fresco 0.16. Older etcher ignores the name and
+      # an annotator gets no way into annotation mode from the nav.
+      {:tessera, "~> 0.3.11"},
+      {:etcher, "~> 0.25.0"},
 
       # QR device-handoff login ("scan to sign in" on the login page).
       #

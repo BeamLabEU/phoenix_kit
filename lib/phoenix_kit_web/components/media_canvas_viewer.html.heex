@@ -263,6 +263,9 @@
                   actual_size
                   nav_layout={:row}
                   nav_overflow={@nav_overflow}
+                  nav_style={:bar}
+                  pdf_export
+                  export_filename={f.filename}
                   nav_reverse
                   theme={:light}
                   initial_rotation={@viewer_rotation}
@@ -297,6 +300,9 @@
                     actual_size
                     nav_layout={:row}
                     nav_overflow={@nav_overflow}
+                    nav_style={:bar}
+                    pdf_export
+                    export_filename={f.filename}
                     nav_reverse
                     theme={:light}
                     initial_rotation={@viewer_rotation}
@@ -318,6 +324,9 @@
                       actual_size
                       nav_layout={:row}
                       nav_overflow={@nav_overflow}
+                      nav_style={:bar}
+                      pdf_export
+                      export_filename={f.filename}
                       nav_reverse
                       theme={:light}
                       initial_rotation={@viewer_rotation}
@@ -349,6 +358,9 @@
                     <%!-- for read-only viewers, where there is no session to end  --%>
                     <%!-- and hiding the locked overlay IS the whole job. Both are --%>
                     <%!-- session-only: the next open starts with markup showing.  --%>
+                    <%!-- :modes is Etcher's View | Annotate switch (in place of   --%>
+                    <%!-- the pencil); with Fresco's nav_style :bar the viewer's   --%>
+                    <%!-- buttons, the switch and the tool bar are one dark look.  --%>
                     <Etcher.layer
                       fresco_id={viewer_dom_id(assigns, "media-zoom-" <> f.file_uuid)}
                       colors={@etcher_colors}
@@ -357,7 +369,7 @@
                       panel_toggle={:nav}
                       tooltip_dock={:panel}
                       toolbar={@can_annotate}
-                      nav_buttons={if @can_annotate, do: [:pencil], else: [:visibility]}
+                      nav_buttons={if @can_annotate, do: [:modes], else: [:visibility]}
                       tools={
                         if @can_annotate,
                           do: [
