@@ -40,6 +40,7 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
   alias PhoenixKit.Modules.Storage.ImageProcessor
   alias PhoenixKit.Modules.Storage.Manager
   alias PhoenixKit.Modules.Storage.PdfProcessor
+  alias PhoenixKit.Modules.Storage.ProbeCache
   alias PhoenixKit.Modules.Storage.Shape
   alias PhoenixKit.Modules.Storage.VariantSets
   alias PhoenixKit.Modules.Storage.VideoHdrPoster
@@ -777,8 +778,14 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
       (Map.get(file, :file_type) != "video" or still_frame?(%{format: format}))
   end
 
-  defp process_variants(file, dimensions, opts) do
+  # The sizes are made at once and ask the same things of the same picture (its size,
+  # whether it is see-through): asked once (`ProbeCache`), not once per size.
+  defp process_variants(file, dimensions, opts),
+    do: ProbeCache.run(fn -> make_variants(file, dimensions, opts) end)
+
+  defp make_variants(file, dimensions, opts) do
     expanded = expand_dimensions_with_alternatives(dimensions)
+    probes = ProbeCache.current()
 
     # A copy the caller already holds is used for every size. Otherwise a picture that
     # has to be drawn (a raw file's development can take seconds and most of a
@@ -806,6 +813,7 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
         expanded
         |> Enum.map(fn {dim, vname, fmt} ->
           Task.async(fn ->
+            ProbeCache.adopt(probes)
             result = do_generate_variant(file, dim, vname, fmt, "", shared)
             if early_size?(file, dim, fmt), do: early_done.(result)
             result

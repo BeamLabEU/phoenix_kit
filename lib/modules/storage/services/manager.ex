@@ -702,21 +702,38 @@ defmodule PhoenixKit.Modules.Storage.Manager do
 
   # The buckets of `buckets` the object was written to. A bucket that raises
   # failed, like one that errors.
-  defp write_to(source_path, buckets, destination_path, opts) do
-    Enum.filter(buckets, fn bucket ->
-      provider = get_provider_for_bucket(bucket)
+  # Several buckets are written at the same time: the copies are independent, and one
+  # after another a slow bucket made every object wait for it twice over.
+  defp write_to(source_path, [_, _ | _] = buckets, destination_path, opts) do
+    buckets
+    |> Task.async_stream(&write_one(source_path, &1, destination_path, opts),
+      max_concurrency: length(buckets),
+      ordered: true,
+      timeout: :infinity
+    )
+    |> Enum.zip(buckets)
+    |> Enum.filter(fn {result, _bucket} -> result == {:ok, true} end)
+    |> Enum.map(&elem(&1, 1))
+  end
 
-      result =
-        try do
-          provider.store_file(bucket, source_path, destination_path, opts)
-        rescue
-          error -> {:error, Exception.message(error)}
-        end
+  defp write_to(source_path, buckets, destination_path, opts),
+    do: Enum.filter(buckets, &write_one(source_path, &1, destination_path, opts))
 
-      ok? = result == :ok or match?({:ok, _}, result)
-      unless ok?, do: report(bucket, "write", result)
-      ok?
-    end)
+  defp write_one(source_path, bucket, destination_path, opts) do
+    provider = get_provider_for_bucket(bucket)
+
+    result =
+      try do
+        provider.store_file(bucket, source_path, destination_path, opts)
+      rescue
+        error -> {:error, Exception.message(error)}
+      catch
+        :exit, reason -> {:error, "exited: #{inspect(reason)}"}
+      end
+
+    ok? = result == :ok or match?({:ok, _}, result)
+    unless ok?, do: report(bucket, "write", result)
+    ok?
   end
 
   defp retrieve_with_failover(_file_path, [], _opts), do: {:error, "File not found in any bucket"}

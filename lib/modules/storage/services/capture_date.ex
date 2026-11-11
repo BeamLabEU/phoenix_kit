@@ -42,7 +42,7 @@ defmodule PhoenixKit.Modules.Storage.CaptureDate do
   stronger source, and a manual date never.
   """
 
-  alias PhoenixKit.Modules.Storage.{CameraRaw, ImageProcessor, Sniff}
+  alias PhoenixKit.Modules.Storage.{CameraRaw, ImageProcessor, ProbeCache, Sniff}
 
   @typedoc "Where a capture date came from. See the moduledoc."
   @type source :: String.t()
@@ -168,7 +168,9 @@ defmodule PhoenixKit.Modules.Storage.CaptureDate do
   map when the file has no EXIF, is not an image, or `identify` is missing.
   """
   @spec read_exif(Path.t()) :: %{String.t() => String.t()}
-  def read_exif(path) do
+  def read_exif(path), do: ProbeCache.fetch(:exif, path, fn -> read_exif_tags(path) end)
+
+  defp read_exif_tags(path) do
     # A raw file with a header of its own (CR3, RAF, ORF, RW2) is read by libraw; a
     # TIFF-shaped one (NEF, CR2, DNG…) carries ordinary TIFF EXIF, read below.
     case Sniff.sniff(path) do

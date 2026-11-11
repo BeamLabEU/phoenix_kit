@@ -43,6 +43,7 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
   alias PhoenixKit.Modules.Storage.Hdr
   alias PhoenixKit.Modules.Storage.ImageProcessor
   alias PhoenixKit.Modules.Storage.PdfProcessor
+  alias PhoenixKit.Modules.Storage.ProbeCache
   alias PhoenixKit.Modules.Storage.VariantGenerator
 
   @doc """
@@ -148,7 +149,11 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
     end
   end
 
-  defp process_image(file) do
+  # One `ProbeCache` for the whole of it: what reading the picture's metadata learns
+  # about it (its size) is not asked again by each of its sizes.
+  defp process_image(file), do: ProbeCache.run(fn -> read_and_make_image(file) end)
+
+  defp read_and_make_image(file) do
     Logger.info("ProcessFileJob: process_image/1 called for file_uuid=#{file.uuid}")
 
     with {:ok, temp_path, source} <- retrieve_and_log_file(file.uuid),
@@ -156,6 +161,7 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
       with_temp_file([temp_path, picture], fn ->
         # A raw file's EXIF is in the raw file, not in the JPEG developed from it.
         tagged = if CameraRaw.mime?(file.mime_type), do: temp_path, else: picture
+        warm_probes(picture, tagged)
 
         with {:ok, metadata} <- extract_and_log_image_metadata(picture),
              metadata = with_capture_date(metadata, tagged, file),
@@ -175,6 +181,34 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
         Logger.error("ProcessFileJob: Failed to process image: #{inspect(reason)}")
         error
     end
+  end
+
+  # What the steps below ask of the picture one after another, and its sizes after
+  # them, each a full decode: asked all at once here, so each step finds its answer
+  # ready or on its way (`ProbeCache` hands a second asker the first one's answer).
+  defp warm_probes(picture, tagged) do
+    cache = ProbeCache.current()
+
+    for probe <- [
+          fn -> ImageProcessor.oriented_info(picture) end,
+          fn -> ImageProcessor.extract_dimensions(picture) end,
+          fn -> ImageProcessor.has_alpha_channel?(picture) end,
+          fn -> Exif.read(tagged) end
+        ] do
+      Task.start(fn ->
+        ProbeCache.adopt(cache)
+
+        try do
+          probe.()
+        rescue
+          _ -> :ok
+        catch
+          _, _ -> :ok
+        end
+      end)
+    end
+
+    :ok
   end
 
   defp retrieve_and_log_file(file_uuid) do
