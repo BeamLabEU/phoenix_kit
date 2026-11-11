@@ -466,35 +466,47 @@ defmodule PhoenixKitWeb.Components.Core.NavTabsTest do
       assert strip =~ "hero-ellipsis-horizontal"
     end
 
-    test "menu items mirror each tab's link attributes, in order" do
+    test "the strip tab is the only element carrying the link attributes" do
       {html, strip, menu} = menu_tabs(%{tabs: @tabs})
 
-      for chunk <- [strip, menu] do
-        assert chunk =~ ~s(href="/admin/settings")
-        assert chunk =~ ~s(data-phx-link="redirect")
-        assert chunk =~ ~s(href="/p?tab=f")
-        assert chunk =~ ~s(data-phx-link="patch")
-        assert chunk =~ ~s(href="#{Routes.path("/admin/x")}")
-      end
+      # Hosts and tests select tabs by these attributes; a mirrored menu item
+      # would make every such selector match twice.
+      assert strip =~ ~s(href="/admin/settings")
+      assert strip =~ ~s(data-phx-link="redirect")
+      assert strip =~ ~s(href="/p?tab=f")
+      assert strip =~ ~s(data-phx-link="patch")
+      assert strip =~ ~s(href="#{Routes.path("/admin/x")}")
 
+      refute menu =~ "href="
+      refute menu =~ "data-phx-link"
+      refute menu =~ "<a "
+
+      assert length(Regex.scan(~r/data-phx-link=/, html)) == 3
+
+      # One plain menu button per tab, in order, keyed by the tab id.
       ids = Regex.scan(~r/data-nav-item="(\w+)"/, html, capture: :all_but_first)
       assert ids == [["a"], ["b"], ["c"]]
+      assert length(Regex.scan(~r/<button type="button" role="menuitem"/, menu)) == 3
     end
 
-    test "event tabs get the same phx-click / phx-target / phx-value-tab in the menu" do
-      {_html, strip, menu} =
+    test "event tabs: phx-click / phx-target / phx-value-tab live on the strip tab only" do
+      {html, strip, menu} =
         menu_tabs(%{
           on_change: "switch",
           target: "#cmp",
           tabs: [%{id: "x", label: "Oban"}, %{id: "y", label: "Sched"}]
         })
 
-      for chunk <- [strip, menu], id <- ["x", "y"] do
-        assert chunk =~ ~s(phx-click="switch")
-        assert chunk =~ ~s(phx-target="#cmp")
-        assert chunk =~ ~s(phx-value-tab="#{id}")
+      for id <- ["x", "y"] do
+        assert strip =~ ~s(phx-value-tab="#{id}")
+        assert menu =~ ~s(data-nav-item="#{id}")
       end
 
+      refute menu =~ "phx-click"
+      refute menu =~ "phx-target"
+      refute menu =~ "phx-value"
+      assert length(Regex.scan(~r/phx-value-tab=/, html)) == 2
+      assert length(Regex.scan(~r/phx-click="switch"/, html)) == 2
       assert menu =~ ~s(role="menuitem")
       refute menu =~ ~s(role="tab")
     end
@@ -509,10 +521,11 @@ defmodule PhoenixKitWeb.Components.Core.NavTabsTest do
           ]
         })
 
-      for chunk <- [strip, menu] do
-        assert chunk =~ ~s(data-phx-link="redirect")
-        assert chunk =~ ~s(phx-value-tab="b")
-      end
+      assert strip =~ ~s(data-phx-link="redirect")
+      assert strip =~ ~s(phx-value-tab="b")
+      assert menu =~ ~s(data-nav-item="a")
+      assert menu =~ ~s(data-nav-item="b")
+      refute menu =~ "phx-"
     end
 
     test "the active tab is marked in the strip and in the menu, and only it" do
@@ -524,7 +537,7 @@ defmodule PhoenixKitWeb.Components.Core.NavTabsTest do
       assert tab =~ "tab-active"
 
       assert length(Regex.scan(~r/aria-current="true"/, menu)) == 1
-      assert [item] = Regex.run(~r/<a[^>]*aria-current[^>]*>/s, menu)
+      assert [item] = Regex.run(~r/<button[^>]*aria-current[^>]*>/s, menu)
       assert item =~ ~s(data-nav-item="b")
     end
 
@@ -549,12 +562,50 @@ defmodule PhoenixKitWeb.Components.Core.NavTabsTest do
       for {variant, marker} <- [boxed: "tabs-box", plain: nil, border: "tabs-border"] do
         {html, _, _} = menu_tabs(%{variant: variant, class: "tabs-sm mb-4", tabs: @tabs})
 
+        # The `.tabs` element: daisyUI styles tabs only as its DIRECT children.
+        [strip] = Regex.run(~r/<div[^>]*data-nav-strip[^>]*>/s, html)
+        assert strip =~ ~r/class="tabs\b/
+        assert strip =~ "tabs-sm mb-4"
+        assert strip =~ "flex-nowrap"
+        if marker, do: assert(strip =~ marker)
+        if variant != :boxed, do: refute(strip =~ "tabs-box")
+
+        # ... and the wrapper carries none of it.
         [wrapper] = Regex.run(~r/<div[^>]*phx-hook[^>]*>/s, html)
-        assert wrapper =~ "tabs-sm mb-4"
-        assert wrapper =~ "flex-nowrap"
-        if marker, do: assert(wrapper =~ marker)
-        if variant != :boxed, do: refute(wrapper =~ "tabs-box")
+        refute wrapper =~ ~r/class="[^"]*\btabs/
       end
+    end
+
+    test "tabs, the more button and the trailing slot are direct children of the .tabs element" do
+      import Phoenix.Component, only: [sigil_H: 2]
+      import PhoenixKitWeb.Components.Core.NavTabs, only: [nav_tabs: 1]
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <.nav_tabs
+          active_tab="a"
+          overflow={:menu}
+          on_change="pick"
+          tabs={[%{id: "a", label: "A"}, %{id: "b", label: "B"}]}
+        >
+          <:trailing><span>note</span></:trailing>
+        </.nav_tabs>
+        """)
+
+      doc = LazyHTML.from_fragment(html)
+
+      assert doc |> LazyHTML.query("[data-nav-strip] > [role=tab].tab") |> Enum.count() == 2
+
+      assert doc |> LazyHTML.query("[data-nav-strip] > button[data-nav-more].tab") |> Enum.count() ==
+               1
+
+      assert doc |> LazyHTML.query("[data-nav-strip] > [data-nav-trailing]") |> Enum.count() == 1
+
+      # The menu is the strip's SIBLING: the strip clips, the menu must not be clipped.
+      assert doc |> LazyHTML.query("[data-nav-strip] [data-nav-menu]") |> Enum.count() == 0
+      assert doc |> LazyHTML.query("[phx-hook] > [data-nav-menu]") |> Enum.count() == 1
+      assert doc |> LazyHTML.query("[phx-hook] > [data-nav-strip]") |> Enum.count() == 1
     end
 
     test "the trailing slot stays last: strip, then the more button, then trailing, then the menu" do
@@ -592,14 +643,32 @@ defmodule PhoenixKitWeb.Components.Core.NavTabsTest do
       refute wrapper =~ "flex-1"
     end
 
-    test "the menu is outside the clipped strip" do
-      {_html, strip, _menu} = menu_tabs(%{tabs: @tabs})
+    test "the strip clips; the menu is not inside it" do
+      {html, _, _} = menu_tabs(%{tabs: @tabs})
 
-      # `overflow-hidden` is on the strip only; the menu must not live inside it.
-      [strip_open] = Regex.run(~r/<div[^>]*data-nav-strip[^>]*>/s, strip)
-      assert strip_open =~ "overflow-hidden"
-      [inside_strip, _rest] = String.split(strip, "data-nav-more", parts: 2)
-      refute inside_strip =~ ~s(role="menu")
+      [strip] = Regex.run(~r/<div[^>]*data-nav-strip[^>]*>/s, html)
+      assert strip =~ "overflow-hidden"
+    end
+
+    test "the derived id tells differently configured strips apart" do
+      same = %{tabs: @tabs, on_change: "pick", target: "#a"}
+      {first, _, _} = menu_tabs(same)
+      {other_target, _, _} = menu_tabs(%{same | target: "#b"})
+      {other_event, _, _} = menu_tabs(%{same | on_change: "other"})
+
+      ids =
+        for html <- [first, other_target, other_event], do: Regex.run(~r/id="nav-tabs-\d+"/, html)
+
+      assert length(Enum.uniq(ids)) == 3
+    end
+  end
+
+  describe "id in :wrap mode" do
+    test "is rendered only when given, so callers without one are unchanged" do
+      assert render_tabs(%{tabs: [%{id: "a", label: "A", navigate: "/x"}], id: "t"}) =~
+               ~s(<div id="t" role="tablist")
+
+      refute render_tabs(%{tabs: [%{id: "a", label: "A", navigate: "/x"}]}) =~ " id="
     end
   end
 end

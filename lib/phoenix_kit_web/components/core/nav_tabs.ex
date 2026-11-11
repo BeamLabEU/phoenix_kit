@@ -90,25 +90,40 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
       </.nav_tabs>
 
   Tabs that do not fit leave the strip and are listed, in order, in a dropdown
-  behind a trailing "⋯" button. A menu item behaves exactly like its tab: the
-  same `navigate`/`patch`/`href` link, or the same `phx-click`/`phx-target`/
-  `phx-value-tab` button. The server renders both the strip tab and the menu
-  item for every tab; the `NavTabsOverflow` hook (`phoenix_kit.js`) measures and
-  toggles which of each pair is visible. Before the hook mounts the strip looks
-  like the default one and the "⋯" button is hidden.
+  behind a trailing "⋯" button. The server renders every tab in the strip plus a
+  plain `role="menuitem"` button for it in the menu; the strip tab stays the
+  single element carrying the link / `phx-click` / `phx-target` / `phx-value-tab`
+  attributes. Choosing a menu item makes the `NavTabsOverflow` hook
+  (`phoenix_kit.js`) click that strip tab — LiveView handles it exactly as a
+  direct click, but a link tab picked from the menu is a button press, so it has
+  no open-in-new-tab. The hook also measures, and toggles which of each pair is
+  visible.
 
     * The active tab always stays in the strip: earlier tabs make room for it,
       and when it is wider than the strip on its own its label is truncated.
     * "⋯" shows only while at least one tab is hidden.
-    * The menu opens on tap/click and closes on an outside tap, Escape,
-      choosing an item, or LiveView navigation. Items are 44px touch targets.
+    * The menu opens on tap/click, moves focus into itself, and closes on an
+      outside tap, Escape, Tab, choosing an item, or LiveView navigation. Items
+      are 44px touch targets; the arrow keys, Home and End move between them.
     * The menu is positioned inside the component (not portaled), so an ancestor
       with `overflow: hidden` that clips the strip would clip it as well.
+    * Until the hook mounts (the dead render) the strip is one clipped row with
+      "⋯" hidden, so tabs that do not fit are cut off until the page connects.
 
   Works with every variant, with `tabs-sm` etc. passed through `class`, and with
-  the `trailing` slot (the "⋯" button sits before it). The hook needs a DOM id:
-  pass `id` when a page renders two strips with the same tab ids; otherwise one
-  is derived from the tab ids.
+  the `trailing` slot (the "⋯" button sits before it). `class` lands on the
+  `.tabs` element, which a block-level wrapper surrounds (`flex-1` when there is
+  a trailing slot), so layout classes meant for the strip's own row — `flex-1`,
+  `inline-flex` — belong on a parent instead.
+
+  The hook needs a DOM id. One is derived from the tab ids, `on_change` and
+  `target`, so strips that differ in those do not collide; pass `id` whenever the same
+  strip can appear twice on a page, and to keep the menu's open state when the
+  tab list changes (a changed derived id remounts the hook).
+
+  Tests: select a tab with `[role=tab]` or `[data-nav-tab=ID]`. A menu item has
+  the same label text but no link or `phx-*` attributes, so attribute selectors
+  stay unambiguous while a bare text selector matches both.
   """
 
   use Phoenix.Component
@@ -175,7 +190,8 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
 
   attr :id, :string,
     default: nil,
-    doc: "DOM id for `overflow={:menu}` (the hook needs one); derived from the tab ids when nil"
+    doc:
+      "DOM id of the strip. In `overflow={:menu}` the hook needs one and a derived id is used when nil; in :wrap it is rendered only when given"
 
   attr :class, :string, default: nil
 
@@ -185,7 +201,7 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
 
   def nav_tabs(%{overflow: :menu} = assigns) do
     tabs = Enum.map(assigns.tabs, &normalize(&1, assigns.on_change))
-    id = assigns.id || "nav-tabs-" <> Integer.to_string(:erlang.phash2(Enum.map(tabs, & &1.id)))
+    id = assigns.id || derived_id(tabs, assigns)
 
     assigns =
       assigns
@@ -194,24 +210,20 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
       |> assign(:menu_id, id <> "-menu")
 
     ~H"""
-    <%!-- The frame (and `class`) sit on this wrapper, which has no overflow
-         clipping so the absolutely positioned menu is never cut off; the
-         clipping lives on the inner strip. --%>
+    <%!-- daisyUI styles a tab only as a DIRECT child of `.tabs` (`.tabs > .tab`,
+         `.tabs-box > .tab-active`, `.tabs-sm > .tab`), so the tabs, the "⋯" button
+         and the trailing slot are all children of the one `.tabs` element below.
+         That element clips (`overflow-hidden`), which is why the menu is its
+         SIBLING inside this unclipped wrapper rather than a child. --%>
     <div
       id={@id}
       phx-hook="NavTabsOverflow"
-      class={
-        tablist_class(@variant, [
-          "relative flex-nowrap items-center min-w-0 max-w-full",
-          @class,
-          @trailing != [] && "flex-1"
-        ])
-      }
+      class={["relative min-w-0 max-w-full", @trailing != [] && "flex-1"]}
     >
       <div
         role="tablist"
         data-nav-strip
-        class="flex flex-1 flex-nowrap items-center min-w-0 overflow-hidden"
+        class={tablist_class(@variant, ["flex-nowrap items-center overflow-hidden", @class])}
       >
         <%= for tab <- @tabs do %>
           <.link
@@ -243,21 +255,25 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
             <.overflow_tab_body tab={tab} active?={tab.id == @active_tab} />
           </button>
         <% end %>
-      </div>
-      <%!-- Hidden until the hook finds a tab that does not fit. --%>
-      <button
-        type="button"
-        data-nav-more
-        class="tab shrink-0 hidden"
-        aria-label={gettext("More tabs")}
-        aria-haspopup="menu"
-        aria-expanded="false"
-        aria-controls={@menu_id}
-      >
-        <.icon name="hero-ellipsis-horizontal" class="w-5 h-5" />
-      </button>
-      <div :if={@trailing != []} class="flex shrink-0 items-center gap-2 pl-2 pr-1">
-        {render_slot(@trailing)}
+        <%!-- Hidden until the hook finds a tab that does not fit. --%>
+        <button
+          type="button"
+          data-nav-more
+          class="tab shrink-0 min-w-11 hidden"
+          aria-label={gettext("More tabs")}
+          aria-haspopup="menu"
+          aria-expanded="false"
+          aria-controls={@menu_id}
+        >
+          <.icon name="hero-ellipsis-horizontal" class="w-5 h-5" />
+        </button>
+        <div
+          :if={@trailing != []}
+          data-nav-trailing
+          class="ml-auto flex shrink-0 items-center gap-2 pl-2 pr-1"
+        >
+          {render_slot(@trailing)}
+        </div>
       </div>
       <div
         id={@menu_id}
@@ -265,31 +281,19 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
         data-nav-menu
         class="hidden absolute right-0 top-full z-50 mt-1 w-max min-w-44 max-w-[calc(100vw-1rem)] max-h-[70vh] overflow-y-auto rounded-box border border-base-300 bg-base-100 p-1 shadow-lg"
       >
-        <%= for tab <- @tabs do %>
-          <.link
-            :if={tab.link_attrs != nil}
-            {tab.link_attrs}
-            role="menuitem"
-            data-nav-item={tab.id}
-            aria-current={tab.id == @active_tab && "true"}
-            class={menu_item_class(tab.id == @active_tab)}
-          >
-            <.overflow_tab_body tab={tab} active?={tab.id == @active_tab} />
-          </.link>
-          <button
-            :if={tab.link_attrs == nil}
-            type="button"
-            role="menuitem"
-            phx-click={@on_change}
-            phx-target={@target}
-            phx-value-tab={tab.id}
-            data-nav-item={tab.id}
-            aria-current={tab.id == @active_tab && "true"}
-            class={[menu_item_class(tab.id == @active_tab), "[&.phx-click-loading]:animate-pulse"]}
-          >
-            <.overflow_tab_body tab={tab} active?={tab.id == @active_tab} />
-          </button>
-        <% end %>
+        <%!-- Plain buttons: the strip tab stays the only element carrying the
+             link / phx-click / phx-value-tab attributes (hosts and tests select
+             tabs by them), and the hook forwards a pick to it with a click. --%>
+        <button
+          :for={tab <- @tabs}
+          type="button"
+          role="menuitem"
+          data-nav-item={tab.id}
+          aria-current={tab.id == @active_tab && "true"}
+          class={menu_item_class(tab.id == @active_tab)}
+        >
+          <.overflow_tab_body tab={tab} active?={tab.id == @active_tab} />
+        </button>
       </div>
     </div>
     """
@@ -300,6 +304,7 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
 
     ~H"""
     <div
+      id={@id}
       role="tablist"
       class={tablist_class(@variant, [@class, @trailing != [] && "flex-1 items-center"])}
     >
@@ -345,6 +350,14 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
       {@tab.badge}
     </span>
     """
+  end
+
+  # The hook needs an id, and two strips with one id on a page confuse LiveView's
+  # patching. Derive one from everything that tells strips apart without the
+  # caller's help; a page that renders identical strips must pass `id`.
+  defp derived_id(tabs, assigns) do
+    key = {Enum.map(tabs, & &1.id), assigns.on_change, assigns.target}
+    "nav-tabs-" <> Integer.to_string(:erlang.phash2(key))
   end
 
   # Overflow-mode tabs never wrap their content and never shrink — except the

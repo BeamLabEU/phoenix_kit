@@ -6340,6 +6340,11 @@ msgstr "Gestione los medios y las subidas de los usuarios"
 msgid "More actions"
 msgstr "Más acciones"
 
+#: lib/phoenix_kit_web/components/core/nav_tabs.ex:263
+#, elixir-autogen, elixir-format
+msgid "More tabs"
+msgstr "Más pestañas"
+
 #: lib/phoenix_kit_web/components/media_browser/grid_view.html.heex:210
 #: lib/phoenix_kit_web/components/media_browser/grid_view.html.heex:485
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:574

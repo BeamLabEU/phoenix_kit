@@ -113,3 +113,96 @@ test("no active tab behaves like plain truncation from the end", () => {
 test("sub-pixel measurement noise does not hide a tab that fits", () => {
   assert.deepEqual(navTabsHidden([100.3, 100.3], 0, 200.4, 0), [false, false]);
 });
+
+// A menu item carries no link or phx-* attributes: choosing one must close the
+// menu and click the strip tab with the same id, which is what LiveView (event
+// tabs) or its link handling (navigate/patch/href tabs) then acts on.
+test("choosing a menu item closes the menu and clicks the matching strip tab", () => {
+  global.MutationObserver = class { observe() {} takeRecords() { return []; } disconnect() {} };
+
+  const clicks = [];
+  const strip = ["a", "b", "c"].map((id) => ({
+    getAttribute: (n) => (n === "data-nav-tab" ? id : null),
+    click: () => clicks.push(id),
+  }));
+  let listener = null;
+  const el = {
+    addEventListener: (type, fn) => { if (type === "click") listener = fn; },
+    removeEventListener: noop,
+    querySelector: () => null,
+    querySelectorAll: (sel) => (sel === "[data-nav-strip] [data-nav-tab]" ? strip : []),
+  };
+
+  const hook = Object.assign(Object.create(global.window.PhoenixKitHooks.NavTabsOverflow), { el });
+  hook.mounted();
+
+  const states = [];
+  hook.setOpen = (open) => states.push(open);
+  const item = (id) => ({
+    getAttribute: (n) => (n === "data-nav-item" ? id : null),
+  });
+  const target = (node, selector) => ({
+    closest: (sel) => (sel === selector ? node : null),
+  });
+  const pick = (id) =>
+    listener({
+      target: target(item(id), "[data-nav-menu] [role='menuitem']"),
+      preventDefault: noop,
+    });
+
+  pick("b");
+  assert.deepEqual(clicks, ["b"]);
+  assert.deepEqual(states, [false]);
+
+  // An id with no strip tab (stale markup) just closes.
+  pick("zzz");
+  assert.deepEqual(clicks, ["b"]);
+  assert.deepEqual(states, [false, false]);
+
+  // The "⋯" button toggles instead of clicking a tab.
+  let prevented = false;
+  listener({
+    target: target({}, "[data-nav-more]"),
+    preventDefault: () => { prevented = true; },
+  });
+  assert.equal(prevented, true);
+  assert.deepEqual(clicks, ["b"]);
+  assert.equal(states.length, 3);
+});
+
+// Two strips on a page: a pointerdown must close THIS strip's menu unless it
+// landed on this strip's own button or menu — another strip's menu does not count.
+test("an outside pointerdown closes the menu; one on its own button or menu does not", () => {
+  global.MutationObserver = class { observe() {} takeRecords() { return []; } disconnect() {} };
+  const captured = {};
+  global.document.addEventListener = (type, fn) => { captured[type] = fn; };
+
+  const own = (inside) => ({ contains: (node) => node === inside });
+  const menu = own("menu-node");
+  const more = own("more-node");
+  const el = {
+    addEventListener: noop,
+    removeEventListener: noop,
+    querySelector: () => null,
+    querySelectorAll: () => [],
+  };
+  const hook = Object.assign(Object.create(global.window.PhoenixKitHooks.NavTabsOverflow), { el });
+  hook.mounted();
+  global.document.addEventListener = noop;
+
+  const closes = [];
+  hook.setOpen = (open) => closes.push(open);
+  hook.el.querySelector = (sel) => (sel === "[data-nav-menu]" ? menu : sel === "[data-nav-more]" ? more : null);
+
+  hook._open = false;
+  captured.pointerdown({ target: "elsewhere" });
+  assert.deepEqual(closes, [], "nothing to close while closed");
+
+  hook._open = true;
+  captured.pointerdown({ target: "menu-node" });
+  captured.pointerdown({ target: "more-node" });
+  assert.deepEqual(closes, []);
+
+  captured.pointerdown({ target: "other-strips-menu-node" });
+  assert.deepEqual(closes, [false]);
+});

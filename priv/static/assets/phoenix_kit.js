@@ -7073,8 +7073,9 @@ if (typeof window.Chart === "undefined") {
   // ---------------------------------------------------------------------------
   //
   // Overflow mode of PhoenixKitWeb.Components.Core.NavTabs (`overflow={:menu}`).
-  // The server renders every tab twice — once in the one-row strip, once in the
-  // dropdown — and this only toggles the `hidden` class on each pair:
+  // The server renders every tab twice — once in the one-row strip, once as a
+  // plain button in the dropdown — and this only toggles the `hidden` class on
+  // each pair:
   //   * tabs that do not fit leave the strip and appear in the menu, in order;
   //   * the active tab always stays in the strip: earlier non-active tabs make
   //     room for it (and it truncates when it is alone and still too wide);
@@ -7085,12 +7086,13 @@ if (typeof window.Chart === "undefined") {
   //
   // The menu opens on click/tap (not :focus-within, which iOS Safari handles
   // badly) and closes on an outside pointerdown, Escape, picking an item and
-  // LiveView navigation. It is absolutely positioned inside the component, not
-  // portaled, so a click on an item is never detached mid-dispatch.
+  // LiveView navigation. A picked item clicks its strip tab. The menu is
+  // absolutely positioned inside the component, not portaled, so a click on an
+  // item is never detached mid-dispatch.
   // ---------------------------------------------------------------------------
 
-  // Which tabs to hide. `widths` are the natural widths, `avail` is the strip's
-  // width with the "⋯" button already showing, `active` the index of the tab
+  // Which tabs to hide. `widths` are the natural widths, `avail` is the room
+  // for tabs once the "⋯" button is counted, `active` the index of the tab
   // that must stay (-1 for none). Tabs are kept in order until one does not fit;
   // that one and everything after it (except the active tab) is hidden.
   function navTabsHidden(widths, gap, avail, active) {
@@ -7112,6 +7114,14 @@ if (typeof window.Chart === "undefined") {
     });
   }
 
+  function navTabsFind(host, id) {
+    var tabs = host.querySelectorAll("[data-nav-strip] [data-nav-tab]");
+    for (var i = 0; i < tabs.length; i++) {
+      if (tabs[i].getAttribute("data-nav-tab") === id) return tabs[i];
+    }
+    return null;
+  }
+
   window.PhoenixKitHooks.NavTabsOverflow = {
     mounted() {
       this._open = false;
@@ -7124,21 +7134,55 @@ if (typeof window.Chart === "undefined") {
         if (t.closest("[data-nav-more]")) {
           e.preventDefault();
           this.setOpen(!this._open);
-        } else if (t.closest("[data-nav-menu] [role='menuitem']")) {
+        } else {
+          var item = t.closest("[data-nav-menu] [role='menuitem']");
+          if (!item) return;
+          // The menu item carries no link or phx-* attributes: forward the pick
+          // to the strip tab (hidden, but still clickable), which LiveView
+          // handles as a direct click. Focus goes back to the "⋯" button first —
+          // the item is about to be hidden and would drop it on <body>.
+          var tab = navTabsFind(this.el, item.getAttribute("data-nav-item"));
+          var more = this.el.querySelector("[data-nav-more]");
           this.setOpen(false);
+          if (more && more.focus) more.focus({ preventScroll: true });
+          if (tab) tab.click();
         }
       };
+      // Scoped to THIS strip's own button and menu: another strip's pointerdown
+      // (or a tap on this strip's tabs) must close this menu.
       this._onPointerDown = (e) => {
         if (!this._open) return;
         var t = e.target;
-        if (t && t.closest && (t.closest("[data-nav-menu]") || t.closest("[data-nav-more]"))) return;
+        var menu = this.el.querySelector("[data-nav-menu]");
+        var more = this.el.querySelector("[data-nav-more]");
+        if ((menu && menu.contains(t)) || (more && more.contains(t))) return;
         this.setOpen(false);
       };
       this._onKeydown = (e) => {
-        if (e.key !== "Escape" || !this._open) return;
-        this.setOpen(false);
-        var more = this.el.querySelector("[data-nav-more]");
-        if (more) more.focus();
+        if (!this._open) return;
+        if (e.key === "Escape") {
+          this.setOpen(false);
+          var more = this.el.querySelector("[data-nav-more]");
+          if (more) more.focus();
+          return;
+        }
+        if (!this.el.contains(document.activeElement)) return;
+        if (e.key === "Tab") {
+          // Focus is leaving; do not leave the menu open behind it.
+          this.setOpen(false);
+          return;
+        }
+        var items = this.visibleItems();
+        if (items.length === 0) return;
+        var idx = items.indexOf(document.activeElement);
+        var next = null;
+        if (e.key === "ArrowDown") next = items[(idx + 1) % items.length];
+        else if (e.key === "ArrowUp") next = items[idx <= 0 ? items.length - 1 : idx - 1];
+        else if (e.key === "Home") next = items[0];
+        else if (e.key === "End") next = items[items.length - 1];
+        if (!next) return;
+        e.preventDefault();
+        next.focus();
       };
       this._onNavigate = () => { this.setOpen(false); };
       this.el.addEventListener("click", this._onClick);
@@ -7177,6 +7221,14 @@ if (typeof window.Chart === "undefined") {
       if (this._mutations) this._mutations.disconnect();
       if (this._resize) this._resize.disconnect();
     },
+    visibleItems() {
+      var menu = this.el.querySelector("[data-nav-menu]");
+      if (!menu) return [];
+      return Array.prototype.slice.call(menu.querySelectorAll("[role='menuitem']"))
+        .filter(function(i) { return !i.classList.contains("hidden"); });
+    },
+    // `strip` is the `.tabs` element: the tabs, the "⋯" button and the trailing
+    // slot are its direct children (daisyUI only styles `.tabs > .tab`).
     sync() {
       var strip = this.el.querySelector("[data-nav-strip]");
       var more = this.el.querySelector("[data-nav-more]");
@@ -7194,16 +7246,22 @@ if (typeof window.Chart === "undefined") {
       // would hide everything; leave it fully shown until the resize observer
       // reports a real width.
       if (strip.clientWidth > 0) {
+        var cs = window.getComputedStyle(strip);
+        var gap = parseFloat(cs.columnGap) || 0;
+        var inner = strip.clientWidth - (parseFloat(cs.paddingLeft) || 0) -
+          (parseFloat(cs.paddingRight) || 0);
+        // What the tabs share the row with: the trailing slot.
+        var trailing = strip.querySelector("[data-nav-trailing]");
+        var avail = inner - (trailing ? trailing.getBoundingClientRect().width + gap : 0);
         // Natural widths: the active tab is allowed to shrink, so freeze it.
         tabs.forEach(function(t) { t.style.flexShrink = "0"; });
         var widths = tabs.map(function(t) { return t.getBoundingClientRect().width; });
-        var gap = parseFloat(window.getComputedStyle(strip).columnGap) || 0;
         var total = widths.reduce(function(a, w) { return a + w; }, 0) +
           gap * Math.max(tabs.length - 1, 0);
-        if (total > strip.clientWidth + 0.5) {
+        if (total > avail + 0.5) {
           more.classList.remove("hidden");
           var active = tabs.findIndex(function(t) { return t.hasAttribute("data-nav-active"); });
-          hide = navTabsHidden(widths, gap, strip.clientWidth, active);
+          hide = navTabsHidden(widths, gap, avail - more.getBoundingClientRect().width - gap, active);
         }
         tabs.forEach(function(t) { t.style.flexShrink = ""; });
       }
@@ -7216,22 +7274,29 @@ if (typeof window.Chart === "undefined") {
       });
       more.classList.toggle("hidden", !any);
       this._width = this.el.clientWidth;
-      this.setOpen(this._open && any);
+      this.setOpen(this._open && any, true);
       // Our own class changes are not a reason to run again.
       this._mutations.takeRecords();
       this._applying = false;
     },
-    setOpen(open) {
+    // `keepFocus`: a re-sync of an already open menu must not steal focus.
+    setOpen(open, keepFocus) {
       var more = this.el.querySelector("[data-nav-more]");
       var menu = this.el.querySelector("[data-nav-menu]");
       if (!more || !menu) return;
+      var opening = open && !this._open;
       this._open = open;
       more.setAttribute("aria-expanded", String(open));
       menu.classList.toggle("hidden", !open);
       if (open) this.position(more, menu);
+      if (opening && !keepFocus) {
+        var first = this.visibleItems()[0];
+        if (first) first.focus({ preventScroll: true });
+      }
       this._mutations.takeRecords();
     },
-    // Right-aligned under the button, then nudged to stay inside the viewport.
+    // Right-aligned under the button, nudged to stay inside the viewport, and
+    // no taller than the room left below it.
     position(more, menu) {
       var edge = 8;
       var vw = document.documentElement.clientWidth;
@@ -7239,6 +7304,9 @@ if (typeof window.Chart === "undefined") {
       var right = host.right - more.getBoundingClientRect().right;
       menu.style.right = right + "px";
       var rect = menu.getBoundingClientRect();
+      var room = window.innerHeight - rect.top - edge;
+      menu.style.maxHeight = Math.max(120, Math.min(room, window.innerHeight * 0.7)) + "px";
+      rect = menu.getBoundingClientRect();
       if (rect.right > vw - edge) {
         right += rect.right - (vw - edge);
         menu.style.right = right + "px";
@@ -7251,6 +7319,7 @@ if (typeof window.Chart === "undefined") {
   // Exported for the Node test harness (test/js); harmless in a browser.
   if (typeof module === "object" && module.exports) {
     module.exports.navTabsHidden = navTabsHidden;
+    module.exports.navTabsFind = navTabsFind;
   }
 
   // ---------------------------------------------------------------------------
