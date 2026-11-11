@@ -107,6 +107,11 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
       are 44px touch targets; the arrow keys, Home and End move between them.
     * The menu is positioned inside the component (not portaled), so an ancestor
       with `overflow: hidden` that clips the strip would clip it as well.
+    * A strip that is content-sized (a flex-row parent, `w-fit`) re-fits when its
+      PARENT resizes, not only when it does; a grandparent that grows while the
+      parent stays content-sized is not noticed.
+    * The "⋯" button is 44px wide but only as tall as a tab (40px, 32px with
+      `tabs-sm`), so it is under the 44px touch floor vertically.
     * Until the hook mounts (the dead render) the strip is one clipped row with
       "⋯" hidden, so tabs that do not fit are cut off until the page connects.
 

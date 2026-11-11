@@ -7195,10 +7195,20 @@ if (typeof window.Chart === "undefined") {
         attributeFilter: ["class", "data-nav-active"]
       });
       if (typeof ResizeObserver === "function") {
+        // The parent too: a content-sized wrapper (a flex-row parent) shrinks to
+        // the visible tabs once some are hidden, so when the parent later widens
+        // the wrapper itself would never resize and the hidden tabs would stay
+        // in the menu beside free space. Widths are recorded at the end of
+        // sync(), so our own hiding does not retrigger it.
         this._resize = new ResizeObserver(() => {
-          if (this.el.clientWidth !== this._width) this.sync();
+          var parent = this.el.parentElement;
+          if (this.el.clientWidth !== this._width ||
+              (parent && parent.clientWidth !== this._parentWidth)) {
+            this.sync();
+          }
         });
         this._resize.observe(this.el);
+        if (this.el.parentElement) this._resize.observe(this.el.parentElement);
       }
       if (document.fonts && document.fonts.ready) {
         document.fonts.ready.then(() => { if (!this._destroyed) this.sync(); });
@@ -7294,6 +7304,7 @@ if (typeof window.Chart === "undefined") {
       });
       more.classList.toggle("hidden", !any);
       this._width = this.el.clientWidth;
+      this._parentWidth = this.el.parentElement ? this.el.parentElement.clientWidth : 0;
       this.setOpen(this._open && any, true);
       // Our own class changes are not a reason to run again.
       this._mutations.takeRecords();
@@ -7321,8 +7332,12 @@ if (typeof window.Chart === "undefined") {
       var edge = 8;
       var vw = document.documentElement.clientWidth;
       var host = this.el.getBoundingClientRect();
-      var right = host.right - more.getBoundingClientRect().right;
+      var anchor = more.getBoundingClientRect();
+      var right = host.right - anchor.right;
       menu.style.right = right + "px";
+      // Under the button, not under the wrapper: a margin on `.tabs` stays
+      // inside a wrapper that is a flex or grid item and would push `top-full` down.
+      menu.style.top = (anchor.bottom - host.top) + "px";
       var rect = menu.getBoundingClientRect();
       var room = window.innerHeight - rect.top - edge;
       menu.style.maxHeight = Math.max(120, Math.min(room, window.innerHeight * 0.7)) + "px";

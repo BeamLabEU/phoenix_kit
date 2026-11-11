@@ -6333,7 +6333,7 @@ msgstr "Benutzermedien und Uploads verwalten"
 msgid "More actions"
 msgstr "Weitere Aktionen"
 
-#: lib/phoenix_kit_web/components/core/nav_tabs.ex:268
+#: lib/phoenix_kit_web/components/core/nav_tabs.ex:273
 #, elixir-autogen, elixir-format
 msgid "More tabs"
 msgstr "Weitere Tabs"
