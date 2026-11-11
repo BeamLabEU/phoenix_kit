@@ -107,7 +107,9 @@ something every page needs. (`MentionInput`, `UploadStats` and `UploadGuard` are
 `file_upload` component and its mention-enabled text fields render them, and so do the public pages of modules —
 an upload form, a comment box. So is `AudioRecorder`: `<.audio_recorder>` is a form primitive any page can use.
 So are `PasskeySignIn` and `PasskeyRegister`: core renders them on the sign-in page and on the Security tab of the
-account settings, a page in the host's own layout.)
+account settings, a page in the host's own layout. `NavTabsOverflow`, the opt-in `overflow={:menu}` of `<.nav_tabs>`, is
+admin only because no page outside the admin area opts in yet: the first change that sets it on one moves the hook into
+`phoenix_kit.js` in the same commit.)
 Everything else goes in
 `phoenix_kit_admin.js`, registered as `window.PhoenixKitAdminHooks.Name = { … }`, and its name is added to
 `ADMIN_HOOKS` in `phoenix_kit.js`. Three places have to agree — the `ADMIN_HOOKS` array, the keys the

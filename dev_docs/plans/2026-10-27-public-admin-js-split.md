@@ -111,13 +111,13 @@ and its mention-enabled text fields render, so a module's public page (a form wi
 them; AudioRecorder, the microphone behind `<.audio_recorder>` (3.4.0); and PasskeySignIn and PasskeyRegister,
 the passkeys of the sign-in page and of the Security tab of the account settings (see the end of this section).
 
-*Admin, 40* — SortableGrid, MediaImageZoom, MarkdownEditor, InstantViewer, ViewerKeydown, ViewerPaneFit,
+*Admin, 41* — SortableGrid, MediaImageZoom, MarkdownEditor, InstantViewer, ViewerKeydown, ViewerPaneFit,
 MediaViewerDialog, ViewerSwipe, ViewerGallery, ViewerHiresLoading, AnnotationBurn, EtcherTooltipActions,
 AnnotationComposerPosition, EtcherReset, StackMemory, StackExpand, WaveformPlayer, MediaDragDrop,
 FolderDropUpload, UploadResume, UploadManager, RemovalModal, ContextMenu, AvatarCrop, ImageEditor, SearchPicker,
 PkDialogDraft, PkHashHighlight, BulkSelectScope, TableLocalSearch, TableFit, TableCardView, RowMenu,
 RowMenuAuto, ListFilter, TreePickerSearch, CrumbSwitcher, AdminSidebarScroll, IntegrationPickerSearch,
-EmailCharts.
+EmailCharts, NavTabsOverflow.
 
 `UploadManager` (the upload manager of #1006, a queue and panel for any LiveView upload) is admin by the same rule:
 core renders it in the media browser, its pickers and the selector page and nowhere else, and no known module puts
@@ -148,8 +148,8 @@ real uploader because the bundle replaces the stand-in in the turn the hooks mou
 (`upload_resume_reload.test.cjs`).
 
 At design time the public hooks were estimated at ~107 KB of ~507 KB of hook code. **As built** (esbuild 0.25.4
-`--minify`, `gzip -9 -n`): `phoenix_kit.js` is 288 553 B raw, 81 853 gzip, 109 192 minified, 33 463 minified + gzip;
-`phoenix_kit_admin.js` is 430 842 / 121 657 / 162 448 / 47 761. The size budget in `admin_split.test.cjs` (288 KiB for
+`--minify`, `gzip -9 -n`): `phoenix_kit.js` is 288 576 B raw, 81 861 gzip, 109 210 minified, 33 473 minified + gzip;
+`phoenix_kit_admin.js` is 444 141 / 124 974 / 168 081 / 49 099. The size budget in `admin_split.test.cjs` (288 KiB for
 the public file) is a coarse backstop; what keeps an admin hook out of the public file is the name check in the same
 test.
 
@@ -202,6 +202,18 @@ button, a click lost before the bundle arrives, and no way to add a passkey on a
 flow of account security, not a specialised hook. `AvatarCrop`, on the Account tab of the same page
 (`user_settings.ex:1065`, `avatar_editor.ex:362`), stays admin: 13 158 B raw of a hook only that editor uses. The two
 passkey hooks are why the budget is 288 KiB.
+
+**`NavTabsOverflow`** (the opt-in `overflow={:menu}` of `<.nav_tabs>`, #1024: 13 294 B raw, 1 453 B min+gz) is admin, behind a
+stub, because nothing outside the admin area renders it. The hook is attached only by the `:menu` branch of `nav_tabs/1`
+(`nav_tabs.ex:212`, `phx-hook` on `:230`); the default `:wrap` renders none. No call in `lib/` sets `overflow`: of the 21 files that
+use `<.nav_tabs>`, the ones outside the admin area (`profile_settings_tabs.ex:306`, `library_preferences.ex:220`) do not, and the
+other mentions are the moduledoc example and the tests (the review of #1024 says "no core page opts in yet"). It is not
+`AudioRecorder`, whose documentation says any page can use it: this is an opt-in mode that nobody has opted into. Public, it
+would have taken the public file to 301 847 B (over the 288 KiB budget by 6 935 B) for a hook no page uses. The condition for
+changing this is written once: **the first change that sets `overflow={:menu}` on a page outside the admin area and the user
+dashboard (`profile_settings_tabs`, say) moves the hook into `phoenix_kit.js` in the same commit**, with a new budget if it
+needs one, because the dead render of the strip is a single clipped row and a stub would prolong that until the admin bundle
+arrives. On an admin page the layout's `data-pk-admin` starts the download early, so it works there as every admin hook does.
 
 ### 5. Alternatives considered
 

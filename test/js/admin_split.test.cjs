@@ -32,7 +32,8 @@ test.after(() => {
 
 // Every hook `phoenix_kit.js` registered before the split (unchanged in 3.0.0), plus
 // the ones added since (`RemovalModal`, #999; `UploadManager`, #1006; `AudioRecorder`, 3.4.0;
-// `PasskeySignIn` and `PasskeyRegister`, the passkeys of the sign-in page and the Security tab). A hook
+// `PasskeySignIn` and `PasskeyRegister`, the passkeys of the sign-in page and the Security tab; `NavTabsOverflow`,
+// the opt-in overflow menu of `<.nav_tabs>`, admin until a page outside the admin area opts in). A hook
 // that is neither listed as public nor as admin has been lost; one that is
 // listed twice has been classified twice.
 const PUBLIC = `LibraryLoadNotice CookieConsent FlashAutoDismiss TimezoneOffset TimezoneDetector
@@ -47,7 +48,7 @@ const ADMIN = `SortableGrid MediaImageZoom MarkdownEditor InstantViewer ViewerKe
   AnnotationBurn EtcherTooltipActions AnnotationComposerPosition ListFilter TreePickerSearch CrumbSwitcher
   TableFit TableCardView RowMenu RowMenuAuto EmailCharts IntegrationPickerSearch MediaDragDrop EtcherReset
   ViewerSwipe ViewerGallery ViewerHiresLoading UploadResume UploadManager FolderDropUpload RemovalModal StackMemory StackExpand
-  WaveformPlayer SearchPicker ContextMenu AvatarCrop ImageEditor`.split(/\s+/);
+  WaveformPlayer SearchPicker ContextMenu AvatarCrop ImageEditor NavTabsOverflow`.split(/\s+/);
 
 const ADMIN_FILE = path.join(ASSETS, "phoenix_kit_admin.js");
 const PUBLIC_FILE = path.join(ASSETS, "phoenix_kit.js");
@@ -73,9 +74,9 @@ const plain = (v) => JSON.parse(JSON.stringify(v));
 
 // ── The inventory ──────────────────────────────────────────────────────────
 
-test("the two lists are disjoint and together are the 77 hooks the bundle has", () => {
+test("the two lists are disjoint and together are the 78 hooks the bundle has", () => {
   assert.equal(PUBLIC.length, 37);
-  assert.equal(ADMIN.length, 40);
+  assert.equal(ADMIN.length, 41);
   assert.deepEqual(PUBLIC.filter((n) => ADMIN.includes(n)), []);
 });
 
