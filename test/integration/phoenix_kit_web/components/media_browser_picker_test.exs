@@ -1191,7 +1191,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowserPickerTest do
       assert_receive {:picked, "pick", []}
     end
 
-    test "a duplicate of a file in the trash is not picked", %{conn: conn} = ctx do
+    test "a duplicate of a file in the trash is brought back and picked", %{conn: conn} = ctx do
       view = open(conn, ctx, %{"opts" => %{pick_mode: :single}})
       content = "kitchen-" <> :binary.copy("q", 800)
 
@@ -1203,13 +1203,72 @@ defmodule PhoenixKitWeb.Components.MediaBrowserPickerTest do
       upload_bytes(view, "kitchen-again.png", content)
       html = render(view)
 
-      assert [%{status: "trashed"}] = stored(ctx.user),
-             "precondition: dedup handed back the trashed row"
-
-      assert html =~ "0 selected"
+      assert [%{status: "active", trashed_at: nil, folder_uuid: home}] = stored(ctx.user)
+      assert home == ctx.scope.uuid
+      assert html =~ "1 selected"
 
       confirm(view)
-      assert_receive {:picked, "pick", []}
+      assert_receive {:picked, "pick", [uuid]}
+      assert uuid == first.uuid
+    end
+
+    test "a duplicate living outside the scope is linked in and picked, not moved",
+         %{conn: conn} = ctx do
+      view = open(conn, ctx, %{"opts" => %{pick_mode: :single}})
+      content = "kitchen-" <> :binary.copy("o", 800)
+
+      upload_bytes(view, "kitchen.png", content)
+      [first] = stored(ctx.user)
+
+      # The earlier copy is homed in a folder outside this picker's scope.
+      elsewhere = folder!("Elsewhere")
+
+      Repo.update_all(from(f in StorageFile, where: f.uuid == ^first.uuid),
+        set: [folder_uuid: elsewhere.uuid]
+      )
+
+      Repo.delete_all(from(l in Storage.FolderLink, where: l.file_uuid == ^first.uuid))
+      render(view)
+
+      upload_bytes(view, "kitchen-again.png", content)
+      html = render(view)
+
+      assert [%{folder_uuid: home}] = stored(ctx.user)
+      assert home == elsewhere.uuid, "the file keeps its own folder"
+
+      assert Repo.exists?(
+               from(l in Storage.FolderLink,
+                 where: l.file_uuid == ^first.uuid and l.folder_uuid == ^ctx.scope.uuid
+               )
+             )
+
+      assert html =~ "1 selected"
+      confirm(view)
+      assert_receive {:picked, "pick", [uuid]}
+      assert uuid == first.uuid
+    end
+
+    test "a duplicate that cannot be picked says why", %{conn: conn} = ctx do
+      content = "notes-" <> :binary.copy("n", 800)
+
+      first = open(conn, ctx)
+
+      input =
+        file_input(first, "#pick-folder-drop-upload-form", :media_picker_files, [
+          %{name: "notes.pdf", content: content, type: "application/pdf"}
+        ])
+
+      capture_log(fn ->
+        render_upload(input, "notes.pdf")
+        settle(first)
+      end)
+
+      view = open(conn, ctx, %{"opts" => %{only_file_type: "image"}})
+      upload_bytes(view, "kitchen.png", content)
+      html = render(view)
+
+      assert html =~ "kitchen.png"
+      assert html =~ "already stored as another kind of file"
     end
   end
 

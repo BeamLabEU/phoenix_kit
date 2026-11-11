@@ -27215,3 +27215,13 @@ msgstr "синхронизируется"
 #, elixir-autogen, elixir-format
 msgid "this device only"
 msgstr "только это устройство"
+
+#: lib/phoenix_kit_web/components/media_browser.ex:1017
+#, elixir-autogen, elixir-format
+msgid "This file is already stored as another kind of file, so it cannot be picked here."
+msgstr "Этот файл уже сохранён как файл другого типа, поэтому его нельзя выбрать здесь."
+
+#: lib/phoenix_kit_web/components/media_browser.ex:1021
+#, elixir-autogen, elixir-format
+msgid "This file is already stored, but it cannot be picked here."
+msgstr "Этот файл уже сохранён, но его нельзя выбрать здесь."

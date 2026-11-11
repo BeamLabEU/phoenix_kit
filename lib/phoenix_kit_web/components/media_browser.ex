@@ -981,8 +981,11 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   # — when a click could pick it. The store answers with the row it kept, and
   # that may not be what the upload claimed: the type is the bytes' (an
   # "image" that is not one), and a duplicate of an earlier upload is that
-  # earlier row, in the trash or of another type.
-  defp pick_upload(%{assigns: %{picker: true}} = socket, {:ok, %{file_uuid: uuid}}) do
+  # earlier row, of another type. (One in the trash is brought back, and one
+  # homed outside the scope is linked in, before this — see `store_upload/8`.)
+  # What still cannot be picked is said in the upload problems panel, not
+  # only in the log.
+  defp pick_upload(%{assigns: %{picker: true}} = socket, {:ok, %{file_uuid: uuid}}, entry) do
     uuid = to_string(uuid)
 
     if pickable?(socket, uuid) do
@@ -993,11 +996,31 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
           "not a file this picker lists"
       )
 
-      socket
+      add_upload_problem(socket, %{
+        kind: :rejected,
+        client_name: entry.client_name,
+        client_size: entry.client_size,
+        reason: unpickable_upload_reason(socket, uuid),
+        retry: false
+      })
     end
   end
 
-  defp pick_upload(socket, _result), do: socket
+  defp pick_upload(socket, _result, _entry), do: socket
+
+  defp unpickable_upload_reason(socket, uuid) do
+    only = socket.assigns[:only_file_type]
+
+    case Storage.get_file(uuid) do
+      %{file_type: type} when is_binary(only) and type != only ->
+        gettext(
+          "This file is already stored as another kind of file, so it cannot be picked here."
+        )
+
+      _ ->
+        gettext("This file is already stored, but it cannot be picked here.")
+    end
+  end
 
   # Check the whole boundary again: a live file may have moved to another
   # library or outside the scoped folder since it was picked.
@@ -1607,7 +1630,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       socket
       |> assign(:pending_batch, batch)
       |> assign(:last_uploaded_file_uuids, new_uuids)
-      |> pick_upload(result)
+      |> pick_upload(result, entry)
 
     if socket.assigns[:batch_scheduled] do
       socket
@@ -7080,6 +7103,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       # file, which this library cannot show or hold.
       {:ok, file, :duplicate} ->
         if in_shown_library?(file, lib_opts(socket)) do
+          file = revive_picker_duplicate(socket, file)
           maybe_set_folder(file, socket, placement_folder(socket, path))
           build_upload_result(file, entry, file_type, mime_type, file_size, true)
         else
@@ -7095,6 +7119,22 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
         {:postpone, reason}
     end
   end
+
+  # An upload in a picker is meant to be picked. When its bytes are already
+  # stored in the trash, the earlier row would come back as a file the picker
+  # cannot list: it is brought back instead, with no home, so `maybe_set_folder/3`
+  # gives it the folder the upload was made in (as every other re-upload of
+  # trashed bytes does). A browser that is not a picker leaves the row alone.
+  defp revive_picker_duplicate(%{assigns: %{picker: true}}, %{status: "trashed"} = file) do
+    case Storage.restore_file_into(file, nil) do
+      {:ok, restored} -> restored
+      # Restored by someone else first: it keeps the home they gave it.
+      {:error, :not_trashed} -> Storage.get_file(file.uuid) || file
+      {:error, _reason} -> file
+    end
+  end
+
+  defp revive_picker_duplicate(_socket, file), do: file
 
   defp authorize_stored_upload({:error, _} = error, _socket), do: error
 

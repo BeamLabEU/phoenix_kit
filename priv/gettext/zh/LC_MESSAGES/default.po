@@ -27141,3 +27141,13 @@ msgstr "已同步"
 #, elixir-autogen, elixir-format
 msgid "this device only"
 msgstr "仅限此设备"
+
+#: lib/phoenix_kit_web/components/media_browser.ex:1017
+#, elixir-autogen, elixir-format
+msgid "This file is already stored as another kind of file, so it cannot be picked here."
+msgstr ""
+
+#: lib/phoenix_kit_web/components/media_browser.ex:1021
+#, elixir-autogen, elixir-format
+msgid "This file is already stored, but it cannot be picked here."
+msgstr ""
