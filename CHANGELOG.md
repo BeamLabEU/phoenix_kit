@@ -52,7 +52,10 @@ Run `mix phoenix_kit.update` (V230, V231 and the new `phoenix_kit.js`).
 - The profile's Media row counts only the files the viewer can see. Viewers
   restricted to their own uploads see those uploads' count and size.
 - A returning device with no country on file can establish the sign-in country
-  baseline before the account holder travels.
+  baseline before the account holder travels. A country that resolves on such a
+  later visit and that the account was never seen in alerts like any new country.
+- Passkey verification refuses, instead of crashing the page, whatever the
+  WebAuthn library raises on malformed input.
 - The passkey button keeps its prompt when browser suggestions arrive late.
   Concurrent passkey sign-ins preserve the highest recorded signature count
   and keep a single outstanding completion token per account.

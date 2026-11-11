@@ -181,6 +181,29 @@ defmodule PhoenixKit.Integration.Users.LoginAlertsCountryTest do
     assert_email_sent(fn email -> assert email.text_body =~ "Helsinki, Finland" end)
   end
 
+  test "a country resolved on a later visit alerts when the account never saw it" do
+    user = create_user()
+    token = sign_in(user, @tallinn)
+    sign_in(user, @helsinki, token)
+    assert_email_sent()
+
+    # As if the Helsinki lookup had failed at that sign-in, a day ago.
+    device = Repo.get_by!(KnownDevice, user_uuid: user.uuid, country_code: "FI")
+    yesterday = DateTime.add(device.last_seen_at, -86_400)
+
+    device
+    |> KnownDevice.changeset(%{country_code: nil, location: nil, last_seen_at: yesterday})
+    |> Repo.update!()
+
+    sign_in(user, @helsinki, token)
+
+    assert %KnownDevice{country_code: "FI"} = Repo.get!(KnownDevice, device.uuid)
+    assert_email_sent(fn email -> assert email.text_body =~ "Helsinki, Finland" end)
+
+    sign_in(user, @helsinki, token)
+    refute_email_sent()
+  end
+
   test "does not alert while only the new-device alert is on" do
     {:ok, _} = Settings.update_setting("new_country_login_alert_enabled", "false")
     {:ok, _} = Settings.update_setting("new_login_alert_enabled", "true")

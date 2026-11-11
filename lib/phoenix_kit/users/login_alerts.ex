@@ -85,6 +85,8 @@ defmodule PhoenixKit.Users.LoginAlerts do
   When country alerts are on, a row with no country gets another lookup
   on its first visit since V230 or after a day between visits. This lets
   existing devices establish a country baseline before the person travels.
+  A country resolved this way that the account was never seen in alerts like
+  any other new country, so a failed lookup cannot make one known in silence.
   IPv4 still creates one row per address, because each address is its own network.
 
   Sends synchronously (matching every other PhoenixKit auth email —
@@ -207,7 +209,7 @@ defmodule PhoenixKit.Users.LoginAlerts do
 
     case matching_device(repo, user, fingerprint) do
       %KnownDevice{} = device ->
-        refresh_device(repo, device, now, device_hash)
+        refresh_device(repo, user, device, now, device_hash)
 
       nil ->
         # This (network, ua) pair is new, but the browser itself may not
@@ -252,7 +254,7 @@ defmodule PhoenixKit.Users.LoginAlerts do
     end
   end
 
-  defp refresh_device(repo, device, now, device_hash) do
+  defp refresh_device(repo, user, device, now, device_hash) do
     place =
       if is_nil(device.country_code) and
            (is_nil(device.device_token_hash) or
@@ -263,6 +265,10 @@ defmodule PhoenixKit.Users.LoginAlerts do
         %{location: nil, country_code: nil}
       end
 
+    # Read before the country is written, as for a new row: afterwards this
+    # account always knows the country.
+    new_country? = new_country?(repo, user, place.country_code)
+
     # Keep the first browser and country recorded for this pair, even when
     # two sign-ins both read the row before either can refresh it.
     from(d in KnownDevice,
@@ -270,15 +276,45 @@ defmodule PhoenixKit.Users.LoginAlerts do
       update: [
         set: [
           last_seen_at: fragment("GREATEST(?, ?)", d.last_seen_at, ^now),
-          device_token_hash: coalesce(d.device_token_hash, ^device_hash),
-          country_code: coalesce(d.country_code, ^place.country_code),
-          location: coalesce(d.location, ^place.location)
+          device_token_hash: coalesce(d.device_token_hash, ^device_hash)
         ]
       ]
     )
     |> repo.update_all([])
 
+    if place.country_code && record_country(repo, device, place) && new_country? do
+      alert_late_country(user, device, place, now)
+    end
+
     :ok
+  end
+
+  # One statement, so of two sign-ins that both resolved the country only one
+  # records it (and alerts).
+  defp record_country(repo, device, place) do
+    {count, _} =
+      from(d in KnownDevice, where: d.uuid == ^device.uuid and is_nil(d.country_code))
+      |> repo.update_all(set: [country_code: place.country_code, location: place.location])
+
+    count == 1
+  end
+
+  # A country that resolves late is still a country the account was never seen
+  # in: without the alert, a sign-in whose lookup failed would make its country
+  # a known one in silence at the next visit.
+  defp alert_late_country(user, device, place, now) do
+    attrs = %{
+      ip_address: device.ip_address,
+      browser: device.browser,
+      os: device.os,
+      location: place.location,
+      country_code: place.country_code,
+      first_seen_at: now
+    }
+
+    log_new_login(user, attrs, %{first_device?: false, new_browser?: false, new_country?: true})
+    notify_in_app(user, attrs)
+    UserNotifier.deliver_new_login_alert(user, attrs)
   end
 
   # This browser, by its device cookie or by its exact user agent, at any IP.

@@ -546,10 +546,15 @@ defmodule PhoenixKit.Users.Passkeys do
     if relying_party() == %{origin: origin, rp_id: rp_id}, do: :ok, else: :other_domain
   end
 
+  # `Wax` parses what the browser sent (CBOR, COSE keys, certificates) and can
+  # raise on bytes it does not expect. Whatever it raises is a refusal: a crash
+  # would take the page down and put the exception, input included, in the log.
   defp verify_with_wax(verify) do
     verify.()
   rescue
-    error in [ArgumentError, FunctionClauseError, KeyError, MatchError] -> {:error, error}
+    error -> {:error, error}
+  catch
+    _kind, _reason -> {:error, :verification_crashed}
   end
 
   @doc false
