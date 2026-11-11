@@ -105,7 +105,9 @@ A new hook goes in `phoenix_kit.js` only if a page outside the admin area and th
 render it — one that core's own code or a known module renders there: a generic form or UI primitive, or
 something every page needs. (`MentionInput`, `UploadStats` and `UploadGuard` are public for that reason: core's
 `file_upload` component and its mention-enabled text fields render them, and so do the public pages of modules —
-an upload form, a comment box. So is `AudioRecorder`: `<.audio_recorder>` is a form primitive any page can use.)
+an upload form, a comment box. So is `AudioRecorder`: `<.audio_recorder>` is a form primitive any page can use.
+So are `PasskeySignIn` and `PasskeyRegister`: core renders them on the sign-in page and on the Security tab of the
+account settings, a page in the host's own layout.)
 Everything else goes in
 `phoenix_kit_admin.js`, registered as `window.PhoenixKitAdminHooks.Name = { … }`, and its name is added to
 `ADMIN_HOOKS` in `phoenix_kit.js`. Three places have to agree — the `ADMIN_HOOKS` array, the keys the

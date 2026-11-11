@@ -31,7 +31,8 @@ test.after(() => {
 });
 
 // Every hook `phoenix_kit.js` registered before the split (unchanged in 3.0.0), plus
-// the ones added since (`RemovalModal`, #999; `UploadManager`, #1006; `AudioRecorder`, 3.4.0). A hook
+// the ones added since (`RemovalModal`, #999; `UploadManager`, #1006; `AudioRecorder`, 3.4.0;
+// `PasskeySignIn` and `PasskeyRegister`, the passkeys of the sign-in page and the Security tab). A hook
 // that is neither listed as public nor as admin has been lost; one that is
 // listed twice has been classified twice.
 const PUBLIC = `LibraryLoadNotice CookieConsent FlashAutoDismiss TimezoneOffset TimezoneDetector
@@ -39,7 +40,7 @@ const PUBLIC = `LibraryLoadNotice CookieConsent FlashAutoDismiss TimezoneOffset 
   SelectOnMount TimeAgo CopyToClipboard FadeOut PreserveScroll InfiniteScroll PageSizeAutoFit
   MaintenanceCountdown PkShiftEnter PkUrlMirror PhoenixKitUrlState PkCheckboxIndeterminate PkDateInput
   PkChartCrosshair ViewportPopover Leaf FrescoViewer FrescoCanvas TesseraLayer EtcherLayer
-  MentionInput UploadStats UploadGuard AudioRecorder`.split(/\s+/);
+  MentionInput UploadStats UploadGuard AudioRecorder PasskeySignIn PasskeyRegister`.split(/\s+/);
 
 const ADMIN = `SortableGrid MediaImageZoom MarkdownEditor InstantViewer ViewerKeydown ViewerPaneFit
   MediaViewerDialog PkHashHighlight BulkSelectScope TableLocalSearch AdminSidebarScroll PkDialogDraft
@@ -72,8 +73,8 @@ const plain = (v) => JSON.parse(JSON.stringify(v));
 
 // ── The inventory ──────────────────────────────────────────────────────────
 
-test("the two lists are disjoint and together are the 75 hooks the bundle has", () => {
-  assert.equal(PUBLIC.length, 35);
+test("the two lists are disjoint and together are the 77 hooks the bundle has", () => {
+  assert.equal(PUBLIC.length, 37);
   assert.equal(ADMIN.length, 40);
   assert.deepEqual(PUBLIC.filter((n) => ADMIN.includes(n)), []);
 });
@@ -186,14 +187,15 @@ test("the admin file registers into its own namespace only", () => {
 test("a size budget keeps the public file public", () => {
   const publicBytes = fs.statSync(PUBLIC_FILE).size;
   const adminBytes = fs.statSync(ADMIN_FILE).size;
-  // 280 KiB: the public half is about 273 KiB with the mention field, the two upload hooks (public pages
-  // render them), the audio recorder, a public primitive that main added (15 KB, "any page can use"), and the
-  // retry and the menu restore of the stubs. The budget has been raised twice: 256 -> 272 KiB for the recorder,
-  // and 272 -> 280 KiB as deliberate headroom for the next public hook from main (2.4 KB were left under 272
-  // when it was raised; the fixes that followed took the file past 272 on their own). A coarse backstop only:
-  // a small admin hook would still fit in the margin, and it is the name checks above that catch one put in
-  // the wrong file.
-  assert.ok(publicBytes < 280 * 1024, "phoenix_kit.js is " + publicBytes + " bytes");
+  // 288 KiB: the public half is about 282 KiB with the mention field, the two upload hooks (public pages
+  // render them), the audio recorder, a public primitive that main added (15 KB, "any page can use"), the
+  // retry and the menu restore of the stubs, and main's two passkey hooks (9.3 KB: core renders them on the
+  // sign-in page and on the Security tab of the account settings, outside the admin area and the dashboard).
+  // The budget went 256 -> 272 KiB (the recorder), -> 280 (headroom for the next public hook from main),
+  // -> 288 (main's passkey hooks). What it is for has not changed: an admin hook that lands in the public
+  // file by mistake pushes it over (AvatarCrop alone is 13 158 B). A coarse backstop only: a small admin
+  // hook would still fit in the margin, and it is the name checks above that catch one put in the wrong file.
+  assert.ok(publicBytes < 288 * 1024, "phoenix_kit.js is " + publicBytes + " bytes");
   assert.ok(adminBytes > publicBytes / 2, "the admin file is where the weight went");
 });
 

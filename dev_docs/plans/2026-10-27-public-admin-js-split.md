@@ -101,14 +101,15 @@ the user dashboard, or when it is a global behaviour every page needs; generic s
 public (their cost is a few hundred gzip bytes each, less than one lazy request); specialised or heavy hooks go
 to the admin bundle.** The split is an explicit list in `phoenix_kit.js` (`ADMIN_HOOKS`), and a node test pins it.
 
-*Public, 35* — LibraryLoadNotice, CookieConsent, FlashAutoDismiss, TimezoneOffset, TimezoneDetector,
+*Public, 37* — LibraryLoadNotice, CookieConsent, FlashAutoDismiss, TimezoneOffset, TimezoneDetector,
 LanguageSwitcherSearch, LanguageSwitcherPosition, PkDialog, PkDialogTrigger, PopupLink, ResetSelect,
 SelectOnMount, TimeAgo, CopyToClipboard, FadeOut, PreserveScroll, InfiniteScroll, PageSizeAutoFit,
 MaintenanceCountdown, PkShiftEnter, PkUrlMirror, PhoenixKitUrlState, PkCheckboxIndeterminate, PkDateInput,
 PkChartCrosshair, ViewportPopover, and the five already-lazy library wrappers Leaf, FrescoViewer, FrescoCanvas,
 TesseraLayer, EtcherLayer; MentionInput, UploadStats and UploadGuard, which core's own `file_upload` component
 and its mention-enabled text fields render, so a module's public page (a form with an upload, a comment box) has
-them; and AudioRecorder, the microphone behind `<.audio_recorder>` (3.4.0).
+them; AudioRecorder, the microphone behind `<.audio_recorder>` (3.4.0); and PasskeySignIn and PasskeyRegister,
+the passkeys of the sign-in page and of the Security tab of the account settings (see the end of this section).
 
 *Admin, 40* — SortableGrid, MediaImageZoom, MarkdownEditor, InstantViewer, ViewerKeydown, ViewerPaneFit,
 MediaViewerDialog, ViewerSwipe, ViewerGallery, ViewerHiresLoading, AnnotationBurn, EtcherTooltipActions,
@@ -124,7 +125,7 @@ it on a public page. Its script is also a standalone file for projects outside P
 (`phoenix_kit_upload_manager.js`), of which `phoenix_kit_admin.js` holds a copy, identical but for the lines that
 register the hook (`PhoenixKitAdminHooks` instead of `PhoenixKitHooks`; `upload_manager_bundle.test.cjs`). Public, it
 would have been 55 KB raw / 8.2 KB min+gz more in every page's file (303 603 B raw when measured, over the 256 KiB
-budget it had then, and over today's 280 KiB as well).
+budget it had then, and over today's 288 KiB as well).
 Behind a stub it has the limit of every stub, and one more cost: the manager registers the chunked uploader
 (`PkChunked`) when it starts, and a file chosen before the bundle has arrived is preflighted regardless, so the stub
 of `UploadManager` keeps a stand-in under that name (`holdChunkedUploader`) which takes the entries LiveView hands
@@ -147,8 +148,8 @@ real uploader because the bundle replaces the stand-in in the turn the hooks mou
 (`upload_resume_reload.test.cjs`).
 
 At design time the public hooks were estimated at ~107 KB of ~507 KB of hook code. **As built** (esbuild 0.25.4
-`--minify`, `gzip -9 -n`): `phoenix_kit.js` is 276 092 B raw, 78 808 gzip, 103 719 minified, 31 857 minified + gzip;
-`phoenix_kit_admin.js` is 431 542 / 121 815 / 162 841 / 47 928. The size budget in `admin_split.test.cjs` (280 KiB for
+`--minify`, `gzip -9 -n`): `phoenix_kit.js` is 288 553 B raw, 81 853 gzip, 109 192 minified, 33 463 minified + gzip;
+`phoenix_kit_admin.js` is 430 842 / 121 657 / 162 448 / 47 761. The size budget in `admin_split.test.cjs` (288 KiB for
 the public file) is a coarse backstop; what keeps an admin hook out of the public file is the name check in the same
 test.
 
@@ -157,7 +158,7 @@ a generic form primitive, imported into every page's helpers next to `file_uploa
 form as its example, so a page that renders it must not wait for the admin bundle (48 KB min+gz, against the hook's
 own 2.3 KB). Core renders it nowhere itself and no known module puts it on a page yet. It added 13 087 B raw (the hook and its line in the header) /
 2 032 B min+gz to the public file at 3.4.0, and 2 677 B raw more with the follow-up of #1023 (the recorder started from
-a page's own button, a clip joining a page's own upload), which is why the budget went from 256 to 272 KiB (the test says so; it went to 280 KiB later as deliberate headroom for the next public hook from main: 2.4 KB were left under 272 when it was raised, and the fixes that followed took the file past 272 KiB on their own); its body is
+a page's own button, a clip joining a page's own upload), which is why the budget went from 256 to 272 KiB (the test says so; it went to 280 KiB later as deliberate headroom for the next public hook from main: 2.4 KB were left under 272 when it was raised, and the fixes that followed took the file past 272 KiB on their own; and to 288 KiB with main's passkey hooks, below); its body is
 main's, character for character. A lazy chunk of its own, the other way to keep it off pages without a
 recorder, would cost a third vendored file (compiler, facts, doctor) for those 2 KB.
 
@@ -185,6 +186,22 @@ script and cannot see the public file's closure. Which helpers those are is foun
 `checkJs` pass over each file lists every identifier it uses and does not define (it reports exactly two on today's
 file — the `define` of Chart.js' UMD wrapper and the `Chart` global), so a forgotten helper shows up as a named
 error, not as a runtime `ReferenceError` in a browser.
+
+**The passkey hooks** (`PasskeySignIn`, `PasskeyRegister`: main's block, byte for byte, 9 340 B raw / 1 205 B min+gz) are
+public. `PasskeySignIn` is rendered by the sign-in page (`login.html.heex:121`), before anyone is signed in, and starts
+the browser's passkey suggestions as it mounts. `PasskeyRegister` (`live/components/passkeys.ex:236`) is rendered by the
+`:passkeys` section of `UserSettings` (`user_settings.ex:1614`; the Security tab, `profile_settings_tabs.ex:61`), which
+`Live.Users.ProfileSettings` shows through `LayoutWrapper.app_layout` (`profile_settings.html.heex:1`): the host's own
+layout, not the admin chrome (`admin_page?` looks at the path, `layout_wrapper.ex:356`) and not the dashboard layout, and
+without `data-pk-admin` (`layout_wrapper.ex:1313`, `layouts/dashboard.html.heex:169`). A host can also embed
+`UserSettings` on a page of its own. The admin user page renders the same component (`user_details.html.heex:420`) and it
+works there because the public file loads on every page. Admin was the alternative for `PasskeyRegister` (a stub, 2 955 B
+moved into the admin file, its helpers shared with the sign-in hook through `PhoenixKitInternals`): it would have saved
+226 B min+gz per page, and cost a visit that opens the Security tab directly a download of the 122 KB gzip admin bundle for one
+button, a click lost before the bundle arrives, and no way to add a passkey on a host whose install facts are missing. It is a
+flow of account security, not a specialised hook. `AvatarCrop`, on the Account tab of the same page
+(`user_settings.ex:1065`, `avatar_editor.ex:362`), stays admin: 13 158 B raw of a hook only that editor uses. The two
+passkey hooks are why the budget is 288 KiB.
 
 ### 5. Alternatives considered
 
