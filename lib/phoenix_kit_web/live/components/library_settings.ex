@@ -120,12 +120,7 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
     |> assign(:owned, owned)
     |> assign(:shared, shared)
     |> assign(:media, media)
-    |> assign(
-      :content_stats,
-      Libraries.content_stats(
-        Enum.map(entries, & &1.library.uuid) ++ if(media, do: [media.library.uuid], else: [])
-      )
-    )
+    |> assign(:content_stats, content_stats(entries, media, scope))
     |> assign(:can_create, Libraries.may_create_library?(scope))
     |> assign(:can_public, Libraries.may_create_public_library?(scope))
     |> assign(:can_own_storage, Libraries.may_use_own_storage?(scope))
@@ -144,6 +139,27 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
       :members,
       if(open, do: open |> library_of(owned ++ shared) |> members(), else: [])
     )
+  end
+
+  defp content_stats(entries, media, scope) do
+    uuids = Enum.map(entries, & &1.library.uuid)
+
+    case media do
+      nil ->
+        Libraries.content_stats(uuids)
+
+      %{library: library} ->
+        case Libraries.media_viewer_uuid(scope, library) do
+          nil ->
+            Libraries.content_stats([library.uuid | uuids])
+
+          viewer_uuid ->
+            Map.merge(
+              Libraries.content_stats(uuids),
+              Libraries.content_stats([library.uuid], viewer_uuid: viewer_uuid)
+            )
+        end
+    end
   end
 
   # The site's own library, Media, shown read-only beside the user's to someone

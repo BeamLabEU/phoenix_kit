@@ -411,17 +411,30 @@ defmodule PhoenixKit.Modules.Storage.Libraries do
   Live file counts and original content bytes for the supplied library UUIDs,
   in one query. Excludes trash and system-managed files; replicas and generated
   instances do not multiply the size. Empty libraries receive zero totals.
-  Callers must supply only libraries the viewer may inspect.
+  Callers must supply only libraries the viewer may inspect. Pass `:viewer_uuid`
+  to count only files uploaded by a restricted Media viewer.
   """
-  @spec content_stats([String.t()]) :: %{
+  @spec content_stats([String.t()], keyword()) :: %{
           String.t() => %{files: non_neg_integer(), bytes: non_neg_integer()}
         }
-  def content_stats([]), do: %{}
+  def content_stats(uuids, opts \\ [])
 
-  def content_stats(uuids) do
-    files =
+  def content_stats([], _opts), do: %{}
+
+  def content_stats(uuids, opts) do
+    query =
       from(f in StorageFile,
-        where: f.library_uuid in ^uuids and f.system_managed == false and f.status != "trashed",
+        where: f.library_uuid in ^uuids and f.system_managed == false and f.status != "trashed"
+      )
+
+    query =
+      case opts[:viewer_uuid] do
+        nil -> query
+        viewer_uuid -> where(query, [f], f.user_uuid == ^viewer_uuid)
+      end
+
+    files =
+      from(f in query,
         group_by: f.library_uuid,
         select: {f.library_uuid, {count(f.uuid), coalesce(sum(f.size), 0)}}
       )

@@ -14589,14 +14589,7 @@ if (typeof window.Chart === "undefined") {
       };
 
       this.el.addEventListener("click", this.onClick);
-
-      var conditional = window.PublicKeyCredential.isConditionalMediationAvailable;
-
-      if (typeof conditional === "function") {
-        conditional.call(window.PublicKeyCredential).then((available) => {
-          if (available && !this.destroyedAt) this.start(true);
-        });
-      }
+      this.resumeSuggestions();
     },
 
     start(conditional) {
@@ -14604,37 +14597,41 @@ if (typeof window.Chart === "undefined") {
       var controller = new AbortController();
       this.controller = controller;
 
-      this.pushEvent("passkey_options", {}, (reply) => {
+      this.pushEvent("passkey_options", {}, async (reply) => {
         if (!reply || !reply.options || controller.signal.aborted) return;
 
-        var request = { publicKey: requestOptions(reply.options), signal: controller.signal };
-        if (conditional) request.mediation = "conditional";
+        try {
+          var request = { publicKey: requestOptions(reply.options), signal: controller.signal };
+          if (conditional) request.mediation = "conditional";
 
-        navigator.credentials
-          .get(request)
-          .then((credential) => {
-            if (!credential) return;
-            var payload = assertionPayload(credential);
-            // The page's "Keep me logged in" box, when the site offers one.
-            var selector = this.el.getAttribute("data-remember-me");
-            var remember = selector ? document.querySelector(selector) : null;
-            payload.remember_me = remember && remember.checked ? "true" : "false";
-            this.pushEvent("passkey_sign_in", payload);
-          })
-          .catch((error) => {
-            if (!quietError(error)) this.pushEvent("passkey_failed", { name: String(error.name) });
-            // Give the suggestions back after a cancelled or failed prompt.
-            if (!conditional && !this.destroyedAt) this.resumeSuggestions();
-          });
+          var credential = await navigator.credentials.get(request);
+          if (controller.signal.aborted || !credential) return;
+
+          var payload = assertionPayload(credential);
+          // The page's "Keep me logged in" box, when the site offers one.
+          var selector = this.el.getAttribute("data-remember-me");
+          var remember = selector ? document.querySelector(selector) : null;
+          payload.remember_me = remember && remember.checked ? "true" : "false";
+          this.pushEvent("passkey_sign_in", payload);
+        } catch (error) {
+          if (controller.signal.aborted) return;
+          if (!quietError(error)) this.pushEvent("passkey_failed", {});
+          if (!conditional) this.resumeSuggestions();
+        }
       });
     },
 
-    resumeSuggestions() {
+    async resumeSuggestions() {
       var conditional = window.PublicKeyCredential.isConditionalMediationAvailable;
       if (typeof conditional !== "function") return;
-      conditional.call(window.PublicKeyCredential).then((available) => {
-        if (available && !this.destroyedAt) this.start(true);
-      });
+
+      var controller = this.controller;
+      try {
+        var available = await conditional.call(window.PublicKeyCredential);
+        if (available && !this.destroyedAt && this.controller === controller) this.start(true);
+      } catch (_error) {
+        // The explicit sign-in button still works when suggestions are unavailable.
+      }
     },
 
     abort() {
@@ -14642,6 +14639,14 @@ if (typeof window.Chart === "undefined") {
         this.controller.abort();
         this.controller = null;
       }
+    },
+
+    disconnected() {
+      this.abort();
+    },
+
+    reconnected() {
+      if (supported()) this.resumeSuggestions();
     },
 
     destroyed() {
@@ -14653,6 +14658,8 @@ if (typeof window.Chart === "undefined") {
 
   var PasskeyRegister = {
     mounted() {
+      this.controller = null;
+
       if (!supported()) {
         markUnsupported(this.el, "[data-passkey-register]");
         return;
@@ -14668,28 +14675,44 @@ if (typeof window.Chart === "undefined") {
     },
 
     register() {
-      this.pushEventTo(this.el, "passkey_registration_options", {}, (reply) => {
-        if (!reply || !reply.options) return;
+      if (this.controller) return;
+      var controller = new AbortController();
+      this.controller = controller;
 
-        navigator.credentials
-          .create({ publicKey: creationOptions(reply.options) })
-          .then((credential) => {
-            if (!credential) return;
-            this.pushEventTo(
-              this.el,
-              "passkey_register",
-              registrationPayload(credential, navigator.userAgent)
-            );
-          })
-          .catch((error) => {
-            this.pushEventTo(this.el, "passkey_register_failed", {
-              name: quietError(error) ? "cancelled" : String(error.name)
-            });
+      this.pushEventTo(this.el, "passkey_registration_options", {}, async (reply) => {
+        try {
+          if (!reply || !reply.options || controller.signal.aborted) return;
+
+          var credential = await navigator.credentials.create({
+            publicKey: creationOptions(reply.options),
+            signal: controller.signal
           });
+          if (controller.signal.aborted || !credential) return;
+
+          this.pushEventTo(
+            this.el,
+            "passkey_register",
+            registrationPayload(credential, navigator.userAgent)
+          );
+        } catch (error) {
+          if (!controller.signal.aborted) {
+            this.pushEventTo(this.el, "passkey_register_failed", {
+              name: quietError(error) ? "cancelled" : "failed"
+            });
+          }
+        } finally {
+          if (this.controller === controller) this.controller = null;
+        }
       });
     },
 
+    disconnected() {
+      if (this.controller) this.controller.abort();
+      this.controller = null;
+    },
+
     destroyed() {
+      this.disconnected();
       if (this.onClick) this.el.removeEventListener("click", this.onClick);
     }
   };

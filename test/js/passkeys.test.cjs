@@ -165,3 +165,113 @@ test("a sign-in answer carries the user handle, or null without one", () => {
 
   assert.equal(passkeyAssertionPayload(credential(null)).userHandle, null);
 });
+
+function passkeyBrowser(t, credentials, conditional) {
+  const previousNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  Object.defineProperty(globalThis, "navigator", {
+    configurable: true,
+    value: { credentials, userAgent: "node" },
+  });
+  window.PublicKeyCredential = class {};
+  window.PublicKeyCredential.isConditionalMediationAvailable = conditional;
+
+  t.after(() => {
+    if (previousNavigator) Object.defineProperty(globalThis, "navigator", previousNavigator);
+    else delete globalThis.navigator;
+    delete window.PublicKeyCredential;
+  });
+}
+
+test("late conditional availability leaves an explicit sign-in prompt running", async (t) => {
+  let resolveAvailability;
+  const availability = new Promise((resolve) => {
+    resolveAvailability = resolve;
+  });
+  passkeyBrowser(t, {}, () => availability);
+
+  const events = [];
+  const hook = {
+    ...window.PhoenixKitHooks.PasskeySignIn,
+    el: stubElement(),
+    pushEvent: (event) => events.push(event),
+  };
+  hook.mounted();
+  hook.start(false);
+  const explicit = hook.controller;
+
+  resolveAvailability(true);
+  await availability;
+
+  assert.deepEqual(events, ["passkey_options"]);
+  assert.equal(hook.controller, explicit);
+  assert.equal(explicit.signal.aborted, false);
+  hook.destroyed();
+});
+
+test("a replaced sign-in prompt discards its late credential", async (t) => {
+  let resolveCredential;
+  const credential = new Promise((resolve) => {
+    resolveCredential = resolve;
+  });
+  passkeyBrowser(t, { get: () => credential });
+
+  const events = [];
+  const hook = {
+    ...window.PhoenixKitHooks.PasskeySignIn,
+    el: stubElement(),
+    pushEvent: (event, _payload, reply) => events.push({ event, reply }),
+  };
+  hook.mounted();
+  hook.start(true);
+  const first = events[0].reply({ options: { challenge: "AQ" } });
+  hook.start(false);
+
+  resolveCredential({
+    rawId: bytes(1),
+    response: {
+      authenticatorData: bytes(2),
+      clientDataJSON: bytes(3),
+      signature: bytes(4),
+      userHandle: bytes(5),
+    },
+  });
+  await first;
+
+  assert.deepEqual(events.map(({ event }) => event), ["passkey_options", "passkey_options"]);
+  hook.destroyed();
+});
+
+test("registration allows one prompt at a time and aborts it on teardown", async (t) => {
+  let signal;
+  let resolveCredential;
+  const credential = new Promise((resolve) => {
+    resolveCredential = resolve;
+  });
+  passkeyBrowser(t, {
+    create(request) {
+      signal = request.signal;
+      return credential;
+    },
+  });
+
+  const events = [];
+  const hook = {
+    ...window.PhoenixKitHooks.PasskeyRegister,
+    el: stubElement(),
+    pushEventTo: (_target, event, _payload, reply) => events.push({ event, reply }),
+  };
+  hook.mounted();
+  hook.register();
+  hook.register();
+  const registration = events[0].reply({ options: { challenge: "AQ", user: { id: "Ag" } } });
+  hook.destroyed();
+
+  assert.equal(signal.aborted, true);
+  resolveCredential({
+    rawId: bytes(1),
+    response: { attestationObject: bytes(2), clientDataJSON: bytes(3) },
+  });
+  await registration;
+
+  assert.deepEqual(events.map(({ event }) => event), ["passkey_registration_options"]);
+});

@@ -593,6 +593,21 @@ defmodule PhoenixKitWeb.Live.Users.UserLibrariesUITest do
       refute has_element?(view, "#library-row-#{media} button", "Trash")
     end
 
+    test "a restricted Media viewer sees the size of their own uploads", %{conn: conn, role: role} do
+      {:ok, _} = Permissions.grant_permission(role.uuid, "media")
+      holder = user!(role)
+      media = Libraries.media_uuid()
+      stored!(holder, "mine.png", media)
+      stored!(user!(), "theirs.png", media)
+
+      {:ok, view, _html} = live(log_in_user(conn, holder), Routes.path("/profile/settings/media"))
+
+      row = view |> element("#library-row-#{media}") |> render()
+      assert row =~ "1 file"
+      assert row =~ "1 B"
+      refute row =~ "2 files"
+    end
+
     test "rename, make default and trash are in the row's menu; the trash can restore", %{
       conn: conn,
       role: role

@@ -36,6 +36,13 @@ Run `mix phoenix_kit.update` (V230, V231 and the new `phoenix_kit.js`).
 
 ### Fixed
 
+- The profile's Media row counts only the files the viewer can see. Viewers
+  restricted to their own uploads see those uploads' count and size.
+- A returning device with no country on file can establish the sign-in country
+  baseline before the account holder travels.
+- The passkey button keeps its prompt when browser suggestions arrive late.
+  Concurrent passkey sign-ins preserve the highest recorded signature count
+  and keep a single outstanding completion token per account.
 - **A browser update no longer reads as a new device.** A browser was recognized by a
   hash of its whole user-agent string, version number included, so each update sent a
   "new login" email, about once a month per browser. Every sign-in now gives the

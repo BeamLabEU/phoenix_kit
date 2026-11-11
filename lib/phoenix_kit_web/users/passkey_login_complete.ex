@@ -19,14 +19,16 @@ defmodule PhoenixKitWeb.Users.PasskeyLoginComplete do
   alias PhoenixKitWeb.Users.Auth, as: UserAuth
 
   def complete(conn, %{"token" => token} = params) do
+    conn =
+      conn
+      |> put_resp_header("cache-control", "no-store")
+      |> put_resp_header("referrer-policy", "no-referrer")
+
     case safe_consume(token) do
       {:ok, user} ->
         conn
-        # log_in_user/3 reads :user_return_to from the session for its redirect,
-        # so stash the (sanitized) destination there before signing in.
-        |> maybe_store_return_to(params["return_to"])
         |> put_flash(:info, gettext("Signed in with a passkey."))
-        |> UserAuth.log_in_user(user, login_params(params))
+        |> UserAuth.log_in_user(user, Map.take(params, ["remember_me", "return_to"]))
 
       :error ->
         refuse(conn)
@@ -46,24 +48,15 @@ defmodule PhoenixKitWeb.Users.PasskeyLoginComplete do
       )
 
       :error
+  catch
+    :exit, _reason ->
+      Logger.warning("[PhoenixKit.PasskeyLoginComplete] token consumption exited")
+      :error
   end
 
   defp refuse(conn) do
     conn
     |> put_flash(:error, gettext("This passkey sign-in has expired. Please try again."))
     |> redirect(to: Routes.path("/users/log-in"))
-  end
-
-  # Only "true" (the page's "Keep me logged in" box) asks for a persistent cookie;
-  # log_in_user/3 still applies the site's policy.
-  defp login_params(%{"remember_me" => "true"}), do: %{"remember_me" => "true"}
-  defp login_params(_params), do: %{}
-
-  defp maybe_store_return_to(conn, return_to) do
-    if is_binary(return_to) and Routes.local_path?(return_to) do
-      put_session(conn, :user_return_to, return_to)
-    else
-      conn
-    end
   end
 end

@@ -39,9 +39,8 @@ defmodule PhoenixKit.Users.Passkeys do
 
   ## Sign count
 
-  Synced passkeys always report 0. A non-zero count that does not go up can mean a
-  cloned key: it is logged and recorded, never refused (refusing locks out people
-  whose authenticators misbehave).
+  Passkeys may report 0 when they do not implement a counter. Once a positive count
+  is recorded, a count that does not go up is logged and sign-in is still allowed.
   """
 
   import Ecto.Query
@@ -199,7 +198,8 @@ defmodule PhoenixKit.Users.Passkeys do
         "requireResidentKey" => true,
         "userVerification" => "required"
       },
-      "excludeCredentials" => Enum.map(list(user), &descriptor/1)
+      "excludeCredentials" =>
+        user |> list() |> Enum.filter(&(&1.rp_id == rp.rp_id)) |> Enum.map(&descriptor/1)
     }
 
     {challenge, options}
@@ -223,9 +223,11 @@ defmodule PhoenixKit.Users.Passkeys do
   def register(%User{} = user, %Wax.Challenge{} = challenge, params, opts)
       when is_map(params) do
     with :ok <- check_may_add(user, opts),
+         :ok <- check_relying_party(challenge),
          {:ok, attestation} <- decode64(params["attestationObject"]),
          {:ok, client_data} <- decode64(params["clientDataJSON"]),
-         {:ok, {auth_data, _attestation}} <- Wax.register(attestation, client_data, challenge),
+         {:ok, {auth_data, _attestation}} <-
+           verify_with_wax(fn -> Wax.register(attestation, client_data, challenge) end),
          %{credential_id: credential_id, credential_public_key: cose_key} <-
            auth_data.attested_credential_data do
       %{
@@ -315,6 +317,7 @@ defmodule PhoenixKit.Users.Passkeys do
   @spec authenticate(Wax.Challenge.t(), map()) :: {:ok, User.t()} | {:error, :invalid}
   def authenticate(%Wax.Challenge{} = challenge, params) when is_map(params) do
     with true <- enabled?() || :disabled,
+         :ok <- check_relying_party(challenge),
          {:ok, credential_id} <- decode64(params["rawId"]),
          {:ok, auth_data_bin} <- decode64(params["authenticatorData"]),
          {:ok, signature} <- decode64(params["signature"]),
@@ -326,11 +329,13 @@ defmodule PhoenixKit.Users.Passkeys do
          true <- handle == user_handle(passkey.user_uuid) || :user_handle_mismatch,
          {:ok, cose_key} <- Passkey.decode_public_key(passkey.public_key),
          {:ok, auth_data} <-
-           Wax.authenticate(credential_id, auth_data_bin, signature, client_data, challenge, [
-             {credential_id, cose_key}
-           ]),
-         %User{} = user <- signable_user(passkey.user_uuid) || :user_cannot_sign_in do
-      record_use(passkey, auth_data.sign_count)
+           verify_with_wax(fn ->
+             Wax.authenticate(credential_id, auth_data_bin, signature, client_data, challenge, [
+               {credential_id, cose_key}
+             ])
+           end),
+         %User{} = user <- signable_user(passkey.user_uuid) || :user_cannot_sign_in,
+         :ok <- record_use(passkey, auth_data.sign_count) do
       {:ok, user}
     else
       other ->
@@ -349,22 +354,41 @@ defmodule PhoenixKit.Users.Passkeys do
   end
 
   defp record_use(passkey, sign_count) do
-    if passkey.sign_count > 0 and sign_count <= passkey.sign_count do
-      Logger.warning(
-        "[PhoenixKit.Passkeys] the signature count of a passkey did not go up " <>
-          "(possible cloned authenticator); sign-in allowed"
-      )
+    repo = repo()
 
-      log_activity("user.passkey_sign_count_regressed", passkey.user_uuid, passkey.user_uuid, %{
-        "passkey_uuid" => passkey.uuid
-      })
+    # Assertions may finish out of order. Compare against the current row, and
+    # refuse if the passkey was removed while its signature was being verified.
+    result =
+      repo.transaction(fn ->
+        current =
+          repo.one(from p in Passkey, where: p.uuid == ^passkey.uuid, lock: "FOR NO KEY UPDATE") ||
+            repo.rollback(:unknown_credential)
+
+        now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+        current
+        |> Passkey.used_changeset(max(sign_count, current.sign_count), now)
+        |> repo.update!()
+
+        current.sign_count > 0 and sign_count <= current.sign_count
+      end)
+
+    case result do
+      {:ok, true} ->
+        Logger.warning("[PhoenixKit.Passkeys] the signature count of a passkey did not go up")
+
+        log_activity("user.passkey_sign_count_regressed", passkey.user_uuid, passkey.user_uuid, %{
+          "passkey_uuid" => passkey.uuid
+        })
+
+        :ok
+
+      {:ok, false} ->
+        :ok
+
+      {:error, reason} ->
+        reason
     end
-
-    now = DateTime.utc_now() |> DateTime.truncate(:second)
-
-    passkey
-    |> Passkey.used_changeset(max(sign_count, passkey.sign_count), now)
-    |> repo().update()
   end
 
   # ── The one-time sign-in token ─────────────────────────────────────
@@ -377,18 +401,26 @@ defmodule PhoenixKit.Users.Passkeys do
   @spec mint_login_token(User.t()) :: String.t()
   def mint_login_token(%User{uuid: uuid}) do
     token = :crypto.strong_rand_bytes(32)
+    repo = repo()
 
-    repo().transaction(fn ->
-      repo().delete_all(
-        from t in UserToken, where: t.user_uuid == ^uuid and t.context == @login_token_context
-      )
+    {:ok, _} =
+      repo.transaction(fn ->
+        # Lock even when this is the person's first token. Concurrent issuers
+        # must replace each other's tokens instead of leaving multiple rows.
+        repo.one!(
+          from u in User, where: u.uuid == ^uuid, select: u.uuid, lock: "FOR NO KEY UPDATE"
+        )
 
-      repo().insert!(%UserToken{
-        token: :crypto.hash(:sha256, token),
-        context: @login_token_context,
-        user_uuid: uuid
-      })
-    end)
+        repo.delete_all(
+          from t in UserToken, where: t.user_uuid == ^uuid and t.context == @login_token_context
+        )
+
+        repo.insert!(%UserToken{
+          token: :crypto.hash(:sha256, token),
+          context: @login_token_context,
+          user_uuid: uuid
+        })
+      end)
 
     Base.url_encode64(token, padding: false)
   end
@@ -509,6 +541,16 @@ defmodule PhoenixKit.Users.Passkeys do
   end
 
   # ── Helpers ────────────────────────────────────────────────────────
+
+  defp check_relying_party(%Wax.Challenge{origin: origin, rp_id: rp_id}) do
+    if relying_party() == %{origin: origin, rp_id: rp_id}, do: :ok, else: :other_domain
+  end
+
+  defp verify_with_wax(verify) do
+    verify.()
+  rescue
+    error in [ArgumentError, FunctionClauseError, KeyError, MatchError] -> {:error, error}
+  end
 
   @doc false
   # WebAuthn's `user.id`: the 16 bytes of the user's uuid (not personal data).

@@ -97,6 +97,8 @@ defmodule PhoenixKitWeb.Integration.Users.PasskeysWebTest do
       conn = get(recycle(conn), path)
       assert get_session(conn, :user_token)
       assert conn.resp_cookies["_phoenix_kit_web_user_remember_me"]
+      assert get_resp_header(conn, "cache-control") == ["no-store"]
+      assert get_resp_header(conn, "referrer-policy") == ["no-referrer"]
       assert Phoenix.Flash.get(conn.assigns.flash, :info) == "Signed in with a passkey."
 
       # The link works once.
@@ -121,6 +123,7 @@ defmodule PhoenixKitWeb.Integration.Users.PasskeysWebTest do
       {path, _flash} = assert_redirect(view)
 
       assert path =~ "return_to=%2Fadmin%2Fusers"
+      assert redirected_to(get(recycle(conn), path)) == "/admin/users"
     end
 
     test "an answer cannot be used twice: the challenge goes with the first", %{conn: conn} do

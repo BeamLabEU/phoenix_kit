@@ -163,6 +163,24 @@ defmodule PhoenixKit.Integration.Users.LoginAlertsCountryTest do
     assert_email_sent(fn email -> assert email.text_body =~ "Berlin, Germany" end)
   end
 
+  test "a returning device from before V230 establishes the baseline before travel" do
+    user = create_user()
+    sign_in(user, @tallinn)
+    device = Repo.get_by!(KnownDevice, user_uuid: user.uuid)
+
+    device
+    |> KnownDevice.changeset(%{country_code: nil, device_token_hash: nil})
+    |> Repo.update!()
+
+    token = sign_in(user, @tallinn)
+
+    assert %KnownDevice{country_code: "EE"} = Repo.get!(KnownDevice, device.uuid)
+    refute_email_sent()
+
+    sign_in(user, @helsinki, token)
+    assert_email_sent(fn email -> assert email.text_body =~ "Helsinki, Finland" end)
+  end
+
   test "does not alert while only the new-device alert is on" do
     {:ok, _} = Settings.update_setting("new_country_login_alert_enabled", "false")
     {:ok, _} = Settings.update_setting("new_login_alert_enabled", "true")

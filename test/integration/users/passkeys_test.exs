@@ -249,6 +249,24 @@ defmodule PhoenixKit.Integration.Users.PasskeysTest do
       refute Passkeys.usable?(Repo.get!(Passkey, passkey.uuid))
     end
 
+    test "an in-flight challenge expires when the site's domain changes" do
+      user = user()
+      {auth, _passkey} = add_passkey(user)
+      {challenge, options} = Passkeys.authentication_options()
+
+      {:ok, _} = Settings.update_setting("site_url", "https://new.example")
+
+      assert {:error, :invalid} =
+               Passkeys.authenticate(
+                 challenge,
+                 SoftAuthenticator.assert(auth, options, user.uuid)
+               )
+
+      {_challenge, new_options} = Passkeys.registration_options(user)
+      assert new_options["rp"]["id"] == "new.example"
+      assert new_options["excludeCredentials"] == []
+    end
+
     test "a deactivated person, a service user or a managed organization is refused" do
       for attrs <- [
             %{is_active: false},
@@ -273,10 +291,11 @@ defmodule PhoenixKit.Integration.Users.PasskeysTest do
 
     test "a signature count that does not go up is recorded, not refused" do
       user = user()
-      {auth, _} = add_passkey(user)
+      {auth, passkey} = add_passkey(user)
       assert {:ok, _} = sign_in(auth, user.uuid, sign_count: 10)
 
       assert {:ok, _} = sign_in(auth, user.uuid, sign_count: 5)
+      assert Repo.get!(Passkey, passkey.uuid).sign_count == 10
 
       assert PhoenixKit.Activity.count(
                action: "user.passkey_sign_count_regressed",

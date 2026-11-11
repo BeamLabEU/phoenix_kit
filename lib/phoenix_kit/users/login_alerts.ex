@@ -81,9 +81,11 @@ defmodule PhoenixKit.Users.LoginAlerts do
   The recording runs when either alarm is on, so each feeds the other's
   history.
 
-  A recognized `(network, ua)` pair just bumps `last_seen_at` — no alert,
-  no email, no country lookup. IPv4 still creates one row per address,
-  because each address is its own network.
+  A recognized `(network, ua)` pair bumps `last_seen_at` without alerting.
+  When country alerts are on, a row with no country gets another lookup
+  on its first visit since V230 or after a day between visits. This lets
+  existing devices establish a country baseline before the person travels.
+  IPv4 still creates one row per address, because each address is its own network.
 
   Sends synchronously (matching every other PhoenixKit auth email —
   confirmation, password reset, magic link — none of which are queued
@@ -114,6 +116,7 @@ defmodule PhoenixKit.Users.LoginAlerts do
   @device_cookie "_phoenix_kit_device"
   # 400 days: the longest a browser keeps a cookie (Chrome caps it there).
   @device_cookie_max_age 60 * 60 * 24 * 400
+  @country_retry_seconds 24 * 60 * 60
 
   @doc """
   Whether sign-ins are being recorded: either alarm is on.
@@ -156,6 +159,10 @@ defmodule PhoenixKit.Users.LoginAlerts do
   rescue
     error ->
       Logger.warning("[PhoenixKit.LoginAlerts] check failed: #{inspect(error)}")
+      conn
+  catch
+    :exit, _reason ->
+      Logger.warning("[PhoenixKit.LoginAlerts] check exited")
       conn
   end
 
@@ -200,16 +207,7 @@ defmodule PhoenixKit.Users.LoginAlerts do
 
     case matching_device(repo, user, fingerprint) do
       %KnownDevice{} = device ->
-        # A row from before the cookie learns it here, so the browser stays
-        # recognized after its next update. A row that already names another
-        # browser (two identical ones behind one address) keeps its own.
-        changes =
-          if is_nil(device.device_token_hash),
-            do: %{last_seen_at: now, device_token_hash: device_hash},
-            else: %{last_seen_at: now}
-
-        device |> KnownDevice.changeset(changes) |> repo.update()
-        :ok
+        refresh_device(repo, device, now, device_hash)
 
       nil ->
         # This (network, ua) pair is new, but the browser itself may not
@@ -252,6 +250,35 @@ defmodule PhoenixKit.Users.LoginAlerts do
           new_country?: new_country?
         })
     end
+  end
+
+  defp refresh_device(repo, device, now, device_hash) do
+    place =
+      if is_nil(device.country_code) and
+           (is_nil(device.device_token_hash) or
+              DateTime.diff(now, device.last_seen_at) >= @country_retry_seconds) and
+           country_alerts_enabled?() do
+        place_for(device.ip_address)
+      else
+        %{location: nil, country_code: nil}
+      end
+
+    # Keep the first browser and country recorded for this pair, even when
+    # two sign-ins both read the row before either can refresh it.
+    from(d in KnownDevice,
+      where: d.uuid == ^device.uuid,
+      update: [
+        set: [
+          last_seen_at: fragment("GREATEST(?, ?)", d.last_seen_at, ^now),
+          device_token_hash: coalesce(d.device_token_hash, ^device_hash),
+          country_code: coalesce(d.country_code, ^place.country_code),
+          location: coalesce(d.location, ^place.location)
+        ]
+      ]
+    )
+    |> repo.update_all([])
+
+    :ok
   end
 
   # This browser, by its device cookie or by its exact user agent, at any IP.
@@ -439,6 +466,8 @@ defmodule PhoenixKit.Users.LoginAlerts do
     end
   rescue
     _ -> %{location: nil, country_code: nil}
+  catch
+    :exit, _ -> %{location: nil, country_code: nil}
   end
 
   defp location_text(%{"city" => city, "country" => country})
