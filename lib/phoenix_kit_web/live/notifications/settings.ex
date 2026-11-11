@@ -373,6 +373,9 @@ defmodule PhoenixKitWeb.Live.Notifications.Settings do
 
   # A single channel routing toggle. Only rendered for CONNECTED channels
   # (unconnected ones have no column), so it's always an active toggle.
+  # Styled exactly like the In-app toggle beside it (same colour, same size
+  # per row): a channel column in `toggle-accent` read as a different kind of
+  # switch.
   attr :channel, :any, required: true
   attr :type_key, :string, required: true
   attr :on?, :boolean, required: true
@@ -390,7 +393,7 @@ defmodule PhoenixKitWeb.Live.Notifications.Settings do
       name={"notification_channel[#{@channel.key()}][types][#{@type_key}]"}
       value="true"
       checked={@on?}
-      class={["toggle toggle-accent", @small && "toggle-sm"]}
+      class={["toggle toggle-primary", @small && "toggle-sm"]}
     />
     """
   end
