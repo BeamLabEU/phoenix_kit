@@ -973,9 +973,9 @@ defmodule PhoenixKitWeb.Components.MediaBrowserPickerTest do
   # Browsers that are gone
   # ---------------------------------------------------------------------------
 
-  defp inbox_upload!(user, name) do
+  defp inbox_upload!(user, name, content \\ nil) do
     tmp = Path.join(System.tmp_dir!(), "pk_picker_src_#{System.unique_integer([:positive])}")
-    File.write!(tmp, "#{name}-#{System.unique_integer()}")
+    File.write!(tmp, content || "#{name}-#{System.unique_integer()}")
 
     {:ok, _item, path} =
       UploadInbox.put(user.uuid, tmp, %{
@@ -1246,6 +1246,75 @@ defmodule PhoenixKitWeb.Components.MediaBrowserPickerTest do
       confirm(view)
       assert_receive {:picked, "pick", [uuid]}
       assert uuid == first.uuid
+    end
+
+    test "a trashed duplicate of another type than the locked one stays in the trash",
+         %{conn: conn} = ctx do
+      content = "notes-" <> :binary.copy("t", 800)
+
+      first = open(conn, ctx)
+
+      input =
+        file_input(first, "#pick-folder-drop-upload-form", :media_picker_files, [
+          %{name: "notes.pdf", content: content, type: "application/pdf"}
+        ])
+
+      capture_log(fn ->
+        render_upload(input, "notes.pdf")
+        settle(first)
+      end)
+
+      [doc] = stored(ctx.user)
+      {:ok, _} = Storage.trash_file(doc)
+
+      view = open(conn, ctx, %{"opts" => %{only_file_type: "image"}})
+      upload_bytes(view, "kitchen.png", content)
+      html = render(view)
+
+      assert [%{status: "trashed"}] = stored(ctx.user)
+      assert html =~ "already stored as another kind of file"
+      assert html =~ "0 selected"
+    end
+
+    test "a browser that is not a picker leaves a trashed duplicate in the trash",
+         %{conn: conn} = ctx do
+      view = open(conn, ctx, %{"browsers" => ["files"]})
+      content = "kitchen-" <> :binary.copy("p", 800)
+
+      files = [%{name: "hall.png", content: content, type: "image/png"}]
+      input = file_input(view, "#folder-drop-upload-form", :media_files, files)
+      render_upload(input, "hall.png")
+      settle(view)
+
+      [first] = stored(ctx.user)
+      {:ok, _} = Storage.trash_file(first)
+
+      input = file_input(view, "#folder-drop-upload-form", :media_files, files)
+      render_upload(input, "hall.png")
+      settle(view)
+
+      assert [%{status: "trashed"}] = stored(ctx.user)
+    end
+
+    test "a readonly picker takes no upload and brings nothing back", %{conn: conn} = ctx do
+      content = "kitchen-" <> :binary.copy("r", 800)
+
+      writable = open(conn, ctx)
+      upload_bytes(writable, "kitchen.png", content)
+      [first] = stored(ctx.user)
+      {:ok, _} = Storage.trash_file(first)
+
+      view = open(conn, ctx, %{"opts" => %{readonly: true}})
+      {path, entry} = inbox_upload!(ctx.user, "kitchen.png", content)
+      entry = Map.put(entry, :upload_config, :media_picker_files)
+
+      capture_log(fn ->
+        send(view.pid, {MediaBrowser, :process_pending_upload, {path, entry}})
+        settle(view)
+      end)
+
+      assert [%{status: "trashed"}] = stored(ctx.user)
+      assert render(view) =~ "0 selected"
     end
 
     test "a duplicate that cannot be picked says why", %{conn: conn} = ctx do

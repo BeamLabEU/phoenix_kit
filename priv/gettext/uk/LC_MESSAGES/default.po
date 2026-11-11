@@ -27196,12 +27196,17 @@ msgstr "синхронізується"
 msgid "this device only"
 msgstr "лише цей пристрій"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:1017
+#: lib/phoenix_kit_web/components/media_browser.ex:1025
 #, elixir-autogen, elixir-format
 msgid "This file is already stored as another kind of file, so it cannot be picked here."
 msgstr "Цей файл уже збережено як файл іншого типу, тому його не можна вибрати тут."
 
-#: lib/phoenix_kit_web/components/media_browser.ex:1021
+#: lib/phoenix_kit_web/components/media_browser.ex:1029
 #, elixir-autogen, elixir-format
-msgid "This file is already stored, but it cannot be picked here."
-msgstr "Цей файл уже збережено, але його не можна вибрати тут."
+msgid "This file is not a kind of file this picker takes."
+msgstr "Цей файл не того типу, який приймає цей вибір."
+
+#: lib/phoenix_kit_web/components/media_browser.ex:1032
+#, elixir-autogen, elixir-format
+msgid "The file was saved, but it cannot be picked here."
+msgstr "Файл збережено, але його не можна вибрати тут."

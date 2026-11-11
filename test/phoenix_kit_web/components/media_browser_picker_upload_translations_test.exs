@@ -5,10 +5,11 @@ defmodule PhoenixKitWeb.Components.MediaBrowserPickerUploadTranslationsTest do
   """
   use ExUnit.Case, async: true
 
-  @locales ~w(de es et fr it pl ru uk)
+  @locales ~w(de es et fr it pl ru uk zh)
 
   @messages [
-    "This file is already stored, but it cannot be picked here.",
+    "The file was saved, but it cannot be picked here.",
+    "This file is not a kind of file this picker takes.",
     "This file is already stored as another kind of file, so it cannot be picked here."
   ]
 

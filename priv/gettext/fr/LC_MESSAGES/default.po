@@ -27120,12 +27120,17 @@ msgstr "synchronisée"
 msgid "this device only"
 msgstr "cet appareil uniquement"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:1017
+#: lib/phoenix_kit_web/components/media_browser.ex:1025
 #, elixir-autogen, elixir-format
 msgid "This file is already stored as another kind of file, so it cannot be picked here."
 msgstr "Ce fichier est déjà enregistré sous un autre type de fichier, il ne peut donc pas être sélectionné ici."
 
-#: lib/phoenix_kit_web/components/media_browser.ex:1021
+#: lib/phoenix_kit_web/components/media_browser.ex:1029
 #, elixir-autogen, elixir-format
-msgid "This file is already stored, but it cannot be picked here."
-msgstr "Ce fichier est déjà enregistré, mais il ne peut pas être sélectionné ici."
+msgid "This file is not a kind of file this picker takes."
+msgstr "Ce fichier n'est pas d'un type que ce sélecteur accepte."
+
+#: lib/phoenix_kit_web/components/media_browser.ex:1032
+#, elixir-autogen, elixir-format
+msgid "The file was saved, but it cannot be picked here."
+msgstr "Le fichier a été enregistré, mais il ne peut pas être sélectionné ici."
