@@ -2015,13 +2015,32 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       {width, height} = canvas_dimensions(file)
 
       Fresco.Canvas.new(width: width, height: height)
-      |> Fresco.Canvas.add_image(put_natural_size(%{src: src, x: 0, y: 0, width: width}, file))
+      |> Fresco.Canvas.add_image(
+        put_natural_size(
+          export_src(%{src: src, x: 0, y: 0, width: width}, file),
+          file
+        )
+      )
       |> Fresco.Canvas.put_extension("etcher", %{
         "version" => "1",
         "annotations" => Enum.map(annotations, &etcher_annotation_for_wire(&1, locked?))
       })
     end
   end
+
+  # "Export as PDF" (`pdf_export` on the canvases) saves what the viewer
+  # shows, and the stage shows a screen-sized rung of the ladder: the
+  # original, already signed for this viewer like every other URL in
+  # `file.urls`, is what goes on the page instead (Fresco caps its long side
+  # at 4000px). The live layer's shapes join it through Etcher's export
+  # layer; the plain canvas (eye closed) is this canvas without them. The
+  # burned canvas needs nothing here: it shows the largest burn there is,
+  # which already has the drawing in it.
+  @doc false
+  def export_src(image, %{urls: %{"original" => url}}) when is_binary(url) and url != "",
+    do: Map.put(image, :export_src, url)
+
+  def export_src(image, _file), do: image
 
   # `width`/`height` are nullable on the files row — dimension extraction
   # can fail, and rows written before it existed never had them. The canvas

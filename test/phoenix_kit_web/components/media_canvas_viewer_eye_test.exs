@@ -183,6 +183,38 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerEyeTest do
     end
   end
 
+  describe "Export as PDF" do
+    test "every canvas offers it, named after the file" do
+      for overrides <- [
+            %{},
+            %{burn_canvas: nil, burn_version: nil},
+            %{etchings_hidden: true}
+          ] do
+        html = render_html(overrides)
+        assert html =~ ~s(data-pdf-export="true")
+        assert html =~ ~s(data-export-filename="test.jpg")
+      end
+    end
+
+    test "the picture exported is the original, not the screen-sized rung" do
+      image = %{src: "/f/small.jpg", x: 0, y: 0, width: 800}
+      file = %{urls: %{"small" => "/f/small.jpg", "original" => "/f/original.jpg"}}
+
+      assert %{export_src: "/f/original.jpg"} = MediaCanvasViewer.export_src(image, file)
+
+      canvas =
+        Fresco.Canvas.add_image(
+          Fresco.Canvas.new(width: 800, height: 600),
+          MediaCanvasViewer.export_src(image, file)
+        )
+
+      assert [%{export_src: "/f/original.jpg"}] = canvas.images
+
+      # No original on file: the stage's own picture is what gets exported.
+      refute Map.has_key?(MediaCanvasViewer.export_src(image, %{urls: %{}}), :export_src)
+    end
+  end
+
   describe "the full-quality loading pill" do
     test "a picture carries it, idle until the hook says a sharper one is loading" do
       html = render_html(%{})
