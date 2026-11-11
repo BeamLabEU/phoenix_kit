@@ -27119,3 +27119,18 @@ msgstr "synchronisée"
 #, elixir-autogen, elixir-format
 msgid "this device only"
 msgstr "cet appareil uniquement"
+
+#: lib/phoenix_kit/notifications/render.ex
+#, elixir-autogen, elixir-format
+msgid "%{name} mentioned you."
+msgstr "%{name} vous a mentionné."
+
+#: lib/phoenix_kit/notifications/render.ex
+#, elixir-autogen, elixir-format
+msgid "You were mentioned."
+msgstr "Vous avez été mentionné."
+
+#: lib/phoenix_kit/notifications/types.ex
+#, elixir-autogen, elixir-format
+msgid "When someone mentions you with @"
+msgstr "Quand quelqu’un vous mentionne avec @"
