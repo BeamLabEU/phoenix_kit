@@ -19,6 +19,10 @@ defmodule PhoenixKit.Modules.Storage.AnnotationThumbnail do
   + center-cropped to the thumbnail square — the crop clips edge shapes exactly
   like the grid.
 
+  Label text needs a font ImageMagick can read: the first of DejaVu-Sans,
+  Liberation-Sans, Helvetica, Arial it lists (else any listed one), or the one
+  named by `config :phoenix_kit, :annotation_font` (a font name or file path).
+
   Regeneration is meant to run in the background (see `AnnotationThumbnailJob`),
   debounced so a flurry of edits collapses into one render.
   """
@@ -43,6 +47,11 @@ defmodule PhoenixKit.Modules.Storage.AnnotationThumbnail do
   @size 400
   # Media setting gating the whole feature (baking + display). Off by default.
   @setting_key "storage_annotated_thumbnails_enabled"
+  # Fonts tried, in order, for a label's text. ImageMagick's own default
+  # (Helvetica) is mapped to ghostscript/URW files that a slim host lacks —
+  # `convert` then exits 1 on every text draw.
+  @font_candidates ~w(DejaVu-Sans Liberation-Sans Helvetica Arial)
+  @font_cache_key {__MODULE__, :font}
 
   @doc "The variant name this module produces."
   def variant_name, do: @variant_name
@@ -202,6 +211,7 @@ defmodule PhoenixKit.Modules.Storage.AnnotationThumbnail do
     args =
       ImageProcessor.limit_args() ++
         [input] ++
+        font_args(draw_args) ++
         draw_args ++
         ["-resize", "#{@size}x#{@size}^", "-background", "none", "-gravity", "center"] ++
         ["-extent", "#{@size}x#{@size}"] ++
@@ -211,6 +221,71 @@ defmodule PhoenixKit.Modules.Storage.AnnotationThumbnail do
       {_out, 0} -> :ok
       {out, code} -> {:error, "convert exited #{code}: #{out}"}
     end
+  end
+
+  @doc false
+  # `["-font", name]` when `draw_args` draws text and a usable font is known,
+  # else `[]` (outline-only draws need none; with no font found ImageMagick
+  # keeps its default).
+  @spec font_args([String.t()]) :: [String.t()]
+  def font_args(draw_args) do
+    with true <- Enum.any?(draw_args, &text_draw?/1),
+         font when is_binary(font) <- font() do
+      ["-font", font]
+    else
+      _ -> []
+    end
+  end
+
+  defp text_draw?(arg), do: is_binary(arg) and String.starts_with?(arg, "text ")
+
+  # The font for labels: `config :phoenix_kit, :annotation_font` (a name known
+  # to ImageMagick or a font file path), else the first of `@font_candidates`
+  # ImageMagick lists, else any listed font. Resolved once per node.
+  defp font do
+    case :persistent_term.get(@font_cache_key, :unresolved) do
+      :unresolved -> resolve_font()
+      cached -> cached
+    end
+  end
+
+  defp resolve_font do
+    case Application.get_env(:phoenix_kit, :annotation_font) do
+      font when is_binary(font) and font != "" ->
+        remember_font(font)
+
+      _ ->
+        case listed_fonts() do
+          {:ok, listed} ->
+            listed
+            |> pick_font()
+            |> remember_font()
+
+          :error ->
+            # ImageMagick could not be asked — try again next time.
+            nil
+        end
+    end
+  end
+
+  defp remember_font(font) do
+    :persistent_term.put(@font_cache_key, font)
+    font
+  end
+
+  defp pick_font(listed), do: Enum.find(@font_candidates, &(&1 in listed)) || List.first(listed)
+
+  defp listed_fonts do
+    case System.cmd("convert", ["-list", "font"], stderr_to_stdout: true) do
+      {out, 0} ->
+        {:ok, for(<<"  Font: ", name::binary>> <- String.split(out, "\n"), do: String.trim(name))}
+
+      _ ->
+        :error
+    end
+  rescue
+    # No `convert` on the PATH.
+    ErlangError -> :error
   end
 
   # Etcher owns the geometry → draw mapping. Convert our `Annotation` structs to
