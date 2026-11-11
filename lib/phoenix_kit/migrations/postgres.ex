@@ -7,7 +7,14 @@ defmodule PhoenixKit.Migrations.Postgres do
 
   ## Migration Versions
 
-  ### V231 - Passkeys ⚡ LATEST
+  ### V232 - Stacks of files ⚡ LATEST
+
+  `phoenix_kit_file_stacks` (library, optional title and description, who made it) and two nullable
+  columns on `phoenix_kit_files`, `stack_uuid` (`ON DELETE SET NULL`) and `stack_position`, with an index
+  on the pair: two or more photos of one library seen as one thing (`Storage.Stacks`). A stack has no date
+  or cover of its own: its files' capture dates, and its first file a reader may see. Additive, no backfill.
+
+  ### V231 - Passkeys
 
   `phoenix_kit_user_passkeys`: a person's passkeys (WebAuthn credentials), the public key only, with the
   domain each was made for, its signature counter, and when it was last used. Cascades with the user.
@@ -1080,7 +1087,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   alias PhoenixKit.Migrations.Repair.Environment
 
   @initial_version 135
-  @current_version 231
+  @current_version 232
 
   # Core 3.0 no longer creates or changes any module's table (plan
   # `dev_docs/plans/2026-10-25-module-table-ownership.md`, step 8): V135..V225
