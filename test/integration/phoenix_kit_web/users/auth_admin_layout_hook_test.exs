@@ -14,6 +14,7 @@ defmodule PhoenixKitWeb.Users.AuthAdminLayoutHookTest do
   alias Phoenix.LiveView.Lifecycle
   alias Phoenix.LiveView.Socket
   alias PhoenixKit.Users.Auth, as: AuthCtx
+  alias PhoenixKit.Users.Permissions
   alias PhoenixKit.Users.Roles
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Users.Auth
@@ -138,6 +139,14 @@ defmodule PhoenixKitWeb.Users.AuthAdminLayoutHookTest do
   describe "against :phoenix_kit_ensure_admin, on the same unmapped view" do
     test "ensure_admin turns the non-Owner admin away; the layout hook does not" do
       admin = user("Admin")
+
+      # An Admin holding every operator key is Owner-equivalent and passes an
+      # unmapped view (`Scope.holds_all_enabled_permissions?/1`). Whether the
+      # Admin role has those rows depends on the database the suite runs
+      # against, so take one away here: this Admin is short of a key either way.
+      admin_role = Roles.get_role_by_name("Admin")
+      Permissions.revoke_permission(admin_role.uuid, "dashboard")
+
       session = session_for(admin)
 
       assert {:halt, rejected} = mount([:phoenix_kit_ensure_admin], session, socket())
