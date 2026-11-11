@@ -9214,6 +9214,8 @@ if (typeof window.Chart === "undefined") {
     hook.pushEventTo(root, "box_select", { files: files, folders: folders, additive: true });
   }, true);
 
+  var mediaDragDropSeq = 0;
+
   window.PhoenixKitHooks.MediaDragDrop = {
     mounted: function() {
       // View mode (grid/list) AND the sidebar folder-tree state (expanded
@@ -9246,6 +9248,19 @@ if (typeof window.Chart === "undefined") {
     },
 
     destroyed: function() {
+      // This instance's handlers on the shared drop targets (see `slot` in
+      // setupDragDrop): the targets may outlive the hook — a page header's
+      // trash, another panel's folders.
+      var slot = this._dropSlot;
+      if (slot) {
+        document.querySelectorAll("[data-drop-folder], [data-drop-trash]").forEach(function(target) {
+          ["dragover", "dragleave", "drop", "trash_dragover", "trash_dragleave", "trash_drop"].forEach(function(name) {
+            if (!target[slot + name]) return;
+            target.removeEventListener(name.replace("trash_", ""), target[slot + name]);
+            delete target[slot + name];
+          });
+        });
+      }
       if (this.el.__pkCancelBox) this.el.__pkCancelBox();
       if (this.el.__pkBoxHook === this) this.el.__pkBoxHook = null;
       if (this._pickDblClick) this.el.removeEventListener("dblclick", this._pickDblClick);
@@ -9358,6 +9373,15 @@ if (typeof window.Chart === "undefined") {
     setupDragDrop: function() {
       var self = this;
       var container = this.el;
+      // Drop targets (`data-drop-folder`, `data-drop-trash`) are looked up
+      // across the whole document, so two hooks on one page — two notes
+      // panels, a panel beside a media browser — wire the same elements. Each
+      // instance keeps its handlers under its own key: with one shared
+      // `target._drop`, the hook set up last replaced the others' handlers,
+      // and a drag started in any other one was dropped on the floor (its
+      // drop ran in a hook that never saw the dragstart, so `_internalDrag`
+      // was false). Every handler answers only to drags of its own instance.
+      var slot = this._dropSlot || (this._dropSlot = "_pkDrop" + (++mediaDragDropSeq) + "_");
 
       // The folder a dragged card already sits in: the drop zone around it
       // (the main area of the folder being shown, or a stack's section).
@@ -9464,9 +9488,28 @@ if (typeof window.Chart === "undefined") {
         setTimeout(function() { ghost.remove(); }, 0);
       }
 
+      // LiveView patches elements in place: a row that held a folder can
+      // hold a file after a navigation (no ids on the rows), and keeps the
+      // listeners wired to it before. Its folder `dragstart` then still ran
+      // and sent the file's drag as a folder move. So every element wired
+      // last time and not wired the same way now is unwired first.
+      var wiredNow = new Set();
+      function unwireFile(el) {
+        el.removeEventListener("dragstart", el._dragstart);
+        el.removeEventListener("dragend", el._dragend);
+        el._dragstart = el._dragend = null;
+      }
+      function unwireFolder(el) {
+        el.removeEventListener("dragstart", el._folderDragstart);
+        el.removeEventListener("dragend", el._folderDragend);
+        el._folderDragstart = el._folderDragend = null;
+      }
+
       // Make file items draggable
       var files = container.querySelectorAll("[data-draggable-file]");
       files.forEach(function(el) {
+        wiredNow.add(el);
+        if (el._folderDragstart && el.dataset.draggableFolder === undefined) unwireFolder(el);
         el.setAttribute("draggable", "true");
 
         el.removeEventListener("dragstart", el._dragstart);
@@ -9530,6 +9573,8 @@ if (typeof window.Chart === "undefined") {
       // the dragover self-check below.
       var folders = container.querySelectorAll("[data-draggable-folder]");
       folders.forEach(function(el) {
+        wiredNow.add(el);
+        if (el._dragstart && el.dataset.draggableFile === undefined) unwireFile(el);
         el.setAttribute("draggable", "true");
 
         el.removeEventListener("dragstart", el._folderDragstart);
@@ -9576,6 +9621,15 @@ if (typeof window.Chart === "undefined") {
         };
         el.addEventListener("dragend", el._folderDragend);
       });
+
+      // Wired last time, draggable no more: nothing of it is dragged now.
+      (self._wiredDrag || []).forEach(function(el) {
+        if (wiredNow.has(el)) return;
+        unwireFile(el);
+        unwireFolder(el);
+        if (el.removeAttribute) el.removeAttribute("draggable");
+      });
+      self._wiredDrag = wiredNow;
 
       // Make folder targets droppable (grid, list rows, and sidebar).
       // Accepts both file and folder drags — the `application/x-pk-folder`
@@ -9627,8 +9681,8 @@ if (typeof window.Chart === "undefined") {
 
       var dropTargets = document.querySelectorAll("[data-drop-folder]");
       dropTargets.forEach(function(target) {
-        target.removeEventListener("dragover", target._dragover);
-        target._dragover = function(e) {
+        target.removeEventListener("dragover", target[slot + "dragover"]);
+        target[slot + "dragover"] = function(e) {
           // Files from the computer are an upload, not a move: only the zone
           // of the folder being shown (`data-drop-upload`) takes them —
           // outlined a little outside the cards, dashed — and the drop
@@ -9713,19 +9767,19 @@ if (typeof window.Chart === "undefined") {
           target.style.outline = "2px solid " + (target.dataset.dropColor || "var(--color-primary)");
           target.style.outlineOffset = "-2px";
         };
-        target.addEventListener("dragover", target._dragover);
+        target.addEventListener("dragover", target[slot + "dragover"]);
 
-        target.removeEventListener("dragleave", target._dragleave);
-        target._dragleave = function() {
+        target.removeEventListener("dragleave", target[slot + "dragleave"]);
+        target[slot + "dragleave"] = function() {
           clearHighlight(target);
           if (self._activeDropTarget === target) {
             self._activeDropTarget = null;
           }
         };
-        target.addEventListener("dragleave", target._dragleave);
+        target.addEventListener("dragleave", target[slot + "dragleave"]);
 
-        target.removeEventListener("drop", target._drop);
-        target._drop = function(e) {
+        target.removeEventListener("drop", target[slot + "drop"]);
+        target[slot + "drop"] = function(e) {
           if (fromComputer(e)) {
             // Left for FolderDropUpload, further up, to upload.
             clearHighlight(target);
@@ -9779,7 +9833,7 @@ if (typeof window.Chart === "undefined") {
             });
           }
         };
-        target.addEventListener("drop", target._drop);
+        target.addEventListener("drop", target[slot + "drop"]);
       });
 
       // Trash drop target — any element carrying `data-drop-trash`, looked
@@ -9795,29 +9849,34 @@ if (typeof window.Chart === "undefined") {
       // believing it.)
       var trashTargets = document.querySelectorAll("[data-drop-trash]");
       trashTargets.forEach(function(target) {
-        target.removeEventListener("dragover", target._trashDragover);
-        target._trashDragover = function(e) {
+        target.removeEventListener("dragover", target[slot + "trash_dragover"]);
+        target[slot + "trash_dragover"] = function(e) {
           // Folders + batches are now valid drop targets — V119 added
           // recursive folder trash, and batches route to
           // `delete_selected` which handles trash vs permanent per
-          // `@filter_trash`.
+          // `@filter_trash`. Only for a drag of this hook's (see `slot`).
+          if (!self._internalDrag) return;
           e.preventDefault();
           e.dataTransfer.dropEffect = "move";
           target.classList.add("ring-2", "ring-error", "bg-error/10");
         };
-        target.addEventListener("dragover", target._trashDragover);
+        target.addEventListener("dragover", target[slot + "trash_dragover"]);
 
-        target.removeEventListener("dragleave", target._trashDragleave);
-        target._trashDragleave = function() {
+        target.removeEventListener("dragleave", target[slot + "trash_dragleave"]);
+        target[slot + "trash_dragleave"] = function() {
           target.classList.remove("ring-2", "ring-error", "bg-error/10");
         };
-        target.addEventListener("dragleave", target._trashDragleave);
+        target.addEventListener("dragleave", target[slot + "trash_dragleave"]);
 
-        target.removeEventListener("drop", target._trashDrop);
-        target._trashDrop = function(e) {
+        target.removeEventListener("drop", target[slot + "trash_drop"]);
+        target[slot + "trash_drop"] = function(e) {
           e.preventDefault();
           e.stopPropagation();
           target.classList.remove("ring-2", "ring-error", "bg-error/10");
+          // Every hook on the page has a handler here: only the one the drag
+          // started in trashes anything — otherwise each of them would push
+          // `trash_file` for the same card, to components that never had it.
+          if (!self._internalDrag) return;
           var draggedUuid = e.dataTransfer.getData("text/plain");
           if (!draggedUuid) return;
 
@@ -9836,7 +9895,7 @@ if (typeof window.Chart === "undefined") {
             self.pushEventTo(self.el, "trash_file", { file_uuid: draggedUuid });
           }
         };
-        target.addEventListener("drop", target._trashDrop);
+        target.addEventListener("drop", target[slot + "trash_drop"]);
       });
     }
   };
