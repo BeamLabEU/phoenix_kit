@@ -82,11 +82,15 @@ defmodule PhoenixKit.Users.LoginAlerts do
   history.
 
   A recognized `(network, ua)` pair bumps `last_seen_at` without alerting.
-  When country alerts are on, a row with no country gets another lookup
-  on its first visit since V230 or after a day between visits. This lets
-  existing devices establish a country baseline before the person travels.
-  A country resolved this way that the account was never seen in alerts like
-  any other new country, so a failed lookup cannot make one known in silence.
+  When country alerts are on, a row with no country gets another lookup at
+  a sign-in, at most once a day per row and node (remembered in the
+  `:login_country_lookups` cache, so an address that never resolves does
+  not cost every sign-in a request). This lets existing devices establish a
+  country baseline before the person travels. A country resolved this way
+  for a row whose own lookup failed, and that the account was never seen
+  in, alerts like any other new country, so a failed lookup cannot make one
+  known in silence. A row from before V230 (no device cookie yet) is a
+  device the account already had: its country is recorded without an alert.
   IPv4 still creates one row per address, because each address is its own network.
 
   Sends synchronously (matching every other PhoenixKit auth email —
@@ -118,7 +122,7 @@ defmodule PhoenixKit.Users.LoginAlerts do
   @device_cookie "_phoenix_kit_device"
   # 400 days: the longest a browser keeps a cookie (Chrome caps it there).
   @device_cookie_max_age 60 * 60 * 24 * 400
-  @country_retry_seconds 24 * 60 * 60
+  @country_retry_cache :login_country_lookups
 
   @doc """
   Whether sign-ins are being recorded: either alarm is on.
@@ -256,18 +260,18 @@ defmodule PhoenixKit.Users.LoginAlerts do
 
   defp refresh_device(repo, user, device, now, device_hash) do
     place =
-      if is_nil(device.country_code) and
-           (is_nil(device.device_token_hash) or
-              DateTime.diff(now, device.last_seen_at) >= @country_retry_seconds) and
-           country_alerts_enabled?() do
+      if is_nil(device.country_code) and country_alerts_enabled?() and
+           country_retry_due?(device) do
         place_for(device.ip_address)
       else
         %{location: nil, country_code: nil}
       end
 
     # Read before the country is written, as for a new row: afterwards this
-    # account always knows the country.
-    new_country? = new_country?(repo, user, place.country_code)
+    # account always knows the country. A row from before V230 is a device the
+    # account already had, not a sign-in whose lookup failed: never an alarm.
+    new_country? =
+      not is_nil(device.device_token_hash) and new_country?(repo, user, place.country_code)
 
     # Keep the first browser and country recorded for this pair, even when
     # two sign-ins both read the row before either can refresh it.
@@ -287,6 +291,19 @@ defmodule PhoenixKit.Users.LoginAlerts do
     end
 
     :ok
+  end
+
+  # At most one more lookup a day for a row with no country. The cache holds
+  # the attempt, not `last_seen_at`: that moves at every sign-in, so someone
+  # signing in daily would never be due. Without the cache (it fails open)
+  # every sign-in of such a row looks up again.
+  defp country_retry_due?(device) do
+    if PhoenixKit.Cache.get(@country_retry_cache, device.uuid, false) do
+      false
+    else
+      PhoenixKit.Cache.put(@country_retry_cache, device.uuid, true)
+      true
+    end
   end
 
   # One statement, so of two sign-ins that both resolved the country only one

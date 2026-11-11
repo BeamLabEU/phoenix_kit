@@ -169,7 +169,7 @@ defmodule PhoenixKitWeb.Integration.Users.PasskeysWebTest do
 
   describe "the completion link" do
     test "is refused while switched off", %{conn: conn} do
-      token = Passkeys.mint_login_token(user())
+      {:ok, token} = Passkeys.mint_login_token(user())
       {:ok, _} = Settings.update_setting("passkey_login_enabled", "false")
 
       conn = get(conn, Routes.path("/users/passkey/finish/#{token}"))
@@ -184,7 +184,7 @@ defmodule PhoenixKitWeb.Integration.Users.PasskeysWebTest do
     end
 
     test "a sign-in without the box ticked leaves no remember-me cookie", %{conn: conn} do
-      token = Passkeys.mint_login_token(user())
+      {:ok, token} = Passkeys.mint_login_token(user())
       conn = get(conn, Routes.path("/users/passkey/finish/#{token}"))
 
       assert get_session(conn, :user_token)

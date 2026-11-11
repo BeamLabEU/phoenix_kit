@@ -327,7 +327,7 @@ defmodule PhoenixKit.Integration.Users.PasskeysTest do
   describe "the one-time sign-in token" do
     test "works once" do
       user = user()
-      token = Passkeys.mint_login_token(user)
+      {:ok, token} = Passkeys.mint_login_token(user)
 
       assert {:ok, %User{uuid: uuid}} = Passkeys.consume_login_token(token)
       assert uuid == user.uuid
@@ -336,7 +336,7 @@ defmodule PhoenixKit.Integration.Users.PasskeysTest do
 
     test "expires after a minute" do
       user = user()
-      token = Passkeys.mint_login_token(user)
+      {:ok, token} = Passkeys.mint_login_token(user)
       old = DateTime.utc_now() |> DateTime.add(-61, :second)
 
       Repo.update_all(from(t in UserToken, where: t.context == "passkey_login"),
@@ -346,10 +346,17 @@ defmodule PhoenixKit.Integration.Users.PasskeysTest do
       assert :error = Passkeys.consume_login_token(token)
     end
 
+    test "none for an account deleted since it was verified" do
+      user = user()
+      Repo.delete!(user)
+
+      assert :error = Passkeys.mint_login_token(user)
+    end
+
     test "a new one replaces the person's earlier one, and only its hash is stored" do
       user = user()
-      first = Passkeys.mint_login_token(user)
-      second = Passkeys.mint_login_token(user)
+      {:ok, first} = Passkeys.mint_login_token(user)
+      {:ok, second} = Passkeys.mint_login_token(user)
 
       assert :error = Passkeys.consume_login_token(first)
 
@@ -362,7 +369,7 @@ defmodule PhoenixKit.Integration.Users.PasskeysTest do
 
     test "a person deactivated in between is refused" do
       user = user()
-      token = Passkeys.mint_login_token(user)
+      {:ok, token} = Passkeys.mint_login_token(user)
       user |> Ecto.Changeset.change(is_active: false) |> Repo.update!()
 
       assert :error = Passkeys.consume_login_token(token)

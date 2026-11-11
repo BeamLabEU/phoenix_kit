@@ -397,19 +397,20 @@ defmodule PhoenixKit.Users.Passkeys do
   A one-time token for `user`, valid #{@login_token_seconds} seconds, that
   `consume_login_token/1` exchanges for the user once. Only its hash is stored, and a
   new one replaces the user's earlier one, so at most one row per person waits.
+  `:error` when the account was deleted since it was verified.
   """
-  @spec mint_login_token(User.t()) :: String.t()
+  @spec mint_login_token(User.t()) :: {:ok, String.t()} | :error
   def mint_login_token(%User{uuid: uuid}) do
     token = :crypto.strong_rand_bytes(32)
     repo = repo()
 
-    {:ok, _} =
+    result =
       repo.transaction(fn ->
         # Lock even when this is the person's first token. Concurrent issuers
         # must replace each other's tokens instead of leaving multiple rows.
-        repo.one!(
+        repo.one(
           from u in User, where: u.uuid == ^uuid, select: u.uuid, lock: "FOR NO KEY UPDATE"
-        )
+        ) || repo.rollback(:no_user)
 
         repo.delete_all(
           from t in UserToken, where: t.user_uuid == ^uuid and t.context == @login_token_context
@@ -422,7 +423,10 @@ defmodule PhoenixKit.Users.Passkeys do
         })
       end)
 
-    Base.url_encode64(token, padding: false)
+    case result do
+      {:ok, _} -> {:ok, Base.url_encode64(token, padding: false)}
+      {:error, _} -> :error
+    end
   end
 
   @doc """

@@ -107,9 +107,8 @@ defmodule PhoenixKitWeb.Users.Login do
     # Rate limit first, before any lookup, as every public sign-in endpoint does.
     with :ok <- passkey_rate_limit(socket.assigns.client_ip),
          %Wax.Challenge{} <- challenge,
-         {:ok, user} <- Passkeys.authenticate(challenge, params) do
-      token = Passkeys.mint_login_token(user)
-
+         {:ok, user} <- Passkeys.authenticate(challenge, params),
+         {:ok, token} <- Passkeys.mint_login_token(user) do
       query =
         URI.encode_query(
           Enum.reject(

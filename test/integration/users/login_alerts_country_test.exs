@@ -187,13 +187,9 @@ defmodule PhoenixKit.Integration.Users.LoginAlertsCountryTest do
     sign_in(user, @helsinki, token)
     assert_email_sent()
 
-    # As if the Helsinki lookup had failed at that sign-in, a day ago.
+    # As if the Helsinki lookup had failed at that sign-in.
     device = Repo.get_by!(KnownDevice, user_uuid: user.uuid, country_code: "FI")
-    yesterday = DateTime.add(device.last_seen_at, -86_400)
-
-    device
-    |> KnownDevice.changeset(%{country_code: nil, location: nil, last_seen_at: yesterday})
-    |> Repo.update!()
+    device |> KnownDevice.changeset(%{country_code: nil, location: nil}) |> Repo.update!()
 
     sign_in(user, @helsinki, token)
 
@@ -202,6 +198,56 @@ defmodule PhoenixKit.Integration.Users.LoginAlertsCountryTest do
 
     sign_in(user, @helsinki, token)
     refute_email_sent()
+  end
+
+  test "a device from before V230 in a second country is recorded without an alert" do
+    user = create_user()
+    token = sign_in(user, @tallinn)
+    sign_in(user, @helsinki, token)
+    assert_email_sent()
+
+    device = Repo.get_by!(KnownDevice, user_uuid: user.uuid, country_code: "FI")
+
+    device
+    |> KnownDevice.changeset(%{country_code: nil, location: nil, device_token_hash: nil})
+    |> Repo.update!()
+
+    sign_in(user, @helsinki, token)
+
+    assert %KnownDevice{country_code: "FI"} = Repo.get!(KnownDevice, device.uuid)
+    refute_email_sent()
+  end
+
+  test "a row with no country is looked up again at most once a day" do
+    start_supervised!({PhoenixKit.Cache.Registry, []})
+    start_supervised!({PhoenixKit.Cache, name: :login_country_lookups})
+
+    test = self()
+
+    Req.Test.stub(__MODULE__, fn conn ->
+      send(test, :lookup)
+      answer(conn)
+    end)
+
+    user = create_user()
+    token = sign_in(user, @tallinn)
+    sign_in(user, @nowhere, token)
+    flush_lookups()
+
+    sign_in(user, @nowhere, token)
+    assert_received :lookup
+    flush_lookups()
+
+    sign_in(user, @nowhere, token)
+    refute_received :lookup
+  end
+
+  defp flush_lookups do
+    receive do
+      :lookup -> flush_lookups()
+    after
+      0 -> :ok
+    end
   end
 
   test "does not alert while only the new-device alert is on" do
