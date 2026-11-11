@@ -277,3 +277,55 @@ test("modifier and middle clicks on a link tab's menu item open it in a new tab"
   assert.deepEqual(clicks, ["link", "event"]);
   assert.equal(opened.length, 4);
 });
+
+// Escape with the menu open closes the menu and nothing else: the key must not
+// fall through to a native <dialog>'s cancel or a `phx-window-keydown` modal
+// around the strip. With the menu closed, Escape is left alone.
+test("Escape on an open menu is consumed so it does not close a surrounding dialog", () => {
+  global.MutationObserver = class { observe() {} takeRecords() { return []; } disconnect() {} };
+
+  const docHandlers = {};
+  const realAdd = global.document.addEventListener;
+  global.document.addEventListener = (type, fn) => { docHandlers[type] = fn; };
+
+  const more = { focused: false, focus() { this.focused = true; } };
+  const el = {
+    addEventListener: noop,
+    removeEventListener: noop,
+    contains: () => true,
+    querySelector: (sel) => (sel === "[data-nav-more]" ? more : null),
+    querySelectorAll: () => [],
+  };
+
+  try {
+    const hook = Object.assign(Object.create(global.window.PhoenixKitHooks.NavTabsOverflow), { el });
+    hook.mounted();
+    const states = [];
+    hook.setOpen = function(open) { this._open = open; states.push(open); };
+
+    const escape = () => ({
+      key: "Escape",
+      prevented: false,
+      stopped: false,
+      preventDefault() { this.prevented = true; },
+      stopPropagation() { this.stopped = true; },
+    });
+
+    // Closed: not ours to swallow.
+    const closed = escape();
+    docHandlers.keydown(closed);
+    assert.equal(closed.prevented, false);
+    assert.equal(closed.stopped, false);
+    assert.deepEqual(states, []);
+
+    hook._open = true;
+    const open = escape();
+    docHandlers.keydown(open);
+    assert.equal(open.prevented, true);
+    assert.equal(open.stopped, true);
+    assert.deepEqual(states, [false]);
+    assert.equal(more.focused, true);
+  } finally {
+    global.document.addEventListener = realAdd;
+  }
+});

@@ -7155,6 +7155,11 @@ if (typeof window.Chart === "undefined") {
       this._onKeydown = (e) => {
         if (!this._open) return;
         if (e.key === "Escape") {
+          // Closes only the menu: the key must not also reach a PkDialog, a
+          // native <dialog> (its cancel is this keydown's default action) or a
+          // `phx-window-keydown` modal around the strip.
+          e.preventDefault();
+          e.stopPropagation();
           this.setOpen(false);
           var more = this.el.querySelector("[data-nav-more]");
           if (more) more.focus();

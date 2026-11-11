@@ -217,7 +217,6 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
     assigns =
       assigns
       |> assign(:tabs, tabs)
-      |> assign(:id, id)
       |> assign(:menu_id, id <> "-menu")
 
     ~H"""
