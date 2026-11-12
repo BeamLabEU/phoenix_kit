@@ -198,10 +198,13 @@ defmodule PhoenixKit.Modules.Storage.FileServer do
       ...> )
       {:ok, 1000, 4999, [content_range: "bytes 1000-4999/5000"]}
   """
-  def parse_range_header(range_header, file_size) when is_binary(range_header) do
-    case String.split(range_header, "=") do
-      ["bytes", range_spec] ->
-        parse_range_spec(range_spec, file_size)
+  def parse_range_header(range_header, file_size)
+      when is_binary(range_header) and is_integer(file_size) do
+    case String.split(String.trim(range_header), "=", parts: 2) do
+      [unit, spec] ->
+        if String.downcase(String.trim(unit)) == "bytes",
+          do: parse_range_spec(String.trim(spec), file_size),
+          else: {:error, :invalid_range}
 
       _ ->
         {:error, :invalid_range}
@@ -242,32 +245,55 @@ defmodule PhoenixKit.Modules.Storage.FileServer do
     {bucket_priority, location_priority}
   end
 
-  @doc false
+  # One range (RFC 9110 §14.1.2): `first-last`, `first-` (to the end) or
+  # `-length` (the last bytes). A `last` past the end means the end. Several
+  # ranges at once are not served as parts: the caller sends the whole file,
+  # which the RFC allows.
   defp parse_range_spec(range_spec, file_size) do
-    case String.split(range_spec, "-") do
-      [start_str, end_str] ->
-        start_pos = String.to_integer(start_str)
-
-        end_pos =
-          if String.length(end_str) > 0 do
-            String.to_integer(end_str)
-          else
-            file_size - 1
-          end
-
-        if start_pos >= 0 and end_pos >= start_pos and end_pos < file_size do
-          content_range = "bytes #{start_pos}-#{end_pos}/#{file_size}"
-          {:ok, start_pos, end_pos, content_range: content_range}
-        else
-          {:error, :range_out_of_bounds}
-        end
-
-      _ ->
-        {:error, :invalid_range}
+    with false <- String.contains?(range_spec, ","),
+         [first, last] <- String.split(range_spec, "-", parts: 2),
+         {:ok, start_pos, end_pos} <- range_positions(first, last, file_size) do
+      if start_pos < file_size and end_pos >= start_pos do
+        {:ok, start_pos, end_pos, content_range: "bytes #{start_pos}-#{end_pos}/#{file_size}"}
+      else
+        {:error, :range_out_of_bounds}
+      end
+    else
+      {:error, _} = error -> error
+      _ -> {:error, :invalid_range}
     end
-  rescue
-    ArgumentError ->
-      {:error, :invalid_range}
+  end
+
+  defp range_positions("", suffix, file_size) do
+    case non_neg(suffix) do
+      {:ok, 0} -> {:error, :range_out_of_bounds}
+      {:ok, n} -> {:ok, max(file_size - n, 0), file_size - 1}
+      :error -> {:error, :invalid_range}
+    end
+  end
+
+  defp range_positions(first, "", file_size) do
+    case non_neg(first) do
+      {:ok, start_pos} -> {:ok, start_pos, file_size - 1}
+      :error -> {:error, :invalid_range}
+    end
+  end
+
+  defp range_positions(first, last, file_size) do
+    with {:ok, start_pos} <- non_neg(first),
+         {:ok, end_pos} <- non_neg(last),
+         true <- end_pos >= start_pos do
+      {:ok, start_pos, min(end_pos, file_size - 1)}
+    else
+      _ -> {:error, :invalid_range}
+    end
+  end
+
+  defp non_neg(text) do
+    case Integer.parse(String.trim(text)) do
+      {n, ""} when n >= 0 -> {:ok, n}
+      _ -> :error
+    end
   end
 
   @doc false

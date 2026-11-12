@@ -43,6 +43,14 @@ Run `mix phoenix_kit.update` (V230, V231 and the new `phoenix_kit.js`).
 
 ### Fixed
 
+- **Videos show their length and can be played and seeked before they have all
+  arrived.** Files are served in parts when asked (`Range` → 206, `416` past the
+  end, `If-Range` honoured, one range at a time; a stand-in for a variant not
+  made yet is still sent whole). Before, every request got the whole file, so a
+  video whose index sits at the end showed 0:00 until it had all downloaded.
+  New H.264 renditions are also written with `-movflags +faststart`, so the
+  index comes first; existing ones play too, through the ranges.
+
 - **A copy between libraries no longer fails when object storage is slow.**
   `Storage.link_copy/3` and `relink_file/3` asked the buckets (is each object there,
   does the thumbnail hold its bytes) inside their transaction, so one request that

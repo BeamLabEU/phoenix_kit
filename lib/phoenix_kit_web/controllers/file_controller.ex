@@ -14,6 +14,7 @@ defmodule PhoenixKitWeb.FileController do
 
   alias PhoenixKit.Modules.Storage.{
     FileDetails,
+    FileServer,
     ImageEditing,
     Libraries,
     Manager,
@@ -1315,7 +1316,49 @@ defmodule PhoenixKitWeb.FileController do
       conn
       |> put_variant_cache_headers(instance, cache)
       |> put_content_headers(file, instance, download?)
-      |> send_file(200, file_path)
+      |> send_file_ranged(file_path, etag)
+    end
+  end
+
+  # A part of the file when the request asks for one (`Range`), else all of it.
+  # A browser plays a video by asking for parts: the start, then wherever the
+  # index or the seek position is. Answered whole every time, a video shows
+  # 0:00 until it has all arrived, cannot seek, and Safari may refuse it.
+  #
+  # Only for the exact bytes of this URL: a stand-in (`:pending`) is sent whole
+  # and offers no ranges, because the next part could come from the real
+  # variant once it exists. `If-Range` with another ETag means the client's
+  # parts are of other bytes: it gets the whole file.
+  defp send_file_ranged(conn, file_path, etag) do
+    conn = put_resp_header(conn, "accept-ranges", "bytes")
+
+    with [range] <- get_req_header(conn, "range"),
+         true <- if_range_matches?(conn, etag),
+         {:ok, %{size: size}} <- File.stat(file_path) do
+      case FileServer.parse_range_header(range, size) do
+        {:ok, first, last, content_range: content_range} ->
+          conn
+          |> put_resp_header("content-range", content_range)
+          |> send_file(206, file_path, first, last - first + 1)
+
+        {:error, :range_out_of_bounds} ->
+          conn
+          |> put_resp_header("content-range", "bytes */#{size}")
+          |> send_resp(416, "")
+
+        {:error, :invalid_range} ->
+          send_file(conn, 200, file_path)
+      end
+    else
+      _ -> send_file(conn, 200, file_path)
+    end
+  end
+
+  defp if_range_matches?(conn, etag) do
+    case get_req_header(conn, "if-range") do
+      [] -> true
+      [value] -> value == etag
+      _ -> false
     end
   end
 

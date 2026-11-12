@@ -1286,8 +1286,11 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
       "webm" ->
         ["-c:v", "libvpx-vp9", "-b:v", "0", "-crf", crf, "-pix_fmt", "yuv420p"]
 
+      # `+faststart` puts the index (`moov`) before the picture data. Without
+      # it the index is at the end, and a browser shows 0:00 and cannot start
+      # or seek until it has read the end of the file.
       container when container in ["mp4", "mov"] ->
-        ["-c:v", "libx264", "-crf", crf, "-pix_fmt", "yuv420p"]
+        ["-c:v", "libx264", "-crf", crf, "-pix_fmt", "yuv420p", "-movflags", "+faststart"]
 
       _other ->
         []

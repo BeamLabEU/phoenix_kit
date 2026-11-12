@@ -111,6 +111,13 @@ defmodule PhoenixKit.Modules.Storage.VideoFfmpegArgsTest do
       assert args(format: "mov") |> option("-c:v") == "libx264"
     end
 
+    test "an H.264 copy has its index first, so a browser knows its length at once" do
+      assert args(format: "mp4") |> option("-movflags") == "+faststart"
+      assert args(format: "mov") |> option("-movflags") == "+faststart"
+      assert args(format: "", quality: 18) |> option("-movflags") == "+faststart"
+      assert args(format: "webm", quality: 32) |> option("-movflags") == nil
+    end
+
     test "is not read as the 1-100 image scale" do
       # 28 used to come out as CRF 37 for any name that was not 360p/720p/1080p.
       assert args(name: "clip", quality: 28) |> option("-crf") == "28"
