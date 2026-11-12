@@ -19,6 +19,11 @@ defmodule PhoenixKit.Modules.Storage.AnnotationThumbnail do
   + center-cropped to the thumbnail square — the crop clips edge shapes exactly
   like the grid.
 
+  Label text needs a font ImageMagick can read: the first of DejaVu-Sans,
+  Liberation-Sans, Helvetica, Arial that is installed (else any installed one
+  that is not a symbol set), or the one named by
+  `config :phoenix_kit, :annotation_font` (a font name or file path).
+
   Regeneration is meant to run in the background (see `AnnotationThumbnailJob`),
   debounced so a flurry of edits collapses into one render.
   """
@@ -43,6 +48,11 @@ defmodule PhoenixKit.Modules.Storage.AnnotationThumbnail do
   @size 400
   # Media setting gating the whole feature (baking + display). Off by default.
   @setting_key "storage_annotated_thumbnails_enabled"
+  # Fonts tried, in order, for a label's text. ImageMagick's own default
+  # (Helvetica) is mapped to ghostscript/URW files that a slim host lacks —
+  # `convert` then exits 1 on every text draw.
+  @font_candidates ~w(DejaVu-Sans Liberation-Sans Helvetica Arial)
+  @font_cache_key {__MODULE__, :font}
 
   @doc "The variant name this module produces."
   def variant_name, do: @variant_name
@@ -202,6 +212,7 @@ defmodule PhoenixKit.Modules.Storage.AnnotationThumbnail do
     args =
       ImageProcessor.limit_args() ++
         [input] ++
+        font_args(draw_args) ++
         draw_args ++
         ["-resize", "#{@size}x#{@size}^", "-background", "none", "-gravity", "center"] ++
         ["-extent", "#{@size}x#{@size}"] ++
@@ -210,6 +221,129 @@ defmodule PhoenixKit.Modules.Storage.AnnotationThumbnail do
     case System.cmd("convert", args, stderr_to_stdout: true) do
       {_out, 0} -> :ok
       {out, code} -> {:error, "convert exited #{code}: #{out}"}
+    end
+  end
+
+  @doc false
+  # `["-font", name]` when `draw_args` draws text and a usable font is known,
+  # else `[]` (outline-only draws need none; with no font found ImageMagick
+  # keeps its default).
+  @spec font_args([String.t()]) :: [String.t()]
+  def font_args(draw_args) do
+    with true <- Enum.any?(draw_args, &text_draw?/1),
+         font when is_binary(font) <- font() do
+      ["-font", font]
+    else
+      _ -> []
+    end
+  end
+
+  defp text_draw?(arg), do: is_binary(arg) and String.starts_with?(arg, "text ")
+
+  # The font for labels: `config :phoenix_kit, :annotation_font` (a font name
+  # ImageMagick lists, or a font file path), else the first of
+  # `@font_candidates` that is installed, else any installed font that is not a
+  # symbol set. "Installed" means the file named by the `glyphs:` line exists:
+  # ImageMagick also lists names whose files are missing (the ghostscript
+  # Helvetica that made text draws fail), so a listed name alone proves nothing.
+  # Resolved once per node and kept, `nil` ("no usable font") included — fonts
+  # installed later are picked up after a restart.
+  defp font do
+    case :persistent_term.get(@font_cache_key, :unresolved) do
+      :unresolved -> resolve_font()
+      cached -> cached
+    end
+  end
+
+  defp resolve_font do
+    case installed_fonts() do
+      {:ok, installed} ->
+        installed
+        |> choose_font(Application.get_env(:phoenix_kit, :annotation_font))
+        |> remember_font()
+
+      :error ->
+        # ImageMagick could not be asked — try again next time (nothing is
+        # kept). A configured font file needs no listing to be used.
+        configured_font_file()
+    end
+  end
+
+  defp configured_font_file do
+    configured = Application.get_env(:phoenix_kit, :annotation_font)
+
+    if is_binary(configured) and configured != "" and File.exists?(configured),
+      do: configured
+  end
+
+  defp remember_font(font) do
+    :persistent_term.put(@font_cache_key, font)
+    font
+  end
+
+  defp choose_font(installed, configured) do
+    names = Enum.map(installed, &elem(&1, 0))
+
+    cond do
+      not (is_binary(configured) and configured != "") ->
+        pick_font(names)
+
+      configured in names or File.exists?(configured) ->
+        configured
+
+      true ->
+        picked = pick_font(names)
+
+        Logger.warning(
+          "AnnotationThumbnail: :annotation_font #{inspect(configured)} is neither an " <>
+            "installed ImageMagick font nor a font file; using #{inspect(picked)}"
+        )
+
+        picked
+    end
+  end
+
+  defp pick_font(names) do
+    Enum.find(@font_candidates, &(&1 in names)) ||
+      Enum.find(names, &(not String.match?(&1, ~r/symbol|dingbat|wingding|D050000L|emoji/i)))
+  end
+
+  # `{name, glyphs_path}` of every font `convert -list font` names whose file
+  # is there.
+  defp installed_fonts do
+    case System.cmd("convert", ["-list", "font"], stderr_to_stdout: true) do
+      {out, 0} -> {:ok, installed_from_listing(out)}
+      _ -> :error
+    end
+  rescue
+    # No `convert` on the PATH.
+    ErlangError -> :error
+  end
+
+  @doc false
+  # The `{name, glyphs_path}` of every font in a `convert -list font` listing
+  # whose `glyphs:` file exists (a block with no `glyphs:` line is dropped).
+  @spec installed_from_listing(String.t()) :: [{String.t(), String.t()}]
+  def installed_from_listing(listing) do
+    listing
+    |> String.split(~r/^\s*Font: /m, trim: true)
+    |> Enum.flat_map(&parse_font_block/1)
+    |> Enum.filter(fn {_name, glyphs} -> File.exists?(glyphs) end)
+  end
+
+  defp parse_font_block(block) do
+    with [name | rest] <- String.split(block, "\n"),
+         glyphs when is_binary(glyphs) <- Enum.find_value(rest, &glyphs_path/1) do
+      [{String.trim(name), glyphs}]
+    else
+      _ -> []
+    end
+  end
+
+  defp glyphs_path(line) do
+    case String.split(line, "glyphs:", parts: 2) do
+      [_, path] -> String.trim(path)
+      _ -> nil
     end
   end
 
