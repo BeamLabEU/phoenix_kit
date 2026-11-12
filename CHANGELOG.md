@@ -43,6 +43,16 @@ Run `mix phoenix_kit.update` (V230, V231 and the new `phoenix_kit.js`).
 
 ### Fixed
 
+- **A long or private video keeps playing and seeking.** A video on a `"signed"`
+  bucket was redirected to a link that lived 5 minutes, and a browser reads that
+  link for as long as the video plays: after 5 minutes every seek failed. Video and
+  audio links now live 4 hours (`Manager.get_file_access/2`'s new `:signed_seconds`;
+  `bucket_access/5`); the redirect is still never cached. A file the app proxies (a
+  `"private"` bucket, a library only for signed-in people) was downloaded whole for
+  every request, so every part a browser asked for cost the whole video: a request
+  for a part now reads just that part from the bucket, at most 8 MB per answer
+  (`Manager.read_range/3`, the providers' new optional `read_range/4`, done for S3).
+
 - **Videos show their length and can be played and seeked before they have all
   arrived.** Files are served in parts when asked (`Range` → 206, `416` past the
   end, `If-Range` honoured, one range at a time; a stand-in for a variant not

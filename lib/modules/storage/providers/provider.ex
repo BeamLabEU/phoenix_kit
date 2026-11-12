@@ -135,5 +135,25 @@ defmodule PhoenixKit.Modules.Storage.Provider do
               opts :: keyword()
             ) :: {:ok, String.t()} | {:error, term()}
 
-  @optional_callbacks signed_download_url: 3
+  @doc """
+  Reads the bytes `first..last` (inclusive) of a stored file, without fetching the
+  rest. The app answers a request for part of a file it proxies (a browser playing
+  a video asks for parts) with one such read, instead of downloading the whole file
+  for every part.
+
+  ## Returns
+
+  - `{:ok, binary}` - exactly `last - first + 1` bytes
+  - `{:error, reason}` - not read; the caller falls back to `retrieve_file/3`
+
+  Optional: a provider without it is proxied whole.
+  """
+  @callback read_range(
+              bucket :: PhoenixKit.Modules.Storage.Bucket.t(),
+              file_path :: String.t(),
+              first :: non_neg_integer(),
+              last :: non_neg_integer()
+            ) :: {:ok, binary()} | {:error, term()}
+
+  @optional_callbacks signed_download_url: 3, read_range: 4
 end

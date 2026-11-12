@@ -82,4 +82,12 @@ defmodule PhoenixKit.Modules.Storage.ManagerBucketAccessTest do
       assert Manager.bucket_access(%{access_type: "signed"}, "k", provider, nil) == {:proxy, "k"}
     end
   end
+
+  test "a signed bucket's URL lives as long as asked (a video's), else 300 seconds" do
+    assert {:signed_redirect, "https://signed/k?expires=14400"} =
+             Manager.bucket_access(%{access_type: "signed"}, "k", ExpiryRecorder, nil, 14_400)
+
+    assert {:signed_redirect, "https://signed/k?expires=300"} =
+             Manager.bucket_access(%{access_type: "signed"}, "k", ExpiryRecorder, nil)
+  end
 end

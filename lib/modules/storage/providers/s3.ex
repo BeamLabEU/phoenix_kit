@@ -104,6 +104,18 @@ defmodule PhoenixKit.Modules.Storage.Providers.S3 do
     end
   end
 
+  @impl true
+  def read_range(bucket, file_path, first, last) when last >= first do
+    case ExAws.S3.get_object(bucket.bucket_name, file_path, range: "bytes=#{first}-#{last}")
+         |> S3Request.request(aws_config(bucket)) do
+      {:ok, %{body: body}} when byte_size(body) == last - first + 1 -> {:ok, body}
+      {:ok, %{body: body}} -> {:error, {:short_range, first, byte_size(body)}}
+      {:error, _reason} = error -> error
+    end
+  rescue
+    error -> {:error, "Error reading a range from S3: #{Exception.message(error)}"}
+  end
+
   defp content_length(headers) do
     with {_header, value} <-
            Enum.find(headers, fn {header, _value} ->

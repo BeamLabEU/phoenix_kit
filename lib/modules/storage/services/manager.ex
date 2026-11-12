@@ -296,6 +296,46 @@ defmodule PhoenixKit.Modules.Storage.Manager do
   end
 
   @doc """
+  Reads the bytes `first..last` (inclusive) of `file_path` from the first bucket
+  that holds it and can read a part (`c:PhoenixKit.Modules.Storage.Provider.read_range/4`),
+  in the same order as `retrieve_file/2`. `{:error, :unsupported}` when no bucket
+  in the order can read a part, so the caller can fetch the whole file instead.
+  """
+  @spec read_range(String.t(), non_neg_integer(), non_neg_integer()) ::
+          {:ok, binary()} | {:error, term()}
+  def read_range(file_path, first, last) do
+    {located, fallback} = read_order(file_path, [], :read)
+
+    Enum.reduce_while(located ++ fallback, {:error, :unsupported}, fn bucket, acc ->
+      provider = get_provider_for_bucket(bucket)
+
+      if Code.ensure_loaded?(provider) and function_exported?(provider, :read_range, 4) do
+        case safe_read_range(provider, bucket, file_path, first, last) do
+          {:ok, _bytes} = ok -> {:halt, ok}
+          {:error, _reason} = error -> {:cont, error}
+        end
+      else
+        {:cont, acc}
+      end
+    end)
+  end
+
+  defp safe_read_range(provider, bucket, file_path, first, last) do
+    case provider.read_range(bucket, file_path, first, last) do
+      {:ok, bytes} ->
+        {:ok, bytes}
+
+      {:error, _reason} = error ->
+        report(bucket, "read", error)
+        error
+    end
+  rescue
+    error ->
+      report(bucket, "read", error)
+      {:error, Exception.message(error)}
+  end
+
+  @doc """
   Deletes a file from all storage buckets.
   """
   def delete_file(file_path, opts \\ []) do
@@ -910,59 +950,64 @@ defmodule PhoenixKit.Modules.Storage.Manager do
     a public bucket hands out a signed URL that overrides them
     (`c:PhoenixKit.Modules.Storage.Provider.signed_download_url/3`), or is
     proxied when its provider cannot sign one.
+  - `:signed_seconds` - how long a `"signed"` bucket's URL lives (default 300).
+    Longer for a video: a browser keeps reading the URL it was redirected to
+    as the person plays and seeks, and never comes back for a new one.
   """
   def get_file_access(file_name, opts \\ []) do
-    download = Keyword.get(opts, :download)
+    access = {Keyword.get(opts, :download), Keyword.get(opts, :signed_seconds)}
     {located, fallback} = read_order(file_name, [], :serve, Keyword.get(opts, :file_uuid))
 
     # The recorded copies in the profile's serve order (G3: a remote copy
     # may come before a local one); then, for a key with no rows yet,
     # today's rule: a local copy first.
-    Enum.find_value(located, &serve_from(&1, file_name, download, false)) ||
-      fallback_access(file_name, fallback, download)
+    Enum.find_value(located, &serve_from(&1, file_name, access, false)) ||
+      fallback_access(file_name, fallback, access)
   end
 
-  defp fallback_access(file_name, fallback, download) do
+  defp fallback_access(file_name, fallback, access) do
     {local, remote} = Enum.split_with(fallback, &(&1.provider == "local"))
 
-    Enum.find_value(local, &serve_from(&1, file_name, download, true)) ||
-      Enum.find_value(remote, {:error, :not_found}, &serve_from(&1, file_name, download, true))
+    Enum.find_value(local, &serve_from(&1, file_name, access, true)) ||
+      Enum.find_value(remote, {:error, :not_found}, &serve_from(&1, file_name, access, true))
   end
 
-  defp serve_from(%{provider: "local"} = bucket, file_name, _download, record?) do
+  defp serve_from(%{provider: "local"} = bucket, file_name, _access, record?) do
     with {:ok, path} <- local_hit(bucket, file_name, record?), do: {:local, path}
   end
 
-  defp serve_from(bucket, file_name, download, record?),
-    do: check_bucket_for_file(bucket, file_name, download, record?)
+  defp serve_from(bucket, file_name, access, record?),
+    do: check_bucket_for_file(bucket, file_name, access, record?)
 
-  defp check_bucket_for_file(bucket, file_name, download, record?) do
+  # How long a `"signed"` bucket's URL for one request lives.
+  @signed_url_seconds 300
+
+  defp check_bucket_for_file(bucket, file_name, {download, seconds}, record?) do
     provider = get_provider_for_bucket(bucket)
 
     if bucket_holds?(bucket, file_name) do
       if record?, do: Locations.record(file_name, bucket.uuid)
-      bucket_access(bucket, file_name, provider, download)
+      bucket_access(bucket, file_name, provider, download, seconds || @signed_url_seconds)
     end
   end
 
   defp public_bucket?(%{access_type: type}) when type in ["private", "signed"], do: false
   defp public_bucket?(_bucket), do: true
 
-  # How long a `"signed"` bucket's URL for one request lives.
-  @signed_url_seconds 300
-
   @doc false
   # How a remote bucket that holds `file_name` serves it. Public and
   # `@doc false` only so the decision is testable without a live bucket.
-  def bucket_access(%{access_type: "private"}, file_name, _provider, _download) do
+  def bucket_access(bucket, file_name, provider, download, signed_seconds \\ @signed_url_seconds)
+
+  def bucket_access(%{access_type: "private"}, file_name, _provider, _download, _seconds) do
     {:proxy, file_name}
   end
 
   # A `"signed"` bucket is served by a short-lived presigned URL made for
   # this request, never by its plain object URL; proxied when the provider
   # cannot sign.
-  def bucket_access(%{access_type: "signed"} = bucket, file_name, provider, download) do
-    opts = Keyword.put(download || [], :expires_in, @signed_url_seconds)
+  def bucket_access(%{access_type: "signed"} = bucket, file_name, provider, download, seconds) do
+    opts = Keyword.put(download || [], :expires_in, seconds)
 
     with true <- Code.ensure_loaded?(provider),
          true <- function_exported?(provider, :signed_download_url, 3),
@@ -974,7 +1019,7 @@ defmodule PhoenixKit.Modules.Storage.Manager do
   end
 
   # "public" or nil (default), for a file that must download.
-  def bucket_access(bucket, file_name, provider, download) when is_list(download) do
+  def bucket_access(bucket, file_name, provider, download, _seconds) when is_list(download) do
     with true <- Code.ensure_loaded?(provider),
          true <- function_exported?(provider, :signed_download_url, 3),
          {:ok, url} <- provider.signed_download_url(bucket, file_name, download) do
@@ -987,7 +1032,7 @@ defmodule PhoenixKit.Modules.Storage.Manager do
   # A public bucket whose provider has no public URL for the object (an R2
   # bucket with no public domain) is proxied: the object is there, it just
   # cannot be linked to.
-  def bucket_access(bucket, file_name, provider, nil) do
+  def bucket_access(bucket, file_name, provider, nil, _seconds) do
     case provider.public_url(bucket, file_name) do
       nil -> {:proxy, file_name}
       url -> {:redirect, url}
