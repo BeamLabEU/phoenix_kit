@@ -973,9 +973,9 @@ defmodule PhoenixKitWeb.Components.MediaBrowserPickerTest do
   # Browsers that are gone
   # ---------------------------------------------------------------------------
 
-  defp inbox_upload!(user, name) do
+  defp inbox_upload!(user, name, content \\ nil) do
     tmp = Path.join(System.tmp_dir!(), "pk_picker_src_#{System.unique_integer([:positive])}")
-    File.write!(tmp, "#{name}-#{System.unique_integer()}")
+    File.write!(tmp, content || "#{name}-#{System.unique_integer()}")
 
     {:ok, _item, path} =
       UploadInbox.put(user.uuid, tmp, %{
@@ -1191,7 +1191,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowserPickerTest do
       assert_receive {:picked, "pick", []}
     end
 
-    test "a duplicate of a file in the trash is not picked", %{conn: conn} = ctx do
+    test "a duplicate of a file in the trash is brought back and picked", %{conn: conn} = ctx do
       view = open(conn, ctx, %{"opts" => %{pick_mode: :single}})
       content = "kitchen-" <> :binary.copy("q", 800)
 
@@ -1203,13 +1203,152 @@ defmodule PhoenixKitWeb.Components.MediaBrowserPickerTest do
       upload_bytes(view, "kitchen-again.png", content)
       html = render(view)
 
-      assert [%{status: "trashed"}] = stored(ctx.user),
-             "precondition: dedup handed back the trashed row"
-
-      assert html =~ "0 selected"
+      assert [%{status: "active", trashed_at: nil, folder_uuid: home}] = stored(ctx.user)
+      assert home == ctx.scope.uuid
+      assert html =~ "1 selected"
 
       confirm(view)
-      assert_receive {:picked, "pick", []}
+      assert_receive {:picked, "pick", [uuid]}
+      assert uuid == first.uuid
+    end
+
+    test "a duplicate living outside the scope is linked in and picked, not moved",
+         %{conn: conn} = ctx do
+      view = open(conn, ctx, %{"opts" => %{pick_mode: :single}})
+      content = "kitchen-" <> :binary.copy("o", 800)
+
+      upload_bytes(view, "kitchen.png", content)
+      [first] = stored(ctx.user)
+
+      # The earlier copy is homed in a folder outside this picker's scope.
+      elsewhere = folder!("Elsewhere")
+
+      Repo.update_all(from(f in StorageFile, where: f.uuid == ^first.uuid),
+        set: [folder_uuid: elsewhere.uuid]
+      )
+
+      Repo.delete_all(from(l in Storage.FolderLink, where: l.file_uuid == ^first.uuid))
+      render(view)
+
+      upload_bytes(view, "kitchen-again.png", content)
+      html = render(view)
+
+      assert [%{folder_uuid: home}] = stored(ctx.user)
+      assert home == elsewhere.uuid, "the file keeps its own folder"
+
+      assert Repo.exists?(
+               from(l in Storage.FolderLink,
+                 where: l.file_uuid == ^first.uuid and l.folder_uuid == ^ctx.scope.uuid
+               )
+             )
+
+      assert html =~ "1 selected"
+      confirm(view)
+      assert_receive {:picked, "pick", [uuid]}
+      assert uuid == first.uuid
+    end
+
+    test "a trashed duplicate of another type than the locked one stays in the trash",
+         %{conn: conn} = ctx do
+      content = "notes-" <> :binary.copy("t", 800)
+
+      first = open(conn, ctx)
+
+      input =
+        file_input(first, "#pick-folder-drop-upload-form", :media_picker_files, [
+          %{name: "notes.pdf", content: content, type: "application/pdf"}
+        ])
+
+      capture_log(fn ->
+        render_upload(input, "notes.pdf")
+        settle(first)
+      end)
+
+      [doc] = stored(ctx.user)
+      {:ok, _} = Storage.trash_file(doc)
+
+      # A trashed row with no home: the upload's folder would adopt it.
+      Repo.update_all(from(f in StorageFile, where: f.uuid == ^doc.uuid), set: [folder_uuid: nil])
+      Repo.delete_all(from(l in Storage.FolderLink, where: l.file_uuid == ^doc.uuid))
+
+      view = open(conn, ctx, %{"opts" => %{only_file_type: "image"}})
+      upload_bytes(view, "kitchen.png", content)
+      html = render(view)
+
+      assert [%{status: "trashed", uuid: uuid, folder_uuid: nil}] = stored(ctx.user)
+      assert html =~ "already stored as another kind of file"
+      assert html =~ "0 selected"
+
+      refute Repo.exists?(
+               from(l in Storage.FolderLink,
+                 where: l.file_uuid == ^uuid and l.folder_uuid == ^ctx.scope.uuid
+               )
+             )
+    end
+
+    test "a browser that is not a picker leaves a trashed duplicate in the trash",
+         %{conn: conn} = ctx do
+      view = open(conn, ctx, %{"browsers" => ["files"]})
+      content = "kitchen-" <> :binary.copy("p", 800)
+
+      files = [%{name: "hall.png", content: content, type: "image/png"}]
+      input = file_input(view, "#folder-drop-upload-form", :media_files, files)
+      render_upload(input, "hall.png")
+      settle(view)
+
+      [first] = stored(ctx.user)
+      {:ok, _} = Storage.trash_file(first)
+
+      input = file_input(view, "#folder-drop-upload-form", :media_files, files)
+      render_upload(input, "hall.png")
+      settle(view)
+
+      assert [%{status: "trashed"}] = stored(ctx.user)
+    end
+
+    test "a readonly picker refuses a pending upload up front and revives nothing",
+         %{conn: conn} = ctx do
+      content = "kitchen-" <> :binary.copy("r", 800)
+
+      writable = open(conn, ctx)
+      upload_bytes(writable, "kitchen.png", content)
+      [first] = stored(ctx.user)
+      {:ok, _} = Storage.trash_file(first)
+
+      view = open(conn, ctx, %{"opts" => %{readonly: true}})
+      {path, entry} = inbox_upload!(ctx.user, "kitchen.png", content)
+      entry = Map.put(entry, :upload_config, :media_picker_files)
+
+      capture_log(fn ->
+        send(view.pid, {MediaBrowser, :process_pending_upload, {path, entry}})
+        settle(view)
+      end)
+
+      assert [%{status: "trashed"}] = stored(ctx.user)
+      assert render(view) =~ "0 selected"
+    end
+
+    test "a duplicate that cannot be picked says why", %{conn: conn} = ctx do
+      content = "notes-" <> :binary.copy("n", 800)
+
+      first = open(conn, ctx)
+
+      input =
+        file_input(first, "#pick-folder-drop-upload-form", :media_picker_files, [
+          %{name: "notes.pdf", content: content, type: "application/pdf"}
+        ])
+
+      capture_log(fn ->
+        render_upload(input, "notes.pdf")
+        settle(first)
+      end)
+
+      view = open(conn, ctx, %{"opts" => %{only_file_type: "image"}})
+      upload_bytes(view, "kitchen.png", content)
+      html = render(view)
+
+      assert html =~ "kitchen.png"
+      assert html =~ "already stored as another kind of file"
     end
   end
 
