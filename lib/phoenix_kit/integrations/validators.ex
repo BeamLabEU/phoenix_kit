@@ -850,7 +850,7 @@ defmodule PhoenixKit.Integrations.Validators do
 
       # The SMTP key sits on the same Brevo page and is the usual mix-up. Brevo
       # answers it with the same 401 as a mistyped key, so name it here instead.
-      String.starts_with?(String.trim_leading(api_key), "xsmtpsib-") ->
+      is_binary(api_key) and String.starts_with?(String.trim_leading(api_key), "xsmtpsib-") ->
         {:error,
          gettext(
            "This is a Brevo SMTP key (xsmtpsib-…). The Brevo API needs an API key (xkeysib-…) from SMTP & API → API Keys; an SMTP key goes into an SMTP connection."
@@ -901,7 +901,7 @@ defmodule PhoenixKit.Integrations.Validators do
 
   def interpret_brevo(200, _body), do: {:error, gettext("Unexpected answer from Brevo")}
 
-  def interpret_brevo(401, %{"message" => message}) when is_binary(message) do
+  def interpret_brevo(401, %{"message" => message}) when is_binary(message) and message != "" do
     if message =~ ~r/IP address/i do
       {:error,
        gettext(

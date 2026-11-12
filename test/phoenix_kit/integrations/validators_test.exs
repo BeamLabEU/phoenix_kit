@@ -1032,6 +1032,10 @@ defmodule PhoenixKit.Integrations.ValidatorsTest do
       end
     end
 
+    test "a key that is not a string reaches no prefix check and does not raise" do
+      assert {:error, _} = Validators.brevo_api(%{"api_key" => 12_345}, plug: &flunk_request/1)
+    end
+
     test "asks /v3/account with the key in the api-key header, and reports the credits" do
       plug = fn conn ->
         assert conn.method == "GET"
@@ -1063,6 +1067,7 @@ defmodule PhoenixKit.Integrations.ValidatorsTest do
 
     test "other answers" do
       assert {:error, "Invalid credentials"} = Validators.interpret_brevo(401, "")
+      assert {:error, "Invalid credentials"} = Validators.interpret_brevo(401, %{"message" => ""})
       assert {:error, "Access denied"} = Validators.interpret_brevo(403, %{})
 
       assert {:error, "Brevo error 500: busy"} =
