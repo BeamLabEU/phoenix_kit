@@ -53,10 +53,12 @@ defmodule PhoenixKit.Modules.Storage.Stacks do
   A file already in a stack brings its whole stack along, so stacking a stack with more
   photos, or two stacks together, merges them into one new stack; the old ones are
   deleted. The files are ordered by capture date, then by name with numbers read as
-  numbers ("page 2" before "page 10"); the first is the cover.
+  numbers ("page 2" before "page 10"); the first is the cover. A merge keeps the order
+  of the stack whose files come first, cover included, and puts the other files in
+  among its own by date (as `add/3` does).
 
-  `attrs` may give a `:title` and a `:description`. Without them a merge keeps the text
-  of the stack whose files come first.
+  `attrs` may give a `:title` and a `:description`; one left out or `nil` is not given.
+  Without them a merge keeps the text of the stack whose files come first.
 
   With `keep_order: true` in `opts` the files stay in the order given (for copies of a
   stack, made in another library in their stack's order).
@@ -81,13 +83,57 @@ defmodule PhoenixKit.Modules.Storage.Stacks do
            :ok <- check_edit(files, scope),
            old = old_stacks(files),
            {:ok, stack} <- insert_stack(library_uuid, scope, merged_text(old, files, attrs)) do
-        files
-        |> then(&if(opts[:keep_order], do: in_given_order(&1, uuids), else: order(&1)))
+        if(opts[:keep_order], do: in_given_order(files, uuids), else: merged_order(old, files))
         |> place(stack.uuid)
 
         delete_stacks(Enum.map(old, & &1.uuid))
         {stack, Enum.map(files, & &1.uuid)}
       else
+        {:error, reason} -> repo().rollback(reason)
+      end
+    end)
+    |> announce()
+  end
+
+  @doc """
+  Adds `file_uuids` to the stack `stack_uuid`: one file or many. A file in another stack
+  brings that whole stack along, and that stack is gone (as in `create/4`); files already
+  in this stack stay as they are.
+
+  The stack keeps its order and its cover: each new file goes in among the others by
+  capture date (then name), never before the cover. A title or description the stack has
+  none of is taken from a stack that came along.
+
+  Returns `{:ok, stack}`, or `{:error, reason}` as `create/4` does (`:not_found` also for
+  a stack that is not there).
+  """
+  @spec add(String.t(), [String.t()], Scope.t() | nil) ::
+          {:ok, FileStack.t()} | {:error, reason()}
+  def add(stack_uuid, file_uuids, scope) do
+    uuids = file_uuids |> List.wrap() |> Enum.map(&to_string/1) |> Enum.uniq()
+
+    repo().transaction(fn ->
+      with %FileStack{} = stack <- get(stack_uuid) || {:error, :not_found},
+           [_ | _] = members <- members_for_update(stack.uuid),
+           {:ok, chosen} <- load(uuids),
+           chosen = Enum.reject(chosen, &(&1.stack_uuid == stack.uuid)),
+           :ok <- check_stackable(chosen),
+           newcomers = with_their_stacks(chosen),
+           files = members ++ newcomers,
+           :ok <- check_count(files),
+           {:ok, _library_uuid} <- one_library(files),
+           :ok <- check_edit(files, scope) do
+        if newcomers == [] do
+          {stack, []}
+        else
+          old = old_stacks(newcomers)
+          members |> arrange(newcomers) |> place(stack.uuid)
+          delete_stacks(Enum.map(old, & &1.uuid))
+          fill_text(stack, old, newcomers)
+          {touch(stack.uuid), Enum.map(files, & &1.uuid)}
+        end
+      else
+        [] -> repo().rollback(:not_found)
         {:error, reason} -> repo().rollback(reason)
       end
     end)
@@ -174,7 +220,8 @@ defmodule PhoenixKit.Modules.Storage.Stacks do
   end
 
   @doc """
-  Changes a stack's `:title` and `:description` (either may be blank, which clears it).
+  Changes a stack's `:title` and `:description` (either may be blank, which clears it;
+  one left out or `nil` stays as it is).
   Returns `{:ok, stack}`, or `{:error, changeset}` when one is too long.
   """
   @spec update(String.t(), map(), Scope.t() | nil) :: {:ok, FileStack.t()} | {:error, reason()}
@@ -221,11 +268,11 @@ defmodule PhoenixKit.Modules.Storage.Stacks do
   with numbers read as numbers, then uuid, so the same files always stack the same way.
   """
   @spec order([StorageFile.t()]) :: [StorageFile.t()]
-  def order(files) do
-    Enum.sort_by(files, fn file ->
-      {is_nil(file.taken_at), file.taken_at && DateTime.to_unix(file.taken_at, :microsecond),
-       natural_key(file.original_file_name), file.uuid}
-    end)
+  def order(files), do: Enum.sort_by(files, &sort_key/1)
+
+  defp sort_key(file) do
+    {is_nil(file.taken_at), file.taken_at && DateTime.to_unix(file.taken_at, :microsecond),
+     natural_key(file.original_file_name), file.uuid}
   end
 
   @doc """
@@ -299,6 +346,33 @@ defmodule PhoenixKit.Modules.Storage.Stacks do
     Enum.sort_by(named, &at[&1.uuid]) ++ order(others)
   end
 
+  # A merge's order: the files of the stack that comes first in their stack's order, the
+  # others in among them by date (`arrange/2`); with no stack among them, `order/1`.
+  defp merged_order(old, files) do
+    case first_stack(old, files) do
+      nil ->
+        order(files)
+
+      base ->
+        {members, others} = Enum.split_with(files, &(&1.stack_uuid == base.uuid))
+        members |> Enum.sort_by(&{&1.stack_position, &1.uuid}) |> arrange(others)
+    end
+  end
+
+  # `base` in its order, its cover first and staying first; each of `newcomers` goes in
+  # before the first of the rest that sorts after it (`sort_key/1`), or at the end.
+  defp arrange([], newcomers), do: order(newcomers)
+  defp arrange([cover | rest], newcomers), do: [cover | merge_in(rest, order(newcomers))]
+
+  defp merge_in(rest, []), do: rest
+  defp merge_in([], newcomers), do: newcomers
+
+  defp merge_in([file | rest] = base, [new | newcomers] = all) do
+    if sort_key(new) < sort_key(file),
+      do: [new | merge_in(base, newcomers)],
+      else: [file | merge_in(rest, all)]
+  end
+
   defp check_count(files) when length(files) < @min_files, do: {:error, :too_few}
   defp check_count(files) when length(files) > @max_files, do: {:error, :too_many}
   defp check_count(_files), do: :ok
@@ -321,28 +395,46 @@ defmodule PhoenixKit.Modules.Storage.Stacks do
     end
   end
 
+  # Of the stacks `old`, the one whose files come first (`order/1`), or nil.
+  defp first_stack([], _files), do: nil
+
+  defp first_stack(old, files) do
+    files
+    |> order()
+    |> Enum.find_value(fn file -> Enum.find(old, &(&1.uuid == file.stack_uuid)) end)
+  end
+
   # The new stack's title and description: what the person gave, else those of the old
   # stack whose files come first in the new order.
   defp merged_text(old, files, attrs) do
-    given = text(attrs)
-
     inherited =
-      files
-      |> order()
-      |> Enum.find_value(%{}, fn file ->
-        Enum.find_value(old, fn stack ->
-          if stack.uuid == file.stack_uuid,
-            do: %{title: stack.title, description: stack.description}
-        end)
-      end)
+      case first_stack(old, files) do
+        nil -> %{}
+        stack -> %{title: stack.title, description: stack.description}
+      end
 
-    Map.merge(inherited, given)
+    Map.merge(inherited, text(attrs))
   end
 
+  # What a stack that was added to has none of, from the stacks that came along.
+  defp fill_text(stack, old, newcomers) do
+    missing =
+      for {key, value} <- merged_text(old, newcomers, %{}),
+          value not in [nil, ""],
+          Map.get(stack, key) in [nil, ""],
+          into: %{},
+          do: {key, value}
+
+    if missing != %{}, do: stack |> FileStack.changeset(missing) |> repo().update!()
+  end
+
+  # The title and description given; one left out or nil is not given (a blank one is,
+  # and clears it).
   defp text(attrs) do
     attrs
     |> Map.new(fn {k, v} -> {to_string(k), v} end)
     |> Map.take(["title", "description"])
+    |> Enum.reject(fn {_k, v} -> is_nil(v) end)
     |> Map.new(fn {k, v} -> {String.to_existing_atom(k), v} end)
   end
 

@@ -120,10 +120,12 @@ defmodule PhoenixKit.Modules.Storage.StacksTest do
 
       {:ok, old} = Stacks.create([a.uuid, b.uuid], scope(ctx.owner), %{title: "Receipts"})
 
-      # Only one file of the old stack is named: the whole stack comes along.
-      {:ok, merged} = Stacks.create([a.uuid, c.uuid], scope(ctx.owner))
+      # Only one file of the old stack is named: the whole stack comes along, in its order
+      # and with its cover; the earlier c goes in after the cover. No title given (nil, as
+      # the timeline's dialog sends for an empty box) keeps the old one.
+      {:ok, merged} = Stacks.create([a.uuid, c.uuid], scope(ctx.owner), %{title: nil})
 
-      assert order_of(merged) == ["c.jpg", "a.jpg", "b.jpg"]
+      assert order_of(merged) == ["a.jpg", "c.jpg", "b.jpg"]
       assert merged.title == "Receipts"
       assert Stacks.get(old.uuid) == nil
 
@@ -278,6 +280,67 @@ defmodule PhoenixKit.Modules.Storage.StacksTest do
       assert {:error, :forbidden} = Stacks.unstack(ctx.stack.uuid, stranger)
       assert {:error, :forbidden} = Stacks.make_cover(p1.uuid, stranger)
       assert {:error, :forbidden} = Stacks.remove(p1.uuid, stranger)
+      assert length(Stacks.files(ctx.stack.uuid)) == 3
+    end
+
+    test "files added go in among the others by date, and the cover stays", ctx do
+      [_p1, _p2, p3] = ctx.files
+      {:ok, _} = Stacks.make_cover(p3.uuid, scope(ctx.owner))
+      assert_receive {:phoenix_kit_files_changed, _}
+
+      before = file!(ctx.owner, ctx.library, "before.jpg", ~N[2026-02-01 11:00:00])
+      later = file!(ctx.owner, ctx.library, "later.jpg", ~N[2026-02-01 13:00:00])
+
+      assert {:ok, %FileStack{} = stack} =
+               Stacks.add(ctx.stack.uuid, [later.uuid, before.uuid], scope(ctx.owner))
+
+      assert stack.uuid == ctx.stack.uuid
+      assert order_of(stack) == ["p3.jpg", "before.jpg", "p1.jpg", "p2.jpg", "later.jpg"]
+      assert_receive {:phoenix_kit_files_changed, uuids}
+      assert length(uuids) == 5
+
+      # One already in it: nothing changes, nothing is announced.
+      assert {:ok, _} = Stacks.add(ctx.stack.uuid, [before.uuid], scope(ctx.owner))
+      assert order_of(stack) == ["p3.jpg", "before.jpg", "p1.jpg", "p2.jpg", "later.jpg"]
+      refute_receive {:phoenix_kit_files_changed, _}, 50
+    end
+
+    test "a file of another stack brings that stack, which goes, and its text fills gaps",
+         ctx do
+      q1 = file!(ctx.owner, ctx.library, "q1.jpg", ~N[2026-02-01 12:30:00])
+      q2 = file!(ctx.owner, ctx.library, "q2.jpg", ~N[2026-02-01 12:31:00])
+
+      {:ok, other} =
+        Stacks.create([q1.uuid, q2.uuid], scope(ctx.owner), %{title: "Q", description: "Both"})
+
+      assert {:ok, stack} = Stacks.add(ctx.stack.uuid, [q2.uuid], scope(ctx.owner))
+      assert order_of(stack) == ["p1.jpg", "p2.jpg", "p3.jpg", "q1.jpg", "q2.jpg"]
+      # Its own title stays; the description it had none of comes along.
+      assert {stack.title, stack.description} == {"T", "Both"}
+      assert Stacks.get(other.uuid) == nil
+    end
+
+    test "adding: refusals", ctx do
+      {:ok, elsewhere} =
+        Libraries.create_user_library(scope(ctx.owner), %{
+          "name" => "Else #{System.unique_integer([:positive])}"
+        })
+
+      single = file!(ctx.owner, ctx.library, "single.jpg", ~N[2026-02-01 12:10:00])
+      far = file!(ctx.owner, elsewhere, "far.jpg", ~N[2026-02-01 12:10:00])
+
+      assert {:error, :not_found} =
+               Stacks.add(Ecto.UUID.generate(), [single.uuid], scope(ctx.owner))
+
+      assert {:error, :not_found} = Stacks.add(ctx.stack.uuid, [], scope(ctx.owner))
+      assert {:error, :mixed_libraries} = Stacks.add(ctx.stack.uuid, [far.uuid], scope(ctx.owner))
+      assert {:error, :forbidden} = Stacks.add(ctx.stack.uuid, [single.uuid], scope(user!(nil)))
+
+      {:ok, _} = Storage.trash_file(single)
+
+      assert {:error, :not_stackable} =
+               Stacks.add(ctx.stack.uuid, [single.uuid], scope(ctx.owner))
+
       assert length(Stacks.files(ctx.stack.uuid)) == 3
     end
   end
