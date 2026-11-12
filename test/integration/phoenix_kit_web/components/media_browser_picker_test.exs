@@ -1191,6 +1191,19 @@ defmodule PhoenixKitWeb.Components.MediaBrowserPickerTest do
       assert_receive {:picked, "pick", []}
     end
 
+    test "a new upload whose bytes are not of the locked type says why", %{conn: conn} = ctx do
+      view = open(conn, ctx, %{"opts" => %{only_file_type: "image"}})
+      # PDF bytes under an image's name and type: the store keeps the bytes' type.
+      upload_bytes(view, "fake.png", "%PDF-1.4\n" <> :binary.copy("x", 800))
+      html = render(view)
+
+      assert [%{file_type: type}] = stored(ctx.user)
+      refute type == "image", "precondition: the store typed the row by its bytes"
+      assert html =~ "fake.png"
+      assert html =~ "This file is not a kind of file this picker takes."
+      assert html =~ "0 selected"
+    end
+
     test "a duplicate of a file in the trash is brought back and picked", %{conn: conn} = ctx do
       view = open(conn, ctx, %{"opts" => %{pick_mode: :single}})
       content = "kitchen-" <> :binary.copy("q", 800)

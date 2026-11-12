@@ -1007,7 +1007,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
         kind: :rejected,
         client_name: entry.client_name,
         client_size: entry.client_size,
-        reason: unpickable_upload_reason(socket, uuid, result_duplicate?(result)),
+        reason: unpickable_upload_reason(socket.assigns[:only_file_type], result),
         retry: false
       })
     end
@@ -1015,14 +1015,13 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
   defp pick_upload(socket, _result, _entry), do: socket
 
-  defp result_duplicate?(result), do: Map.get(result, :duplicate, false)
-
   # Said by what happened: a duplicate hands back an earlier row, so its type
-  # is that row's; a new upload's type is its bytes'.
-  defp unpickable_upload_reason(socket, uuid, duplicate?) do
-    only = socket.assigns[:only_file_type]
+  # is that row's; a new upload's type is its bytes'. Either way the result
+  # carries the stored row's type (`build_upload_result/6`), so no re-read.
+  defp unpickable_upload_reason(only, result) do
+    duplicate? = Map.get(result, :duplicate, false)
 
-    case Storage.get_file(uuid) do
+    case result do
       %{file_type: type} when is_binary(only) and type != only and duplicate? ->
         gettext(
           "This file is already stored as another kind of file, so it cannot be picked here."

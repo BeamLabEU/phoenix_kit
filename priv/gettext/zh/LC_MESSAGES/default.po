@@ -57,7 +57,7 @@ msgstr "系统信息"
 #: lib/phoenix_kit_web/live/users/relationship_types.ex:22
 #: lib/phoenix_kit_web/live/users/roles.html.heex:127
 #: lib/phoenix_kit_web/live/users/roles.html.heex:198
-#: lib/phoenix_kit_web/live/users/user_details.ex:118
+#: lib/phoenix_kit_web/live/users/user_details.ex:119
 #: lib/phoenix_kit_web/live/users/users.ex:118
 #: lib/phoenix_kit_web/users/user_form.ex:93
 #, elixir-autogen
@@ -88,8 +88,8 @@ msgstr "角色管理"
 
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:185
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:144
-#: lib/phoenix_kit_web/components/profile_settings_tabs.ex:340
-#: lib/phoenix_kit_web/live/settings/authorization.ex:87
+#: lib/phoenix_kit_web/components/profile_settings_tabs.ex:351
+#: lib/phoenix_kit_web/live/settings/authorization.ex:88
 #: lib/phoenix_kit_web/live/settings/users.ex:100
 #: lib/phoenix_kit_web/live/settings/users.ex:480
 #, elixir-autogen
@@ -124,7 +124,7 @@ msgstr "创建新账户"
 
 #: lib/phoenix_kit/notifications/channels/email.ex:35
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:200
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2584
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2600
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:233
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:700
 #: lib/phoenix_kit_web/live/users/users.html.heex:328
@@ -196,7 +196,7 @@ msgstr "已注册账户"
 
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:275
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:280
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1767
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1768
 #: lib/phoenix_kit_web/live/users/sessions.html.heex:18
 #, elixir-autogen
 msgid "Active Sessions"
@@ -451,7 +451,7 @@ msgstr "%{language}（草稿）"
 msgid "%{language} (Published)"
 msgstr "%{language}（已发布）"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:507
+#: lib/phoenix_kit_web/live/components/user_settings.ex:508
 #, elixir-autogen, elixir-format
 msgid "%{provider} account disconnected successfully"
 msgstr "%{provider} 账户已成功断开连接"
@@ -471,7 +471,7 @@ msgstr "（可选）"
 msgid "123 Business Street"
 msgstr "商业街 123 号"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:352
+#: lib/phoenix_kit_web/live/components/user_settings.ex:353
 #, elixir-autogen, elixir-format
 msgid "A link to confirm your email change has been sent to the new address."
 msgstr "确认更改邮箱的链接已发送到新地址。"
@@ -508,10 +508,10 @@ msgstr "账户信息"
 #: lib/modules/storage/web/settings.html.heex:157
 #: lib/phoenix_kit_web/components/media_gallery.html.heex:66
 #: lib/phoenix_kit_web/live/components/library_activity.ex:476
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1267
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1353
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1457
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1527
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1283
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1369
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1473
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1543
 #: lib/phoenix_kit_web/live/components/personal_api_keys.ex:783
 #: lib/phoenix_kit_web/live/components/personal_api_keys.ex:853
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:285
@@ -539,7 +539,7 @@ msgid "Actions"
 msgstr "操作"
 
 #: lib/phoenix_kit_web/components/media_gallery.html.heex:104
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2597
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2613
 #: lib/phoenix_kit_web/live/components/organization_people.ex:341
 #: lib/phoenix_kit_web/live/components/person_organizations.ex:331
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:665
@@ -676,8 +676,8 @@ msgstr "项目符号列表"
 #: lib/phoenix_kit_web/live/components/avatar_editor.ex:433
 #: lib/phoenix_kit_web/live/components/library_activity.ex:291
 #: lib/phoenix_kit_web/live/components/library_activity.ex:457
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1805
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2251
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1821
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2267
 #: lib/phoenix_kit_web/live/components/media_selector_modal.html.heex:66
 #: lib/phoenix_kit_web/live/components/organization_managers.ex:868
 #: lib/phoenix_kit_web/live/components/organization_people.ex:281
@@ -692,11 +692,11 @@ msgstr "项目符号列表"
 #: lib/phoenix_kit_web/live/components/personal_api_keys.ex:1197
 #: lib/phoenix_kit_web/live/components/personal_api_keys.ex:1257
 #: lib/phoenix_kit_web/live/components/personal_api_keys.ex:1287
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1363
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1439
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1686
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1364
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1440
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1687
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:170
-#: lib/phoenix_kit_web/live/notifications/settings.ex:437
+#: lib/phoenix_kit_web/live/notifications/settings.ex:440
 #: lib/phoenix_kit_web/live/settings/api.html.heex:923
 #: lib/phoenix_kit_web/live/settings/api.html.heex:1096
 #: lib/phoenix_kit_web/live/settings/api.html.heex:1149
@@ -728,22 +728,22 @@ msgstr "取消"
 msgid "Cannot delete role: it is currently assigned to users"
 msgstr "无法删除角色：该角色当前已分配给用户"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:437
+#: lib/phoenix_kit_web/live/users/user_details.ex:438
 #, elixir-autogen, elixir-format
 msgid "Cannot delete the last system owner"
 msgstr "无法删除最后一位系统所有者"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:420
+#: lib/phoenix_kit_web/live/users/user_details.ex:421
 #, elixir-autogen, elixir-format
 msgid "Cannot delete your own account"
 msgstr "无法删除您自己的账户"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:541
+#: lib/phoenix_kit_web/live/components/user_settings.ex:542
 #, elixir-autogen, elixir-format
 msgid "Cannot disconnect %{provider}. Please ensure you have at least one sign-in method available."
 msgstr "无法断开 %{provider}。请确保您至少保留一种可用的登录方式。"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:536
+#: lib/phoenix_kit_web/live/components/user_settings.ex:537
 #, elixir-autogen, elixir-format
 msgid "Cannot disconnect %{provider}. This is your only sign-in method. Please set a password or connect another provider first."
 msgstr "无法断开 %{provider}。这是您唯一的登录方式。请先设置密码或连接其他提供商。"
@@ -777,8 +777,8 @@ msgstr "点击任意对勾或叉号图标即可切换该角色的权限。所有
 #: lib/phoenix_kit_web/components/media_viewer.html.heex:36
 #: lib/phoenix_kit_web/legal_gettext_manifest.ex:50
 #: lib/phoenix_kit_web/live/components/library_activity.ex:584
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1605
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1768
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1621
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1784
 #: lib/phoenix_kit_web/live/modules/jobs/index.html.heex:567
 #: lib/phoenix_kit_web/live/modules/jobs/index.html.heex:668
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:271
@@ -823,14 +823,14 @@ msgstr "配置"
 #: lib/phoenix_kit_web/components/core/modal.ex:343
 #: lib/phoenix_kit_web/components/media_browser/browser.html.heex:697
 #: lib/phoenix_kit_web/live/components/media_selector_modal.html.heex:75
-#: lib/phoenix_kit_web/live/users/user_details.ex:367
+#: lib/phoenix_kit_web/live/users/user_details.ex:368
 #: lib/phoenix_kit_web/live/users/users.ex:405
 #, elixir-autogen, elixir-format
 msgid "Confirm"
 msgstr "确认"
 
 #: lib/phoenix_kit_web/live/settings/integrations.ex:64
-#: lib/phoenix_kit_web/live/users/user_details.ex:178
+#: lib/phoenix_kit_web/live/users/user_details.ex:179
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:478
 #, elixir-autogen, elixir-format
 msgid "Connections"
@@ -877,7 +877,7 @@ msgstr "Cookie 偏好设置"
 msgid "Core Sections"
 msgstr "核心板块"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1161
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1162
 #: lib/phoenix_kit_web/live/settings/organization.html.heex:53
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:254
 #: lib/phoenix_kit_web/users/user_form.html.heex:216
@@ -1138,7 +1138,7 @@ msgstr "输入角色名称（例如：经理、编辑）"
 msgid "Error"
 msgstr "错误"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:543
+#: lib/phoenix_kit_web/live/users/user_details.ex:544
 #, elixir-autogen, elixir-format
 msgid "Failed to delete note"
 msgstr "删除备注失败"
@@ -1148,12 +1148,12 @@ msgstr "删除备注失败"
 msgid "Failed to delete role"
 msgstr "删除角色失败"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:451
+#: lib/phoenix_kit_web/live/users/user_details.ex:452
 #, elixir-autogen, elixir-format
 msgid "Failed to delete user"
 msgstr "删除用户失败"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:527
+#: lib/phoenix_kit_web/live/components/user_settings.ex:528
 #, elixir-autogen, elixir-format
 msgid "Failed to disconnect provider. Please try again."
 msgstr "断开提供商连接失败，请重试。"
@@ -1235,7 +1235,7 @@ msgstr "功能模块"
 msgid "Files"
 msgstr "文件"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1087
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1088
 #: lib/phoenix_kit_web/users/magic_link_registration.html.heex:82
 #: lib/phoenix_kit_web/users/user_form.html.heex:186
 #, elixir-autogen, elixir-format
@@ -1356,7 +1356,7 @@ msgstr "斜体"
 msgid "Keep me logged in"
 msgstr "保持登录状态"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1092
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1093
 #: lib/phoenix_kit_web/users/magic_link_registration.html.heex:98
 #: lib/phoenix_kit_web/users/user_form.html.heex:196
 #, elixir-autogen, elixir-format
@@ -1445,8 +1445,8 @@ msgstr "初次使用 %{project_title}？"
 
 #: lib/phoenix_kit_web/live/settings/users.html.heex:556
 #: lib/phoenix_kit_web/live/settings/users.html.heex:632
-#: lib/phoenix_kit_web/live/users/user_details.ex:976
 #: lib/phoenix_kit_web/live/users/user_details.ex:977
+#: lib/phoenix_kit_web/live/users/user_details.ex:978
 #: lib/phoenix_kit_web/live/users/users.ex:1029
 #: lib/phoenix_kit_web/live/users/users.ex:1319
 #: lib/phoenix_kit_web/live/users/users.ex:1321
@@ -1511,22 +1511,22 @@ msgstr "未配置"
 msgid "Not confirmed"
 msgstr "未确认"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:470
+#: lib/phoenix_kit_web/live/users/user_details.ex:471
 #, elixir-autogen, elixir-format
 msgid "Note added successfully"
 msgstr "备注添加成功"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:540
+#: lib/phoenix_kit_web/live/users/user_details.ex:541
 #, elixir-autogen, elixir-format
 msgid "Note deleted successfully"
 msgstr "备注删除成功"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:516
+#: lib/phoenix_kit_web/live/users/user_details.ex:517
 #, elixir-autogen, elixir-format
 msgid "Note updated successfully"
 msgstr "备注更新成功"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:183
+#: lib/phoenix_kit_web/live/users/user_details.ex:184
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:553
 #, elixir-autogen, elixir-format
 msgid "Notes"
@@ -1551,9 +1551,9 @@ msgstr "只有所有者可以编辑管理员权限"
 #: lib/modules/storage/web/libraries_component.ex:632
 #: lib/phoenix_kit_web/components/core/preview_card.ex:305
 #: lib/phoenix_kit_web/components/core/preview_card.ex:339
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1357
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1461
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1532
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1373
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1477
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1548
 #: lib/phoenix_kit_web/live/users/libraries.html.heex:127
 #, elixir-autogen, elixir-format
 msgid "Open"
@@ -1610,7 +1610,7 @@ msgstr "页面发布成功"
 
 #: lib/phoenix_kit/integrations/providers.ex:1335
 #: lib/phoenix_kit_web/components/account_menu.ex:331
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1427
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1428
 #: lib/phoenix_kit_web/live/settings/users.ex:477
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:69
 #: lib/phoenix_kit_web/users/login.html.heex:39
@@ -1621,7 +1621,7 @@ msgstr "页面发布成功"
 msgid "Password"
 msgstr "密码"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:405
+#: lib/phoenix_kit_web/live/components/user_settings.ex:406
 #, elixir-autogen, elixir-format
 msgid "Password changed successfully."
 msgstr "密码修改成功。"
@@ -1674,7 +1674,7 @@ msgstr "邮政编码"
 #: lib/modules/storage/web/profiles_component.ex:277
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:129
 #: lib/phoenix_kit_web/components/language_switcher.ex:432
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1664
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1680
 #: lib/phoenix_kit_web/live/settings/organization.html.heex:359
 #, elixir-autogen, elixir-format
 msgid "Primary"
@@ -1690,12 +1690,12 @@ msgstr "主要语言：%{lang}"
 msgid "Privacy Preferences"
 msgstr "隐私偏好"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:175
+#: lib/phoenix_kit_web/live/users/user_details.ex:176
 #, elixir-autogen, elixir-format
 msgid "Profile"
 msgstr "个人资料"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:463
+#: lib/phoenix_kit_web/live/components/user_settings.ex:464
 #, elixir-autogen, elixir-format
 msgid "Profile updated successfully"
 msgstr "个人资料更新成功"
@@ -1712,7 +1712,7 @@ msgstr "受保护"
 msgid "Protected core roles"
 msgstr "受保护的核心角色"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:517
+#: lib/phoenix_kit_web/live/components/user_settings.ex:518
 #, elixir-autogen, elixir-format
 msgid "Provider not found"
 msgstr "未找到提供商"
@@ -1764,8 +1764,8 @@ msgstr "全部拒绝"
 #: lib/phoenix_kit_web/components/core/column_settings.ex:143
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:213
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:261
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2393
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2562
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2409
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2578
 #: lib/phoenix_kit_web/live/components/organization_managers.ex:697
 #: lib/phoenix_kit_web/live/components/organization_people.ex:293
 #: lib/phoenix_kit_web/live/components/passkeys.ex:337
@@ -1811,8 +1811,8 @@ msgstr "已从 %{role_name} 撤销 %{label}"
 #: lib/modules/storage/web/profiles_component.ex:719
 #: lib/phoenix_kit_web/components/core/role_switcher.ex:128
 #: lib/phoenix_kit_web/live/activity/index.html.heex:59
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2542
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2592
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2558
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2608
 #: lib/phoenix_kit_web/live/users/roles.html.heex:195
 #: lib/phoenix_kit_web/live/users/users.html.heex:193
 #, elixir-autogen, elixir-format
@@ -1862,7 +1862,7 @@ msgstr "角色已不存在"
 
 #: lib/phoenix_kit_web/live/users/permissions_matrix.ex:104
 #: lib/phoenix_kit_web/live/users/roles.ex:285
-#: lib/phoenix_kit_web/live/users/user_details.ex:806
+#: lib/phoenix_kit_web/live/users/user_details.ex:807
 #: lib/phoenix_kit_web/live/users/users.ex:797
 #, elixir-autogen, elixir-format
 msgid "Role not found"
@@ -1890,13 +1890,13 @@ msgstr "SWIFT/BIC"
 #: lib/phoenix_kit_web/components/core/save_button.ex:58
 #: lib/phoenix_kit_web/components/image_editor.ex:974
 #: lib/phoenix_kit_web/components/media_browser/grid_view.html.heex:74
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:777
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:789
 #: lib/phoenix_kit_web/live/components/organization_managers.ex:365
 #: lib/phoenix_kit_web/live/components/organization_managers.ex:763
 #: lib/phoenix_kit_web/live/components/passkeys.ex:287
 #: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:437
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1652
-#: lib/phoenix_kit_web/live/notifications/settings.ex:439
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1653
+#: lib/phoenix_kit_web/live/notifications/settings.ex:442
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:256
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:306
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:356
@@ -1934,7 +1934,7 @@ msgstr "保存偏好设置"
 #: lib/phoenix_kit_web/components/core/markdown_editor.ex:340
 #: lib/phoenix_kit_web/components/core/markdown_editor.ex:424
 #: lib/phoenix_kit_web/components/core/save_button.ex:64
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:779
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:791
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:378
 #: lib/phoenix_kit_web/live/settings/integration_form.ex:729
 #, elixir-autogen, elixir-format
@@ -1974,12 +1974,12 @@ msgstr "选择此角色可以访问的板块和模块。您只能授予您自己
 #: lib/phoenix_kit_web/components/admin_nav.ex:270
 #: lib/phoenix_kit_web/components/layouts/root.html.heex:94
 #: lib/phoenix_kit_web/components/user_dashboard_nav.ex:176
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1372
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1470
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1388
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1486
 #: lib/phoenix_kit_web/live/modules/languages.ex:54
 #: lib/phoenix_kit_web/live/settings.ex:69
 #: lib/phoenix_kit_web/live/settings/api.ex:160
-#: lib/phoenix_kit_web/live/settings/authorization.ex:58
+#: lib/phoenix_kit_web/live/settings/authorization.ex:59
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:669
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:676
 #: lib/phoenix_kit_web/live/settings/crawlers.ex:45
@@ -2129,8 +2129,8 @@ msgstr "税号"
 msgid "This action cannot be undone."
 msgstr "此操作无法撤销。"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:638
-#: lib/phoenix_kit_web/live/users/user_details.ex:656
+#: lib/phoenix_kit_web/live/users/user_details.ex:639
+#: lib/phoenix_kit_web/live/users/user_details.ex:657
 #, elixir-autogen, elixir-format
 msgid "This user has been deleted"
 msgstr "此用户已被删除"
@@ -2225,13 +2225,13 @@ msgstr "用于法律文件和发票"
 msgid "Used in legal documents and sitemap generation"
 msgstr "用于法律文件和站点地图生成"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:413
+#: lib/phoenix_kit_web/live/users/user_details.ex:414
 #: lib/phoenix_kit_web/live/users/users.ex:1434
 #, elixir-autogen, elixir-format
 msgid "User deleted successfully"
 msgstr "用户删除成功"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:53
+#: lib/phoenix_kit_web/live/users/user_details.ex:54
 #, elixir-autogen, elixir-format
 msgid "User not found"
 msgstr "未找到用户"
@@ -2243,7 +2243,7 @@ msgstr "用户自定义角色"
 
 #: lib/phoenix_kit/integrations/providers.ex:1323
 #: lib/phoenix_kit/users/table_columns.ex:320
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1099
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1100
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:251
 #: lib/phoenix_kit_web/users/magic_link_registration.html.heex:30
 #: lib/phoenix_kit_web/users/registration.html.heex:76
@@ -2295,8 +2295,8 @@ msgstr "撰写关于此用户的备注…"
 
 #: lib/phoenix_kit_web/live/settings/users.html.heex:556
 #: lib/phoenix_kit_web/live/settings/users.html.heex:630
-#: lib/phoenix_kit_web/live/users/user_details.ex:974
 #: lib/phoenix_kit_web/live/users/user_details.ex:975
+#: lib/phoenix_kit_web/live/users/user_details.ex:976
 #: lib/phoenix_kit_web/live/users/users.ex:1029
 #: lib/phoenix_kit_web/live/users/users.ex:1318
 #: lib/phoenix_kit_web/live/users/users.ex:1320
@@ -2360,7 +2360,7 @@ msgstr "已编辑"
 msgid "users"
 msgstr "用户"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:344
+#: lib/phoenix_kit_web/live/users/user_details.ex:345
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:170
 #: lib/phoenix_kit_web/live/users/users.ex:382
 #: lib/phoenix_kit_web/live/users/users.html.heex:887
@@ -2381,7 +2381,7 @@ msgstr "所有类型"
 msgid "Apply"
 msgstr "应用"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:344
+#: lib/phoenix_kit_web/live/users/user_details.ex:345
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:170
 #: lib/phoenix_kit_web/live/users/users.ex:382
 #: lib/phoenix_kit_web/live/users/users.html.heex:886
@@ -2523,7 +2523,7 @@ msgstr "大小"
 #: lib/phoenix_kit_web/live/activity/index.html.heex:384
 #: lib/phoenix_kit_web/live/activity/index.html.heex:406
 #: lib/phoenix_kit_web/live/activity/show.html.heex:83
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1514
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1530
 #: lib/phoenix_kit_web/live/users/roles.html.heex:125
 #: lib/phoenix_kit_web/live/users/roles.html.heex:150
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:899
@@ -2533,7 +2533,7 @@ msgstr "大小"
 msgid "System"
 msgstr "系统"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:367
+#: lib/phoenix_kit_web/live/users/user_details.ex:368
 #: lib/phoenix_kit_web/live/users/users.ex:405
 #, elixir-autogen, elixir-format
 msgid "Unconfirm"
@@ -2691,7 +2691,7 @@ msgstr "正在应用…"
 msgid "At least one option is required for %{type} fields"
 msgstr "%{type} 字段至少需要一个选项"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:86
+#: lib/phoenix_kit_web/live/settings/authorization.ex:87
 #, elixir-autogen, elixir-format
 msgid "Authentication Methods"
 msgstr "认证方式"
@@ -2737,7 +2737,7 @@ msgid "CSS color or gradient for auth page background. Ignored if a background i
 msgstr "认证页面背景的 CSS 颜色或渐变。设置了背景图片时将被忽略。"
 
 #: lib/phoenix_kit_web/components/core/oauth_utils.ex:22
-#: lib/phoenix_kit_web/live/settings/authorization.ex:403
+#: lib/phoenix_kit_web/live/settings/authorization.ex:404
 #, elixir-autogen, elixir-format
 msgid "Callback URL"
 msgstr "回调 URL"
@@ -2827,7 +2827,7 @@ msgid "Copy this URL to Google Cloud Console"
 msgstr "将此 URL 复制到 Google Cloud Console"
 
 #: lib/phoenix_kit_web/components/core/oauth_utils.ex:31
-#: lib/phoenix_kit_web/live/settings/authorization.ex:413
+#: lib/phoenix_kit_web/live/settings/authorization.ex:414
 #, elixir-autogen, elixir-format
 msgid "Copy to clipboard"
 msgstr "复制到剪贴板"
@@ -3009,7 +3009,7 @@ msgstr "日期的显示方式"
 msgid "How times are displayed"
 msgstr "时间的显示方式"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:438
+#: lib/phoenix_kit_web/live/settings/authorization.ex:439
 #, elixir-autogen, elixir-format
 msgid "If behind nginx/apache, ensure"
 msgstr "如果位于 nginx/apache 之后，请确保"
@@ -3048,7 +3048,7 @@ msgstr "法律"
 msgid "Local Filesystem"
 msgstr "本地文件系统"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:85
+#: lib/phoenix_kit_web/live/settings/authorization.ex:86
 #, elixir-autogen, elixir-format
 msgid "Login Page Branding"
 msgstr "登录页品牌"
@@ -3068,7 +3068,7 @@ msgstr "魔法链接"
 msgid "Maintain Aspect Ratio"
 msgstr "保持宽高比"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:56
+#: lib/phoenix_kit_web/live/settings/authorization.ex:57
 #, elixir-autogen, elixir-format
 msgid "Manage login page branding and authentication methods"
 msgstr "管理登录页品牌和认证方式"
@@ -3089,9 +3089,9 @@ msgstr "管理用户注册、默认值和自定义字段"
 #: lib/modules/storage/web/settings.html.heex:144
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:135
 #: lib/phoenix_kit_web/components/media_browser/list_view.html.heex:17
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1264
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1797
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2012
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1280
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1813
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2028
 #: lib/phoenix_kit_web/live/components/personal_api_keys.ex:678
 #: lib/phoenix_kit_web/live/components/personal_api_keys.ex:777
 #: lib/phoenix_kit_web/live/components/personal_api_keys.ex:967
@@ -3263,7 +3263,7 @@ msgstr "重置为默认值"
 msgid "Resolution"
 msgstr "分辨率"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:436
+#: lib/phoenix_kit_web/live/settings/authorization.ex:437
 #, elixir-autogen, elixir-format
 msgid "Reverse Proxy Users:"
 msgstr "反向代理用户："
@@ -3322,7 +3322,7 @@ msgstr "安全提示：默认状态为未激活"
 
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:985
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:987
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:538
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:550
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:491
 #, elixir-autogen, elixir-format
 msgid "Select"
@@ -3343,7 +3343,7 @@ msgid "Session actions"
 msgstr "会话操作"
 
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:496
-#: lib/phoenix_kit_web/live/settings/authorization.ex:391
+#: lib/phoenix_kit_web/live/settings/authorization.ex:392
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:468
 #, elixir-autogen, elixir-format
 msgid "Setup Instructions"
@@ -3583,7 +3583,7 @@ msgstr "例如：thumbnail、medium、720p"
 msgid "files"
 msgstr "文件"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:442
+#: lib/phoenix_kit_web/live/settings/authorization.ex:443
 #, elixir-autogen, elixir-format
 msgid "header is set to"
 msgstr "标头设置为"
@@ -3757,13 +3757,13 @@ msgstr "接受"
 
 #: lib/phoenix_kit/notifications/types.ex:231
 #: lib/phoenix_kit/users/table_columns.ex:314
-#: lib/phoenix_kit_web/components/profile_settings_tabs.ex:338
+#: lib/phoenix_kit_web/components/profile_settings_tabs.ex:349
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:249
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:283
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:93
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:141
 #: lib/phoenix_kit_web/live/users/sessions.html.heex:96
-#: lib/phoenix_kit_web/live/users/user_details.ex:176
+#: lib/phoenix_kit_web/live/users/user_details.ex:177
 #, elixir-autogen, elixir-format
 msgid "Account"
 msgstr "账户"
@@ -4088,7 +4088,7 @@ msgstr "计费和商店模块通用的默认税率"
 
 #: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:376
 #: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:410
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1566
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1567
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:551
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:230
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:275
@@ -4188,13 +4188,13 @@ msgstr "连接失败，请重试。"
 msgid "Failed to decline invitation. Please try again."
 msgstr "拒绝邀请失败，请重试。"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:571
+#: lib/phoenix_kit_web/live/users/user_details.ex:572
 #: lib/phoenix_kit_web/users/user_form.ex:410
 #, elixir-autogen, elixir-format
 msgid "Failed to remove member"
 msgstr "移除成员失败"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:736
+#: lib/phoenix_kit_web/live/components/user_settings.ex:737
 #, elixir-autogen, elixir-format
 msgid "Failed to save notification preferences."
 msgstr "保存通知偏好设置失败。"
@@ -4314,8 +4314,8 @@ msgid "Integration deleted"
 msgstr "集成已删除"
 
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:486
-#: lib/phoenix_kit_web/components/profile_settings_tabs.ex:342
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1900
+#: lib/phoenix_kit_web/components/profile_settings_tabs.ex:353
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1901
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:10
 #: lib/phoenix_kit_web/live/settings/integrations.ex:37
 #: lib/phoenix_kit_web/live/users/permissions_matrix.html.heex:86
@@ -4591,7 +4591,7 @@ msgstr "媒体统计"
 msgid "Member added to organization"
 msgstr "成员已添加到组织"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:568
+#: lib/phoenix_kit_web/live/users/user_details.ex:569
 #: lib/phoenix_kit_web/users/user_form.ex:405
 #, elixir-autogen, elixir-format
 msgid "Member removed from organization"
@@ -4601,10 +4601,10 @@ msgstr "成员已从组织中移除"
 #: lib/phoenix_kit_web/live/components/library_preferences.ex:69
 #: lib/phoenix_kit_web/live/components/library_preferences.ex:363
 #: lib/phoenix_kit_web/live/components/library_preferences.ex:365
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1396
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1479
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1412
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1495
 #: lib/phoenix_kit_web/live/users/libraries.html.heex:103
-#: lib/phoenix_kit_web/live/users/user_details.ex:198
+#: lib/phoenix_kit_web/live/users/user_details.ex:199
 #, elixir-autogen, elixir-format
 msgid "Members"
 msgstr "成员"
@@ -4693,14 +4693,14 @@ msgstr "未连接"
 msgid "Not tested"
 msgstr "未测试"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:729
+#: lib/phoenix_kit_web/live/components/user_settings.ex:730
 #: lib/phoenix_kit_web/live/notifications/settings.ex:66
 #, elixir-autogen, elixir-format
 msgid "Notification preferences saved."
 msgstr "通知偏好设置已保存。"
 
-#: lib/phoenix_kit_web/components/profile_settings_tabs.ex:341
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1673
+#: lib/phoenix_kit_web/components/profile_settings_tabs.ex:352
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1674
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:774
 #: lib/phoenix_kit_web/live/notifications_bell.ex:119
 #: lib/phoenix_kit_web/live/notifications_bell.ex:135
@@ -4748,7 +4748,7 @@ msgstr "组织"
 msgid "Organization Members"
 msgstr "组织成员"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1079
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1080
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:218
 #: lib/phoenix_kit_web/users/magic_link_registration.html.heex:64
 #: lib/phoenix_kit_web/users/registration.html.heex:155
@@ -4776,7 +4776,7 @@ msgstr "基于动态的每用户收件箱"
 msgid "Personal"
 msgstr "个人"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1712
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1713
 #, elixir-autogen, elixir-format
 msgid "Pick which notification types you want to receive. Unchecked types are muted — activities still record in the audit log but no bell notification is created for you."
 msgstr "选择您想接收的通知类型。未选中的类型将被静音，相关动态仍会记录到审计日志，但不会为您创建铃铛通知。"
@@ -4839,7 +4839,7 @@ msgstr "保存存储桶"
 msgid "Save Tax Settings"
 msgstr "保存税务设置"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1742
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1743
 #: lib/phoenix_kit_web/live/notifications/settings.ex:351
 #, elixir-autogen, elixir-format
 msgid "Save preferences"
@@ -4950,7 +4950,7 @@ msgid "Test failed"
 msgstr "测试失败"
 
 #: lib/modules/storage/web/bucket_form.html.heex:358
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2231
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2247
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:760
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:220
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:324
@@ -5462,9 +5462,9 @@ msgstr "正文已保存"
 #: lib/phoenix_kit/notifications/types.ex:272
 #: lib/phoenix_kit/notifications/types.ex:295
 #: lib/phoenix_kit/users/auth.ex:3545
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:972
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:984
 #: lib/phoenix_kit_web/live/modules.ex:200
-#: lib/phoenix_kit_web/live/users/user_details.ex:186
+#: lib/phoenix_kit_web/live/users/user_details.ex:187
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:642
 #, elixir-autogen, elixir-format
 msgid "Comments"
@@ -5617,7 +5617,7 @@ msgstr "需要"
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:266
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:518
 #: lib/phoenix_kit/users/permissions.ex:747
-#: lib/phoenix_kit_web/components/profile_settings_tabs.ex:344
+#: lib/phoenix_kit_web/components/profile_settings_tabs.ex:355
 #: lib/phoenix_kit_web/live/users/media.ex:65
 #: lib/phoenix_kit_web/live/users/media.ex:66
 #: lib/phoenix_kit_web/live/users/media.ex:230
@@ -5772,8 +5772,8 @@ msgid "Enable and Configure Languages"
 msgstr "启用并配置语言"
 
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:341
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1854
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1932
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1870
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1948
 #: lib/phoenix_kit_web/live/modules/languages.html.heex:147
 #, elixir-autogen
 msgid "Done"
@@ -5790,7 +5790,7 @@ msgstr "重新排序"
 #: lib/modules/storage/web/library_page.html.heex:20
 #: lib/modules/storage/web/profiles_component.ex:624
 #: lib/phoenix_kit_web/live/components/library_preferences.ex:34
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1286
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1302
 #: lib/phoenix_kit_web/live/modules/languages.html.heex:154
 #: lib/phoenix_kit_web/live/modules/languages.html.heex:326
 #: lib/phoenix_kit_web/live/users/libraries.html.heex:85
@@ -6059,7 +6059,7 @@ msgid "48 hours"
 msgstr "48 小时"
 
 #: lib/modules/sitemap/web/settings.html.heex:605
-#: lib/phoenix_kit_web/live/notifications/settings.ex:449
+#: lib/phoenix_kit_web/live/notifications/settings.ex:452
 #, elixir-autogen
 msgid "Weekly"
 msgstr "每周"
@@ -6104,14 +6104,14 @@ msgstr "站点地图源"
 msgid "Open in Browser"
 msgstr "在浏览器中打开"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:5115
+#: lib/phoenix_kit_web/components/media_browser.ex:5155
 #, elixir-autogen, elixir-format
 msgid "%{count} file permanently deleted"
 msgid_plural "%{count} files permanently deleted"
 msgstr[0] "已永久删除 %{count} 个文件"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:4682
-#: lib/phoenix_kit_web/components/media_browser.ex:5928
+#: lib/phoenix_kit_web/components/media_browser.ex:4722
+#: lib/phoenix_kit_web/components/media_browser.ex:5968
 #, elixir-autogen, elixir-format
 msgid "%{count} item moved"
 msgid_plural "%{count} items moved"
@@ -6146,35 +6146,35 @@ msgstr "所有文件"
 msgid "All file types supported"
 msgstr "支持所有文件类型"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7246
+#: lib/phoenix_kit_web/components/media_browser.ex:7317
 #, elixir-autogen, elixir-format
 msgid "Already have %{count} duplicate file. No new files were added."
 msgid_plural "Already have %{count} duplicate files. No new files were added."
 msgstr[0] "已有 %{count} 个重复文件，未添加新文件。"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:4188
+#: lib/phoenix_kit_web/components/media_browser.ex:4228
 #, elixir-autogen, elixir-format
 msgid "Cannot change folder outside the allowed scope"
 msgstr "无法更改允许范围之外的文件夹"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3308
+#: lib/phoenix_kit_web/components/media_browser.ex:3348
 #, elixir-autogen, elixir-format
 msgid "Cannot create folder outside the allowed scope"
 msgstr "无法在允许范围之外创建文件夹"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3365
+#: lib/phoenix_kit_web/components/media_browser.ex:3405
 #, elixir-autogen, elixir-format
 msgid "Cannot delete folder outside the allowed scope"
 msgstr "无法删除允许范围之外的文件夹"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3470
-#: lib/phoenix_kit_web/components/media_browser.ex:3544
-#: lib/phoenix_kit_web/components/media_browser.ex:5891
+#: lib/phoenix_kit_web/components/media_browser.ex:3510
+#: lib/phoenix_kit_web/components/media_browser.ex:3584
+#: lib/phoenix_kit_web/components/media_browser.ex:5931
 #, elixir-autogen, elixir-format
 msgid "Cannot move file outside the allowed scope"
 msgstr "无法移动允许范围之外的文件"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3911
+#: lib/phoenix_kit_web/components/media_browser.ex:3951
 #, elixir-autogen, elixir-format
 msgid "Cannot rename folder outside the allowed scope"
 msgstr "无法重命名允许范围之外的文件夹"
@@ -6231,8 +6231,8 @@ msgstr "已删除的文件将显示在此处"
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:587
 #: lib/phoenix_kit_web/components/media_browser/helpers.ex:417
 #: lib/phoenix_kit_web/components/media_browser/list_view.html.heex:434
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:655
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:659
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:667
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:671
 #: lib/phoenix_kit_web/live/users/media_storage.html.heex:397
 #: lib/phoenix_kit_web/live/users/media_storage.html.heex:398
 #, elixir-autogen, elixir-format
@@ -6249,45 +6249,45 @@ msgstr "将文件拖放到此处，或点击“添加媒体”进行上传"
 msgid "Empty Trash"
 msgstr "清空回收站"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:4191
+#: lib/phoenix_kit_web/components/media_browser.ex:4231
 #, elixir-autogen, elixir-format
 msgid "Failed to change color"
 msgstr "更改颜色失败"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3311
+#: lib/phoenix_kit_web/components/media_browser.ex:3351
 #, elixir-autogen, elixir-format
 msgid "Failed to create folder"
 msgstr "创建文件夹失败"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3473
-#: lib/phoenix_kit_web/components/media_browser.ex:5893
-#: lib/phoenix_kit_web/components/media_browser.ex:6440
+#: lib/phoenix_kit_web/components/media_browser.ex:3513
+#: lib/phoenix_kit_web/components/media_browser.ex:5933
+#: lib/phoenix_kit_web/components/media_browser.ex:6480
 #: lib/phoenix_kit_web/components/media_gallery.ex:615
 #, elixir-autogen, elixir-format
 msgid "Failed to move file"
 msgstr "移动文件失败"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3914
+#: lib/phoenix_kit_web/components/media_browser.ex:3954
 #, elixir-autogen, elixir-format
 msgid "Failed to rename folder"
 msgstr "重命名文件夹失败"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3421
-#: lib/phoenix_kit_web/components/media_browser.ex:3466
+#: lib/phoenix_kit_web/components/media_browser.ex:3461
+#: lib/phoenix_kit_web/components/media_browser.ex:3506
 #, elixir-autogen, elixir-format
 msgid "File moved"
 msgstr "文件已移动"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:2139
+#: lib/phoenix_kit_web/components/media_browser.ex:2179
 #, elixir-autogen, elixir-format
 msgid "Folder not accessible — showing root"
 msgstr "无法访问该文件夹——显示根目录"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3396
-#: lib/phoenix_kit_web/components/media_browser.ex:3497
-#: lib/phoenix_kit_web/components/media_browser.ex:3574
-#: lib/phoenix_kit_web/components/media_browser.ex:5892
-#: lib/phoenix_kit_web/components/media_browser.ex:7650
+#: lib/phoenix_kit_web/components/media_browser.ex:3436
+#: lib/phoenix_kit_web/components/media_browser.ex:3537
+#: lib/phoenix_kit_web/components/media_browser.ex:3614
+#: lib/phoenix_kit_web/components/media_browser.ex:5932
+#: lib/phoenix_kit_web/components/media_browser.ex:7721
 #, elixir-autogen, elixir-format
 msgid "Folder not found"
 msgstr "未找到文件夹"
@@ -6303,7 +6303,7 @@ msgstr "文件夹"
 msgid "Image Missing"
 msgstr "图片缺失"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:820
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:832
 #, elixir-autogen, elixir-format
 msgid "MIME:"
 msgstr "MIME："
@@ -6319,7 +6319,7 @@ msgstr "管理用户媒体和上传"
 msgid "More actions"
 msgstr "更多操作"
 
-#: lib/phoenix_kit_web/components/core/nav_tabs.ex:274
+#: lib/phoenix_kit_web/components/core/nav_tabs.ex:273
 #, elixir-autogen, elixir-format
 msgid "More tabs"
 msgstr "更多标签页"
@@ -6361,7 +6361,7 @@ msgstr "新建文件夹"
 #: lib/phoenix_kit_web/components/core/preview_card.ex:210
 #: lib/phoenix_kit_web/components/media_browser/browser.html.heex:657
 #: lib/phoenix_kit_web/live/components/library_activity.ex:539
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1927
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1943
 #: lib/phoenix_kit_web/live/modules/jobs/index.html.heex:148
 #: lib/phoenix_kit_web/live/modules/jobs/index.html.heex:345
 #, elixir-autogen, elixir-format
@@ -6430,8 +6430,8 @@ msgstr "上一页（←）"
 #: lib/phoenix_kit_web/components/folder_explorer.ex:698
 #: lib/phoenix_kit_web/components/media_browser/grid_view.html.heex:152
 #: lib/phoenix_kit_web/components/media_browser/list_view.html.heex:248
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1380
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1813
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1396
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1829
 #: lib/phoenix_kit_web/live/components/passkeys.ex:328
 #, elixir-autogen, elixir-format
 msgid "Rename"
@@ -6466,7 +6466,7 @@ msgstr "显示文件夹"
 msgid "Show image %{number}"
 msgstr "显示图片 %{number}"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:824
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:836
 #, elixir-autogen, elixir-format
 msgid "Size:"
 msgstr "大小："
@@ -6483,8 +6483,8 @@ msgstr "此文件夹为空。"
 
 #: lib/phoenix_kit_web/components/folder_explorer.ex:376
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:395
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1423
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1558
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1439
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1574
 #, elixir-autogen, elixir-format
 msgid "Trash"
 msgstr "回收站"
@@ -6498,7 +6498,7 @@ msgstr "回收站为空。"
 #: lib/phoenix_kit_web/components/core/event_timeline_item.ex:210
 #: lib/phoenix_kit_web/components/core/event_timeline_item.ex:228
 #: lib/phoenix_kit_web/components/core/event_timeline_item.ex:279
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:814
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:826
 #, elixir-autogen, elixir-format
 msgid "Type:"
 msgstr "类型："
@@ -6513,34 +6513,34 @@ msgstr "上传媒体"
 msgid "Upload Media Files"
 msgstr "上传媒体文件"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7227
+#: lib/phoenix_kit_web/components/media_browser.ex:7298
 #: lib/phoenix_kit_web/live/components/media_selector_modal.ex:652
 #, elixir-autogen, elixir-format
 msgid "Upload failed: No storage buckets configured. Please configure at least one storage bucket before uploading files."
 msgstr "上传失败：未配置存储桶。上传文件前，请至少配置一个存储桶。"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7213
+#: lib/phoenix_kit_web/components/media_browser.ex:7284
 #, elixir-autogen, elixir-format
 msgid "Upload processed"
 msgstr "上传已处理"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7255
+#: lib/phoenix_kit_web/components/media_browser.ex:7326
 #, elixir-autogen, elixir-format
 msgid "Upload successful! %{count} new file processed"
 msgid_plural "Upload successful! %{count} new files processed"
 msgstr[0] "上传成功！已处理 %{count} 个新文件"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:850
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:862
 #, elixir-autogen, elixir-format
 msgid "Uploaded:"
 msgstr "上传时间："
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:409
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:421
 #, elixir-autogen, elixir-format
 msgid "Your browser does not support the video tag."
 msgstr "您的浏览器不支持 video 标签。"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7234
+#: lib/phoenix_kit_web/components/media_browser.ex:7305
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:325
 #, elixir-autogen, elixir-format
 msgid "%{count} failed"
@@ -6554,20 +6554,20 @@ msgstr[0] "%{count} 个失败"
 #: lib/phoenix_kit_web/components/media_browser/helpers.ex:812
 #: lib/phoenix_kit_web/components/media_browser/removal_modal.ex:187
 #: lib/phoenix_kit_web/live/components/library_activity.ex:81
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1061
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1077
 #: lib/phoenix_kit_web/live/components/media_selector_modal.html.heex:297
 #, elixir-autogen, elixir-format
 msgid "%{count} file"
 msgid_plural "%{count} files"
 msgstr[0] "%{count} 个文件"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7233
+#: lib/phoenix_kit_web/components/media_browser.ex:7304
 #, elixir-autogen, elixir-format
 msgid "%{count} file uploaded"
 msgid_plural "%{count} files uploaded"
 msgstr[0] "已上传 %{count} 个文件"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7266
+#: lib/phoenix_kit_web/components/media_browser.ex:7337
 #, elixir-autogen, elixir-format
 msgid "%{count} file was already uploaded"
 msgid_plural "%{count} files were already uploaded"
@@ -6581,24 +6581,24 @@ msgid "%{count} folder"
 msgid_plural "%{count} folders"
 msgstr[0] "%{count} 个文件夹"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7263
+#: lib/phoenix_kit_web/components/media_browser.ex:7334
 #, elixir-autogen, elixir-format
 msgid "%{count} new file added"
 msgid_plural "%{count} new files added"
 msgstr[0] "已添加 %{count} 个新文件"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:472
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:816
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:484
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:828
 #, elixir-autogen, elixir-format
 msgid "FILE"
 msgstr "文件"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7237
+#: lib/phoenix_kit_web/components/media_browser.ex:7308
 #, elixir-autogen, elixir-format
 msgid "Partially successful: %{uploaded}, %{failed} due to missing storage buckets."
 msgstr "部分成功：%{uploaded}，%{failed}，原因是缺少存储桶。"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7273
+#: lib/phoenix_kit_web/components/media_browser.ex:7344
 #, elixir-autogen, elixir-format
 msgid "Upload successful! %{added}. %{duplicates}."
 msgstr "上传成功！%{added}。%{duplicates}。"
@@ -6824,7 +6824,7 @@ msgstr "回复"
 msgid "Are you sure you want to delete this comment?"
 msgstr "您确定要删除这条评论吗？"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:5091
+#: lib/phoenix_kit_web/components/media_browser.ex:5131
 #, elixir-autogen, elixir-format
 msgid "%{count} item restored"
 msgid_plural "%{count} items restored"
@@ -6850,24 +6850,24 @@ msgstr "附件已停用"
 msgid "Auth failed"
 msgstr "认证失败"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7694
+#: lib/phoenix_kit_web/components/media_browser.ex:7765
 #, elixir-autogen, elixir-format
 msgid "Cannot create folders in the all-files view"
 msgstr "无法在“所有文件”视图中创建文件夹"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7691
+#: lib/phoenix_kit_web/components/media_browser.ex:7762
 #, elixir-autogen, elixir-format
 msgid "Cannot create folders in trash"
 msgstr "无法在回收站中创建文件夹"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3514
+#: lib/phoenix_kit_web/components/media_browser.ex:3554
 #, elixir-autogen, elixir-format
 msgid "Cannot move a folder into its own descendant"
 msgstr "无法将文件夹移动到其自身的子级中"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3510
-#: lib/phoenix_kit_web/components/media_browser.ex:3578
-#: lib/phoenix_kit_web/components/media_browser.ex:3591
+#: lib/phoenix_kit_web/components/media_browser.ex:3550
+#: lib/phoenix_kit_web/components/media_browser.ex:3618
+#: lib/phoenix_kit_web/components/media_browser.ex:3631
 #, elixir-autogen, elixir-format
 msgid "Cannot move folder outside the allowed scope"
 msgstr "无法移动允许范围之外的文件夹"
@@ -6896,12 +6896,12 @@ msgstr "正在删除…"
 msgid "Disconnecting…"
 msgstr "正在断开连接…"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3517
+#: lib/phoenix_kit_web/components/media_browser.ex:3557
 #, elixir-autogen, elixir-format
 msgid "Failed to move folder"
 msgstr "移动文件夹失败"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3594
+#: lib/phoenix_kit_web/components/media_browser.ex:3634
 #, elixir-autogen, elixir-format
 msgid "Failed to move folder to trash"
 msgstr "将文件夹移到回收站失败"
@@ -6911,25 +6911,25 @@ msgstr "将文件夹移到回收站失败"
 msgid "File / Image"
 msgstr "文件 / 图片"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:6438
+#: lib/phoenix_kit_web/components/media_browser.ex:6478
 #, elixir-autogen, elixir-format
 msgid "File moved to trash"
 msgstr "文件已移到回收站"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:6439
+#: lib/phoenix_kit_web/components/media_browser.ex:6479
 #, elixir-autogen, elixir-format
 msgid "File removed from this folder"
 msgstr "文件已从此文件夹中移除"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3540
-#: lib/phoenix_kit_web/components/media_browser.ex:7651
+#: lib/phoenix_kit_web/components/media_browser.ex:3580
+#: lib/phoenix_kit_web/components/media_browser.ex:7722
 #: lib/phoenix_kit_web/components/media_viewer.html.heex:41
 #: lib/phoenix_kit_web/live/users/media_storage.html.heex:664
 #, elixir-autogen, elixir-format
 msgid "File not found"
 msgstr "未找到文件"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:6427
+#: lib/phoenix_kit_web/components/media_browser.ex:6467
 #, elixir-autogen, elixir-format
 msgid "File permanently deleted"
 msgstr "文件已永久删除"
@@ -6950,23 +6950,23 @@ msgstr "不允许的文件类型"
 msgid "Folder"
 msgstr "文件夹"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3304
+#: lib/phoenix_kit_web/components/media_browser.ex:3344
 #, elixir-autogen, elixir-format
 msgid "Folder \"%{name}\" created"
 msgstr "已创建文件夹“%{name}”"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3504
+#: lib/phoenix_kit_web/components/media_browser.ex:3544
 #, elixir-autogen, elixir-format
 msgid "Folder moved"
 msgstr "文件夹已移动"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3355
-#: lib/phoenix_kit_web/components/media_browser.ex:3585
+#: lib/phoenix_kit_web/components/media_browser.ex:3395
+#: lib/phoenix_kit_web/components/media_browser.ex:3625
 #, elixir-autogen, elixir-format
 msgid "Folder moved to trash"
 msgstr "文件夹已移到回收站"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3354
+#: lib/phoenix_kit_web/components/media_browser.ex:3394
 #, elixir-autogen, elixir-format
 msgid "Folder permanently deleted"
 msgstr "文件夹已永久删除"
@@ -7008,7 +7008,7 @@ msgstr "正在重定向…"
 
 #: lib/phoenix_kit_web/components/core/form_actions.ex:103
 #: lib/phoenix_kit_web/components/core/save_button.ex:56
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1811
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1827
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:729
 #: lib/phoenix_kit_web/live/notifications/settings.ex:350
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:297
@@ -7066,7 +7066,7 @@ msgstr "写下关于此标注的备注…"
 msgid "e.g. Main, Personal, My Company Drive"
 msgstr "例如：主账户、个人、我的公司云端硬盘"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7702
+#: lib/phoenix_kit_web/components/media_browser.ex:7773
 #, elixir-autogen, elixir-format
 msgid "untitled"
 msgstr "无标题"
@@ -7130,7 +7130,7 @@ msgstr "预览"
 #: lib/phoenix_kit_web/components/core/date_nav.ex:121
 #: lib/phoenix_kit_web/components/core/preview_card.ex:201
 #: lib/phoenix_kit_web/live/components/library_activity.ex:530
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1915
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1931
 #: lib/phoenix_kit_web/live/modules/jobs/index.html.heex:137
 #: lib/phoenix_kit_web/live/modules/jobs/index.html.heex:331
 #, elixir-autogen, elixir-format
@@ -7210,7 +7210,7 @@ msgstr "精选"
 msgid "Sort by"
 msgstr "排序依据"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:866
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:878
 #: lib/phoenix_kit_web/live/users/sessions.html.heex:290
 #, elixir-autogen, elixir-format
 msgid "Status:"
@@ -7310,7 +7310,7 @@ msgstr "没有收到邮件？"
 msgid "Don't have an account?"
 msgstr "还没有账户？"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1351
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1352
 #: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:56
 #, elixir-autogen, elixir-format
 msgid "Email Address"
@@ -7531,7 +7531,7 @@ msgstr[0] "%{count} 条动态"
 #: lib/phoenix_kit_web/live/activity/index.ex:54
 #: lib/phoenix_kit_web/live/activity/index.html.heex:5
 #: lib/phoenix_kit_web/live/activity/index.html.heex:315
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1209
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1225
 #, elixir-autogen, elixir-format
 msgid "Activity"
 msgstr "动态"
@@ -7641,12 +7641,12 @@ msgstr "尚未记录任何动态"
 msgid "No metadata"
 msgstr "无元数据"
 
-#: lib/phoenix_kit_web/components/profile_settings_tabs.ex:337
+#: lib/phoenix_kit_web/components/profile_settings_tabs.ex:348
 #: lib/phoenix_kit_web/live/activity/show.html.heex:52
 #: lib/phoenix_kit_web/live/components/organization_managers.ex:598
 #: lib/phoenix_kit_web/live/components/organization_managers.ex:626
 #: lib/phoenix_kit_web/live/components/organization_people.ex:240
-#: lib/phoenix_kit_web/live/users/user_details.ex:190
+#: lib/phoenix_kit_web/live/users/user_details.ex:191
 #, elixir-autogen, elixir-format
 msgid "People"
 msgstr "人员"
@@ -7683,7 +7683,7 @@ msgid "View details"
 msgstr "查看详情"
 
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:425
-#: lib/phoenix_kit_web/live/settings/authorization.ex:53
+#: lib/phoenix_kit_web/live/settings/authorization.ex:54
 #, elixir-autogen, elixir-format
 msgid "Authorization"
 msgstr "授权"
@@ -7969,19 +7969,19 @@ msgstr "匿名"
 msgid "Anonymous User"
 msgstr "匿名用户"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:342
+#: lib/phoenix_kit_web/live/users/user_details.ex:343
 #: lib/phoenix_kit_web/live/users/users.ex:380
 #, elixir-autogen, elixir-format
 msgid "Are you sure you want to activate this user?"
 msgstr "确定要激活此用户吗？"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:365
+#: lib/phoenix_kit_web/live/users/user_details.ex:366
 #: lib/phoenix_kit_web/live/users/users.ex:403
 #, elixir-autogen, elixir-format
 msgid "Are you sure you want to confirm this user's email?"
 msgstr "确定要确认此用户的邮箱吗？"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:341
+#: lib/phoenix_kit_web/live/users/user_details.ex:342
 #: lib/phoenix_kit_web/live/users/users.ex:379
 #, elixir-autogen, elixir-format
 msgid "Are you sure you want to deactivate this user?"
@@ -7998,7 +7998,7 @@ msgstr "确定要删除此字段吗？"
 msgid "Are you sure you want to revoke this session for"
 msgstr "确定要撤销此会话吗："
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:364
+#: lib/phoenix_kit_web/live/users/user_details.ex:365
 #: lib/phoenix_kit_web/live/users/users.ex:402
 #, elixir-autogen, elixir-format
 msgid "Are you sure you want to unconfirm this user's email?"
@@ -8020,7 +8020,7 @@ msgstr "自动刷新已关闭"
 msgid "Auto-refresh ON"
 msgstr "自动刷新已开启"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:726
+#: lib/phoenix_kit_web/live/users/user_details.ex:727
 #: lib/phoenix_kit_web/live/users/users.ex:528
 #, elixir-autogen, elixir-format
 msgid "Cannot deactivate the last system owner"
@@ -8031,8 +8031,8 @@ msgstr "无法停用最后一位系统所有者"
 msgid "Cannot modify your own confirmation status"
 msgstr "无法修改您自己的确认状态"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:283
-#: lib/phoenix_kit_web/live/users/user_details.ex:807
+#: lib/phoenix_kit_web/live/users/user_details.ex:284
+#: lib/phoenix_kit_web/live/users/user_details.ex:808
 #: lib/phoenix_kit_web/live/users/users.ex:242
 #: lib/phoenix_kit_web/live/users/users.ex:327
 #: lib/phoenix_kit_web/live/users/users.ex:355
@@ -8047,7 +8047,7 @@ msgstr "无法修改您自己的角色"
 msgid "Cannot modify your own status"
 msgstr "无法修改您自己的状态"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:804
+#: lib/phoenix_kit_web/live/users/user_details.ex:805
 #: lib/phoenix_kit_web/live/users/users.ex:325
 #: lib/phoenix_kit_web/live/users/users.ex:795
 #, elixir-autogen, elixir-format
@@ -8059,13 +8059,13 @@ msgstr "无法移除最后一位系统所有者"
 msgid "Clear Filters"
 msgstr "清除筛选"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:361
+#: lib/phoenix_kit_web/live/users/user_details.ex:362
 #: lib/phoenix_kit_web/live/users/users.ex:399
 #, elixir-autogen, elixir-format
 msgid "Confirm Email Status Change"
 msgstr "确认邮箱状态变更"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:338
+#: lib/phoenix_kit_web/live/users/user_details.ex:339
 #: lib/phoenix_kit_web/live/users/users.ex:376
 #, elixir-autogen, elixir-format
 msgid "Confirm Status Change"
@@ -8107,13 +8107,13 @@ msgstr "保存自定义字段失败"
 msgid "Failed to update field"
 msgstr "更新字段失败"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:775
+#: lib/phoenix_kit_web/live/users/user_details.ex:776
 #: lib/phoenix_kit_web/live/users/users.ex:580
 #, elixir-autogen, elixir-format
 msgid "Failed to update user confirmation status"
 msgstr "更新用户确认状态失败"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:808
+#: lib/phoenix_kit_web/live/users/user_details.ex:809
 #: lib/phoenix_kit_web/live/users/users.ex:799
 #, elixir-autogen, elixir-format
 msgid "Failed to update user role"
@@ -8124,7 +8124,7 @@ msgstr "更新用户角色失败"
 msgid "Failed to update user roles"
 msgstr "更新用户角色失败"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:729
+#: lib/phoenix_kit_web/live/users/user_details.ex:730
 #: lib/phoenix_kit_web/live/users/users.ex:532
 #, elixir-autogen, elixir-format
 msgid "Failed to update user status"
@@ -8231,13 +8231,13 @@ msgstr "尚无已注册的用户。"
 msgid "No users found"
 msgstr "未找到用户"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:939
+#: lib/phoenix_kit_web/live/users/user_details.ex:940
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:255
 #, elixir-autogen, elixir-format
 msgid "Not set"
 msgstr "未设置"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:805
+#: lib/phoenix_kit_web/live/users/user_details.ex:806
 #: lib/phoenix_kit_web/live/users/users.ex:326
 #: lib/phoenix_kit_web/live/users/users.ex:796
 #, elixir-autogen, elixir-format
@@ -8353,31 +8353,31 @@ msgstr "更新角色"
 msgid "User Statistics"
 msgstr "用户统计"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:707
+#: lib/phoenix_kit_web/live/users/user_details.ex:708
 #: lib/phoenix_kit_web/live/users/users.ex:516
 #, elixir-autogen, elixir-format
 msgid "User activated successfully"
 msgstr "用户已成功激活"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:708
+#: lib/phoenix_kit_web/live/users/user_details.ex:709
 #: lib/phoenix_kit_web/live/users/users.ex:517
 #, elixir-autogen, elixir-format
 msgid "User deactivated successfully"
 msgstr "用户已成功停用"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:765
+#: lib/phoenix_kit_web/live/users/user_details.ex:766
 #: lib/phoenix_kit_web/live/users/users.ex:568
 #, elixir-autogen, elixir-format
 msgid "User email confirmed successfully"
 msgstr "用户邮箱已成功确认"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:766
+#: lib/phoenix_kit_web/live/users/user_details.ex:767
 #: lib/phoenix_kit_web/live/users/users.ex:569
 #, elixir-autogen, elixir-format
 msgid "User email unconfirmed successfully"
 msgstr "用户邮箱已成功取消确认"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:316
+#: lib/phoenix_kit_web/live/users/user_details.ex:317
 #: lib/phoenix_kit_web/live/users/users.ex:301
 #, elixir-autogen, elixir-format
 msgid "User roles updated successfully"
@@ -8544,19 +8544,19 @@ msgstr "或拖放文件"
 msgid "Manage available languages for your application"
 msgstr "管理应用程序的可用语言"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:1589
+#: lib/phoenix_kit_web/components/media_browser.ex:1629
 #: lib/phoenix_kit_web/live/components/media_selector_modal.ex:380
 #, elixir-autogen, elixir-format
 msgid "Only image files can be added here."
 msgstr "此处只能添加图片文件。"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:1590
+#: lib/phoenix_kit_web/components/media_browser.ex:1630
 #: lib/phoenix_kit_web/live/components/media_selector_modal.ex:381
 #, elixir-autogen, elixir-format
 msgid "Only video files can be added here."
 msgstr "此处只能添加视频文件。"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:1592
+#: lib/phoenix_kit_web/components/media_browser.ex:1632
 #: lib/phoenix_kit_web/live/components/media_selector_modal.ex:383
 #, elixir-autogen, elixir-format
 msgid "Only the allowed file types can be added here."
@@ -8635,8 +8635,8 @@ msgstr "将 Etcher 标注形状（矩形、标记笔画等）烘焙到文件的�
 msgid "Browse files no longer attached to any record (orphaned media) so you can review or delete them."
 msgstr "浏览不再附属于任何记录的文件（孤立媒体），以便您查看或删除。"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3999
-#: lib/phoenix_kit_web/components/media_browser.ex:6622
+#: lib/phoenix_kit_web/components/media_browser.ex:4039
+#: lib/phoenix_kit_web/components/media_browser.ex:6662
 #, elixir-autogen, elixir-format
 msgid "Cannot edit a folder outside the allowed scope"
 msgstr "无法编辑允许范围之外的文件夹"
@@ -8751,23 +8751,23 @@ msgstr "其他全部"
 msgid "Exit selection"
 msgstr "退出选择"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:4003
+#: lib/phoenix_kit_web/components/media_browser.ex:4043
 #, elixir-autogen, elixir-format
 msgid "Failed to save folder description"
 msgstr "保存文件夹描述失败"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:6625
+#: lib/phoenix_kit_web/components/media_browser.ex:6665
 #, elixir-autogen, elixir-format
 msgid "Failed to save folder header"
 msgstr "保存文件夹页眉失败"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:1829
-#: lib/phoenix_kit_web/components/media_browser.ex:1860
+#: lib/phoenix_kit_web/components/media_browser.ex:1869
+#: lib/phoenix_kit_web/components/media_browser.ex:1900
 #, elixir-autogen, elixir-format
 msgid "Failed to set the image"
 msgstr "设置图片失败"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:1897
+#: lib/phoenix_kit_web/components/media_browser.ex:1937
 #, elixir-autogen, elixir-format
 msgid "Failed to update the header"
 msgstr "更新页眉失败"
@@ -8782,7 +8782,7 @@ msgstr "查找孤立文件"
 msgid "Folder name"
 msgstr "文件夹名称"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:4158
+#: lib/phoenix_kit_web/components/media_browser.ex:4198
 #, elixir-autogen, elixir-format
 msgid "Folder name can't be blank"
 msgstr "文件夹名称不能为空"
@@ -9206,7 +9206,7 @@ msgstr "Phoenix 深色"
 msgid "Phoenix Light"
 msgstr "Phoenix 浅色"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:447
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:459
 #, elixir-autogen, elixir-format
 msgid "Play / Pause"
 msgstr "播放 / 暂停"
@@ -9246,7 +9246,7 @@ msgstr "Winter"
 msgid "Wireframe"
 msgstr "Wireframe"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:465
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:477
 #, elixir-autogen, elixir-format
 msgid "Your browser does not support the audio tag."
 msgstr "您的浏览器不支持 audio 标签。"
@@ -9969,78 +9969,78 @@ msgstr "xAI"
 msgid "xAI requires a funded account before the API will return completions"
 msgstr "xAI 需要已充值的账户，API 才会返回补全结果"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:863
+#: lib/phoenix_kit_web/live/components/user_settings.ex:864
 #, elixir-autogen, elixir-format
 msgid "Active now"
 msgstr "当前活跃"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1778
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1779
 #, elixir-autogen, elixir-format
 msgid "Devices currently signed in to your account. If you don't recognize one, sign it out."
 msgstr "当前已登录您账户的设备。如果您不认识某台设备，请将其退出登录。"
 
-#: lib/phoenix_kit/users/login_alerts.ex:377
+#: lib/phoenix_kit/users/login_alerts.ex:457
 #, elixir-autogen, elixir-format
 msgid "New sign-in to your account from %{details}."
 msgstr "您的账户在 %{details} 有新的登录。"
 
-#: lib/phoenix_kit/users/login_alerts.ex:376
+#: lib/phoenix_kit/users/login_alerts.ex:456
 #, elixir-autogen, elixir-format
 msgid "New sign-in to your account."
 msgstr "您的账户有新的登录。"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1822
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1823
 #, elixir-autogen, elixir-format
 msgid "Sign out"
 msgstr "退出登录"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1833
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1834
 #, elixir-autogen, elixir-format
 msgid "Sign out of all other sessions?"
 msgstr "退出所有其他会话？"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1836
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1837
 #, elixir-autogen, elixir-format
 msgid "Sign out other sessions"
 msgstr "退出其他会话"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:763
+#: lib/phoenix_kit_web/live/components/user_settings.ex:764
 #, elixir-autogen, elixir-format
 msgid "Signed out of all other sessions."
 msgstr "已退出所有其他会话。"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:746
+#: lib/phoenix_kit_web/live/components/user_settings.ex:747
 #, elixir-autogen, elixir-format
 msgid "Signed out of that session."
 msgstr "已退出该会话。"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:747
+#: lib/phoenix_kit_web/live/components/user_settings.ex:748
 #, elixir-autogen, elixir-format
 msgid "That session is no longer active."
 msgstr "该会话已不再活跃。"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1795
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1796
 #, elixir-autogen, elixir-format
 msgid "This device"
 msgstr "此设备"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:855
+#: lib/phoenix_kit_web/live/components/user_settings.ex:856
 #: lib/phoenix_kit_web/live/users/sessions.ex:364
 #, elixir-autogen, elixir-format
 msgid "Unknown device"
 msgstr "未知设备"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:877
+#: lib/phoenix_kit_web/live/components/user_settings.ex:878
 #, elixir-autogen, elixir-format
 msgid "Active %{date} at %{time}"
 msgstr "%{date} %{time} 活跃"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:871
+#: lib/phoenix_kit_web/live/components/user_settings.ex:872
 #, elixir-autogen, elixir-format
 msgid "Active today at %{time}"
 msgstr "今天 %{time} 活跃"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:874
+#: lib/phoenix_kit_web/live/components/user_settings.ex:875
 #, elixir-autogen, elixir-format
 msgid "Active yesterday at %{time}"
 msgstr "昨天 %{time} 活跃"
@@ -10055,26 +10055,26 @@ msgstr "按浏览器"
 msgid "By operating system"
 msgstr "按操作系统"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:563
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:575
 #, elixir-autogen, elixir-format
 msgid "Failed to save rotation"
 msgstr "保存旋转失败"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:495
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:498
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:622
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:623
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:507
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:510
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:634
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:635
 #, elixir-autogen, elixir-format
 msgid "Hide details"
 msgstr "隐藏详情"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:562
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:574
 #, elixir-autogen, elixir-format
 msgid "Rotation saved"
 msgstr "旋转已保存"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:495
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:498
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:507
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:510
 #, elixir-autogen, elixir-format
 msgid "Show details"
 msgstr "显示详情"
@@ -10178,7 +10178,7 @@ msgstr "编辑用户信息"
 msgid "This user is linked to a CRM contact."
 msgstr "此用户已关联到一个 CRM 联系人。"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:850
+#: lib/phoenix_kit_web/live/users/user_details.ex:851
 #, elixir-autogen, elixir-format
 msgid "Unnamed contact"
 msgstr "未命名联系人"
@@ -10301,7 +10301,7 @@ msgstr "自动（根据端口）"
 msgid "Auto follows the port: 465 means implicit TLS, anything else STARTTLS (required when a login is set). Choose explicitly for a relay that ignores that convention."
 msgstr "“自动”根据端口判断：465 表示隐式 TLS，其他端口使用 STARTTLS（设置登录名时必须）。如果中继不遵循此约定，请明确选择。"
 
-#: lib/phoenix_kit_web/live/notifications/settings.ex:417
+#: lib/phoenix_kit_web/live/notifications/settings.ex:420
 #, elixir-autogen, elixir-format
 msgid "Batch high-volume types into periodic summaries — set a cadence per delivery mode."
 msgstr "将高频类型批量合并为定期摘要，并为每种送达方式设置频率。"
@@ -10430,7 +10430,7 @@ msgstr "无法连接 Telegram"
 msgid "Could not reach the SMTP server"
 msgstr "无法连接 SMTP 服务器"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:4833
+#: lib/phoenix_kit_web/components/media_browser.ex:4873
 #, elixir-autogen, elixir-format
 msgid "Could not rotate the image."
 msgstr "无法旋转图片。"
@@ -10439,7 +10439,7 @@ msgstr "无法旋转图片。"
 #: lib/modules/storage/web/renditions_component.ex:183
 #: lib/modules/storage/web/renditions_component.ex:222
 #: lib/modules/storage/web/renditions_component.ex:229
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:782
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:794
 #, elixir-autogen, elixir-format
 msgid "Could not save"
 msgstr "无法保存"
@@ -10514,7 +10514,7 @@ msgstr "凭据有效，但无权调用 GetSendQuota，未验证发送能力"
 msgid "Currently effective:"
 msgstr "当前生效："
 
-#: lib/phoenix_kit_web/live/notifications/settings.ex:448
+#: lib/phoenix_kit_web/live/notifications/settings.ex:451
 #, elixir-autogen, elixir-format
 msgid "Daily"
 msgstr "每天"
@@ -10604,7 +10604,7 @@ msgstr "加密"
 msgid "Enter a recipient email address"
 msgstr "请输入收件人邮箱地址"
 
-#: lib/phoenix_kit_web/live/notifications/settings.ex:447
+#: lib/phoenix_kit_web/live/notifications/settings.ex:450
 #, elixir-autogen, elixir-format
 msgid "Every 12 hours"
 msgstr "每 12 小时"
@@ -10647,7 +10647,7 @@ msgstr "发件人名称"
 msgid "Full Access"
 msgstr "完全访问"
 
-#: lib/phoenix_kit_web/live/notifications/settings.ex:446
+#: lib/phoenix_kit_web/live/notifications/settings.ex:449
 #, elixir-autogen, elixir-format
 msgid "Hourly"
 msgstr "每小时"
@@ -10657,7 +10657,7 @@ msgstr "每小时"
 msgid "If offered (default)"
 msgstr "如果支持（默认）"
 
-#: lib/phoenix_kit_web/live/notifications/settings.ex:445
+#: lib/phoenix_kit_web/live/notifications/settings.ex:448
 #, elixir-autogen, elixir-format
 msgid "Immediate"
 msgstr "立即"
@@ -10668,7 +10668,7 @@ msgid "Implicit TLS / SMTPS"
 msgstr "隐式 TLS / SMTPS"
 
 #: lib/phoenix_kit_web/live/notifications/settings.ex:245
-#: lib/phoenix_kit_web/live/notifications/settings.ex:412
+#: lib/phoenix_kit_web/live/notifications/settings.ex:415
 #, elixir-autogen, elixir-format
 msgid "In-app"
 msgstr "应用内"
@@ -10686,8 +10686,8 @@ msgid "Incomplete credentials"
 msgstr "凭据不完整"
 
 #: lib/modules/storage/web/bucket_page.html.heex:68
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1643
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2401
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1659
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2417
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:49
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:109
 #: lib/phoenix_kit_web/live/settings/send_profile_form.html.heex:26
@@ -10750,7 +10750,7 @@ msgstr "留空则使用 gen_smtp 默认值。"
 msgid "Local path users land on after signing in."
 msgstr "用户登录后进入的本地路径。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1388
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1404
 #: lib/phoenix_kit_web/live/settings/send_profiles.html.heex:102
 #: lib/phoenix_kit_web/live/settings/send_profiles.html.heex:134
 #, elixir-autogen, elixir-format
@@ -10976,8 +10976,8 @@ msgstr "使用应用前需要确认邮箱"
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:561
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:564
 #: lib/phoenix_kit_web/components/media_browser/helpers.ex:483
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:908
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1576
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:920
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1592
 #: lib/phoenix_kit_web/live/notifications/inbox.ex:329
 #: lib/phoenix_kit_web/live/users/relationship_types.ex:213
 #, elixir-autogen, elixir-format
@@ -11034,7 +11034,7 @@ msgid "Save sender identity"
 msgstr "保存发件人身份"
 
 #: lib/modules/storage/web/bucket_form.html.heex:167
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2403
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2419
 #: lib/phoenix_kit_web/live/settings/send_profile_form.html.heex:30
 #, elixir-autogen, elixir-format
 msgid "Select an integration..."
@@ -11368,7 +11368,7 @@ msgstr "音频文件"
 msgid "Click on an audio file to select it"
 msgstr "点击音频文件即可选择"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:1591
+#: lib/phoenix_kit_web/components/media_browser.ex:1631
 #: lib/phoenix_kit_web/live/components/media_selector_modal.ex:382
 #, elixir-autogen, elixir-format
 msgid "Only audio files can be added here."
@@ -11529,20 +11529,20 @@ msgstr "显示在每个国家/地区列表的顶部。拖动可重新排序。"
 msgid "When on, signing in with a provider can only join an existing account if the provider states it verified that address. Turning this off lets anyone who gets an address onto a provider account sign in as its owner — only do so for a provider that does not report verification."
 msgstr "开启后，通过提供商登录时，只有提供商声明已验证该地址，才能加入现有账户。关闭后，任何能把某个地址绑定到提供商账户的人都可以作为其所有者登录，仅在提供商不报告验证状态时才这样做。"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:743
+#: lib/phoenix_kit_web/live/users/user_details.ex:744
 #: lib/phoenix_kit_web/live/users/users.ex:546
 #, elixir-autogen, elixir-format
 msgid "You don't have permission to change this user's confirmation"
 msgstr "您无权更改此用户的确认状态"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:687
+#: lib/phoenix_kit_web/live/users/user_details.ex:688
 #: lib/phoenix_kit_web/live/users/users.ex:496
 #: lib/phoenix_kit_web/users/user_form.ex:468
 #, elixir-autogen, elixir-format
 msgid "You don't have permission to change this user's status"
 msgstr "您无权更改此用户的状态"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:445
+#: lib/phoenix_kit_web/live/users/user_details.ex:446
 #, elixir-autogen, elixir-format
 msgid "You don't have permission to delete this user"
 msgstr "您无权删除此用户"
@@ -12166,7 +12166,7 @@ msgstr "列"
 msgid "Shown"
 msgstr "显示"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:588
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:600
 #, elixir-autogen, elixir-format
 msgid "Reply to this annotation"
 msgstr "回复此批注"
@@ -12212,7 +12212,7 @@ msgid "The current encryption status could not be described by this admin page �
 msgstr "此管理页面无法描述当前的加密状态，它可能比本页面能识别的版本更新。请直接检查 PhoenixKit.Integrations.Encryption.status/0。"
 
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:465
-#: lib/phoenix_kit_web/live/settings/authorization.ex:341
+#: lib/phoenix_kit_web/live/settings/authorization.ex:342
 #, elixir-autogen, elixir-format
 msgid "A secret is already configured — leave blank to keep the current value"
 msgstr "已配置密钥，留空则保留当前值"
@@ -12656,7 +12656,7 @@ msgstr "请输入有效的邮箱地址。"
 msgid "Too many registration attempts. Please try again later."
 msgstr "注册尝试次数过多。请稍后再试。"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1694
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1695
 #, elixir-autogen, elixir-format
 msgid "%{enabled} of %{total} notification types enabled"
 msgstr "已启用 %{enabled} / %{total} 种通知类型"
@@ -12696,12 +12696,12 @@ msgstr "已配置密钥存储，但无法读取其中的密钥，因此加密回
 msgid "Back at it"
 msgstr "欢迎回来"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1152
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1153
 #, elixir-autogen, elixir-format
 msgid "Browser detected: %{zone}"
 msgstr "检测到浏览器时区：%{zone}"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1131
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1132
 #, elixir-autogen, elixir-format
 msgid "Check your timezone"
 msgstr "请检查您的时区"
@@ -12781,7 +12781,7 @@ msgstr "又见面了"
 msgid "Hey there"
 msgstr "您好"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1687
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1688
 #, elixir-autogen, elixir-format
 msgid "Manage Notifications"
 msgstr "管理通知"
@@ -12859,12 +12859,12 @@ msgstr "密钥存储（%{location}）中的密钥因短于最小长度被拒绝�
 msgid "The secret in the key store was rejected as too short"
 msgstr "密钥存储中的密钥因过短被拒绝"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:592
+#: lib/phoenix_kit_web/live/components/user_settings.ex:593
 #, elixir-autogen, elixir-format
 msgid "Timezone set to %{zone}."
 msgstr "时区已设置为 %{zone}。"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1145
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1146
 #, elixir-autogen, elixir-format
 msgid "Use %{zone}"
 msgstr "使用 %{zone}"
@@ -12884,17 +12884,17 @@ msgstr "用户菜单中“设置”条目的跳转位置。留空 = PhoenixKit �
 msgid "Working late"
 msgstr "熬夜中"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:935
+#: lib/phoenix_kit_web/live/components/user_settings.ex:936
 #, elixir-autogen, elixir-format
 msgid "Your browser reports %{browser}, but this account is set to %{saved}. Times on this site will be shown in %{saved}."
 msgstr "您的浏览器报告的时区是 %{browser}，但此账户设置为 %{saved}。本站的时间将以 %{saved} 显示。"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:926
+#: lib/phoenix_kit_web/live/components/user_settings.ex:927
 #, elixir-autogen, elixir-format
 msgid "Your browser reports %{zone}. This account still stores a fixed UTC offset, which cannot follow daylight saving — it will drift by an hour at the next change."
 msgstr "您的浏览器报告的时区是 %{zone}。此账户仍保存着固定的 UTC 偏移量，无法跟随夏令时，下次变更时会相差一小时。"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:919
+#: lib/phoenix_kit_web/live/components/user_settings.ex:920
 #, elixir-autogen, elixir-format
 msgid "Your browser reports %{zone}. You have not set a timezone, so times are shown using the site default."
 msgstr "您的浏览器报告的时区是 %{zone}。您尚未设置时区，因此时间使用站点默认值显示。"
@@ -13642,7 +13642,7 @@ msgstr "确认您的邮箱更改"
 msgid "New login to your account"
 msgstr "您的账户有新的登录"
 
-#: lib/phoenix_kit/notifications/render.ex:250
+#: lib/phoenix_kit/notifications/render.ex:262
 #, elixir-autogen, elixir-format
 msgid "New notification."
 msgstr "新通知。"
@@ -13698,7 +13698,7 @@ msgstr "您的账户状态已更新为 %{status}。"
 msgid "Your account status was updated."
 msgstr "您的账户状态已更新。"
 
-#: lib/phoenix_kit/notifications/render.ex:230
+#: lib/phoenix_kit/notifications/render.ex:242
 #, elixir-autogen, elixir-format
 msgid "Your account was added to another sign-in session."
 msgstr "您的账户已添加到另一个登录会话。"
@@ -13778,12 +13778,12 @@ msgstr "该功能没有开关。"
 msgid "Site is closed to visitors"
 msgstr "网站已对访客关闭"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1903
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1904
 #, elixir-autogen, elixir-format
 msgid "Manage Integrations"
 msgstr "管理集成"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1911
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1912
 #, elixir-autogen, elixir-format
 msgid "No personal integrations yet."
 msgstr "暂无个人集成。"
@@ -13794,7 +13794,7 @@ msgstr "暂无个人集成。"
 msgid "You don't have access to Integrations."
 msgstr "您无权访问集成。"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1907
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1908
 #, elixir-autogen, elixir-format
 msgid "Your own API keys and bot connections — only you can see or use these."
 msgstr "您自己的 API 密钥和机器人连接，只有您能查看或使用。"
@@ -13993,7 +13993,7 @@ msgstr "缩放"
 msgid "Auto"
 msgstr "自动"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1363
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1364
 #: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:85
 #, elixir-autogen, elixir-format
 msgid "Change Email"
@@ -14254,7 +14254,7 @@ msgstr "以此身份操作"
 msgid "Always-on roles"
 msgstr "始终生效的角色"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:624
+#: lib/phoenix_kit_web/live/components/user_settings.ex:625
 #, elixir-autogen, elixir-format
 msgid "Could not save that."
 msgstr "无法保存。"
@@ -14275,12 +14275,12 @@ msgstr "页眉（手机上的账户菜单）"
 msgid "Let users with several roles act as one role at a time"
 msgstr "允许拥有多个角色的用户一次以一个角色操作"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:618
+#: lib/phoenix_kit_web/live/components/user_settings.ex:619
 #, elixir-autogen, elixir-format
 msgid "Saved."
 msgstr "已保存。"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1630
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1631
 #: lib/phoenix_kit_web/live/settings/users.ex:475
 #, elixir-autogen, elixir-format
 msgid "Start page"
@@ -14297,7 +14297,7 @@ msgstr "切换角色"
 msgid "Switcher location"
 msgstr "切换器位置"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1642
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1643
 #, elixir-autogen, elixir-format
 msgid "The admin home"
 msgstr "管理后台首页"
@@ -14317,7 +14317,7 @@ msgstr "此页面在您切换到的角色下不可用。"
 msgid "Ticked roles are not offered in the switcher: they apply whichever role is active."
 msgstr "勾选的角色不会出现在切换器中：无论当前使用哪个角色，它们都会生效。"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1633
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1634
 #, elixir-autogen, elixir-format
 msgid "Where to go after you sign in."
 msgstr "登录后前往的页面。"
@@ -14343,7 +14343,7 @@ msgstr "拥有两个或更多可切换角色的用户一次以其中一个角色
 msgid "Acting as"
 msgstr "当前身份"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1798
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1799
 #: lib/phoenix_kit_web/live/users/sessions.html.heex:394
 #, elixir-autogen, elixir-format
 msgid "Acting as %{role}"
@@ -14399,7 +14399,7 @@ msgstr "Google 拒绝了这些凭据（invalid_client）：客户端 ID 和客�
 msgid "Missing %{provider} OAuth credentials: %{fields}"
 msgstr "缺少 %{provider} OAuth 凭据：%{fields}"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:141
+#: lib/phoenix_kit_web/live/settings/authorization.ex:142
 #, elixir-autogen, elixir-format
 msgid "OAuth configuration reloaded from database"
 msgstr "已从数据库重新加载 OAuth 配置"
@@ -14490,12 +14490,12 @@ msgstr "编辑失败"
 #: lib/phoenix_kit_web/components/media_browser/grid_view.html.heex:434
 #: lib/phoenix_kit_web/components/media_browser/helpers.ex:430
 #: lib/phoenix_kit_web/components/media_browser/list_view.html.heex:449
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:678
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:690
 #, elixir-autogen, elixir-format
 msgid "Edit image"
 msgstr "编辑图片"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:879
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:891
 #, elixir-autogen, elixir-format
 msgid "Edited"
 msgstr "已编辑"
@@ -15029,7 +15029,7 @@ msgstr "用户通过 Google 登录时自动填写。"
 msgid "For a group: add the bot to the group, send **/start@yourbotname** there, then press **Test Connection** — a bot cannot read ordinary group messages, only commands addressed to it"
 msgstr "对于群组：将机器人添加到群组，在群组中发送 **/start@yourbotname**，然后点击 **Test Connection**。机器人无法读取普通群消息，只能读取发给它的命令"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1178
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1179
 #: lib/phoenix_kit_web/users/user_form.html.heex:235
 #, elixir-autogen, elixir-format
 msgid "Google Email"
@@ -15103,7 +15103,7 @@ msgstr "机器人有响应，但暂时无法读取它的聊天，请重试。"
 msgid "The bot works, but no chat is linked yet — message the bot (or run /start@%{bot} in a group), then press Test again."
 msgstr "机器人可用，但尚未关联任何聊天：请向机器人发送消息（或在群组中运行 /start@%{bot}），然后再次点击测试。"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1181
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1182
 #, elixir-autogen, elixir-format
 msgid "Used when something is shared with you through Google. Leave empty to use your account email."
 msgstr "在通过 Google 与您共享内容时使用。留空则使用您的账户邮箱。"
@@ -15135,7 +15135,7 @@ msgstr "特色图片"
 #: lib/phoenix_kit_web/components/media_browser/helpers.ex:273
 #: lib/phoenix_kit_web/components/media_browser/helpers.ex:445
 #: lib/phoenix_kit_web/components/media_browser/list_view.html.heex:474
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:706
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:718
 #, elixir-autogen, elixir-format
 msgid "Set as featured"
 msgstr "设为精选"
@@ -15144,7 +15144,7 @@ msgstr "设为精选"
 #: lib/phoenix_kit_web/components/media_browser/helpers.ex:269
 #: lib/phoenix_kit_web/components/media_browser/helpers.ex:444
 #: lib/phoenix_kit_web/components/media_browser/list_view.html.heex:473
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:705
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:717
 #, elixir-autogen, elixir-format
 msgid "Unset featured"
 msgstr "取消精选"
@@ -15187,7 +15187,7 @@ msgstr "移除图片"
 msgid "The selected file is not an available image"
 msgstr "所选文件不是可用的图片"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:743
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:755
 #, elixir-autogen, elixir-format
 msgid "Title & description"
 msgstr "标题和描述"
@@ -15202,7 +15202,7 @@ msgstr "%{location}（大致）"
 msgid "%{attempts} attempts across %{networks} network(s), against %{accounts} known account(s)"
 msgstr "来自 %{networks} 个网络的 %{attempts} 次尝试，针对 %{accounts} 个已知账户"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1864
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1865
 #, elixir-autogen, elixir-format
 msgid "%{count} attempt"
 msgid_plural "%{count} attempts"
@@ -15215,7 +15215,7 @@ msgstr[0] "%{count} 次尝试"
 msgid "Attempts"
 msgstr "尝试次数"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1851
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1852
 #, elixir-autogen, elixir-format
 msgid "Failed sign-in attempts"
 msgstr "登录失败的尝试"
@@ -15241,7 +15241,7 @@ msgstr "最后出现"
 msgid "Network"
 msgstr "网络"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1854
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1855
 #, elixir-autogen, elixir-format
 msgid "Sign-ins to your account that did not succeed. Nobody got in."
 msgstr "未成功的账户登录。没有人进入。"
@@ -15257,12 +15257,12 @@ msgstr[0] "过去 24 小时内，您的账户上还有 %{count} 次登录失败�
 msgid "Tried"
 msgstr "尝试的内容"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:827
+#: lib/phoenix_kit_web/live/components/user_settings.ex:828
 #, elixir-autogen, elixir-format
 msgid "from %{device}"
 msgstr "来自 %{device}"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:826
+#: lib/phoenix_kit_web/live/components/user_settings.ex:827
 #, elixir-autogen, elixir-format
 msgid "from an unrecognized device"
 msgstr "来自无法识别的设备"
@@ -15287,7 +15287,7 @@ msgstr "按标识符、网络和小时汇总。显示在账户持有者的设置
 msgid "At most one email per account per 24 hours, so an attack cannot flood their inbox."
 msgstr "每个账户每 24 小时最多一封邮件，因此攻击不会塞满其收件箱。"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1872
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1873
 #, elixir-autogen, elixir-format
 msgid "Correct password, account was deactivated."
 msgstr "密码正确，但账户已被停用。"
@@ -15337,12 +15337,12 @@ msgstr "密码登录未成功时会存储的内容"
 msgid "Wrong password"
 msgstr "密码错误"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:651
+#: lib/phoenix_kit_web/live/components/user_settings.ex:652
 #, elixir-autogen, elixir-format
 msgid "Annotation settings reset."
 msgstr "标注设置已重置。"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1966
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1967
 #, elixir-autogen, elixir-format
 msgid "Annotation tools"
 msgstr "标注工具"
@@ -15352,22 +15352,22 @@ msgstr "标注工具"
 msgid "Could not read the current figures"
 msgstr "无法读取当前数据"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2028
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2029
 #, elixir-autogen, elixir-format
 msgid "Reset annotation settings"
 msgstr "重置标注设置"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2023
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2024
 #, elixir-autogen, elixir-format
 msgid "Reset your annotation colours, thickness and toolbar to the defaults?"
 msgstr "将您的标注颜色、粗细和工具栏重置为默认值？"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2035
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2036
 #, elixir-autogen, elixir-format
 msgid "Your annotations themselves are not touched — only how the tools are set up."
 msgstr "您的标注本身不会受影响，只会重置工具的设置方式。"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2013
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2014
 #, elixir-autogen, elixir-format
 msgid "Your drawing colours, line thickness, label size and toolbar layout are remembered as you work. Reset them to start fresh."
 msgstr "您的绘图颜色、线条粗细、标签大小和工具栏布局会在您操作时被记住。重置后可重新开始。"
@@ -15390,13 +15390,13 @@ msgstr "在那里，点击 Test Connection 并确认找到的群组。群组需�
 #: lib/phoenix_kit_web/components/core/file_details_fields.ex:107
 #: lib/phoenix_kit_web/components/core/file_details_fields.ex:114
 #: lib/phoenix_kit_web/components/core/file_details_fields.ex:115
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:792
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:804
 #, elixir-autogen, elixir-format
 msgid "Alt text"
 msgstr "替代文本"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:772
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:773
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:784
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:785
 #, elixir-autogen, elixir-format
 msgid "Tags (comma-separated)"
 msgstr "标签（以逗号分隔）"
@@ -15536,7 +15536,7 @@ msgid "Library name"
 msgstr "库名称"
 
 #: lib/modules/storage/web/libraries_component.ex:343
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1997
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2013
 #, elixir-autogen, elixir-format
 msgid "New library"
 msgstr "新建库"
@@ -15561,8 +15561,8 @@ msgstr "未找到库"
 #: lib/modules/storage/web/settings.ex:143
 #: lib/modules/storage/web/settings.html.heex:441
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:280
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1200
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1229
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1216
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1245
 #: lib/phoenix_kit_web/live/users/libraries.ex:45
 #: lib/phoenix_kit_web/live/users/libraries.ex:124
 #: lib/phoenix_kit_web/live/users/libraries.ex:198
@@ -15581,7 +15581,7 @@ msgstr "库已重命名为“%{name}”"
 msgid "Only an empty library can be deleted."
 msgstr "只能删除空库。"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7166
+#: lib/phoenix_kit_web/components/media_browser.ex:7237
 #, elixir-autogen, elixir-format
 msgid "%{count} file is already in another library, so it was not added here."
 msgid_plural "%{count} files are already in another library, so they were not added here."
@@ -15607,29 +15607,29 @@ msgstr "使用 Google 继续"
 msgid "Allow user libraries"
 msgstr "允许用户库"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1102
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1118
 #: lib/phoenix_kit_web/live/users/libraries.ex:293
 #, elixir-autogen, elixir-format
 msgid "Contributor"
 msgstr "贡献者"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:551
+#: lib/phoenix_kit_web/live/components/library_settings.ex:567
 #, elixir-autogen, elixir-format
 msgid "Could not leave the library"
 msgstr "无法退出该库"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:451
+#: lib/phoenix_kit_web/live/components/library_settings.ex:467
 #, elixir-autogen, elixir-format
 msgid "Default library changed"
 msgstr "默认库已更改"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1488
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2562
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1504
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2578
 #, elixir-autogen, elixir-format
 msgid "Leave"
 msgstr "退出"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1486
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1502
 #, elixir-autogen, elixir-format
 msgid "Leave “%{name}”?"
 msgstr "退出“%{name}”？"
@@ -15644,17 +15644,17 @@ msgstr "库不可用"
 msgid "Libraries per user"
 msgstr "每位用户的库数量"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:465
+#: lib/phoenix_kit_web/live/components/library_settings.ex:481
 #, elixir-autogen, elixir-format
 msgid "Library moved to the trash"
 msgstr "库已移至回收站"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:421
+#: lib/phoenix_kit_web/live/components/library_settings.ex:437
 #, elixir-autogen, elixir-format
 msgid "Library renamed"
 msgstr "库已重命名"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:776
+#: lib/phoenix_kit_web/live/components/library_settings.ex:792
 #, elixir-autogen, elixir-format
 msgid "Library “%{name}” created"
 msgstr "库“%{name}”已创建"
@@ -15665,38 +15665,38 @@ msgid "Manage libraries"
 msgstr "管理库"
 
 #: lib/phoenix_kit/users/relationship_types.ex:321
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1101
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1117
 #: lib/phoenix_kit_web/live/users/libraries.ex:292
 #, elixir-autogen, elixir-format
 msgid "Manager"
 msgstr "管理者"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:501
+#: lib/phoenix_kit_web/live/components/library_settings.ex:517
 #, elixir-autogen, elixir-format
 msgid "Member added"
 msgstr "成员已添加"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:533
+#: lib/phoenix_kit_web/live/components/library_settings.ex:549
 #, elixir-autogen, elixir-format
 msgid "Member removed"
 msgstr "成员已移除"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1092
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1108
 #, elixir-autogen, elixir-format
 msgid "Move “%{name}” to the trash? Its files are deleted for good after the trash period, and its members lose it now."
 msgstr "将“%{name}”移至回收站？其文件将在回收站保留期后被永久删除，其成员会立即失去对它的访问。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1039
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1055
 #, elixir-autogen, elixir-format
 msgid "Name %{error}"
 msgstr "名称 %{error}"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2525
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2541
 #, elixir-autogen, elixir-format
 msgid "No members yet: only the owner can see this library."
 msgstr "还没有成员：只有所有者能看到此库。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:504
+#: lib/phoenix_kit_web/live/components/library_settings.ex:520
 #, elixir-autogen, elixir-format
 msgid "No user has that email"
 msgstr "没有使用该邮箱的用户"
@@ -15719,7 +15719,7 @@ msgstr "打开用户的库会被记录在审计日志中。"
 
 #: lib/modules/storage/web/libraries_component.ex:545
 #: lib/phoenix_kit/users/roles.ex:506
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1100
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1116
 #: lib/phoenix_kit_web/live/settings/api.html.heex:323
 #: lib/phoenix_kit_web/live/settings/api.html.heex:857
 #: lib/phoenix_kit_web/live/users/libraries.ex:291
@@ -15733,23 +15733,23 @@ msgstr "所有者"
 msgid "Private links last (hours)"
 msgstr "私有链接有效期（小时）"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:523
+#: lib/phoenix_kit_web/live/components/library_settings.ex:539
 #, elixir-autogen, elixir-format
 msgid "Role changed"
 msgstr "角色已更改"
 
 #: lib/phoenix_kit/notifications/types.ex:215
-#: lib/phoenix_kit_web/components/profile_settings_tabs.ex:339
+#: lib/phoenix_kit_web/components/profile_settings_tabs.ex:350
 #, elixir-autogen, elixir-format
 msgid "Security"
 msgstr "安全"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1451
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1467
 #, elixir-autogen, elixir-format
 msgid "Shared with me"
 msgstr "与我共享"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7654
+#: lib/phoenix_kit_web/components/media_browser.ex:7725
 #, elixir-autogen, elixir-format
 msgid "That is not in this library"
 msgstr "该内容不在此库中"
@@ -15759,12 +15759,12 @@ msgstr "该内容不在此库中"
 msgid "The libraries you own or are a member of"
 msgstr "您拥有或作为成员加入的库"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1040
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1056
 #, elixir-autogen, elixir-format
 msgid "The library could not be saved"
 msgstr "无法保存该库"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:507
+#: lib/phoenix_kit_web/live/components/library_settings.ex:523
 #, elixir-autogen, elixir-format
 msgid "The owner is always in the library"
 msgstr "所有者始终在库中"
@@ -15795,7 +15795,7 @@ msgstr "用户库设置已保存"
 msgid "Users with the Storage permission can keep libraries of their own, private to them and the members they add. Their files are served only through links that expire."
 msgstr "拥有存储权限的用户可以保留自己的库，仅对自己及其添加的成员私有。其文件只能通过会过期的链接访问。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1103
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1119
 #: lib/phoenix_kit_web/live/users/libraries.ex:294
 #, elixir-autogen, elixir-format
 msgid "Viewer"
@@ -15806,41 +15806,41 @@ msgstr "查看者"
 msgid "You have no libraries yet."
 msgstr "您还没有库。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:484
-#: lib/phoenix_kit_web/live/components/library_settings.ex:779
+#: lib/phoenix_kit_web/live/components/library_settings.ex:500
+#: lib/phoenix_kit_web/live/components/library_settings.ex:795
 #, elixir-autogen, elixir-format
 msgid "You have reached the number of libraries you may own"
 msgstr "您已达到可拥有的库数量上限"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:548
+#: lib/phoenix_kit_web/live/components/library_settings.ex:564
 #, elixir-autogen, elixir-format
 msgid "You left “%{name}”"
 msgstr "您已退出“%{name}”"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:444
-#: lib/phoenix_kit_web/live/components/library_settings.ex:453
+#: lib/phoenix_kit_web/live/components/library_settings.ex:460
+#: lib/phoenix_kit_web/live/components/library_settings.ex:469
 #, elixir-autogen, elixir-format
 msgid "You may not change this library"
 msgstr "您无权更改此库"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:782
+#: lib/phoenix_kit_web/live/components/library_settings.ex:798
 #, elixir-autogen, elixir-format
 msgid "You may not create libraries"
 msgstr "您无权创建库"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:516
-#: lib/phoenix_kit_web/live/components/library_settings.ex:526
-#: lib/phoenix_kit_web/live/components/library_settings.ex:536
+#: lib/phoenix_kit_web/live/components/library_settings.ex:532
+#: lib/phoenix_kit_web/live/components/library_settings.ex:542
+#: lib/phoenix_kit_web/live/components/library_settings.ex:552
 #, elixir-autogen, elixir-format
 msgid "You may not manage this library's members"
 msgstr "您无权管理此库的成员"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:427
+#: lib/phoenix_kit_web/live/components/library_settings.ex:443
 #, elixir-autogen, elixir-format
 msgid "You may not rename this library"
 msgstr "您无权重命名此库"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:467
+#: lib/phoenix_kit_web/live/components/library_settings.ex:483
 #, elixir-autogen, elixir-format
 msgid "You may not trash this library"
 msgstr "您无权将此库移至回收站"
@@ -15850,7 +15850,7 @@ msgstr "您无权将此库移至回收站"
 msgid "Other users' libraries"
 msgstr "其他用户的库"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:5184
+#: lib/phoenix_kit_web/components/media_browser.ex:5224
 #, elixir-autogen, elixir-format
 msgid "%{count} orphaned file will be moved to the trash"
 msgid_plural "%{count} orphaned files will be moved to the trash"
@@ -15879,22 +15879,22 @@ msgstr[0] "%{count} 个已存储对象尚无记录的位置。系统正在后台
 msgid "This bucket still holds files, so it cannot be deleted. Disable it to stop storing new files there."
 msgstr "此存储桶仍有文件，因此无法删除。请将其停用，以停止在其中存储新文件。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1560
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1576
 #, elixir-autogen, elixir-format
 msgid "A library in the trash is deleted for good, with its files, after the trash period."
 msgstr "回收站中的库及其文件将在回收站保留期后被永久删除。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:474
+#: lib/phoenix_kit_web/live/components/library_settings.ex:490
 #, elixir-autogen, elixir-format
 msgid "Library “%{name}” restored"
 msgstr "库“%{name}”已恢复"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:490
+#: lib/phoenix_kit_web/live/components/library_settings.ex:506
 #, elixir-autogen, elixir-format
 msgid "The library could not be restored"
 msgstr "无法恢复该库"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3129
+#: lib/phoenix_kit_web/components/media_browser.ex:3169
 #, elixir-autogen, elixir-format
 msgid "You can only change files you uploaded"
 msgstr "您只能更改自己上传的文件"
@@ -15926,7 +15926,7 @@ msgstr "添加存储桶"
 
 #: lib/modules/storage/web/profiles_component.ex:279
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:130
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1664
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1680
 #, elixir-autogen, elixir-format
 msgid "Backup"
 msgstr "备份"
@@ -15935,9 +15935,9 @@ msgstr "备份"
 #: lib/modules/storage/web/library_page.html.heex:164
 #: lib/modules/storage/web/profiles_component.ex:710
 #: lib/phoenix_kit_web/components/core/repair_log.ex:37
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1670
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2415
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2437
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1686
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2431
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2453
 #, elixir-autogen, elixir-format
 msgid "Bucket"
 msgstr "存储桶"
@@ -16014,14 +16014,14 @@ msgstr "提供顺序"
 msgid "Showing the first %{count} of %{total}."
 msgstr "显示前 %{count} 条，共 %{total} 条。"
 
-#: lib/modules/storage/storage.ex:5391
+#: lib/modules/storage/storage.ex:5422
 #: lib/modules/storage/web/libraries_component.ex:412
 #: lib/modules/storage/web/libraries_component.ex:547
 #: lib/modules/storage/web/library_page.html.heex:206
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:132
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:715
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:727
 #: lib/phoenix_kit_web/live/components/library_preferences.ex:395
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2477
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2493
 #: lib/phoenix_kit_web/live/users/media_storage.ex:66
 #: lib/phoenix_kit_web/live/users/media_storage.ex:122
 #: lib/phoenix_kit_web/live/users/media_storage.ex:148
@@ -16074,7 +16074,7 @@ msgstr "协调器已加入队列。刷新以查看进度。"
 #: lib/modules/storage/web/health_component.ex:120
 #: lib/modules/storage/web/library_page.ex:374
 #: lib/modules/storage/web/library_sync.ex:110
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2334
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2350
 #: lib/phoenix_kit_web/live/users/media_storage.html.heex:171
 #: lib/phoenix_kit_web/live/users/media_storage.html.heex:218
 #, elixir-autogen, elixir-format
@@ -16113,23 +16113,23 @@ msgstr "正在等待"
 msgid "standard"
 msgstr "标准"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:5024
-#: lib/phoenix_kit_web/components/media_browser.ex:5027
+#: lib/phoenix_kit_web/components/media_browser.ex:5064
+#: lib/phoenix_kit_web/components/media_browser.ex:5067
 #, elixir-autogen, elixir-format
 msgid "Failed to restore file"
 msgstr "恢复文件失败"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:5047
+#: lib/phoenix_kit_web/components/media_browser.ex:5087
 #, elixir-autogen, elixir-format
 msgid "Failed to restore folder"
 msgstr "恢复文件夹失败"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:5018
+#: lib/phoenix_kit_web/components/media_browser.ex:5058
 #, elixir-autogen, elixir-format
 msgid "File restored"
 msgstr "文件已恢复"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:5043
+#: lib/phoenix_kit_web/components/media_browser.ex:5083
 #, elixir-autogen, elixir-format
 msgid "Folder restored"
 msgstr "文件夹已恢复"
@@ -16253,8 +16253,8 @@ msgstr[0] "已将默认配置降低到 %{count} 个副本"
 msgid "continued"
 msgstr "已继续"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:4891
-#: lib/phoenix_kit_web/components/media_browser.ex:6436
+#: lib/phoenix_kit_web/components/media_browser.ex:4931
+#: lib/phoenix_kit_web/components/media_browser.ex:6476
 #, elixir-autogen, elixir-format
 msgid "Failed to remove file"
 msgstr "移除文件失败"
@@ -16428,43 +16428,43 @@ msgstr "此存储桶使用保存在存储桶本身的密钥。"
 msgid "Allow their own buckets"
 msgstr "允许其使用自己的存储桶"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2258
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2274
 #, elixir-autogen, elixir-format
 msgid "Creating…"
 msgstr "正在创建…"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2189
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2205
 #, elixir-autogen, elixir-format
 msgid "Everything this library stores lives in your bucket."
 msgstr "此库存储的所有内容都位于您的存储桶中。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2212
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2228
 #, elixir-autogen, elixir-format
 msgid "Files are kept by the site as usual, and the originals are copied to your bucket."
 msgstr "文件仍照常由站点保存，原始文件会被复制到您的存储桶。"
 
 #: lib/modules/storage/web/settings.html.heex:804
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2172
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2188
 #, elixir-autogen, elixir-format
 msgid "How it is used"
 msgstr "使用方式"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1087
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1103
 #, elixir-autogen, elixir-format
 msgid "Move “%{name}” to the trash? Its files are deleted for good after the trash period, including the copies in your own bucket, and its members lose it now."
 msgstr "将“%{name}”移至回收站？其文件（包括您自己存储桶中的副本）将在回收站保留期后被永久删除，其成员会立即失去对它的访问。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2097
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2113
 #, elixir-autogen, elixir-format
 msgid "My own storage"
 msgstr "我自己的存储"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2081
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2097
 #, elixir-autogen, elixir-format
 msgid "Nothing to set up."
 msgstr "无需设置。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2182
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2198
 #, elixir-autogen, elixir-format
 msgid "Only here"
 msgstr "仅此处"
@@ -16475,7 +16475,7 @@ msgid "Own %{provider} bucket"
 msgstr "自己的 %{provider} 存储桶"
 
 #: lib/modules/storage/web/libraries_component.ex:292
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1651
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1667
 #, elixir-autogen, elixir-format
 msgid "Site storage"
 msgstr "站点存储"
@@ -16485,12 +16485,12 @@ msgstr "站点存储"
 msgid "Site storage + own %{provider} backup"
 msgstr "站点存储 + 自己的 %{provider} 备份"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:788
+#: lib/phoenix_kit_web/live/components/library_settings.ex:804
 #, elixir-autogen, elixir-format
 msgid "The site has no storage of its own to keep the originals on, so a backup is not possible."
 msgstr "站点没有可保存原始文件的自有存储，因此无法备份。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:638
+#: lib/phoenix_kit_web/live/components/library_settings.ex:654
 #, elixir-autogen, elixir-format
 msgid "The test stopped unexpectedly"
 msgstr "测试意外中止"
@@ -16500,24 +16500,24 @@ msgstr "测试意外中止"
 msgid "Users who also hold the Storage own-storage and Integrations permissions may keep a library on their own S3-compatible bucket. Their files then live outside the site's storage."
 msgstr "同时拥有存储自有存储权限和集成权限的用户，可以将库保存在自己的兼容 S3 的存储桶上。其文件将存放在站点存储之外。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2066
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2082
 #, elixir-autogen, elixir-format
 msgid "Where its files are kept"
 msgstr "文件的保存位置"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1073
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1089
 #, elixir-autogen, elixir-format
 msgid "Your bucket: %{name}"
 msgstr "您的存储桶：%{name}"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:797
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1034
+#: lib/phoenix_kit_web/live/components/library_settings.ex:813
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1050
 #, elixir-autogen, elixir-format
 msgid "Your storage could not be used: %{reason}"
 msgstr "无法使用您的存储：%{reason}"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:826
-#: lib/phoenix_kit_web/live/components/library_settings.ex:934
+#: lib/phoenix_kit_web/live/components/library_settings.ex:842
+#: lib/phoenix_kit_web/live/components/library_settings.ex:950
 #, elixir-autogen, elixir-format
 msgid "You may not use your own storage"
 msgstr "您无权使用自己的存储"
@@ -16533,7 +16533,7 @@ msgstr "我的"
 msgid "Site"
 msgstr "站点"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3093
+#: lib/phoenix_kit_web/components/media_browser.ex:3133
 #, elixir-autogen, elixir-format
 msgid "That is not yours"
 msgstr "这不属于您"
@@ -17376,7 +17376,7 @@ msgstr "暂无记录。"
 #: lib/modules/storage/web/library_page.html.heex:391
 #: lib/phoenix_kit_web/live/components/library_activity.ex:531
 #: lib/phoenix_kit_web/live/components/library_activity.ex:652
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1916
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1932
 #: lib/phoenix_kit_web/live/modules/jobs/index.html.heex:140
 #, elixir-autogen, elixir-format
 msgid "Page %{page} of %{pages}"
@@ -17983,8 +17983,8 @@ msgstr "概览"
 
 #: lib/modules/storage/web/bucket_page.ex:430
 #: lib/modules/storage/web/libraries_component.ex:577
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1986
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2052
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2002
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2068
 #, elixir-autogen, elixir-format
 msgid "Public"
 msgstr "公开"
@@ -18725,14 +18725,14 @@ msgstr "派生版本已更新"
 
 #: lib/modules/storage/web/health_component.ex:83
 #: lib/phoenix_kit_web/live/components/library_preferences.ex:396
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1405
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1827
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1421
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1843
 #: lib/phoenix_kit_web/live/users/media_storage.html.heex:234
 #, elixir-autogen, elixir-format
 msgid "Renditions"
 msgstr "派生版本"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:441
+#: lib/phoenix_kit_web/live/components/library_settings.ex:457
 #, elixir-autogen, elixir-format
 msgid "Renditions changed. Existing files are updated in the background."
 msgstr "派生版本已更改。现有文件将在后台更新。"
@@ -18782,12 +18782,12 @@ msgstr "其上传的文件会得到哪些派生版本：缩略图和视频分辨
 msgid "reset %{count} renditions"
 msgstr "已重置 %{count} 个派生版本"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1981
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1982
 #, elixir-autogen, elixir-format
 msgid "Open media ready to annotate"
 msgstr "打开媒体时直接进入标注模式"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1986
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1987
 #, elixir-autogen, elixir-format
 msgid "The viewer opens with the drawing tools already on, so you can edit and move things right away — switch the pencil off to see the finished picture. Off, the viewer opens on the finished picture and the pencil starts the tools."
 msgstr "查看器打开时绘图工具已开启，您可以立即编辑和移动内容——关闭铅笔可查看完成后的图片。关闭此项时，查看器显示完成后的图片，点击铅笔才会启用工具。"
@@ -19149,12 +19149,12 @@ msgstr "全部放弃"
 msgid "Discard every file in this list? They will not be uploaded."
 msgstr "放弃此列表中的所有文件？它们将不会被上传。"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:2529
+#: lib/phoenix_kit_web/components/media_browser.ex:2569
 #, elixir-autogen, elixir-format
 msgid "Larger than the %{mb} MB upload limit."
 msgstr "超过 %{mb} MB 的上传限制。"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7028
+#: lib/phoenix_kit_web/components/media_browser.ex:7068
 #, elixir-autogen, elixir-format
 msgid "No storage is set up to receive files."
 msgstr "尚未设置用于接收文件的存储。"
@@ -19164,53 +19164,53 @@ msgstr "尚未设置用于接收文件的存储。"
 msgid "Retry all"
 msgstr "全部重试"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:1143
+#: lib/phoenix_kit_web/components/media_browser.ex:1183
 #, elixir-autogen, elixir-format
 msgid "Saving was interrupted before it finished — the page was closed or refreshed."
 msgstr "保存在完成前被中断——页面已被关闭或刷新。"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:1146
-#: lib/phoenix_kit_web/components/media_browser.ex:7040
+#: lib/phoenix_kit_web/components/media_browser.ex:1186
+#: lib/phoenix_kit_web/components/media_browser.ex:7080
 #, elixir-autogen, elixir-format
 msgid "The server could not save it."
 msgstr "服务器无法保存。"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7034
+#: lib/phoenix_kit_web/components/media_browser.ex:7074
 #, elixir-autogen, elixir-format
 msgid "The server ran into an error while saving it."
 msgstr "服务器在保存时遇到错误。"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:2543
+#: lib/phoenix_kit_web/components/media_browser.ex:2583
 #, elixir-autogen, elixir-format
 msgid "The upload could not start."
 msgstr "上传无法开始。"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:1324
+#: lib/phoenix_kit_web/components/media_browser.ex:1364
 #, elixir-autogen, elixir-format
 msgid "The upload was cut short — the page was closed or refreshed."
 msgstr "上传被中断——页面已被关闭或刷新。"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:1335
+#: lib/phoenix_kit_web/components/media_browser.ex:1375
 #, elixir-autogen, elixir-format
 msgid "The upload was cut short, and the file was too large to keep a copy of. Add it again."
 msgstr "上传被中断，且文件太大，无法保留副本。请重新添加。"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:1329
+#: lib/phoenix_kit_web/components/media_browser.ex:1369
 #, elixir-autogen, elixir-format
 msgid "The upload was cut short, and the browser no longer has a copy of the file. Add it again."
 msgstr "上传被中断，且浏览器已没有该文件的副本。请重新添加。"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7037
+#: lib/phoenix_kit_web/components/media_browser.ex:7077
 #, elixir-autogen, elixir-format
 msgid "The uploaded file went missing on the server before it could be saved."
 msgstr "上传的文件在保存前于服务器上丢失。"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:2534
+#: lib/phoenix_kit_web/components/media_browser.ex:2574
 #, elixir-autogen, elixir-format
 msgid "This type of file is not accepted here."
 msgstr "此处不接受这种类型的文件。"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:2537
+#: lib/phoenix_kit_web/components/media_browser.ex:2577
 #, elixir-autogen, elixir-format
 msgid "Up to %{count} files upload at once, so this one was not sent. Add it again."
 msgstr "一次最多上传 %{count} 个文件，因此这个文件未被发送。请重新添加。"
@@ -19320,7 +19320,7 @@ msgstr "仅限宽图"
 
 #: lib/phoenix_kit_web/components/media_browser/grid_view.html.heex:361
 #: lib/phoenix_kit_web/components/media_browser/grid_view.html.heex:362
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:835
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:847
 #, elixir-autogen, elixir-format
 msgid "Panorama"
 msgstr "全景图"
@@ -19369,7 +19369,7 @@ msgstr "日期"
 msgid "Did not fire"
 msgstr "未闪光"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:828
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:840
 #, elixir-autogen, elixir-format
 msgid "Dimensions:"
 msgstr "尺寸："
@@ -19502,12 +19502,12 @@ msgid "Nothing here about the camera, exposure, dates or location. All EXIF list
 msgstr "这里没有关于相机、曝光、日期或位置的信息。“全部 EXIF”会列出文件包含的所有内容。"
 
 #: lib/phoenix_kit_web/components/media_browser/removal_modal.ex:143
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:921
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:933
 #, elixir-autogen, elixir-format
 msgid "Delete forever"
 msgstr "永久删除"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:883
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:895
 #, elixir-autogen, elixir-format
 msgid "File UUID:"
 msgstr "文件 UUID："
@@ -19517,24 +19517,24 @@ msgstr "文件 UUID："
 msgid "In the trash"
 msgstr "在回收站中"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:643
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:655
 #, elixir-autogen, elixir-format
 msgid "Media details"
 msgstr "媒体详情"
 
 #: lib/phoenix_kit_web/components/media_browser/removal_modal.ex:144
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:931
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:943
 #: lib/phoenix_kit_web/components/media_gallery.html.heex:85
 #, elixir-autogen, elixir-format
 msgid "Move to trash"
 msgstr "移至回收站"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:846
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:858
 #, elixir-autogen, elixir-format
 msgid "Pages:"
 msgstr "页数："
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:917
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:929
 #, elixir-autogen, elixir-format
 msgid "Permanently delete this file? This cannot be undone."
 msgstr "永久删除此文件？此操作无法撤销。"
@@ -19545,12 +19545,12 @@ msgstr "永久删除此文件？此操作无法撤销。"
 msgid "Processing"
 msgstr "处理中"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:860
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:872
 #, elixir-autogen, elixir-format
 msgid "Updated:"
 msgstr "更新于："
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:856
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:868
 #, elixir-autogen, elixir-format
 msgid "Uploaded by:"
 msgstr "上传者："
@@ -20198,12 +20198,12 @@ msgstr "已从原始文件生成。"
 msgid "Removed from %{bucket}, which the profile no longer uses."
 msgstr "已从 %{bucket} 移除，配置不再使用它。"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2006
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2007
 #, elixir-autogen, elixir-format
 msgid "If moving around a picture with two fingers on your trackpad goes the opposite way to what you expect, turn this on. Zooming is not affected."
 msgstr "如果在触控板上用两指移动图片的方向与您的预期相反，请开启此项。缩放不受影响。"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2001
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2002
 #, elixir-autogen, elixir-format
 msgid "Invert two-finger pan"
 msgstr "反转两指平移"
@@ -20213,7 +20213,7 @@ msgstr "反转两指平移"
 msgid "Dynamic range"
 msgstr "动态范围"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:840
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:852
 #, elixir-autogen, elixir-format
 msgid "Dynamic range:"
 msgstr "动态范围："
@@ -20318,7 +20318,7 @@ msgid "API"
 msgstr "API"
 
 #: lib/phoenix_kit/users/permissions.ex:766
-#: lib/phoenix_kit_web/components/profile_settings_tabs.ex:343
+#: lib/phoenix_kit_web/components/profile_settings_tabs.ex:354
 #: lib/phoenix_kit_web/live/settings/api.html.heex:293
 #, elixir-autogen, elixir-format
 msgid "API keys"
@@ -21834,7 +21834,7 @@ msgstr "该工具已在“限制与高级”中隐藏。"
 msgid "It writes, and “Agent may act” is off."
 msgstr "它会写入数据，且“允许代理操作”已关闭。"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1162
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1163
 #: lib/phoenix_kit_web/users/user_form.html.heex:217
 #, elixir-autogen, elixir-format
 msgid "— Not set —"
@@ -21845,7 +21845,7 @@ msgstr "— 未设置 —"
 msgid "— None —"
 msgstr "— 无 —"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1166
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1167
 #, elixir-autogen, elixir-format
 msgid "Dates are written the way your country does."
 msgstr "日期按您所在国家/地区的习惯书写。"
@@ -21956,6 +21956,7 @@ msgid "Comments on your posts"
 msgstr "您的帖子收到的评论"
 
 #: lib/phoenix_kit/notifications/types.ex:279
+#: lib/phoenix_kit/notifications/types.ex:322
 #, elixir-autogen, elixir-format
 msgid "Mentions"
 msgstr "提及"
@@ -22021,7 +22022,7 @@ msgstr "更改新用户默认值需要“安全设置”权限。"
 msgid "You can only give roles whose permissions you hold"
 msgstr "您只能授予自己拥有其权限的角色"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:813
+#: lib/phoenix_kit_web/live/users/user_details.ex:814
 #: lib/phoenix_kit_web/live/users/users.ex:804
 #: lib/phoenix_kit_web/users/user_form.ex:1006
 #, elixir-autogen, elixir-format
@@ -22079,7 +22080,7 @@ msgstr "请先回到您自己的账户，再添加其他账户。"
 msgid "Return to your own account before signing in as another user."
 msgstr "请先回到您自己的账户，再以其他用户身份登录。"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1808
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1809
 #, elixir-autogen, elixir-format
 msgid "%{organization}, from this browser"
 msgstr "%{organization}，来自此浏览器"
@@ -22220,8 +22221,8 @@ msgstr "该组织没有自己的登录。请选择一位活跃的人员，用其
 msgid "This change is not available. Refresh the page and check your access."
 msgstr "此更改不可用。请刷新页面并检查您的访问权限。"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:428
-#: lib/phoenix_kit_web/live/users/user_details.ex:720
+#: lib/phoenix_kit_web/live/users/user_details.ex:429
+#: lib/phoenix_kit_web/live/users/user_details.ex:721
 #, elixir-autogen
 msgid "This person is the last active manager. Add another manager or explicitly allow the organization to have no managers."
 msgstr "此人是最后一位活跃的管理者。请添加另一位管理者，或明确允许该组织没有管理者。"
@@ -22575,35 +22576,35 @@ msgstr "到期日期最晚为 %{date}。"
 msgid "Wait for the uploads to finish"
 msgstr "请等待上传完成"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:2868
+#: lib/phoenix_kit_web/components/media_browser.ex:2908
 #, elixir-autogen, elixir-format
 msgid "No open media browser could receive this upload."
 msgstr "没有已打开的媒体浏览器可以接收此上传。"
 
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:495
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:521
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:533
 #, elixir-autogen, elixir-format
 msgid "Maximum %{count} file"
 msgid_plural "Maximum %{count} files"
 msgstr[0] "最多 %{count} 个文件"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:536
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:548
 #, elixir-autogen, elixir-format
 msgid "Deselect"
 msgstr "取消选择"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:6047
+#: lib/phoenix_kit_web/components/media_browser.ex:6087
 #, elixir-autogen, elixir-format
 msgid "There is nothing left to remove."
 msgstr "没有可移除的内容。"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:6130
+#: lib/phoenix_kit_web/components/media_browser.ex:6170
 #: lib/phoenix_kit_web/components/media_gallery.ex:564
 #, elixir-autogen, elixir-format
 msgid "The files changed. Check the list and confirm again."
 msgstr "文件已更改。请检查列表并再次确认。"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:6183
+#: lib/phoenix_kit_web/components/media_browser.ex:6223
 #, elixir-autogen, elixir-format
 msgid "%{deleted} deleted, %{kept} kept: in use"
 msgstr "已删除 %{deleted} 个，保留 %{kept} 个：正在使用中"
@@ -22674,76 +22675,76 @@ msgid "Delete %{count} file for good?"
 msgid_plural "Delete %{count} files for good?"
 msgstr[0] "永久删除 %{count} 个文件？"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7505
+#: lib/phoenix_kit_web/components/media_browser.ex:7576
 #, elixir-autogen, elixir-format
 msgid "%{count} item permanently deleted"
 msgid_plural "%{count} items permanently deleted"
 msgstr[0] "已永久删除 %{count} 项"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7508
+#: lib/phoenix_kit_web/components/media_browser.ex:7579
 #, elixir-autogen, elixir-format
 msgid "%{count} item moved to trash"
 msgid_plural "%{count} items moved to trash"
 msgstr[0] "已将 %{count} 项移至回收站"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7485
+#: lib/phoenix_kit_web/components/media_browser.ex:7556
 #, elixir-autogen, elixir-format
 msgid "%{count} item is in use by something else and was kept."
 msgid_plural "%{count} items are in use by something else and were kept."
 msgstr[0] "有 %{count} 项正被其他内容使用，已保留。"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7493
+#: lib/phoenix_kit_web/components/media_browser.ex:7564
 #, elixir-autogen, elixir-format
 msgid "%{count} item could not be removed."
 msgid_plural "%{count} items could not be removed."
 msgstr[0] "有 %{count} 项无法移除。"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:6432
+#: lib/phoenix_kit_web/components/media_browser.ex:6472
 #, elixir-autogen, elixir-format
 msgid "This file is in use by something else (a comment, for instance), so it can't be deleted."
 msgstr "此文件正被其他内容（例如评论）使用，因此无法删除。"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3378
+#: lib/phoenix_kit_web/components/media_browser.ex:3418
 #, elixir-autogen, elixir-format
 msgid "Some files in this folder are in use by something else, so they and their folders were kept."
 msgstr "此文件夹中的部分文件正被其他内容使用，因此它们及其文件夹已保留。"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3390
+#: lib/phoenix_kit_web/components/media_browser.ex:3430
 #, elixir-autogen, elixir-format
 msgid "Could not delete the folder. Nothing was removed."
 msgstr "无法删除该文件夹。未移除任何内容。"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3391
+#: lib/phoenix_kit_web/components/media_browser.ex:3431
 #, elixir-autogen, elixir-format
 msgid "Could not move the folder to the trash. Nothing was moved."
 msgstr "无法将该文件夹移至回收站。未移动任何内容。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1120
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1136
 #, elixir-autogen, elixir-format
 msgid "%{account} (via %{person})"
 msgstr "%{account}（通过 %{person}）"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1130
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1146
 #, elixir-autogen, elixir-format
 msgid "%{actor} added %{member} as %{role}"
 msgstr "%{actor} 将 %{member} 添加为 %{role}"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1137
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1153
 #, elixir-autogen, elixir-format
 msgid "%{actor} changed %{member} from %{previous} to %{role}"
 msgstr "%{actor} 将 %{member} 从 %{previous} 更改为 %{role}"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1152
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1168
 #, elixir-autogen, elixir-format
 msgid "%{actor} left the library"
 msgstr "%{actor} 退出了该库"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1145
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1161
 #, elixir-autogen, elixir-format
 msgid "%{actor} removed %{member} (%{role})"
 msgstr "%{actor} 移除了 %{member}（%{role}）"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2494
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2510
 #, elixir-autogen, elixir-format
 msgid "%{bucket} — used by %{libraries}"
 msgstr "%{bucket} — 被 %{libraries} 使用"
@@ -22753,13 +22754,13 @@ msgstr "%{bucket} — 被 %{libraries} 使用"
 msgid "%{checked} checked · %{healthy} up to date · %{attention} need attention"
 msgstr "已检查 %{checked} · %{healthy} 个为最新 · %{attention} 个需要处理"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2470
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2486
 #, elixir-autogen, elixir-format
 msgid "%{count} bucket found."
 msgid_plural "%{count} buckets found."
 msgstr[0] "找到 %{count} 个存储桶。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1687
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1703
 #, elixir-autogen, elixir-format
 msgid "%{count} copying"
 msgstr "%{count} 个正在复制"
@@ -22769,12 +22770,12 @@ msgstr "%{count} 个正在复制"
 msgid "%{count} need attention"
 msgstr "%{count} 个需要处理"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2307
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2323
 #, elixir-autogen, elixir-format
 msgid "%{count} pending"
 msgstr "%{count} 个待处理"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2314
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2330
 #, elixir-autogen, elixir-format
 msgid "%{count} processing uploads"
 msgstr "%{count} 个正在处理上传"
@@ -22788,22 +22789,22 @@ msgid "%{count} storage bucket uses this connection and prevents its removal."
 msgid_plural "%{count} storage buckets use this connection and prevent its removal."
 msgstr[0] "有 %{count} 个存储桶使用此连接，因此无法移除。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1684
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1700
 #, elixir-autogen, elixir-format
 msgid "%{count} stored copies"
 msgstr "%{count} 个已存储的副本"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1690
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1706
 #, elixir-autogen, elixir-format
 msgid "%{count} unavailable"
 msgstr "%{count} 个不可用"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1686
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1702
 #, elixir-autogen, elixir-format
 msgid "%{count} verified"
 msgstr "%{count} 个已验证"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2310
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2326
 #, elixir-autogen, elixir-format
 msgid "%{count} waiting to retry"
 msgstr "%{count} 个等待重试"
@@ -22813,24 +22814,24 @@ msgstr "%{count} 个等待重试"
 msgid "%{done} of %{total} files"
 msgstr "%{done} / %{total} 个文件"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1335
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2290
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1351
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2306
 #, elixir-autogen, elixir-format
 msgid "%{done} of %{total} files up to date"
 msgstr "%{done} / %{total} 个文件为最新"
 
 #: lib/phoenix_kit_web/live/components/library_activity.ex:101
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1069
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1085
 #, elixir-autogen, elixir-format
 msgid "%{project}'s storage"
 msgstr "%{project} 的存储"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2203
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2219
 #, elixir-autogen, elixir-format
 msgid "%{project}'s storage, backed up here"
 msgstr "%{project} 的存储，备份于此"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2099
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2115
 #, elixir-autogen, elixir-format
 msgid "A bucket of yours on AWS S3, Cloudflare R2, Backblaze B2, Tigris or another S3-compatible service, through one of your integrations."
 msgstr "您在 AWS S3、Cloudflare R2、Backblaze B2、Tigris 或其他兼容 S3 的服务上的存储桶，通过您的某个集成连接。"
@@ -22845,29 +22846,29 @@ msgstr "验证已在进行中。正在显示该操作。"
 msgid "Access and address changes keep all files on their current storage. Renditions control the smaller copies generated for viewing."
 msgstr "更改访问权限和地址时，所有文件都会保留在当前存储上。渲染版本用于控制为查看而生成的较小副本。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2569
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2585
 #, elixir-autogen, elixir-format
 msgid "Add a member"
 msgstr "添加成员"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1752
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2128
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2166
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1768
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2144
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2182
 #, elixir-autogen, elixir-format
 msgid "Add an integration"
 msgstr "添加集成"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1622
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1638
 #, elixir-autogen, elixir-format
 msgid "Add another integration as backup storage. Your current storage stays in place. Existing files, including renditions, are copied and verified in the background."
 msgstr "添加另一个集成作为备份存储。您当前的存储保持不变。现有文件（包括渲染版本）会在后台复制并验证。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1764
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1780
 #, elixir-autogen, elixir-format
 msgid "Add backup storage"
 msgstr "添加备份存储"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2117
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2133
 #, elixir-autogen, elixir-format
 msgid "Add your S3-compatible storage as an integration. You do it once: the access keys stay in the integration, and every library can use it."
 msgstr "将您兼容 S3 的存储添加为集成。只需设置一次：访问密钥保存在集成中，每个库都可以使用。"
@@ -22878,7 +22879,7 @@ msgstr "将您兼容 S3 的存储添加为集成。只需设置一次：访问�
 msgid "Address (slug)"
 msgstr "地址（slug）"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2158
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2174
 #, elixir-autogen, elixir-format
 msgid "Also keep a copy on another integration"
 msgstr "同时在另一个集成上保留副本"
@@ -22888,7 +22889,7 @@ msgstr "同时在另一个集成上保留副本"
 msgid "Another verification is active. Only one verification can be active across all libraries; try again after it finishes."
 msgstr "另一项验证正在进行。所有库中同时只能有一项验证；请在其完成后再试。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2054
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2070
 #, elixir-autogen, elixir-format
 msgid "Anyone in the world can browse everything in it, without signing in."
 msgstr "世界上任何人都可以不登录而浏览其中的所有内容。"
@@ -22913,12 +22914,12 @@ msgstr "可用性验证"
 msgid "Availability — check that objects exist"
 msgstr "可用性：检查对象是否存在"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1076
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1092
 #, elixir-autogen, elixir-format
 msgid "Backed up to: %{names}"
 msgstr "备份到：%{names}"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:687
+#: lib/phoenix_kit_web/live/components/library_settings.ex:703
 #, elixir-autogen, elixir-format
 msgid "Backup storage added. Existing files are copied and verified in the background."
 msgstr "备份存储已添加。现有文件会在后台复制并验证。"
@@ -22948,7 +22949,7 @@ msgstr "让“%{name}”重新上线？"
 msgid "Bucket no longer available"
 msgstr "存储桶已不可用"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1704
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1720
 #, elixir-autogen, elixir-format
 msgid "Buckets already connected to this library are hidden. Buckets used by your other libraries are labelled; each library keeps its files separate."
 msgstr "已连接到此库的存储桶会被隐藏。被您其他库使用的存储桶会带有标签；每个库的文件相互独立。"
@@ -22979,7 +22980,7 @@ msgstr "保存前正在检查每个存储桶…"
 msgid "Checksum does not match"
 msgstr "校验和不匹配"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2417
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2433
 #, elixir-autogen, elixir-format
 msgid "Choose a bucket..."
 msgstr "选择存储桶…"
@@ -22989,7 +22990,7 @@ msgstr "选择存储桶…"
 msgid "Choose a library"
 msgstr "选择库"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:320
+#: lib/phoenix_kit_web/live/components/library_settings.ex:336
 #, elixir-autogen, elixir-format
 msgid "Choose an integration first"
 msgstr "请先选择集成"
@@ -23009,12 +23010,12 @@ msgstr "保存前请确认访问权限或地址的更改。"
 msgid "Connect Telegram"
 msgstr "连接 Telegram"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2115
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2131
 #, elixir-autogen, elixir-format
 msgid "Connect your storage first"
 msgstr "请先连接您的存储"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1630
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1646
 #, elixir-autogen, elixir-format
 msgid "Connected storage"
 msgstr "已连接的存储"
@@ -23024,7 +23025,7 @@ msgstr "已连接的存储"
 msgid "Connected to %{site}. Your notifications will arrive in this chat."
 msgstr "已连接到 %{site}。您的通知将发送到此聊天。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2479
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2495
 #, elixir-autogen, elixir-format
 msgid "Copy %{n}"
 msgstr "副本 %{n}"
@@ -23069,7 +23070,7 @@ msgstr "无法读取此副本"
 msgid "Could not save library settings."
 msgstr "无法保存库设置。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1108
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1124
 #, elixir-autogen, elixir-format
 msgid "Could not save the membership change. Please try again."
 msgstr "无法保存成员变更。请重试。"
@@ -23085,8 +23086,8 @@ msgstr "无法保存您的 Telegram 偏好设置。"
 msgid "Create a new integration to use another service."
 msgstr "创建一个新的集成以使用其他服务。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1258
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2261
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1274
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2277
 #, elixir-autogen, elixir-format
 msgid "Create library"
 msgstr "创建库"
@@ -23111,7 +23112,7 @@ msgstr "深度校验和验证"
 msgid "Deep verification — read copies and compare checksums"
 msgstr "深度验证：读取副本并比较校验和"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1111
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1127
 #, elixir-autogen, elixir-format
 msgid "Deleted account"
 msgstr "已删除的账户"
@@ -23136,7 +23137,7 @@ msgstr "本站所有活跃账户都可以浏览，无需邀请。访客必须登
 msgid "Every file, whichever folder it is in"
 msgstr "每个文件，无论在哪个文件夹中"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2185
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2201
 #, elixir-autogen, elixir-format
 msgid "Everything lives on the main integration, and the others keep a copy of every file."
 msgstr "所有内容都存放在主集成上，其他集成保留每个文件的副本。"
@@ -23151,7 +23152,7 @@ msgstr "缺少预期的渲染版本"
 msgid "Failed to set the primary language"
 msgstr "无法设置主要语言"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2017
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2033
 #, elixir-autogen, elixir-format
 msgid "Family photos"
 msgstr "家庭照片"
@@ -23176,7 +23177,7 @@ msgstr "文件仍在处理中"
 msgid "File no longer available"
 msgstr "文件已不可用"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2208
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2224
 #, elixir-autogen, elixir-format
 msgid "Files are kept by the site as usual, and the originals are copied to each of your buckets."
 msgstr "文件仍照常由站点保管，原始文件会复制到您的每个存储桶。"
@@ -23232,7 +23233,7 @@ msgstr "在回收站中"
 msgid "Include generated previews"
 msgstr "包括生成的预览"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1650
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1666
 #, elixir-autogen, elixir-format
 msgid "Integration unavailable"
 msgstr "集成不可用"
@@ -23247,7 +23248,7 @@ msgstr "已恢复被中断的操作"
 msgid "Invited members keep their assigned roles in every access mode. Public readers do not become members."
 msgstr "受邀成员在每种访问模式下都保留其分配的角色。公开读者不会成为成员。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2131
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2147
 #, elixir-autogen, elixir-format
 msgid "It opens in a new tab. Come back here and it will be in the list."
 msgstr "它会在新标签页中打开。返回此处后，它将出现在列表中。"
@@ -23268,7 +23269,7 @@ msgid "Library activity"
 msgstr "库动态"
 
 #: lib/modules/storage/web/libraries_component.ex:312
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1592
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1608
 #, elixir-autogen, elixir-format
 msgid "Library settings"
 msgstr "库设置"
@@ -23278,18 +23279,18 @@ msgstr "库设置"
 msgid "Library settings saved"
 msgstr "库设置已保存"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1345
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2300
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1361
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2316
 #, elixir-autogen, elixir-format
 msgid "Library storage progress"
 msgstr "库存储进度"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2452
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2468
 #, elixir-autogen, elixir-format
 msgid "List buckets"
 msgstr "列出存储桶"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:655
+#: lib/phoenix_kit_web/live/components/library_settings.ex:671
 #, elixir-autogen, elixir-format
 msgid "Listing the buckets stopped unexpectedly. Type the bucket name instead."
 msgstr "列出存储桶时意外中断。请改为输入存储桶名称。"
@@ -23304,7 +23305,7 @@ msgstr "日志会在重新加载和重启后保留，并遵循站点的动态保
 msgid "Lowercase letters, numbers and hyphens. The address is separate from the library name."
 msgstr "小写字母、数字和连字符。地址与库名称相互独立。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2478
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2494
 #, elixir-autogen, elixir-format
 msgid "Main storage"
 msgstr "主存储"
@@ -23314,23 +23315,23 @@ msgstr "主存储"
 msgid "Manage members"
 msgstr "管理成员"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1191
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1207
 #, elixir-autogen, elixir-format
 msgid "Media sections"
 msgstr "媒体分区"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1868
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1884
 #, elixir-autogen, elixir-format
 msgid "Members of “%{name}”"
 msgstr "“%{name}”的成员"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1882
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1884
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1898
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1900
 #, elixir-autogen, elixir-format
 msgid "Membership history"
 msgstr "成员历史"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1906
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1922
 #, elixir-autogen, elixir-format
 msgid "Membership history pages"
 msgstr "成员历史页面"
@@ -23350,12 +23351,12 @@ msgstr "新的凭据无法访问存储桶 %{bucket}。已保留之前保存的�
 msgid "Newer"
 msgstr "较新"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2462
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2478
 #, elixir-autogen, elixir-format
 msgid "No available buckets on this integration. Choose another integration or create a new bucket at your provider."
 msgstr "此集成上没有可用的存储桶。请选择另一个集成，或在您的提供商处创建新的存储桶。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:926
+#: lib/phoenix_kit_web/live/components/library_settings.ex:942
 #, elixir-autogen, elixir-format
 msgid "No buckets found on this integration. Create one at your provider, or type its name."
 msgstr "此集成上未找到存储桶。请在您的提供商处创建一个，或输入其名称。"
@@ -23365,7 +23366,7 @@ msgstr "此集成上未找到存储桶。请在您的提供商处创建一个，
 msgid "No checksum recorded; integrity could not be verified"
 msgstr "未记录校验和；无法验证完整性"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2304
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2320
 #, elixir-autogen, elixir-format
 msgid "No files to copy yet. New uploads will use this storage."
 msgstr "还没有要复制的文件。新的上传将使用此存储。"
@@ -23380,7 +23381,7 @@ msgstr "没有受邀成员。"
 msgid "No library operations yet. Verification and storage copy operations will appear here."
 msgstr "还没有库操作。验证和存储复制操作将显示在这里。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1886
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1902
 #, elixir-autogen, elixir-format
 msgid "No membership changes recorded yet."
 msgstr "尚未记录成员变更。"
@@ -23430,12 +23431,12 @@ msgstr "所有库（包括已暂停的检查）中同时只能有一项验证。
 msgid "Only the library owner or a site administrator can change these settings."
 msgstr "只有库所有者或站点管理员可以更改这些设置。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1973
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1989
 #, elixir-autogen, elixir-format
 msgid "Only you and the members you add can open the files; their links expire."
 msgstr "只有您和您添加的成员可以打开这些文件；其链接会过期。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2036
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2052
 #, elixir-autogen, elixir-format
 msgid "Only you and the members you add."
 msgstr "只有您和您添加的成员。"
@@ -23578,8 +23579,8 @@ msgid "Primary language: %{language}."
 msgstr "主要语言：%{language}。"
 
 #: lib/modules/storage/web/libraries_component.ex:583
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1975
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2034
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1991
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2050
 #, elixir-autogen, elixir-format
 msgid "Private"
 msgstr "私有"
@@ -23609,17 +23610,17 @@ msgstr "重新连接"
 msgid "Recorded checksum needs updating before integrity can be verified"
 msgstr "记录的校验和需要更新，之后才能验证完整性"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1758
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1774
 #, elixir-autogen, elixir-format
 msgid "Refresh integrations"
 msgstr "刷新集成"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1702
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1718
 #, elixir-autogen, elixir-format
 msgid "Refresh status"
 msgstr "刷新状态"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1784
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1800
 #, elixir-autogen, elixir-format
 msgid "Rename library"
 msgstr "重命名库"
@@ -23650,7 +23651,7 @@ msgstr "保存渲染版本"
 msgid "Saving stopped unexpectedly. Refresh before trying again."
 msgstr "保存意外中断。请刷新后再试。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1984
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2000
 #, elixir-autogen, elixir-format
 msgid "Served like the site's media, with ordinary links."
 msgstr "与站点的媒体一样提供服务，使用普通链接。"
@@ -23666,7 +23667,7 @@ msgid "Several people have messaged this bot, so we can't tell which chat is you
 msgstr "有多人给此机器人发过消息，因此我们无法分辨哪个是您的聊天：未关联任何聊天。请改用下方的 ID 关联您的聊天。"
 
 #: lib/modules/storage/web/libraries_component.ex:576
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1965
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1981
 #, elixir-autogen, elixir-format
 msgid "Signed-in users"
 msgstr "已登录用户"
@@ -23686,7 +23687,7 @@ msgstr "单语言站点：任何 URL 都不带语言段（/cart，而不是 /en/
 msgid "Size does not match"
 msgstr "大小不匹配"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2320
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2336
 #, elixir-autogen, elixir-format
 msgid "Some files could not be updated. Failed files become eligible for another attempt after a 10-minute cooldown. Check storage access if failures persist."
 msgstr "部分文件无法更新。失败的文件在 10 分钟冷却后可再次尝试。如果持续失败，请检查存储访问权限。"
@@ -23716,14 +23717,14 @@ msgstr "在当前批次完成后停止此操作？已完成的工作会保留。
 msgid "Stopping"
 msgstr "正在停止"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2276
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2292
 #, elixir-autogen, elixir-format
 msgid "Storage activity"
 msgstr "存储动态"
 
 #: lib/phoenix_kit_web/live/components/library_preferences.ex:412
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1414
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1619
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1430
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1635
 #, elixir-autogen, elixir-format
 msgid "Storage and backups"
 msgstr "存储与备份"
@@ -23745,7 +23746,7 @@ msgstr "存储桶已停用"
 msgid "Storage configuration is missing"
 msgstr "缺少存储配置"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:723
+#: lib/phoenix_kit_web/live/components/library_settings.ex:739
 #, elixir-autogen, elixir-format
 msgid "Storage could not be added. Check your access and the bucket connection."
 msgstr "无法添加存储。请检查您的访问权限和存储桶连接。"
@@ -23765,22 +23766,22 @@ msgstr "存储依赖于此连接。移除和断开均被阻止。要轮换密钥
 msgid "Storage in use requires both an access key and a secret key."
 msgstr "使用中的存储需要同时提供访问密钥和私密密钥。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2333
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2349
 #, elixir-autogen, elixir-format
 msgid "Storage ready"
 msgstr "存储已就绪"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2341
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2357
 #, elixir-autogen, elixir-format
 msgid "Storage work needs attention"
 msgstr "存储工作需要处理"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2338
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2354
 #, elixir-autogen, elixir-format
 msgid "Storage work paused"
 msgstr "存储工作已暂停"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1265
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1281
 #, elixir-autogen, elixir-format
 msgid "Stored in"
 msgstr "存储于"
@@ -23791,7 +23792,7 @@ msgid "Suspend"
 msgstr "暂停"
 
 #: lib/modules/storage/web/libraries_component.ex:569
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1955
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1971
 #, elixir-autogen, elixir-format
 msgid "Suspended"
 msgstr "已暂停"
@@ -23832,12 +23833,12 @@ msgstr "Telegram 偏好设置已保存。"
 msgid "Telegram was switched off because delivery failed — for example, the bot was blocked."
 msgstr "Telegram 已因发送失败（例如机器人被屏蔽）而关闭。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2231
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2247
 #, elixir-autogen, elixir-format
 msgid "Test"
 msgstr "测试"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1763
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1779
 #, elixir-autogen, elixir-format
 msgid "Testing and adding..."
 msgstr "正在测试并添加…"
@@ -23847,9 +23848,9 @@ msgstr "正在测试并添加…"
 msgid "The connection or its storage usage changed during testing. Refresh and try again."
 msgstr "测试期间连接或其存储使用情况发生了变化。请刷新后重试。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:480
-#: lib/phoenix_kit_web/live/components/library_settings.ex:715
-#: lib/phoenix_kit_web/live/components/library_settings.ex:810
+#: lib/phoenix_kit_web/live/components/library_settings.ex:496
+#: lib/phoenix_kit_web/live/components/library_settings.ex:731
+#: lib/phoenix_kit_web/live/components/library_settings.ex:826
 #, elixir-autogen, elixir-format
 msgid "The integration changed during testing. Refresh and try again."
 msgstr "测试期间集成发生了变化。请刷新后重试。"
@@ -23869,7 +23870,7 @@ msgstr "站点所使用的语言：其内容、界面，以及每个 URL 回退�
 msgid "The library could not be changed"
 msgstr "无法更改该库"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:817
+#: lib/phoenix_kit_web/live/components/library_settings.ex:833
 #, elixir-autogen, elixir-format
 msgid "The library could not be created. Refresh and try again."
 msgstr "无法创建该库。请刷新后重试。"
@@ -23894,7 +23895,7 @@ msgstr "链接在点击“开始”之前已过期。请获取新的链接。"
 msgid "The link works once and expires in %{minutes} minutes."
 msgstr "该链接只能使用一次，并将在 %{minutes} 分钟后过期。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2241
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2257
 #, elixir-autogen, elixir-format
 msgid "The place a library keeps its files stays as it is. More backup storage can be added later, and existing files are copied in the background. It is tested again when you create it. Deleting the library deletes the files it stored in your buckets."
 msgstr "库保存文件的位置保持不变。日后可以添加更多备份存储，现有文件会在后台复制。创建时会再次测试。删除库会同时删除它存放在您存储桶中的文件。"
@@ -23904,18 +23905,18 @@ msgstr "库保存文件的位置保持不变。日后可以添加更多备份存
 msgid "The service cannot be changed. Create a new integration for another service."
 msgstr "无法更改服务。请创建新的集成以使用其他服务。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1950
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1966
 #, elixir-autogen, elixir-format
 msgid "The site's administrators have taken this library offline. Only you and its members can open it."
 msgstr "站点管理员已将此库下线。只有您和它的成员可以打开它。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1512
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1528
 #, elixir-autogen, elixir-format
 msgid "The site's own library, managed by the site's administrators"
 msgstr "站点自己的库，由站点管理员管理"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:667
-#: lib/phoenix_kit_web/live/components/library_settings.ex:679
+#: lib/phoenix_kit_web/live/components/library_settings.ex:683
+#: lib/phoenix_kit_web/live/components/library_settings.ex:695
 #, elixir-autogen, elixir-format
 msgid "The storage operation stopped unexpectedly. Refresh before trying again."
 msgstr "存储操作意外中断。请刷新后再试。"
@@ -23935,7 +23936,7 @@ msgstr "此机器人设置了 webhook，因此 Telegram 不会将其消息交给
 msgid "This connection is used by storage. Create another integration to change its destination."
 msgstr "存储正在使用此连接。请创建另一个集成以更改其目标。"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7511
+#: lib/phoenix_kit_web/components/media_browser.ex:7582
 #, elixir-autogen, elixir-format
 msgid "This folder belongs to a module and can't be deleted here."
 msgstr "此文件夹属于某个模块，无法在此处删除。"
@@ -23945,7 +23946,7 @@ msgstr "此文件夹属于某个模块，无法在此处删除。"
 msgid "This is the website's Telegram bot for user notifications — everyone who linked a chat to it will stop receiving them. %{rest}"
 msgstr "这是网站用于用户通知的 Telegram 机器人：所有已将聊天关联到它的用户都将不再收到通知。%{rest}"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:698
+#: lib/phoenix_kit_web/live/components/library_settings.ex:714
 #, elixir-autogen, elixir-format
 msgid "This library already uses that bucket."
 msgstr "此库已在使用该存储桶。"
@@ -23955,7 +23956,7 @@ msgstr "此库已在使用该存储桶。"
 msgid "This library can be checked again on %{date}. Each library can be checked once every 30 days."
 msgstr "此库可在 %{date} 再次检查。每个库每 30 天可检查一次。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:705
+#: lib/phoenix_kit_web/live/components/library_settings.ex:721
 #, elixir-autogen, elixir-format
 msgid "This library has reached its storage copy limit. Existing storage has been kept."
 msgstr "此库已达到其存储副本数量上限。现有存储已保留。"
@@ -23987,12 +23988,12 @@ msgstr "请勾选下方的 **通过此机器人发送用户通知**。之后每�
 msgid "Top level"
 msgstr "顶层"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2325
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2341
 #, elixir-autogen, elixir-format
 msgid "Tracks copying, verification, cleanup and rendition updates. Stored copies include originals and renditions."
 msgstr "跟踪复制、验证、清理和渲染版本更新。已存储的副本包括原始文件和渲染版本。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2428
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2444
 #, elixir-autogen, elixir-format
 msgid "Type a name"
 msgstr "输入名称"
@@ -24002,12 +24003,12 @@ msgstr "输入名称"
 msgid "Unassigned bucket"
 msgstr "未分配的存储桶"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2286
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2302
 #, elixir-autogen, elixir-format
 msgid "Updates automatically"
 msgstr "自动更新"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2335
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2351
 #, elixir-autogen, elixir-format
 msgid "Updating storage"
 msgstr "正在更新存储"
@@ -24048,7 +24049,7 @@ msgid "Verify a library"
 msgstr "验证库"
 
 #: lib/phoenix_kit_web/live/components/library_activity.ex:398
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1364
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1380
 #, elixir-autogen, elixir-format
 msgid "Verify library"
 msgstr "验证库"
@@ -24069,12 +24070,12 @@ msgid "Viewing access never grants permission to upload, edit or delete. Changin
 msgstr "查看权限绝不会授予上传、编辑或删除的权限。更改访问权限不会移动文件，也不会更改 WebDAV 目标。"
 
 #: lib/modules/storage/web/libraries_component.ex:546
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1266
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1282
 #, elixir-autogen, elixir-format
 msgid "Visibility"
 msgstr "可见性"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2344
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2360
 #, elixir-autogen, elixir-format
 msgid "Waiting for background work"
 msgstr "等待后台任务"
@@ -24084,17 +24085,17 @@ msgstr "等待后台任务"
 msgid "Waiting for you to press Start in Telegram. If you already did, press the button; otherwise get a new link."
 msgstr "正在等待您在 Telegram 中点击“开始”。如果您已经点过，请点击该按钮；否则请获取新的链接。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2343
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2359
 #, elixir-autogen, elixir-format
 msgid "Waiting to retry"
 msgstr "等待重试"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2059
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2075
 #, elixir-autogen, elixir-format
 msgid "Whatever you add to a public library is public at once. This cannot be changed once the library is created."
 msgstr "您添加到公开库的任何内容都会立即公开。库创建后无法更改此设置。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1847
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1863
 #, elixir-autogen, elixir-format
 msgid "Which sizes this library's uploads get. Existing files are updated in the background."
 msgstr "此库的上传会生成哪些尺寸。现有文件会在后台更新。"
@@ -24105,7 +24106,7 @@ msgstr "此库的上传会生成哪些尺寸。现有文件会在后台更新。
 msgid "While you act in another account, no key can be created or rotated and no service user can be created."
 msgstr "在您以其他账户身份操作时，无法创建或轮换密钥，也无法创建服务用户。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2021
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2037
 #, elixir-autogen, elixir-format
 msgid "Who can see it"
 msgstr "谁可以查看"
@@ -24120,7 +24121,7 @@ msgstr "谁可以查看此库？"
 msgid "Without the tick this connection is **not used for user notifications**; code that sends through it must name the chat itself"
 msgstr "不勾选时，此连接 **不用于用户通知**；通过它发送的代码必须自行指定聊天"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:2234
+#: lib/phoenix_kit_web/live/components/library_settings.ex:2250
 #, elixir-autogen, elixir-format
 msgid "Works: a file can be written, read and deleted."
 msgstr "正常：可以写入、读取和删除文件。"
@@ -24135,12 +24136,12 @@ msgstr "您的集成中还关联了您自己的 Telegram 机器人，会优先�
 msgid "You are viewing %{owner}'s library “%{name}” as an administrator."
 msgstr "您正以管理员身份查看 %{owner} 的库“%{name}”。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1252
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1268
 #, elixir-autogen, elixir-format
 msgid "You have reached the number of libraries you may own (%{limit})."
 msgstr "您已达到可拥有的库数量上限（%{limit}）。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:412
+#: lib/phoenix_kit_web/live/components/library_settings.ex:428
 #, elixir-autogen, elixir-format
 msgid "You may not change this library's storage"
 msgstr "您无权更改此库的存储"
@@ -24241,13 +24242,13 @@ msgstr "将文件分块发送，由服务器保存。暂停的上传会从中断
 msgid "Unfinished uploads"
 msgstr "未完成的上传"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3415
-#: lib/phoenix_kit_web/components/media_browser.ex:5941
+#: lib/phoenix_kit_web/components/media_browser.ex:3455
+#: lib/phoenix_kit_web/components/media_browser.ex:5981
 #, elixir-autogen, elixir-format
 msgid "Nothing to move"
 msgstr "没有可移动的内容"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:5932
+#: lib/phoenix_kit_web/components/media_browser.ex:5972
 #, elixir-autogen, elixir-format
 msgid "%{moved} of %{total} items moved"
 msgstr "已移动 %{moved} / %{total} 项"
@@ -24346,13 +24347,13 @@ msgstr "无法发送录音。请重试。"
 msgid "The recording is too long."
 msgstr "录音时间过长。"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7174
+#: lib/phoenix_kit_web/components/media_browser.ex:7245
 #, elixir-autogen, elixir-format
 msgid "%{count} file was not stored: there is no storage left for this library."
 msgid_plural "%{count} files were not stored: there is no storage left for this library."
 msgstr[0] "有 %{count} 个文件未能存储：此库已没有可用的存储空间。"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7031
+#: lib/phoenix_kit_web/components/media_browser.ex:7071
 #, elixir-autogen, elixir-format
 msgid "There is no storage left for this library."
 msgstr "此库已没有可用的存储空间。"
@@ -24950,8 +24951,8 @@ msgstr "激活后该用户将可以登录"
 msgid "Add at least one language using the form above to see live previews of the language switcher component."
 msgstr "请使用上方表单至少添加一种语言，以查看语言切换器组件的实时预览。"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1214
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1217
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1215
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1218
 #: lib/phoenix_kit_web/users/user_form.html.heex:666
 #, elixir-autogen, elixir-format
 msgid "Additional Information"
@@ -24997,7 +24998,7 @@ msgstr "所有区域"
 msgid "All sitemaps cleared. Regeneration started..."
 msgstr "已清除所有站点地图。已开始重新生成..."
 
-#: lib/phoenix_kit/notifications/render.ex:242
+#: lib/phoenix_kit/notifications/render.ex:254
 #, elixir-autogen, elixir-format
 msgid "An administrator created your account."
 msgstr "管理员为您创建了账户。"
@@ -25007,7 +25008,7 @@ msgstr "管理员为您创建了账户。"
 msgid "Application name"
 msgstr "应用名称"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1561
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1562
 #, elixir-autogen, elixir-format
 msgid "Are you sure you want to disconnect this account? You won't be able to sign in with it anymore."
 msgstr "确定要断开此账户的连接吗？您将无法再使用它登录。"
@@ -25032,7 +25033,7 @@ msgstr "尝试时间："
 msgid "Authorization callback URL"
 msgstr "授权回调 URL"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:290
+#: lib/phoenix_kit_web/live/settings/authorization.ex:291
 #, elixir-autogen, elixir-format
 msgid "Authorization settings updated successfully"
 msgstr "授权设置更新成功"
@@ -25093,7 +25094,7 @@ msgstr "无法修改此用户的状态"
 msgid "Cannot remove Owner role from the last Owner."
 msgstr "无法从最后一位所有者移除所有者角色。"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1439
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1440
 #: lib/phoenix_kit_web/users/user_form.html.heex:264
 #, elixir-autogen, elixir-format
 msgid "Change Password"
@@ -25109,7 +25110,7 @@ msgstr "完成时间："
 msgid "Configure and preview the language switcher component for your frontend application."
 msgstr "为您的前端应用配置并预览语言切换器组件。"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1485
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1486
 #, elixir-autogen, elixir-format
 msgid "Confirm New Password"
 msgstr "确认新密码"
@@ -25119,12 +25120,12 @@ msgstr "确认新密码"
 msgid "Confirm Password Reset"
 msgstr "确认重置密码"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1585
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1586
 #, elixir-autogen, elixir-format
 msgid "Connect %{provider}"
 msgstr "连接 %{provider}"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1515
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1516
 #, elixir-autogen, elixir-format
 msgid "Connected Accounts"
 msgstr "已连接的账户"
@@ -25165,8 +25166,8 @@ msgstr "凭据"
 msgid "Current %{context}"
 msgstr "当前%{context}"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1401
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1492
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1402
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1493
 #, elixir-autogen, elixir-format
 msgid "Current Password"
 msgstr "当前密码"
@@ -25597,7 +25598,7 @@ msgstr "必须是对象的 JSON 数组"
 msgid "New"
 msgstr "新"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1393
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1394
 #, elixir-autogen, elixir-format
 msgid "New Email"
 msgstr "新邮箱"
@@ -25607,13 +25608,13 @@ msgstr "新邮箱"
 msgid "New OAuth App"
 msgstr "新建 OAuth 应用"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1478
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1479
 #: lib/phoenix_kit_web/users/user_form.html.heex:279
 #, elixir-autogen, elixir-format
 msgid "New Password"
 msgstr "新密码"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1596
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1597
 #, elixir-autogen, elixir-format
 msgid "No Password Set"
 msgstr "未设置密码"
@@ -25705,7 +25706,7 @@ msgstr "通过邮件重置密码"
 msgid "Password reset email sent to %{email}. The user will receive instructions to reset their password."
 msgstr "密码重置邮件已发送至 %{email}。该用户将收到重置密码的说明。"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1120
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1121
 #: lib/phoenix_kit_web/users/user_form.html.heex:207
 #, elixir-autogen, elixir-format
 msgid "Personal Timezone"
@@ -25785,7 +25786,7 @@ msgstr "可以验证"
 msgid "Reason:"
 msgstr "原因："
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:485
+#: lib/phoenix_kit_web/live/components/user_settings.ex:486
 #, elixir-autogen, elixir-format
 msgid "Redirecting to %{provider}…"
 msgstr "正在重定向到 %{provider}…"
@@ -25981,7 +25982,7 @@ msgstr "无法创建存储路径：%{reason}。请手动创建。"
 msgid "Storage path created: %{path}"
 msgstr "已创建存储路径：%{path}"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1252
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1253
 #: lib/phoenix_kit_web/users/user_form.html.heex:568
 #, elixir-autogen, elixir-format
 msgid "Structured value, stored by a feature rather than typed here — read-only."
@@ -26085,22 +26086,22 @@ msgstr "未知设置"
 msgid "Unknown user"
 msgstr "未知用户"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1335
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1336
 #, elixir-autogen, elixir-format
 msgid "Update Custom Fields"
 msgstr "更新自定义字段"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1409
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1410
 #, elixir-autogen, elixir-format
 msgid "Update Email"
 msgstr "更新邮箱"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1501
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1502
 #, elixir-autogen, elixir-format
 msgid "Update Password"
 msgstr "更新密码"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1190
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1191
 #, elixir-autogen, elixir-format
 msgid "Update Profile"
 msgstr "更新个人资料"
@@ -26116,7 +26117,7 @@ msgid "Updating user..."
 msgstr "正在更新用户..."
 
 #: lib/phoenix_kit/utils/time_zone.ex:1117
-#: lib/phoenix_kit_web/live/components/user_settings.ex:236
+#: lib/phoenix_kit_web/live/components/user_settings.ex:237
 #: lib/phoenix_kit_web/users/user_form.ex:61
 #, elixir-autogen, elixir-format
 msgid "Use System Default"
@@ -26245,12 +26246,12 @@ msgstr "出于安全原因，您不能修改自己的角色。请让其他管理
 msgid "You cannot modify your own roles."
 msgstr "您不能修改自己的角色。"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1598
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1599
 #, elixir-autogen, elixir-format
 msgid "You signed up using OAuth. Consider setting a password above as a backup sign-in method."
 msgstr "您是通过 OAuth 注册的。建议在上方设置密码，作为备用登录方式。"
 
-#: lib/phoenix_kit/notifications/render.ex:238
+#: lib/phoenix_kit/notifications/render.ex:250
 #, elixir-autogen, elixir-format
 msgid "You switched to this account from another signed-in account."
 msgstr "您是从另一个已登录的账户切换到此账户的。"
@@ -26774,7 +26775,7 @@ msgstr "此会话已结束。请重新登录以代表组织操作。"
 msgid "Administrator with elevated privileges"
 msgstr "具有更高权限的管理员"
 
-#: lib/modules/storage/storage.ex:5399
+#: lib/modules/storage/storage.ex:5430
 #, elixir-autogen, elixir-format
 msgid "Create libraries"
 msgstr "创建库"
@@ -26789,7 +26790,7 @@ msgstr "数据库"
 msgid "Full Access (Superadmin)"
 msgstr "完全访问（超级管理员）"
 
-#: lib/modules/storage/storage.ex:5410
+#: lib/modules/storage/storage.ex:5441
 #, elixir-autogen, elixir-format
 msgid "Make libraries public"
 msgstr "公开库"
@@ -26829,7 +26830,7 @@ msgstr "系统集成"
 msgid "System owner with full access"
 msgstr "拥有完全访问权限的系统所有者"
 
-#: lib/modules/storage/storage.ex:5404
+#: lib/modules/storage/storage.ex:5435
 #, elixir-autogen, elixir-format
 msgid "Use their own storage"
 msgstr "使用自己的存储"
@@ -26877,7 +26878,7 @@ msgstr ""
 msgid "New sign-ins to your account from a new device or country, and sessions opened on your account by someone else"
 msgstr "来自新设备或新国家/地区的新登录，以及他人在您账户上开启的会话"
 
-#: lib/phoenix_kit/users/passkeys.ex:271
+#: lib/phoenix_kit/users/passkeys.ex:273
 #, elixir-autogen, elixir-format
 msgid "%{browser} on %{os}"
 msgstr "%{os} 上的 %{browser}"
@@ -26892,7 +26893,7 @@ msgstr "名称需要 1 到 100 个字符。"
 msgid "A passkey was added to your account"
 msgstr "您的账户添加了一个通行密钥"
 
-#: lib/phoenix_kit/users/passkeys.ex:430
+#: lib/phoenix_kit/users/passkeys.ex:466
 #, elixir-autogen, elixir-format
 msgid "A passkey was added to your account: %{name}."
 msgstr "您的账户添加了一个通行密钥：%{name}。"
@@ -26902,7 +26903,7 @@ msgstr "您的账户添加了一个通行密钥：%{name}。"
 msgid "A passkey was removed from your account"
 msgstr "您的账户移除了一个通行密钥"
 
-#: lib/phoenix_kit/users/passkeys.ex:454
+#: lib/phoenix_kit/users/passkeys.ex:490
 #, elixir-autogen, elixir-format
 msgid "A passkey was removed from your account: %{name}."
 msgstr "您的账户移除了一个通行密钥：%{name}。"
@@ -26957,12 +26958,12 @@ msgstr "您好 {{user_email}}，\n\n您的账户移除了一个通行密钥：\n
 msgid "Made for %{domain}; it does not work on this site's current address."
 msgstr "为 %{domain} 创建；在本网站当前地址上无法使用。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1546
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1562
 #, elixir-autogen, elixir-format
 msgid "No libraries yet. Create one to keep your files together and choose who can see them."
 msgstr "还没有资料库。创建一个，把您的文件放在一起，并选择谁可以查看。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1549
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1565
 #, elixir-autogen, elixir-format
 msgid "No libraries yet. Libraries shared with you will appear here."
 msgstr "还没有资料库。与您共享的资料库会显示在这里。"
@@ -26972,8 +26973,8 @@ msgstr "还没有资料库。与您共享的资料库会显示在这里。"
 msgid "No passkeys."
 msgstr "没有通行密钥。"
 
-#: lib/phoenix_kit/users/passkeys.ex:268
-#: lib/phoenix_kit/users/passkeys.ex:275
+#: lib/phoenix_kit/users/passkeys.ex:270
+#: lib/phoenix_kit/users/passkeys.ex:277
 #, elixir-autogen, elixir-format
 msgid "Passkey"
 msgstr "通行密钥"
@@ -27055,7 +27056,7 @@ msgstr "使用 Face ID、Touch ID、Windows Hello 或设备 PIN 码代替密码�
 msgid "Sign in with passkey"
 msgstr "使用通行密钥登录"
 
-#: lib/phoenix_kit_web/users/passkey_login_complete.ex:28
+#: lib/phoenix_kit_web/users/passkey_login_complete.ex:30
 #, elixir-autogen, elixir-format
 msgid "Signed in with a passkey."
 msgstr "已使用通行密钥登录。"
@@ -27065,7 +27066,7 @@ msgstr "已使用通行密钥登录。"
 msgid "That passkey could not be added. Try again, or use another device."
 msgstr "无法添加该通行密钥。请重试，或使用其他设备。"
 
-#: lib/phoenix_kit_web/users/login.ex:146
+#: lib/phoenix_kit_web/users/login.ex:145
 #, elixir-autogen, elixir-format
 msgid "That passkey did not work. Try again, or sign in another way."
 msgstr "该通行密钥无效。请重试，或用其他方式登录。"
@@ -27080,7 +27081,7 @@ msgstr "该通行密钥已不存在。"
 msgid "This passkey is already saved to an account."
 msgstr "此通行密钥已保存在某个账户中。"
 
-#: lib/phoenix_kit_web/users/passkey_login_complete.ex:53
+#: lib/phoenix_kit_web/users/passkey_login_complete.ex:59
 #, elixir-autogen, elixir-format
 msgid "This passkey sign-in has expired. Please try again."
 msgstr "此通行密钥登录已过期。请重试。"
@@ -27090,7 +27091,7 @@ msgstr "此通行密钥登录已过期。请重试。"
 msgid "To add a passkey, sign out and sign in again, then come back here within %{minutes} minutes. This keeps someone who finds your device unlocked from adding a passkey of their own."
 msgstr "要添加通行密钥，请先退出并重新登录，然后在 %{minutes} 分钟内回到这里。这样，捡到您未锁定设备的人就无法添加自己的通行密钥。"
 
-#: lib/phoenix_kit_web/users/login.ex:129
+#: lib/phoenix_kit_web/users/login.ex:128
 #, elixir-autogen, elixir-format
 msgid "Too many attempts. Wait a minute and try again."
 msgstr "尝试次数过多。请等待一分钟后重试。"
@@ -27111,7 +27112,7 @@ msgstr "您无法更改这些通行密钥。"
 msgid "You have no passkeys yet."
 msgstr "您还没有通行密钥。"
 
-#: lib/phoenix_kit_web/live/components/library_settings.ex:1232
+#: lib/phoenix_kit_web/live/components/library_settings.ex:1248
 #, elixir-autogen, elixir-format
 msgid "You own %{count} library (up to %{limit})"
 msgid_plural "You own %{count} libraries (up to %{limit})"
@@ -27142,37 +27143,37 @@ msgstr "已同步"
 msgid "this device only"
 msgstr "仅限此设备"
 
-#: lib/phoenix_kit/notifications/render.ex
+#: lib/phoenix_kit/notifications/render.ex:234
 #, elixir-autogen, elixir-format
 msgid "%{name} mentioned you."
 msgstr "%{name} 提到了你。"
 
-#: lib/phoenix_kit/notifications/render.ex
+#: lib/phoenix_kit/notifications/render.ex:238
 #, elixir-autogen, elixir-format
 msgid "You were mentioned."
 msgstr "有人提到了你。"
 
-#: lib/phoenix_kit/notifications/types.ex
+#: lib/phoenix_kit/notifications/types.ex:323
 #, elixir-autogen, elixir-format
 msgid "When someone mentions you with @"
 msgstr "有人用 @ 提到你时"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:1025
+#: lib/phoenix_kit_web/components/media_browser.ex:1027
 #, elixir-autogen, elixir-format
 msgid "This file is already stored as another kind of file, so it cannot be picked here."
 msgstr "此文件已作为另一种类型的文件保存，因此无法在此处选择。"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:1033
+#: lib/phoenix_kit_web/components/media_browser.ex:1035
 #, elixir-autogen, elixir-format
 msgid "This file is already stored, but it cannot be picked here."
 msgstr "此文件已保存，但无法在此处选择。"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:1029
+#: lib/phoenix_kit_web/components/media_browser.ex:1032
 #, elixir-autogen, elixir-format
 msgid "This file is not a kind of file this picker takes."
 msgstr "此文件不是该选择器接受的文件类型。"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:1032
+#: lib/phoenix_kit_web/components/media_browser.ex:1038
 #, elixir-autogen, elixir-format
 msgid "The file was saved, but it cannot be picked here."
 msgstr "文件已保存，但无法在此处选择。"
