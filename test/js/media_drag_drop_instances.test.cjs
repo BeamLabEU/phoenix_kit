@@ -166,3 +166,20 @@ test("a row that is no longer draggable keeps no drag listener", () => {
   assert.deepEqual(card.listeners.dragstart || [], []);
   assert.ok(!card.hasAttribute("draggable"));
 });
+
+// The same in-place patch on a drop target: a folder row that shows a file
+// after a navigation must not keep accepting drops as the folder it was.
+test("a drop target that is no longer one keeps no handler", () => {
+  const p = page();
+  const { hook, card } = p.hook("first");
+  const row = p.folders.b;
+  delete row.dataset.dropFolder;
+  delete p.folders.b;
+  hook.setupDragDrop();
+  for (const name of ["dragover", "dragleave", "drop"]) assert.deepEqual(row.listeners[name] || [], []);
+  p.drag(card, row);
+  assert.deepEqual(p.calls, []);
+  // Still wired where it still is one.
+  p.drag(card, p.folders.a);
+  assert.equal(p.calls.length, 1);
+});

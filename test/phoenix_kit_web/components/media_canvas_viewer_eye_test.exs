@@ -198,7 +198,11 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerEyeTest do
 
     test "the picture exported is the original, not the screen-sized rung" do
       image = %{src: "/f/small.jpg", x: 0, y: 0, width: 800}
-      file = %{urls: %{"small" => "/f/small.jpg", "original" => "/f/original.jpg"}}
+
+      file = %{
+        mime_type: "image/jpeg",
+        urls: %{"small" => "/f/small.jpg", "original" => "/f/original.jpg"}
+      }
 
       assert %{export_src: "/f/original.jpg"} = MediaCanvasViewer.export_src(image, file)
 
@@ -212,6 +216,23 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerEyeTest do
 
       # No original on file: the stage's own picture is what gets exported.
       refute Map.has_key?(MediaCanvasViewer.export_src(image, %{urls: %{}}), :export_src)
+    end
+
+    test "an original no browser can draw exports the top rung instead" do
+      image = %{src: "/f/small.jpg", x: 0, y: 0, width: 800}
+
+      for mime <- ~w(image/heic image/tiff image/x-canon-cr2) do
+        file = %{
+          mime_type: mime,
+          urls: %{"small" => "/f/small.jpg", "large" => "/f/large.jpg", "original" => "/f/orig"}
+        }
+
+        assert %{export_src: "/f/large.jpg"} = MediaCanvasViewer.export_src(image, file)
+
+        # No rung above the stage's own: that one is exported, not the original.
+        no_large = %{file | urls: Map.delete(file.urls, "large")}
+        refute Map.has_key?(MediaCanvasViewer.export_src(image, no_large), :export_src)
+      end
     end
   end
 

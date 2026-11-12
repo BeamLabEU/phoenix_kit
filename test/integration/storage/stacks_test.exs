@@ -11,8 +11,8 @@ defmodule PhoenixKit.Modules.Storage.StacksTest do
   import Ecto.Query
 
   alias PhoenixKit.Modules.Storage
-  alias PhoenixKit.Modules.Storage.{FileStack, Libraries, ManualDate, Stacks}
   alias PhoenixKit.Modules.Storage.File, as: StorageFile
+  alias PhoenixKit.Modules.Storage.{FileStack, Libraries, ManualDate, Stacks}
   alias PhoenixKit.Settings
   alias PhoenixKit.Test.Repo
   alias PhoenixKit.Users.{Auth, Permissions, Roles}

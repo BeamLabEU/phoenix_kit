@@ -791,6 +791,9 @@ defmodule PhoenixKit.Mentions do
     |> Map.new(&{&1.uuid, display_name(&1)})
   rescue
     _ -> %{}
+  catch
+    # A dead pool exits rather than raises: the pings still go, unnamed.
+    :exit, _ -> %{}
   end
 
   # The name, else the username — never `User.display_name/1`'s fallback to

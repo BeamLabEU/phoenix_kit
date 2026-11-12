@@ -9215,6 +9215,17 @@ if (typeof window.Chart === "undefined") {
   }, true);
 
   var mediaDragDropSeq = 0;
+  var DROP_FOLDER_HANDLERS = ["dragover", "dragleave", "drop"];
+  var DROP_TRASH_HANDLERS = ["trash_dragover", "trash_dragleave", "trash_drop"];
+
+  // Takes one hook's handlers (its `slot`, see setupDragDrop) off a drop target.
+  function unwireDropTarget(target, slot, names) {
+    names.forEach(function(name) {
+      if (!target[slot + name]) return;
+      target.removeEventListener(name.replace("trash_", ""), target[slot + name]);
+      delete target[slot + name];
+    });
+  }
 
   window.PhoenixKitHooks.MediaDragDrop = {
     mounted: function() {
@@ -9253,13 +9264,11 @@ if (typeof window.Chart === "undefined") {
       // trash, another panel's folders.
       var slot = this._dropSlot;
       if (slot) {
-        document.querySelectorAll("[data-drop-folder], [data-drop-trash]").forEach(function(target) {
-          ["dragover", "dragleave", "drop", "trash_dragover", "trash_dragleave", "trash_drop"].forEach(function(name) {
-            if (!target[slot + name]) return;
-            target.removeEventListener(name.replace("trash_", ""), target[slot + name]);
-            delete target[slot + name];
-          });
-        });
+        var names = DROP_FOLDER_HANDLERS.concat(DROP_TRASH_HANDLERS);
+        var unwire = function(target) { unwireDropTarget(target, slot, names); };
+        document.querySelectorAll("[data-drop-folder], [data-drop-trash]").forEach(unwire);
+        (this._wiredFolderTargets || []).forEach(unwire);
+        (this._wiredTrashTargets || []).forEach(unwire);
       }
       if (this.el.__pkCancelBox) this.el.__pkCancelBox();
       if (this.el.__pkBoxHook === this) this.el.__pkBoxHook = null;
@@ -9836,6 +9845,15 @@ if (typeof window.Chart === "undefined") {
         target.addEventListener("drop", target[slot + "drop"]);
       });
 
+      // A drop target LiveView patched into something else (a folder row that
+      // holds a file after a navigation) keeps no handler of this hook: it
+      // would light up as a folder and swallow the drop with nothing to move.
+      var folderTargetsNow = new Set(dropTargets);
+      (self._wiredFolderTargets || []).forEach(function(target) {
+        if (!folderTargetsNow.has(target)) unwireDropTarget(target, slot, DROP_FOLDER_HANDLERS);
+      });
+      self._wiredFolderTargets = folderTargetsNow;
+
       // Trash drop target — any element carrying `data-drop-trash`, looked
       // up across the document rather than inside this hook's element, so a
       // consumer can put the target in a page header. Mirrors the folder drop
@@ -9897,6 +9915,12 @@ if (typeof window.Chart === "undefined") {
         };
         target.addEventListener("drop", target[slot + "trash_drop"]);
       });
+
+      var trashTargetsNow = new Set(trashTargets);
+      (self._wiredTrashTargets || []).forEach(function(target) {
+        if (!trashTargetsNow.has(target)) unwireDropTarget(target, slot, DROP_TRASH_HANDLERS);
+      });
+      self._wiredTrashTargets = trashTargetsNow;
     }
   };
 
