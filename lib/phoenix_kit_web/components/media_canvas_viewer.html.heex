@@ -868,6 +868,18 @@
               <span class="text-base-content/60">{gettext("Uploaded by:")}</span>
               <span class="ml-1">{@file_row.uploader}</span>
             </div>
+            <%!-- Rows other modules add (`extra_info/1`): where a fetched file came from. --%>
+            <div :for={row <- (@file_row && @file_row[:extra]) || []} class="break-words">
+              <span class="text-base-content/60">{row.label}</span>
+              <a
+                :if={row.href}
+                href={row.href}
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+                class="link link-hover ml-1"
+              >{row.text}</a>
+              <span :if={!row.href} class="ml-1">{row.text}</span>
+            </div>
             <div :if={changed_since_upload?(@file_row)}>
               <span class="text-base-content/60">{gettext("Updated:")}</span>
               <span class="ml-1">

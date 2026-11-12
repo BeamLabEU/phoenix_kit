@@ -4,6 +4,13 @@ Run `mix phoenix_kit.update` (V230, V231 and the new `phoenix_kit.js`).
 
 ### Added
 
+- **Other modules' rows in the media viewer's file details**:
+  `config :phoenix_kit, :media_file_info, [{module, function}, …]`, each called with
+  the file's row and returning `%{label:, text:, href:}` maps (only an `http(s)` link
+  is kept; a function that raises adds nothing).
+  `PhoenixKitWeb.Components.MediaCanvasViewer.extra_info/1`. phoenix_kit_photos uses it
+  to show where a file fetched from a link came from.
+
 - **Sign in with a passkey** (Face ID, Touch ID, Windows Hello, a phone or a
   security key), off by default: Settings → Authorization → Passkeys
   (`passkey_login_enabled`). The sign-in page offers the passkey in the email field
