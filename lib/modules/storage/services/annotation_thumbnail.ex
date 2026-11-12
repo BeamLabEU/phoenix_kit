@@ -21,7 +21,8 @@ defmodule PhoenixKit.Modules.Storage.AnnotationThumbnail do
 
   Label text needs a font ImageMagick can read: the first of DejaVu-Sans,
   Liberation-Sans, Helvetica, Arial that is installed (else any installed one
-  that is not a symbol set), or the one named by `config :phoenix_kit, :annotation_font` (a font name or file path).
+  that is not a symbol set), or the one named by
+  `config :phoenix_kit, :annotation_font` (a font name or file path).
 
   Regeneration is meant to run in the background (see `AnnotationThumbnailJob`),
   debounced so a flurry of edits collapses into one render.
@@ -262,9 +263,17 @@ defmodule PhoenixKit.Modules.Storage.AnnotationThumbnail do
         |> remember_font()
 
       :error ->
-        # ImageMagick could not be asked — try again next time.
-        nil
+        # ImageMagick could not be asked — try again next time (nothing is
+        # kept). A configured font file needs no listing to be used.
+        configured_font_file()
     end
+  end
+
+  defp configured_font_file do
+    configured = Application.get_env(:phoenix_kit, :annotation_font)
+
+    if is_binary(configured) and configured != "" and File.exists?(configured),
+      do: configured
   end
 
   defp remember_font(font) do
@@ -296,28 +305,30 @@ defmodule PhoenixKit.Modules.Storage.AnnotationThumbnail do
 
   defp pick_font(names) do
     Enum.find(@font_candidates, &(&1 in names)) ||
-      Enum.find(names, &(not String.match?(&1, ~r/symbol|dingbat|wingding/i)))
+      Enum.find(names, &(not String.match?(&1, ~r/symbol|dingbat|wingding|D050000L|emoji/i)))
   end
 
   # `{name, glyphs_path}` of every font `convert -list font` names whose file
   # is there.
   defp installed_fonts do
     case System.cmd("convert", ["-list", "font"], stderr_to_stdout: true) do
-      {out, 0} ->
-        fonts =
-          out
-          |> String.split(~r/^\s*Font: /m, trim: true)
-          |> Enum.flat_map(&parse_font_block/1)
-          |> Enum.filter(fn {_name, glyphs} -> File.exists?(glyphs) end)
-
-        {:ok, fonts}
-
-      _ ->
-        :error
+      {out, 0} -> {:ok, installed_from_listing(out)}
+      _ -> :error
     end
   rescue
     # No `convert` on the PATH.
     ErlangError -> :error
+  end
+
+  @doc false
+  # The `{name, glyphs_path}` of every font in a `convert -list font` listing
+  # whose `glyphs:` file exists (a block with no `glyphs:` line is dropped).
+  @spec installed_from_listing(String.t()) :: [{String.t(), String.t()}]
+  def installed_from_listing(listing) do
+    listing
+    |> String.split(~r/^\s*Font: /m, trim: true)
+    |> Enum.flat_map(&parse_font_block/1)
+    |> Enum.filter(fn {_name, glyphs} -> File.exists?(glyphs) end)
   end
 
   defp parse_font_block(block) do

@@ -27,6 +27,25 @@ defmodule PhoenixKit.Modules.Storage.AnnotationThumbnailFontArgsTest do
     assert AnnotationThumbnail.font_args(["-stroke", "red", "-draw", "rectangle 1,1 5,5"]) == []
   end
 
+  test "a configured font file is still used when ImageMagick cannot be asked, and not kept" do
+    path =
+      Path.join(System.tmp_dir!(), "annotation_font_#{System.unique_integer([:positive])}.ttf")
+
+    File.write!(path, "")
+    Application.put_env(:phoenix_kit, :annotation_font, path)
+
+    old_path = System.get_env("PATH")
+    System.put_env("PATH", "")
+
+    on_exit(fn ->
+      System.put_env("PATH", old_path)
+      File.rm(path)
+    end)
+
+    assert ["-font", ^path] = AnnotationThumbnail.font_args(@text_draw)
+    assert :persistent_term.get(@cache_key, :unresolved) == :unresolved
+  end
+
   if @usable_font? do
     test "a font that exists, before a text draw" do
       assert ["-font", font] = AnnotationThumbnail.font_args(@text_draw)
