@@ -135,6 +135,8 @@ defmodule PhoenixKit.Modules.Storage.File do
           folder_uuid: UUIDv7.t() | nil,
           parent_file_uuid: UUIDv7.t() | nil,
           library_uuid: UUIDv7.t() | nil,
+          stack_uuid: UUIDv7.t() | nil,
+          stack_position: integer() | nil,
           placed_profile_uuid: UUIDv7.t() | nil,
           placed_revision: integer() | nil,
           placed_variant_set_uuid: UUIDv7.t() | nil,
@@ -262,6 +264,10 @@ defmodule PhoenixKit.Modules.Storage.File do
     # (`Reconciler.with_file_lock/3`).
     field :reconcile_lock_token, Ecto.UUID
     field :reconcile_locked_until, :naive_datetime
+    # The stack the file is in and its place there, lowest first (V232). Written only
+    # by `PhoenixKit.Modules.Storage.Stacks`, never through `changeset/2`.
+    field :stack_uuid, UUIDv7
+    field :stack_position, :integer
 
     has_many :instances, PhoenixKit.Modules.Storage.FileInstance, foreign_key: :file_uuid
     has_many :folder_links, PhoenixKit.Modules.Storage.FolderLink, foreign_key: :file_uuid

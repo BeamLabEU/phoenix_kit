@@ -151,6 +151,10 @@ defmodule PhoenixKit.Modules.Storage do
   # PubSub topic for file lifecycle events (see subscribe_to_file_events/0).
   @files_topic "phoenix_kit:media:files"
 
+  # PubSub topic for changes to how files are listed: stacked, unstacked, dated by a
+  # person (see subscribe_to_file_changes/0).
+  @file_changes_topic "phoenix_kit:media:file_changes"
+
   # ===== MODULE STATUS =====
 
   @doc """
@@ -323,6 +327,33 @@ defmodule PhoenixKit.Modules.Storage do
   """
   def broadcast_files_deleted(file_uuids),
     do: broadcast_files(:phoenix_kit_files_deleted, file_uuids)
+
+  @doc """
+  Subscribes the calling process to changes in how files are listed: put in or taken
+  out of a stack, a stack's title or cover changed, dated by a person
+  (`PhoenixKit.Modules.Storage.Stacks`, `PhoenixKit.Modules.Storage.ManualDate`).
+
+  Messages arrive as `{:phoenix_kit_files_changed, file_uuids}`, once per operation.
+  This is a topic of its own, not one more event on `subscribe_to_file_events/0`'s,
+  because the hosts of that one match its messages in their own `handle_info` and an
+  event they do not know would reach a host without a catch-all clause.
+  """
+  def subscribe_to_file_changes do
+    PhoenixKit.PubSub.Manager.subscribe(@file_changes_topic)
+  end
+
+  @doc """
+  Broadcasts that how the files in `file_uuids` are listed changed (see
+  `subscribe_to_file_changes/0`). Nothing is sent for an empty list.
+  """
+  def broadcast_files_changed([]), do: :ok
+
+  def broadcast_files_changed(file_uuids) when is_list(file_uuids),
+    do:
+      PhoenixKit.PubSub.Manager.broadcast(
+        @file_changes_topic,
+        {:phoenix_kit_files_changed, Enum.map(file_uuids, &to_string/1)}
+      )
 
   defp broadcast_files(_event, []), do: :ok
 

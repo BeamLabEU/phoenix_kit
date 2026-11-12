@@ -158,21 +158,81 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerEyeTest do
   end
 
   describe "the live layer's nav buttons" do
-    test "an annotator gets Etcher's pencil alone — their eye is the hook's" do
+    test "an annotator gets Etcher's View | Annotate switch alone — their eye is the hook's" do
       # The annotator's eye must end the editing session (composing the
       # burn while the overlay is still up) before swapping to the clean
       # picture; Etcher's client-side overlay toggle cannot do that, so
       # the AnnotationBurn hook owns the eye on every surface of theirs.
+      # `modes` is the switch that replaces the pencil (Etcher 0.25).
       html = render_html(%{burn_canvas: nil, burn_version: nil})
 
-      assert html =~ ~s(data-nav-buttons="pencil")
-      refute html =~ ~s(data-nav-buttons="pencil,visibility")
+      assert html =~ ~s(data-nav-buttons="modes")
+      refute html =~ ~s(data-nav-buttons="pencil")
+      refute html =~ ~s(data-nav-buttons="modes,visibility")
+    end
+
+    test "the viewer's buttons are drawn as one dark bar, Etcher's tool bar look" do
+      html = render_html(%{burn_canvas: nil, burn_version: nil})
+      assert html =~ ~s(data-nav-style="bar")
     end
 
     test "a read-only viewer gets Etcher's eye — no session to end, nothing to swap" do
       html = render_html(%{burn_canvas: nil, burn_version: nil, can_annotate: false})
 
       assert html =~ ~s(data-nav-buttons="visibility")
+    end
+  end
+
+  describe "Export as PDF" do
+    test "every canvas offers it, named after the file" do
+      for overrides <- [
+            %{},
+            %{burn_canvas: nil, burn_version: nil},
+            %{etchings_hidden: true}
+          ] do
+        html = render_html(overrides)
+        assert html =~ ~s(data-pdf-export="true")
+        assert html =~ ~s(data-export-filename="test.jpg")
+      end
+    end
+
+    test "the picture exported is the original, not the screen-sized rung" do
+      image = %{src: "/f/small.jpg", x: 0, y: 0, width: 800}
+
+      file = %{
+        mime_type: "image/jpeg",
+        urls: %{"small" => "/f/small.jpg", "original" => "/f/original.jpg"}
+      }
+
+      assert %{export_src: "/f/original.jpg"} = MediaCanvasViewer.export_src(image, file)
+
+      canvas =
+        Fresco.Canvas.add_image(
+          Fresco.Canvas.new(width: 800, height: 600),
+          MediaCanvasViewer.export_src(image, file)
+        )
+
+      assert [%{export_src: "/f/original.jpg"}] = canvas.images
+
+      # No original on file: the stage's own picture is what gets exported.
+      refute Map.has_key?(MediaCanvasViewer.export_src(image, %{urls: %{}}), :export_src)
+    end
+
+    test "an original no browser can draw exports the top rung instead" do
+      image = %{src: "/f/small.jpg", x: 0, y: 0, width: 800}
+
+      for mime <- ~w(image/heic image/tiff image/x-canon-cr2) do
+        file = %{
+          mime_type: mime,
+          urls: %{"small" => "/f/small.jpg", "large" => "/f/large.jpg", "original" => "/f/orig"}
+        }
+
+        assert %{export_src: "/f/large.jpg"} = MediaCanvasViewer.export_src(image, file)
+
+        # No rung above the stage's own: that one is exported, not the original.
+        no_large = %{file | urls: Map.delete(file.urls, "large")}
+        refute Map.has_key?(MediaCanvasViewer.export_src(image, no_large), :export_src)
+      end
     end
   end
 

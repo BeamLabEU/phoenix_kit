@@ -893,11 +893,16 @@ defmodule PhoenixKitWeb.Integration do
   # The routes of the registered profile settings tabs that name a
   # `live_view`. Module tabs are skipped for PhoenixKit's own dev/test
   # router, as in `compile_module_user_routes/1`; the host config is read
-  # either way (the router's `__mix_recompile__?/0` watches it).
+  # either way (the router's `__mix_recompile__?/0` watches it). PhoenixKit's
+  # own router keeps only the pages it can see: compiled as a dependency, the
+  # host's LiveViews are not there yet, and routing them there only warned
+  # ("FotkiWeb.DevicesLive.__live__/0 is undefined") for a router no host mounts.
   @doc false
   def compile_profile_settings_tab_routes(caller_module) do
+    own_router? = caller_module == PhoenixKitWeb.Router
+
     modules =
-      if caller_module == PhoenixKitWeb.Router do
+      if own_router? do
         []
       else
         PhoenixKit.ModuleDiscovery.discover_external_modules()
@@ -906,6 +911,9 @@ defmodule PhoenixKitWeb.Integration do
 
     modules
     |> PhoenixKit.ProfileSettingsTab.routed()
+    |> Enum.filter(fn %{live_view: {live_view, _action}} ->
+      not own_router? or match?({:module, _}, Code.ensure_compiled(live_view))
+    end)
     |> Enum.map(fn %{id: id, live_view: {live_view, action}} ->
       quote do
         live unquote("/profile/settings/#{id}"), unquote(live_view), unquote(action)

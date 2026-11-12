@@ -240,6 +240,7 @@ defmodule PhoenixKit.Migrations.ModuleOwnedTables do
     phoenix_kit_buckets
     phoenix_kit_email_send_profiles
     phoenix_kit_file_instances
+    phoenix_kit_file_stacks
     phoenix_kit_file_location_checks
     phoenix_kit_file_locations
     phoenix_kit_files

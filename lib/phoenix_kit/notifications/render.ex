@@ -226,6 +226,18 @@ defmodule PhoenixKit.Notifications.Render do
     {"hero-finger-print", text}
   end
 
+  # A ping from `PhoenixKit.Mentions.notify/2`. The author's name rides in
+  # the metadata (the bell shows no actor of its own); a mention from before
+  # the name was stored carries its own `notification_text`, which wins.
+  defp icon_and_text("mention.created", %{"actor_name" => name})
+       when is_binary(name) and name != "" do
+    {"hero-at-symbol", gettext("%{name} mentioned you.", name: name)}
+  end
+
+  defp icon_and_text("mention.created", _meta) do
+    {"hero-at-symbol", gettext("You were mentioned.")}
+  end
+
   defp icon_and_text("session.account_added", _meta) do
     {"hero-user-plus", gettext("Your account was added to another sign-in session.")}
   end

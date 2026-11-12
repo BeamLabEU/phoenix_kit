@@ -54,6 +54,8 @@ metadata: %{
 
 Any key can be absent — Render falls back to the action lookup for the missing parts.
 
+**Mentions** (`PhoenixKit.Mentions.notify/2`, action `mention.created`) are a core type of their own, `"mentions"`, so a person can mute them or route them to email like anything else (routing is fail-closed: an action no type owns never leaves the inbox). The activity stores `actor_name` (full name, else username — never the email's local part) and Render words it in the reader's language: "Ada mentioned you." (`hero-at-symbol`). A caller passes `link:` — a local path built with `Routes.path/1`, pointing at the mention itself (comments: the record's page + `#pk-comment-<uuid>`); anything failing `Routes.local_path?/1` is dropped. Rows from before the name was stored keep their own `notification_text`.
+
 ## Delivery channels (external destinations)
 
 Pluggable per-user routing of notifications to **external** destinations

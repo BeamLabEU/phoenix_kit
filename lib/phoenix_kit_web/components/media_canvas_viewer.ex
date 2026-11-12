@@ -2015,13 +2015,51 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       {width, height} = canvas_dimensions(file)
 
       Fresco.Canvas.new(width: width, height: height)
-      |> Fresco.Canvas.add_image(put_natural_size(%{src: src, x: 0, y: 0, width: width}, file))
+      |> Fresco.Canvas.add_image(
+        put_natural_size(
+          export_src(%{src: src, x: 0, y: 0, width: width}, file),
+          file
+        )
+      )
       |> Fresco.Canvas.put_extension("etcher", %{
         "version" => "1",
         "annotations" => Enum.map(annotations, &etcher_annotation_for_wire(&1, locked?))
       })
     end
   end
+
+  # "Export as PDF" (`pdf_export` on the canvases) saves what the viewer
+  # shows, and the stage shows a screen-sized rung of the ladder: the
+  # original, already signed for this viewer like every other URL in
+  # `file.urls`, is what goes on the page instead (Fresco caps its long side
+  # at 4000px). The live layer's shapes join it through Etcher's export
+  # layer; the plain canvas (eye closed) is this canvas without them. The
+  # burned canvas needs nothing here: it shows the largest burn there is,
+  # which already has the drawing in it.
+  #
+  # Only an original every browser decodes onto a canvas. A HEIC, TIFF or
+  # camera-raw original is shown through its JPEG/WebP rungs; handed to the
+  # export it fails to load and Export as PDF does nothing (Fresco only warns
+  # in the console). Those export `large`, the top rung.
+  @doc false
+  def export_src(image, %{urls: urls} = file) when is_map(urls) do
+    case export_url(urls, Map.get(file, :mime_type)) do
+      nil -> image
+      url -> Map.put(image, :export_src, url)
+    end
+  end
+
+  def export_src(image, _file), do: image
+
+  @export_original_mimes ~w(image/jpeg image/pjpeg image/jpg image/png image/gif image/webp)
+
+  defp export_url(urls, mime) when mime in @export_original_mimes,
+    do: present_url(urls["original"]) || present_url(urls["large"])
+
+  defp export_url(urls, _mime), do: present_url(urls["large"])
+
+  defp present_url(url) when is_binary(url) and url != "", do: url
+  defp present_url(_url), do: nil
 
   # `width`/`height` are nullable on the files row — dimension extraction
   # can fail, and rows written before it existed never had them. The canvas
