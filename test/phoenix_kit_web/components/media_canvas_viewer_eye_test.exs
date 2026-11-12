@@ -183,6 +183,32 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerEyeTest do
     end
   end
 
+  describe "the laser measure" do
+    # A host turns it on; it reads a Bosch meter over Web Bluetooth, which
+    # means nothing to a site whose people do not own one.
+    setup do
+      on_exit(fn -> Application.delete_env(:phoenix_kit, :laser_measure) end)
+    end
+
+    test "off unless the host turns it on" do
+      Application.delete_env(:phoenix_kit, :laser_measure)
+      html = render_html(%{burn_canvas: nil, burn_version: nil})
+      refute html =~ ~s(&quot;measure&quot;)
+    end
+
+    test "turned on, an annotator is offered it: a meter's readings become labels" do
+      Application.put_env(:phoenix_kit, :laser_measure, true)
+      html = render_html(%{burn_canvas: nil, burn_version: nil})
+      assert html =~ ~s(&quot;measure&quot;)
+    end
+
+    test "turned on, a read-only viewer still is not — nothing for a reading to label" do
+      Application.put_env(:phoenix_kit, :laser_measure, true)
+      html = render_html(%{burn_canvas: nil, burn_version: nil, can_annotate: false})
+      refute html =~ ~s(&quot;measure&quot;)
+    end
+  end
+
   describe "Export as PDF" do
     test "every canvas offers it, named after the file" do
       for overrides <- [

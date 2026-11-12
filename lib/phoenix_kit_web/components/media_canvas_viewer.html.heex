@@ -372,23 +372,24 @@
                       nav_buttons={if @can_annotate, do: [:modes], else: [:visibility]}
                       tools={
                         if @can_annotate,
-                          do: [
-                            :grabber,
-                            :image,
-                            :rectangle,
-                            :circle,
-                            :polygon,
-                            :freehand,
-                            :marker,
-                            :highlighter,
-                            :callout,
-                            :text,
-                            :textbox,
-                            :dimension,
-                            :arrow,
-                            :line,
-                            :eraser
-                          ],
+                          do:
+                            [
+                              :grabber,
+                              :image,
+                              :rectangle,
+                              :circle,
+                              :polygon,
+                              :freehand,
+                              :marker,
+                              :highlighter,
+                              :callout,
+                              :text,
+                              :textbox,
+                              :dimension,
+                              :arrow,
+                              :line,
+                              :eraser
+                            ] ++ laser_measure_tools(),
                           else: []
                       }
                     />
