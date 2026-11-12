@@ -27135,6 +27135,11 @@ msgstr "ainult see seade"
 msgid "This file is already stored as another kind of file, so it cannot be picked here."
 msgstr "See fail on juba salvestatud teist tüüpi failina, seega seda ei saa siin valida."
 
+#: lib/phoenix_kit_web/components/media_browser.ex:1033
+#, elixir-autogen, elixir-format
+msgid "This file is already stored, but it cannot be picked here."
+msgstr "See fail on juba salvestatud, kuid seda ei saa siin valida."
+
 #: lib/phoenix_kit_web/components/media_browser.ex:1029
 #, elixir-autogen, elixir-format
 msgid "This file is not a kind of file this picker takes."

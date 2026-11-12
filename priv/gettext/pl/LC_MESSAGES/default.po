@@ -27207,6 +27207,11 @@ msgstr "tylko to urządzenie"
 msgid "This file is already stored as another kind of file, so it cannot be picked here."
 msgstr "Ten plik jest już zapisany jako inny rodzaj pliku, więc nie można go tutaj wybrać."
 
+#: lib/phoenix_kit_web/components/media_browser.ex:1033
+#, elixir-autogen, elixir-format
+msgid "This file is already stored, but it cannot be picked here."
+msgstr "Ten plik jest już zapisany, ale nie można go tutaj wybrać."
+
 #: lib/phoenix_kit_web/components/media_browser.ex:1029
 #, elixir-autogen, elixir-format
 msgid "This file is not a kind of file this picker takes."

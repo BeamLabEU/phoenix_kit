@@ -1267,13 +1267,23 @@ defmodule PhoenixKitWeb.Components.MediaBrowserPickerTest do
       [doc] = stored(ctx.user)
       {:ok, _} = Storage.trash_file(doc)
 
+      # A trashed row with no home: the upload's folder would adopt it.
+      Repo.update_all(from(f in StorageFile, where: f.uuid == ^doc.uuid), set: [folder_uuid: nil])
+      Repo.delete_all(from(l in Storage.FolderLink, where: l.file_uuid == ^doc.uuid))
+
       view = open(conn, ctx, %{"opts" => %{only_file_type: "image"}})
       upload_bytes(view, "kitchen.png", content)
       html = render(view)
 
-      assert [%{status: "trashed"}] = stored(ctx.user)
+      assert [%{status: "trashed", uuid: uuid, folder_uuid: nil}] = stored(ctx.user)
       assert html =~ "already stored as another kind of file"
       assert html =~ "0 selected"
+
+      refute Repo.exists?(
+               from(l in Storage.FolderLink,
+                 where: l.file_uuid == ^uuid and l.folder_uuid == ^ctx.scope.uuid
+               )
+             )
     end
 
     test "a browser that is not a picker leaves a trashed duplicate in the trash",
@@ -1296,7 +1306,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowserPickerTest do
       assert [%{status: "trashed"}] = stored(ctx.user)
     end
 
-    test "a readonly picker takes no upload and brings nothing back", %{conn: conn} = ctx do
+    test "a readonly picker refuses a pending upload up front and revives nothing",
+         %{conn: conn} = ctx do
       content = "kitchen-" <> :binary.copy("r", 800)
 
       writable = open(conn, ctx)

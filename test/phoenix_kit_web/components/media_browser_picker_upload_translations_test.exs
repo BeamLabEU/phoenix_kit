@@ -10,7 +10,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowserPickerUploadTranslationsTest do
   @messages [
     "The file was saved, but it cannot be picked here.",
     "This file is not a kind of file this picker takes.",
-    "This file is already stored as another kind of file, so it cannot be picked here."
+    "This file is already stored as another kind of file, so it cannot be picked here.",
+    "This file is already stored, but it cannot be picked here."
   ]
 
   test "every message is translated in every language" do
