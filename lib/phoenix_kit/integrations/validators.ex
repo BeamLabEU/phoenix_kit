@@ -837,43 +837,100 @@ defmodule PhoenixKit.Integrations.Validators do
   `GET /v3/account` doubles as the cheapest authenticated call and the only
   one that tells the operator anything beyond "the key works" — the plan's
   remaining send credits, which is exactly what silently runs out mid-campaign.
+
+  `req_options` is merged into the request (tests pass a `:plug`).
   """
-  @spec brevo_api(map()) :: verdict()
-  def brevo_api(data) do
+  @spec brevo_api(map(), keyword()) :: verdict()
+  def brevo_api(data, req_options \\ []) do
     api_key = data["api_key"]
 
-    if blank?(api_key) do
-      {:error, gettext("No credentials configured")}
-    else
-      request_account(api_key)
+    cond do
+      blank?(api_key) ->
+        {:error, gettext("No credentials configured")}
+
+      # The SMTP key sits on the same Brevo page and is the usual mix-up. Brevo
+      # answers it with the same 401 as a mistyped key, so name it here instead.
+      is_binary(api_key) and String.starts_with?(String.trim_leading(api_key), "xsmtpsib-") ->
+        {:error,
+         gettext(
+           "This is a Brevo SMTP key (xsmtpsib-…). The Brevo API needs an API key (xkeysib-…) from SMTP & API → API Keys; an SMTP key goes into an SMTP connection."
+         )}
+
+      true ->
+        Probe.run(fn -> request_account(api_key, req_options) end)
     end
   end
 
-  defp request_account(api_key) do
-    case Req.get("https://api.brevo.com/v3/account",
-           headers: [{"api-key", api_key}],
-           receive_timeout: @http_timeout
-         ) do
-      {:ok, %{status: 200, body: body}} ->
-        case format_credits_note(body) do
-          nil -> :ok
-          reading -> {:ok, %{reading: reading}}
-        end
+  defp request_account(api_key, req_options) do
+    options =
+      Keyword.merge(
+        [
+          headers: [{"api-key", api_key}],
+          receive_timeout: @http_timeout,
+          retry: false,
+          # the key travels in a custom header: no redirect may carry it elsewhere
+          redirect: false,
+          decode_body: false
+        ],
+        req_options
+      )
 
-      {:ok, %{status: 401}} ->
-        {:error, gettext("Invalid credentials")}
-
-      {:ok, %{status: 403}} ->
-        {:error, gettext("Access denied")}
-
-      {:ok, %{status: status}} ->
-        {:error, gettext("Brevo error %{status}", status: status)}
+    case Req.get("https://api.brevo.com/v3/account", options) do
+      {:ok, %{status: status, body: body}} ->
+        interpret_brevo(status, decode_json(body))
 
       {:error, reason} ->
-        Logger.warning("Brevo connection check failed: #{inspect(reason)}")
-        {:error, gettext("Could not reach Brevo")}
+        case request_failure("Brevo", reason) do
+          :unreachable -> {:error, gettext("Could not reach Brevo")}
+          :unreadable -> {:error, gettext("Unexpected answer from Brevo")}
+        end
     end
   end
+
+  @doc false
+  # Pure: the HTTP status and decoded body of /v3/account in, a verdict out.
+  # Public so it can be tested against the answers Brevo really gives. Brevo
+  # explains every refusal in `message`; a 401 is not always a bad key — an
+  # account with Authorised IPs on refuses a good key from an unknown server.
+  def interpret_brevo(200, %{} = body) do
+    case format_credits_note(body) do
+      nil -> :ok
+      reading -> {:ok, %{reading: reading}}
+    end
+  end
+
+  def interpret_brevo(200, _body), do: {:error, gettext("Unexpected answer from Brevo")}
+
+  def interpret_brevo(401, %{"message" => message}) when is_binary(message) and message != "" do
+    if message =~ ~r/IP address/i do
+      {:error,
+       gettext(
+         "Brevo refused this server's IP address — allow it in Brevo under Security → Authorised IPs. Brevo says: %{message}",
+         message: String.slice(message, 0, 200)
+       )}
+    else
+      {:error,
+       gettext("Invalid credentials. Brevo says: %{message}",
+         message: String.slice(message, 0, 200)
+       )}
+    end
+  end
+
+  def interpret_brevo(401, _body), do: {:error, gettext("Invalid credentials")}
+
+  def interpret_brevo(403, _body), do: {:error, gettext("Access denied")}
+
+  def interpret_brevo(status, %{"message" => message})
+      when is_binary(message) and message != "" do
+    {:error,
+     gettext("Brevo error %{status}: %{message}",
+       status: status,
+       message: String.slice(message, 0, 200)
+     )}
+  end
+
+  def interpret_brevo(status, _body),
+    do: {:error, gettext("Brevo error %{status}", status: status)}
 
   @doc false
   # Pure: a decoded /v3/account JSON body in, a compact operator-facing note
