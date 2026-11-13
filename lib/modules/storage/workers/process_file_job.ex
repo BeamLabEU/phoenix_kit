@@ -42,6 +42,7 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
   alias PhoenixKit.Modules.Storage.Exif
   alias PhoenixKit.Modules.Storage.Hdr
   alias PhoenixKit.Modules.Storage.ImageProcessor
+  alias PhoenixKit.Modules.Storage.ManualLocation
   alias PhoenixKit.Modules.Storage.PdfProcessor
   alias PhoenixKit.Modules.Storage.ProbeCache
   alias PhoenixKit.Modules.Storage.VariantGenerator
@@ -602,7 +603,11 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
           :changed
 
         true ->
-          Storage.update_file(current, merge_exif(CaptureDate.admit(attrs, current), current))
+          attrs
+          |> CaptureDate.admit(current)
+          |> ManualLocation.admit(current)
+          |> merge_exif(current)
+          |> then(&Storage.update_file(current, &1))
       end
     end)
     |> case do

@@ -4658,7 +4658,9 @@ defmodule PhoenixKit.Modules.Storage do
              row
              |> PhoenixKit.Modules.Storage.File.changeset(
                Map.put(
-                 columns,
+                 # A place set by hand stays (`ManualLocation`); the EXIF summary is
+                 # still recorded, so `ManualLocation.reset/2` can go back to it.
+                 PhoenixKit.Modules.Storage.ManualLocation.admit(columns, row),
                  :metadata,
                  Map.merge(row.metadata || %{}, %{"exif" => exif, "hdr" => hdr})
                )
