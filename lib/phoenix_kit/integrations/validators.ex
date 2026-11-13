@@ -848,9 +848,14 @@ defmodule PhoenixKit.Integrations.Validators do
       blank?(api_key) ->
         {:error, gettext("No credentials configured")}
 
+      # Not a key at all: no request — Req would crash on the header inside the
+      # probe, and the crash report would carry the value into the log.
+      not is_binary(api_key) ->
+        {:error, gettext("Invalid credentials")}
+
       # The SMTP key sits on the same Brevo page and is the usual mix-up. Brevo
       # answers it with the same 401 as a mistyped key, so name it here instead.
-      is_binary(api_key) and String.starts_with?(String.trim_leading(api_key), "xsmtpsib-") ->
+      String.starts_with?(String.trim_leading(api_key), "xsmtpsib-") ->
         {:error,
          gettext(
            "This is a Brevo SMTP key (xsmtpsib-…). The Brevo API needs an API key (xkeysib-…) from SMTP & API → API Keys; an SMTP key goes into an SMTP connection."

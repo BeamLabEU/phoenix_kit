@@ -13,6 +13,7 @@ defmodule PhoenixKitWeb.FileRangeTest do
 
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.URLSigner
+  alias PhoenixKit.Users.Auth
   alias PhoenixKitWeb.FileController
 
   @buckets_cache :phoenix_kit_buckets_cache
@@ -44,7 +45,7 @@ defmodule PhoenixKitWeb.FileRangeTest do
     end)
 
     {:ok, owner} =
-      PhoenixKit.Users.Auth.register_user(%{
+      Auth.register_user(%{
         "email" => "range-#{n}@example.com",
         "password" => "ValidPassword123!"
       })

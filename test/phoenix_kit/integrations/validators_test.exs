@@ -1032,8 +1032,15 @@ defmodule PhoenixKit.Integrations.ValidatorsTest do
       end
     end
 
-    test "a key that is not a string reaches no prefix check and does not raise" do
-      assert {:error, _} = Validators.brevo_api(%{"api_key" => 12_345}, plug: &flunk_request/1)
+    # The request would run inside Probe, which swallows a crash (flunk
+    # included) into a generic error — so assert the exact verdict, which only
+    # the no-request branch gives.
+    test "a key that is not a string is refused without a network round trip" do
+      for key <- [12_345, %{"k" => "v"}, ["xkeysib-a"]] do
+        assert {:error, "Invalid credentials"} =
+                 Validators.brevo_api(%{"api_key" => key}, plug: &flunk_request/1),
+               inspect(key)
+      end
     end
 
     test "asks /v3/account with the key in the api-key header, and reports the credits" do

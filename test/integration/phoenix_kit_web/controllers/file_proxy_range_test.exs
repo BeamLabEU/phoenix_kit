@@ -15,7 +15,8 @@ defmodule PhoenixKitWeb.FileProxyRangeTest do
   import Plug.Test
 
   alias PhoenixKit.Modules.Storage
-  alias PhoenixKit.Modules.Storage.{Manager, URLSigner}
+  alias PhoenixKit.Modules.Storage.{Locations, Manager, URLSigner}
+  alias PhoenixKit.Users.Auth
   alias PhoenixKitWeb.FileController
 
   @buckets_cache :phoenix_kit_buckets_cache
@@ -101,7 +102,7 @@ defmodule PhoenixKitWeb.FileProxyRangeTest do
     on_exit(fn -> :persistent_term.erase(@buckets_cache) && File.rm(source) end)
 
     {:ok, owner} =
-      PhoenixKit.Users.Auth.register_user(%{
+      Auth.register_user(%{
         "email" => "proxy-range-#{n}@example.com",
         "password" => "ValidPassword123!"
       })
@@ -115,7 +116,7 @@ defmodule PhoenixKitWeb.FileProxyRangeTest do
     # so it is served from there.
     instance = Storage.get_file_instance_by_name(file.uuid, "original")
     :ets.insert(table, {{:object, "/#{bucket.bucket_name}/#{instance.file_name}"}, @bytes})
-    PhoenixKit.Modules.Storage.Locations.record(instance.file_name, bucket.uuid)
+    Locations.record(instance.file_name, bucket.uuid)
 
     Repo.update_all(
       from(b in PhoenixKit.Modules.Storage.Bucket, where: b.uuid != ^bucket.uuid),

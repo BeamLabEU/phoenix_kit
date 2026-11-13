@@ -1896,7 +1896,7 @@ msgstr ""
 #: lib/phoenix_kit_web/components/core/save_button.ex:58
 #: lib/phoenix_kit_web/components/image_editor.ex:974
 #: lib/phoenix_kit_web/components/media_browser/grid_view.html.heex:74
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:789
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:790
 #: lib/phoenix_kit_web/live/components/organization_managers.ex:365
 #: lib/phoenix_kit_web/live/components/organization_managers.ex:763
 #: lib/phoenix_kit_web/live/components/passkeys.ex:287
@@ -1940,7 +1940,7 @@ msgstr ""
 #: lib/phoenix_kit_web/components/core/markdown_editor.ex:340
 #: lib/phoenix_kit_web/components/core/markdown_editor.ex:424
 #: lib/phoenix_kit_web/components/core/save_button.ex:64
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:791
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:792
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:378
 #: lib/phoenix_kit_web/live/settings/integration_form.ex:729
 #, elixir-autogen, elixir-format
@@ -3328,7 +3328,7 @@ msgstr ""
 
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:985
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:987
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:550
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:551
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:491
 #, elixir-autogen, elixir-format
 msgid "Select"
@@ -5468,7 +5468,7 @@ msgstr ""
 #: lib/phoenix_kit/notifications/types.ex:272
 #: lib/phoenix_kit/notifications/types.ex:295
 #: lib/phoenix_kit/users/auth.ex:3545
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:984
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:997
 #: lib/phoenix_kit_web/live/modules.ex:200
 #: lib/phoenix_kit_web/live/users/user_details.ex:187
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:642
@@ -6245,8 +6245,8 @@ msgstr ""
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:587
 #: lib/phoenix_kit_web/components/media_browser/helpers.ex:417
 #: lib/phoenix_kit_web/components/media_browser/list_view.html.heex:434
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:667
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:671
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:668
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:672
 #: lib/phoenix_kit_web/live/users/media_storage.html.heex:397
 #: lib/phoenix_kit_web/live/users/media_storage.html.heex:398
 #, elixir-autogen, elixir-format
@@ -6317,7 +6317,7 @@ msgstr ""
 msgid "Image Missing"
 msgstr ""
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:832
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:833
 #, elixir-autogen, elixir-format
 msgid "MIME:"
 msgstr ""
@@ -6483,7 +6483,7 @@ msgstr ""
 msgid "Show image %{number}"
 msgstr ""
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:836
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:837
 #, elixir-autogen, elixir-format
 msgid "Size:"
 msgstr ""
@@ -6515,7 +6515,7 @@ msgstr ""
 #: lib/phoenix_kit_web/components/core/event_timeline_item.ex:210
 #: lib/phoenix_kit_web/components/core/event_timeline_item.ex:228
 #: lib/phoenix_kit_web/components/core/event_timeline_item.ex:279
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:826
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:827
 #, elixir-autogen, elixir-format
 msgid "Type:"
 msgstr ""
@@ -6548,12 +6548,12 @@ msgid_plural "Upload successful! %{count} new files processed"
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:862
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:863
 #, elixir-autogen, elixir-format
 msgid "Uploaded:"
 msgstr ""
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:421
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:422
 #, elixir-autogen, elixir-format
 msgid "Your browser does not support the video tag."
 msgstr ""
@@ -6611,8 +6611,8 @@ msgid_plural "%{count} new files added"
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:484
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:828
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:485
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:829
 #, elixir-autogen, elixir-format
 msgid "FILE"
 msgstr ""
@@ -7236,7 +7236,7 @@ msgstr ""
 msgid "Sort by"
 msgstr ""
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:878
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:891
 #: lib/phoenix_kit_web/live/users/sessions.html.heex:290
 #, elixir-autogen, elixir-format
 msgid "Status:"
@@ -9235,7 +9235,7 @@ msgstr ""
 msgid "Phoenix Light"
 msgstr ""
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:459
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:460
 #, elixir-autogen, elixir-format
 msgid "Play / Pause"
 msgstr ""
@@ -9275,7 +9275,7 @@ msgstr ""
 msgid "Wireframe"
 msgstr ""
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:477
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:478
 #, elixir-autogen, elixir-format
 msgid "Your browser does not support the audio tag."
 msgstr ""
@@ -10084,26 +10084,26 @@ msgstr ""
 msgid "By operating system"
 msgstr ""
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:575
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:576
 #, elixir-autogen, elixir-format
 msgid "Failed to save rotation"
 msgstr ""
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:507
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:510
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:634
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:508
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:511
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:635
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:636
 #, elixir-autogen, elixir-format
 msgid "Hide details"
 msgstr ""
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:574
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:575
 #, elixir-autogen, elixir-format
 msgid "Rotation saved"
 msgstr ""
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:507
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:510
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:508
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:511
 #, elixir-autogen, elixir-format
 msgid "Show details"
 msgstr ""
@@ -10469,7 +10469,7 @@ msgstr ""
 #: lib/modules/storage/web/renditions_component.ex:183
 #: lib/modules/storage/web/renditions_component.ex:222
 #: lib/modules/storage/web/renditions_component.ex:229
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:794
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:795
 #, elixir-autogen, elixir-format
 msgid "Could not save"
 msgstr ""
@@ -11006,7 +11006,7 @@ msgstr ""
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:561
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:564
 #: lib/phoenix_kit_web/components/media_browser/helpers.ex:483
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:920
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:933
 #: lib/phoenix_kit_web/live/components/library_settings.ex:1592
 #: lib/phoenix_kit_web/live/notifications/inbox.ex:329
 #: lib/phoenix_kit_web/live/users/relationship_types.ex:213
@@ -12196,7 +12196,7 @@ msgstr ""
 msgid "Shown"
 msgstr ""
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:600
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:601
 #, elixir-autogen, elixir-format
 msgid "Reply to this annotation"
 msgstr ""
@@ -14521,12 +14521,12 @@ msgstr ""
 #: lib/phoenix_kit_web/components/media_browser/grid_view.html.heex:434
 #: lib/phoenix_kit_web/components/media_browser/helpers.ex:430
 #: lib/phoenix_kit_web/components/media_browser/list_view.html.heex:449
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:690
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:691
 #, elixir-autogen, elixir-format
 msgid "Edit image"
 msgstr ""
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:891
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:904
 #, elixir-autogen, elixir-format
 msgid "Edited"
 msgstr ""
@@ -15168,7 +15168,7 @@ msgstr "Featured image"
 #: lib/phoenix_kit_web/components/media_browser/helpers.ex:273
 #: lib/phoenix_kit_web/components/media_browser/helpers.ex:445
 #: lib/phoenix_kit_web/components/media_browser/list_view.html.heex:474
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:718
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:719
 #, elixir-autogen, elixir-format
 msgid "Set as featured"
 msgstr "Set as featured"
@@ -15177,7 +15177,7 @@ msgstr "Set as featured"
 #: lib/phoenix_kit_web/components/media_browser/helpers.ex:269
 #: lib/phoenix_kit_web/components/media_browser/helpers.ex:444
 #: lib/phoenix_kit_web/components/media_browser/list_view.html.heex:473
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:717
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:718
 #, elixir-autogen, elixir-format
 msgid "Unset featured"
 msgstr "Unset featured"
@@ -15220,7 +15220,7 @@ msgstr ""
 msgid "The selected file is not an available image"
 msgstr ""
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:755
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:756
 #, elixir-autogen, elixir-format
 msgid "Title & description"
 msgstr ""
@@ -15425,13 +15425,13 @@ msgstr ""
 #: lib/phoenix_kit_web/components/core/file_details_fields.ex:107
 #: lib/phoenix_kit_web/components/core/file_details_fields.ex:114
 #: lib/phoenix_kit_web/components/core/file_details_fields.ex:115
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:804
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:805
 #, elixir-autogen, elixir-format
 msgid "Alt text"
 msgstr ""
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:784
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:785
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:786
 #, elixir-autogen, elixir-format
 msgid "Tags (comma-separated)"
 msgstr ""
@@ -16053,12 +16053,12 @@ msgstr ""
 msgid "Showing the first %{count} of %{total}."
 msgstr ""
 
-#: lib/modules/storage/storage.ex:5422
+#: lib/modules/storage/storage.ex:5424
 #: lib/modules/storage/web/libraries_component.ex:412
 #: lib/modules/storage/web/libraries_component.ex:547
 #: lib/modules/storage/web/library_page.html.heex:206
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:132
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:727
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:728
 #: lib/phoenix_kit_web/live/components/library_preferences.ex:395
 #: lib/phoenix_kit_web/live/components/library_settings.ex:2493
 #: lib/phoenix_kit_web/live/users/media_storage.ex:66
@@ -17362,7 +17362,7 @@ msgstr ""
 
 #: lib/modules/storage/web/bucket_page.html.heex:526
 #: lib/phoenix_kit_web/components/core/upload_manager.ex:569
-#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:894
+#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:944
 #: lib/phoenix_kit_web/live/approvals.ex:330
 #: lib/phoenix_kit_web/live/components/library_activity.ex:285
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:299
@@ -19295,7 +19295,7 @@ msgstr ""
 
 #: lib/phoenix_kit_web/components/media_browser/grid_view.html.heex:361
 #: lib/phoenix_kit_web/components/media_browser/grid_view.html.heex:362
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:847
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:848
 #, elixir-autogen, elixir-format
 msgid "Panorama"
 msgstr ""
@@ -19344,7 +19344,7 @@ msgstr ""
 msgid "Did not fire"
 msgstr ""
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:840
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:841
 #, elixir-autogen, elixir-format
 msgid "Dimensions:"
 msgstr ""
@@ -19477,55 +19477,55 @@ msgid "Nothing here about the camera, exposure, dates or location. All EXIF list
 msgstr ""
 
 #: lib/phoenix_kit_web/components/media_browser/removal_modal.ex:143
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:933
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:946
 #, elixir-autogen, elixir-format
 msgid "Delete forever"
 msgstr ""
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:895
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:908
 #, elixir-autogen, elixir-format
 msgid "File UUID:"
 msgstr ""
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:892
+#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:942
 #, elixir-autogen, elixir-format
 msgid "In the trash"
 msgstr ""
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:655
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:656
 #, elixir-autogen, elixir-format
 msgid "Media details"
 msgstr ""
 
 #: lib/phoenix_kit_web/components/media_browser/removal_modal.ex:144
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:943
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:956
 #: lib/phoenix_kit_web/components/media_gallery.html.heex:85
 #, elixir-autogen, elixir-format
 msgid "Move to trash"
 msgstr ""
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:858
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:859
 #, elixir-autogen, elixir-format
 msgid "Pages:"
 msgstr ""
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:929
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:942
 #, elixir-autogen, elixir-format
 msgid "Permanently delete this file? This cannot be undone."
 msgstr ""
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:893
+#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:943
 #: lib/phoenix_kit_web/live/users/media_storage.ex:566
 #, elixir-autogen, elixir-format
 msgid "Processing"
 msgstr ""
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:872
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:885
 #, elixir-autogen, elixir-format
 msgid "Updated:"
 msgstr ""
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:868
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:869
 #, elixir-autogen, elixir-format
 msgid "Uploaded by:"
 msgstr ""
@@ -20195,7 +20195,7 @@ msgstr ""
 msgid "Dynamic range"
 msgstr ""
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:852
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:853
 #, elixir-autogen, elixir-format
 msgid "Dynamic range:"
 msgstr ""
@@ -22560,14 +22560,14 @@ msgid "No open media browser could receive this upload."
 msgstr ""
 
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:495
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:533
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:534
 #, elixir-autogen, elixir-format
 msgid "Maximum %{count} file"
 msgid_plural "Maximum %{count} files"
 msgstr[0] "Maximum %{count} file"
 msgstr[1] "Maximum %{count} files"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:548
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:549
 #, elixir-autogen, elixir-format
 msgid "Deselect"
 msgstr ""
@@ -26761,7 +26761,7 @@ msgstr ""
 msgid "Administrator with elevated privileges"
 msgstr ""
 
-#: lib/modules/storage/storage.ex:5430
+#: lib/modules/storage/storage.ex:5432
 #, elixir-autogen, elixir-format
 msgid "Create libraries"
 msgstr ""
@@ -26776,7 +26776,7 @@ msgstr ""
 msgid "Full Access (Superadmin)"
 msgstr ""
 
-#: lib/modules/storage/storage.ex:5441
+#: lib/modules/storage/storage.ex:5443
 #, elixir-autogen, elixir-format
 msgid "Make libraries public"
 msgstr ""
@@ -26816,7 +26816,7 @@ msgstr ""
 msgid "System owner with full access"
 msgstr ""
 
-#: lib/modules/storage/storage.ex:5435
+#: lib/modules/storage/storage.ex:5437
 #, elixir-autogen, elixir-format
 msgid "Use their own storage"
 msgstr ""

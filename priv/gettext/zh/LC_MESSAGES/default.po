@@ -1890,7 +1890,7 @@ msgstr "SWIFT/BIC"
 #: lib/phoenix_kit_web/components/core/save_button.ex:58
 #: lib/phoenix_kit_web/components/image_editor.ex:974
 #: lib/phoenix_kit_web/components/media_browser/grid_view.html.heex:74
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:789
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:790
 #: lib/phoenix_kit_web/live/components/organization_managers.ex:365
 #: lib/phoenix_kit_web/live/components/organization_managers.ex:763
 #: lib/phoenix_kit_web/live/components/passkeys.ex:287
@@ -1934,7 +1934,7 @@ msgstr "保存偏好设置"
 #: lib/phoenix_kit_web/components/core/markdown_editor.ex:340
 #: lib/phoenix_kit_web/components/core/markdown_editor.ex:424
 #: lib/phoenix_kit_web/components/core/save_button.ex:64
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:791
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:792
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:378
 #: lib/phoenix_kit_web/live/settings/integration_form.ex:729
 #, elixir-autogen, elixir-format
@@ -3322,7 +3322,7 @@ msgstr "安全提示：默认状态为未激活"
 
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:985
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:987
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:550
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:551
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:491
 #, elixir-autogen, elixir-format
 msgid "Select"
@@ -5462,7 +5462,7 @@ msgstr "正文已保存"
 #: lib/phoenix_kit/notifications/types.ex:272
 #: lib/phoenix_kit/notifications/types.ex:295
 #: lib/phoenix_kit/users/auth.ex:3545
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:984
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:997
 #: lib/phoenix_kit_web/live/modules.ex:200
 #: lib/phoenix_kit_web/live/users/user_details.ex:187
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:642
@@ -6231,8 +6231,8 @@ msgstr "已删除的文件将显示在此处"
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:587
 #: lib/phoenix_kit_web/components/media_browser/helpers.ex:417
 #: lib/phoenix_kit_web/components/media_browser/list_view.html.heex:434
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:667
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:671
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:668
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:672
 #: lib/phoenix_kit_web/live/users/media_storage.html.heex:397
 #: lib/phoenix_kit_web/live/users/media_storage.html.heex:398
 #, elixir-autogen, elixir-format
@@ -6303,7 +6303,7 @@ msgstr "文件夹"
 msgid "Image Missing"
 msgstr "图片缺失"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:832
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:833
 #, elixir-autogen, elixir-format
 msgid "MIME:"
 msgstr "MIME："
@@ -6466,7 +6466,7 @@ msgstr "显示文件夹"
 msgid "Show image %{number}"
 msgstr "显示图片 %{number}"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:836
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:837
 #, elixir-autogen, elixir-format
 msgid "Size:"
 msgstr "大小："
@@ -6498,7 +6498,7 @@ msgstr "回收站为空。"
 #: lib/phoenix_kit_web/components/core/event_timeline_item.ex:210
 #: lib/phoenix_kit_web/components/core/event_timeline_item.ex:228
 #: lib/phoenix_kit_web/components/core/event_timeline_item.ex:279
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:826
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:827
 #, elixir-autogen, elixir-format
 msgid "Type:"
 msgstr "类型："
@@ -6530,12 +6530,12 @@ msgid "Upload successful! %{count} new file processed"
 msgid_plural "Upload successful! %{count} new files processed"
 msgstr[0] "上传成功！已处理 %{count} 个新文件"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:862
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:863
 #, elixir-autogen, elixir-format
 msgid "Uploaded:"
 msgstr "上传时间："
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:421
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:422
 #, elixir-autogen, elixir-format
 msgid "Your browser does not support the video tag."
 msgstr "您的浏览器不支持 video 标签。"
@@ -6587,8 +6587,8 @@ msgid "%{count} new file added"
 msgid_plural "%{count} new files added"
 msgstr[0] "已添加 %{count} 个新文件"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:484
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:828
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:485
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:829
 #, elixir-autogen, elixir-format
 msgid "FILE"
 msgstr "文件"
@@ -7210,7 +7210,7 @@ msgstr "精选"
 msgid "Sort by"
 msgstr "排序依据"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:878
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:891
 #: lib/phoenix_kit_web/live/users/sessions.html.heex:290
 #, elixir-autogen, elixir-format
 msgid "Status:"
@@ -9206,7 +9206,7 @@ msgstr "Phoenix 深色"
 msgid "Phoenix Light"
 msgstr "Phoenix 浅色"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:459
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:460
 #, elixir-autogen, elixir-format
 msgid "Play / Pause"
 msgstr "播放 / 暂停"
@@ -9246,7 +9246,7 @@ msgstr "Winter"
 msgid "Wireframe"
 msgstr "Wireframe"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:477
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:478
 #, elixir-autogen, elixir-format
 msgid "Your browser does not support the audio tag."
 msgstr "您的浏览器不支持 audio 标签。"
@@ -10055,26 +10055,26 @@ msgstr "按浏览器"
 msgid "By operating system"
 msgstr "按操作系统"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:575
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:576
 #, elixir-autogen, elixir-format
 msgid "Failed to save rotation"
 msgstr "保存旋转失败"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:507
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:510
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:634
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:508
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:511
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:635
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:636
 #, elixir-autogen, elixir-format
 msgid "Hide details"
 msgstr "隐藏详情"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:574
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:575
 #, elixir-autogen, elixir-format
 msgid "Rotation saved"
 msgstr "旋转已保存"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:507
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:510
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:508
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:511
 #, elixir-autogen, elixir-format
 msgid "Show details"
 msgstr "显示详情"
@@ -10439,7 +10439,7 @@ msgstr "无法旋转图片。"
 #: lib/modules/storage/web/renditions_component.ex:183
 #: lib/modules/storage/web/renditions_component.ex:222
 #: lib/modules/storage/web/renditions_component.ex:229
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:794
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:795
 #, elixir-autogen, elixir-format
 msgid "Could not save"
 msgstr "无法保存"
@@ -10976,7 +10976,7 @@ msgstr "使用应用前需要确认邮箱"
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:561
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:564
 #: lib/phoenix_kit_web/components/media_browser/helpers.ex:483
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:920
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:933
 #: lib/phoenix_kit_web/live/components/library_settings.ex:1592
 #: lib/phoenix_kit_web/live/notifications/inbox.ex:329
 #: lib/phoenix_kit_web/live/users/relationship_types.ex:213
@@ -12166,7 +12166,7 @@ msgstr "列"
 msgid "Shown"
 msgstr "显示"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:600
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:601
 #, elixir-autogen, elixir-format
 msgid "Reply to this annotation"
 msgstr "回复此批注"
@@ -14490,12 +14490,12 @@ msgstr "编辑失败"
 #: lib/phoenix_kit_web/components/media_browser/grid_view.html.heex:434
 #: lib/phoenix_kit_web/components/media_browser/helpers.ex:430
 #: lib/phoenix_kit_web/components/media_browser/list_view.html.heex:449
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:690
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:691
 #, elixir-autogen, elixir-format
 msgid "Edit image"
 msgstr "编辑图片"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:891
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:904
 #, elixir-autogen, elixir-format
 msgid "Edited"
 msgstr "已编辑"
@@ -15135,7 +15135,7 @@ msgstr "特色图片"
 #: lib/phoenix_kit_web/components/media_browser/helpers.ex:273
 #: lib/phoenix_kit_web/components/media_browser/helpers.ex:445
 #: lib/phoenix_kit_web/components/media_browser/list_view.html.heex:474
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:718
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:719
 #, elixir-autogen, elixir-format
 msgid "Set as featured"
 msgstr "设为精选"
@@ -15144,7 +15144,7 @@ msgstr "设为精选"
 #: lib/phoenix_kit_web/components/media_browser/helpers.ex:269
 #: lib/phoenix_kit_web/components/media_browser/helpers.ex:444
 #: lib/phoenix_kit_web/components/media_browser/list_view.html.heex:473
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:717
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:718
 #, elixir-autogen, elixir-format
 msgid "Unset featured"
 msgstr "取消精选"
@@ -15187,7 +15187,7 @@ msgstr "移除图片"
 msgid "The selected file is not an available image"
 msgstr "所选文件不是可用的图片"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:755
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:756
 #, elixir-autogen, elixir-format
 msgid "Title & description"
 msgstr "标题和描述"
@@ -15390,13 +15390,13 @@ msgstr "在那里，点击 Test Connection 并确认找到的群组。群组需�
 #: lib/phoenix_kit_web/components/core/file_details_fields.ex:107
 #: lib/phoenix_kit_web/components/core/file_details_fields.ex:114
 #: lib/phoenix_kit_web/components/core/file_details_fields.ex:115
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:804
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:805
 #, elixir-autogen, elixir-format
 msgid "Alt text"
 msgstr "替代文本"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:784
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:785
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:786
 #, elixir-autogen, elixir-format
 msgid "Tags (comma-separated)"
 msgstr "标签（以逗号分隔）"
@@ -16014,12 +16014,12 @@ msgstr "提供顺序"
 msgid "Showing the first %{count} of %{total}."
 msgstr "显示前 %{count} 条，共 %{total} 条。"
 
-#: lib/modules/storage/storage.ex:5422
+#: lib/modules/storage/storage.ex:5424
 #: lib/modules/storage/web/libraries_component.ex:412
 #: lib/modules/storage/web/libraries_component.ex:547
 #: lib/modules/storage/web/library_page.html.heex:206
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:132
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:727
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:728
 #: lib/phoenix_kit_web/live/components/library_preferences.ex:395
 #: lib/phoenix_kit_web/live/components/library_settings.ex:2493
 #: lib/phoenix_kit_web/live/users/media_storage.ex:66
@@ -17317,7 +17317,7 @@ msgstr "耗时"
 
 #: lib/modules/storage/web/bucket_page.html.heex:526
 #: lib/phoenix_kit_web/components/core/upload_manager.ex:569
-#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:894
+#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:944
 #: lib/phoenix_kit_web/live/approvals.ex:330
 #: lib/phoenix_kit_web/live/components/library_activity.ex:285
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:299
@@ -19320,7 +19320,7 @@ msgstr "仅限宽图"
 
 #: lib/phoenix_kit_web/components/media_browser/grid_view.html.heex:361
 #: lib/phoenix_kit_web/components/media_browser/grid_view.html.heex:362
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:847
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:848
 #, elixir-autogen, elixir-format
 msgid "Panorama"
 msgstr "全景图"
@@ -19369,7 +19369,7 @@ msgstr "日期"
 msgid "Did not fire"
 msgstr "未闪光"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:840
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:841
 #, elixir-autogen, elixir-format
 msgid "Dimensions:"
 msgstr "尺寸："
@@ -19502,55 +19502,55 @@ msgid "Nothing here about the camera, exposure, dates or location. All EXIF list
 msgstr "这里没有关于相机、曝光、日期或位置的信息。“全部 EXIF”会列出文件包含的所有内容。"
 
 #: lib/phoenix_kit_web/components/media_browser/removal_modal.ex:143
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:933
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:946
 #, elixir-autogen, elixir-format
 msgid "Delete forever"
 msgstr "永久删除"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:895
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:908
 #, elixir-autogen, elixir-format
 msgid "File UUID:"
 msgstr "文件 UUID："
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:892
+#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:942
 #, elixir-autogen, elixir-format
 msgid "In the trash"
 msgstr "在回收站中"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:655
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:656
 #, elixir-autogen, elixir-format
 msgid "Media details"
 msgstr "媒体详情"
 
 #: lib/phoenix_kit_web/components/media_browser/removal_modal.ex:144
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:943
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:956
 #: lib/phoenix_kit_web/components/media_gallery.html.heex:85
 #, elixir-autogen, elixir-format
 msgid "Move to trash"
 msgstr "移至回收站"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:858
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:859
 #, elixir-autogen, elixir-format
 msgid "Pages:"
 msgstr "页数："
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:929
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:942
 #, elixir-autogen, elixir-format
 msgid "Permanently delete this file? This cannot be undone."
 msgstr "永久删除此文件？此操作无法撤销。"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:893
+#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:943
 #: lib/phoenix_kit_web/live/users/media_storage.ex:566
 #, elixir-autogen, elixir-format
 msgid "Processing"
 msgstr "处理中"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:872
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:885
 #, elixir-autogen, elixir-format
 msgid "Updated:"
 msgstr "更新于："
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:868
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:869
 #, elixir-autogen, elixir-format
 msgid "Uploaded by:"
 msgstr "上传者："
@@ -20213,7 +20213,7 @@ msgstr "反转两指平移"
 msgid "Dynamic range"
 msgstr "动态范围"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:852
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:853
 #, elixir-autogen, elixir-format
 msgid "Dynamic range:"
 msgstr "动态范围："
@@ -22582,13 +22582,13 @@ msgid "No open media browser could receive this upload."
 msgstr "没有已打开的媒体浏览器可以接收此上传。"
 
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:495
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:533
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:534
 #, elixir-autogen, elixir-format
 msgid "Maximum %{count} file"
 msgid_plural "Maximum %{count} files"
 msgstr[0] "最多 %{count} 个文件"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:548
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:549
 #, elixir-autogen, elixir-format
 msgid "Deselect"
 msgstr "取消选择"
@@ -26775,7 +26775,7 @@ msgstr "此会话已结束。请重新登录以代表组织操作。"
 msgid "Administrator with elevated privileges"
 msgstr "具有更高权限的管理员"
 
-#: lib/modules/storage/storage.ex:5430
+#: lib/modules/storage/storage.ex:5432
 #, elixir-autogen, elixir-format
 msgid "Create libraries"
 msgstr "创建库"
@@ -26790,7 +26790,7 @@ msgstr "数据库"
 msgid "Full Access (Superadmin)"
 msgstr "完全访问（超级管理员）"
 
-#: lib/modules/storage/storage.ex:5441
+#: lib/modules/storage/storage.ex:5443
 #, elixir-autogen, elixir-format
 msgid "Make libraries public"
 msgstr "公开库"
@@ -26830,7 +26830,7 @@ msgstr "系统集成"
 msgid "System owner with full access"
 msgstr "拥有完全访问权限的系统所有者"
 
-#: lib/modules/storage/storage.ex:5435
+#: lib/modules/storage/storage.ex:5437
 #, elixir-autogen, elixir-format
 msgid "Use their own storage"
 msgstr "使用自己的存储"
