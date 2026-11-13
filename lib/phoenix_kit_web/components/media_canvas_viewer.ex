@@ -1749,6 +1749,20 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   # them via `handle.getExtension("etcher")` on mount. Returns nil
   # when there's no usable image url — gates the `<Fresco.canvas>`
   # render in the heex.
+  @doc """
+  Etcher's laser measure tool (`:measure`) for annotators, when the host
+  opts in with `config :phoenix_kit, laser_measure: true`. Off by default:
+  it reads a Bosch GLM / PLR laser distance meter over Web Bluetooth and
+  writes each reading onto the picture as a label, which only means
+  something to a site whose people own one. The boards module reads the
+  same switch.
+  """
+  def laser_measure_tools do
+    if Application.get_env(:phoenix_kit, :laser_measure, false) == true,
+      do: [:measure],
+      else: []
+  end
+
   # The board's markup: the same Fresco canvas + Etcher layer the image
   # branch renders, over an empty scene, with the connector tool left ON
   # (arrows between shapes are what a board is for) and nothing that
@@ -1798,22 +1812,23 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
           nav_buttons={if @can_annotate, do: nil, else: [:visibility]}
           tools={
             if @can_annotate,
-              do: [
-                :grabber,
-                :image,
-                :rectangle,
-                :circle,
-                :polygon,
-                :freehand,
-                :marker,
-                :callout,
-                :text,
-                :textbox,
-                :dimension,
-                :arrow,
-                :line,
-                :eraser
-              ],
+              do:
+                [
+                  :grabber,
+                  :image,
+                  :rectangle,
+                  :circle,
+                  :polygon,
+                  :freehand,
+                  :marker,
+                  :callout,
+                  :text,
+                  :textbox,
+                  :dimension,
+                  :arrow,
+                  :line,
+                  :eraser
+                ] ++ laser_measure_tools(),
               else: []
           }
         />

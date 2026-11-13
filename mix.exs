@@ -387,8 +387,12 @@ defmodule PhoenixKit.MixProject do
       # (the View | Annotate switch in place of the pencil); 0.25 is also the
       # first etcher that admits fresco 0.16. Older etcher ignores the name and
       # an annotator gets no way into annotation mode from the nav.
+      #
+      # 0.26 is the floor because the viewer offers `:measure`, the laser
+      # measure (a Bosch meter's readings written onto the picture as
+      # labels). An older etcher ignores the name and the button is missing.
       {:tessera, "~> 0.3.11"},
-      {:etcher, "~> 0.25.0"},
+      {:etcher, "~> 0.26.0"},
 
       # QR device-handoff login ("scan to sign in" on the login page).
       #
