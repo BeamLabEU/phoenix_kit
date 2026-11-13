@@ -50,7 +50,9 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
   - `class` - Additional CSS classes
   - `peek` - Show the picture larger while the pointer is over it (lists of
     small avatars). The preview floats above the page, placed by
-    `phoenix_kit.js`, so a scrolling table does not clip it. Only an avatar
+    `phoenix_kit_admin.js` (it shows on admin and dashboard pages, where that
+    file loads; elsewhere the avatar is shown as usual), so a scrolling table
+    does not clip it. Only an avatar
     with a picture gets one: enlarged initials show nothing new.
   - `shape` - An `AvatarShape` key to draw in; defaults to the site's shape
     (Settings → Users → Avatars). A border or ring on a masked shape is
@@ -68,7 +70,7 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
   attr :shape, :string, default: nil
   attr :peek, :boolean, default: false
 
-  # The size the hover preview is drawn at, in CSS pixels; phoenix_kit.js
+  # The size the hover preview is drawn at, in CSS pixels; phoenix_kit_admin.js
   # (AvatarPeek) draws it at the same size.
   @peek_px 176
 

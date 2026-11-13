@@ -1,6 +1,6 @@
 "use strict";
 
-// CrumbSwitcher hook in priv/static/assets/phoenix_kit.js: a picked row
+// CrumbSwitcher hook in priv/static/assets/phoenix_kit_admin.js: a picked row
 // closes the panel once the patch it triggered has landed (Media, 2026-10-08:
 // the panel stayed open over the newly selected library).
 //
@@ -49,7 +49,7 @@ global.document = {
 const storage = { getItem: () => null, setItem: noop, removeItem: noop, key: () => null, length: 0 };
 
 global.window = {
-  PhoenixKitHooks: {},
+  PhoenixKitAdminHooks: {},
   addEventListener: noop,
   removeEventListener: noop,
   matchMedia: () => ({ matches: false, addEventListener: noop, removeEventListener: noop }),
@@ -66,8 +66,8 @@ global.MutationObserver = class { observe() {} disconnect() {} };
 global.localStorage = storage;
 global.sessionStorage = storage;
 
-require("../../priv/static/assets/phoenix_kit.js");
-const Hook = global.window.PhoenixKitHooks.CrumbSwitcher;
+(require("../../priv/static/assets/phoenix_kit.js"), require("../../priv/static/assets/phoenix_kit_admin.js"));
+const Hook = global.window.PhoenixKitAdminHooks.CrumbSwitcher;
 
 function mount() {
   const hidden = [];

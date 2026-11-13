@@ -1,7 +1,7 @@
 "use strict";
 
 // Regression test for the EtcherReset hook in
-// priv/static/assets/phoenix_kit.js.
+// priv/static/assets/phoenix_kit_admin.js.
 //
 // "Reset annotation settings" on /profile/settings clears two halves: the
 // palette and ink on the user row (server-side) and Etcher's own
@@ -67,7 +67,7 @@ const storage = {
 };
 
 global.window = {
-  PhoenixKitHooks: {},
+  PhoenixKitAdminHooks: {},
   addEventListener: noop,
   removeEventListener: noop,
   matchMedia: () => ({ matches: false, addEventListener: noop, removeEventListener: noop }),
@@ -83,9 +83,9 @@ global.window = {
 global.localStorage = storage;
 global.sessionStorage = storage;
 
-require("../../priv/static/assets/phoenix_kit.js");
+(require("../../priv/static/assets/phoenix_kit.js"), require("../../priv/static/assets/phoenix_kit_admin.js"));
 
-const hook = window.PhoenixKitHooks.EtcherReset;
+const hook = window.PhoenixKitAdminHooks.EtcherReset;
 
 // Stands in for LiveView's hook context: `handleEvent` records the
 // subscription rather than wiring a real socket, so a test can fire the

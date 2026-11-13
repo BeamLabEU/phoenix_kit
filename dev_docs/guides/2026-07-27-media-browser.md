@@ -46,7 +46,7 @@ use PhoenixKitWeb.Components.MediaBrowser.Embed, url_sync: [id: "my-browser"]
 
 Implemented with LiveView lifecycle hooks (`attach_hook(:handle_params)` + `attach_hook(:handle_info)` in `on_mount`), **not** injected clauses — so it composes with a host LiveView that already defines its own `handle_params`/`handle_info` (e.g. a resource-edit page that loads its record in `handle_params`). No clash, nothing to reconcile. Public helpers `MediaBrowser.Embed.parse_nav_params/1` + `build_nav_query/1` for hosts that want a custom round-trip. `/admin/media` (`Live.Users.Media`) is the reference call site. Single-browser-per-page assumed (query keys aren't namespaced per component).
 
-**Selection actions:** `…` dropdown in header → Download (staggered `<a download>` clicks via `MediaDragDrop` hook in `priv/static/assets/phoenix_kit.js`) + Delete (move to trash, or permanently if trash view active).
+**Selection actions:** `…` dropdown in header → Download (staggered `<a download>` clicks via `MediaDragDrop` hook in `priv/static/assets/phoenix_kit_admin.js`) + Delete (move to trash, or permanently if trash view active).
 
 **Manual wiring** (if not using Embed) — Embed's `@before_compile` injection ensures user-defined clauses match first:
 
@@ -57,4 +57,4 @@ def handle_info({PhoenixKitWeb.Components.MediaBrowser, _, _} = msg, socket),
   do: PhoenixKitWeb.Components.MediaBrowser.handle_parent_info(msg, socket)
 ```
 
-**Files:** `media_browser.ex`/`.html.heex`/`embed.ex`, backing context `lib/modules/storage/storage.ex`, JS hooks `priv/static/assets/phoenix_kit.js`.
+**Files:** `media_browser.ex`/`.html.heex`/`embed.ex`, backing context `lib/modules/storage/storage.ex`, JS hooks `priv/static/assets/phoenix_kit_admin.js`.

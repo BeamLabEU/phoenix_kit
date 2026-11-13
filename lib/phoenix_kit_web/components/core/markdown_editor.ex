@@ -81,8 +81,9 @@ defmodule PhoenixKitWeb.Components.Core.MarkdownEditor do
 
   ## JavaScript / CSP
 
-  All behavior is driven by the `MarkdownEditor` LiveView hook (shipped in
-  `priv/static/assets/phoenix_kit.js` as `window.PhoenixKitHooks.MarkdownEditor`),
+  All behavior is driven by the `MarkdownEditor` LiveView hook (its code is in
+  `priv/static/assets/phoenix_kit_admin.js` as `window.PhoenixKitAdminHooks.MarkdownEditor`,
+  behind a stub of the same name in `window.PhoenixKitHooks` that loads it),
   not by inline `<script>` or `onclick=` handlers. That means it works under a
   strict Content-Security-Policy with no nonce and survives LiveView navigation.
   The host only needs the vendored `phoenix_kit.js` loaded (the standard install;

@@ -5,8 +5,10 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const source = fs.readFileSync(path.join(__dirname, "../../priv/static/assets/phoenix_kit.js"), "utf8");
-const lazy = source.slice(source.indexOf("  function lazyHook("), source.indexOf("  var pkLoaders = {}"));
+const assets = path.join(__dirname, "../../priv/static/assets");
+const publicSource = fs.readFileSync(path.join(assets, "phoenix_kit.js"), "utf8");
+const source = fs.readFileSync(path.join(assets, "phoenix_kit_admin.js"), "utf8");
+const lazy = publicSource.slice(publicSource.indexOf("  function lazyHook("), publicSource.indexOf("  var pkLoaders = {}"));
 const gallery = source.slice(source.indexOf("  var GALLERY_SETTLE_MS"), source.indexOf("  // ViewerHiresLoading —"));
 
 // Drive the actual hook with a delayed library and a controllable clock.
@@ -38,7 +40,7 @@ function page({ delayed = false } = {}) {
     destroy() { this.destroyed++; }
   };
   const window = {
-    PhoenixKitHooks: {}, devicePixelRatio: 1,
+    PhoenixKitAdminHooks: {}, devicePixelRatio: 1,
     addEventListener() {}, removeEventListener() {},
     Fresco: { gallery(opts) { options = opts; return engine; }, viewerFor: () => null }
   };
@@ -51,7 +53,7 @@ function page({ delayed = false } = {}) {
   const clearTimer = (id) => timers.delete(id);
   new Function("window", "document", "pkLoaders", "setTimeout", "clearTimeout", "setInterval", "clearInterval", "requestAnimationFrame", lazy + gallery)(
     window, document, { fresco: () => load }, setTimer(false), clearTimer, setTimer(true), clearTimer, (fn) => frames.push(fn));
-  const hook = Object.assign(Object.create(window.PhoenixKitHooks.ViewerGallery), {
+  const hook = Object.assign(Object.create(window.PhoenixKitAdminHooks.ViewerGallery), {
     el, pushEventTo: (_el, event, payload) => pushed.push({ event, payload })
   });
   return {

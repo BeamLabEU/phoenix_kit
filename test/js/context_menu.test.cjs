@@ -1,7 +1,7 @@
 "use strict";
 
 // Unit tests for the pure positioning logic behind the ContextMenu hook in
-// priv/static/assets/phoenix_kit.js. The bundle is browser code (IIFEs that
+// priv/static/assets/phoenix_kit_admin.js. The bundle is browser code (IIFEs that
 // assign onto `window`), so stub the globals it touches at load time; the
 // DOM-using hook methods themselves are not invoked here.
 //
@@ -52,7 +52,7 @@ global.document = {
 };
 
 global.window = {
-  PhoenixKitHooks: {},
+  PhoenixKitAdminHooks: {},
   addEventListener: noop,
   removeEventListener: noop,
   matchMedia: () => ({ matches: false, addEventListener: noop, removeEventListener: noop }),
@@ -68,7 +68,7 @@ global.window = {
 global.localStorage = storage;
 global.sessionStorage = storage;
 
-const { contextMenuPosition } = require("../../priv/static/assets/phoenix_kit.js");
+const { contextMenuPosition } = (require("../../priv/static/assets/phoenix_kit.js"), require("../../priv/static/assets/phoenix_kit_admin.js"));
 
 // A roomy viewport and a menu that fits in it several times over, so each test
 // below isolates one edge.

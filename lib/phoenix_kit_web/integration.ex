@@ -1464,6 +1464,11 @@ defmodule PhoenixKitWeb.Integration do
   # Cheap to detect and worth saying out loud: if any module declares a bundle
   # and the compiler is absent, name the modules and the one line that fixes
   # it. Silence here has cost more than a warning ever will.
+  #
+  # The core's admin bundle is the same case with no module in it: the install
+  # facts that name its file are written by the same compiler, so a host without
+  # it loses every admin hook whether or not a module ships JavaScript. It is
+  # warned about too, unless the project is a module package (see below).
   def warn_missing_js_compiler do
     modules = modules_declaring_js_sources()
 
@@ -1477,10 +1482,15 @@ defmodule PhoenixKitWeb.Integration do
     # train exactly the scroll-past behavior this warning exists to fight.
     # The tell: a host never compiles a js_sources module from its own
     # source tree; a package always does.
+    #
+    # A package that declares no bundle of its own has no such module to
+    # show, and no reason to carry the compiler either — the core's admin
+    # bundle needs it in the HOST. Its tell is the `package:` metadata a
+    # published package has and a host does not.
     if Enum.any?(modules, &compiled_from_current_project?/1) do
       :ok
     else
-      warn_missing_js_compiler(modules, js_compiler_configured?())
+      warn_missing_js_compiler(modules, js_compiler_configured?(), module_package?())
     end
   end
 
@@ -1517,12 +1527,40 @@ defmodule PhoenixKitWeb.Integration do
   # question about two facts. Reaching it through the real dep tree would mean
   # the interesting branch only runs on a host that happens to be misconfigured
   # — i.e. never, in this library's own suite.
-  def warn_missing_js_compiler(modules, compiler_configured?)
+  def warn_missing_js_compiler(modules, compiler_configured?, package? \\ false)
 
-  def warn_missing_js_compiler([], _compiler_configured?), do: :ok
-  def warn_missing_js_compiler(_modules, true), do: :ok
+  def warn_missing_js_compiler(_modules, true, _package?), do: :ok
+  def warn_missing_js_compiler([], false, true), do: :ok
 
-  def warn_missing_js_compiler(modules, false) do
+  # The core's own admin bundle needs the compiler as much as a module's does:
+  # the install facts that name its file are written by it. A host without it
+  # compiles cleanly and loses the hooks of the whole admin area, with or
+  # without a module that ships JavaScript of its own.
+  def warn_missing_js_compiler([], false, false) do
+    IO.puts(:stderr, """
+
+    warning: PhoenixKit: the JavaScript of its admin area will not be loaded
+
+    The hooks of the admin area and the user dashboard (sortable lists, tables,
+    editors, the media browser) are in a bundle that only the
+    `:phoenix_kit_js_sources` compiler writes, and it is not in this app's
+    `:compilers`. They will be missing with no further error — the pages will
+    render and the parts that need JavaScript will not work.
+
+    `mix phoenix_kit.update` adds both of the following, or do it by hand. In mix.exs:
+
+        compilers: [:phoenix_kit_js_sources, :phoenix_live_view] ++ Mix.compilers()
+
+    and make sure the root layout loads the vendored bundles before app.js:
+
+        <script src={~p"/assets/vendor/phoenix_kit.js"}></script>
+        <script src={~p"/assets/vendor/phoenix_kit_modules.js"}></script>
+    """)
+
+    :ok
+  end
+
+  def warn_missing_js_compiler(modules, false, _package?) do
     # `IO.warn/1` registers a compiler diagnostic, so on a host building with
     # `--warnings-as-errors` — the ordinary CI setting — this did not warn,
     # it broke the build, on upgrade, over a condition in mix.exs that was
@@ -1555,6 +1593,23 @@ defmodule PhoenixKitWeb.Integration do
 
     :ok
   end
+
+  @doc false
+  # Whether the project being compiled is a published module package: its
+  # mix.exs carries `package:` metadata (a host's never does).
+  def module_package? do
+    if Code.ensure_loaded?(Mix.Project) and function_exported?(Mix.Project, :config, 0) do
+      package_declared?(Mix.Project.config())
+    else
+      false
+    end
+  rescue
+    _ -> false
+  end
+
+  @doc false
+  def package_declared?(config) when is_list(config), do: is_list(config[:package])
+  def package_declared?(_config), do: false
 
   defp modules_declaring_js_sources do
     PhoenixKit.ModuleDiscovery.discover_external_modules()

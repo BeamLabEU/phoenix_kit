@@ -1,6 +1,6 @@
 "use strict";
 
-// AvatarPeek in priv/static/assets/phoenix_kit.js: hovering a
+// AvatarPeek in priv/static/assets/phoenix_kit_admin.js: hovering a
 // `<.user_avatar peek>` shows a larger copy beside it, fixed to the viewport.
 //
 // Run: mix test.js
@@ -77,7 +77,7 @@ global.window.innerWidth = 1000;
 global.window.innerHeight = 800;
 global.requestAnimationFrame = (fn) => fn();
 
-const { avatarPeekPosition } = require("../../priv/static/assets/phoenix_kit.js");
+const { avatarPeekPosition } = (require("../../priv/static/assets/phoenix_kit.js"), require("../../priv/static/assets/phoenix_kit_admin.js"));
 
 test("the preview sits beside the avatar, inside the viewport", () => {
   const viewport = { width: 1000, height: 800 };
