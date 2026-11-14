@@ -349,6 +349,13 @@ computes), and cancels by pushing one event. The panel's DOM is
 class is in HEEx where the host's Tailwind scans it, and every string is
 translated on the server and handed over in `data-labels`.
 
+Each file also has a row (`li[data-item]`) whose `data-state` (`queued`,
+`uploading`, `paused`, `skipped`, `done`, `cancelled` or `failed`) always equals
+the file's state, even while the panel is shrunk. A host form can therefore ask
+the panel for `li[data-state="queued"], li[data-state="uploading"]` (the states
+`busy()` counts) to know whether files are in flight; only the row's text, bar
+and buttons wait for the list to be opened.
+
 ## LiveView behaviour worth knowing
 
 Found while building it, handled in the script:

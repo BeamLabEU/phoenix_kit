@@ -148,6 +148,17 @@ Run `mix phoenix_kit.update` (V230, V231 and the new `phoenix_kit.js`).
   silently) and on every stripped field from `decrypt_fields/1`. Documented in the
   integration guide.
 
+- **The upload manager's rows keep their state while the panel is shrunk.** A
+  batch that ends cleanly shrinks the panel to one line, and the rows were then
+  no longer redrawn: each stayed at the `data-state` it had when the panel
+  shrank, usually `uploading`. A host form that asks the rows whether files are
+  still in flight (the agent Dock refuses to send while a row says `queued` or
+  `uploading`) held the send back until the user opened the panel. Shrunk, the
+  panel now keeps each row's `data-state` current, adds a row for a file added
+  while shrunk, and drops the rows of files that left the queue (including the
+  last ones, when Dismiss empties it, or Clear finished with the panel open); the
+  full redraw still waits until it is opened.
+
 - **Finishing a registration from a mailed link no longer counts as another sign-up
   attempt.** The request for the link took one of the address's three hourly
   attempts and every submit of the completion form took another, so the third try
