@@ -11497,6 +11497,11 @@ msgstr "Kod polecający"
 msgid "Served at the site root as well as under the PhoenixKit prefix, because that is where crawlers look. A priv/static/sitemap.xml file would be served instead of this one."
 msgstr "Udostępniane zarówno w katalogu głównym witryny, jak i pod prefiksem PhoenixKit, bo tam zaglądają roboty indeksujące. Plik priv/static/sitemap.xml zostałby udostępniony zamiast tego."
 
+#: lib/phoenix_kit/users/referrals.ex:228
+#, elixir-autogen, elixir-format
+msgid "Referral code is required"
+msgstr "Kod polecający jest wymagany"
+
 #: lib/phoenix_kit_web/users/referral_gate.ex:94
 #: lib/phoenix_kit_web/users/referral_gate.ex:104
 #: lib/phoenix_kit_web/users/referral_gate.ex:135

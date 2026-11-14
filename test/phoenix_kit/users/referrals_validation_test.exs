@@ -87,6 +87,76 @@ defmodule PhoenixKit.Users.ReferralsValidationTest do
     end
   end
 
+  describe "rejections are translated where they are produced" do
+    # The registration and magic-link forms print the returned string as it is,
+    # so the translation has to happen here. Before, all three messages came back
+    # as English literals and a Russian-language site showed them in English.
+    @locales_with_required ~w(de es et fr it pl ru uk zh)
+
+    defp in_locale(locale, fun), do: Gettext.with_locale(PhoenixKitWeb.Gettext, locale, fun)
+
+    test "a blank required code" do
+      assert {:error, "Реферальный код обязателен"} =
+               in_locale("ru", fn ->
+                 Referrals.validate_for_signup("", @enabled ++ [context: :submit])
+               end)
+
+      assert {:error, "Referral code is required"} =
+               in_locale("en", fn ->
+                 Referrals.validate_for_signup("", @enabled ++ [context: :submit])
+               end)
+    end
+
+    test "a rejected code" do
+      assert {:error, "Этот код нельзя использовать"} =
+               in_locale("ru", fn ->
+                 Referrals.validate_for_signup("ZZZZZ", @enabled ++ [context: :submit])
+               end)
+    end
+
+    test "the rate-limit refusal" do
+      ip = "203.0.113.#{:erlang.unique_integer([:positive]) |> rem(250)}"
+      opts = @enabled ++ [context: :submit, ip_address: ip]
+
+      messages =
+        capture_log(fn ->
+          in_locale("ru", fn ->
+            send(self(), {:m, for(_ <- 1..40, do: Referrals.validate_for_signup("NOPE1", opts))})
+          end)
+        end)
+        |> then(fn _ ->
+          receive do
+            {:m, r} -> for {:error, m} <- r, do: m
+          end
+        end)
+
+      assert "Слишком много попыток. Повторите чуть позже." in messages
+      refute "Too many attempts. Please try again shortly." in messages
+    end
+
+    test "the required-code message is in the catalogue of every shipped locale" do
+      root = Path.expand("../../..", __DIR__)
+
+      {:ok, pot} = Expo.PO.parse_file(Path.join(root, "priv/gettext/default.pot"))
+
+      assert Enum.any?(
+               pot.messages,
+               &(IO.iodata_to_binary(&1.msgid) == "Referral code is required")
+             )
+
+      for locale <- @locales_with_required do
+        {:ok, po} =
+          Expo.PO.parse_file(Path.join(root, "priv/gettext/#{locale}/LC_MESSAGES/default.po"))
+
+        msg =
+          Enum.find(po.messages, &(IO.iodata_to_binary(&1.msgid) == "Referral code is required"))
+
+        assert msg, "#{locale}: msgid missing"
+        assert IO.iodata_to_binary(msg.msgstr) != "", "#{locale}: not translated"
+      end
+    end
+  end
+
   describe "disabled system" do
     test "nothing is required or checked when referrals are off" do
       opts = [enabled?: false, required?: true, context: :submit]
