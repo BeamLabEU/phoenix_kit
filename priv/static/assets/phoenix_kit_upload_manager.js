@@ -1431,7 +1431,12 @@
       var toggle = el.querySelector('[data-act="collapse"]');
       if (toggle) toggle.setAttribute("aria-expanded", this.collapsed ? "false" : "true");
 
-      if (!this.collapsed) this._renderRows();
+      // Rows are drawn in full only while the list is open. Shrunk, each row
+      // still carries its file's current state: a host form that asks whether
+      // files are still in flight (li[data-state="uploading"]) must not be
+      // answered by a row frozen at the moment the panel shrank.
+      if (this.collapsed) this._syncRowStates();
+      else this._renderRows();
     },
 
     _show: function(act, on) {
@@ -1468,6 +1473,32 @@
       pump();
     },
 
+    _newRow: function(it) {
+      var li = this.rowTemplate.content.firstElementChild.cloneNode(true);
+      li.dataset.item = String(it.id);
+      li.querySelector('[data-role="name"]').textContent = it.name;
+      li.querySelector('[data-role="name"]').title = it.name;
+      this._thumb(it, li.querySelector('[data-role="thumb"]'));
+      this.rowEls[it.id] = li;
+      return li;
+    },
+
+    // The shrunk panel's light pass: every file has a row and every row its
+    // file's state; order, text and buttons wait until the list is opened.
+    _syncRowStates: function() {
+      var self = this;
+      var seen = {};
+      this.queue.items.forEach(function(it) {
+        seen[it.id] = true;
+        var li = self.rowEls[it.id];
+        if (!li) { li = self._newRow(it); self.list.appendChild(li); }
+        if (li.dataset.state !== it.state) li.dataset.state = it.state;
+      });
+      Object.keys(this.rowEls).forEach(function(id) {
+        if (!seen[id]) { self.rowEls[id].remove(); delete self.rowEls[id]; }
+      });
+    },
+
     _renderRows: function() {
       var self = this;
       var seen = {};
@@ -1482,15 +1513,7 @@
 
       ordered.forEach(function(it) {
         seen[it.id] = true;
-        var li = self.rowEls[it.id];
-        if (!li) {
-          li = self.rowTemplate.content.firstElementChild.cloneNode(true);
-          li.dataset.item = String(it.id);
-          li.querySelector('[data-role="name"]').textContent = it.name;
-          li.querySelector('[data-role="name"]').title = it.name;
-          self._thumb(it, li.querySelector('[data-role="thumb"]'));
-          self.rowEls[it.id] = li;
-        }
+        var li = self.rowEls[it.id] || self._newRow(it);
         // Keep the list in queue order.
         var want = anchor ? anchor.nextSibling : self.list.firstChild;
         if (li !== want) self.list.insertBefore(li, want);
