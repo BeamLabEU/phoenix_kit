@@ -1,9 +1,10 @@
 # One answer to "what IAM policy does the SES key need?"
 
-Status: proposed (2026-11-14), **verified against `main` the same day**
+Status: **decided (2026-11-14), not started.** Verified against `main` the same day
 (core `ea9f60ff3`, `phoenix_kit_emails` 0.8.0 `dd32ca6`). Written from fotki.ee
 while setting up SES delivery events. Line numbers below are `main`'s. What the
-check changed is listed in "Verified against main" at the end.
+check changed is listed in "Verified against main" at the end; what was decided
+with Dmitri, and the order of work, is in "Decisions" and "Order of work".
 
 ## Why
 
@@ -89,14 +90,18 @@ until Setup Infrastructure has worked:
       "Resource": [
         "arn:aws:ses:<region>:*:configuration-set/<p>-emailing",
         "arn:aws:sns:<region>:*:<p>-email-events",
-        "arn:aws:sqs:<region>:*:<p>-email-*"
+        "arn:aws:sqs:<region>:*:<p>-email-queue",
+        "arn:aws:sqs:<region>:*:<p>-email-dlq"
       ]
     },
     {
       "Sid": "ReadDeliveryEvents",
       "Effect": "Allow",
       "Action": ["sqs:ReceiveMessage", "sqs:DeleteMessage"],
-      "Resource": "arn:aws:sqs:<region>:*:<p>-email-*"
+      "Resource": [
+        "arn:aws:sqs:<region>:*:<p>-email-queue",
+        "arn:aws:sqs:<region>:*:<p>-email-dlq"
+      ]
     }
   ]
 }
@@ -119,7 +124,10 @@ this one, which is the setup policy without `SetupInfrastructure`:
       "Sid": "ReadDeliveryEvents",
       "Effect": "Allow",
       "Action": ["sqs:ReceiveMessage", "sqs:DeleteMessage"],
-      "Resource": "arn:aws:sqs:<region>:*:<p>-email-*"
+      "Resource": [
+        "arn:aws:sqs:<region>:*:<p>-email-queue",
+        "arn:aws:sqs:<region>:*:<p>-email-dlq"
+      ]
     }
   ]
 }
@@ -134,7 +142,8 @@ Notes for the wording shown to users:
   idempotent, so attaching the policy and clicking again is safe. Its
   AccessDenied error should say this (see 3 below).
 - **`ses:SendEmail` is not called today.** It is kept so that a move to the
-  SES v2 send API doesn't break every installed key.
+  SES v2 send API doesn't break every installed key (see "Follow-up: SES v2
+  send API").
 - **The `SetupInfrastructure` ARNs are valid per AWS's reference.** Both
   `ses:CreateConfigurationSet` and `ses:CreateConfigurationSetEventDestination`
   take the `configuration-set` resource
@@ -143,10 +152,12 @@ Notes for the wording shown to users:
   run in step 6 still confirms it. `GetSendQuota` takes no resource, and
   `SendRawEmail` is authorised against the sending **identity** as well as the
   configuration set, so the `Send` statement must stay on `"*"`.
-- **If the project title changes, the resource names change.** Then the
-  policy no longer matches the queues that already exist. Either keep the
-  names that were used, or show the names actually saved in the account's
-  tracking settings (`Emails.set_aws_tracking/2` has them).
+- **Names are exact, never a wildcard.** The policy shown in the UI carries
+  this site's real names and region.
+- **Before setup the names come from the project title; after setup, from
+  what setup saved.** The account's tracking row has `queue_arn`, `dlq_url`,
+  `sns_topic_arn`, `configuration_set` and `region`. A site whose title
+  changed after setup still gets a policy that matches its real queues.
 - **The probes are optional.** Leave `sqs:ListQueues`, `sns:ListTopics`,
   `ses:ListConfigurationSets` and `ec2:DescribeRegions` out of both
   policies.
@@ -253,7 +264,7 @@ Use a throwaway IAM user in a test account:
 Record the result, including the `CreateConfigurationSet` resource question,
 in a `dev_docs/reports/` file.
 
-## Related, worth deciding in the same pass
+## Related: open and click tracking
 
 `PhoenixKit.AWS.SESv2.create_configuration_set_event_destination/4`
 subscribes to **OPEN and CLICK** as well. Enabling those makes SES:
@@ -263,13 +274,98 @@ subscribes to **OPEN and CLICK** as well. Enabling those makes SES:
   magic-link and password-reset links with their tokens.
 
 That is a privacy and token-exposure cost that most sites don't want for
-auth mail. Suggest one of:
+auth mail. Decided (decision 7): new setups leave both out, a setting turns
+them on, and the guide tells existing installs how to untick them on the
+event destination.
 
-- leave OPEN and CLICK out by default, behind a setting;
-- or mark auth-mail links with `ses:no-track`.
+## Decisions (2026-11-14)
 
-Either way, the guide should tell existing installs how to untick them on
-the event destination.
+Each question was put to Dmitri with the alternatives; the first line is what
+was chosen.
+
+1. **Two policies: setup, then running.** Not one policy for everything, and
+   not "one by default, two as hardening". The key that stays on the server
+   cannot create or reconfigure AWS resources.
+2. **Exact resource names, filled in for the site.** Not a `*-email-*` prefix
+   wildcard (reaches other sites' queues in the same account) and not
+   `Resource: "*"`.
+3. **`ses:SendEmail` stays in the policy** although only `SendRawEmail` is
+   called. It is the one exception to "the policy is what the code calls".
+4. **The displayed policy is built from the saved names after setup and from
+   the project title before it.** Not always from the title.
+5. **Test Connection drops the four probes and keeps the account id.** Not
+   relabelled as optional, and not replaced by real send/poll checks. Whether
+   a key can set up or poll is shown by the setup button and the polling
+   status.
+6. **A project title that sanitises to nothing falls back to `myapp`**, the
+   value an unset title already gives. Not a refusal, and no new "resource
+   prefix" field.
+7. **OPEN and CLICK are off for new setups, with a setting to turn them on.**
+   Not kept on with `ses:no-track` on auth mail. The guide tells existing
+   installs how to untick the two events on the event destination in AWS.
+   Nothing is changed in an account that is already set up.
+8. **The UI generates the policies; the docs point to it.** Integrations →
+   Amazon SES and the Amazon SES/SQS panel show this site's policies with a
+   copy button. The guide has the same two policies with placeholders and the
+   action table. The README and the mailer-config comment link to the guide.
+9. **The SES v2 send API is not part of this work.** Recorded as a follow-up.
+10. **The real-AWS check uses a throwaway key from Dmitri.** He creates a
+    temporary IAM user in a test account and pastes the generated policies in
+    AWS when asked; Claude runs the four checks of step 6 and writes the
+    report; he deletes the user afterwards.
+11. **Core first.** `phoenix_kit_emails` has someone else's uncommitted work
+    in ten files, so its half starts after that has landed.
+
+Settled without a question, because there is only one reasonable answer:
+
+- Step 7 of setup returns its error like every other step (finding 1 below).
+- The emails package feature-detects core's new functions and keeps its own
+  name derivation as the fallback; its core pin is not narrowed.
+- No Hex release is cut for this until Dmitri asks for one.
+
+## Order of work
+
+**Phase 1, core (now):**
+
+1. `InfrastructureSetup.resource_names/1` and one public project-name
+   function with the `myapp` fallback; setup uses both.
+2. `PhoenixKit.AWS.IamPolicy` (`setup/1`, `running/1`, `json/1`), exact ARNs,
+   action lists declared next to their call sites; tests as in Build 1.
+3. Setup fixes: step 7 returns its error; OPEN and CLICK left out unless
+   `run/1` is given `track_opens_and_clicks: true`.
+4. Test Connection: remove `check_permissions/3`, the "management API" note,
+   `get_available_regions/3` and the `AwsCredentialsVerify` component with
+   their gettext entries; update `validators_test.exs`.
+5. Integrations → Amazon SES instructions: the two-step text and both
+   policies for this site.
+6. Guide rewrite, README, mailer-config comment, `Validators` and
+   `InfrastructureSetup` docs.
+7. Gettext in all ten locales, `mix precommit`, `mix test`.
+
+**Phase 2, real AWS (needs the throwaway key):** Build 6, with the report in
+`dev_docs/reports/`. Runs against core alone where it can (setup, a send);
+the polling check waits for phase 3 or uses the emails package as published.
+
+**Phase 3, `phoenix_kit_emails` (after its pending work lands):** the setup
+policy next to Setup Infrastructure, the running policy after success,
+AccessDenied messages that name the policy (setup and poller), the open/click
+setting on the account, and core's name function behind a feature check.
+
+## Follow-up: SES v2 send API
+
+Not in this work. Today sending goes through SES v1 `SendRawEmail`
+(`Swoosh.Adapters.AmazonSES`). SES v2 has one `SendEmail` call
+(`POST /v2/email/outbound-emails`) taking raw, simple or templated content.
+
+- **What it would give us:** `ConfigurationOverrides.Tracking` switches open
+  and click tracking off per message, so auth mail could go untracked on a
+  site that tracks campaigns. Amazon adds new features to v2 only.
+- **What it costs:** Swoosh has no v2 adapter, so core would carry its own
+  (about 150 lines plus tests, on the SigV4 client `PhoenixKit.AWS.SESv2`
+  already uses), and the emails package's reading of the provider response
+  changes with it.
+- **Not confirmed:** which IAM action v2 checks for raw content
+  (`ses:SendEmail` or `ses:SendRawEmail`). The policy carries both.
 
 ## Verified against main (2026-11-14)
 
