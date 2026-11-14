@@ -644,12 +644,12 @@ msgstr "Põhiandmed"
 msgid "Blocked"
 msgstr "Blokeeritud"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:209
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:210
 #, elixir-autogen, elixir-format
 msgid "Bold"
 msgstr "Paks"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:303
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:304
 #, elixir-autogen, elixir-format
 msgid "Bullet List"
 msgstr "Punktloend"
@@ -1297,7 +1297,7 @@ msgstr "IBAN"
 
 #: lib/phoenix_kit_web/comments_gettext_manifest.ex:49
 #: lib/phoenix_kit_web/components/core/file_exif_panel.ex:253
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:388
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:389
 #, elixir-autogen, elixir-format
 msgid "Image"
 msgstr "Pilt"
@@ -1321,39 +1321,39 @@ msgstr "Mitteaktiivne"
 msgid "Information"
 msgstr "Teave"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:239
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:240
 #, elixir-autogen, elixir-format
 msgid "Inline Code"
 msgstr "Reasisene kood"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:274
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:385
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:275
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:386
 #, elixir-autogen, elixir-format
 msgid "Insert Image"
 msgstr "Lisa pilt"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:262
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:263
 #, elixir-autogen, elixir-format
 msgid "Insert Link"
 msgstr "Lisa link"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:287
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:399
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:288
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:400
 #, elixir-autogen, elixir-format
 msgid "Insert Video"
 msgstr "Lisa video"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:375
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:376
 #, elixir-autogen, elixir-format
 msgid "Insert:"
 msgstr "Lisa:"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:169
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:170
 #, elixir-autogen, elixir-format
 msgid "Interactive editor features need JavaScript"
 msgstr "Interaktiivse redaktori funktsioonid vajavad JavaScripti"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:219
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:220
 #, elixir-autogen, elixir-format
 msgid "Italic"
 msgstr "Kaldkiri"
@@ -1393,7 +1393,7 @@ msgstr "Juriidiline moodul keelatud"
 msgid "Legal module enabled"
 msgstr "Juriidiline moodul lubatud"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:248
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:249
 #, elixir-autogen, elixir-format
 msgid "Line Break"
 msgstr "Reavahe"
@@ -1542,7 +1542,7 @@ msgstr "Märkus uuendatud edukalt"
 msgid "Notes"
 msgstr "Märkused"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:312
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:313
 #, elixir-autogen, elixir-format
 msgid "Numbered List"
 msgstr "Nummerdatud loend"
@@ -1895,8 +1895,8 @@ msgstr "SWIFT/BIC"
 #: lib/modules/storage/web/library_page.html.heex:356
 #: lib/modules/storage/web/renditions_component.ex:410
 #: lib/phoenix_kit_web/comments_gettext_manifest.ex:67
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:356
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:440
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:357
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:441
 #: lib/phoenix_kit_web/components/core/save_button.ex:58
 #: lib/phoenix_kit_web/components/image_editor.ex:974
 #: lib/phoenix_kit_web/components/media_browser/grid_view.html.heex:74
@@ -1941,8 +1941,8 @@ msgstr "Salvesta õigused"
 msgid "Save Preferences"
 msgstr "Salvesta eelistused"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:340
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:424
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:341
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:425
 #: lib/phoenix_kit_web/components/core/save_button.ex:64
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:792
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:378
@@ -1951,8 +1951,8 @@ msgstr "Salvesta eelistused"
 msgid "Saved"
 msgstr "Salvestatud"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:333
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:417
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:334
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:418
 #: lib/phoenix_kit_web/live/settings.html.heex:673
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:798
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:949
@@ -2090,7 +2090,7 @@ msgstr "Tänavaadress"
 msgid "Street address is required"
 msgstr "Tänavaadress on kohustuslik"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:229
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:230
 #, elixir-autogen, elixir-format
 msgid "Strikethrough"
 msgstr "Läbikriipsutus"
@@ -2205,8 +2205,8 @@ msgstr "Kinnitamata"
 msgid "Unknown"
 msgstr "Tundmatu"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:336
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:420
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:337
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:421
 #: lib/phoenix_kit_web/components/core/save_button.ex:61
 #, elixir-autogen, elixir-format
 msgid "Unsaved changes"
@@ -2264,7 +2264,7 @@ msgstr "Kasutaja määratud rollid"
 msgid "Username"
 msgstr "Kasutajanimi"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:402
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:403
 #, elixir-autogen, elixir-format
 msgid "Video"
 msgstr "Video"
@@ -6343,7 +6343,7 @@ msgstr "Halda kasutajate meediat ja üleslaadimisi"
 msgid "More actions"
 msgstr "Veel toiminguid"
 
-#: lib/phoenix_kit_web/components/core/nav_tabs.ex:273
+#: lib/phoenix_kit_web/components/core/nav_tabs.ex:282
 #, elixir-autogen, elixir-format
 msgid "More tabs"
 msgstr "Rohkem vahekaarte"
@@ -8777,7 +8777,7 @@ msgstr "Muuda päist"
 msgid "ElevenLabs"
 msgstr "ElevenLabs"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:172
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:173
 #, elixir-autogen, elixir-format
 msgid "Enable JavaScript to use the toolbar and media insertion."
 msgstr "Luba JavaScript, et kasutada tööriistariba ja meedia sisestamist."
@@ -8882,7 +8882,7 @@ msgstr "Ruudustikuvaade"
 msgid "Header size"
 msgstr "Päise suurus"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:192
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:193
 #, elixir-autogen, elixir-format
 msgid "Heading %{level}"
 msgstr "Pealkiri %{level}"
@@ -12981,20 +12981,20 @@ msgstr "viimase tunni jooksul"
 msgid "in the last week"
 msgstr "viimase nädala jooksul"
 
-#: lib/phoenix_kit_web/components/layout_wrapper.ex:1386
+#: lib/phoenix_kit_web/components/layout_wrapper.ex:1394
 #: lib/phoenix_kit_web/components/tree_picker.ex:382
 #, elixir-autogen, elixir-format
 msgid "Collapse"
 msgstr "Ahenda"
 
-#: lib/phoenix_kit_web/components/layout_wrapper.ex:1377
-#: lib/phoenix_kit_web/components/layout_wrapper.ex:1378
-#: lib/phoenix_kit_web/components/layout_wrapper.ex:1380
+#: lib/phoenix_kit_web/components/layout_wrapper.ex:1385
+#: lib/phoenix_kit_web/components/layout_wrapper.ex:1386
+#: lib/phoenix_kit_web/components/layout_wrapper.ex:1388
 #, elixir-autogen, elixir-format
 msgid "Collapse the menu to icons"
 msgstr "Ahenda menüü ikoonideks"
 
-#: lib/phoenix_kit_web/components/layout_wrapper.ex:1379
+#: lib/phoenix_kit_web/components/layout_wrapper.ex:1387
 #, elixir-autogen, elixir-format
 msgid "Expand the menu"
 msgstr "Laienda menüü"
@@ -24817,7 +24817,7 @@ msgid "Any"
 msgstr "Mis tahes"
 
 #: lib/phoenix_kit/users/table_columns.ex:305
-#: lib/phoenix_kit_web/components/core/user_info.ex:160
+#: lib/phoenix_kit_web/components/core/user_info.ex:162
 #, elixir-autogen, elixir-format
 msgid "Avatar"
 msgstr "Profiilipilt"
@@ -25598,8 +25598,8 @@ msgstr "Keeli ei leitud"
 msgid "No results found"
 msgstr "Tulemusi ei leitud"
 
-#: lib/phoenix_kit_web/components/core/user_info.ex:368
 #: lib/phoenix_kit_web/components/core/user_info.ex:370
+#: lib/phoenix_kit_web/components/core/user_info.ex:372
 #, elixir-autogen, elixir-format
 msgid "No role"
 msgstr "Rolli pole"

@@ -641,12 +641,12 @@ msgstr "Informations de base"
 msgid "Blocked"
 msgstr "Bloqué"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:209
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:210
 #, elixir-autogen, elixir-format
 msgid "Bold"
 msgstr "Gras"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:303
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:304
 #, elixir-autogen, elixir-format
 msgid "Bullet List"
 msgstr "Liste à puces"
@@ -1294,7 +1294,7 @@ msgstr "IBAN"
 
 #: lib/phoenix_kit_web/comments_gettext_manifest.ex:49
 #: lib/phoenix_kit_web/components/core/file_exif_panel.ex:253
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:388
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:389
 #, elixir-autogen, elixir-format
 msgid "Image"
 msgstr "Image"
@@ -1318,39 +1318,39 @@ msgstr "Inactif"
 msgid "Information"
 msgstr "Information"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:239
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:240
 #, elixir-autogen, elixir-format
 msgid "Inline Code"
 msgstr "Code en ligne"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:274
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:385
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:275
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:386
 #, elixir-autogen, elixir-format
 msgid "Insert Image"
 msgstr "Insérer une image"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:262
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:263
 #, elixir-autogen, elixir-format
 msgid "Insert Link"
 msgstr "Insérer un lien"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:287
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:399
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:288
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:400
 #, elixir-autogen, elixir-format
 msgid "Insert Video"
 msgstr "Insérer une vidéo"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:375
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:376
 #, elixir-autogen, elixir-format
 msgid "Insert:"
 msgstr "Insérer :"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:169
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:170
 #, elixir-autogen, elixir-format
 msgid "Interactive editor features need JavaScript"
 msgstr "Les fonctionnalités interactives de l'éditeur nécessitent JavaScript"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:219
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:220
 #, elixir-autogen, elixir-format
 msgid "Italic"
 msgstr "Italique"
@@ -1390,7 +1390,7 @@ msgstr "Module Légal désactivé"
 msgid "Legal module enabled"
 msgstr "Module Légal activé"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:248
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:249
 #, elixir-autogen, elixir-format
 msgid "Line Break"
 msgstr "Saut de ligne"
@@ -1539,7 +1539,7 @@ msgstr "Note mise à jour avec succès"
 msgid "Notes"
 msgstr "Notes"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:312
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:313
 #, elixir-autogen, elixir-format
 msgid "Numbered List"
 msgstr "Liste numérotée"
@@ -1892,8 +1892,8 @@ msgstr "SWIFT/BIC"
 #: lib/modules/storage/web/library_page.html.heex:356
 #: lib/modules/storage/web/renditions_component.ex:410
 #: lib/phoenix_kit_web/comments_gettext_manifest.ex:67
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:356
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:440
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:357
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:441
 #: lib/phoenix_kit_web/components/core/save_button.ex:58
 #: lib/phoenix_kit_web/components/image_editor.ex:974
 #: lib/phoenix_kit_web/components/media_browser/grid_view.html.heex:74
@@ -1938,8 +1938,8 @@ msgstr "Enregistrer les permissions"
 msgid "Save Preferences"
 msgstr "Enregistrer les préférences"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:340
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:424
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:341
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:425
 #: lib/phoenix_kit_web/components/core/save_button.ex:64
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:792
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:378
@@ -1948,8 +1948,8 @@ msgstr "Enregistrer les préférences"
 msgid "Saved"
 msgstr "Enregistré"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:333
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:417
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:334
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:418
 #: lib/phoenix_kit_web/live/settings.html.heex:673
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:798
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:949
@@ -2086,7 +2086,7 @@ msgstr "Adresse"
 msgid "Street address is required"
 msgstr "L'adresse est requise"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:229
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:230
 #, elixir-autogen, elixir-format
 msgid "Strikethrough"
 msgstr "Barré"
@@ -2201,8 +2201,8 @@ msgstr "Non confirmé"
 msgid "Unknown"
 msgstr "Inconnu"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:336
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:420
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:337
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:421
 #: lib/phoenix_kit_web/components/core/save_button.ex:61
 #, elixir-autogen, elixir-format
 msgid "Unsaved changes"
@@ -2260,7 +2260,7 @@ msgstr "Rôles définis par l'utilisateur"
 msgid "Username"
 msgstr "Nom d'utilisateur"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:402
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:403
 #, elixir-autogen, elixir-format
 msgid "Video"
 msgstr "Vidéo"
@@ -6338,7 +6338,7 @@ msgstr "Gérer les médias et les téléversements des utilisateurs"
 msgid "More actions"
 msgstr "Plus d'actions"
 
-#: lib/phoenix_kit_web/components/core/nav_tabs.ex:273
+#: lib/phoenix_kit_web/components/core/nav_tabs.ex:282
 #, elixir-autogen, elixir-format
 msgid "More tabs"
 msgstr "Plus d'onglets"
@@ -8771,7 +8771,7 @@ msgstr "Modifier l'en-tête"
 msgid "ElevenLabs"
 msgstr "ElevenLabs"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:172
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:173
 #, elixir-autogen, elixir-format
 msgid "Enable JavaScript to use the toolbar and media insertion."
 msgstr "Activez JavaScript pour utiliser la barre d'outils et l'insertion de médias."
@@ -8876,7 +8876,7 @@ msgstr "Grille"
 msgid "Header size"
 msgstr "Taille de l'en-tête"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:192
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:193
 #, elixir-autogen, elixir-format
 msgid "Heading %{level}"
 msgstr "Titre %{level}"
@@ -12972,20 +12972,20 @@ msgstr "au cours de la dernière heure"
 msgid "in the last week"
 msgstr "au cours de la dernière semaine"
 
-#: lib/phoenix_kit_web/components/layout_wrapper.ex:1386
+#: lib/phoenix_kit_web/components/layout_wrapper.ex:1394
 #: lib/phoenix_kit_web/components/tree_picker.ex:382
 #, elixir-autogen, elixir-format
 msgid "Collapse"
 msgstr "Réduire"
 
-#: lib/phoenix_kit_web/components/layout_wrapper.ex:1377
-#: lib/phoenix_kit_web/components/layout_wrapper.ex:1378
-#: lib/phoenix_kit_web/components/layout_wrapper.ex:1380
+#: lib/phoenix_kit_web/components/layout_wrapper.ex:1385
+#: lib/phoenix_kit_web/components/layout_wrapper.ex:1386
+#: lib/phoenix_kit_web/components/layout_wrapper.ex:1388
 #, elixir-autogen, elixir-format
 msgid "Collapse the menu to icons"
 msgstr "Réduire le menu aux icônes"
 
-#: lib/phoenix_kit_web/components/layout_wrapper.ex:1379
+#: lib/phoenix_kit_web/components/layout_wrapper.ex:1387
 #, elixir-autogen, elixir-format
 msgid "Expand the menu"
 msgstr "Déployer le menu"
@@ -24807,7 +24807,7 @@ msgid "Any"
 msgstr "Tous"
 
 #: lib/phoenix_kit/users/table_columns.ex:305
-#: lib/phoenix_kit_web/components/core/user_info.ex:160
+#: lib/phoenix_kit_web/components/core/user_info.ex:162
 #, elixir-autogen, elixir-format
 msgid "Avatar"
 msgstr "Avatar"
@@ -25588,8 +25588,8 @@ msgstr "Aucune langue trouvée"
 msgid "No results found"
 msgstr "Aucun résultat trouvé"
 
-#: lib/phoenix_kit_web/components/core/user_info.ex:368
 #: lib/phoenix_kit_web/components/core/user_info.ex:370
+#: lib/phoenix_kit_web/components/core/user_info.ex:372
 #, elixir-autogen, elixir-format
 msgid "No role"
 msgstr "Aucun rôle"
