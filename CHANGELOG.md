@@ -4,6 +4,13 @@ Run `mix phoenix_kit.update` (V230, V231 and the new `phoenix_kit.js`).
 
 ### Added
 
+- **`PhoenixKit.AWS.IamPolicy`**: `setup/1`, `running/1` and `sending/0` build the
+  policies from the actions the code calls (`InfrastructureSetup.iam_actions/0`)
+  and the names the setup creates (`InfrastructureSetup.resource_names/1`,
+  `project_name/0,1`); `json/1` prints one for the AWS console and
+  `names_from_tracking/1` reads the names a finished setup saved. An instructions
+  section of an integration provider may carry `policies: [:setup, :running]`.
+
 - **Other modules' rows in the media viewer's file details**:
   `config :phoenix_kit, :media_file_info, [{module, function}, …]`, each called with
   the file's row and returning `%{label:, text:, href:}` maps (only an `http(s)` link
@@ -83,6 +90,31 @@ Run `mix phoenix_kit.update` (V230, V231 and the new `phoenix_kit.js`).
   `config/test.exs`. `PhoenixKit.Users.EmailDomain`.
 
 ### Changed
+
+- **Amazon SES: one answer to "which IAM policy does the key need?"** The connection
+  form, the guide, the README and the generated mailer config gave seven different
+  ones (from `ses:SendEmail` only to `ses:*`, `sqs:*`, `sns:*`), and the guide's
+  least-privilege policy named resources the setup never creates. Now there are two
+  policies, used one after the other: a **setup policy** while the delivery-event
+  infrastructure is created and a **running policy** afterwards (send and read the
+  two queues, create nothing); a key that only sends needs the `Send` statement.
+  Settings → Integrations → Amazon SES shows them with the site's resource names
+  and the connection's region filled in, and `guides/aws-email-setup.md` is
+  rewritten around them. Existing keys keep working: nothing new is required, and
+  the List permissions older instructions asked for can be removed.
+- **Amazon SES setup no longer turns on open and click tracking.** The event
+  destination is created with the eight delivery events; `OPEN` and `CLICK` are
+  added only with `InfrastructureSetup.run(track_opens_and_clicks: true)`. With
+  them on, SES adds a tracking pixel and rewrites every link through its own
+  redirect host, sign-in and password-reset links included. ⚠️ An account that is
+  already set up is not changed: the guide says how to untick the two events in
+  the SES console.
+- **Test Connection on an Amazon SES connection** shows the AWS account and no
+  longer probes `sqs:ListQueues`, `sns:ListTopics`, `ses:ListConfigurationSets`
+  and `ec2:DescribeRegions`. Nothing uses those permissions, and the
+  "management API: SES, SQS, SNS" line they produced led people to grant them.
+- **A failed Amazon SES setup that AWS refused for a missing permission** says so
+  and points to the setup policy (`InfrastructureSetup.access_denied?/1`).
 
 - **An account that has not confirmed its address gets only the mail its holder
   asks for** (the confirmation, a password reset, a sign-in link). Notification
@@ -164,6 +196,21 @@ Run `mix phoenix_kit.update` (V230, V231 and the new `phoenix_kit.js`).
   browser that carries it is known at any version and any address. Without it the old
   user-agent match still applies, so nothing alerts less than before: a stranger with
   the same browser and OS still alerts.
+- **Amazon SES infrastructure setup no longer reports success without a
+  subscription.** The step that subscribes the SQS queue to the SNS topic passed
+  every error off as "already exists", so a key without `sns:Subscribe` finished
+  the setup with a queue no event would reach. It now fails like the other steps.
+- **A project title with no ASCII letter or digit** (e.g. "Фотки") no longer makes
+  the setup create resources named `-email-queue` and `-emailing`: the name falls
+  back to `myapp`, as an unset title does.
+
+### Removed
+
+- `PhoenixKitWeb.Components.Core.AWSCredentialsVerify` (`<.aws_credentials_verify>`),
+  `PhoenixKit.AWS.CredentialsVerifier.check_permissions/3` and
+  `get_available_regions/3`, and the `ex_aws_ec2` dependency. Nothing rendered or
+  called them outside the Amazon SES Test Connection.
+
 
 ## 3.5.0 - 2026-11-09
 

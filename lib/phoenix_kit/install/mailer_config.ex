@@ -351,7 +351,8 @@ if Code.ensure_loaded?(Igniter) do
       #   region: PhoenixKit.Config.AWS.region()
 
       # STEP 5: AWS SES Setup Checklist
-      # □ Create AWS IAM user with SES permissions (ses:*)
+      # □ Create an AWS IAM user with the policy from the AWS Email Setup guide:
+      #   https://hexdocs.pm/phoenix_kit/aws-email-setup.html#iam-policies
       # □ Verify sender email address in AWS SES Console
       # □ Verify recipient email addresses (if in sandbox mode)
       # □ Ensure correct AWS region matches your verification

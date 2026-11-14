@@ -9,7 +9,13 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   import PhoenixKitWeb.Components.Core.IntegrationsUI,
-    only: [setup_field: 1, validation_note_style: 1, connection_usage: 1, integration_error: 1]
+    only: [
+      setup_field: 1,
+      validation_note_style: 1,
+      connection_usage: 1,
+      integration_error: 1,
+      aws_ses_policies: 1
+    ]
 
   require Logger
 

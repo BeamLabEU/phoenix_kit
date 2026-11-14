@@ -18,6 +18,8 @@ defmodule PhoenixKitWeb.Components.Core.IntegrationsUI do
 
   import PhoenixKitWeb.Components.Core.Icon, only: [icon: 1]
 
+  alias PhoenixKit.AWS.IamPolicy
+  alias PhoenixKit.AWS.InfrastructureSetup
   alias PhoenixKit.Integrations.Providers
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
@@ -479,6 +481,10 @@ defmodule PhoenixKitWeb.Components.Core.IntegrationsUI do
   attr :redirect_uri, :string, default: nil
   attr :open, :boolean, default: false
 
+  attr :region, :string,
+    default: nil,
+    doc: "the connection's AWS region, for sections with policies"
+
   def setup_instructions(assigns) do
     assigns =
       assign(assigns, :sections, Providers.instructions_for(assigns.provider, assigns.scope))
@@ -518,9 +524,110 @@ defmodule PhoenixKitWeb.Components.Core.IntegrationsUI do
               </span>
             </li>
           </ol>
+          <.aws_ses_policies
+            :if={Map.get(section, :policies)}
+            policies={section.policies}
+            region={@region}
+          />
         </div>
       </div>
     </details>
     """
   end
+
+  @doc """
+  The IAM policies an Amazon SES key needs, each folded away with a Copy
+  button.
+
+  `policies` names which to show (`:setup`, `:running`, `:sending`), in order.
+  They are built by `PhoenixKit.AWS.IamPolicy` for this site: the resource
+  names are the ones the infrastructure setup creates, and `region` is the
+  connection's (a blank one leaves the placeholder `<region>` in the text).
+  """
+  attr :policies, :list, required: true
+  attr :region, :string, default: nil
+
+  def aws_ses_policies(assigns) do
+    region = if is_binary(assigns.region), do: String.trim(assigns.region), else: ""
+    opts = [project: InfrastructureSetup.project_name(), region: region]
+
+    documents =
+      for kind <- assigns.policies, document = policy_document(kind, opts), do: document
+
+    assigns =
+      assigns
+      |> assign(:region_missing, region == "" and assigns.policies != [:sending])
+      |> assign(:documents, documents)
+
+    ~H"""
+    <div class="mt-3 ml-2 space-y-2">
+      <details
+        :for={document <- @documents}
+        id={"aws-ses-policy-#{document.kind}"}
+        phx-mounted={Phoenix.LiveView.JS.ignore_attributes(["open"])}
+        class="rounded-lg border border-base-300 bg-base-100"
+      >
+        <summary class="cursor-pointer select-none px-3 py-2 text-sm font-medium text-base-content">
+          {document.title}
+        </summary>
+        <div class="px-3 pb-3 space-y-2">
+          <p class="text-xs text-base-content/60">{document.hint}</p>
+          <p :if={@region_missing} class="text-xs text-warning">
+            {gettext(
+              "No region is saved for this connection yet: replace <region> with your AWS region, or save the connection and copy the policy then."
+            )}
+          </p>
+          <div class="relative">
+            <pre
+              id={"aws-ses-policy-#{document.kind}-json"}
+              class="text-xs font-mono bg-base-200 text-base-content rounded p-3 pr-20 overflow-x-auto"
+            >{document.json}</pre>
+            <button
+              type="button"
+              class="btn btn-xs btn-outline absolute top-2 right-2"
+              onclick={"navigator.clipboard.writeText(document.getElementById('aws-ses-policy-#{document.kind}-json').textContent)"}
+            >
+              <.icon name="hero-clipboard" class="w-3 h-3" /> {gettext("Copy")}
+            </button>
+          </div>
+        </div>
+      </details>
+    </div>
+    """
+  end
+
+  defp policy_document(:setup, opts) do
+    %{
+      kind: :setup,
+      title: gettext("Setup policy"),
+      hint:
+        gettext(
+          "Attach this before Setup Infrastructure. It sends, creates the queues, the topic and the configuration set, and reads the queues."
+        ),
+      json: IamPolicy.json(IamPolicy.setup(opts))
+    }
+  end
+
+  defp policy_document(:running, opts) do
+    %{
+      kind: :running,
+      title: gettext("Running policy"),
+      hint:
+        gettext(
+          "Replace the setup policy with this once Setup Infrastructure has succeeded. It sends and reads the queues, and can create nothing."
+        ),
+      json: IamPolicy.json(IamPolicy.running(opts))
+    }
+  end
+
+  defp policy_document(:sending, _opts) do
+    %{
+      kind: :sending,
+      title: gettext("Sending policy"),
+      hint: gettext("All a key needs to send mail through Amazon SES."),
+      json: IamPolicy.json(IamPolicy.sending())
+    }
+  end
+
+  defp policy_document(_kind, _opts), do: nil
 end

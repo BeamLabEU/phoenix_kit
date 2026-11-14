@@ -900,7 +900,12 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrationForm do
             </div>
           </div>
 
-          <.setup_instructions provider={@provider} scope={:personal} open={@live_action == :new} />
+          <.setup_instructions
+            provider={@provider}
+            scope={:personal}
+            open={@live_action == :new}
+            region={@form_values["aws_region"] || @data["aws_region"]}
+          />
 
           <%!-- Danger Zone (edit mode only). Personal connections have no
                OAuth to disconnect — just permanent removal. --%>

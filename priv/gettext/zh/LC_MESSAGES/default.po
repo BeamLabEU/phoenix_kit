@@ -366,7 +366,7 @@ msgstr "标准访问级别"
 msgid "Role System"
 msgstr "角色系统"
 
-#: lib/phoenix_kit/integrations/providers.ex:1370
+#: lib/phoenix_kit/integrations/providers.ex:1398
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:484
 #, elixir-autogen
 msgid "Authentication"
@@ -488,7 +488,7 @@ msgid "Accept All"
 msgstr "全部接受"
 
 #: lib/phoenix_kit/integrations/integrations.ex:1405
-#: lib/phoenix_kit/integrations/validators.ex:926
+#: lib/phoenix_kit/integrations/validators.ex:897
 #: lib/phoenix_kit_web/live/activity/index.ex:72
 #: lib/phoenix_kit_web/live/activity/show.ex:64
 #: lib/phoenix_kit_web/live/modules.ex:151
@@ -985,8 +985,8 @@ msgstr "DPO 联系方式已保存"
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:607
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:614
 #: lib/phoenix_kit_web/components/media_browser/list_view.html.heex:318
-#: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:940
-#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:577
+#: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:945
+#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:582
 #: lib/phoenix_kit_web/live/settings/send_profiles.html.heex:114
 #: lib/phoenix_kit_web/live/settings/send_profiles.html.heex:146
 #: lib/phoenix_kit_web/live/settings/users.html.heex:684
@@ -1035,7 +1035,7 @@ msgstr "描述"
 #: lib/modules/storage/web/settings.html.heex:136
 #: lib/modules/storage/web/settings.html.heex:232
 #: lib/phoenix_kit_web/components/core/badge.ex:191
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:137
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:139
 #: lib/phoenix_kit_web/live/modules.html.heex:41
 #: lib/phoenix_kit_web/live/modules.html.heex:88
 #: lib/phoenix_kit_web/live/modules.html.heex:147
@@ -1129,8 +1129,8 @@ msgid "Enter role name (e.g., Manager, Editor)"
 msgstr "输入角色名称（例如：经理、编辑）"
 
 #: lib/phoenix_kit_web/components/core/aws_region_select.ex:56
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:31
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:252
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:33
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:254
 #: lib/phoenix_kit_web/components/core/modal.ex:569
 #: lib/phoenix_kit_web/live/settings/email_sending.ex:497
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:99
@@ -1498,7 +1498,7 @@ msgstr "未认证"
 #: lib/phoenix_kit/integrations/integrations.ex:1086
 #: lib/phoenix_kit/integrations/integrations.ex:1483
 #: lib/phoenix_kit/integrations/integrations.ex:1487
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:32
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:34
 #: lib/phoenix_kit_web/live/settings/email_sending.ex:498
 #: lib/phoenix_kit_web/live/settings/email_sending.html.heex:254
 #: lib/phoenix_kit_web/live/settings/integrations.ex:296
@@ -1609,7 +1609,7 @@ msgstr "页面生成成功"
 msgid "Page published successfully"
 msgstr "页面发布成功"
 
-#: lib/phoenix_kit/integrations/providers.ex:1335
+#: lib/phoenix_kit/integrations/providers.ex:1363
 #: lib/phoenix_kit_web/components/account_menu.ex:331
 #: lib/phoenix_kit_web/live/components/user_settings.ex:1428
 #: lib/phoenix_kit_web/live/settings/users.ex:477
@@ -1673,7 +1673,7 @@ msgid "Postal Code"
 msgstr "邮政编码"
 
 #: lib/modules/storage/web/profiles_component.ex:277
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:129
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:131
 #: lib/phoenix_kit_web/components/language_switcher.ex:432
 #: lib/phoenix_kit_web/live/components/library_settings.ex:1680
 #: lib/phoenix_kit_web/live/settings/organization.html.heex:359
@@ -1937,7 +1937,7 @@ msgstr "保存偏好设置"
 #: lib/phoenix_kit_web/components/core/save_button.ex:64
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:792
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:378
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:729
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:735
 #, elixir-autogen, elixir-format
 msgid "Saved"
 msgstr "已保存"
@@ -2184,7 +2184,6 @@ msgstr "未确认"
 #: lib/phoenix_kit/users/auth/user_notifier.ex:301
 #: lib/phoenix_kit/users/auth/user_notifier.ex:394
 #: lib/phoenix_kit_web/comments_gettext_manifest.ex:64
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:257
 #: lib/phoenix_kit_web/components/core/time_display.ex:180
 #: lib/phoenix_kit_web/components/language_switcher.ex:832
 #: lib/phoenix_kit_web/live/components/library_activity.ex:287
@@ -2244,7 +2243,7 @@ msgstr "未找到用户"
 msgid "User-defined roles"
 msgstr "用户自定义角色"
 
-#: lib/phoenix_kit/integrations/providers.ex:1323
+#: lib/phoenix_kit/integrations/providers.ex:1351
 #: lib/phoenix_kit/users/table_columns.ex:320
 #: lib/phoenix_kit_web/live/components/user_settings.ex:1100
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:251
@@ -2597,8 +2596,8 @@ msgstr "4. 点击“测试凭据”以验证配置"
 #: lib/phoenix_kit/integrations/object_storage_services.ex:253
 #: lib/phoenix_kit/integrations/object_storage_services.ex:305
 #: lib/phoenix_kit/integrations/object_storage_services.ex:370
-#: lib/phoenix_kit/integrations/providers.ex:1117
-#: lib/phoenix_kit/integrations/providers.ex:1214
+#: lib/phoenix_kit/integrations/providers.ex:1120
+#: lib/phoenix_kit/integrations/providers.ex:1242
 #, elixir-autogen, elixir-format
 msgid "Access Key ID"
 msgstr "访问密钥 ID"
@@ -2758,7 +2757,7 @@ msgstr "更改将立即保存"
 msgid "Click"
 msgstr "点击"
 
-#: lib/phoenix_kit/integrations/providers.ex:333
+#: lib/phoenix_kit/integrations/providers.ex:336
 #: lib/phoenix_kit/users/oauth_config.ex:274
 #: lib/phoenix_kit/users/oauth_config.ex:280
 #: lib/phoenix_kit_web/components/core/oauth_provider.ex:114
@@ -2770,8 +2769,8 @@ msgstr "点击"
 msgid "Client ID"
 msgstr "客户端 ID"
 
-#: lib/phoenix_kit/integrations/providers.ex:342
-#: lib/phoenix_kit/integrations/providers.ex:1691
+#: lib/phoenix_kit/integrations/providers.ex:345
+#: lib/phoenix_kit/integrations/providers.ex:1719
 #: lib/phoenix_kit/users/oauth_config.ex:275
 #: lib/phoenix_kit/users/oauth_config.ex:281
 #: lib/phoenix_kit_web/components/core/oauth_provider.ex:122
@@ -2799,6 +2798,7 @@ msgstr "编解码器覆盖"
 msgid "Configure system preferences and options"
 msgstr "配置系统偏好和选项"
 
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:590
 #: lib/phoenix_kit_web/live/components/personal_api_keys.ex:1091
 #: lib/phoenix_kit_web/live/settings/api.html.heex:981
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:588
@@ -2903,7 +2903,7 @@ msgstr "启用 OAuth（总开关）"
 
 #: lib/modules/storage/web/bucket_form.html.heex:302
 #: lib/phoenix_kit/integrations/object_storage_services.ex:348
-#: lib/phoenix_kit/integrations/providers.ex:1244
+#: lib/phoenix_kit/integrations/providers.ex:1272
 #, elixir-autogen, elixir-format
 msgid "Endpoint"
 msgstr "端点"
@@ -3312,8 +3312,8 @@ msgstr "已指示搜索引擎跳过此环境。上线前请移除此项。"
 #: lib/phoenix_kit/integrations/object_storage_services.ex:257
 #: lib/phoenix_kit/integrations/object_storage_services.ex:309
 #: lib/phoenix_kit/integrations/object_storage_services.ex:371
-#: lib/phoenix_kit/integrations/providers.ex:1126
-#: lib/phoenix_kit/integrations/providers.ex:1223
+#: lib/phoenix_kit/integrations/providers.ex:1129
+#: lib/phoenix_kit/integrations/providers.ex:1251
 #, elixir-autogen, elixir-format
 msgid "Secret Access Key"
 msgstr "秘密访问密钥"
@@ -3345,7 +3345,7 @@ msgstr "选择图片"
 msgid "Session actions"
 msgstr "会话操作"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:496
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:502
 #: lib/phoenix_kit_web/live/settings/authorization.ex:502
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:468
 #, elixir-autogen, elixir-format
@@ -3729,7 +3729,7 @@ msgstr "%{language}（已停用 — %{status}）"
 msgid "1-100, higher = better quality. 80-90 recommended."
 msgstr "1-100，数值越高质量越好。建议 80-90。"
 
-#: lib/phoenix_kit/integrations/providers.ex:591
+#: lib/phoenix_kit/integrations/providers.ex:594
 #, elixir-autogen, elixir-format
 msgid "AI model access via OpenRouter (100+ models)"
 msgstr "通过 OpenRouter 访问 AI 模型（100 多个模型）"
@@ -3739,16 +3739,16 @@ msgstr "通过 OpenRouter 访问 AI 模型（100 多个模型）"
 msgid "API Credentials"
 msgstr "API 凭据"
 
-#: lib/phoenix_kit/integrations/providers.ex:450
-#: lib/phoenix_kit/integrations/providers.ex:536
-#: lib/phoenix_kit/integrations/providers.ex:605
-#: lib/phoenix_kit/integrations/providers.ex:663
-#: lib/phoenix_kit/integrations/providers.ex:726
-#: lib/phoenix_kit/integrations/providers.ex:789
-#: lib/phoenix_kit/integrations/providers.ex:861
-#: lib/phoenix_kit/integrations/providers.ex:928
-#: lib/phoenix_kit/integrations/providers.ex:1444
-#: lib/phoenix_kit/integrations/providers.ex:1621
+#: lib/phoenix_kit/integrations/providers.ex:453
+#: lib/phoenix_kit/integrations/providers.ex:539
+#: lib/phoenix_kit/integrations/providers.ex:608
+#: lib/phoenix_kit/integrations/providers.ex:666
+#: lib/phoenix_kit/integrations/providers.ex:729
+#: lib/phoenix_kit/integrations/providers.ex:792
+#: lib/phoenix_kit/integrations/providers.ex:864
+#: lib/phoenix_kit/integrations/providers.ex:931
+#: lib/phoenix_kit/integrations/providers.ex:1472
+#: lib/phoenix_kit/integrations/providers.ex:1649
 #, elixir-autogen, elixir-format
 msgid "API Key"
 msgstr "API 密钥"
@@ -3778,7 +3778,7 @@ msgstr "账户"
 msgid "Account Type"
 msgstr "账户类型"
 
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:274
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:280
 #, elixir-autogen, elixir-format
 msgid "Account disconnected"
 msgstr "账户已断开连接"
@@ -3786,15 +3786,15 @@ msgstr "账户已断开连接"
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:93
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:262
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:415
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:35
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:85
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:41
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:91
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:111
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:304
 #, elixir-autogen, elixir-format
 msgid "Add Integration"
 msgstr "添加集成"
 
-#: lib/phoenix_kit/integrations/providers.ex:634
+#: lib/phoenix_kit/integrations/providers.ex:637
 #, elixir-autogen, elixir-format
 msgid "Add credits (optional)"
 msgstr "充值（可选）"
@@ -3824,12 +3824,12 @@ msgstr "全部正常"
 msgid "Alternative Formats"
 msgstr "备用格式"
 
-#: lib/phoenix_kit/integrations/providers.ex:403
+#: lib/phoenix_kit/integrations/providers.ex:406
 #, elixir-autogen, elixir-format
 msgid "Application type: **Web application** (do not select \"Desktop app\" — it won't support redirect URIs)"
 msgstr "应用类型：**Web 应用**（请勿选择“桌面应用”，它不支持重定向 URI）"
 
-#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:547
+#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:552
 #, elixir-autogen, elixir-format
 msgid "Are you sure you want to disconnect this account?"
 msgstr "您确定要断开此账户的连接吗？"
@@ -3844,7 +3844,7 @@ msgstr "您确定要断开连接吗？"
 msgid "Are you sure you want to remove this member?"
 msgstr "您确定要移除此成员吗？"
 
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:141
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:147
 #, elixir-autogen, elixir-format
 msgid "Authorization failed: %{reason}"
 msgstr "授权失败：%{reason}"
@@ -3902,19 +3902,19 @@ msgstr "选择其他服务"
 msgid "Choose a service to connect"
 msgstr "选择要连接的服务"
 
-#: lib/phoenix_kit/integrations/providers.ex:402
+#: lib/phoenix_kit/integrations/providers.ex:405
 #, elixir-autogen, elixir-format
 msgid "Click **Create Credentials → OAuth client ID**"
 msgstr "点击 **创建凭据 → OAuth 客户端 ID**"
 
-#: lib/phoenix_kit/integrations/providers.ex:573
-#: lib/phoenix_kit/integrations/providers.ex:628
+#: lib/phoenix_kit/integrations/providers.ex:576
+#: lib/phoenix_kit/integrations/providers.ex:631
 #, elixir-autogen, elixir-format
 msgid "Click **Create Key**"
 msgstr "点击 **创建密钥**"
 
-#: lib/phoenix_kit/integrations/providers.ex:413
-#: lib/phoenix_kit/integrations/providers.ex:1770
+#: lib/phoenix_kit/integrations/providers.ex:416
+#: lib/phoenix_kit/integrations/providers.ex:1798
 #, elixir-autogen, elixir-format
 msgid "Click **Save**, then **Connect Account**"
 msgstr "点击 **保存**，然后点击 **连接账户**"
@@ -3954,8 +3954,8 @@ msgstr "连接 %{provider} 账户"
 msgid "Connect Account"
 msgstr "连接账户"
 
-#: lib/phoenix_kit/integrations/providers.ex:411
-#: lib/phoenix_kit/integrations/providers.ex:1768
+#: lib/phoenix_kit/integrations/providers.ex:414
+#: lib/phoenix_kit/integrations/providers.ex:1796
 #, elixir-autogen, elixir-format
 msgid "Connect and authorize"
 msgstr "连接并授权"
@@ -3966,9 +3966,9 @@ msgid "Connect external services for use across modules"
 msgstr "连接外部服务以供各模块使用"
 
 #: lib/phoenix_kit_web/components/core/integration_picker.ex:358
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:28
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:247
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:292
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:30
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:249
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:294
 #: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:382
 #: lib/phoenix_kit_web/live/settings/email_sending.ex:494
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:94
@@ -3999,29 +3999,29 @@ msgid "Connection failed"
 msgstr "连接失败"
 
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:88
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:411
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:417
 #: lib/phoenix_kit_web/live/settings/integrations.ex:110
 #, elixir-autogen, elixir-format
 msgid "Connection removed"
 msgstr "连接已移除"
 
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:469
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:480
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:605
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:614
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:475
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:486
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:611
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:620
 #: lib/phoenix_kit_web/live/settings/integrations.ex:576
 #: lib/phoenix_kit_web/live/settings/integrations.ex:577
 #, elixir-autogen, elixir-format
 msgid "Connection verified"
 msgstr "连接已验证"
 
-#: lib/phoenix_kit/integrations/providers.ex:407
+#: lib/phoenix_kit/integrations/providers.ex:410
 #, elixir-autogen, elixir-format
 msgid "Copy the **Client ID** and **Client Secret** into the form above"
 msgstr "将 **客户端 ID** 和 **客户端密钥** 复制到上方表单中"
 
-#: lib/phoenix_kit/integrations/providers.ex:630
-#: lib/phoenix_kit/integrations/providers.ex:898
+#: lib/phoenix_kit/integrations/providers.ex:633
+#: lib/phoenix_kit/integrations/providers.ex:901
 #, elixir-autogen, elixir-format
 msgid "Copy the key and paste it into the form above"
 msgstr "复制密钥并粘贴到上方表单中"
@@ -4032,34 +4032,34 @@ msgstr "复制密钥并粘贴到上方表单中"
 msgid "Could not reach the service"
 msgstr "无法连接到该服务"
 
-#: lib/phoenix_kit/integrations/providers.ex:353
+#: lib/phoenix_kit/integrations/providers.ex:356
 #, elixir-autogen, elixir-format
 msgid "Create a Google Cloud project"
 msgstr "创建 Google Cloud 项目"
 
-#: lib/phoenix_kit/integrations/providers.ex:356
+#: lib/phoenix_kit/integrations/providers.ex:359
 #, elixir-autogen, elixir-format
 msgid "Create a new project or select an existing one"
 msgstr "创建新项目或选择现有项目"
 
-#: lib/phoenix_kit/integrations/providers.ex:486
-#: lib/phoenix_kit/integrations/providers.ex:570
-#: lib/phoenix_kit/integrations/providers.ex:626
-#: lib/phoenix_kit/integrations/providers.ex:696
-#: lib/phoenix_kit/integrations/providers.ex:756
-#: lib/phoenix_kit/integrations/providers.ex:822
-#: lib/phoenix_kit/integrations/providers.ex:893
-#: lib/phoenix_kit/integrations/providers.ex:945
+#: lib/phoenix_kit/integrations/providers.ex:489
+#: lib/phoenix_kit/integrations/providers.ex:573
+#: lib/phoenix_kit/integrations/providers.ex:629
+#: lib/phoenix_kit/integrations/providers.ex:699
+#: lib/phoenix_kit/integrations/providers.ex:759
+#: lib/phoenix_kit/integrations/providers.ex:825
+#: lib/phoenix_kit/integrations/providers.ex:896
+#: lib/phoenix_kit/integrations/providers.ex:948
 #, elixir-autogen, elixir-format
 msgid "Create an API key"
 msgstr "创建 API 密钥"
 
-#: lib/phoenix_kit/integrations/providers.ex:397
+#: lib/phoenix_kit/integrations/providers.ex:400
 #, elixir-autogen, elixir-format
 msgid "Create an OAuth Client"
 msgstr "创建 OAuth 客户端"
 
-#: lib/phoenix_kit/integrations/providers.ex:619
+#: lib/phoenix_kit/integrations/providers.ex:622
 #, elixir-autogen, elixir-format
 msgid "Create an OpenRouter account"
 msgstr "创建 OpenRouter 账户"
@@ -4092,7 +4092,7 @@ msgstr "计费和商店模块通用的默认税率"
 #: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:376
 #: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:410
 #: lib/phoenix_kit_web/live/components/user_settings.ex:1567
-#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:551
+#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:556
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:230
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:275
 #, elixir-autogen, elixir-format
@@ -4110,7 +4110,7 @@ msgstr "断开连接？"
 msgid "Disconnected"
 msgstr "已断开连接"
 
-#: lib/phoenix_kit/integrations/providers.ex:371
+#: lib/phoenix_kit/integrations/providers.ex:374
 #, elixir-autogen, elixir-format
 msgid "Drive API handles file listing, creation, copying, and PDF export. Docs API is used for reading document content and substituting template variables."
 msgstr "Drive API 负责文件列表、创建、复制和 PDF 导出。Docs API 用于读取文档内容和替换模板变量。"
@@ -4120,7 +4120,7 @@ msgstr "Drive API 负责文件列表、创建、复制和 PDF 导出。Docs API 
 msgid "EU format: %{country}123456789"
 msgstr "欧盟格式：%{country}123456789"
 
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:103
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:109
 #, elixir-autogen, elixir-format
 msgid "Edit Integration"
 msgstr "编辑集成"
@@ -4140,7 +4140,7 @@ msgstr "启用存储桶"
 msgid "Enable organization accounts"
 msgstr "启用组织账户"
 
-#: lib/phoenix_kit/integrations/providers.ex:360
+#: lib/phoenix_kit/integrations/providers.ex:363
 #, elixir-autogen, elixir-format
 msgid "Enable required APIs"
 msgstr "启用所需的 API"
@@ -4171,7 +4171,7 @@ msgstr "接受邀请失败，请重试。"
 msgid "Failed to add member"
 msgstr "添加成员失败"
 
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:305
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:311
 #, elixir-autogen, elixir-format
 msgid "Failed to build authorization URL"
 msgstr "构建授权 URL 失败"
@@ -4181,7 +4181,7 @@ msgstr "构建授权 URL 失败"
 msgid "Failed to cancel invitation"
 msgstr "取消邀请失败"
 
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:563
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:569
 #, elixir-autogen, elixir-format
 msgid "Failed to connect. Please try again."
 msgstr "连接失败，请重试。"
@@ -4218,12 +4218,12 @@ msgstr "更新头像失败"
 msgid "File"
 msgstr "文件"
 
-#: lib/phoenix_kit/integrations/providers.ex:337
+#: lib/phoenix_kit/integrations/providers.ex:340
 #, elixir-autogen, elixir-format
 msgid "From Google Cloud Console → APIs & Services → Credentials"
 msgstr "来自 Google Cloud Console → APIs & Services → Credentials"
 
-#: lib/phoenix_kit/integrations/providers.ex:609
+#: lib/phoenix_kit/integrations/providers.ex:612
 #, elixir-autogen, elixir-format
 msgid "From openrouter.ai/keys"
 msgstr "来自 openrouter.ai/keys"
@@ -4233,73 +4233,73 @@ msgstr "来自 openrouter.ai/keys"
 msgid "Generate additional format variants alongside the primary format. Modern formats like WebP and AVIF offer better compression."
 msgstr "除主要格式外，另外生成其他格式的变体。WebP 和 AVIF 等现代格式的压缩效果更好。"
 
-#: lib/phoenix_kit/integrations/providers.ex:574
-#: lib/phoenix_kit/integrations/providers.ex:629
+#: lib/phoenix_kit/integrations/providers.ex:577
+#: lib/phoenix_kit/integrations/providers.ex:632
 #, elixir-autogen, elixir-format
 msgid "Give it a name (e.g., your app name)"
 msgstr "为其命名（例如您的应用名称）"
 
-#: lib/phoenix_kit/integrations/providers.ex:366
+#: lib/phoenix_kit/integrations/providers.ex:369
 #, elixir-autogen, elixir-format
 msgid "Go back to the Library and search for **Google Docs API**, click it, then click **Enable**"
 msgstr "返回“库”，搜索 **Google Docs API**，点击进入，然后点击 **启用**"
 
-#: lib/phoenix_kit/integrations/providers.ex:399
+#: lib/phoenix_kit/integrations/providers.ex:402
 #, elixir-autogen, elixir-format
 msgid "Go to [APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials)"
 msgstr "前往 [APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials)"
 
-#: lib/phoenix_kit/integrations/providers.ex:362
+#: lib/phoenix_kit/integrations/providers.ex:365
 #, elixir-autogen, elixir-format
 msgid "Go to [APIs & Services → Library](https://console.cloud.google.com/apis/library)"
 msgstr "前往 [APIs & Services → Library](https://console.cloud.google.com/apis/library)"
 
-#: lib/phoenix_kit/integrations/providers.ex:381
+#: lib/phoenix_kit/integrations/providers.ex:384
 #, elixir-autogen, elixir-format
 msgid "Go to [Audience](https://console.cloud.google.com/auth/audience) — set user type to **External** (or Internal for Google Workspace)"
 msgstr "前往 [Audience](https://console.cloud.google.com/auth/audience)，将用户类型设置为 **外部**（Google Workspace 则选择内部）"
 
-#: lib/phoenix_kit/integrations/providers.ex:378
+#: lib/phoenix_kit/integrations/providers.ex:381
 #, elixir-autogen, elixir-format
 msgid "Go to [Branding](https://console.cloud.google.com/auth/branding) in the sidebar — fill in the **App name** and **User support email**, then save"
 msgstr "在侧边栏前往 [Branding](https://console.cloud.google.com/auth/branding)，填写 **应用名称** 和 **用户支持邮箱**，然后保存"
 
-#: lib/phoenix_kit/integrations/providers.ex:637
+#: lib/phoenix_kit/integrations/providers.ex:640
 #, elixir-autogen, elixir-format
 msgid "Go to [Credits](https://openrouter.ai/credits) to add funds"
 msgstr "前往 [Credits](https://openrouter.ai/credits) 充值"
 
-#: lib/phoenix_kit/integrations/providers.ex:387
+#: lib/phoenix_kit/integrations/providers.ex:390
 #, elixir-autogen, elixir-format
 msgid "Go to [Data Access](https://console.cloud.google.com/auth/scopes) — click **Add or Remove Scopes** and add the Drive and Docs scopes. This step may not be required — the app requests the needed scopes at connect time regardless."
 msgstr "前往 [Data Access](https://console.cloud.google.com/auth/scopes)，点击 **添加或移除范围**，并添加 Drive 和 Docs 范围。此步骤可能并非必需，因为应用在连接时无论如何都会请求所需的范围。"
 
-#: lib/phoenix_kit/integrations/providers.ex:621
+#: lib/phoenix_kit/integrations/providers.ex:624
 #, elixir-autogen, elixir-format
 msgid "Go to [openrouter.ai](https://openrouter.ai) and sign up or log in"
 msgstr "前往 [openrouter.ai](https://openrouter.ai) 注册或登录"
 
-#: lib/phoenix_kit/integrations/providers.ex:355
+#: lib/phoenix_kit/integrations/providers.ex:358
 #, elixir-autogen, elixir-format
 msgid "Go to the [Google Cloud Console](https://console.cloud.google.com)"
 msgstr "前往 [Google Cloud Console](https://console.cloud.google.com)"
 
-#: lib/phoenix_kit/integrations/providers.ex:318
+#: lib/phoenix_kit/integrations/providers.ex:321
 #, elixir-autogen, elixir-format
 msgid "Google"
 msgstr "Google"
 
-#: lib/phoenix_kit/integrations/providers.ex:319
+#: lib/phoenix_kit/integrations/providers.ex:322
 #, elixir-autogen, elixir-format
 msgid "Google Docs, Drive, Calendar, Sheets, Gmail"
 msgstr "Google Docs、Drive、Calendar、Sheets、Gmail"
 
-#: lib/phoenix_kit/integrations/providers.ex:414
+#: lib/phoenix_kit/integrations/providers.ex:417
 #, elixir-autogen, elixir-format
 msgid "Google will show an \"unverified app\" warning — click **Advanced → Go to (app name)** to proceed"
 msgstr "Google 将显示“未经验证的应用”警告，请点击 **高级 → 前往（应用名称）** 继续"
 
-#: lib/phoenix_kit/integrations/providers.ex:417
+#: lib/phoenix_kit/integrations/providers.ex:420
 #, elixir-autogen, elixir-format
 msgid "Grant access to Google Docs and Google Drive"
 msgstr "授予对 Google Docs 和 Google Drive 的访问权限"
@@ -4327,17 +4327,17 @@ msgid "Integrations"
 msgstr "集成"
 
 #: lib/phoenix_kit/integrations/integrations.ex:1404
-#: lib/phoenix_kit/integrations/validators.ex:236
-#: lib/phoenix_kit/integrations/validators.ex:422
-#: lib/phoenix_kit/integrations/validators.ex:456
-#: lib/phoenix_kit/integrations/validators.ex:692
-#: lib/phoenix_kit/integrations/validators.ex:854
-#: lib/phoenix_kit/integrations/validators.ex:924
+#: lib/phoenix_kit/integrations/validators.ex:207
+#: lib/phoenix_kit/integrations/validators.ex:393
+#: lib/phoenix_kit/integrations/validators.ex:427
+#: lib/phoenix_kit/integrations/validators.ex:663
+#: lib/phoenix_kit/integrations/validators.ex:825
+#: lib/phoenix_kit/integrations/validators.ex:895
 #, elixir-autogen, elixir-format
 msgid "Invalid credentials"
 msgstr "凭据无效"
 
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:161
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:167
 #, elixir-autogen, elixir-format
 msgid "Invalid integration URL"
 msgstr "集成 URL 无效"
@@ -4620,12 +4620,12 @@ msgstr "成员"
 msgid "Missing"
 msgstr "缺失"
 
-#: lib/phoenix_kit/integrations/providers.ex:622
+#: lib/phoenix_kit/integrations/providers.ex:625
 #, elixir-autogen, elixir-format
 msgid "Navigate to [Keys](https://openrouter.ai/keys)"
 msgstr "前往 [Keys](https://openrouter.ai/keys)"
 
-#: lib/phoenix_kit/integrations/providers.ex:392
+#: lib/phoenix_kit/integrations/providers.ex:395
 #, elixir-autogen, elixir-format
 msgid "Navigate to the OAuth section using the search bar or the hamburger menu: search for \"OAuth\", or go to the sidebar: **APIs & Services → OAuth consent screen**. This opens a different section with its own sidebar."
 msgstr "使用搜索栏或汉堡菜单进入 OAuth 部分：搜索“OAuth”，或在侧边栏中选择 **APIs & Services → OAuth consent screen**。这将打开另一个带有独立侧边栏的部分。"
@@ -4642,10 +4642,10 @@ msgstr "无访问令牌"
 
 #: lib/phoenix_kit/integrations/integrations.ex:1244
 #: lib/phoenix_kit/integrations/integrations.ex:1303
-#: lib/phoenix_kit/integrations/validators.ex:196
-#: lib/phoenix_kit/integrations/validators.ex:849
-#: lib/phoenix_kit/integrations/validators.ex:1068
-#: lib/phoenix_kit/integrations/validators.ex:1241
+#: lib/phoenix_kit/integrations/validators.ex:167
+#: lib/phoenix_kit/integrations/validators.ex:820
+#: lib/phoenix_kit/integrations/validators.ex:1039
+#: lib/phoenix_kit/integrations/validators.ex:1212
 #, elixir-autogen, elixir-format
 msgid "No credentials configured"
 msgstr "未配置凭据"
@@ -4678,8 +4678,8 @@ msgstr "没有待处理的邀请"
 
 #: lib/phoenix_kit_web/components/core/integration_picker.ex:361
 #: lib/phoenix_kit_web/components/core/integration_picker.ex:362
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:30
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:254
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:32
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:256
 #: lib/phoenix_kit_web/live/settings/email_sending.ex:496
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:101
 #: lib/phoenix_kit_web/live/settings/integrations.ex:294
@@ -4688,8 +4688,8 @@ msgid "Not connected"
 msgstr "未连接"
 
 #: lib/phoenix_kit_web/components/core/integration_picker.ex:360
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:29
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:250
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:31
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:252
 #: lib/phoenix_kit_web/live/settings/email_sending.ex:495
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:97
 #: lib/phoenix_kit_web/live/settings/integrations.ex:293
@@ -4724,7 +4724,7 @@ msgstr "只有已启用的存储桶才会接收新上传"
 msgid "Only width is used, height is calculated automatically"
 msgstr "仅使用宽度，高度自动计算"
 
-#: lib/phoenix_kit/integrations/providers.ex:590
+#: lib/phoenix_kit/integrations/providers.ex:593
 #, elixir-autogen, elixir-format
 msgid "OpenRouter"
 msgstr "OpenRouter"
@@ -4785,13 +4785,13 @@ msgstr "个人"
 msgid "Pick which notification types you want to receive. Unchecked types are muted — activities still record in the audit log but no bell notification is created for you."
 msgstr "选择您想接收的通知类型。未选中的类型将被静音，相关动态仍会记录到审计日志，但不会为您创建铃铛通知。"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:168
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:237
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:170
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:243
 #, elixir-autogen, elixir-format
 msgid "Please enter a connection name."
 msgstr "请输入连接名称。"
 
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:302
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:308
 #, elixir-autogen, elixir-format
 msgid "Please save your Client ID first"
 msgstr "请先保存您的客户端 ID"
@@ -4849,7 +4849,7 @@ msgstr "保存税务设置"
 msgid "Save preferences"
 msgstr "保存偏好设置"
 
-#: lib/phoenix_kit/integrations/providers.ex:365
+#: lib/phoenix_kit/integrations/providers.ex:368
 #, elixir-autogen, elixir-format
 msgid "Search for **Google Drive API**, click it, then click **Enable**"
 msgstr "搜索 **Google Drive API**，点击进入，然后点击 **启用**"
@@ -4859,7 +4859,7 @@ msgstr "搜索 **Google Drive API**，点击进入，然后点击 **启用**"
 msgid "Search integrations..."
 msgstr "搜索集成…"
 
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:571
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:577
 #, elixir-autogen, elixir-format
 msgid "Security check failed. Please try connecting again."
 msgstr "安全检查失败。请重新尝试连接。"
@@ -4871,7 +4871,7 @@ msgstr "选择要添加的用户…"
 
 #: lib/modules/storage/web/bucket_page.html.heex:61
 #: lib/phoenix_kit/integrations/object_storage_services.ex:195
-#: lib/phoenix_kit/integrations/providers.ex:1205
+#: lib/phoenix_kit/integrations/providers.ex:1233
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:696
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:229
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:281
@@ -4888,7 +4888,7 @@ msgstr "服务"
 msgid "Service error %{status}"
 msgstr "服务错误 %{status}"
 
-#: lib/phoenix_kit/integrations/providers.ex:376
+#: lib/phoenix_kit/integrations/providers.ex:379
 #, elixir-autogen, elixir-format
 msgid "Set up OAuth consent"
 msgstr "设置 OAuth 同意屏幕"
@@ -4898,7 +4898,7 @@ msgstr "设置 OAuth 同意屏幕"
 msgid "Size Configuration"
 msgstr "尺寸配置"
 
-#: lib/phoenix_kit/integrations/providers.ex:636
+#: lib/phoenix_kit/integrations/providers.ex:639
 #, elixir-autogen, elixir-format
 msgid "Some models are free, but most require credits"
 msgstr "部分模型免费，但大多数需要额度"
@@ -4918,7 +4918,7 @@ msgstr "第 1 步"
 msgid "Step 2"
 msgstr "第 2 步"
 
-#: lib/phoenix_kit/integrations/providers.ex:384
+#: lib/phoenix_kit/integrations/providers.ex:387
 #, elixir-autogen, elixir-format
 msgid "Still on Audience — while the app is in **Testing** status, add the Google account you will connect as a **Test user** (this must be the same account whose Drive will store your files)"
 msgstr "仍在“受众群体”页面——当应用处于 **测试** 状态时，请将您要连接的 Google 账户添加为 **测试用户**（该账户必须与用于存储文件的 Drive 所属账户相同）"
@@ -4946,8 +4946,8 @@ msgstr "税务设置已保存"
 msgid "Test Connection"
 msgstr "测试连接"
 
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:499
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:631
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:505
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:637
 #: lib/phoenix_kit_web/live/settings/integrations.ex:572
 #, elixir-autogen, elixir-format
 msgid "Test failed"
@@ -4985,7 +4985,7 @@ msgstr "此邀请已过期。"
 msgid "Total Files"
 msgstr "文件总数"
 
-#: lib/phoenix_kit/integrations/providers.ex:406
+#: lib/phoenix_kit/integrations/providers.ex:409
 #, elixir-autogen, elixir-format
 msgid "Under **Authorized redirect URIs**, add: `{redirect_uri}`"
 msgstr "在 **已获授权的重定向 URI** 下，添加：`{redirect_uri}`"
@@ -5034,8 +5034,8 @@ msgstr "您已加入该组织！"
 msgid "You need to create at least one media bucket before files can be uploaded."
 msgstr "上传文件前，您需要至少创建一个媒体存储桶。"
 
-#: lib/phoenix_kit/integrations/providers.ex:418
-#: lib/phoenix_kit/integrations/providers.ex:1774
+#: lib/phoenix_kit/integrations/providers.ex:421
+#: lib/phoenix_kit/integrations/providers.ex:1802
 #, elixir-autogen, elixir-format
 msgid "You'll be redirected back here once connected"
 msgstr "连接完成后，您将被重定向回此处"
@@ -5067,108 +5067,108 @@ msgstr "邀请您加入其组织。"
 msgid "roles"
 msgstr "个角色"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:87
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:886
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:89
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:892
 #, elixir-autogen, elixir-format
 msgid "%{n} days ago"
 msgstr "%{n} 天前"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:84
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:883
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:86
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:889
 #, elixir-autogen, elixir-format
 msgid "%{n} hours ago"
 msgstr "%{n} 小时前"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:81
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:880
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:83
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:886
 #, elixir-autogen, elixir-format
 msgid "%{n} minutes ago"
 msgstr "%{n} 分钟前"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:86
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:885
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:88
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:891
 #, elixir-autogen, elixir-format
 msgid "1 day ago"
 msgstr "1 天前"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:83
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:882
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:85
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:888
 #, elixir-autogen, elixir-format
 msgid "1 hour ago"
 msgstr "1 小时前"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:80
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:879
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:82
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:885
 #, elixir-autogen, elixir-format
 msgid "1 minute ago"
 msgstr "1 分钟前"
 
-#: lib/phoenix_kit/integrations/providers.ex:712
+#: lib/phoenix_kit/integrations/providers.ex:715
 #, elixir-autogen, elixir-format
 msgid "AI model access via DeepSeek (deepseek-chat, deepseek-reasoner)"
 msgstr "通过 DeepSeek 访问 AI 模型（deepseek-chat、deepseek-reasoner）"
 
-#: lib/phoenix_kit/integrations/providers.ex:649
+#: lib/phoenix_kit/integrations/providers.ex:652
 #, elixir-autogen, elixir-format
 msgid "AI model access via Mistral AI (Mistral Large, Codestral, Pixtral)"
 msgstr "通过 Mistral AI 访问 AI 模型（Mistral Large、Codestral、Pixtral）"
 
-#: lib/phoenix_kit/integrations/providers.ex:1740
+#: lib/phoenix_kit/integrations/providers.ex:1768
 #, elixir-autogen, elixir-format
 msgid "Add a client secret"
 msgstr "添加客户端密钥"
 
-#: lib/phoenix_kit/integrations/providers.ex:683
+#: lib/phoenix_kit/integrations/providers.ex:686
 #, elixir-autogen, elixir-format
 msgid "Add a payment method (required)"
 msgstr "添加付款方式（必填）"
 
-#: lib/phoenix_kit/integrations/providers.ex:475
-#: lib/phoenix_kit/integrations/providers.ex:555
-#: lib/phoenix_kit/integrations/providers.ex:745
-#: lib/phoenix_kit/integrations/providers.ex:814
-#: lib/phoenix_kit/integrations/providers.ex:878
+#: lib/phoenix_kit/integrations/providers.ex:478
+#: lib/phoenix_kit/integrations/providers.ex:558
+#: lib/phoenix_kit/integrations/providers.ex:748
+#: lib/phoenix_kit/integrations/providers.ex:817
+#: lib/phoenix_kit/integrations/providers.ex:881
 #, elixir-autogen, elixir-format
 msgid "Add credits"
 msgstr "充值额度"
 
-#: lib/phoenix_kit/integrations/providers.ex:1755
+#: lib/phoenix_kit/integrations/providers.ex:1783
 #, elixir-autogen, elixir-format
 msgid "Add the permissions your integration needs: `User.Read` is included by default; add `Mail.Read`, `Files.Read.All`, `Calendars.Read`, etc. as required"
 msgstr "添加您的集成所需的权限：默认已包含 `User.Read`；按需添加 `Mail.Read`、`Files.Read.All`、`Calendars.Read` 等"
 
-#: lib/phoenix_kit/integrations/providers.ex:1682
+#: lib/phoenix_kit/integrations/providers.ex:1710
 #, elixir-autogen, elixir-format
 msgid "Application (client) ID"
 msgstr "应用程序（客户端）ID"
 
-#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:538
+#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:543
 #, elixir-autogen, elixir-format
 msgid "Clears the OAuth tokens. Credentials and the connection itself stay so you can reconnect with one click."
 msgstr "清除 OAuth 令牌。凭据和连接本身会保留，您只需一键即可重新连接。"
 
-#: lib/phoenix_kit/integrations/providers.ex:759
-#: lib/phoenix_kit/integrations/providers.ex:825
+#: lib/phoenix_kit/integrations/providers.ex:762
+#: lib/phoenix_kit/integrations/providers.ex:828
 #, elixir-autogen, elixir-format
 msgid "Click **Create API key**, give it a name"
 msgstr "点击 **Create API key**，为其命名"
 
-#: lib/phoenix_kit/integrations/providers.ex:699
+#: lib/phoenix_kit/integrations/providers.ex:702
 #, elixir-autogen, elixir-format
 msgid "Click **Create new key**, give it a name, set an expiry if desired"
 msgstr "点击 **Create new key**，为其命名，如有需要可设置有效期"
 
-#: lib/phoenix_kit/integrations/providers.ex:1727
+#: lib/phoenix_kit/integrations/providers.ex:1755
 #, elixir-autogen, elixir-format
 msgid "Click **New registration**, give the app a name"
 msgstr "点击 **新注册**，为应用命名"
 
-#: lib/phoenix_kit/integrations/providers.ex:1732
+#: lib/phoenix_kit/integrations/providers.ex:1760
 #, elixir-autogen, elixir-format
 msgid "Click **Register**"
 msgstr "点击 **注册**"
 
-#: lib/phoenix_kit/integrations/providers.ex:1750
+#: lib/phoenix_kit/integrations/providers.ex:1778
 #, elixir-autogen, elixir-format
 msgid "Configure API permissions"
 msgstr "配置 API 权限"
@@ -5178,27 +5178,27 @@ msgstr "配置 API 权限"
 msgid "Connect external services like %{providers}."
 msgstr "连接外部服务，如 %{providers}。"
 
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:440
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:446
 #, elixir-autogen, elixir-format
 msgid "Connection name can't be blank."
 msgstr "连接名称不能为空。"
 
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:434
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:440
 #, elixir-autogen, elixir-format
 msgid "Connection renamed"
 msgstr "连接已重命名"
 
-#: lib/phoenix_kit/integrations/providers.ex:1744
+#: lib/phoenix_kit/integrations/providers.ex:1772
 #, elixir-autogen, elixir-format
 msgid "Copy the **Value** column (not the Secret ID) into the form above — the value is shown ONCE and disappears on page refresh"
 msgstr "将 **值** 列（而非密钥 ID）复制到上方表单中——该值仅显示一次，刷新页面后将消失"
 
-#: lib/phoenix_kit/integrations/providers.ex:490
-#: lib/phoenix_kit/integrations/providers.ex:578
-#: lib/phoenix_kit/integrations/providers.ex:700
-#: lib/phoenix_kit/integrations/providers.ex:760
-#: lib/phoenix_kit/integrations/providers.ex:826
-#: lib/phoenix_kit/integrations/providers.ex:950
+#: lib/phoenix_kit/integrations/providers.ex:493
+#: lib/phoenix_kit/integrations/providers.ex:581
+#: lib/phoenix_kit/integrations/providers.ex:703
+#: lib/phoenix_kit/integrations/providers.ex:763
+#: lib/phoenix_kit/integrations/providers.ex:829
+#: lib/phoenix_kit/integrations/providers.ex:953
 #, elixir-autogen, elixir-format
 msgid "Copy the key (shown once) and paste it into the form above"
 msgstr "复制密钥（仅显示一次）并粘贴到上方表单中"
@@ -5209,39 +5209,39 @@ msgstr "复制密钥（仅显示一次）并粘贴到上方表单中"
 msgid "Create Connection"
 msgstr "创建连接"
 
-#: lib/phoenix_kit/integrations/providers.ex:737
+#: lib/phoenix_kit/integrations/providers.ex:740
 #, elixir-autogen, elixir-format
 msgid "Create a DeepSeek account"
 msgstr "创建 DeepSeek 账户"
 
-#: lib/phoenix_kit/integrations/providers.ex:674
+#: lib/phoenix_kit/integrations/providers.ex:677
 #, elixir-autogen, elixir-format
 msgid "Create a Mistral account"
 msgstr "创建 Mistral 账户"
 
-#: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:916
-#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:520
+#: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:921
+#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:525
 #, elixir-autogen, elixir-format
 msgid "Danger Zone"
 msgstr "危险操作区"
 
-#: lib/phoenix_kit/integrations/providers.ex:711
+#: lib/phoenix_kit/integrations/providers.ex:714
 #, elixir-autogen, elixir-format
 msgid "DeepSeek"
 msgstr "DeepSeek"
 
-#: lib/phoenix_kit/integrations/providers.ex:750
+#: lib/phoenix_kit/integrations/providers.ex:753
 #, elixir-autogen, elixir-format
 msgid "DeepSeek requires a positive balance before you can call the chat or reasoner endpoints, even on cheap models"
 msgstr "DeepSeek 要求账户余额为正数才能调用 chat 或 reasoner 端点，即使使用低价模型也是如此"
 
-#: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:924
-#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:561
+#: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:929
+#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:566
 #, elixir-autogen, elixir-format
 msgid "Delete this connection"
 msgstr "删除此连接"
 
-#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:536
+#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:541
 #, elixir-autogen, elixir-format
 msgid "Disconnect account"
 msgstr "断开账户"
@@ -5253,146 +5253,146 @@ msgstr "断开账户"
 msgid "Drag to reorder"
 msgstr "拖动以重新排序"
 
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:443
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:449
 #, elixir-autogen, elixir-format
 msgid "Failed to rename connection."
 msgstr "重命名连接失败。"
 
-#: lib/phoenix_kit/integrations/providers.ex:688
+#: lib/phoenix_kit/integrations/providers.ex:691
 #, elixir-autogen, elixir-format
 msgid "Free models still require a billing-enabled workspace"
 msgstr "免费模型仍需要已启用计费的工作区"
 
-#: lib/phoenix_kit/integrations/providers.ex:1686
+#: lib/phoenix_kit/integrations/providers.ex:1714
 #, elixir-autogen, elixir-format
 msgid "From Azure Portal → App registrations → your app → Overview"
 msgstr "来自 Azure 门户 → 应用注册 → 您的应用 → 概述"
 
-#: lib/phoenix_kit/integrations/providers.ex:667
+#: lib/phoenix_kit/integrations/providers.ex:670
 #, elixir-autogen, elixir-format
 msgid "From console.mistral.ai/api-keys"
 msgstr "来自 console.mistral.ai/api-keys"
 
-#: lib/phoenix_kit/integrations/providers.ex:730
+#: lib/phoenix_kit/integrations/providers.ex:733
 #, elixir-autogen, elixir-format
 msgid "From platform.deepseek.com/api_keys"
 msgstr "来自 platform.deepseek.com/api_keys"
 
-#: lib/phoenix_kit/integrations/providers.ex:1696
+#: lib/phoenix_kit/integrations/providers.ex:1724
 #, elixir-autogen, elixir-format
 msgid "From your app → Certificates & secrets → New client secret. Copy the *Value*, not the Secret ID."
 msgstr "来自您的应用 → 证书和密码 → 新客户端密码。请复制 *值*，而非密钥 ID。"
 
-#: lib/phoenix_kit/integrations/providers.ex:1752
+#: lib/phoenix_kit/integrations/providers.ex:1780
 #, elixir-autogen, elixir-format
 msgid "Go to **API permissions → Add a permission → Microsoft Graph → Delegated permissions**"
 msgstr "前往 **API 权限 → 添加权限 → Microsoft Graph → 委托的权限**"
 
-#: lib/phoenix_kit/integrations/providers.ex:1742
+#: lib/phoenix_kit/integrations/providers.ex:1770
 #, elixir-autogen, elixir-format
 msgid "Go to **Certificates & secrets → New client secret**"
 msgstr "前往 **证书和密码 → 新客户端密码**"
 
-#: lib/phoenix_kit/integrations/providers.ex:698
+#: lib/phoenix_kit/integrations/providers.ex:701
 #, elixir-autogen, elixir-format
 msgid "Go to [API Keys](https://console.mistral.ai/api-keys)"
 msgstr "前往 [API Keys](https://console.mistral.ai/api-keys)"
 
-#: lib/phoenix_kit/integrations/providers.ex:758
+#: lib/phoenix_kit/integrations/providers.ex:761
 #, elixir-autogen, elixir-format
 msgid "Go to [API Keys](https://platform.deepseek.com/api_keys)"
 msgstr "前往 [API Keys](https://platform.deepseek.com/api_keys)"
 
-#: lib/phoenix_kit/integrations/providers.ex:747
+#: lib/phoenix_kit/integrations/providers.ex:750
 #, elixir-autogen, elixir-format
 msgid "Go to [Top up](https://platform.deepseek.com/top_up) and add at least the minimum amount"
 msgstr "前往 [Top up](https://platform.deepseek.com/top_up) 并至少充值最低金额"
 
-#: lib/phoenix_kit/integrations/providers.ex:685
+#: lib/phoenix_kit/integrations/providers.ex:688
 #, elixir-autogen, elixir-format
 msgid "Go to [Workspace → Billing](https://console.mistral.ai/billing/plans) and choose **Experiment** (pay-as-you-go) or a paid tier"
 msgstr "前往 [Workspace → Billing](https://console.mistral.ai/billing/plans)，选择 **Experiment**（按量付费）或付费套餐"
 
-#: lib/phoenix_kit/integrations/providers.ex:676
+#: lib/phoenix_kit/integrations/providers.ex:679
 #, elixir-autogen, elixir-format
 msgid "Go to [console.mistral.ai](https://console.mistral.ai) and sign up or log in"
 msgstr "前往 [console.mistral.ai](https://console.mistral.ai) 注册或登录"
 
-#: lib/phoenix_kit/integrations/providers.ex:739
+#: lib/phoenix_kit/integrations/providers.ex:742
 #, elixir-autogen, elixir-format
 msgid "Go to [platform.deepseek.com](https://platform.deepseek.com) and sign up or log in"
 msgstr "前往 [platform.deepseek.com](https://platform.deepseek.com) 注册或登录"
 
-#: lib/phoenix_kit/integrations/providers.ex:1724
+#: lib/phoenix_kit/integrations/providers.ex:1752
 #, elixir-autogen, elixir-format
 msgid "Go to the [Azure Portal](https://portal.azure.com) and search for **App registrations**"
 msgstr "前往 [Azure 门户](https://portal.azure.com)，搜索 **应用注册**"
 
-#: lib/phoenix_kit/integrations/providers.ex:1735
+#: lib/phoenix_kit/integrations/providers.ex:1763
 #, elixir-autogen, elixir-format
 msgid "If you picked a single-tenant audience, fill in **Tenant ID** above with your Directory (tenant) ID GUID — leaving it as `common` only works for multi-tenant + personal apps."
 msgstr "如果您选择了单租户受众，请在上方的 **租户 ID** 中填写您的目录（租户）ID GUID——保留为 `common` 仅适用于多租户加个人账户的应用。"
 
-#: lib/phoenix_kit/integrations/providers.ex:1758
+#: lib/phoenix_kit/integrations/providers.ex:1786
 #, elixir-autogen, elixir-format
 msgid "If your tenant requires admin consent, click **Grant admin consent for <tenant>** before the connect flow will work"
 msgstr "如果您的租户需要管理员同意，请在连接流程生效前点击 **代表 <tenant> 授予管理员同意**"
 
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:120
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:154
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:160
 #, elixir-autogen, elixir-format
 msgid "Integration not found"
 msgstr "未找到集成"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:282
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:284
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:138
 #, elixir-autogen, elixir-format
 msgid "Last tested"
 msgstr "上次测试"
 
-#: lib/phoenix_kit/integrations/providers.ex:1708
+#: lib/phoenix_kit/integrations/providers.ex:1736
 #, elixir-autogen, elixir-format
 msgid "Leave as `common` for multi-tenant + personal accounts. For single-tenant apps, paste your Directory (tenant) ID GUID. Use `consumers` for personal-only or `organizations` for any work-or-school account."
 msgstr "多租户加个人账户请保留为 `common`。单租户应用请粘贴您的目录（租户）ID GUID。仅限个人账户请使用 `consumers`，任何工作或学校账户请使用 `organizations`。"
 
-#: lib/phoenix_kit/integrations/providers.ex:1653
+#: lib/phoenix_kit/integrations/providers.ex:1681
 #, elixir-autogen, elixir-format
 msgid "Microsoft 365"
 msgstr "Microsoft 365"
 
-#: lib/phoenix_kit/integrations/providers.ex:1654
+#: lib/phoenix_kit/integrations/providers.ex:1682
 #, elixir-autogen, elixir-format
 msgid "Microsoft Graph — Outlook, OneDrive, Teams, Calendar, SharePoint"
 msgstr "Microsoft Graph——Outlook、OneDrive、Teams、日历、SharePoint"
 
-#: lib/phoenix_kit/integrations/providers.ex:1771
+#: lib/phoenix_kit/integrations/providers.ex:1799
 #, elixir-autogen, elixir-format
 msgid "Microsoft will show the consent screen — click **Accept** to grant the requested permissions"
 msgstr "Microsoft 将显示同意屏幕——点击 **接受** 以授予所请求的权限"
 
-#: lib/phoenix_kit/integrations/providers.ex:648
+#: lib/phoenix_kit/integrations/providers.ex:651
 #, elixir-autogen, elixir-format
 msgid "Mistral"
 msgstr "Mistral"
 
-#: lib/phoenix_kit/integrations/providers.ex:691
+#: lib/phoenix_kit/integrations/providers.ex:694
 #, elixir-autogen, elixir-format
 msgid "Mistral does not offer credits without billing setup; this is a hard requirement before keys can be created."
 msgstr "Mistral 不提供无需设置计费的额度；这是创建密钥前的硬性要求。"
 
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:591
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:167
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:173
 #, elixir-autogen, elixir-format
 msgid "Permanently delete this connection? This cannot be undone."
 msgstr "永久删除此连接？此操作无法撤销。"
 
-#: lib/phoenix_kit/integrations/providers.ex:1722
+#: lib/phoenix_kit/integrations/providers.ex:1750
 #, elixir-autogen, elixir-format
 msgid "Register an application in Microsoft Entra ID (Azure AD)"
 msgstr "在 Microsoft Entra ID（Azure AD）中注册应用程序"
 
-#: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:926
-#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:563
+#: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:931
+#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:568
 #, elixir-autogen, elixir-format
 msgid "Removes the integration permanently. Any module pinned to this connection will stop working until repointed."
 msgstr "永久移除该集成。任何固定使用此连接的模块在重新指定前将无法工作。"
@@ -5404,39 +5404,39 @@ msgstr "永久移除该集成。任何固定使用此连接的模块在重新指
 msgid "Search..."
 msgstr "搜索…"
 
-#: lib/phoenix_kit/integrations/providers.ex:1743
+#: lib/phoenix_kit/integrations/providers.ex:1771
 #, elixir-autogen, elixir-format
 msgid "Set an expiration (24 months is common; renew before it lapses)"
 msgstr "设置过期时间（24 个月较为常见；请在到期前续期）"
 
-#: lib/phoenix_kit/integrations/providers.ex:1703
+#: lib/phoenix_kit/integrations/providers.ex:1731
 #, elixir-autogen, elixir-format
 msgid "Tenant ID"
 msgstr "租户 ID"
 
-#: lib/phoenix_kit/integrations/providers.ex:1763
+#: lib/phoenix_kit/integrations/providers.ex:1791
 #, elixir-autogen, elixir-format
 msgid "The `default_scopes` in the provider definition request `openid email profile offline_access User.Read` — extra scopes can be added per-connect by passing `extra_scopes` to `authorization_url/5`."
 msgstr "提供商定义中的 `default_scopes` 请求 `openid email profile offline_access User.Read`——可在每次连接时通过向 `authorization_url/5` 传入 `extra_scopes` 来添加额外的权限范围。"
 
-#: lib/phoenix_kit/integrations/providers.ex:1731
+#: lib/phoenix_kit/integrations/providers.ex:1759
 #, elixir-autogen, elixir-format
 msgid "Under **Redirect URI**, choose **Web** and enter: `{redirect_uri}`"
 msgstr "在 **重定向 URI** 下，选择 **Web** 并输入：`{redirect_uri}`"
 
-#: lib/phoenix_kit/integrations/providers.ex:1728
+#: lib/phoenix_kit/integrations/providers.ex:1756
 #, elixir-autogen, elixir-format
 msgid "Under **Supported account types**, choose the audience: *Personal Microsoft accounts only*, *Accounts in any organizational directory*, or *Accounts in this organizational directory only* depending on who should sign in"
 msgstr "在 **受支持的帐户类型** 下，根据登录对象选择受众：*仅个人 Microsoft 帐户*、*任何组织目录中的帐户* 或 *仅此组织目录中的帐户*"
 
-#: lib/phoenix_kit/integrations/providers.ex:679
+#: lib/phoenix_kit/integrations/providers.ex:682
 #, elixir-autogen, elixir-format
 msgid "You may need to verify your phone number before creating API keys"
 msgstr "创建 API 密钥前，您可能需要验证手机号码"
 
 #: lib/phoenix_kit/utils/date.ex:152
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:68
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:867
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:70
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:873
 #, elixir-autogen, elixir-format
 msgid "just now"
 msgstr "刚刚"
@@ -6890,13 +6890,13 @@ msgstr "无法发表评论"
 msgid "Delete Permanently"
 msgstr "永久删除"
 
-#: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:937
-#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:574
+#: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:942
+#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:579
 #, elixir-autogen, elixir-format
 msgid "Deleting…"
 msgstr "正在删除…"
 
-#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:548
+#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:553
 #, elixir-autogen, elixir-format
 msgid "Disconnecting…"
 msgstr "正在断开连接…"
@@ -8186,7 +8186,7 @@ msgstr "监控并管理活跃的用户会话"
 #: lib/modules/sitemap/web/settings.ex:680
 #: lib/modules/sitemap/web/settings.ex:695
 #: lib/modules/storage/web/bucket_page.html.heex:370
-#: lib/phoenix_kit/integrations/providers.ex:1381
+#: lib/phoenix_kit/integrations/providers.ex:1409
 #: lib/phoenix_kit/utils/date.ex:338
 #: lib/phoenix_kit/utils/date.ex:490
 #: lib/phoenix_kit/utils/date.ex:579
@@ -8573,7 +8573,7 @@ msgstr "此处只能添加允许的文件类型。"
 msgid "View background job status and history"
 msgstr "查看后台任务状态和历史记录"
 
-#: lib/phoenix_kit/integrations/providers.ex:430
+#: lib/phoenix_kit/integrations/providers.ex:433
 #, elixir-autogen, elixir-format
 msgid "AI models via OpenAI (GPT, embeddings, images, audio)"
 msgstr "通过 OpenAI 访问 AI 模型（GPT、嵌入、图像、音频）"
@@ -8658,12 +8658,12 @@ msgstr "更改"
 msgid "Choose"
 msgstr "选择"
 
-#: lib/phoenix_kit/integrations/providers.ex:949
+#: lib/phoenix_kit/integrations/providers.ex:952
 #, elixir-autogen, elixir-format
 msgid "Click **Create API Key**, give it a name"
 msgstr "点击 **Create API Key**，为其命名"
 
-#: lib/phoenix_kit/integrations/providers.ex:489
+#: lib/phoenix_kit/integrations/providers.ex:492
 #, elixir-autogen, elixir-format
 msgid "Click **Create new secret key**, give it a name"
 msgstr "点击 **Create new secret key**，为其命名"
@@ -8674,12 +8674,12 @@ msgstr "点击 **Create new secret key**，为其命名"
 msgid "Close search"
 msgstr "关闭搜索"
 
-#: lib/phoenix_kit/integrations/providers.ex:939
+#: lib/phoenix_kit/integrations/providers.ex:942
 #, elixir-autogen, elixir-format
 msgid "Create an ElevenLabs account"
 msgstr "创建 ElevenLabs 账户"
 
-#: lib/phoenix_kit/integrations/providers.ex:467
+#: lib/phoenix_kit/integrations/providers.ex:470
 #, elixir-autogen, elixir-format
 msgid "Create an OpenAI account"
 msgstr "创建 OpenAI 账户"
@@ -8737,7 +8737,7 @@ msgstr "编辑描述"
 msgid "Edit header"
 msgstr "编辑页眉"
 
-#: lib/phoenix_kit/integrations/providers.ex:909
+#: lib/phoenix_kit/integrations/providers.ex:912
 #, elixir-autogen, elixir-format
 msgid "ElevenLabs"
 msgstr "ElevenLabs"
@@ -8798,37 +8798,37 @@ msgstr "文件夹名称不能为空"
 msgid "Forgot password"
 msgstr "忘记密码"
 
-#: lib/phoenix_kit/integrations/providers.ex:932
+#: lib/phoenix_kit/integrations/providers.ex:935
 #, elixir-autogen, elixir-format
 msgid "From elevenlabs.io → Settings → API Keys"
 msgstr "来自 elevenlabs.io → Settings → API Keys"
 
-#: lib/phoenix_kit/integrations/providers.ex:454
+#: lib/phoenix_kit/integrations/providers.ex:457
 #, elixir-autogen, elixir-format
 msgid "From platform.openai.com/api-keys"
 msgstr "来自 platform.openai.com/api-keys"
 
-#: lib/phoenix_kit/integrations/providers.ex:488
+#: lib/phoenix_kit/integrations/providers.ex:491
 #, elixir-autogen, elixir-format
 msgid "Go to [API Keys](https://platform.openai.com/api-keys)"
 msgstr "前往 [API Keys](https://platform.openai.com/api-keys)"
 
-#: lib/phoenix_kit/integrations/providers.ex:477
+#: lib/phoenix_kit/integrations/providers.ex:480
 #, elixir-autogen, elixir-format
 msgid "Go to [Billing](https://platform.openai.com/account/billing/overview) and add a payment method or credits"
 msgstr "前往 [Billing](https://platform.openai.com/account/billing/overview)，添加付款方式或额度"
 
-#: lib/phoenix_kit/integrations/providers.ex:947
+#: lib/phoenix_kit/integrations/providers.ex:950
 #, elixir-autogen, elixir-format
 msgid "Go to [Settings → API Keys](https://elevenlabs.io/app/settings/api-keys)"
 msgstr "前往 [Settings → API Keys](https://elevenlabs.io/app/settings/api-keys)"
 
-#: lib/phoenix_kit/integrations/providers.ex:941
+#: lib/phoenix_kit/integrations/providers.ex:944
 #, elixir-autogen, elixir-format
 msgid "Go to [elevenlabs.io](https://elevenlabs.io) and sign up or log in"
 msgstr "前往 [elevenlabs.io](https://elevenlabs.io) 注册或登录"
 
-#: lib/phoenix_kit/integrations/providers.ex:469
+#: lib/phoenix_kit/integrations/providers.ex:472
 #, elixir-autogen, elixir-format
 msgid "Go to [platform.openai.com](https://platform.openai.com) and sign up or log in"
 msgstr "前往 [platform.openai.com](https://platform.openai.com) 注册或登录"
@@ -8857,7 +8857,7 @@ msgstr "标题 %{level}"
 msgid "Icon"
 msgstr "图标"
 
-#: lib/phoenix_kit/integrations/providers.ex:493
+#: lib/phoenix_kit/integrations/providers.ex:496
 #, elixir-autogen, elixir-format
 msgid "If your account belongs to multiple organizations, keys are scoped to the org selected when the key was created."
 msgstr "如果您的账户属于多个组织，密钥的作用范围限定于创建密钥时所选的组织。"
@@ -8951,12 +8951,12 @@ msgstr "未登录"
 msgid "Oldest first"
 msgstr "最早优先"
 
-#: lib/phoenix_kit/integrations/providers.ex:429
+#: lib/phoenix_kit/integrations/providers.ex:432
 #, elixir-autogen, elixir-format
 msgid "OpenAI"
 msgstr "OpenAI"
 
-#: lib/phoenix_kit/integrations/providers.ex:480
+#: lib/phoenix_kit/integrations/providers.ex:483
 #, elixir-autogen, elixir-format
 msgid "OpenAI requires a positive balance before the API will return completions, even on cheaper models"
 msgstr "OpenAI 要求账户余额为正数，API 才会返回补全结果，即使使用较便宜的模型也是如此"
@@ -9038,12 +9038,12 @@ msgstr "排序"
 msgid "Stacks"
 msgstr "堆叠"
 
-#: lib/phoenix_kit/integrations/providers.ex:910
+#: lib/phoenix_kit/integrations/providers.ex:913
 #, elixir-autogen, elixir-format
 msgid "Text-to-speech and voice generation via ElevenLabs"
 msgstr "通过 ElevenLabs 实现文字转语音和语音生成"
 
-#: lib/phoenix_kit/integrations/providers.ex:953
+#: lib/phoenix_kit/integrations/providers.ex:956
 #, elixir-autogen, elixir-format
 msgid "The free tier includes a monthly character quota; paid plans raise the quota and unlock commercial use and additional voices."
 msgstr "免费套餐包含每月字符配额；付费套餐可提高配额，并解锁商业用途和更多语音。"
@@ -9858,27 +9858,27 @@ msgstr "或通过以下方式添加"
 msgid "Too many attempts. Please try again shortly."
 msgstr "尝试次数过多，请稍后再试。"
 
-#: lib/phoenix_kit/integrations/providers.ex:772
+#: lib/phoenix_kit/integrations/providers.ex:775
 #, elixir-autogen, elixir-format
 msgid "AI model access via xAI (Grok models)"
 msgstr "通过 xAI 访问 AI 模型（Grok 模型）"
 
-#: lib/phoenix_kit/integrations/providers.ex:1102
+#: lib/phoenix_kit/integrations/providers.ex:1105
 #, elixir-autogen, elixir-format
 msgid "AWS Simple Email Service (SMTP credentials via SES API)"
 msgstr "AWS Simple Email Service（通过 SES API 获取 SMTP 凭据）"
 
-#: lib/phoenix_kit/integrations/providers.ex:1101
+#: lib/phoenix_kit/integrations/providers.ex:1104
 #, elixir-autogen, elixir-format
 msgid "Amazon SES"
 msgstr "Amazon SES"
 
-#: lib/phoenix_kit/integrations/providers.ex:1429
+#: lib/phoenix_kit/integrations/providers.ex:1457
 #, elixir-autogen, elixir-format
 msgid "Brevo API"
 msgstr "Brevo API"
 
-#: lib/phoenix_kit/integrations/providers.ex:808
+#: lib/phoenix_kit/integrations/providers.ex:811
 #, elixir-autogen, elixir-format
 msgid "Create an xAI account"
 msgstr "创建 xAI 账户"
@@ -9888,37 +9888,37 @@ msgstr "创建 xAI 账户"
 msgid "Email users when their account is signed in from a new device"
 msgstr "当账户在新设备上登录时，向用户发送电子邮件"
 
-#: lib/phoenix_kit/integrations/providers.ex:1340
+#: lib/phoenix_kit/integrations/providers.ex:1368
 #, elixir-autogen, elixir-format
 msgid "For Brevo: the SMTP key starting with xsmtpsib- (SMTP & API → SMTP tab) — not the API key (xkeysib-)."
 msgstr "对于 Brevo：以 xsmtpsib- 开头的 SMTP 密钥（SMTP & API → SMTP 标签页），而不是 API 密钥（xkeysib-）。"
 
-#: lib/phoenix_kit/integrations/providers.ex:1328
+#: lib/phoenix_kit/integrations/providers.ex:1356
 #, elixir-autogen, elixir-format
 msgid "For Brevo: your account's SMTP login, shown as <subaccount>@smtp-brevo.com under SMTP & API → SMTP."
 msgstr "对于 Brevo：您账户的 SMTP 登录名，在 SMTP & API → SMTP 下显示为 <subaccount>@smtp-brevo.com。"
 
-#: lib/phoenix_kit/integrations/providers.ex:1449
+#: lib/phoenix_kit/integrations/providers.ex:1477
 #, elixir-autogen, elixir-format
 msgid "From Brevo → SMTP & API → API Keys. Starts with xkeysib- — not the SMTP key (xsmtpsib-)."
 msgstr "来自 Brevo → SMTP & API → API Keys。以 xkeysib- 开头，而不是 SMTP 密钥（xsmtpsib-）。"
 
-#: lib/phoenix_kit/integrations/providers.ex:793
+#: lib/phoenix_kit/integrations/providers.ex:796
 #, elixir-autogen, elixir-format
 msgid "From console.x.ai/team/default/api-keys"
 msgstr "来自 console.x.ai/team/default/api-keys"
 
-#: lib/phoenix_kit/integrations/providers.ex:824
+#: lib/phoenix_kit/integrations/providers.ex:827
 #, elixir-autogen, elixir-format
 msgid "Go to [API Keys](https://console.x.ai/team/default/api-keys)"
 msgstr "前往 [API Keys](https://console.x.ai/team/default/api-keys)"
 
-#: lib/phoenix_kit/integrations/providers.ex:810
+#: lib/phoenix_kit/integrations/providers.ex:813
 #, elixir-autogen, elixir-format
 msgid "Go to [accounts.x.ai](https://accounts.x.ai) and sign up or log in"
 msgstr "前往 [accounts.x.ai](https://accounts.x.ai) 注册或登录"
 
-#: lib/phoenix_kit/integrations/providers.ex:816
+#: lib/phoenix_kit/integrations/providers.ex:819
 #, elixir-autogen, elixir-format
 msgid "Go to [console.x.ai](https://console.x.ai) → Billing and add credits"
 msgstr "前往 [console.x.ai](https://console.x.ai) → Billing 并充值"
@@ -9928,7 +9928,7 @@ msgstr "前往 [console.x.ai](https://console.x.ai) → Billing 并充值"
 msgid "Login Notifications"
 msgstr "登录通知"
 
-#: lib/phoenix_kit/integrations/providers.ex:1306
+#: lib/phoenix_kit/integrations/providers.ex:1334
 #, elixir-autogen, elixir-format
 msgid "Port"
 msgstr "端口"
@@ -9939,39 +9939,39 @@ msgstr "端口"
 #: lib/phoenix_kit/integrations/object_storage_services.ex:316
 #: lib/phoenix_kit/integrations/object_storage_services.ex:329
 #: lib/phoenix_kit/integrations/object_storage_services.ex:360
-#: lib/phoenix_kit/integrations/providers.ex:995
-#: lib/phoenix_kit/integrations/providers.ex:1135
-#: lib/phoenix_kit/integrations/providers.ex:1232
+#: lib/phoenix_kit/integrations/providers.ex:998
+#: lib/phoenix_kit/integrations/providers.ex:1138
+#: lib/phoenix_kit/integrations/providers.ex:1260
 #, elixir-autogen, elixir-format
 msgid "Region"
 msgstr "区域"
 
-#: lib/phoenix_kit/integrations/providers.ex:1283
+#: lib/phoenix_kit/integrations/providers.ex:1311
 #, elixir-autogen, elixir-format
 msgid "SMTP"
 msgstr "SMTP"
 
-#: lib/phoenix_kit/integrations/providers.ex:1297
+#: lib/phoenix_kit/integrations/providers.ex:1325
 #, elixir-autogen, elixir-format
 msgid "SMTP Host"
 msgstr "SMTP 主机"
 
-#: lib/phoenix_kit/integrations/providers.ex:1430
+#: lib/phoenix_kit/integrations/providers.ex:1458
 #, elixir-autogen, elixir-format
 msgid "Send email via the Brevo transactional email API"
 msgstr "通过 Brevo 事务性电子邮件 API 发送电子邮件"
 
-#: lib/phoenix_kit/integrations/providers.ex:1285
+#: lib/phoenix_kit/integrations/providers.ex:1313
 #, elixir-autogen, elixir-format
 msgid "Universal SMTP relay — works with any vendor (Brevo, Mailgun, SendGrid, a self-hosted mail server, etc). Add one named connection per relay/account."
 msgstr "通用 SMTP 中继，适用于任何服务商（Brevo、Mailgun、SendGrid、自托管邮件服务器等）。每个中继/账户添加一个命名连接。"
 
-#: lib/phoenix_kit/integrations/providers.ex:771
+#: lib/phoenix_kit/integrations/providers.ex:774
 #, elixir-autogen, elixir-format
 msgid "xAI"
 msgstr "xAI"
 
-#: lib/phoenix_kit/integrations/providers.ex:818
+#: lib/phoenix_kit/integrations/providers.ex:821
 #, elixir-autogen, elixir-format
 msgid "xAI requires a funded account before the API will return completions"
 msgstr "xAI 需要已充值的账户，API 才会返回补全结果"
@@ -10222,22 +10222,22 @@ msgstr "%{n} 分钟前"
 msgid "%{provider} settings"
 msgstr "%{provider} 设置"
 
-#: lib/phoenix_kit/integrations/validators.ex:974
+#: lib/phoenix_kit/integrations/validators.ex:945
 #, elixir-autogen, elixir-format
 msgid "%{text} · resets %{date}"
 msgstr "%{text} · 重置于 %{date}"
 
-#: lib/phoenix_kit/integrations/validators.ex:963
+#: lib/phoenix_kit/integrations/validators.ex:934
 #, elixir-autogen, elixir-format
 msgid "%{type} · %{credits} credits left"
 msgstr "%{type} · 剩余 %{credits} 点额度"
 
-#: lib/phoenix_kit/integrations/validators.ex:556
+#: lib/phoenix_kit/integrations/validators.ex:527
 #, elixir-autogen, elixir-format
 msgid "AWS SES error: %{code}"
 msgstr "AWS SES 错误：%{code}"
 
-#: lib/phoenix_kit/integrations/validators.ex:531
+#: lib/phoenix_kit/integrations/validators.ex:502
 #, elixir-autogen, elixir-format
 msgid "AWS SES is busy — try again in a moment"
 msgstr "AWS SES 繁忙，请稍后重试"
@@ -10283,7 +10283,7 @@ msgstr "设置后，所有对外发送的核心邮件（身份验证、通知）
 msgid "Allow \"Keep me logged in\" (persistent sessions)"
 msgstr "允许“保持登录”（持久会话）"
 
-#: lib/phoenix_kit/integrations/providers.ex:1380
+#: lib/phoenix_kit/integrations/providers.ex:1408
 #, elixir-autogen, elixir-format
 msgid "Always"
 msgstr "始终"
@@ -10298,12 +10298,12 @@ msgstr "不能使用所有者账户。"
 msgid "Applies site-wide wherever the rich-text editor is rendered (posts, comments). Users can still switch modes inside the editor."
 msgstr "在所有渲染富文本编辑器的位置（帖子、评论）全站生效。用户仍可在编辑器内切换模式。"
 
-#: lib/phoenix_kit/integrations/providers.ex:1361
+#: lib/phoenix_kit/integrations/providers.ex:1389
 #, elixir-autogen, elixir-format
 msgid "Auto (from port)"
 msgstr "自动（根据端口）"
 
-#: lib/phoenix_kit/integrations/providers.ex:1357
+#: lib/phoenix_kit/integrations/providers.ex:1385
 #, elixir-autogen, elixir-format
 msgid "Auto follows the port: 465 means implicit TLS, anything else STARTTLS (required when a login is set). Choose explicitly for a relay that ignores that convention."
 msgstr "“自动”根据端口判断：465 表示隐式 TLS，其他端口使用 STARTTLS（设置登录名时必须）。如果中继不遵循此约定，请明确选择。"
@@ -10320,22 +10320,22 @@ msgstr ""
 "此致，\n"
 "团队"
 
-#: lib/phoenix_kit/integrations/providers.ex:1478
+#: lib/phoenix_kit/integrations/providers.ex:1506
 #, elixir-autogen, elixir-format
 msgid "Bot Token"
 msgstr "机器人令牌"
 
-#: lib/phoenix_kit/integrations/providers.ex:1498
+#: lib/phoenix_kit/integrations/providers.ex:1526
 #, elixir-autogen, elixir-format
 msgid "BotFather replies with an HTTP API token like `123456789:ABCdef...` — copy it"
 msgstr "BotFather 会回复一个类似 `123456789:ABCdef...` 的 HTTP API 令牌，请复制它"
 
-#: lib/phoenix_kit/integrations/validators.ex:938
+#: lib/phoenix_kit/integrations/validators.ex:909
 #, elixir-autogen, elixir-format
 msgid "Brevo error %{status}"
 msgstr "Brevo 错误 %{status}"
 
-#: lib/phoenix_kit/integrations/providers.ex:1401
+#: lib/phoenix_kit/integrations/providers.ex:1429
 #, elixir-autogen, elixir-format
 msgid "CA certificate (PEM)"
 msgstr "CA 证书（PEM）"
@@ -10345,7 +10345,7 @@ msgstr "CA 证书（PEM）"
 msgid "Cannot delete send profile"
 msgstr "无法删除发送配置"
 
-#: lib/phoenix_kit/integrations/providers.ex:1386
+#: lib/phoenix_kit/integrations/providers.ex:1414
 #, elixir-autogen, elixir-format
 msgid "Certificate verification"
 msgstr "证书验证"
@@ -10385,7 +10385,7 @@ msgstr "已配置"
 msgid "Connect your own API keys and services. Only you can see these."
 msgstr "连接您自己的 API 密钥和服务。仅您本人可见。"
 
-#: lib/phoenix_kit/integrations/validators.ex:1026
+#: lib/phoenix_kit/integrations/validators.ex:997
 #, elixir-autogen, elixir-format
 msgid "Connected as @%{username}"
 msgstr "已连接为 @%{username}"
@@ -10403,7 +10403,7 @@ msgstr "连接正常"
 msgid "Content Editor"
 msgstr "内容编辑器"
 
-#: lib/phoenix_kit/integrations/providers.ex:1496
+#: lib/phoenix_kit/integrations/providers.ex:1524
 #, elixir-autogen, elixir-format
 msgid "Copy the bot token"
 msgstr "复制机器人令牌"
@@ -10413,26 +10413,26 @@ msgstr "复制机器人令牌"
 msgid "Could not add integration"
 msgstr "无法添加集成"
 
-#: lib/phoenix_kit/integrations/validators.ex:506
-#: lib/phoenix_kit/integrations/validators.ex:512
-#: lib/phoenix_kit/integrations/validators.ex:553
-#: lib/phoenix_kit/integrations/validators.ex:560
+#: lib/phoenix_kit/integrations/validators.ex:477
+#: lib/phoenix_kit/integrations/validators.ex:483
+#: lib/phoenix_kit/integrations/validators.ex:524
+#: lib/phoenix_kit/integrations/validators.ex:531
 #, elixir-autogen, elixir-format
 msgid "Could not reach AWS SES"
 msgstr "无法连接 AWS SES"
 
-#: lib/phoenix_kit/integrations/validators.ex:889
+#: lib/phoenix_kit/integrations/validators.ex:860
 #, elixir-autogen, elixir-format
 msgid "Could not reach Brevo"
 msgstr "无法连接 Brevo"
 
-#: lib/phoenix_kit/integrations/validators.ex:1038
+#: lib/phoenix_kit/integrations/validators.ex:1009
 #, elixir-autogen, elixir-format
 msgid "Could not reach Telegram"
 msgstr "无法连接 Telegram"
 
-#: lib/phoenix_kit/integrations/validators.ex:403
-#: lib/phoenix_kit/integrations/validators.ex:428
+#: lib/phoenix_kit/integrations/validators.ex:374
+#: lib/phoenix_kit/integrations/validators.ex:399
 #, elixir-autogen, elixir-format
 msgid "Could not reach the SMTP server"
 msgstr "无法连接 SMTP 服务器"
@@ -10486,7 +10486,7 @@ msgstr "无法更新汇总。"
 msgid "Could not update default send integration"
 msgstr "无法更新默认发送集成"
 
-#: lib/phoenix_kit/integrations/providers.ex:1489
+#: lib/phoenix_kit/integrations/providers.ex:1517
 #, elixir-autogen, elixir-format
 msgid "Create a bot with BotFather"
 msgstr "使用 BotFather 创建机器人"
@@ -10511,7 +10511,7 @@ msgstr "创建第一个发送配置"
 msgid "Create send profile"
 msgstr "创建发送配置"
 
-#: lib/phoenix_kit/integrations/validators.ex:547
+#: lib/phoenix_kit/integrations/validators.ex:518
 #, elixir-autogen, elixir-format
 msgid "Credentials are valid, but not authorised for GetSendQuota — sending was not verified"
 msgstr "凭据有效，但无权调用 GetSendQuota，未验证发送能力"
@@ -10566,7 +10566,7 @@ msgstr "已停用的配置绝不会用于发送，即使它是默认配置。"
 msgid "Dismiss"
 msgstr "忽略"
 
-#: lib/phoenix_kit/integrations/providers.ex:1396
+#: lib/phoenix_kit/integrations/providers.ex:1424
 #, elixir-autogen, elixir-format
 msgid "Do not verify"
 msgstr "不验证"
@@ -10601,7 +10601,7 @@ msgstr "邮箱已确认。欢迎！"
 msgid "Email-capable integrations"
 msgstr "支持电子邮件的集成"
 
-#: lib/phoenix_kit/integrations/providers.ex:1352
+#: lib/phoenix_kit/integrations/providers.ex:1380
 #, elixir-autogen, elixir-format
 msgid "Encryption"
 msgstr "加密"
@@ -10621,7 +10621,7 @@ msgstr "每 12 小时"
 msgid "Everyone who starts the bot"
 msgstr "所有启动机器人的人"
 
-#: lib/phoenix_kit/integrations/providers.ex:1406
+#: lib/phoenix_kit/integrations/providers.ex:1434
 #, elixir-autogen, elixir-format
 msgid "For a private or self-signed relay certificate. Replaces the system CA store for this connection only."
 msgstr "适用于私有或自签名的中继证书。仅对此连接替换系统 CA 存储。"
@@ -10632,7 +10632,7 @@ msgstr "适用于私有或自签名的中继证书。仅对此连接替换系统
 msgid "From"
 msgstr "发件人"
 
-#: lib/phoenix_kit/integrations/providers.ex:1482
+#: lib/phoenix_kit/integrations/providers.ex:1510
 #, elixir-autogen, elixir-format
 msgid "From @BotFather → /newbot (or /token for an existing bot)"
 msgstr "来自 @BotFather → /newbot（已有机器人则使用 /token）"
@@ -10659,7 +10659,7 @@ msgstr "完全访问"
 msgid "Hourly"
 msgstr "每小时"
 
-#: lib/phoenix_kit/integrations/providers.ex:1379
+#: lib/phoenix_kit/integrations/providers.ex:1407
 #, elixir-autogen, elixir-format
 msgid "If offered (default)"
 msgstr "如果支持（默认）"
@@ -10669,7 +10669,7 @@ msgstr "如果支持（默认）"
 msgid "Immediate"
 msgstr "立即"
 
-#: lib/phoenix_kit/integrations/providers.ex:1362
+#: lib/phoenix_kit/integrations/providers.ex:1390
 #, elixir-autogen, elixir-format
 msgid "Implicit TLS / SMTPS"
 msgstr "隐式 TLS / SMTPS"
@@ -10680,14 +10680,14 @@ msgstr "隐式 TLS / SMTPS"
 msgid "In-app"
 msgstr "应用内"
 
-#: lib/phoenix_kit/integrations/validators.ex:399
-#: lib/phoenix_kit/integrations/validators.ex:412
+#: lib/phoenix_kit/integrations/validators.ex:370
+#: lib/phoenix_kit/integrations/validators.ex:383
 #, elixir-autogen, elixir-format
 msgid "Incomplete SMTP settings"
 msgstr "SMTP 设置不完整"
 
 #: lib/phoenix_kit/integrations/validators.ex:89
-#: lib/phoenix_kit/integrations/validators.ex:643
+#: lib/phoenix_kit/integrations/validators.ex:614
 #, elixir-autogen, elixir-format
 msgid "Incomplete credentials"
 msgstr "凭据不完整"
@@ -10712,32 +10712,32 @@ msgstr "集成已添加"
 msgid "Integration removed"
 msgstr "集成已移除"
 
-#: lib/phoenix_kit/integrations/validators.ex:325
+#: lib/phoenix_kit/integrations/validators.ex:296
 #, elixir-autogen, elixir-format
 msgid "Invalid %{setting}: %{value}"
 msgstr "无效的 %{setting}：%{value}"
 
-#: lib/phoenix_kit/integrations/validators.ex:414
+#: lib/phoenix_kit/integrations/validators.ex:385
 #, elixir-autogen, elixir-format
 msgid "Invalid SMTP settings"
 msgstr "无效的 SMTP 设置"
 
-#: lib/phoenix_kit/integrations/validators.ex:334
+#: lib/phoenix_kit/integrations/validators.ex:305
 #, elixir-autogen, elixir-format
 msgid "Invalid SMTP settings: %{reason}"
 msgstr "无效的 SMTP 设置：%{reason}"
 
-#: lib/phoenix_kit/integrations/validators.ex:1031
+#: lib/phoenix_kit/integrations/validators.ex:1002
 #, elixir-autogen, elixir-format
 msgid "Invalid bot token"
 msgstr "无效的机器人令牌"
 
-#: lib/phoenix_kit/integrations/validators.ex:307
+#: lib/phoenix_kit/integrations/validators.ex:278
 #, elixir-autogen, elixir-format
 msgid "Invalid port: %{port}"
 msgstr "无效的端口：%{port}"
 
-#: lib/phoenix_kit/integrations/validators.ex:320
+#: lib/phoenix_kit/integrations/validators.ex:291
 #, elixir-autogen, elixir-format
 msgid "Invalid timeout: %{value}"
 msgstr "无效的超时：%{value}"
@@ -10747,7 +10747,7 @@ msgstr "无效的超时：%{value}"
 msgid "Leave a field blank to fall back to the application config or built-in default."
 msgstr "将字段留空则回退到应用配置或内置默认值。"
 
-#: lib/phoenix_kit/integrations/providers.ex:1417
+#: lib/phoenix_kit/integrations/providers.ex:1445
 #, elixir-autogen, elixir-format
 msgid "Leave blank for the gen_smtp default."
 msgstr "留空则使用 gen_smtp 默认值。"
@@ -10824,7 +10824,7 @@ msgstr "新建发送配置"
 msgid "No adapter configured for the static mailer. Set one in your application config, or connect an email-capable integration below and pick it as the default transactional integration."
 msgstr "未为静态邮件发送器配置适配器。请在应用配置中设置，或在下方连接支持电子邮件的集成并将其选为默认事务性集成。"
 
-#: lib/phoenix_kit/integrations/validators.ex:1013
+#: lib/phoenix_kit/integrations/validators.ex:984
 #, elixir-autogen, elixir-format
 msgid "No bot token configured"
 msgstr "未配置机器人令牌"
@@ -10849,7 +10849,7 @@ msgstr "还没有个人集成"
 msgid "No send profiles yet"
 msgstr "还没有发送配置"
 
-#: lib/phoenix_kit/integrations/validators.ex:311
+#: lib/phoenix_kit/integrations/validators.ex:282
 #, elixir-autogen, elixir-format
 msgid "No system CA certificates found, so the relay's certificate cannot be verified"
 msgstr "未找到系统 CA 证书，因此无法验证中继的证书"
@@ -10859,7 +10859,7 @@ msgstr "未找到系统 CA 证书，因此无法验证中继的证书"
 msgid "No unread notifications"
 msgstr "没有未读通知"
 
-#: lib/phoenix_kit/integrations/providers.ex:1365
+#: lib/phoenix_kit/integrations/providers.ex:1393
 #, elixir-autogen, elixir-format
 msgid "None — plaintext"
 msgstr "无（明文）"
@@ -10894,12 +10894,12 @@ msgstr "已验证的 Brevo 发件人的数字 ID。留空则使用上方的发�
 msgid "Only me"
 msgstr "仅我自己"
 
-#: lib/phoenix_kit/integrations/providers.ex:1491
+#: lib/phoenix_kit/integrations/providers.ex:1519
 #, elixir-autogen, elixir-format
 msgid "Open [@BotFather](https://t.me/BotFather) in Telegram"
 msgstr "在 Telegram 中打开 [@BotFather](https://t.me/BotFather)"
 
-#: lib/phoenix_kit/integrations/providers.ex:1501
+#: lib/phoenix_kit/integrations/providers.ex:1529
 #, elixir-autogen, elixir-format
 msgid "Paste the token into the form above and press **Test Connection**"
 msgstr "将令牌粘贴到上方表单中，然后点击 **测试连接**"
@@ -10914,7 +10914,7 @@ msgstr "发送间隔（秒）"
 msgid "Persistent sessions last 60 days. Magic-link and social logins have no checkbox to tick, so they follow the default above. Turning the first option off hides the checkbox everywhere and keeps every login to the browser session."
 msgstr "持久会话持续 60 天。魔法链接和社交登录没有可勾选的复选框，因此遵循上面的默认值。关闭第一个选项会在所有位置隐藏该复选框，并使所有登录仅在浏览器会话内有效。"
 
-#: lib/phoenix_kit/integrations/validators.ex:947
+#: lib/phoenix_kit/integrations/validators.ex:918
 #, elixir-autogen, elixir-format
 msgid "Plan: %{entries}"
 msgstr "计划：%{entries}"
@@ -10934,7 +10934,7 @@ msgstr "登录后重定向"
 msgid "Profile Details"
 msgstr "个人资料详情"
 
-#: lib/phoenix_kit/integrations/validators.ex:587
+#: lib/phoenix_kit/integrations/validators.ex:558
 #, elixir-autogen, elixir-format
 msgid "Quota: %{sent} / %{max} sent last 24h · max %{rate}/s"
 msgstr "配额：过去 24 小时已发送 %{sent} / %{max} · 最大 %{rate}/秒"
@@ -10956,7 +10956,7 @@ msgid "Rate per hour"
 msgstr "每小时速率"
 
 #: lib/phoenix_kit/integrations/validators.ex:95
-#: lib/phoenix_kit/integrations/validators.ex:199
+#: lib/phoenix_kit/integrations/validators.ex:170
 #, elixir-autogen, elixir-format
 msgid "Region is required"
 msgstr "区域为必填项"
@@ -11015,17 +11015,17 @@ msgstr "应用于此配置每次发送的 SES 配置集，它决定退信/投诉
 msgid "SMTP has no per-profile provider settings — relay, port and TLS come from the integration itself."
 msgstr "SMTP 没有按配置的提供商设置，中继、端口和 TLS 均来自集成本身。"
 
-#: lib/phoenix_kit/integrations/validators.ex:431
+#: lib/phoenix_kit/integrations/validators.ex:402
 #, elixir-autogen, elixir-format
 msgid "SMTP server rejected the connection"
 msgstr "SMTP 服务器拒绝了连接"
 
-#: lib/phoenix_kit/integrations/providers.ex:1364
+#: lib/phoenix_kit/integrations/providers.ex:1392
 #, elixir-autogen, elixir-format
 msgid "STARTTLS — if offered"
 msgstr "STARTTLS，如果支持"
 
-#: lib/phoenix_kit/integrations/providers.ex:1363
+#: lib/phoenix_kit/integrations/providers.ex:1391
 #, elixir-autogen, elixir-format
 msgid "STARTTLS — required"
 msgstr "STARTTLS，必须"
@@ -11047,12 +11047,12 @@ msgstr "保存发件人身份"
 msgid "Select an integration..."
 msgstr "选择集成…"
 
-#: lib/phoenix_kit/integrations/providers.ex:1492
+#: lib/phoenix_kit/integrations/providers.ex:1520
 #, elixir-autogen, elixir-format
 msgid "Send **/newbot** and follow the prompts to name your bot"
 msgstr "发送 **/newbot** 并按提示为您的机器人命名"
 
-#: lib/phoenix_kit/integrations/providers.ex:1467
+#: lib/phoenix_kit/integrations/providers.ex:1495
 #, elixir-autogen, elixir-format
 msgid "Send messages and notifications via your own Telegram bot"
 msgstr "通过您自己的 Telegram 机器人发送消息和通知"
@@ -11128,7 +11128,7 @@ msgstr "静态邮件发送器：PhoenixKit 内置邮件发送器"
 msgid "Static mailer: parent app mailer (%{module})"
 msgstr "静态邮件发送器：上级应用的邮件发送器（%{module}）"
 
-#: lib/phoenix_kit/integrations/validators.ex:425
+#: lib/phoenix_kit/integrations/validators.ex:396
 #, elixir-autogen, elixir-format
 msgid "TLS handshake failed"
 msgstr "TLS 握手失败"
@@ -11139,14 +11139,14 @@ msgstr "TLS 握手失败"
 msgid "Tags"
 msgstr "标签"
 
-#: lib/phoenix_kit/integrations/providers.ex:1466
+#: lib/phoenix_kit/integrations/providers.ex:1494
 #: lib/phoenix_kit/notifications/channels/telegram.ex:60
 #: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:341
 #, elixir-autogen, elixir-format
 msgid "Telegram"
 msgstr "Telegram"
 
-#: lib/phoenix_kit/integrations/validators.ex:1034
+#: lib/phoenix_kit/integrations/validators.ex:1005
 #, elixir-autogen, elixir-format
 msgid "Telegram error %{status}"
 msgstr "Telegram 错误 %{status}"
@@ -11182,7 +11182,7 @@ msgstr "该账户已停用。"
 msgid "That is already your account."
 msgstr "这已经是您的账户。"
 
-#: lib/phoenix_kit/integrations/validators.ex:315
+#: lib/phoenix_kit/integrations/validators.ex:286
 #, elixir-autogen, elixir-format
 msgid "The CA certificate is not a valid PEM bundle (expected a -----BEGIN CERTIFICATE----- block)"
 msgstr "该 CA 证书不是有效的 PEM 证书包（应包含 -----BEGIN CERTIFICATE----- 块）"
@@ -11213,7 +11213,7 @@ msgstr "此发送配置将被永久删除。"
 msgid "This sender address cannot be logged"
 msgstr "无法记录此发件人地址"
 
-#: lib/phoenix_kit/integrations/providers.ex:1413
+#: lib/phoenix_kit/integrations/providers.ex:1441
 #, elixir-autogen, elixir-format
 msgid "Timeout (seconds)"
 msgstr "超时（秒）"
@@ -11224,7 +11224,7 @@ msgstr "超时（秒）"
 msgid "Transport"
 msgstr "传输方式"
 
-#: lib/phoenix_kit/integrations/providers.ex:1391
+#: lib/phoenix_kit/integrations/providers.ex:1419
 #, elixir-autogen, elixir-format
 msgid "Turning verification off means the login travels to whoever answers, including an impostor. Use a CA certificate below instead whenever you can."
 msgstr "关闭验证意味着登录信息会发送给任何应答者，包括冒充者。请尽可能改用下方的 CA 证书。"
@@ -11254,7 +11254,7 @@ msgstr "未在下方选择默认事务性集成时使用。"
 msgid "User not found."
 msgstr "未找到用户。"
 
-#: lib/phoenix_kit/integrations/providers.ex:1395
+#: lib/phoenix_kit/integrations/providers.ex:1423
 #, elixir-autogen, elixir-format
 msgid "Verify (default)"
 msgstr "验证（默认）"
@@ -11264,7 +11264,7 @@ msgstr "验证（默认）"
 msgid "Where a freshly registered account lands. Empty = after-login path."
 msgstr "新注册账户进入的页面。留空 = 登录后路径。"
 
-#: lib/phoenix_kit/integrations/providers.ex:1375
+#: lib/phoenix_kit/integrations/providers.ex:1403
 #, elixir-autogen, elixir-format
 msgid "Whether to send the login at all. “If offered” follows the relay; “Never” is for relays that authenticate by IP."
 msgstr "是否发送登录凭据。“如果支持”遵循中继的设置；“从不”适用于按 IP 验证的中继。"
@@ -11350,7 +11350,7 @@ msgstr "在线"
 msgid "status unknown"
 msgstr "状态未知"
 
-#: lib/phoenix_kit/integrations/validators.ex:585
+#: lib/phoenix_kit/integrations/validators.ex:556
 #, elixir-autogen, elixir-format
 msgid "unlimited"
 msgstr "无限制"
@@ -11564,12 +11564,12 @@ msgstr "您无权管理此用户的凭据"
 msgid "AI Discovery"
 msgstr "AI 发现"
 
-#: lib/phoenix_kit/integrations/providers.ex:973
+#: lib/phoenix_kit/integrations/providers.ex:976
 #, elixir-autogen, elixir-format
 msgid "AWS Bedrock LLMs via a Bedrock API key (OpenAI-compatible endpoint: gpt-oss models; the rest via native Converse)"
 msgstr "通过 Bedrock API 密钥使用 AWS Bedrock 大语言模型（兼容 OpenAI 的端点：gpt-oss 模型；其余模型通过原生 Converse）"
 
-#: lib/phoenix_kit/integrations/providers.ex:990
+#: lib/phoenix_kit/integrations/providers.ex:993
 #, elixir-autogen, elixir-format
 msgid "AWS console → Amazon Bedrock → API keys (long-term key)"
 msgstr "AWS 控制台 → Amazon Bedrock → API keys（长期密钥）"
@@ -11579,7 +11579,7 @@ msgstr "AWS 控制台 → Amazon Bedrock → API keys（长期密钥）"
 msgid "Access requested."
 msgstr "已请求访问。"
 
-#: lib/phoenix_kit/integrations/validators.ex:132
+#: lib/phoenix_kit/integrations/validators.ex:146
 #, elixir-autogen, elixir-format
 msgid "Account %{id}"
 msgstr "账户 %{id}"
@@ -11594,7 +11594,7 @@ msgstr "仅供参考：任何客户端都可以发送任意 User-Agent，因此�
 msgid "Allowed"
 msgstr "允许"
 
-#: lib/phoenix_kit/integrations/providers.ex:971
+#: lib/phoenix_kit/integrations/providers.ex:974
 #, elixir-autogen, elixir-format
 msgid "Amazon Bedrock"
 msgstr "Amazon Bedrock"
@@ -11609,12 +11609,12 @@ msgstr "对 User-Agent 匹配被拦截分组的请求返回 403，适用于忽�
 msgid "Auth mail carries single-use tokens, and /dev/mailbox has no authentication — anyone who can reach this server can read them. Only for closed environments."
 msgstr "身份验证邮件包含一次性令牌，而 /dev/mailbox 没有身份验证，任何能访问此服务器的人都可以读取。仅限封闭环境使用。"
 
-#: lib/phoenix_kit/integrations/providers.ex:986
+#: lib/phoenix_kit/integrations/providers.ex:989
 #, elixir-autogen, elixir-format
 msgid "Bedrock API key"
 msgstr "Bedrock API 密钥"
 
-#: lib/phoenix_kit/integrations/validators.ex:250
+#: lib/phoenix_kit/integrations/validators.ex:221
 #, elixir-autogen, elixir-format
 msgid "Bedrock error %{status}"
 msgstr "Bedrock 错误 %{status}"
@@ -11645,17 +11645,17 @@ msgstr "默认情况下，提及会向没有权限的人显示其所指对象，
 msgid "Control how search engines and AI bots crawl and index this site"
 msgstr "控制搜索引擎和 AI 机器人如何抓取和索引本站"
 
-#: lib/phoenix_kit/integrations/providers.ex:1014
+#: lib/phoenix_kit/integrations/providers.ex:1017
 #, elixir-autogen, elixir-format
 msgid "Copy the key (shown once, `ABSK…`) and paste it into the form above"
 msgstr "复制密钥（仅显示一次，形如 `ABSK…`）并粘贴到上方表单中"
 
-#: lib/phoenix_kit/integrations/providers.ex:1090
+#: lib/phoenix_kit/integrations/providers.ex:1093
 #, elixir-autogen, elixir-format
 msgid "Copy the token and paste it into the form above"
 msgstr "复制令牌并粘贴到上方表单中"
 
-#: lib/phoenix_kit/integrations/validators.ex:254
+#: lib/phoenix_kit/integrations/validators.ex:225
 #, elixir-autogen, elixir-format
 msgid "Could not reach Bedrock in %{region}"
 msgstr "无法连接 %{region} 的 Bedrock"
@@ -11686,22 +11686,18 @@ msgstr "爬虫"
 msgid "Crawlers module is disabled. Enable it from the Modules page to configure settings."
 msgstr "爬虫模块已停用。请在“模块”页面启用后再配置设置。"
 
-#: lib/phoenix_kit/integrations/providers.ex:1006
+#: lib/phoenix_kit/integrations/providers.ex:1009
 #, elixir-autogen, elixir-format
 msgid "Create a Bedrock API key"
 msgstr "创建 Bedrock API 密钥"
 
-#: lib/phoenix_kit/integrations/providers.ex:1082
+#: lib/phoenix_kit/integrations/providers.ex:1085
 #, elixir-autogen, elixir-format
 msgid "Create a token"
 msgstr "创建令牌"
 
-#: lib/phoenix_kit/integrations/providers.ex:1146
-#, elixir-autogen, elixir-format
-msgid "Create an IAM user with SES access"
-msgstr "创建具有 SES 访问权限的 IAM 用户"
-
-#: lib/phoenix_kit/integrations/providers.ex:1151
+#: lib/phoenix_kit/integrations/providers.ex:1159
+#: lib/phoenix_kit/integrations/providers.ex:1179
 #, elixir-autogen, elixir-format
 msgid "Create an access key for that user (Security credentials → Create access key) and paste the ID and secret above"
 msgstr "为该用户创建访问密钥（Security credentials → Create access key），并将 ID 和密钥粘贴到上方"
@@ -11716,7 +11712,7 @@ msgstr "决定谁可以读取本站：索引指令、按机器人设置的访问
 msgid "Deliver development mail to /dev/mailbox"
 msgstr "将开发邮件投递到 /dev/mailbox"
 
-#: lib/phoenix_kit/integrations/providers.ex:1022
+#: lib/phoenix_kit/integrations/providers.ex:1025
 #, elixir-autogen, elixir-format
 msgid "Enable model access"
 msgstr "启用模型访问"
@@ -11737,17 +11733,17 @@ msgstr "执行方式"
 msgid "Failed to update crawler settings"
 msgstr "更新爬虫设置失败"
 
-#: lib/phoenix_kit/integrations/providers.ex:1055
+#: lib/phoenix_kit/integrations/providers.ex:1058
 #, elixir-autogen, elixir-format
 msgid "GitHub"
 msgstr "GitHub"
 
-#: lib/phoenix_kit/integrations/providers.ex:1057
+#: lib/phoenix_kit/integrations/providers.ex:1060
 #, elixir-autogen, elixir-format
 msgid "GitHub API token — org statistics, repositories (read-only is enough)"
 msgstr "GitHub API 令牌：组织统计、仓库（只读即可）"
 
-#: lib/phoenix_kit/integrations/providers.ex:1084
+#: lib/phoenix_kit/integrations/providers.ex:1087
 #, elixir-autogen, elixir-format
 msgid "Go to [Fine-grained tokens](https://github.com/settings/personal-access-tokens) and click **Generate new token**"
 msgstr "前往 [Fine-grained tokens](https://github.com/settings/personal-access-tokens) 并点击 **Generate new token**"
@@ -11762,32 +11758,27 @@ msgstr "按访问原因分组。拦截某个分组会将其写入下方生成的
 msgid "Hide titles of records the reader can't open"
 msgstr "隐藏读者无法打开的记录的标题"
 
-#: lib/phoenix_kit/integrations/providers.ex:1024
+#: lib/phoenix_kit/integrations/providers.ex:1027
 #, elixir-autogen, elixir-format
 msgid "In [Bedrock → Model access](https://console.aws.amazon.com/bedrock/home#/modelaccess) enable the models you plan to call — a key with no enabled models validates but cannot complete"
 msgstr "在 [Bedrock → Model access](https://console.aws.amazon.com/bedrock/home#/modelaccess) 中启用您计划调用的模型，未启用任何模型的密钥可以通过验证，但无法完成补全"
 
-#: lib/phoenix_kit/integrations/providers.ex:1038
+#: lib/phoenix_kit/integrations/providers.ex:1041
 #, elixir-autogen, elixir-format
 msgid "In the AI module, create an endpoint pointing at this connection with a `gpt-oss` model and a base URL in the SAME region as this key"
 msgstr "在 AI 模块中，创建一个指向此连接的端点，使用 `gpt-oss` 模型，且基础 URL 与此密钥处于同一区域"
 
-#: lib/phoenix_kit/integrations/providers.ex:1148
-#, elixir-autogen, elixir-format
-msgid "In the [IAM console](https://console.aws.amazon.com/iam/home#/users) create a user for programmatic access and attach an SES policy (least privilege: `ses:SendEmail`/`ses:SendRawEmail`; docs: [SES setup](https://docs.aws.amazon.com/ses/latest/dg/setting-up.html))"
-msgstr "在 [IAM 控制台](https://console.aws.amazon.com/iam/home#/users)中创建用于编程访问的用户，并附加 SES 策略（最小权限：`ses:SendEmail`/`ses:SendRawEmail`；文档：[SES setup](https://docs.aws.amazon.com/ses/latest/dg/setting-up.html)）"
-
-#: lib/phoenix_kit/integrations/providers.ex:1159
+#: lib/phoenix_kit/integrations/providers.ex:1187
 #, elixir-autogen, elixir-format
 msgid "In the [SES console](https://console.aws.amazon.com/ses/home#/identities) verify your domain or sender address — SES refuses to send from unverified identities"
 msgstr "在 [SES 控制台](https://console.aws.amazon.com/ses/home#/identities)中验证您的域名或发件人地址，SES 拒绝从未验证的身份发送"
 
-#: lib/phoenix_kit/integrations/validators.ex:203
+#: lib/phoenix_kit/integrations/validators.ex:174
 #, elixir-autogen, elixir-format
 msgid "Invalid region format (expected e.g. eu-central-1)"
 msgstr "区域格式无效（应类似 eu-central-1）"
 
-#: lib/phoenix_kit/integrations/validators.ex:244
+#: lib/phoenix_kit/integrations/validators.ex:215
 #, elixir-autogen, elixir-format
 msgid "Key authenticated but not authorised in %{region} — allow bedrock:CallWithBearerToken (and ListFoundationModels) on its IAM identity, or check the key was issued for this region"
 msgstr "密钥已通过身份验证，但在 %{region} 中未获授权，请在其 IAM 身份上允许 bedrock:CallWithBearerToken（以及 ListFoundationModels），或检查该密钥是否为此区域签发"
@@ -11817,12 +11808,12 @@ msgstr "本地邮箱已启用，身份验证邮件中的令牌现在可在 /dev/
 msgid "Mentions and record links"
 msgstr "提及和记录链接"
 
-#: lib/phoenix_kit/integrations/validators.ex:268
+#: lib/phoenix_kit/integrations/validators.ex:239
 #, elixir-autogen, elixir-format
 msgid "Model catalog in %{region}: %{count} (grants are configured separately)"
 msgstr "%{region} 的模型目录：%{count}（授权需单独配置）"
 
-#: lib/phoenix_kit/integrations/providers.ex:1162
+#: lib/phoenix_kit/integrations/providers.ex:1190
 #, elixir-autogen, elixir-format
 msgid "New accounts start in the SES sandbox (verified recipients only) — [request production access](https://docs.aws.amazon.com/ses/latest/dg/request-production-access.html) before real sending"
 msgstr "新账户从 SES 沙盒开始（仅限已验证的收件人），正式发送前请[申请生产访问权限](https://docs.aws.amazon.com/ses/latest/dg/request-production-access.html)"
@@ -11852,7 +11843,7 @@ msgstr "未在此页面显示"
 msgid "Note (optional)"
 msgstr "备注（可选）"
 
-#: lib/phoenix_kit/integrations/providers.ex:1008
+#: lib/phoenix_kit/integrations/providers.ex:1011
 #, elixir-autogen, elixir-format
 msgid "Open the [Bedrock console → API keys](https://console.aws.amazon.com/bedrock/home#/api-keys) and generate a **long-term** key (docs: [Bedrock API keys](https://docs.aws.amazon.com/bedrock/latest/userguide/api-keys.html))"
 msgstr "打开 [Bedrock 控制台 → API keys](https://console.aws.amazon.com/bedrock/home#/api-keys) 并生成**长期**密钥（文档：[Bedrock API keys](https://docs.aws.amazon.com/bedrock/latest/userguide/api-keys.html)）"
@@ -11862,7 +11853,7 @@ msgstr "打开 [Bedrock 控制台 → API keys](https://console.aws.amazon.com/b
 msgid "Optional markdown: a summary paragraph, key links, docs pointers…"
 msgstr "可选的 Markdown：摘要段落、重要链接、文档指引…"
 
-#: lib/phoenix_kit/integrations/providers.ex:1011
+#: lib/phoenix_kit/integrations/providers.ex:1014
 #, elixir-autogen, elixir-format
 msgid "Or attach one to an existing IAM user: [IAM console](https://console.aws.amazon.com/iam/home#/users) → user → Security credentials → Bedrock API keys"
 msgstr "或将其附加到现有 IAM 用户：[IAM 控制台](https://console.aws.amazon.com/iam/home#/users) → 用户 → Security credentials → Bedrock API keys"
@@ -11872,7 +11863,7 @@ msgstr "或将其附加到现有 IAM 用户：[IAM 控制台](https://console.aw
 msgid "Paste the verification content Google Search Console or Bing Webmaster Tools gives you — the meta tags are added to every layout head. Pasting the whole <meta> tag also works; the content value is extracted."
 msgstr "粘贴 Google Search Console 或 Bing Webmaster Tools 提供的验证内容，meta 标签将添加到每个布局的 head 中。粘贴完整的 <meta> 标签也可以，系统会提取其中的 content 值。"
 
-#: lib/phoenix_kit/integrations/providers.ex:1071
+#: lib/phoenix_kit/integrations/providers.ex:1074
 #, elixir-autogen, elixir-format
 msgid "Personal access token"
 msgstr "个人访问令牌"
@@ -11882,7 +11873,7 @@ msgstr "个人访问令牌"
 msgid "PhoenixKit does not serve this file — it is yours, served from priv/static before any route is consulted. This is the complete file your toggles above describe: paste it into priv/static/robots.txt."
 msgstr "PhoenixKit 不提供此文件，它归您所有，在查找任何路由之前由 priv/static 直接提供。这是您上方开关所描述的完整文件：请粘贴到 priv/static/robots.txt。"
 
-#: lib/phoenix_kit/integrations/providers.ex:1027
+#: lib/phoenix_kit/integrations/providers.ex:1030
 #, elixir-autogen, elixir-format
 msgid "Pick the region where access was granted; the AI endpoint's base URL must use the same region"
 msgstr "选择已获得访问授权的区域；AI 端点的基础 URL 必须使用相同区域"
@@ -11892,7 +11883,7 @@ msgstr "选择已获得访问授权的区域；AI 端点的基础 URL 必须使�
 msgid "Preview of the served file:"
 msgstr "所提供文件的预览："
 
-#: lib/phoenix_kit/integrations/providers.ex:1087
+#: lib/phoenix_kit/integrations/providers.ex:1090
 #, elixir-autogen, elixir-format
 msgid "Repository access: **Public repositories (read-only)** — no extra permissions needed for public-org statistics"
 msgstr "仓库访问：**Public repositories (read-only)**，公开组织的统计无需额外权限"
@@ -11923,12 +11914,12 @@ msgstr "正在发送…"
 msgid "Sign in to request access."
 msgstr "请登录以请求访问。"
 
-#: lib/phoenix_kit/integrations/providers.ex:1035
+#: lib/phoenix_kit/integrations/providers.ex:1038
 #, elixir-autogen, elixir-format
 msgid "The OpenAI-compatible endpoint (`…/openai/v1`) currently serves only the `openai.gpt-oss-*` models — Anthropic and the other Bedrock models answer on the native Converse API with the same key"
 msgstr "兼容 OpenAI 的端点（`…/openai/v1`）目前仅提供 `openai.gpt-oss-*` 模型，Anthropic 及其他 Bedrock 模型使用同一密钥通过原生 Converse API 响应"
 
-#: lib/phoenix_kit/integrations/providers.ex:1017
+#: lib/phoenix_kit/integrations/providers.ex:1020
 #, elixir-autogen, elixir-format
 msgid "The key's IAM identity must allow the `bedrock:CallWithBearerToken` action — without it every Bearer call answers 403 even when invoke permissions are in place."
 msgstr "该密钥的 IAM 身份必须允许 `bedrock:CallWithBearerToken` 操作，否则即使已有调用权限，每次 Bearer 调用也会返回 403。"
@@ -11948,11 +11939,6 @@ msgstr "noindex 开关和 robots.txt 是两种独立的机制：noindex 是每�
 msgid "The other half of bot policy: a markdown summary telling AI assistants what this site is about, served at"
 msgstr "机器人策略的另一半：一份告诉 AI 助手本站内容的 Markdown 摘要，提供于"
 
-#: lib/phoenix_kit/integrations/providers.ex:1167
-#, elixir-autogen, elixir-format
-msgid "This connection stores the credential. The full sending pipeline — configuration set, SNS topic, SQS event queue, delivery tracking — is configured in Admin → Settings → Emails, which can select this connection as its credential source."
-msgstr "此连接保存凭据。完整的发送流程（配置集、SNS 主题、SQS 事件队列、送达跟踪）在 管理后台 → 设置 → 电子邮件 中配置，可将此连接选为其凭据来源。"
-
 #: lib/phoenix_kit/mentions/live.ex:214
 #: lib/phoenix_kit_web/components/core/textarea.ex:94
 #: lib/phoenix_kit_web/components/multilang_form.ex:1083
@@ -11965,7 +11951,7 @@ msgstr "输入 @ 提及某人，输入 # 链接记录。"
 msgid "Unread · %{day}"
 msgstr "未读 · %{day}"
 
-#: lib/phoenix_kit/integrations/providers.ex:1033
+#: lib/phoenix_kit/integrations/providers.ex:1036
 #, elixir-autogen, elixir-format
 msgid "Use it from the AI module"
 msgstr "在 AI 模块中使用"
@@ -11983,7 +11969,7 @@ msgstr "验证"
 msgid "Verification tags saved."
 msgstr "验证标签已保存。"
 
-#: lib/phoenix_kit/integrations/providers.ex:1157
+#: lib/phoenix_kit/integrations/providers.ex:1185
 #, elixir-autogen, elixir-format
 msgid "Verify a sender in SES"
 msgstr "在 SES 中验证发件人"
@@ -12018,7 +12004,7 @@ msgstr "您没有权限访问此%{kind}。请联系其所有者，如有帮助�
 msgid "You don't have access — click to request it"
 msgstr "您没有访问权限，点击可请求"
 
-#: lib/phoenix_kit/integrations/providers.ex:1075
+#: lib/phoenix_kit/integrations/providers.ex:1078
 #, elixir-autogen, elixir-format
 msgid "github.com/settings/personal-access-tokens — fine-grained, read-only"
 msgstr "github.com/settings/personal-access-tokens：细粒度，只读"
@@ -12027,11 +12013,6 @@ msgstr "github.com/settings/personal-access-tokens：细粒度，只读"
 #, elixir-autogen, elixir-format
 msgid "llms.txt content saved."
 msgstr "llms.txt 内容已保存。"
-
-#: lib/phoenix_kit/integrations/validators.ex:173
-#, elixir-autogen, elixir-format
-msgid "management API: %{services}"
-msgstr "管理 API：%{services}"
 
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:204
 #, elixir-autogen, elixir-format
@@ -12218,7 +12199,7 @@ msgstr "集成凭据加密需要处理"
 msgid "The current encryption status could not be described by this admin page — it may be newer than what this page recognizes. Check PhoenixKit.Integrations.Encryption.status/0 directly."
 msgstr "此管理页面无法描述当前的加密状态，它可能比本页面能识别的版本更新。请直接检查 PhoenixKit.Integrations.Encryption.status/0。"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:465
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:467
 #: lib/phoenix_kit_web/live/settings/authorization.ex:452
 #, elixir-autogen, elixir-format
 msgid "A secret is already configured — leave blank to keep the current value"
@@ -12282,10 +12263,10 @@ msgstr "无法移除您的主账户。"
 msgid "Context switching is not enabled"
 msgstr "未启用上下文切换"
 
-#: lib/phoenix_kit/integrations/validators.ex:711
-#: lib/phoenix_kit/integrations/validators.ex:718
-#: lib/phoenix_kit/integrations/validators.ex:820
-#: lib/phoenix_kit/integrations/validators.ex:828
+#: lib/phoenix_kit/integrations/validators.ex:682
+#: lib/phoenix_kit/integrations/validators.ex:689
+#: lib/phoenix_kit/integrations/validators.ex:791
+#: lib/phoenix_kit/integrations/validators.ex:799
 #, elixir-autogen, elixir-format
 msgid "Could not reach the storage endpoint"
 msgstr "无法连接存储端点"
@@ -12300,7 +12281,7 @@ msgstr "无法移除账户。"
 msgid "Could not switch account."
 msgstr "无法切换账户。"
 
-#: lib/phoenix_kit/integrations/validators.ex:806
+#: lib/phoenix_kit/integrations/validators.ex:777
 #, elixir-autogen, elixir-format
 msgid "Credentials are valid, but not allowed to list buckets — bucket access was not verified"
 msgstr "凭据有效，但无权列出存储桶，未验证存储桶访问权限"
@@ -12406,7 +12387,7 @@ msgstr "已达账户数量上限。"
 msgid "Multi-account switching is not available."
 msgstr "多账户切换不可用。"
 
-#: lib/phoenix_kit/integrations/providers.ex:1237
+#: lib/phoenix_kit/integrations/providers.ex:1265
 #, elixir-autogen, elixir-format
 msgid "Not every S3-compatible provider needs one — leave blank if the endpoint doesn't require it."
 msgstr "并非每个兼容 S3 的提供商都需要此项，如果端点不要求，请留空。"
@@ -12426,7 +12407,7 @@ msgstr "OAuth 提供商“%{provider}”当前已停用。"
 msgid "OAuth provider '%{provider}' is not configured. Please contact your administrator."
 msgstr "OAuth 提供商“%{provider}”尚未配置。请联系您的管理员。"
 
-#: lib/phoenix_kit/integrations/providers.ex:1188
+#: lib/phoenix_kit/integrations/providers.ex:1216
 #, elixir-autogen, elixir-format
 msgid "Object Storage (S3-compatible)"
 msgstr "对象存储（兼容 S3）"
@@ -12464,7 +12445,7 @@ msgstr "注册链接无效或已过期。请重新申请。"
 msgid "Registration link sent! Check your email."
 msgstr "注册链接已发送！请查收电子邮件。"
 
-#: lib/phoenix_kit/integrations/providers.ex:1249
+#: lib/phoenix_kit/integrations/providers.ex:1277
 #, elixir-autogen, elixir-format
 msgid "Required for Cloudflare R2, Backblaze B2, Tigris, and self-hosted S3-compatible storage. Leave blank for AWS S3."
 msgstr "Cloudflare R2、Backblaze B2、Tigris 和自托管的兼容 S3 存储需要此项。AWS S3 请留空。"
@@ -12474,7 +12455,7 @@ msgstr "Cloudflare R2、Backblaze B2、Tigris 和自托管的兼容 S3 存储需
 msgid "Reset password link is invalid or it has expired."
 msgstr "重置密码链接无效或已过期。"
 
-#: lib/phoenix_kit/integrations/providers.ex:1190
+#: lib/phoenix_kit/integrations/providers.ex:1218
 #, elixir-autogen, elixir-format
 msgid "S3-compatible object storage — AWS S3, Cloudflare R2, Backblaze B2, Tigris, or a self-hosted endpoint"
 msgstr "兼容 S3 的对象存储：AWS S3、Cloudflare R2、Backblaze B2、Tigris 或自托管端点"
@@ -12489,12 +12470,12 @@ msgstr "站点地图豁免"
 msgid "Something went wrong"
 msgstr "出了点问题"
 
-#: lib/phoenix_kit/integrations/validators.ex:823
+#: lib/phoenix_kit/integrations/validators.ex:794
 #, elixir-autogen, elixir-format
 msgid "Storage error: %{code}"
 msgstr "存储错误：%{code}"
 
-#: lib/phoenix_kit/integrations/validators.ex:817
+#: lib/phoenix_kit/integrations/validators.ex:788
 #, elixir-autogen, elixir-format
 msgid "Storage service is busy — try again in a moment"
 msgstr "存储服务繁忙，请稍后重试"
@@ -12801,8 +12782,8 @@ msgstr "夜猫子"
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:200
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:408
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:431
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:492
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:624
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:498
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:630
 #: lib/phoenix_kit_web/live/settings/integrations.ex:568
 #, elixir-autogen, elixir-format
 msgid "Not tested — this provider has no connection check"
@@ -14770,220 +14751,220 @@ msgstr "宽度 %"
 msgid "You can't edit this image."
 msgstr "您无法编辑此图片。"
 
-#: lib/phoenix_kit/integrations/providers.ex:1563
+#: lib/phoenix_kit/integrations/providers.ex:1591
 #, elixir-autogen, elixir-format
 msgid "API login"
 msgstr "API 登录名"
 
-#: lib/phoenix_kit/integrations/providers.ex:1572
+#: lib/phoenix_kit/integrations/providers.ex:1600
 #, elixir-autogen, elixir-format
 msgid "API password"
 msgstr "API 密码"
 
-#: lib/phoenix_kit/integrations/validators.ex:1151
+#: lib/phoenix_kit/integrations/validators.ex:1122
 #, elixir-autogen, elixir-format
 msgid "Balance: $%{amount}"
 msgstr "余额：$%{amount}"
 
-#: lib/phoenix_kit/integrations/validators.ex:1155
+#: lib/phoenix_kit/integrations/validators.ex:1126
 #, elixir-autogen, elixir-format
 msgid "Balance: $%{amount} — add funds before running searches"
 msgstr "余额：$%{amount}，运行搜索前请先充值"
 
-#: lib/phoenix_kit/integrations/providers.ex:1637
+#: lib/phoenix_kit/integrations/providers.ex:1665
 #, elixir-autogen, elixir-format
 msgid "Copy the key from [API Key](https://serpapi.com/manage-api-key) and paste it into the form above"
 msgstr "从 [API Key](https://serpapi.com/manage-api-key) 复制密钥，并粘贴到上方表单中"
 
-#: lib/phoenix_kit/integrations/validators.ex:1097
+#: lib/phoenix_kit/integrations/validators.ex:1068
 #, elixir-autogen, elixir-format
 msgid "Could not reach DataForSEO"
 msgstr "无法连接到 DataForSEO"
 
-#: lib/phoenix_kit/integrations/validators.ex:1271
+#: lib/phoenix_kit/integrations/validators.ex:1242
 #, elixir-autogen, elixir-format
 msgid "Could not reach SerpApi"
 msgstr "无法连接到 SerpApi"
 
-#: lib/phoenix_kit/integrations/providers.ex:1586
+#: lib/phoenix_kit/integrations/providers.ex:1614
 #, elixir-autogen, elixir-format
 msgid "Create an account at [DataForSEO](https://app.dataforseo.com/register) — new accounts start with a small trial balance"
 msgstr "在 [DataForSEO](https://app.dataforseo.com/register) 创建账户，新账户带有少量试用余额"
 
-#: lib/phoenix_kit/integrations/providers.ex:1553
+#: lib/phoenix_kit/integrations/providers.ex:1581
 #, elixir-autogen, elixir-format
 msgid "DataForSEO"
 msgstr "DataForSEO"
 
-#: lib/phoenix_kit/integrations/validators.ex:1221
+#: lib/phoenix_kit/integrations/validators.ex:1192
 #, elixir-autogen, elixir-format
 msgid "DataForSEO error %{code}"
 msgstr "DataForSEO 错误 %{code}"
 
-#: lib/phoenix_kit/integrations/validators.ex:1214
+#: lib/phoenix_kit/integrations/validators.ex:1185
 #, elixir-autogen, elixir-format
 msgid "DataForSEO error %{code}: %{message}"
 msgstr "DataForSEO 错误 %{code}：%{message}"
 
-#: lib/phoenix_kit/integrations/validators.ex:1139
+#: lib/phoenix_kit/integrations/validators.ex:1110
 #, elixir-autogen, elixir-format
 msgid "DataForSEO error %{status}"
 msgstr "DataForSEO 错误 %{status}"
 
-#: lib/phoenix_kit/integrations/validators.ex:1197
+#: lib/phoenix_kit/integrations/validators.ex:1168
 #, elixir-autogen, elixir-format
 msgid "DataForSEO has paused this account — contact their support"
 msgstr "DataForSEO 已暂停此账户，请联系其支持团队"
 
-#: lib/phoenix_kit/integrations/providers.ex:1577
+#: lib/phoenix_kit/integrations/providers.ex:1605
 #, elixir-autogen, elixir-format
 msgid "From app.dataforseo.com → API Access. Not the password you sign in with."
 msgstr "来自 app.dataforseo.com → API Access。不是您的登录密码。"
 
-#: lib/phoenix_kit/integrations/providers.ex:1632
+#: lib/phoenix_kit/integrations/providers.ex:1660
 #, elixir-autogen, elixir-format
 msgid "Get your API key"
 msgstr "获取您的 API 密钥"
 
-#: lib/phoenix_kit/integrations/providers.ex:1584
+#: lib/phoenix_kit/integrations/providers.ex:1612
 #, elixir-autogen, elixir-format
 msgid "Get your API login and password"
 msgstr "获取您的 API 登录名和密码"
 
-#: lib/phoenix_kit/integrations/validators.ex:1292
+#: lib/phoenix_kit/integrations/validators.ex:1263
 #, elixir-autogen, elixir-format
 msgid "Invalid API key"
 msgstr "API 密钥无效"
 
-#: lib/phoenix_kit/integrations/validators.ex:1185
+#: lib/phoenix_kit/integrations/validators.ex:1156
 #, elixir-autogen, elixir-format
 msgid "Invalid API login or password — use the API password from the API Access page, not the one you sign in with"
 msgstr "API 登录名或密码无效：请使用 API Access 页面上的 API 密码，而不是登录密码"
 
-#: lib/phoenix_kit/integrations/providers.ex:1589
+#: lib/phoenix_kit/integrations/providers.ex:1617
 #, elixir-autogen, elixir-format
 msgid "Open [API Access](https://app.dataforseo.com/api-access): the API login is your account e-mail, and the API password is shown there"
 msgstr "打开 [API Access](https://app.dataforseo.com/api-access)：API 登录名就是您的账户邮箱，API 密码显示在那里"
 
-#: lib/phoenix_kit/integrations/providers.ex:1595
+#: lib/phoenix_kit/integrations/providers.ex:1623
 #, elixir-autogen, elixir-format
 msgid "Paste both into the form above and press **Test Connection**"
 msgstr "将两者粘贴到上方表单中，然后点击 **Test Connection**"
 
-#: lib/phoenix_kit/integrations/providers.ex:1613
+#: lib/phoenix_kit/integrations/providers.ex:1641
 #, elixir-autogen, elixir-format
 msgid "Search engine results — a monthly plan of searches"
 msgstr "搜索引擎结果：按月订阅的搜索套餐"
 
-#: lib/phoenix_kit/integrations/providers.ex:1555
+#: lib/phoenix_kit/integrations/providers.ex:1583
 #, elixir-autogen, elixir-format
 msgid "Search engine results, keyword and SEO data — pay as you go per request"
 msgstr "搜索引擎结果、关键词和 SEO 数据：按请求付费"
 
-#: lib/phoenix_kit/integrations/providers.ex:1612
+#: lib/phoenix_kit/integrations/providers.ex:1640
 #, elixir-autogen, elixir-format
 msgid "SerpApi"
 msgstr "SerpApi"
 
-#: lib/phoenix_kit/integrations/validators.ex:1303
+#: lib/phoenix_kit/integrations/validators.ex:1274
 #, elixir-autogen, elixir-format
 msgid "SerpApi error %{status}"
 msgstr "SerpApi 错误 %{status}"
 
-#: lib/phoenix_kit/integrations/validators.ex:1296
+#: lib/phoenix_kit/integrations/validators.ex:1267
 #, elixir-autogen, elixir-format
 msgid "SerpApi error %{status}: %{message}"
 msgstr "SerpApi 错误 %{status}：%{message}"
 
-#: lib/phoenix_kit/integrations/validators.ex:1283
+#: lib/phoenix_kit/integrations/validators.ex:1254
 #, elixir-autogen, elixir-format
 msgid "SerpApi error: %{message}"
 msgstr "SerpApi 错误：%{message}"
 
-#: lib/phoenix_kit/integrations/providers.ex:1634
+#: lib/phoenix_kit/integrations/providers.ex:1662
 #, elixir-autogen, elixir-format
 msgid "Sign up at [SerpApi](https://serpapi.com) — the free plan includes a number of searches each month"
 msgstr "在 [SerpApi](https://serpapi.com) 注册，免费套餐每月包含一定数量的搜索"
 
-#: lib/phoenix_kit/integrations/providers.ex:1598
+#: lib/phoenix_kit/integrations/providers.ex:1626
 #, elixir-autogen, elixir-format
 msgid "Test Connection is free and shows the account balance. Every search is paid from that balance, so top it up on app.dataforseo.com before it runs out."
 msgstr "测试连接免费，并会显示账户余额。每次搜索都从该余额中扣费，请在余额用完前到 app.dataforseo.com 充值。"
 
-#: lib/phoenix_kit/integrations/providers.ex:1592
+#: lib/phoenix_kit/integrations/providers.ex:1620
 #, elixir-autogen, elixir-format
 msgid "The API password is generated for you and differs from your sign-in password. After the first day it is no longer shown — use **Send by e-mail** on the same page to get it"
 msgstr "API 密码由系统为您生成，与您的登录密码不同。第一天之后将不再显示，请使用同一页面上的 **Send by e-mail** 获取"
 
-#: lib/phoenix_kit/integrations/providers.ex:1567
+#: lib/phoenix_kit/integrations/providers.ex:1595
 #, elixir-autogen, elixir-format
 msgid "The e-mail address of your DataForSEO account"
 msgstr "您的 DataForSEO 账户的邮箱地址"
 
-#: lib/phoenix_kit/integrations/validators.ex:1191
+#: lib/phoenix_kit/integrations/validators.ex:1162
 #, elixir-autogen, elixir-format
 msgid "This DataForSEO account is not verified yet"
 msgstr "此 DataForSEO 账户尚未验证"
 
-#: lib/phoenix_kit/integrations/validators.ex:1194
+#: lib/phoenix_kit/integrations/validators.ex:1165
 #, elixir-autogen, elixir-format
 msgid "This DataForSEO account needs funds — top up the balance"
 msgstr "此 DataForSEO 账户需要充值，请为余额充值"
 
-#: lib/phoenix_kit/integrations/validators.ex:1200
+#: lib/phoenix_kit/integrations/validators.ex:1171
 #, elixir-autogen, elixir-format
 msgid "Too many requests to DataForSEO — try again in a minute"
 msgstr "对 DataForSEO 的请求过多，请一分钟后重试"
 
-#: lib/phoenix_kit/integrations/validators.ex:1098
-#: lib/phoenix_kit/integrations/validators.ex:1136
+#: lib/phoenix_kit/integrations/validators.ex:1069
+#: lib/phoenix_kit/integrations/validators.ex:1107
 #, elixir-autogen, elixir-format
 msgid "Unexpected answer from DataForSEO"
 msgstr "来自 DataForSEO 的响应异常"
 
-#: lib/phoenix_kit/integrations/validators.ex:1272
-#: lib/phoenix_kit/integrations/validators.ex:1286
-#: lib/phoenix_kit/integrations/validators.ex:1290
+#: lib/phoenix_kit/integrations/validators.ex:1243
+#: lib/phoenix_kit/integrations/validators.ex:1257
+#: lib/phoenix_kit/integrations/validators.ex:1261
 #, elixir-autogen, elixir-format
 msgid "Unexpected answer from SerpApi"
 msgstr "来自 SerpApi 的响应异常"
 
-#: lib/phoenix_kit/integrations/providers.ex:1625
+#: lib/phoenix_kit/integrations/providers.ex:1653
 #, elixir-autogen, elixir-format
 msgid "From serpapi.com/manage-api-key"
 msgstr "来自 serpapi.com/manage-api-key"
 
-#: lib/phoenix_kit/integrations/providers.ex:1642
+#: lib/phoenix_kit/integrations/providers.ex:1670
 #, elixir-autogen, elixir-format
 msgid "Test Connection does not use up a search. It shows your plan and how many searches are left."
 msgstr "测试连接不会消耗搜索次数。它会显示您的套餐以及剩余搜索次数。"
 
-#: lib/phoenix_kit/integrations/validators.ex:1315
+#: lib/phoenix_kit/integrations/validators.ex:1286
 #, elixir-autogen, elixir-format
 msgid "Account status: %{status}"
 msgstr "账户状态：%{status}"
 
-#: lib/phoenix_kit/integrations/validators.ex:1336
+#: lib/phoenix_kit/integrations/validators.ex:1307
 #, elixir-autogen, elixir-format
 msgid "No searches left"
 msgstr "没有剩余搜索次数"
 
-#: lib/phoenix_kit/integrations/validators.ex:1335
+#: lib/phoenix_kit/integrations/validators.ex:1306
 #, elixir-autogen, elixir-format
 msgid "Searches left: %{left}"
 msgstr "剩余搜索次数：%{left}"
 
-#: lib/phoenix_kit/integrations/validators.ex:1204
+#: lib/phoenix_kit/integrations/validators.ex:1175
 #, elixir-autogen, elixir-format
 msgid "This DataForSEO account has reached its daily spending limit — raise it on app.dataforseo.com"
 msgstr "此 DataForSEO 账户已达到每日消费上限，请到 app.dataforseo.com 提高上限"
 
-#: lib/phoenix_kit/integrations/validators.ex:1210
+#: lib/phoenix_kit/integrations/validators.ex:1181
 #, elixir-autogen, elixir-format
 msgid "Too many requests to DataForSEO at once — try again shortly"
 msgstr "同时向 DataForSEO 发出的请求过多，请稍后重试"
 
-#: lib/phoenix_kit/integrations/providers.ex:1516
+#: lib/phoenix_kit/integrations/providers.ex:1544
 #, elixir-autogen, elixir-format
 msgid "A chat id you already know can be typed into **Link a chat by ID**"
 msgstr "已知的聊天 ID 可以输入到 **Link a chat by ID** 中"
@@ -15031,7 +15012,7 @@ msgstr "私信"
 msgid "Filled in automatically when the user signs in with Google."
 msgstr "用户通过 Google 登录时自动填写。"
 
-#: lib/phoenix_kit/integrations/providers.ex:1513
+#: lib/phoenix_kit/integrations/providers.ex:1541
 #, elixir-autogen, elixir-format
 msgid "For a group: add the bot to the group, send **/start@yourbotname** there, then press **Test Connection** — a bot cannot read ordinary group messages, only commands addressed to it"
 msgstr "对于群组：将机器人添加到群组，在群组中发送 **/start@yourbotname**，然后点击 **Test Connection**。机器人无法读取普通群消息，只能读取发给它的命令"
@@ -15060,7 +15041,7 @@ msgstr "如何关联聊天"
 msgid "Link"
 msgstr "关联"
 
-#: lib/phoenix_kit/integrations/providers.ex:1508
+#: lib/phoenix_kit/integrations/providers.ex:1536
 #, elixir-autogen, elixir-format
 msgid "Link the chats the bot will message"
 msgstr "关联机器人要发消息的聊天"
@@ -15085,7 +15066,7 @@ msgstr "不是聊天 ID：应为类似 -1001234567890 的数字，或 @channelna
 msgid "Or link a chat by ID"
 msgstr "或通过 ID 关联聊天"
 
-#: lib/phoenix_kit/integrations/providers.ex:1511
+#: lib/phoenix_kit/integrations/providers.ex:1539
 #, elixir-autogen, elixir-format
 msgid "Send **/start** to your bot in Telegram, then press **Test Connection**"
 msgstr "在 Telegram 中向您的机器人发送 **/start**，然后点击 **Test Connection**"
@@ -15932,7 +15913,7 @@ msgid "Add bucket"
 msgstr "添加存储桶"
 
 #: lib/modules/storage/web/profiles_component.ex:279
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:130
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:132
 #: lib/phoenix_kit_web/live/components/library_settings.ex:1680
 #, elixir-autogen, elixir-format
 msgid "Backup"
@@ -16006,7 +15987,7 @@ msgid "Reconcile now"
 msgstr "立即协调"
 
 #: lib/modules/storage/web/profiles_component.ex:278
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:131
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:133
 #, elixir-autogen, elixir-format
 msgid "Replica"
 msgstr "副本"
@@ -16025,7 +16006,7 @@ msgstr "显示前 %{count} 条，共 %{total} 条。"
 #: lib/modules/storage/web/libraries_component.ex:412
 #: lib/modules/storage/web/libraries_component.ex:547
 #: lib/modules/storage/web/library_page.html.heex:206
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:132
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:134
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:728
 #: lib/phoenix_kit_web/live/components/library_preferences.ex:395
 #: lib/phoenix_kit_web/live/components/library_settings.ex:2493
@@ -16386,17 +16367,17 @@ msgstr "该存储桶可读取、写入和删除"
 msgid "The bucket's r2.dev or custom domain. Without one, files are served through this server."
 msgstr "存储桶的 r2.dev 或自定义域名。若未设置，文件将通过此服务器提供。"
 
-#: lib/phoenix_kit/integrations/validators.ex:662
+#: lib/phoenix_kit/integrations/validators.ex:633
 #, elixir-autogen, elixir-format
 msgid "The endpoint is not a usable host or URL"
 msgstr "该端点不是可用的主机或 URL"
 
-#: lib/phoenix_kit/integrations/validators.ex:668
+#: lib/phoenix_kit/integrations/validators.ex:639
 #, elixir-autogen, elixir-format
 msgid "The endpoint must not be a local, private or metadata address"
 msgstr "端点不得是本地、私有或元数据地址"
 
-#: lib/phoenix_kit/integrations/validators.ex:665
+#: lib/phoenix_kit/integrations/validators.ex:636
 #, elixir-autogen, elixir-format
 msgid "The endpoint must use https"
 msgstr "端点必须使用 https"
@@ -16992,7 +16973,7 @@ msgid "Access Key"
 msgstr "访问密钥"
 
 #: lib/phoenix_kit/integrations/object_storage_services.ex:228
-#: lib/phoenix_kit/integrations/providers.ex:1258
+#: lib/phoenix_kit/integrations/providers.ex:1286
 #, elixir-autogen, elixir-format
 msgid "Account ID"
 msgstr "账户 ID"
@@ -17053,7 +17034,7 @@ msgid "From console.tigris.dev → Access Keys. The endpoint is t3.storage.dev."
 msgstr "在 console.tigris.dev → Access Keys 中获取。端点为 t3.storage.dev。"
 
 #: lib/phoenix_kit/integrations/object_storage_services.ex:240
-#: lib/phoenix_kit/integrations/providers.ex:1267
+#: lib/phoenix_kit/integrations/providers.ex:1295
 #, elixir-autogen, elixir-format
 msgid "Jurisdiction"
 msgstr "辖区"
@@ -17769,7 +17750,7 @@ msgstr "此存储桶正在使用中"
 #: lib/modules/storage/web/bucket_page.html.heex:118
 #: lib/modules/storage/web/settings.html.heex:115
 #: lib/modules/storage/web/settings.html.heex:146
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:146
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:148
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:241
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:87
 #, elixir-autogen, elixir-format
@@ -21702,52 +21683,52 @@ msgstr "API 目录"
 msgid "This site"
 msgstr "本站"
 
-#: lib/phoenix_kit/integrations/providers.ex:519
+#: lib/phoenix_kit/integrations/providers.ex:522
 #, elixir-autogen, elixir-format
 msgid "Anthropic"
 msgstr "Anthropic"
 
-#: lib/phoenix_kit/integrations/providers.ex:521
+#: lib/phoenix_kit/integrations/providers.ex:524
 #, elixir-autogen, elixir-format
 msgid "AI model access via Anthropic (Claude Opus, Sonnet and Haiku models)"
 msgstr "通过 Anthropic 访问 AI 模型（Claude Opus、Sonnet 和 Haiku 模型）"
 
-#: lib/phoenix_kit/integrations/providers.ex:540
+#: lib/phoenix_kit/integrations/providers.ex:543
 #, elixir-autogen, elixir-format
 msgid "From platform.claude.com/settings/keys"
 msgstr "来自 platform.claude.com/settings/keys"
 
-#: lib/phoenix_kit/integrations/providers.ex:547
+#: lib/phoenix_kit/integrations/providers.ex:550
 #, elixir-autogen, elixir-format
 msgid "Create an Anthropic account"
 msgstr "创建 Anthropic 账户"
 
-#: lib/phoenix_kit/integrations/providers.ex:549
+#: lib/phoenix_kit/integrations/providers.ex:552
 #, elixir-autogen, elixir-format
 msgid "Go to [platform.claude.com](https://platform.claude.com) and sign up or log in"
 msgstr "前往 [platform.claude.com](https://platform.claude.com) 注册或登录"
 
-#: lib/phoenix_kit/integrations/providers.ex:557
+#: lib/phoenix_kit/integrations/providers.ex:560
 #, elixir-autogen, elixir-format
 msgid "Go to [Billing](https://platform.claude.com/settings/billing) and add a payment method or buy credits"
 msgstr "前往 [Billing](https://platform.claude.com/settings/billing) 添加付款方式或购买额度"
 
-#: lib/phoenix_kit/integrations/providers.ex:560
+#: lib/phoenix_kit/integrations/providers.ex:563
 #, elixir-autogen, elixir-format
 msgid "Anthropic requires a positive credit balance before the API will answer requests"
 msgstr "Anthropic 要求余额为正数，API 才会响应请求"
 
-#: lib/phoenix_kit/integrations/providers.ex:565
+#: lib/phoenix_kit/integrations/providers.ex:568
 #, elixir-autogen, elixir-format
 msgid "API credits are billed separately from a Claude.ai subscription — a Pro or Max plan does not include them."
 msgstr "API 额度与 Claude.ai 订阅分开计费，Pro 或 Max 套餐不包含这些额度。"
 
-#: lib/phoenix_kit/integrations/providers.ex:572
+#: lib/phoenix_kit/integrations/providers.ex:575
 #, elixir-autogen, elixir-format
 msgid "Go to [API Keys](https://platform.claude.com/settings/keys)"
 msgstr "前往 [API Keys](https://platform.claude.com/settings/keys)"
 
-#: lib/phoenix_kit/integrations/providers.ex:575
+#: lib/phoenix_kit/integrations/providers.ex:578
 #, elixir-autogen, elixir-format
 msgid "Scope the key to a single workspace (for example Default) — a key without one is refused"
 msgstr "请将密钥限定到单个工作区（例如 Default），未限定工作区的密钥会被拒绝"
@@ -21874,47 +21855,47 @@ msgstr "日期遵循每个用户所在的国家/地区。此项适用于未设�
 msgid "Dates are written the way this country does. When empty, the company's country, the sign-up country and then the site default are used."
 msgstr "日期按该国家/地区的习惯书写。留空时，依次使用公司所在国家/地区、注册时的国家/地区，然后是站点默认值。"
 
-#: lib/phoenix_kit/integrations/providers.ex:846
+#: lib/phoenix_kit/integrations/providers.ex:849
 #, elixir-autogen, elixir-format
 msgid "Z.ai"
 msgstr "Z.ai"
 
-#: lib/phoenix_kit/integrations/providers.ex:847
+#: lib/phoenix_kit/integrations/providers.ex:850
 #, elixir-autogen, elixir-format
 msgid "AI model access via Z.ai (GLM models)"
 msgstr "通过 Z.ai 访问 AI 模型（GLM 模型）"
 
-#: lib/phoenix_kit/integrations/providers.ex:865
+#: lib/phoenix_kit/integrations/providers.ex:868
 #, elixir-autogen, elixir-format
 msgid "From z.ai/manage-apikey/apikey-list"
 msgstr "来自 z.ai/manage-apikey/apikey-list"
 
-#: lib/phoenix_kit/integrations/providers.ex:872
+#: lib/phoenix_kit/integrations/providers.ex:875
 #, elixir-autogen, elixir-format
 msgid "Create a Z.ai account"
 msgstr "创建 Z.ai 账户"
 
-#: lib/phoenix_kit/integrations/providers.ex:874
+#: lib/phoenix_kit/integrations/providers.ex:877
 #, elixir-autogen, elixir-format
 msgid "Go to [z.ai/model-api](https://z.ai/model-api) and sign up or log in"
 msgstr "前往 [z.ai/model-api](https://z.ai/model-api) 注册或登录"
 
-#: lib/phoenix_kit/integrations/providers.ex:880
+#: lib/phoenix_kit/integrations/providers.ex:883
 #, elixir-autogen, elixir-format
 msgid "Go to [Billing](https://z.ai/manage-apikey/billing) and top up your balance"
 msgstr "前往 [Billing](https://z.ai/manage-apikey/billing) 充值余额"
 
-#: lib/phoenix_kit/integrations/providers.ex:883
+#: lib/phoenix_kit/integrations/providers.ex:886
 #, elixir-autogen, elixir-format
 msgid "The API bills the account balance — without credit Z.ai refuses requests with code 1113 (insufficient balance)"
 msgstr "该 API 从账户余额中扣费，没有余额时 Z.ai 会以代码 1113（余额不足）拒绝请求"
 
-#: lib/phoenix_kit/integrations/providers.ex:888
+#: lib/phoenix_kit/integrations/providers.ex:891
 #, elixir-autogen, elixir-format
 msgid "An existing key of an account that has had a GLM Coding Plan (a Compatible key, created before 16 October 2026) is billed on this API from the account balance or usage bundles, not from the plan quota."
 msgstr "曾订阅过 GLM Coding Plan 的账户中已有的密钥（2026 年 10 月 16 日之前创建的兼容密钥），在此 API 上从账户余额或用量包中扣费，而不是从套餐配额中扣费。"
 
-#: lib/phoenix_kit/integrations/providers.ex:895
+#: lib/phoenix_kit/integrations/providers.ex:898
 #, elixir-autogen, elixir-format
 msgid "Go to [API Keys](https://z.ai/manage-apikey/apikey-list) and create a key under **Standard API Key**"
 msgstr "前往 [API Keys](https://z.ai/manage-apikey/apikey-list)，在 **Standard API Key** 下创建密钥"
@@ -22791,7 +22772,7 @@ msgstr "%{count} 个正在处理上传"
 
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:594
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:178
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:170
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:176
 #: lib/phoenix_kit_web/live/settings/integrations.ex:222
 #, elixir-autogen, elixir-format
 msgid "%{count} storage bucket uses this connection and prevents its removal."
@@ -23059,7 +23040,7 @@ msgstr "复制或预览生成未能完成；等待重试"
 msgid "Could not change renditions."
 msgstr "无法更改渲染版本。"
 
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:397
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:403
 #, elixir-autogen, elixir-format
 msgid "Could not change this setting."
 msgstr "无法更改此设置。"
@@ -23232,7 +23213,7 @@ msgstr "我已发送"
 msgid "If anyone else has messaged the bot too, link your chat by its ID below instead."
 msgstr "如果还有其他人给该机器人发过消息，请改用下方的 ID 关联您的聊天。"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:136
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:138
 #, elixir-autogen, elixir-format
 msgid "In trash"
 msgstr "在回收站中"
@@ -23350,7 +23331,7 @@ msgstr "成员历史页面"
 msgid "Message your bot, then press Test above — we'll capture your chat so it can notify you. If several people have messaged the bot, we can't tell which chat is yours: link it by its ID below instead."
 msgstr "给您的机器人发一条消息，然后点击上方的“测试”，我们会捕获您的聊天，以便向您发送通知。如果有多人给该机器人发过消息，我们无法分辨哪个是您的聊天：请改用下方的 ID 关联。"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:184
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:186
 #, elixir-autogen, elixir-format
 msgid "New credentials could not access bucket %{bucket}. The saved credentials were kept."
 msgstr "新的凭据无法访问存储桶 %{bucket}。已保留之前保存的凭据。"
@@ -23415,7 +23396,7 @@ msgstr "对于您未勾选的类型，不会向 Telegram 发送任何内容。"
 msgid "Notifications you pick below arrive in your Telegram chat, and this chat may read your data through the site's bot."
 msgstr "您在下方选择的通知会发送到您的 Telegram 聊天，并且此聊天可能通过站点的机器人读取您的数据。"
 
-#: lib/phoenix_kit/integrations/providers.ex:1522
+#: lib/phoenix_kit/integrations/providers.ex:1550
 #, elixir-autogen, elixir-format
 msgid "Notify your users in Telegram"
 msgstr "通过 Telegram 通知您的用户"
@@ -23655,7 +23636,7 @@ msgid "Save renditions"
 msgstr "保存渲染版本"
 
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:369
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:537
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:543
 #, elixir-autogen, elixir-format
 msgid "Saving stopped unexpectedly. Refresh before trying again."
 msgstr "保存意外中断。请刷新后再试。"
@@ -23760,17 +23741,17 @@ msgstr "缺少存储配置"
 msgid "Storage could not be added. Check your access and the bucket connection."
 msgstr "无法添加存储。请检查您的访问权限和存储桶连接。"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:160
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:162
 #, elixir-autogen, elixir-format
 msgid "Storage depends on this connection. It cannot be removed or disconnected."
 msgstr "存储依赖于此连接。它无法被移除或断开。"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:151
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:153
 #, elixir-autogen, elixir-format
 msgid "Storage depends on this connection. Removal and disconnection are blocked. To rotate keys, the new credentials must pass a test on every bucket."
 msgstr "存储依赖于此连接。移除和断开均被阻止。要轮换密钥，新的凭据必须通过对每个存储桶的测试。"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:180
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:182
 #, elixir-autogen, elixir-format
 msgid "Storage in use requires both an access key and a secret key."
 msgstr "使用中的存储需要同时提供访问密钥和私密密钥。"
@@ -23852,7 +23833,7 @@ msgstr "测试"
 msgid "Testing and adding..."
 msgstr "正在测试并添加…"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:164
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:166
 #, elixir-autogen, elixir-format
 msgid "The connection or its storage usage changed during testing. Refresh and try again."
 msgstr "测试期间连接或其存储使用情况发生了变化。请刷新后重试。"
@@ -23864,7 +23845,7 @@ msgstr "测试期间连接或其存储使用情况发生了变化。请刷新后
 msgid "The integration changed during testing. Refresh and try again."
 msgstr "测试期间集成发生了变化。请刷新后重试。"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:190
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:192
 #, elixir-autogen, elixir-format
 msgid "The integration could not be updated. Refresh and try again."
 msgstr "无法更新该集成。请刷新后重试。"
@@ -23909,7 +23890,7 @@ msgstr "该链接只能使用一次，并将在 %{minutes} 分钟后过期。"
 msgid "The place a library keeps its files stays as it is. More backup storage can be added later, and existing files are copied in the background. It is tested again when you create it. Deleting the library deletes the files it stored in your buckets."
 msgstr "库保存文件的位置保持不变。日后可以添加更多备份存储，现有文件会在后台复制。创建时会再次测试。删除库会同时删除它存放在您存储桶中的文件。"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:171
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:173
 #, elixir-autogen, elixir-format
 msgid "The service cannot be changed. Create a new integration for another service."
 msgstr "无法更改服务。请创建新的集成以使用其他服务。"
@@ -23940,7 +23921,7 @@ msgstr "此操作已不可用，或您已无权访问。"
 msgid "This bot has a webhook set, so Telegram will not hand its messages to the site and users cannot link their chats. Remove the webhook (setWebhook with an empty url) or use another bot."
 msgstr "此机器人设置了 webhook，因此 Telegram 不会将其消息交给站点，用户也无法关联他们的聊天。请移除 webhook（使用空 url 调用 setWebhook）或改用其他机器人。"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:175
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:177
 #, elixir-autogen, elixir-format
 msgid "This connection is used by storage. Create another integration to change its destination."
 msgstr "存储正在使用此连接。请创建另一个集成以更改其目标。"
@@ -23950,7 +23931,7 @@ msgstr "存储正在使用此连接。请创建另一个集成以更改其目标
 msgid "This folder belongs to a module and can't be deleted here."
 msgstr "此文件夹属于某个模块，无法在此处删除。"
 
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:180
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:186
 #, elixir-autogen, elixir-format
 msgid "This is the website's Telegram bot for user notifications — everyone who linked a chat to it will stop receiving them. %{rest}"
 msgstr "这是网站用于用户通知的 Telegram 机器人：所有已将聊天关联到它的用户都将不再收到通知。%{rest}"
@@ -23985,7 +23966,7 @@ msgstr "此链接已过期或已被使用。请打开您在 %{site} 上的通知
 msgid "This operation is no longer available, or you no longer have access to its library."
 msgstr "此操作已不可用，或您已无权访问其所属的库。"
 
-#: lib/phoenix_kit/integrations/providers.ex:1525
+#: lib/phoenix_kit/integrations/providers.ex:1553
 #, elixir-autogen, elixir-format
 msgid "Tick **Deliver user notifications through this bot** below. Each user then links their own chat under **Profile → Notifications** with one tap — no token to copy"
 msgstr "请勾选下方的 **通过此机器人发送用户通知**。之后每位用户只需在 **个人资料 → 通知** 下轻点一下即可关联自己的聊天，无需复制令牌"
@@ -24007,7 +23988,7 @@ msgstr "跟踪复制、验证、清理和渲染版本更新。已存储的副本
 msgid "Type a name"
 msgstr "输入名称"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:125
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:127
 #, elixir-autogen, elixir-format
 msgid "Unassigned bucket"
 msgstr "未分配的存储桶"
@@ -24022,7 +24003,7 @@ msgstr "自动更新"
 msgid "Updating storage"
 msgstr "正在更新存储"
 
-#: lib/phoenix_kit/integrations/providers.ex:1531
+#: lib/phoenix_kit/integrations/providers.ex:1559
 #, elixir-autogen, elixir-format
 msgid "Use a bot only this website uses: linking reads and clears the bot's incoming messages, so a second program reading the same bot would miss them"
 msgstr "请使用只有本网站使用的机器人：关联时会读取并清除机器人收到的消息，因此读取同一机器人的第二个程序会错过这些消息"
@@ -24032,7 +24013,7 @@ msgstr "请使用只有本网站使用的机器人：关联时会读取并清除
 msgid "Use a bot that only this website uses: the site reads and clears the bot's incoming messages to link chats, so a second program reading the same bot would miss them."
 msgstr "请使用只有本网站使用的机器人：站点会读取并清除机器人收到的消息来关联聊天，因此读取同一机器人的第二个程序会错过这些消息。"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:124
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:126
 #, elixir-autogen, elixir-format
 msgid "User library (private)"
 msgstr "用户库（私有）"
@@ -24125,7 +24106,7 @@ msgstr "谁可以查看"
 msgid "Who can view this library?"
 msgstr "谁可以查看此库？"
 
-#: lib/phoenix_kit/integrations/providers.ex:1528
+#: lib/phoenix_kit/integrations/providers.ex:1556
 #, elixir-autogen, elixir-format
 msgid "Without the tick this connection is **not used for user notifications**; code that sends through it must name the chat itself"
 msgstr "不勾选时，此连接 **不用于用户通知**；通过它发送的代码必须自行指定聊天"
@@ -24930,11 +24911,6 @@ msgstr "已启用 %{module}"
 msgid "%{region} (currently selected)"
 msgstr "%{region}（当前已选）"
 
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:141
-#, elixir-autogen, elixir-format
-msgid "AWS Permissions Check"
-msgstr "AWS 权限检查"
-
 #: lib/phoenix_kit_web/components/core/aws_region_select.ex:51
 #, elixir-autogen, elixir-format
 msgid "AWS Region"
@@ -25216,11 +25192,6 @@ msgstr "延迟至："
 msgid "Delivery Delayed"
 msgstr "投递延迟"
 
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:253
-#, elixir-autogen, elixir-format
-msgid "Denied"
-msgstr "已拒绝"
-
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:685
 #, elixir-autogen, elixir-format
 msgid "Development"
@@ -25235,11 +25206,6 @@ msgstr "已丢弃"
 #, elixir-autogen, elixir-format
 msgid "Discarded:"
 msgstr "丢弃时间："
-
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:199
-#, elixir-autogen, elixir-format
-msgid "EC2 (Optional Feature)"
-msgstr "EC2（可选功能）"
 
 #: lib/phoenix_kit_web/components/core/event_timeline_item.ex:97
 #, elixir-autogen, elixir-format
@@ -25280,12 +25246,6 @@ msgstr "邮件已排队等待发送"
 #, elixir-autogen, elixir-format
 msgid "Enter new password (minimum 8 characters)"
 msgstr "输入新密码（至少 8 个字符）"
-
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:116
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:128
-#, elixir-autogen, elixir-format
-msgid "Enter your AWS credentials and click \"Verify Credentials\" to test connectivity."
-msgstr "输入您的 AWS 凭据，然后点击“验证凭据”以测试连接。"
 
 #: lib/modules/sitemap/web/settings.ex:391
 #, elixir-autogen, elixir-format
@@ -25449,11 +25409,6 @@ msgstr "更新用户状态失败。请重试。"
 msgid "Feedback ID:"
 msgstr "反馈 ID："
 
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:249
-#, elixir-autogen, elixir-format
-msgid "Granted"
-msgstr "已授予"
-
 #: lib/phoenix_kit_web/live/modules/jobs/index.html.heex:599
 #, elixir-autogen, elixir-format
 msgid "Handler"
@@ -25574,11 +25529,6 @@ msgstr "全部标为已读"
 #, elixir-autogen, elixir-format
 msgid "Minimum 8 characters"
 msgstr "至少 8 个字符"
-
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:223
-#, elixir-autogen, elixir-format
-msgid "Missing Critical Permissions (SQS/SNS/SES)"
-msgstr "缺少关键权限（SQS/SNS/SES）"
 
 #: lib/phoenix_kit_web/components/dashboard/sidebar.ex:402
 #, elixir-autogen, elixir-format
@@ -25782,12 +25732,6 @@ msgstr "发布内容已合并为一个文件"
 msgid "Publishing split by blog"
 msgstr "发布内容按博客拆分"
 
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:114
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:126
-#, elixir-autogen, elixir-format
-msgid "Ready for Verification"
-msgstr "可以验证"
-
 #: lib/phoenix_kit_web/components/core/event_timeline_item.ex:181
 #: lib/phoenix_kit_web/components/core/event_timeline_item.ex:194
 #: lib/phoenix_kit_web/components/core/event_timeline_item.ex:304
@@ -25966,11 +25910,6 @@ msgstr "站点地图生成成功（%{count} 个 URL）"
 msgid "Sitemap generation queued. Stats will update automatically."
 msgstr "站点地图生成已加入队列。统计数据将自动更新。"
 
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:225
-#, elixir-autogen, elixir-format
-msgid "Some required List permissions are denied. \"Setup AWS Infrastructure\" will likely fail without CREATE permissions. Please review your IAM policy."
-msgstr "部分必需的列表（List）权限被拒绝。如果没有创建（CREATE）权限，“设置 AWS 基础设施”很可能会失败。请检查您的 IAM 策略。"
-
 #: lib/phoenix_kit_web/components/core/event_timeline_item.ex:101
 #, elixir-autogen, elixir-format
 msgid "Spam Complaint"
@@ -26132,11 +26071,6 @@ msgstr "正在更新用户..."
 msgid "Use System Default"
 msgstr "使用系统默认值"
 
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:203
-#, elixir-autogen, elixir-format
-msgid "Used for automatic region discovery. Manual region selection available if denied."
-msgstr "用于自动发现区域。如果被拒绝，可手动选择区域。"
-
 #: lib/phoenix_kit_web/users/user_form.html.heex:414
 #, elixir-autogen, elixir-format
 msgid "User Roles"
@@ -26192,16 +26126,6 @@ msgstr "有效的 OAuth 重定向 URI"
 #, elixir-autogen, elixir-format
 msgid "Verified"
 msgstr "已验证"
-
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:86
-#, elixir-autogen, elixir-format
-msgid "Verify Credentials"
-msgstr "验证凭据"
-
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:83
-#, elixir-autogen, elixir-format
-msgid "Verifying..."
-msgstr "正在验证..."
 
 #: lib/phoenix_kit_web/live/notifications_bell.ex:204
 #, elixir-autogen, elixir-format
@@ -26284,11 +26208,6 @@ msgstr "滥用"
 #, elixir-autogen, elixir-format
 msgid "and will invalidate their current password immediately."
 msgstr "并将立即使其当前密码失效。"
-
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:200
-#, elixir-autogen, elixir-format
-msgid "auto-loading regions"
-msgstr "自动加载区域"
 
 #: lib/phoenix_kit_web/live/modules/jobs/index.html.heex:187
 #, elixir-autogen, elixir-format
@@ -26416,30 +26335,15 @@ msgstr "• 用户可在首次登录后更新其个人资料"
 msgid "• User will be assigned default \"%{role}\" role"
 msgstr "• 将为用户分配默认的“%{role}”角色"
 
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:146
-#, elixir-autogen, elixir-format
-msgid "ℹ️ Basic permissions checked using List operations. Actual CREATE permissions will be verified during \"Setup AWS Infrastructure\"."
-msgstr "ℹ️ 使用 List 操作检查基本权限。实际的 CREATE 权限将在“设置 AWS 基础设施”期间验证。"
-
 #: lib/phoenix_kit_web/components/core/aws_region_select.ex:149
 #, elixir-autogen, elixir-format
 msgid "✅ Region verified successfully. Available for AWS services."
 msgstr "✅ 区域验证成功。可用于 AWS 服务。"
 
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:98
-#, elixir-autogen, elixir-format
-msgid "✅ Verification Successful"
-msgstr "✅ 验证成功"
-
 #: lib/phoenix_kit_web/components/core/aws_region_select.ex:151
 #, elixir-autogen, elixir-format
 msgid "❌ Unable to verify region. Please check your credentials."
 msgstr "❌ 无法验证区域。请检查您的凭据。"
-
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:106
-#, elixir-autogen, elixir-format
-msgid "❌ Verification Failed"
-msgstr "❌ 验证失败"
 
 #: lib/phoenix_kit_web/components/core/aws_region_select.ex:162
 #, elixir-autogen, elixir-format
@@ -27187,28 +27091,28 @@ msgstr "此文件不是该选择器接受的文件类型。"
 msgid "The file was saved, but it cannot be picked here."
 msgstr "文件已保存，但无法在此处选择。"
 
-#: lib/phoenix_kit/integrations/validators.ex:931
+#: lib/phoenix_kit/integrations/validators.ex:902
 #, elixir-autogen, elixir-format
 msgid "Brevo error %{status}: %{message}"
 msgstr "Brevo 错误 %{status}：%{message}"
 
-#: lib/phoenix_kit/integrations/validators.ex:912
+#: lib/phoenix_kit/integrations/validators.ex:883
 #, elixir-autogen, elixir-format
 msgid "Brevo refused this server's IP address — allow it in Brevo under Security → Authorised IPs. Brevo says: %{message}"
 msgstr "Brevo 拒绝了此服务器的 IP 地址——请在 Brevo 的 Security → Authorised IPs 中允许它。Brevo 返回：%{message}"
 
-#: lib/phoenix_kit/integrations/validators.ex:918
+#: lib/phoenix_kit/integrations/validators.ex:889
 #, elixir-autogen, elixir-format
 msgid "Invalid credentials. Brevo says: %{message}"
 msgstr "凭据无效。Brevo 返回：%{message}"
 
-#: lib/phoenix_kit/integrations/validators.ex:860
+#: lib/phoenix_kit/integrations/validators.ex:831
 #, elixir-autogen, elixir-format
 msgid "This is a Brevo SMTP key (xsmtpsib-…). The Brevo API needs an API key (xkeysib-…) from SMTP & API → API Keys; an SMTP key goes into an SMTP connection."
 msgstr "这是 Brevo 的 SMTP 密钥（xsmtpsib-…）。Brevo API 需要 SMTP & API → API Keys 中的 API 密钥（xkeysib-…）；SMTP 密钥应用于 SMTP 连接。"
 
-#: lib/phoenix_kit/integrations/validators.ex:890
-#: lib/phoenix_kit/integrations/validators.ex:907
+#: lib/phoenix_kit/integrations/validators.ex:861
+#: lib/phoenix_kit/integrations/validators.ex:878
 #, elixir-autogen, elixir-format
 msgid "Unexpected answer from Brevo"
 msgstr "Brevo 返回了意外的响应"
@@ -27463,3 +27367,78 @@ msgstr "无法保存邮箱地址检查。"
 #, elixir-autogen, elixir-format
 msgid "This email domain cannot receive mail. Please check the address."
 msgstr "此邮箱域名无法接收邮件。请检查地址。"
+
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:627
+#, elixir-autogen, elixir-format
+msgid "All a key needs to send mail through Amazon SES."
+msgstr "密钥通过 Amazon SES 发送邮件所需的全部权限。"
+
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:604
+#, elixir-autogen, elixir-format
+msgid "Attach this before Setup Infrastructure. It sends, creates the queues, the topic and the configuration set, and reads the queues."
+msgstr "在点击“Setup Infrastructure”之前附加。它可以发送邮件，创建队列、主题和配置集，并读取队列。"
+
+#: lib/phoenix_kit/integrations/providers.ex:1173
+#, elixir-autogen, elixir-format
+msgid "Create an IAM user with the sending policy"
+msgstr "创建带有发送策略的 IAM 用户"
+
+#: lib/phoenix_kit/integrations/providers.ex:1153
+#, elixir-autogen, elixir-format
+msgid "Create an IAM user with the setup policy"
+msgstr "创建带有设置策略的 IAM 用户"
+
+#: lib/phoenix_kit/integrations/providers.ex:1176
+#, elixir-autogen, elixir-format
+msgid "In the [IAM console](https://console.aws.amazon.com/iam/home#/users) create a user without console access and add the **sending policy** below to it as an inline policy (Permissions → Add permissions → Create inline policy → JSON)"
+msgstr "在 [IAM 控制台](https://console.aws.amazon.com/iam/home#/users)中创建一个没有控制台访问权限的用户，并将下方的**发送策略**作为内联策略添加给它（Permissions → Add permissions → Create inline policy → JSON）"
+
+#: lib/phoenix_kit/integrations/providers.ex:1156
+#, elixir-autogen, elixir-format
+msgid "In the [IAM console](https://console.aws.amazon.com/iam/home#/users) create a user without console access and add the **setup policy** below to it as an inline policy (Permissions → Add permissions → Create inline policy → JSON)"
+msgstr "在 [IAM 控制台](https://console.aws.amazon.com/iam/home#/users)中创建一个没有控制台访问权限的用户，并将下方的**设置策略**作为内联策略添加给它（Permissions → Add permissions → Create inline policy → JSON）"
+
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:576
+#, elixir-autogen, elixir-format
+msgid "No region is saved for this connection yet: replace <region> with your AWS region, or save the connection and copy the policy then."
+msgstr "此连接尚未保存区域：请将 <region> 替换为你的 AWS 区域，或先保存连接再复制策略。"
+
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:616
+#, elixir-autogen, elixir-format
+msgid "Replace the setup policy with this once Setup Infrastructure has succeeded. It sends and reads the queues, and can create nothing."
+msgstr "“Setup Infrastructure”成功后，用它替换设置策略。它可以发送邮件并读取队列，但不能创建任何资源。"
+
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:614
+#, elixir-autogen, elixir-format
+msgid "Running policy"
+msgstr "运行策略"
+
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:626
+#, elixir-autogen, elixir-format
+msgid "Sending policy"
+msgstr "发送策略"
+
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:602
+#, elixir-autogen, elixir-format
+msgid "Setup policy"
+msgstr "设置策略"
+
+#: lib/phoenix_kit/aws/infrastructure_setup.ex:286
+#, elixir-autogen, elixir-format
+msgid "The key lacks a permission of the setup policy. Attach the setup policy to the key (it is shown with the Amazon SES connection in Settings → Integrations) and run the setup again: it is safe to repeat."
+msgstr "密钥缺少设置策略中的某项权限。请将设置策略附加到密钥（它显示在 设置 → 集成 的 Amazon SES 连接中），然后重新运行设置：重复运行是安全的。"
+
+#: lib/phoenix_kit/integrations/providers.ex:1167
+#, elixir-autogen, elixir-format
+msgid "The key needs nothing beyond these two policies. A site that only sends, with no delivery events, needs just the `Send` statement. Running the setup again later needs the setup policy again; it is safe to repeat."
+msgstr "除这两个策略外，密钥不需要任何其他权限。只发送邮件、不接收投递事件的站点只需要 `Send` 语句。以后再次运行设置时需要重新附加设置策略；重复运行是安全的。"
+
+#: lib/phoenix_kit/integrations/providers.ex:1162
+#, elixir-autogen, elixir-format
+msgid "Delivery events (delivered, bounced, complained) are set up in Settings → Emails Transactional: add this connection as an Amazon SES/SQS account and press **Setup Infrastructure**. Once it has succeeded, replace the setup policy with the **running policy** below"
+msgstr "投递事件（已送达、退信、投诉）在 设置 → 事务邮件 中配置：将此连接添加为 Amazon SES/SQS 账户，然后点击 **Setup Infrastructure**。成功后，请用下方的**运行策略**替换设置策略"
+
+#: lib/phoenix_kit/integrations/providers.ex:1195
+#, elixir-autogen, elixir-format
+msgid "This connection stores the credential. Which connection sends, and the delivery-event pipeline (configuration set, SNS topic, SQS queues), are set in Settings → Emails Transactional."
+msgstr "此连接保存凭证。由哪个连接发送，以及投递事件管道（配置集、SNS 主题、SQS 队列），在 设置 → 事务邮件 中设置。"

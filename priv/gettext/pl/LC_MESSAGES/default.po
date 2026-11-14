@@ -372,7 +372,7 @@ msgstr "Standardowy poziom dostępu"
 msgid "Role System"
 msgstr "System ról"
 
-#: lib/phoenix_kit/integrations/providers.ex:1370
+#: lib/phoenix_kit/integrations/providers.ex:1398
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:484
 #, elixir-autogen
 msgid "Authentication"
@@ -494,7 +494,7 @@ msgid "Accept All"
 msgstr "Akceptuj wszystkie"
 
 #: lib/phoenix_kit/integrations/integrations.ex:1405
-#: lib/phoenix_kit/integrations/validators.ex:926
+#: lib/phoenix_kit/integrations/validators.ex:897
 #: lib/phoenix_kit_web/live/activity/index.ex:72
 #: lib/phoenix_kit_web/live/activity/show.ex:64
 #: lib/phoenix_kit_web/live/modules.ex:151
@@ -991,8 +991,8 @@ msgstr "Kontakt do IOD zapisany"
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:607
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:614
 #: lib/phoenix_kit_web/components/media_browser/list_view.html.heex:318
-#: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:940
-#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:577
+#: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:945
+#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:582
 #: lib/phoenix_kit_web/live/settings/send_profiles.html.heex:114
 #: lib/phoenix_kit_web/live/settings/send_profiles.html.heex:146
 #: lib/phoenix_kit_web/live/settings/users.html.heex:684
@@ -1041,7 +1041,7 @@ msgstr "Opis"
 #: lib/modules/storage/web/settings.html.heex:136
 #: lib/modules/storage/web/settings.html.heex:232
 #: lib/phoenix_kit_web/components/core/badge.ex:191
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:137
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:139
 #: lib/phoenix_kit_web/live/modules.html.heex:41
 #: lib/phoenix_kit_web/live/modules.html.heex:88
 #: lib/phoenix_kit_web/live/modules.html.heex:147
@@ -1135,8 +1135,8 @@ msgid "Enter role name (e.g., Manager, Editor)"
 msgstr "Wpisz nazwę roli (np. Menedżer, Redaktor)"
 
 #: lib/phoenix_kit_web/components/core/aws_region_select.ex:56
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:31
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:252
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:33
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:254
 #: lib/phoenix_kit_web/components/core/modal.ex:569
 #: lib/phoenix_kit_web/live/settings/email_sending.ex:497
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:99
@@ -1504,7 +1504,7 @@ msgstr "Nieuwierzytelniony"
 #: lib/phoenix_kit/integrations/integrations.ex:1086
 #: lib/phoenix_kit/integrations/integrations.ex:1483
 #: lib/phoenix_kit/integrations/integrations.ex:1487
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:32
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:34
 #: lib/phoenix_kit_web/live/settings/email_sending.ex:498
 #: lib/phoenix_kit_web/live/settings/email_sending.html.heex:254
 #: lib/phoenix_kit_web/live/settings/integrations.ex:296
@@ -1615,7 +1615,7 @@ msgstr "Strona została wygenerowana pomyślnie"
 msgid "Page published successfully"
 msgstr "Strona została opublikowana pomyślnie"
 
-#: lib/phoenix_kit/integrations/providers.ex:1335
+#: lib/phoenix_kit/integrations/providers.ex:1363
 #: lib/phoenix_kit_web/components/account_menu.ex:331
 #: lib/phoenix_kit_web/live/components/user_settings.ex:1428
 #: lib/phoenix_kit_web/live/settings/users.ex:477
@@ -1679,7 +1679,7 @@ msgid "Postal Code"
 msgstr "Kod pocztowy"
 
 #: lib/modules/storage/web/profiles_component.ex:277
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:129
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:131
 #: lib/phoenix_kit_web/components/language_switcher.ex:432
 #: lib/phoenix_kit_web/live/components/library_settings.ex:1680
 #: lib/phoenix_kit_web/live/settings/organization.html.heex:359
@@ -1943,7 +1943,7 @@ msgstr "Zapisz ustawienia"
 #: lib/phoenix_kit_web/components/core/save_button.ex:64
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:792
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:378
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:729
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:735
 #, elixir-autogen, elixir-format
 msgid "Saved"
 msgstr "Zapisano"
@@ -2190,7 +2190,6 @@ msgstr "Niepotwierdzony"
 #: lib/phoenix_kit/users/auth/user_notifier.ex:301
 #: lib/phoenix_kit/users/auth/user_notifier.ex:394
 #: lib/phoenix_kit_web/comments_gettext_manifest.ex:64
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:257
 #: lib/phoenix_kit_web/components/core/time_display.ex:180
 #: lib/phoenix_kit_web/components/language_switcher.ex:832
 #: lib/phoenix_kit_web/live/components/library_activity.ex:287
@@ -2250,7 +2249,7 @@ msgstr "Nie znaleziono użytkownika"
 msgid "User-defined roles"
 msgstr "Role zdefiniowane przez użytkownika"
 
-#: lib/phoenix_kit/integrations/providers.ex:1323
+#: lib/phoenix_kit/integrations/providers.ex:1351
 #: lib/phoenix_kit/users/table_columns.ex:320
 #: lib/phoenix_kit_web/live/components/user_settings.ex:1100
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:251
@@ -2603,8 +2602,8 @@ msgstr "4. Kliknij „Testuj dane logowania”, aby sprawdzić konfigurację"
 #: lib/phoenix_kit/integrations/object_storage_services.ex:253
 #: lib/phoenix_kit/integrations/object_storage_services.ex:305
 #: lib/phoenix_kit/integrations/object_storage_services.ex:370
-#: lib/phoenix_kit/integrations/providers.ex:1117
-#: lib/phoenix_kit/integrations/providers.ex:1214
+#: lib/phoenix_kit/integrations/providers.ex:1120
+#: lib/phoenix_kit/integrations/providers.ex:1242
 #, elixir-autogen, elixir-format
 msgid "Access Key ID"
 msgstr "Identyfikator klucza dostępu"
@@ -2764,7 +2763,7 @@ msgstr "Zmiany zostaną zapisane natychmiast"
 msgid "Click"
 msgstr "Kliknij"
 
-#: lib/phoenix_kit/integrations/providers.ex:333
+#: lib/phoenix_kit/integrations/providers.ex:336
 #: lib/phoenix_kit/users/oauth_config.ex:274
 #: lib/phoenix_kit/users/oauth_config.ex:280
 #: lib/phoenix_kit_web/components/core/oauth_provider.ex:114
@@ -2776,8 +2775,8 @@ msgstr "Kliknij"
 msgid "Client ID"
 msgstr "Identyfikator klienta"
 
-#: lib/phoenix_kit/integrations/providers.ex:342
-#: lib/phoenix_kit/integrations/providers.ex:1691
+#: lib/phoenix_kit/integrations/providers.ex:345
+#: lib/phoenix_kit/integrations/providers.ex:1719
 #: lib/phoenix_kit/users/oauth_config.ex:275
 #: lib/phoenix_kit/users/oauth_config.ex:281
 #: lib/phoenix_kit_web/components/core/oauth_provider.ex:122
@@ -2805,6 +2804,7 @@ msgstr "Nadpisanie kodeka"
 msgid "Configure system preferences and options"
 msgstr "Skonfiguruj preferencje i opcje systemu"
 
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:590
 #: lib/phoenix_kit_web/live/components/personal_api_keys.ex:1091
 #: lib/phoenix_kit_web/live/settings/api.html.heex:981
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:588
@@ -2909,7 +2909,7 @@ msgstr "Włącz OAuth (przełącznik główny)"
 
 #: lib/modules/storage/web/bucket_form.html.heex:302
 #: lib/phoenix_kit/integrations/object_storage_services.ex:348
-#: lib/phoenix_kit/integrations/providers.ex:1244
+#: lib/phoenix_kit/integrations/providers.ex:1272
 #, elixir-autogen, elixir-format
 msgid "Endpoint"
 msgstr "Punkt końcowy"
@@ -3318,8 +3318,8 @@ msgstr "Wyszukiwarki mają pomijać to środowisko. Usuń to przed uruchomieniem
 #: lib/phoenix_kit/integrations/object_storage_services.ex:257
 #: lib/phoenix_kit/integrations/object_storage_services.ex:309
 #: lib/phoenix_kit/integrations/object_storage_services.ex:371
-#: lib/phoenix_kit/integrations/providers.ex:1126
-#: lib/phoenix_kit/integrations/providers.ex:1223
+#: lib/phoenix_kit/integrations/providers.ex:1129
+#: lib/phoenix_kit/integrations/providers.ex:1251
 #, elixir-autogen, elixir-format
 msgid "Secret Access Key"
 msgstr "Tajny klucz dostępu"
@@ -3351,7 +3351,7 @@ msgstr "Wybierz obraz"
 msgid "Session actions"
 msgstr "Akcje sesji"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:496
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:502
 #: lib/phoenix_kit_web/live/settings/authorization.ex:502
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:468
 #, elixir-autogen, elixir-format
@@ -3735,7 +3735,7 @@ msgstr "%{language} (wyłączony — %{status})"
 msgid "1-100, higher = better quality. 80-90 recommended."
 msgstr "1–100, wyżej = lepsza jakość. Zalecane 80–90."
 
-#: lib/phoenix_kit/integrations/providers.ex:591
+#: lib/phoenix_kit/integrations/providers.ex:594
 #, elixir-autogen, elixir-format
 msgid "AI model access via OpenRouter (100+ models)"
 msgstr "Dostęp do modeli AI przez OpenRouter (ponad 100 modeli)"
@@ -3745,16 +3745,16 @@ msgstr "Dostęp do modeli AI przez OpenRouter (ponad 100 modeli)"
 msgid "API Credentials"
 msgstr "Dane dostępowe API"
 
-#: lib/phoenix_kit/integrations/providers.ex:450
-#: lib/phoenix_kit/integrations/providers.ex:536
-#: lib/phoenix_kit/integrations/providers.ex:605
-#: lib/phoenix_kit/integrations/providers.ex:663
-#: lib/phoenix_kit/integrations/providers.ex:726
-#: lib/phoenix_kit/integrations/providers.ex:789
-#: lib/phoenix_kit/integrations/providers.ex:861
-#: lib/phoenix_kit/integrations/providers.ex:928
-#: lib/phoenix_kit/integrations/providers.ex:1444
-#: lib/phoenix_kit/integrations/providers.ex:1621
+#: lib/phoenix_kit/integrations/providers.ex:453
+#: lib/phoenix_kit/integrations/providers.ex:539
+#: lib/phoenix_kit/integrations/providers.ex:608
+#: lib/phoenix_kit/integrations/providers.ex:666
+#: lib/phoenix_kit/integrations/providers.ex:729
+#: lib/phoenix_kit/integrations/providers.ex:792
+#: lib/phoenix_kit/integrations/providers.ex:864
+#: lib/phoenix_kit/integrations/providers.ex:931
+#: lib/phoenix_kit/integrations/providers.ex:1472
+#: lib/phoenix_kit/integrations/providers.ex:1649
 #, elixir-autogen, elixir-format
 msgid "API Key"
 msgstr "Klucz API"
@@ -3784,7 +3784,7 @@ msgstr "Konto"
 msgid "Account Type"
 msgstr "Typ konta"
 
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:274
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:280
 #, elixir-autogen, elixir-format
 msgid "Account disconnected"
 msgstr "Konto odłączone"
@@ -3792,15 +3792,15 @@ msgstr "Konto odłączone"
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:93
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:262
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:415
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:35
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:85
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:41
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:91
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:111
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:304
 #, elixir-autogen, elixir-format
 msgid "Add Integration"
 msgstr "Dodaj integrację"
 
-#: lib/phoenix_kit/integrations/providers.ex:634
+#: lib/phoenix_kit/integrations/providers.ex:637
 #, elixir-autogen, elixir-format
 msgid "Add credits (optional)"
 msgstr "Dodaj kredyty (opcjonalnie)"
@@ -3830,12 +3830,12 @@ msgstr "Wszystko sprawne"
 msgid "Alternative Formats"
 msgstr "Formaty alternatywne"
 
-#: lib/phoenix_kit/integrations/providers.ex:403
+#: lib/phoenix_kit/integrations/providers.ex:406
 #, elixir-autogen, elixir-format
 msgid "Application type: **Web application** (do not select \"Desktop app\" — it won't support redirect URIs)"
 msgstr "Typ aplikacji: **aplikacja internetowa** (nie wybieraj „aplikacja desktopowa” — nie obsługuje adresów URI przekierowania)"
 
-#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:547
+#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:552
 #, elixir-autogen, elixir-format
 msgid "Are you sure you want to disconnect this account?"
 msgstr "Czy na pewno chcesz odłączyć to konto?"
@@ -3850,7 +3850,7 @@ msgstr "Czy na pewno chcesz odłączyć?"
 msgid "Are you sure you want to remove this member?"
 msgstr "Czy na pewno chcesz usunąć tego członka?"
 
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:141
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:147
 #, elixir-autogen, elixir-format
 msgid "Authorization failed: %{reason}"
 msgstr "Autoryzacja nie powiodła się: %{reason}"
@@ -3908,19 +3908,19 @@ msgstr "Wybierz inną usługę"
 msgid "Choose a service to connect"
 msgstr "Wybierz usługę do połączenia"
 
-#: lib/phoenix_kit/integrations/providers.ex:402
+#: lib/phoenix_kit/integrations/providers.ex:405
 #, elixir-autogen, elixir-format
 msgid "Click **Create Credentials → OAuth client ID**"
 msgstr "Kliknij **Utwórz dane logowania → Identyfikator klienta OAuth**"
 
-#: lib/phoenix_kit/integrations/providers.ex:573
-#: lib/phoenix_kit/integrations/providers.ex:628
+#: lib/phoenix_kit/integrations/providers.ex:576
+#: lib/phoenix_kit/integrations/providers.ex:631
 #, elixir-autogen, elixir-format
 msgid "Click **Create Key**"
 msgstr "Kliknij **Utwórz klucz**"
 
-#: lib/phoenix_kit/integrations/providers.ex:413
-#: lib/phoenix_kit/integrations/providers.ex:1770
+#: lib/phoenix_kit/integrations/providers.ex:416
+#: lib/phoenix_kit/integrations/providers.ex:1798
 #, elixir-autogen, elixir-format
 msgid "Click **Save**, then **Connect Account**"
 msgstr "Kliknij **Zapisz**, a następnie **Połącz konto**"
@@ -3960,8 +3960,8 @@ msgstr "Połącz konto %{provider}"
 msgid "Connect Account"
 msgstr "Połącz konto"
 
-#: lib/phoenix_kit/integrations/providers.ex:411
-#: lib/phoenix_kit/integrations/providers.ex:1768
+#: lib/phoenix_kit/integrations/providers.ex:414
+#: lib/phoenix_kit/integrations/providers.ex:1796
 #, elixir-autogen, elixir-format
 msgid "Connect and authorize"
 msgstr "Połącz i autoryzuj"
@@ -3972,9 +3972,9 @@ msgid "Connect external services for use across modules"
 msgstr "Połącz usługi zewnętrzne do użytku w modułach"
 
 #: lib/phoenix_kit_web/components/core/integration_picker.ex:358
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:28
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:247
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:292
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:30
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:249
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:294
 #: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:382
 #: lib/phoenix_kit_web/live/settings/email_sending.ex:494
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:94
@@ -4005,29 +4005,29 @@ msgid "Connection failed"
 msgstr "Połączenie nie udało się"
 
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:88
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:411
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:417
 #: lib/phoenix_kit_web/live/settings/integrations.ex:110
 #, elixir-autogen, elixir-format
 msgid "Connection removed"
 msgstr "Połączenie usunięte"
 
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:469
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:480
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:605
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:614
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:475
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:486
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:611
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:620
 #: lib/phoenix_kit_web/live/settings/integrations.ex:576
 #: lib/phoenix_kit_web/live/settings/integrations.ex:577
 #, elixir-autogen, elixir-format
 msgid "Connection verified"
 msgstr "Połączenie zweryfikowane"
 
-#: lib/phoenix_kit/integrations/providers.ex:407
+#: lib/phoenix_kit/integrations/providers.ex:410
 #, elixir-autogen, elixir-format
 msgid "Copy the **Client ID** and **Client Secret** into the form above"
 msgstr "Skopiuj **identyfikator klienta** i **sekret klienta** do formularza powyżej"
 
-#: lib/phoenix_kit/integrations/providers.ex:630
-#: lib/phoenix_kit/integrations/providers.ex:898
+#: lib/phoenix_kit/integrations/providers.ex:633
+#: lib/phoenix_kit/integrations/providers.ex:901
 #, elixir-autogen, elixir-format
 msgid "Copy the key and paste it into the form above"
 msgstr "Skopiuj klucz i wklej go do formularza powyżej"
@@ -4038,34 +4038,34 @@ msgstr "Skopiuj klucz i wklej go do formularza powyżej"
 msgid "Could not reach the service"
 msgstr "Nie udało się połączyć z usługą"
 
-#: lib/phoenix_kit/integrations/providers.ex:353
+#: lib/phoenix_kit/integrations/providers.ex:356
 #, elixir-autogen, elixir-format
 msgid "Create a Google Cloud project"
 msgstr "Utwórz projekt Google Cloud"
 
-#: lib/phoenix_kit/integrations/providers.ex:356
+#: lib/phoenix_kit/integrations/providers.ex:359
 #, elixir-autogen, elixir-format
 msgid "Create a new project or select an existing one"
 msgstr "Utwórz nowy projekt lub wybierz istniejący"
 
-#: lib/phoenix_kit/integrations/providers.ex:486
-#: lib/phoenix_kit/integrations/providers.ex:570
-#: lib/phoenix_kit/integrations/providers.ex:626
-#: lib/phoenix_kit/integrations/providers.ex:696
-#: lib/phoenix_kit/integrations/providers.ex:756
-#: lib/phoenix_kit/integrations/providers.ex:822
-#: lib/phoenix_kit/integrations/providers.ex:893
-#: lib/phoenix_kit/integrations/providers.ex:945
+#: lib/phoenix_kit/integrations/providers.ex:489
+#: lib/phoenix_kit/integrations/providers.ex:573
+#: lib/phoenix_kit/integrations/providers.ex:629
+#: lib/phoenix_kit/integrations/providers.ex:699
+#: lib/phoenix_kit/integrations/providers.ex:759
+#: lib/phoenix_kit/integrations/providers.ex:825
+#: lib/phoenix_kit/integrations/providers.ex:896
+#: lib/phoenix_kit/integrations/providers.ex:948
 #, elixir-autogen, elixir-format
 msgid "Create an API key"
 msgstr "Utwórz klucz API"
 
-#: lib/phoenix_kit/integrations/providers.ex:397
+#: lib/phoenix_kit/integrations/providers.ex:400
 #, elixir-autogen, elixir-format
 msgid "Create an OAuth Client"
 msgstr "Utwórz klienta OAuth"
 
-#: lib/phoenix_kit/integrations/providers.ex:619
+#: lib/phoenix_kit/integrations/providers.ex:622
 #, elixir-autogen, elixir-format
 msgid "Create an OpenRouter account"
 msgstr "Utwórz konto OpenRouter"
@@ -4098,7 +4098,7 @@ msgstr "Domyślna stawka podatku stosowana w modułach Rozliczenia i Sklep"
 #: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:376
 #: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:410
 #: lib/phoenix_kit_web/live/components/user_settings.ex:1567
-#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:551
+#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:556
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:230
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:275
 #, elixir-autogen, elixir-format
@@ -4116,7 +4116,7 @@ msgstr "Odłączyć?"
 msgid "Disconnected"
 msgstr "Odłączone"
 
-#: lib/phoenix_kit/integrations/providers.ex:371
+#: lib/phoenix_kit/integrations/providers.ex:374
 #, elixir-autogen, elixir-format
 msgid "Drive API handles file listing, creation, copying, and PDF export. Docs API is used for reading document content and substituting template variables."
 msgstr "API Drive obsługuje listowanie, tworzenie, kopiowanie i eksport plików do PDF. API Docs służy do odczytu treści dokumentów i podstawiania zmiennych szablonu."
@@ -4126,7 +4126,7 @@ msgstr "API Drive obsługuje listowanie, tworzenie, kopiowanie i eksport plików
 msgid "EU format: %{country}123456789"
 msgstr "Format UE: %{country}123456789"
 
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:103
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:109
 #, elixir-autogen, elixir-format
 msgid "Edit Integration"
 msgstr "Edytuj integrację"
@@ -4146,7 +4146,7 @@ msgstr "Włącz zasobnik"
 msgid "Enable organization accounts"
 msgstr "Włącz konta organizacji"
 
-#: lib/phoenix_kit/integrations/providers.ex:360
+#: lib/phoenix_kit/integrations/providers.ex:363
 #, elixir-autogen, elixir-format
 msgid "Enable required APIs"
 msgstr "Włącz wymagane API"
@@ -4177,7 +4177,7 @@ msgstr "Nie udało się przyjąć zaproszenia. Spróbuj ponownie."
 msgid "Failed to add member"
 msgstr "Nie udało się dodać członka"
 
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:305
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:311
 #, elixir-autogen, elixir-format
 msgid "Failed to build authorization URL"
 msgstr "Nie udało się zbudować adresu URL autoryzacji"
@@ -4187,7 +4187,7 @@ msgstr "Nie udało się zbudować adresu URL autoryzacji"
 msgid "Failed to cancel invitation"
 msgstr "Nie udało się anulować zaproszenia"
 
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:563
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:569
 #, elixir-autogen, elixir-format
 msgid "Failed to connect. Please try again."
 msgstr "Nie udało się połączyć. Spróbuj ponownie."
@@ -4224,12 +4224,12 @@ msgstr "Nie udało się zaktualizować awatara"
 msgid "File"
 msgstr "Plik"
 
-#: lib/phoenix_kit/integrations/providers.ex:337
+#: lib/phoenix_kit/integrations/providers.ex:340
 #, elixir-autogen, elixir-format
 msgid "From Google Cloud Console → APIs & Services → Credentials"
 msgstr "Z Google Cloud Console → Interfejsy API i usługi → Dane logowania"
 
-#: lib/phoenix_kit/integrations/providers.ex:609
+#: lib/phoenix_kit/integrations/providers.ex:612
 #, elixir-autogen, elixir-format
 msgid "From openrouter.ai/keys"
 msgstr "Z openrouter.ai/keys"
@@ -4239,73 +4239,73 @@ msgstr "Z openrouter.ai/keys"
 msgid "Generate additional format variants alongside the primary format. Modern formats like WebP and AVIF offer better compression."
 msgstr "Generuj dodatkowe warianty formatu obok formatu głównego. Nowoczesne formaty jak WebP i AVIF zapewniają lepszą kompresję."
 
-#: lib/phoenix_kit/integrations/providers.ex:574
-#: lib/phoenix_kit/integrations/providers.ex:629
+#: lib/phoenix_kit/integrations/providers.ex:577
+#: lib/phoenix_kit/integrations/providers.ex:632
 #, elixir-autogen, elixir-format
 msgid "Give it a name (e.g., your app name)"
 msgstr "Nadaj mu nazwę (np. nazwę Twojej aplikacji)"
 
-#: lib/phoenix_kit/integrations/providers.ex:366
+#: lib/phoenix_kit/integrations/providers.ex:369
 #, elixir-autogen, elixir-format
 msgid "Go back to the Library and search for **Google Docs API**, click it, then click **Enable**"
 msgstr "Wróć do biblioteki, wyszukaj **Google Docs API**, kliknij ją, a następnie kliknij **Włącz**"
 
-#: lib/phoenix_kit/integrations/providers.ex:399
+#: lib/phoenix_kit/integrations/providers.ex:402
 #, elixir-autogen, elixir-format
 msgid "Go to [APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials)"
 msgstr "Przejdź do [Interfejsy API i usługi → Dane logowania](https://console.cloud.google.com/apis/credentials)"
 
-#: lib/phoenix_kit/integrations/providers.ex:362
+#: lib/phoenix_kit/integrations/providers.ex:365
 #, elixir-autogen, elixir-format
 msgid "Go to [APIs & Services → Library](https://console.cloud.google.com/apis/library)"
 msgstr "Przejdź do [Interfejsy API i usługi → Biblioteka](https://console.cloud.google.com/apis/library)"
 
-#: lib/phoenix_kit/integrations/providers.ex:381
+#: lib/phoenix_kit/integrations/providers.ex:384
 #, elixir-autogen, elixir-format
 msgid "Go to [Audience](https://console.cloud.google.com/auth/audience) — set user type to **External** (or Internal for Google Workspace)"
 msgstr "Przejdź do [Odbiorcy](https://console.cloud.google.com/auth/audience) — ustaw typ użytkownika na **Zewnętrzny** (lub Wewnętrzny dla Google Workspace)"
 
-#: lib/phoenix_kit/integrations/providers.ex:378
+#: lib/phoenix_kit/integrations/providers.ex:381
 #, elixir-autogen, elixir-format
 msgid "Go to [Branding](https://console.cloud.google.com/auth/branding) in the sidebar — fill in the **App name** and **User support email**, then save"
 msgstr "Przejdź do [Branding](https://console.cloud.google.com/auth/branding) na pasku bocznym — wypełnij **nazwę aplikacji** i **e-mail wsparcia**, a następnie zapisz"
 
-#: lib/phoenix_kit/integrations/providers.ex:637
+#: lib/phoenix_kit/integrations/providers.ex:640
 #, elixir-autogen, elixir-format
 msgid "Go to [Credits](https://openrouter.ai/credits) to add funds"
 msgstr "Przejdź do [Credits](https://openrouter.ai/credits), aby dodać środki"
 
-#: lib/phoenix_kit/integrations/providers.ex:387
+#: lib/phoenix_kit/integrations/providers.ex:390
 #, elixir-autogen, elixir-format
 msgid "Go to [Data Access](https://console.cloud.google.com/auth/scopes) — click **Add or Remove Scopes** and add the Drive and Docs scopes. This step may not be required — the app requests the needed scopes at connect time regardless."
 msgstr "Przejdź do [Dostęp do danych](https://console.cloud.google.com/auth/scopes) — kliknij **Dodaj lub usuń zakresy** i dodaj zakresy Drive i Docs. Ten krok może nie być konieczny — aplikacja i tak żąda potrzebnych zakresów przy łączeniu."
 
-#: lib/phoenix_kit/integrations/providers.ex:621
+#: lib/phoenix_kit/integrations/providers.ex:624
 #, elixir-autogen, elixir-format
 msgid "Go to [openrouter.ai](https://openrouter.ai) and sign up or log in"
 msgstr "Przejdź na [openrouter.ai](https://openrouter.ai) i zarejestruj się lub zaloguj"
 
-#: lib/phoenix_kit/integrations/providers.ex:355
+#: lib/phoenix_kit/integrations/providers.ex:358
 #, elixir-autogen, elixir-format
 msgid "Go to the [Google Cloud Console](https://console.cloud.google.com)"
 msgstr "Przejdź do [Google Cloud Console](https://console.cloud.google.com)"
 
-#: lib/phoenix_kit/integrations/providers.ex:318
+#: lib/phoenix_kit/integrations/providers.ex:321
 #, elixir-autogen, elixir-format
 msgid "Google"
 msgstr "Google"
 
-#: lib/phoenix_kit/integrations/providers.ex:319
+#: lib/phoenix_kit/integrations/providers.ex:322
 #, elixir-autogen, elixir-format
 msgid "Google Docs, Drive, Calendar, Sheets, Gmail"
 msgstr "Google Docs, Drive, Kalendarz, Arkusze, Gmail"
 
-#: lib/phoenix_kit/integrations/providers.ex:414
+#: lib/phoenix_kit/integrations/providers.ex:417
 #, elixir-autogen, elixir-format
 msgid "Google will show an \"unverified app\" warning — click **Advanced → Go to (app name)** to proceed"
 msgstr "Google wyświetli ostrzeżenie o „niezweryfikowanej aplikacji” — kliknij **Zaawansowane → Przejdź do (nazwa aplikacji)**, aby kontynuować"
 
-#: lib/phoenix_kit/integrations/providers.ex:417
+#: lib/phoenix_kit/integrations/providers.ex:420
 #, elixir-autogen, elixir-format
 msgid "Grant access to Google Docs and Google Drive"
 msgstr "Udziel dostępu do Google Docs i Google Drive"
@@ -4333,17 +4333,17 @@ msgid "Integrations"
 msgstr "Integracje"
 
 #: lib/phoenix_kit/integrations/integrations.ex:1404
-#: lib/phoenix_kit/integrations/validators.ex:236
-#: lib/phoenix_kit/integrations/validators.ex:422
-#: lib/phoenix_kit/integrations/validators.ex:456
-#: lib/phoenix_kit/integrations/validators.ex:692
-#: lib/phoenix_kit/integrations/validators.ex:854
-#: lib/phoenix_kit/integrations/validators.ex:924
+#: lib/phoenix_kit/integrations/validators.ex:207
+#: lib/phoenix_kit/integrations/validators.ex:393
+#: lib/phoenix_kit/integrations/validators.ex:427
+#: lib/phoenix_kit/integrations/validators.ex:663
+#: lib/phoenix_kit/integrations/validators.ex:825
+#: lib/phoenix_kit/integrations/validators.ex:895
 #, elixir-autogen, elixir-format
 msgid "Invalid credentials"
 msgstr "Nieprawidłowe dane logowania"
 
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:161
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:167
 #, elixir-autogen, elixir-format
 msgid "Invalid integration URL"
 msgstr "Nieprawidłowy adres URL integracji"
@@ -4626,12 +4626,12 @@ msgstr "Członkowie"
 msgid "Missing"
 msgstr "Brakuje"
 
-#: lib/phoenix_kit/integrations/providers.ex:622
+#: lib/phoenix_kit/integrations/providers.ex:625
 #, elixir-autogen, elixir-format
 msgid "Navigate to [Keys](https://openrouter.ai/keys)"
 msgstr "Przejdź do [Keys](https://openrouter.ai/keys)"
 
-#: lib/phoenix_kit/integrations/providers.ex:392
+#: lib/phoenix_kit/integrations/providers.ex:395
 #, elixir-autogen, elixir-format
 msgid "Navigate to the OAuth section using the search bar or the hamburger menu: search for \"OAuth\", or go to the sidebar: **APIs & Services → OAuth consent screen**. This opens a different section with its own sidebar."
 msgstr "Przejdź do sekcji OAuth za pomocą paska wyszukiwania lub menu hamburger: wyszukaj „OAuth” albo wybierz na pasku bocznym **Interfejsy API i usługi → Ekran zgody OAuth**. Otworzy się inna sekcja z własnym paskiem bocznym."
@@ -4648,10 +4648,10 @@ msgstr "Brak tokenu dostępu"
 
 #: lib/phoenix_kit/integrations/integrations.ex:1244
 #: lib/phoenix_kit/integrations/integrations.ex:1303
-#: lib/phoenix_kit/integrations/validators.ex:196
-#: lib/phoenix_kit/integrations/validators.ex:849
-#: lib/phoenix_kit/integrations/validators.ex:1068
-#: lib/phoenix_kit/integrations/validators.ex:1241
+#: lib/phoenix_kit/integrations/validators.ex:167
+#: lib/phoenix_kit/integrations/validators.ex:820
+#: lib/phoenix_kit/integrations/validators.ex:1039
+#: lib/phoenix_kit/integrations/validators.ex:1212
 #, elixir-autogen, elixir-format
 msgid "No credentials configured"
 msgstr "Brak skonfigurowanych danych logowania"
@@ -4684,8 +4684,8 @@ msgstr "Brak oczekujących zaproszeń"
 
 #: lib/phoenix_kit_web/components/core/integration_picker.ex:361
 #: lib/phoenix_kit_web/components/core/integration_picker.ex:362
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:30
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:254
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:32
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:256
 #: lib/phoenix_kit_web/live/settings/email_sending.ex:496
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:101
 #: lib/phoenix_kit_web/live/settings/integrations.ex:294
@@ -4694,8 +4694,8 @@ msgid "Not connected"
 msgstr "Niepołączone"
 
 #: lib/phoenix_kit_web/components/core/integration_picker.ex:360
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:29
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:250
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:31
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:252
 #: lib/phoenix_kit_web/live/settings/email_sending.ex:495
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:97
 #: lib/phoenix_kit_web/live/settings/integrations.ex:293
@@ -4730,7 +4730,7 @@ msgstr "Tylko włączone zasobniki otrzymują nowe przesłania"
 msgid "Only width is used, height is calculated automatically"
 msgstr "Używana jest tylko szerokość, wysokość jest obliczana automatycznie"
 
-#: lib/phoenix_kit/integrations/providers.ex:590
+#: lib/phoenix_kit/integrations/providers.ex:593
 #, elixir-autogen, elixir-format
 msgid "OpenRouter"
 msgstr "OpenRouter"
@@ -4791,13 +4791,13 @@ msgstr "Osoba prywatna"
 msgid "Pick which notification types you want to receive. Unchecked types are muted — activities still record in the audit log but no bell notification is created for you."
 msgstr "Wybierz, jakie typy powiadomień chcesz otrzymywać. Niezaznaczone typy są wyciszone — aktywności nadal są zapisywane w dzienniku audytu, ale powiadomienie w dzwonku nie jest tworzone."
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:168
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:237
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:170
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:243
 #, elixir-autogen, elixir-format
 msgid "Please enter a connection name."
 msgstr "Wpisz nazwę połączenia."
 
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:302
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:308
 #, elixir-autogen, elixir-format
 msgid "Please save your Client ID first"
 msgstr "Najpierw zapisz identyfikator klienta"
@@ -4855,7 +4855,7 @@ msgstr "Zapisz ustawienia podatkowe"
 msgid "Save preferences"
 msgstr "Zapisz preferencje"
 
-#: lib/phoenix_kit/integrations/providers.ex:365
+#: lib/phoenix_kit/integrations/providers.ex:368
 #, elixir-autogen, elixir-format
 msgid "Search for **Google Drive API**, click it, then click **Enable**"
 msgstr "Wyszukaj **Google Drive API**, kliknij ją, a następnie kliknij **Włącz**"
@@ -4865,7 +4865,7 @@ msgstr "Wyszukaj **Google Drive API**, kliknij ją, a następnie kliknij **Włą
 msgid "Search integrations..."
 msgstr "Szukaj integracji…"
 
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:571
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:577
 #, elixir-autogen, elixir-format
 msgid "Security check failed. Please try connecting again."
 msgstr "Kontrola bezpieczeństwa nie powiodła się. Spróbuj połączyć się ponownie."
@@ -4877,7 +4877,7 @@ msgstr "Wybierz użytkownika do dodania…"
 
 #: lib/modules/storage/web/bucket_page.html.heex:61
 #: lib/phoenix_kit/integrations/object_storage_services.ex:195
-#: lib/phoenix_kit/integrations/providers.ex:1205
+#: lib/phoenix_kit/integrations/providers.ex:1233
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:696
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:229
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:281
@@ -4894,7 +4894,7 @@ msgstr "Usługa"
 msgid "Service error %{status}"
 msgstr "Błąd usługi %{status}"
 
-#: lib/phoenix_kit/integrations/providers.ex:376
+#: lib/phoenix_kit/integrations/providers.ex:379
 #, elixir-autogen, elixir-format
 msgid "Set up OAuth consent"
 msgstr "Skonfiguruj zgodę OAuth"
@@ -4904,7 +4904,7 @@ msgstr "Skonfiguruj zgodę OAuth"
 msgid "Size Configuration"
 msgstr "Konfiguracja rozmiarów"
 
-#: lib/phoenix_kit/integrations/providers.ex:636
+#: lib/phoenix_kit/integrations/providers.ex:639
 #, elixir-autogen, elixir-format
 msgid "Some models are free, but most require credits"
 msgstr "Niektóre modele są darmowe, ale większość wymaga kredytów"
@@ -4924,7 +4924,7 @@ msgstr "Krok 1"
 msgid "Step 2"
 msgstr "Krok 2"
 
-#: lib/phoenix_kit/integrations/providers.ex:384
+#: lib/phoenix_kit/integrations/providers.ex:387
 #, elixir-autogen, elixir-format
 msgid "Still on Audience — while the app is in **Testing** status, add the Google account you will connect as a **Test user** (this must be the same account whose Drive will store your files)"
 msgstr "Nadal w sekcji Odbiorcy — dopóki aplikacja ma status **Testowanie**, dodaj konto Google, które podłączysz, jako **użytkownika testowego** (musi to być to samo konto, na którego Dysku będą przechowywane pliki)"
@@ -4952,8 +4952,8 @@ msgstr "Ustawienia podatkowe zapisane"
 msgid "Test Connection"
 msgstr "Testuj połączenie"
 
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:499
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:631
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:505
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:637
 #: lib/phoenix_kit_web/live/settings/integrations.ex:572
 #, elixir-autogen, elixir-format
 msgid "Test failed"
@@ -4991,7 +4991,7 @@ msgstr "To zaproszenie wygasło."
 msgid "Total Files"
 msgstr "Łącznie plików"
 
-#: lib/phoenix_kit/integrations/providers.ex:406
+#: lib/phoenix_kit/integrations/providers.ex:409
 #, elixir-autogen, elixir-format
 msgid "Under **Authorized redirect URIs**, add: `{redirect_uri}`"
 msgstr "W sekcji **Autoryzowane adresy URI przekierowania** dodaj: `{redirect_uri}`"
@@ -5040,8 +5040,8 @@ msgstr "Dołączyłeś do organizacji!"
 msgid "You need to create at least one media bucket before files can be uploaded."
 msgstr "Musisz utworzyć co najmniej jeden zasobnik mediów, aby móc przesyłać pliki."
 
-#: lib/phoenix_kit/integrations/providers.ex:418
-#: lib/phoenix_kit/integrations/providers.ex:1774
+#: lib/phoenix_kit/integrations/providers.ex:421
+#: lib/phoenix_kit/integrations/providers.ex:1802
 #, elixir-autogen, elixir-format
 msgid "You'll be redirected back here once connected"
 msgstr "Po połączeniu wrócisz tutaj"
@@ -5073,108 +5073,108 @@ msgstr "zaprosił Cię do swojej organizacji."
 msgid "roles"
 msgstr "role"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:87
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:886
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:89
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:892
 #, elixir-autogen, elixir-format
 msgid "%{n} days ago"
 msgstr "%{n} dni temu"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:84
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:883
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:86
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:889
 #, elixir-autogen, elixir-format
 msgid "%{n} hours ago"
 msgstr "%{n} godz. temu"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:81
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:880
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:83
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:886
 #, elixir-autogen, elixir-format
 msgid "%{n} minutes ago"
 msgstr "%{n} min temu"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:86
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:885
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:88
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:891
 #, elixir-autogen, elixir-format
 msgid "1 day ago"
 msgstr "1 dzień temu"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:83
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:882
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:85
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:888
 #, elixir-autogen, elixir-format
 msgid "1 hour ago"
 msgstr "1 godzinę temu"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:80
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:879
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:82
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:885
 #, elixir-autogen, elixir-format
 msgid "1 minute ago"
 msgstr "1 minutę temu"
 
-#: lib/phoenix_kit/integrations/providers.ex:712
+#: lib/phoenix_kit/integrations/providers.ex:715
 #, elixir-autogen, elixir-format
 msgid "AI model access via DeepSeek (deepseek-chat, deepseek-reasoner)"
 msgstr "Dostęp do modeli AI przez DeepSeek (deepseek-chat, deepseek-reasoner)"
 
-#: lib/phoenix_kit/integrations/providers.ex:649
+#: lib/phoenix_kit/integrations/providers.ex:652
 #, elixir-autogen, elixir-format
 msgid "AI model access via Mistral AI (Mistral Large, Codestral, Pixtral)"
 msgstr "Dostęp do modeli AI przez Mistral AI (Mistral Large, Codestral, Pixtral)"
 
-#: lib/phoenix_kit/integrations/providers.ex:1740
+#: lib/phoenix_kit/integrations/providers.ex:1768
 #, elixir-autogen, elixir-format
 msgid "Add a client secret"
 msgstr "Dodaj sekret klienta"
 
-#: lib/phoenix_kit/integrations/providers.ex:683
+#: lib/phoenix_kit/integrations/providers.ex:686
 #, elixir-autogen, elixir-format
 msgid "Add a payment method (required)"
 msgstr "Dodaj metodę płatności (wymagane)"
 
-#: lib/phoenix_kit/integrations/providers.ex:475
-#: lib/phoenix_kit/integrations/providers.ex:555
-#: lib/phoenix_kit/integrations/providers.ex:745
-#: lib/phoenix_kit/integrations/providers.ex:814
-#: lib/phoenix_kit/integrations/providers.ex:878
+#: lib/phoenix_kit/integrations/providers.ex:478
+#: lib/phoenix_kit/integrations/providers.ex:558
+#: lib/phoenix_kit/integrations/providers.ex:748
+#: lib/phoenix_kit/integrations/providers.ex:817
+#: lib/phoenix_kit/integrations/providers.ex:881
 #, elixir-autogen, elixir-format
 msgid "Add credits"
 msgstr "Dodaj kredyty"
 
-#: lib/phoenix_kit/integrations/providers.ex:1755
+#: lib/phoenix_kit/integrations/providers.ex:1783
 #, elixir-autogen, elixir-format
 msgid "Add the permissions your integration needs: `User.Read` is included by default; add `Mail.Read`, `Files.Read.All`, `Calendars.Read`, etc. as required"
 msgstr "Dodaj uprawnienia potrzebne integracji: `User.Read` jest domyślnie uwzględnione; w razie potrzeby dodaj `Mail.Read`, `Files.Read.All`, `Calendars.Read` itd."
 
-#: lib/phoenix_kit/integrations/providers.ex:1682
+#: lib/phoenix_kit/integrations/providers.ex:1710
 #, elixir-autogen, elixir-format
 msgid "Application (client) ID"
 msgstr "Identyfikator aplikacji (klienta)"
 
-#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:538
+#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:543
 #, elixir-autogen, elixir-format
 msgid "Clears the OAuth tokens. Credentials and the connection itself stay so you can reconnect with one click."
 msgstr "Usuwa tokeny OAuth. Dane logowania i samo połączenie pozostają, więc możesz połączyć się ponownie jednym kliknięciem."
 
-#: lib/phoenix_kit/integrations/providers.ex:759
-#: lib/phoenix_kit/integrations/providers.ex:825
+#: lib/phoenix_kit/integrations/providers.ex:762
+#: lib/phoenix_kit/integrations/providers.ex:828
 #, elixir-autogen, elixir-format
 msgid "Click **Create API key**, give it a name"
 msgstr "Kliknij **Utwórz klucz API** i nadaj mu nazwę"
 
-#: lib/phoenix_kit/integrations/providers.ex:699
+#: lib/phoenix_kit/integrations/providers.ex:702
 #, elixir-autogen, elixir-format
 msgid "Click **Create new key**, give it a name, set an expiry if desired"
 msgstr "Kliknij **Utwórz nowy klucz**, nadaj mu nazwę i w razie potrzeby ustaw datę wygaśnięcia"
 
-#: lib/phoenix_kit/integrations/providers.ex:1727
+#: lib/phoenix_kit/integrations/providers.ex:1755
 #, elixir-autogen, elixir-format
 msgid "Click **New registration**, give the app a name"
 msgstr "Kliknij **Nowa rejestracja** i nadaj aplikacji nazwę"
 
-#: lib/phoenix_kit/integrations/providers.ex:1732
+#: lib/phoenix_kit/integrations/providers.ex:1760
 #, elixir-autogen, elixir-format
 msgid "Click **Register**"
 msgstr "Kliknij **Zarejestruj**"
 
-#: lib/phoenix_kit/integrations/providers.ex:1750
+#: lib/phoenix_kit/integrations/providers.ex:1778
 #, elixir-autogen, elixir-format
 msgid "Configure API permissions"
 msgstr "Skonfiguruj uprawnienia API"
@@ -5184,27 +5184,27 @@ msgstr "Skonfiguruj uprawnienia API"
 msgid "Connect external services like %{providers}."
 msgstr "Połącz usługi zewnętrzne, np. %{providers}."
 
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:440
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:446
 #, elixir-autogen, elixir-format
 msgid "Connection name can't be blank."
 msgstr "Nazwa połączenia nie może być pusta."
 
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:434
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:440
 #, elixir-autogen, elixir-format
 msgid "Connection renamed"
 msgstr "Połączenie zmieniło nazwę"
 
-#: lib/phoenix_kit/integrations/providers.ex:1744
+#: lib/phoenix_kit/integrations/providers.ex:1772
 #, elixir-autogen, elixir-format
 msgid "Copy the **Value** column (not the Secret ID) into the form above — the value is shown ONCE and disappears on page refresh"
 msgstr "Skopiuj kolumnę **Wartość** (nie identyfikator sekretu) do formularza powyżej — wartość jest pokazywana TYLKO RAZ i znika po odświeżeniu strony"
 
-#: lib/phoenix_kit/integrations/providers.ex:490
-#: lib/phoenix_kit/integrations/providers.ex:578
-#: lib/phoenix_kit/integrations/providers.ex:700
-#: lib/phoenix_kit/integrations/providers.ex:760
-#: lib/phoenix_kit/integrations/providers.ex:826
-#: lib/phoenix_kit/integrations/providers.ex:950
+#: lib/phoenix_kit/integrations/providers.ex:493
+#: lib/phoenix_kit/integrations/providers.ex:581
+#: lib/phoenix_kit/integrations/providers.ex:703
+#: lib/phoenix_kit/integrations/providers.ex:763
+#: lib/phoenix_kit/integrations/providers.ex:829
+#: lib/phoenix_kit/integrations/providers.ex:953
 #, elixir-autogen, elixir-format
 msgid "Copy the key (shown once) and paste it into the form above"
 msgstr "Skopiuj klucz (pokazywany raz) i wklej go do formularza powyżej"
@@ -5215,39 +5215,39 @@ msgstr "Skopiuj klucz (pokazywany raz) i wklej go do formularza powyżej"
 msgid "Create Connection"
 msgstr "Utwórz połączenie"
 
-#: lib/phoenix_kit/integrations/providers.ex:737
+#: lib/phoenix_kit/integrations/providers.ex:740
 #, elixir-autogen, elixir-format
 msgid "Create a DeepSeek account"
 msgstr "Utwórz konto DeepSeek"
 
-#: lib/phoenix_kit/integrations/providers.ex:674
+#: lib/phoenix_kit/integrations/providers.ex:677
 #, elixir-autogen, elixir-format
 msgid "Create a Mistral account"
 msgstr "Utwórz konto Mistral"
 
-#: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:916
-#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:520
+#: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:921
+#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:525
 #, elixir-autogen, elixir-format
 msgid "Danger Zone"
 msgstr "Strefa zagrożenia"
 
-#: lib/phoenix_kit/integrations/providers.ex:711
+#: lib/phoenix_kit/integrations/providers.ex:714
 #, elixir-autogen, elixir-format
 msgid "DeepSeek"
 msgstr "DeepSeek"
 
-#: lib/phoenix_kit/integrations/providers.ex:750
+#: lib/phoenix_kit/integrations/providers.ex:753
 #, elixir-autogen, elixir-format
 msgid "DeepSeek requires a positive balance before you can call the chat or reasoner endpoints, even on cheap models"
 msgstr "DeepSeek wymaga dodatniego salda, aby móc wywołać punkty końcowe chat lub reasoner, nawet dla tanich modeli"
 
-#: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:924
-#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:561
+#: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:929
+#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:566
 #, elixir-autogen, elixir-format
 msgid "Delete this connection"
 msgstr "Usuń to połączenie"
 
-#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:536
+#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:541
 #, elixir-autogen, elixir-format
 msgid "Disconnect account"
 msgstr "Odłącz konto"
@@ -5259,146 +5259,146 @@ msgstr "Odłącz konto"
 msgid "Drag to reorder"
 msgstr "Przeciągnij, aby zmienić kolejność"
 
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:443
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:449
 #, elixir-autogen, elixir-format
 msgid "Failed to rename connection."
 msgstr "Nie udało się zmienić nazwy połączenia."
 
-#: lib/phoenix_kit/integrations/providers.ex:688
+#: lib/phoenix_kit/integrations/providers.ex:691
 #, elixir-autogen, elixir-format
 msgid "Free models still require a billing-enabled workspace"
 msgstr "Darmowe modele również wymagają obszaru roboczego z włączonymi rozliczeniami"
 
-#: lib/phoenix_kit/integrations/providers.ex:1686
+#: lib/phoenix_kit/integrations/providers.ex:1714
 #, elixir-autogen, elixir-format
 msgid "From Azure Portal → App registrations → your app → Overview"
 msgstr "Z portalu Azure → Rejestracje aplikacji → Twoja aplikacja → Przegląd"
 
-#: lib/phoenix_kit/integrations/providers.ex:667
+#: lib/phoenix_kit/integrations/providers.ex:670
 #, elixir-autogen, elixir-format
 msgid "From console.mistral.ai/api-keys"
 msgstr "Z console.mistral.ai/api-keys"
 
-#: lib/phoenix_kit/integrations/providers.ex:730
+#: lib/phoenix_kit/integrations/providers.ex:733
 #, elixir-autogen, elixir-format
 msgid "From platform.deepseek.com/api_keys"
 msgstr "Z platform.deepseek.com/api_keys"
 
-#: lib/phoenix_kit/integrations/providers.ex:1696
+#: lib/phoenix_kit/integrations/providers.ex:1724
 #, elixir-autogen, elixir-format
 msgid "From your app → Certificates & secrets → New client secret. Copy the *Value*, not the Secret ID."
 msgstr "Z Twojej aplikacji → Certyfikaty i wpisy tajne → Nowy sekret klienta. Skopiuj *Wartość*, nie identyfikator sekretu."
 
-#: lib/phoenix_kit/integrations/providers.ex:1752
+#: lib/phoenix_kit/integrations/providers.ex:1780
 #, elixir-autogen, elixir-format
 msgid "Go to **API permissions → Add a permission → Microsoft Graph → Delegated permissions**"
 msgstr "Przejdź do **Uprawnienia interfejsu API → Dodaj uprawnienie → Microsoft Graph → Uprawnienia delegowane**"
 
-#: lib/phoenix_kit/integrations/providers.ex:1742
+#: lib/phoenix_kit/integrations/providers.ex:1770
 #, elixir-autogen, elixir-format
 msgid "Go to **Certificates & secrets → New client secret**"
 msgstr "Przejdź do **Certyfikaty i wpisy tajne → Nowy sekret klienta**"
 
-#: lib/phoenix_kit/integrations/providers.ex:698
+#: lib/phoenix_kit/integrations/providers.ex:701
 #, elixir-autogen, elixir-format
 msgid "Go to [API Keys](https://console.mistral.ai/api-keys)"
 msgstr "Przejdź do [API Keys](https://console.mistral.ai/api-keys)"
 
-#: lib/phoenix_kit/integrations/providers.ex:758
+#: lib/phoenix_kit/integrations/providers.ex:761
 #, elixir-autogen, elixir-format
 msgid "Go to [API Keys](https://platform.deepseek.com/api_keys)"
 msgstr "Przejdź do [API Keys](https://platform.deepseek.com/api_keys)"
 
-#: lib/phoenix_kit/integrations/providers.ex:747
+#: lib/phoenix_kit/integrations/providers.ex:750
 #, elixir-autogen, elixir-format
 msgid "Go to [Top up](https://platform.deepseek.com/top_up) and add at least the minimum amount"
 msgstr "Przejdź do [Top up](https://platform.deepseek.com/top_up) i wpłać co najmniej minimalną kwotę"
 
-#: lib/phoenix_kit/integrations/providers.ex:685
+#: lib/phoenix_kit/integrations/providers.ex:688
 #, elixir-autogen, elixir-format
 msgid "Go to [Workspace → Billing](https://console.mistral.ai/billing/plans) and choose **Experiment** (pay-as-you-go) or a paid tier"
 msgstr "Przejdź do [Workspace → Billing](https://console.mistral.ai/billing/plans) i wybierz **Experiment** (płatność za użycie) lub plan płatny"
 
-#: lib/phoenix_kit/integrations/providers.ex:676
+#: lib/phoenix_kit/integrations/providers.ex:679
 #, elixir-autogen, elixir-format
 msgid "Go to [console.mistral.ai](https://console.mistral.ai) and sign up or log in"
 msgstr "Przejdź na [console.mistral.ai](https://console.mistral.ai) i zarejestruj się lub zaloguj"
 
-#: lib/phoenix_kit/integrations/providers.ex:739
+#: lib/phoenix_kit/integrations/providers.ex:742
 #, elixir-autogen, elixir-format
 msgid "Go to [platform.deepseek.com](https://platform.deepseek.com) and sign up or log in"
 msgstr "Przejdź na [platform.deepseek.com](https://platform.deepseek.com) i zarejestruj się lub zaloguj"
 
-#: lib/phoenix_kit/integrations/providers.ex:1724
+#: lib/phoenix_kit/integrations/providers.ex:1752
 #, elixir-autogen, elixir-format
 msgid "Go to the [Azure Portal](https://portal.azure.com) and search for **App registrations**"
 msgstr "Przejdź do [portalu Azure](https://portal.azure.com) i wyszukaj **Rejestracje aplikacji**"
 
-#: lib/phoenix_kit/integrations/providers.ex:1735
+#: lib/phoenix_kit/integrations/providers.ex:1763
 #, elixir-autogen, elixir-format
 msgid "If you picked a single-tenant audience, fill in **Tenant ID** above with your Directory (tenant) ID GUID — leaving it as `common` only works for multi-tenant + personal apps."
 msgstr "Jeśli wybrano odbiorców jednodostępowych, wpisz powyżej w **Tenant ID** identyfikator GUID katalogu (dzierżawcy) — wartość `common` działa tylko dla aplikacji wielodostępowych i osobistych."
 
-#: lib/phoenix_kit/integrations/providers.ex:1758
+#: lib/phoenix_kit/integrations/providers.ex:1786
 #, elixir-autogen, elixir-format
 msgid "If your tenant requires admin consent, click **Grant admin consent for <tenant>** before the connect flow will work"
 msgstr "Jeśli Twój dzierżawca wymaga zgody administratora, kliknij **Udziel zgody administratora dla <tenant>**, aby proces łączenia działał"
 
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:120
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:154
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:160
 #, elixir-autogen, elixir-format
 msgid "Integration not found"
 msgstr "Nie znaleziono integracji"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:282
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:284
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:138
 #, elixir-autogen, elixir-format
 msgid "Last tested"
 msgstr "Ostatni test"
 
-#: lib/phoenix_kit/integrations/providers.ex:1708
+#: lib/phoenix_kit/integrations/providers.ex:1736
 #, elixir-autogen, elixir-format
 msgid "Leave as `common` for multi-tenant + personal accounts. For single-tenant apps, paste your Directory (tenant) ID GUID. Use `consumers` for personal-only or `organizations` for any work-or-school account."
 msgstr "Pozostaw `common` dla kont wielodostępowych i osobistych. Dla aplikacji jednodostępowych wklej identyfikator GUID katalogu (dzierżawcy). Użyj `consumers` tylko dla kont osobistych lub `organizations` dla kont służbowych i szkolnych."
 
-#: lib/phoenix_kit/integrations/providers.ex:1653
+#: lib/phoenix_kit/integrations/providers.ex:1681
 #, elixir-autogen, elixir-format
 msgid "Microsoft 365"
 msgstr "Microsoft 365"
 
-#: lib/phoenix_kit/integrations/providers.ex:1654
+#: lib/phoenix_kit/integrations/providers.ex:1682
 #, elixir-autogen, elixir-format
 msgid "Microsoft Graph — Outlook, OneDrive, Teams, Calendar, SharePoint"
 msgstr "Microsoft Graph — Outlook, OneDrive, Teams, Kalendarz, SharePoint"
 
-#: lib/phoenix_kit/integrations/providers.ex:1771
+#: lib/phoenix_kit/integrations/providers.ex:1799
 #, elixir-autogen, elixir-format
 msgid "Microsoft will show the consent screen — click **Accept** to grant the requested permissions"
 msgstr "Microsoft wyświetli ekran zgody — kliknij **Akceptuj**, aby przyznać żądane uprawnienia"
 
-#: lib/phoenix_kit/integrations/providers.ex:648
+#: lib/phoenix_kit/integrations/providers.ex:651
 #, elixir-autogen, elixir-format
 msgid "Mistral"
 msgstr "Mistral"
 
-#: lib/phoenix_kit/integrations/providers.ex:691
+#: lib/phoenix_kit/integrations/providers.ex:694
 #, elixir-autogen, elixir-format
 msgid "Mistral does not offer credits without billing setup; this is a hard requirement before keys can be created."
 msgstr "Mistral nie oferuje kredytów bez skonfigurowanych rozliczeń; to bezwzględny wymóg przed utworzeniem kluczy."
 
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:591
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:167
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:173
 #, elixir-autogen, elixir-format
 msgid "Permanently delete this connection? This cannot be undone."
 msgstr "Trwale usunąć to połączenie? Tej operacji nie można cofnąć."
 
-#: lib/phoenix_kit/integrations/providers.ex:1722
+#: lib/phoenix_kit/integrations/providers.ex:1750
 #, elixir-autogen, elixir-format
 msgid "Register an application in Microsoft Entra ID (Azure AD)"
 msgstr "Zarejestruj aplikację w Microsoft Entra ID (Azure AD)"
 
-#: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:926
-#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:563
+#: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:931
+#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:568
 #, elixir-autogen, elixir-format
 msgid "Removes the integration permanently. Any module pinned to this connection will stop working until repointed."
 msgstr "Trwale usuwa integrację. Każdy moduł przypisany do tego połączenia przestanie działać, dopóki nie zostanie przekierowany."
@@ -5410,39 +5410,39 @@ msgstr "Trwale usuwa integrację. Każdy moduł przypisany do tego połączenia 
 msgid "Search..."
 msgstr "Szukaj…"
 
-#: lib/phoenix_kit/integrations/providers.ex:1743
+#: lib/phoenix_kit/integrations/providers.ex:1771
 #, elixir-autogen, elixir-format
 msgid "Set an expiration (24 months is common; renew before it lapses)"
 msgstr "Ustaw datę wygaśnięcia (typowo 24 miesiące; odnów przed jej upływem)"
 
-#: lib/phoenix_kit/integrations/providers.ex:1703
+#: lib/phoenix_kit/integrations/providers.ex:1731
 #, elixir-autogen, elixir-format
 msgid "Tenant ID"
 msgstr "Identyfikator dzierżawcy"
 
-#: lib/phoenix_kit/integrations/providers.ex:1763
+#: lib/phoenix_kit/integrations/providers.ex:1791
 #, elixir-autogen, elixir-format
 msgid "The `default_scopes` in the provider definition request `openid email profile offline_access User.Read` — extra scopes can be added per-connect by passing `extra_scopes` to `authorization_url/5`."
 msgstr "`default_scopes` w definicji dostawcy żądają `openid email profile offline_access User.Read` — dodatkowe zakresy można dodać przy każdym łączeniu, przekazując `extra_scopes` do `authorization_url/5`."
 
-#: lib/phoenix_kit/integrations/providers.ex:1731
+#: lib/phoenix_kit/integrations/providers.ex:1759
 #, elixir-autogen, elixir-format
 msgid "Under **Redirect URI**, choose **Web** and enter: `{redirect_uri}`"
 msgstr "W sekcji **Identyfikator URI przekierowania** wybierz **Web** i wpisz: `{redirect_uri}`"
 
-#: lib/phoenix_kit/integrations/providers.ex:1728
+#: lib/phoenix_kit/integrations/providers.ex:1756
 #, elixir-autogen, elixir-format
 msgid "Under **Supported account types**, choose the audience: *Personal Microsoft accounts only*, *Accounts in any organizational directory*, or *Accounts in this organizational directory only* depending on who should sign in"
 msgstr "W sekcji **Obsługiwane typy kont** wybierz odbiorców: *Tylko osobiste konta Microsoft*, *Konta w dowolnym katalogu organizacyjnym* lub *Tylko konta w tym katalogu organizacyjnym*, zależnie od tego, kto ma się logować"
 
-#: lib/phoenix_kit/integrations/providers.ex:679
+#: lib/phoenix_kit/integrations/providers.ex:682
 #, elixir-autogen, elixir-format
 msgid "You may need to verify your phone number before creating API keys"
 msgstr "Może być konieczne potwierdzenie numeru telefonu przed utworzeniem kluczy API"
 
 #: lib/phoenix_kit/utils/date.ex:152
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:68
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:867
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:70
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:873
 #, elixir-autogen, elixir-format
 msgid "just now"
 msgstr "właśnie teraz"
@@ -6934,13 +6934,13 @@ msgstr "Nie udało się opublikować komentarza"
 msgid "Delete Permanently"
 msgstr "Usuń trwale"
 
-#: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:937
-#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:574
+#: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:942
+#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:579
 #, elixir-autogen, elixir-format
 msgid "Deleting…"
 msgstr "Usuwanie…"
 
-#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:548
+#: lib/phoenix_kit_web/live/settings/integration_form.html.heex:553
 #, elixir-autogen, elixir-format
 msgid "Disconnecting…"
 msgstr "Odłączanie…"
@@ -8236,7 +8236,7 @@ msgstr "Monitoruj aktywne sesje użytkowników i zarządzaj nimi"
 #: lib/modules/sitemap/web/settings.ex:680
 #: lib/modules/sitemap/web/settings.ex:695
 #: lib/modules/storage/web/bucket_page.html.heex:370
-#: lib/phoenix_kit/integrations/providers.ex:1381
+#: lib/phoenix_kit/integrations/providers.ex:1409
 #: lib/phoenix_kit/utils/date.ex:338
 #: lib/phoenix_kit/utils/date.ex:490
 #: lib/phoenix_kit/utils/date.ex:579
@@ -8625,7 +8625,7 @@ msgstr "Tutaj można dodawać tylko dozwolone typy plików."
 msgid "View background job status and history"
 msgstr "Wyświetl status i historię zadań w tle"
 
-#: lib/phoenix_kit/integrations/providers.ex:430
+#: lib/phoenix_kit/integrations/providers.ex:433
 #, elixir-autogen, elixir-format
 msgid "AI models via OpenAI (GPT, embeddings, images, audio)"
 msgstr "Modele AI przez OpenAI (GPT, embeddingi, obrazy, audio)"
@@ -8710,12 +8710,12 @@ msgstr "Zmień"
 msgid "Choose"
 msgstr "Wybierz"
 
-#: lib/phoenix_kit/integrations/providers.ex:949
+#: lib/phoenix_kit/integrations/providers.ex:952
 #, elixir-autogen, elixir-format
 msgid "Click **Create API Key**, give it a name"
 msgstr "Kliknij **Utwórz klucz API** i nadaj mu nazwę"
 
-#: lib/phoenix_kit/integrations/providers.ex:489
+#: lib/phoenix_kit/integrations/providers.ex:492
 #, elixir-autogen, elixir-format
 msgid "Click **Create new secret key**, give it a name"
 msgstr "Kliknij **Create new secret key** i nadaj mu nazwę"
@@ -8726,12 +8726,12 @@ msgstr "Kliknij **Create new secret key** i nadaj mu nazwę"
 msgid "Close search"
 msgstr "Zamknij wyszukiwanie"
 
-#: lib/phoenix_kit/integrations/providers.ex:939
+#: lib/phoenix_kit/integrations/providers.ex:942
 #, elixir-autogen, elixir-format
 msgid "Create an ElevenLabs account"
 msgstr "Utwórz konto ElevenLabs"
 
-#: lib/phoenix_kit/integrations/providers.ex:467
+#: lib/phoenix_kit/integrations/providers.ex:470
 #, elixir-autogen, elixir-format
 msgid "Create an OpenAI account"
 msgstr "Utwórz konto OpenAI"
@@ -8789,7 +8789,7 @@ msgstr "Edytuj opis"
 msgid "Edit header"
 msgstr "Edytuj nagłówek"
 
-#: lib/phoenix_kit/integrations/providers.ex:909
+#: lib/phoenix_kit/integrations/providers.ex:912
 #, elixir-autogen, elixir-format
 msgid "ElevenLabs"
 msgstr "ElevenLabs"
@@ -8850,37 +8850,37 @@ msgstr "Nazwa folderu nie może być pusta"
 msgid "Forgot password"
 msgstr "Nie pamiętam hasła"
 
-#: lib/phoenix_kit/integrations/providers.ex:932
+#: lib/phoenix_kit/integrations/providers.ex:935
 #, elixir-autogen, elixir-format
 msgid "From elevenlabs.io → Settings → API Keys"
 msgstr "Z elevenlabs.io → Ustawienia → API Keys"
 
-#: lib/phoenix_kit/integrations/providers.ex:454
+#: lib/phoenix_kit/integrations/providers.ex:457
 #, elixir-autogen, elixir-format
 msgid "From platform.openai.com/api-keys"
 msgstr "Z platform.openai.com/api-keys"
 
-#: lib/phoenix_kit/integrations/providers.ex:488
+#: lib/phoenix_kit/integrations/providers.ex:491
 #, elixir-autogen, elixir-format
 msgid "Go to [API Keys](https://platform.openai.com/api-keys)"
 msgstr "Przejdź do [API Keys](https://platform.openai.com/api-keys)"
 
-#: lib/phoenix_kit/integrations/providers.ex:477
+#: lib/phoenix_kit/integrations/providers.ex:480
 #, elixir-autogen, elixir-format
 msgid "Go to [Billing](https://platform.openai.com/account/billing/overview) and add a payment method or credits"
 msgstr "Przejdź do [Billing](https://platform.openai.com/account/billing/overview) i dodaj metodę płatności lub kredyty"
 
-#: lib/phoenix_kit/integrations/providers.ex:947
+#: lib/phoenix_kit/integrations/providers.ex:950
 #, elixir-autogen, elixir-format
 msgid "Go to [Settings → API Keys](https://elevenlabs.io/app/settings/api-keys)"
 msgstr "Przejdź do [Settings → API Keys](https://elevenlabs.io/app/settings/api-keys)"
 
-#: lib/phoenix_kit/integrations/providers.ex:941
+#: lib/phoenix_kit/integrations/providers.ex:944
 #, elixir-autogen, elixir-format
 msgid "Go to [elevenlabs.io](https://elevenlabs.io) and sign up or log in"
 msgstr "Przejdź na [elevenlabs.io](https://elevenlabs.io) i zarejestruj się lub zaloguj"
 
-#: lib/phoenix_kit/integrations/providers.ex:469
+#: lib/phoenix_kit/integrations/providers.ex:472
 #, elixir-autogen, elixir-format
 msgid "Go to [platform.openai.com](https://platform.openai.com) and sign up or log in"
 msgstr "Przejdź na [platform.openai.com](https://platform.openai.com) i zarejestruj się lub zaloguj"
@@ -8909,7 +8909,7 @@ msgstr "Nagłówek %{level}"
 msgid "Icon"
 msgstr "Ikona"
 
-#: lib/phoenix_kit/integrations/providers.ex:493
+#: lib/phoenix_kit/integrations/providers.ex:496
 #, elixir-autogen, elixir-format
 msgid "If your account belongs to multiple organizations, keys are scoped to the org selected when the key was created."
 msgstr "Jeśli Twoje konto należy do wielu organizacji, klucze są ograniczone do organizacji wybranej przy ich tworzeniu."
@@ -9003,12 +9003,12 @@ msgstr "Nie zalogowano"
 msgid "Oldest first"
 msgstr "Najstarsze najpierw"
 
-#: lib/phoenix_kit/integrations/providers.ex:429
+#: lib/phoenix_kit/integrations/providers.ex:432
 #, elixir-autogen, elixir-format
 msgid "OpenAI"
 msgstr "OpenAI"
 
-#: lib/phoenix_kit/integrations/providers.ex:480
+#: lib/phoenix_kit/integrations/providers.ex:483
 #, elixir-autogen, elixir-format
 msgid "OpenAI requires a positive balance before the API will return completions, even on cheaper models"
 msgstr "OpenAI wymaga dodatniego salda, aby API zwracało uzupełnienia, nawet dla tańszych modeli"
@@ -9090,12 +9090,12 @@ msgstr "Sortowanie"
 msgid "Stacks"
 msgstr "Stosy"
 
-#: lib/phoenix_kit/integrations/providers.ex:910
+#: lib/phoenix_kit/integrations/providers.ex:913
 #, elixir-autogen, elixir-format
 msgid "Text-to-speech and voice generation via ElevenLabs"
 msgstr "Zamiana tekstu na mowę i generowanie głosu przez ElevenLabs"
 
-#: lib/phoenix_kit/integrations/providers.ex:953
+#: lib/phoenix_kit/integrations/providers.ex:956
 #, elixir-autogen, elixir-format
 msgid "The free tier includes a monthly character quota; paid plans raise the quota and unlock commercial use and additional voices."
 msgstr "Plan darmowy obejmuje miesięczny limit znaków; plany płatne zwiększają limit oraz udostępniają użycie komercyjne i dodatkowe głosy."
@@ -9910,27 +9910,27 @@ msgstr "Lub dodaj przez"
 msgid "Too many attempts. Please try again shortly."
 msgstr "Zbyt wiele prób. Spróbuj ponownie za chwilę."
 
-#: lib/phoenix_kit/integrations/providers.ex:772
+#: lib/phoenix_kit/integrations/providers.ex:775
 #, elixir-autogen, elixir-format
 msgid "AI model access via xAI (Grok models)"
 msgstr "Dostęp do modeli AI przez xAI (modele Grok)"
 
-#: lib/phoenix_kit/integrations/providers.ex:1102
+#: lib/phoenix_kit/integrations/providers.ex:1105
 #, elixir-autogen, elixir-format
 msgid "AWS Simple Email Service (SMTP credentials via SES API)"
 msgstr "AWS Simple Email Service (dane SMTP przez API SES)"
 
-#: lib/phoenix_kit/integrations/providers.ex:1101
+#: lib/phoenix_kit/integrations/providers.ex:1104
 #, elixir-autogen, elixir-format
 msgid "Amazon SES"
 msgstr "Amazon SES"
 
-#: lib/phoenix_kit/integrations/providers.ex:1429
+#: lib/phoenix_kit/integrations/providers.ex:1457
 #, elixir-autogen, elixir-format
 msgid "Brevo API"
 msgstr "API Brevo"
 
-#: lib/phoenix_kit/integrations/providers.ex:808
+#: lib/phoenix_kit/integrations/providers.ex:811
 #, elixir-autogen, elixir-format
 msgid "Create an xAI account"
 msgstr "Utwórz konto xAI"
@@ -9940,37 +9940,37 @@ msgstr "Utwórz konto xAI"
 msgid "Email users when their account is signed in from a new device"
 msgstr "Wysyłaj e-mail do użytkowników, gdy ich konto zaloguje się z nowego urządzenia"
 
-#: lib/phoenix_kit/integrations/providers.ex:1340
+#: lib/phoenix_kit/integrations/providers.ex:1368
 #, elixir-autogen, elixir-format
 msgid "For Brevo: the SMTP key starting with xsmtpsib- (SMTP & API → SMTP tab) — not the API key (xkeysib-)."
 msgstr "Dla Brevo: klucz SMTP zaczynający się od xsmtpsib- (SMTP & API → zakładka SMTP), a nie klucz API (xkeysib-)."
 
-#: lib/phoenix_kit/integrations/providers.ex:1328
+#: lib/phoenix_kit/integrations/providers.ex:1356
 #, elixir-autogen, elixir-format
 msgid "For Brevo: your account's SMTP login, shown as <subaccount>@smtp-brevo.com under SMTP & API → SMTP."
 msgstr "Dla Brevo: login SMTP Twojego konta, pokazywany jako <subaccount>@smtp-brevo.com w SMTP & API → SMTP."
 
-#: lib/phoenix_kit/integrations/providers.ex:1449
+#: lib/phoenix_kit/integrations/providers.ex:1477
 #, elixir-autogen, elixir-format
 msgid "From Brevo → SMTP & API → API Keys. Starts with xkeysib- — not the SMTP key (xsmtpsib-)."
 msgstr "Z Brevo → SMTP & API → API Keys. Zaczyna się od xkeysib-, a nie klucz SMTP (xsmtpsib-)."
 
-#: lib/phoenix_kit/integrations/providers.ex:793
+#: lib/phoenix_kit/integrations/providers.ex:796
 #, elixir-autogen, elixir-format
 msgid "From console.x.ai/team/default/api-keys"
 msgstr "Z console.x.ai/team/default/api-keys"
 
-#: lib/phoenix_kit/integrations/providers.ex:824
+#: lib/phoenix_kit/integrations/providers.ex:827
 #, elixir-autogen, elixir-format
 msgid "Go to [API Keys](https://console.x.ai/team/default/api-keys)"
 msgstr "Przejdź do [API Keys](https://console.x.ai/team/default/api-keys)"
 
-#: lib/phoenix_kit/integrations/providers.ex:810
+#: lib/phoenix_kit/integrations/providers.ex:813
 #, elixir-autogen, elixir-format
 msgid "Go to [accounts.x.ai](https://accounts.x.ai) and sign up or log in"
 msgstr "Przejdź na [accounts.x.ai](https://accounts.x.ai) i zarejestruj się lub zaloguj"
 
-#: lib/phoenix_kit/integrations/providers.ex:816
+#: lib/phoenix_kit/integrations/providers.ex:819
 #, elixir-autogen, elixir-format
 msgid "Go to [console.x.ai](https://console.x.ai) → Billing and add credits"
 msgstr "Przejdź do [console.x.ai](https://console.x.ai) → Billing i dodaj kredyty"
@@ -9980,7 +9980,7 @@ msgstr "Przejdź do [console.x.ai](https://console.x.ai) → Billing i dodaj kre
 msgid "Login Notifications"
 msgstr "Powiadomienia o logowaniu"
 
-#: lib/phoenix_kit/integrations/providers.ex:1306
+#: lib/phoenix_kit/integrations/providers.ex:1334
 #, elixir-autogen, elixir-format
 msgid "Port"
 msgstr "Port"
@@ -9991,39 +9991,39 @@ msgstr "Port"
 #: lib/phoenix_kit/integrations/object_storage_services.ex:316
 #: lib/phoenix_kit/integrations/object_storage_services.ex:329
 #: lib/phoenix_kit/integrations/object_storage_services.ex:360
-#: lib/phoenix_kit/integrations/providers.ex:995
-#: lib/phoenix_kit/integrations/providers.ex:1135
-#: lib/phoenix_kit/integrations/providers.ex:1232
+#: lib/phoenix_kit/integrations/providers.ex:998
+#: lib/phoenix_kit/integrations/providers.ex:1138
+#: lib/phoenix_kit/integrations/providers.ex:1260
 #, elixir-autogen, elixir-format
 msgid "Region"
 msgstr "Region"
 
-#: lib/phoenix_kit/integrations/providers.ex:1283
+#: lib/phoenix_kit/integrations/providers.ex:1311
 #, elixir-autogen, elixir-format
 msgid "SMTP"
 msgstr "SMTP"
 
-#: lib/phoenix_kit/integrations/providers.ex:1297
+#: lib/phoenix_kit/integrations/providers.ex:1325
 #, elixir-autogen, elixir-format
 msgid "SMTP Host"
 msgstr "Host SMTP"
 
-#: lib/phoenix_kit/integrations/providers.ex:1430
+#: lib/phoenix_kit/integrations/providers.ex:1458
 #, elixir-autogen, elixir-format
 msgid "Send email via the Brevo transactional email API"
 msgstr "Wysyłaj e-maile przez API e-maili transakcyjnych Brevo"
 
-#: lib/phoenix_kit/integrations/providers.ex:1285
+#: lib/phoenix_kit/integrations/providers.ex:1313
 #, elixir-autogen, elixir-format
 msgid "Universal SMTP relay — works with any vendor (Brevo, Mailgun, SendGrid, a self-hosted mail server, etc). Add one named connection per relay/account."
 msgstr "Uniwersalny przekaźnik SMTP — działa z każdym dostawcą (Brevo, Mailgun, SendGrid, własny serwer poczty itd.). Dodaj jedno nazwane połączenie na przekaźnik lub konto."
 
-#: lib/phoenix_kit/integrations/providers.ex:771
+#: lib/phoenix_kit/integrations/providers.ex:774
 #, elixir-autogen, elixir-format
 msgid "xAI"
 msgstr "xAI"
 
-#: lib/phoenix_kit/integrations/providers.ex:818
+#: lib/phoenix_kit/integrations/providers.ex:821
 #, elixir-autogen, elixir-format
 msgid "xAI requires a funded account before the API will return completions"
 msgstr "xAI wymaga zasilonego konta, aby API zwracało uzupełnienia"
@@ -10280,22 +10280,22 @@ msgstr "%{n} min temu"
 msgid "%{provider} settings"
 msgstr "Ustawienia %{provider}"
 
-#: lib/phoenix_kit/integrations/validators.ex:974
+#: lib/phoenix_kit/integrations/validators.ex:945
 #, elixir-autogen, elixir-format
 msgid "%{text} · resets %{date}"
 msgstr "%{text} · reset %{date}"
 
-#: lib/phoenix_kit/integrations/validators.ex:963
+#: lib/phoenix_kit/integrations/validators.ex:934
 #, elixir-autogen, elixir-format
 msgid "%{type} · %{credits} credits left"
 msgstr "%{type} · pozostało %{credits} kredytów"
 
-#: lib/phoenix_kit/integrations/validators.ex:556
+#: lib/phoenix_kit/integrations/validators.ex:527
 #, elixir-autogen, elixir-format
 msgid "AWS SES error: %{code}"
 msgstr "Błąd AWS SES: %{code}"
 
-#: lib/phoenix_kit/integrations/validators.ex:531
+#: lib/phoenix_kit/integrations/validators.ex:502
 #, elixir-autogen, elixir-format
 msgid "AWS SES is busy — try again in a moment"
 msgstr "AWS SES jest zajęty — spróbuj ponownie za chwilę"
@@ -10341,7 +10341,7 @@ msgstr "Cała wychodząca poczta systemowa — uwierzytelnianie, powiadomienia �
 msgid "Allow \"Keep me logged in\" (persistent sessions)"
 msgstr "Zezwól na „Nie wylogowuj mnie” (sesje trwałe)"
 
-#: lib/phoenix_kit/integrations/providers.ex:1380
+#: lib/phoenix_kit/integrations/providers.ex:1408
 #, elixir-autogen, elixir-format
 msgid "Always"
 msgstr "Zawsze"
@@ -10356,12 +10356,12 @@ msgstr "Nie można użyć konta właściciela."
 msgid "Applies site-wide wherever the rich-text editor is rendered (posts, comments). Users can still switch modes inside the editor."
 msgstr "Obowiązuje w całej witrynie wszędzie, gdzie wyświetlany jest edytor tekstu sformatowanego (wpisy, komentarze). Użytkownicy nadal mogą zmieniać tryb w edytorze."
 
-#: lib/phoenix_kit/integrations/providers.ex:1361
+#: lib/phoenix_kit/integrations/providers.ex:1389
 #, elixir-autogen, elixir-format
 msgid "Auto (from port)"
 msgstr "Automatycznie (na podstawie portu)"
 
-#: lib/phoenix_kit/integrations/providers.ex:1357
+#: lib/phoenix_kit/integrations/providers.ex:1385
 #, elixir-autogen, elixir-format
 msgid "Auto follows the port: 465 means implicit TLS, anything else STARTTLS (required when a login is set). Choose explicitly for a relay that ignores that convention."
 msgstr "„Automatycznie” zależy od portu: 465 oznacza niejawny TLS, każdy inny STARTTLS (wymagany, gdy ustawiono login). Wybierz ręcznie dla przekaźnika, który nie stosuje tej konwencji."
@@ -10376,22 +10376,22 @@ msgstr "Grupuj częste typy w okresowe podsumowania — ustaw częstotliwość d
 msgid "Best,\nThe Team"
 msgstr "Z poważaniem,\nzespół"
 
-#: lib/phoenix_kit/integrations/providers.ex:1478
+#: lib/phoenix_kit/integrations/providers.ex:1506
 #, elixir-autogen, elixir-format
 msgid "Bot Token"
 msgstr "Token bota"
 
-#: lib/phoenix_kit/integrations/providers.ex:1498
+#: lib/phoenix_kit/integrations/providers.ex:1526
 #, elixir-autogen, elixir-format
 msgid "BotFather replies with an HTTP API token like `123456789:ABCdef...` — copy it"
 msgstr "BotFather odpowie tokenem API HTTP w postaci `123456789:ABCdef...` — skopiuj go"
 
-#: lib/phoenix_kit/integrations/validators.ex:938
+#: lib/phoenix_kit/integrations/validators.ex:909
 #, elixir-autogen, elixir-format
 msgid "Brevo error %{status}"
 msgstr "Błąd Brevo %{status}"
 
-#: lib/phoenix_kit/integrations/providers.ex:1401
+#: lib/phoenix_kit/integrations/providers.ex:1429
 #, elixir-autogen, elixir-format
 msgid "CA certificate (PEM)"
 msgstr "Certyfikat CA (PEM)"
@@ -10401,7 +10401,7 @@ msgstr "Certyfikat CA (PEM)"
 msgid "Cannot delete send profile"
 msgstr "Nie można usunąć profilu wysyłki"
 
-#: lib/phoenix_kit/integrations/providers.ex:1386
+#: lib/phoenix_kit/integrations/providers.ex:1414
 #, elixir-autogen, elixir-format
 msgid "Certificate verification"
 msgstr "Weryfikacja certyfikatu"
@@ -10441,7 +10441,7 @@ msgstr "Skonfigurowane"
 msgid "Connect your own API keys and services. Only you can see these."
 msgstr "Połącz własne klucze API i usługi. Widzisz je tylko Ty."
 
-#: lib/phoenix_kit/integrations/validators.ex:1026
+#: lib/phoenix_kit/integrations/validators.ex:997
 #, elixir-autogen, elixir-format
 msgid "Connected as @%{username}"
 msgstr "Połączono jako @%{username}"
@@ -10459,7 +10459,7 @@ msgstr "Połączenie działa"
 msgid "Content Editor"
 msgstr "Edytor treści"
 
-#: lib/phoenix_kit/integrations/providers.ex:1496
+#: lib/phoenix_kit/integrations/providers.ex:1524
 #, elixir-autogen, elixir-format
 msgid "Copy the bot token"
 msgstr "Skopiuj token bota"
@@ -10469,26 +10469,26 @@ msgstr "Skopiuj token bota"
 msgid "Could not add integration"
 msgstr "Nie udało się dodać integracji"
 
-#: lib/phoenix_kit/integrations/validators.ex:506
-#: lib/phoenix_kit/integrations/validators.ex:512
-#: lib/phoenix_kit/integrations/validators.ex:553
-#: lib/phoenix_kit/integrations/validators.ex:560
+#: lib/phoenix_kit/integrations/validators.ex:477
+#: lib/phoenix_kit/integrations/validators.ex:483
+#: lib/phoenix_kit/integrations/validators.ex:524
+#: lib/phoenix_kit/integrations/validators.ex:531
 #, elixir-autogen, elixir-format
 msgid "Could not reach AWS SES"
 msgstr "Nie udało się połączyć z AWS SES"
 
-#: lib/phoenix_kit/integrations/validators.ex:889
+#: lib/phoenix_kit/integrations/validators.ex:860
 #, elixir-autogen, elixir-format
 msgid "Could not reach Brevo"
 msgstr "Nie udało się połączyć z Brevo"
 
-#: lib/phoenix_kit/integrations/validators.ex:1038
+#: lib/phoenix_kit/integrations/validators.ex:1009
 #, elixir-autogen, elixir-format
 msgid "Could not reach Telegram"
 msgstr "Nie udało się połączyć z Telegramem"
 
-#: lib/phoenix_kit/integrations/validators.ex:403
-#: lib/phoenix_kit/integrations/validators.ex:428
+#: lib/phoenix_kit/integrations/validators.ex:374
+#: lib/phoenix_kit/integrations/validators.ex:399
 #, elixir-autogen, elixir-format
 msgid "Could not reach the SMTP server"
 msgstr "Nie udało się połączyć z serwerem SMTP"
@@ -10542,7 +10542,7 @@ msgstr "Nie udało się zaktualizować ustawień podsumowań."
 msgid "Could not update default send integration"
 msgstr "Nie udało się zaktualizować domyślnej integracji wysyłki"
 
-#: lib/phoenix_kit/integrations/providers.ex:1489
+#: lib/phoenix_kit/integrations/providers.ex:1517
 #, elixir-autogen, elixir-format
 msgid "Create a bot with BotFather"
 msgstr "Utwórz bota za pomocą BotFather"
@@ -10567,7 +10567,7 @@ msgstr "Utwórz pierwszy profil wysyłki"
 msgid "Create send profile"
 msgstr "Utwórz profil wysyłki"
 
-#: lib/phoenix_kit/integrations/validators.ex:547
+#: lib/phoenix_kit/integrations/validators.ex:518
 #, elixir-autogen, elixir-format
 msgid "Credentials are valid, but not authorised for GetSendQuota — sending was not verified"
 msgstr "Dane logowania są prawidłowe, ale brak uprawnienia do GetSendQuota — wysyłka nie została sprawdzona"
@@ -10622,7 +10622,7 @@ msgstr "Wyłączone profile nigdy nie są używane do wysyłki, nawet jako domy�
 msgid "Dismiss"
 msgstr "Odrzuć"
 
-#: lib/phoenix_kit/integrations/providers.ex:1396
+#: lib/phoenix_kit/integrations/providers.ex:1424
 #, elixir-autogen, elixir-format
 msgid "Do not verify"
 msgstr "Nie weryfikuj"
@@ -10657,7 +10657,7 @@ msgstr "E-mail potwierdzony. Witamy!"
 msgid "Email-capable integrations"
 msgstr "Integracje z obsługą e-maili"
 
-#: lib/phoenix_kit/integrations/providers.ex:1352
+#: lib/phoenix_kit/integrations/providers.ex:1380
 #, elixir-autogen, elixir-format
 msgid "Encryption"
 msgstr "Szyfrowanie"
@@ -10677,7 +10677,7 @@ msgstr "Co 12 godzin"
 msgid "Everyone who starts the bot"
 msgstr "Wszyscy, którzy uruchomią bota"
 
-#: lib/phoenix_kit/integrations/providers.ex:1406
+#: lib/phoenix_kit/integrations/providers.ex:1434
 #, elixir-autogen, elixir-format
 msgid "For a private or self-signed relay certificate. Replaces the system CA store for this connection only."
 msgstr "Dla prywatnego lub samopodpisanego certyfikatu przekaźnika. Zastępuje systemowy magazyn CA tylko dla tego połączenia."
@@ -10688,7 +10688,7 @@ msgstr "Dla prywatnego lub samopodpisanego certyfikatu przekaźnika. Zastępuje 
 msgid "From"
 msgstr "Nadawca"
 
-#: lib/phoenix_kit/integrations/providers.ex:1482
+#: lib/phoenix_kit/integrations/providers.ex:1510
 #, elixir-autogen, elixir-format
 msgid "From @BotFather → /newbot (or /token for an existing bot)"
 msgstr "Od @BotFather → /newbot (lub /token dla istniejącego bota)"
@@ -10715,7 +10715,7 @@ msgstr "Pełny dostęp"
 msgid "Hourly"
 msgstr "Co godzinę"
 
-#: lib/phoenix_kit/integrations/providers.ex:1379
+#: lib/phoenix_kit/integrations/providers.ex:1407
 #, elixir-autogen, elixir-format
 msgid "If offered (default)"
 msgstr "Jeśli oferowane (domyślnie)"
@@ -10725,7 +10725,7 @@ msgstr "Jeśli oferowane (domyślnie)"
 msgid "Immediate"
 msgstr "Natychmiast"
 
-#: lib/phoenix_kit/integrations/providers.ex:1362
+#: lib/phoenix_kit/integrations/providers.ex:1390
 #, elixir-autogen, elixir-format
 msgid "Implicit TLS / SMTPS"
 msgstr "Niejawny TLS / SMTPS"
@@ -10736,14 +10736,14 @@ msgstr "Niejawny TLS / SMTPS"
 msgid "In-app"
 msgstr "W aplikacji"
 
-#: lib/phoenix_kit/integrations/validators.ex:399
-#: lib/phoenix_kit/integrations/validators.ex:412
+#: lib/phoenix_kit/integrations/validators.ex:370
+#: lib/phoenix_kit/integrations/validators.ex:383
 #, elixir-autogen, elixir-format
 msgid "Incomplete SMTP settings"
 msgstr "Niepełne ustawienia SMTP"
 
 #: lib/phoenix_kit/integrations/validators.ex:89
-#: lib/phoenix_kit/integrations/validators.ex:643
+#: lib/phoenix_kit/integrations/validators.ex:614
 #, elixir-autogen, elixir-format
 msgid "Incomplete credentials"
 msgstr "Niepełne dane logowania"
@@ -10768,32 +10768,32 @@ msgstr "Integracja dodana"
 msgid "Integration removed"
 msgstr "Integracja usunięta"
 
-#: lib/phoenix_kit/integrations/validators.ex:325
+#: lib/phoenix_kit/integrations/validators.ex:296
 #, elixir-autogen, elixir-format
 msgid "Invalid %{setting}: %{value}"
 msgstr "Nieprawidłowe %{setting}: %{value}"
 
-#: lib/phoenix_kit/integrations/validators.ex:414
+#: lib/phoenix_kit/integrations/validators.ex:385
 #, elixir-autogen, elixir-format
 msgid "Invalid SMTP settings"
 msgstr "Nieprawidłowe ustawienia SMTP"
 
-#: lib/phoenix_kit/integrations/validators.ex:334
+#: lib/phoenix_kit/integrations/validators.ex:305
 #, elixir-autogen, elixir-format
 msgid "Invalid SMTP settings: %{reason}"
 msgstr "Nieprawidłowe ustawienia SMTP: %{reason}"
 
-#: lib/phoenix_kit/integrations/validators.ex:1031
+#: lib/phoenix_kit/integrations/validators.ex:1002
 #, elixir-autogen, elixir-format
 msgid "Invalid bot token"
 msgstr "Nieprawidłowy token bota"
 
-#: lib/phoenix_kit/integrations/validators.ex:307
+#: lib/phoenix_kit/integrations/validators.ex:278
 #, elixir-autogen, elixir-format
 msgid "Invalid port: %{port}"
 msgstr "Nieprawidłowy port: %{port}"
 
-#: lib/phoenix_kit/integrations/validators.ex:320
+#: lib/phoenix_kit/integrations/validators.ex:291
 #, elixir-autogen, elixir-format
 msgid "Invalid timeout: %{value}"
 msgstr "Nieprawidłowy limit czasu: %{value}"
@@ -10803,7 +10803,7 @@ msgstr "Nieprawidłowy limit czasu: %{value}"
 msgid "Leave a field blank to fall back to the application config or built-in default."
 msgstr "Pozostaw pole puste, aby użyć konfiguracji aplikacji lub wbudowanej wartości domyślnej."
 
-#: lib/phoenix_kit/integrations/providers.ex:1417
+#: lib/phoenix_kit/integrations/providers.ex:1445
 #, elixir-autogen, elixir-format
 msgid "Leave blank for the gen_smtp default."
 msgstr "Pozostaw puste, aby użyć domyślnej wartości gen_smtp."
@@ -10880,7 +10880,7 @@ msgstr "Nowy profil wysyłki"
 msgid "No adapter configured for the static mailer. Set one in your application config, or connect an email-capable integration below and pick it as the default transactional integration."
 msgstr "Nie skonfigurowano adaptera dla statycznego mailera. Ustaw go w konfiguracji aplikacji lub połącz poniżej integrację z obsługą e-maili i wybierz ją jako domyślną integrację transakcyjną."
 
-#: lib/phoenix_kit/integrations/validators.ex:1013
+#: lib/phoenix_kit/integrations/validators.ex:984
 #, elixir-autogen, elixir-format
 msgid "No bot token configured"
 msgstr "Nie skonfigurowano tokenu bota"
@@ -10905,7 +10905,7 @@ msgstr "Brak integracji osobistych"
 msgid "No send profiles yet"
 msgstr "Brak profili wysyłki"
 
-#: lib/phoenix_kit/integrations/validators.ex:311
+#: lib/phoenix_kit/integrations/validators.ex:282
 #, elixir-autogen, elixir-format
 msgid "No system CA certificates found, so the relay's certificate cannot be verified"
 msgstr "Nie znaleziono systemowych certyfikatów CA, więc nie można zweryfikować certyfikatu przekaźnika"
@@ -10915,7 +10915,7 @@ msgstr "Nie znaleziono systemowych certyfikatów CA, więc nie można zweryfikow
 msgid "No unread notifications"
 msgstr "Brak nieprzeczytanych powiadomień"
 
-#: lib/phoenix_kit/integrations/providers.ex:1365
+#: lib/phoenix_kit/integrations/providers.ex:1393
 #, elixir-autogen, elixir-format
 msgid "None — plaintext"
 msgstr "Brak — bez szyfrowania"
@@ -10950,12 +10950,12 @@ msgstr "Numeryczny identyfikator zweryfikowanego nadawcy Brevo. Pozostaw puste, 
 msgid "Only me"
 msgstr "Tylko ja"
 
-#: lib/phoenix_kit/integrations/providers.ex:1491
+#: lib/phoenix_kit/integrations/providers.ex:1519
 #, elixir-autogen, elixir-format
 msgid "Open [@BotFather](https://t.me/BotFather) in Telegram"
 msgstr "Otwórz [@BotFather](https://t.me/BotFather) w Telegramie"
 
-#: lib/phoenix_kit/integrations/providers.ex:1501
+#: lib/phoenix_kit/integrations/providers.ex:1529
 #, elixir-autogen, elixir-format
 msgid "Paste the token into the form above and press **Test Connection**"
 msgstr "Wklej token do formularza powyżej i naciśnij **Testuj połączenie**"
@@ -10970,7 +10970,7 @@ msgstr "Przerwa między wysyłkami (sekundy)"
 msgid "Persistent sessions last 60 days. Magic-link and social logins have no checkbox to tick, so they follow the default above. Turning the first option off hides the checkbox everywhere and keeps every login to the browser session."
 msgstr "Sesje trwałe działają 60 dni. Logowanie magicznym linkiem i przez media społecznościowe nie ma pola wyboru, więc korzysta z wartości domyślnej powyżej. Wyłączenie pierwszej opcji ukrywa pole wszędzie i ogranicza każde logowanie do sesji przeglądarki."
 
-#: lib/phoenix_kit/integrations/validators.ex:947
+#: lib/phoenix_kit/integrations/validators.ex:918
 #, elixir-autogen, elixir-format
 msgid "Plan: %{entries}"
 msgstr "Plan: %{entries}"
@@ -10990,7 +10990,7 @@ msgstr "Przekierowania po zalogowaniu"
 msgid "Profile Details"
 msgstr "Szczegóły profilu"
 
-#: lib/phoenix_kit/integrations/validators.ex:587
+#: lib/phoenix_kit/integrations/validators.ex:558
 #, elixir-autogen, elixir-format
 msgid "Quota: %{sent} / %{max} sent last 24h · max %{rate}/s"
 msgstr "Limit: wysłano %{sent} / %{max} w ostatnich 24 h · maks. %{rate}/s"
@@ -11012,7 +11012,7 @@ msgid "Rate per hour"
 msgstr "Limit na godzinę"
 
 #: lib/phoenix_kit/integrations/validators.ex:95
-#: lib/phoenix_kit/integrations/validators.ex:199
+#: lib/phoenix_kit/integrations/validators.ex:170
 #, elixir-autogen, elixir-format
 msgid "Region is required"
 msgstr "Region jest wymagany"
@@ -11071,17 +11071,17 @@ msgstr "Zestaw konfiguracji SES stosowany do każdej wysyłki z tego profilu —
 msgid "SMTP has no per-profile provider settings — relay, port and TLS come from the integration itself."
 msgstr "SMTP nie ma ustawień dostawcy na poziomie profilu — przekaźnik, port i TLS pochodzą z samej integracji."
 
-#: lib/phoenix_kit/integrations/validators.ex:431
+#: lib/phoenix_kit/integrations/validators.ex:402
 #, elixir-autogen, elixir-format
 msgid "SMTP server rejected the connection"
 msgstr "Serwer SMTP odrzucił połączenie"
 
-#: lib/phoenix_kit/integrations/providers.ex:1364
+#: lib/phoenix_kit/integrations/providers.ex:1392
 #, elixir-autogen, elixir-format
 msgid "STARTTLS — if offered"
 msgstr "STARTTLS — jeśli oferowane"
 
-#: lib/phoenix_kit/integrations/providers.ex:1363
+#: lib/phoenix_kit/integrations/providers.ex:1391
 #, elixir-autogen, elixir-format
 msgid "STARTTLS — required"
 msgstr "STARTTLS — wymagane"
@@ -11103,12 +11103,12 @@ msgstr "Zapisz dane nadawcy"
 msgid "Select an integration..."
 msgstr "Wybierz integrację…"
 
-#: lib/phoenix_kit/integrations/providers.ex:1492
+#: lib/phoenix_kit/integrations/providers.ex:1520
 #, elixir-autogen, elixir-format
 msgid "Send **/newbot** and follow the prompts to name your bot"
 msgstr "Wyślij **/newbot** i podążaj za instrukcjami, aby nazwać bota"
 
-#: lib/phoenix_kit/integrations/providers.ex:1467
+#: lib/phoenix_kit/integrations/providers.ex:1495
 #, elixir-autogen, elixir-format
 msgid "Send messages and notifications via your own Telegram bot"
 msgstr "Wysyłaj wiadomości i powiadomienia przez własnego bota Telegram"
@@ -11184,7 +11184,7 @@ msgstr "Statyczny mailer: wbudowany mailer PhoenixKit"
 msgid "Static mailer: parent app mailer (%{module})"
 msgstr "Statyczny mailer: mailer aplikacji nadrzędnej (%{module})"
 
-#: lib/phoenix_kit/integrations/validators.ex:425
+#: lib/phoenix_kit/integrations/validators.ex:396
 #, elixir-autogen, elixir-format
 msgid "TLS handshake failed"
 msgstr "Uzgadnianie TLS nie powiodło się"
@@ -11195,14 +11195,14 @@ msgstr "Uzgadnianie TLS nie powiodło się"
 msgid "Tags"
 msgstr "Tagi"
 
-#: lib/phoenix_kit/integrations/providers.ex:1466
+#: lib/phoenix_kit/integrations/providers.ex:1494
 #: lib/phoenix_kit/notifications/channels/telegram.ex:60
 #: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:341
 #, elixir-autogen, elixir-format
 msgid "Telegram"
 msgstr "Telegram"
 
-#: lib/phoenix_kit/integrations/validators.ex:1034
+#: lib/phoenix_kit/integrations/validators.ex:1005
 #, elixir-autogen, elixir-format
 msgid "Telegram error %{status}"
 msgstr "Błąd Telegrama %{status}"
@@ -11238,7 +11238,7 @@ msgstr "To konto jest dezaktywowane."
 msgid "That is already your account."
 msgstr "To już jest Twoje konto."
 
-#: lib/phoenix_kit/integrations/validators.ex:315
+#: lib/phoenix_kit/integrations/validators.ex:286
 #, elixir-autogen, elixir-format
 msgid "The CA certificate is not a valid PEM bundle (expected a -----BEGIN CERTIFICATE----- block)"
 msgstr "Certyfikat CA nie jest prawidłowym pakietem PEM (oczekiwano bloku -----BEGIN CERTIFICATE-----)"
@@ -11269,7 +11269,7 @@ msgstr "Ten profil wysyłki zostanie trwale usunięty."
 msgid "This sender address cannot be logged"
 msgstr "Tego adresu nadawcy nie można zapisać w dzienniku"
 
-#: lib/phoenix_kit/integrations/providers.ex:1413
+#: lib/phoenix_kit/integrations/providers.ex:1441
 #, elixir-autogen, elixir-format
 msgid "Timeout (seconds)"
 msgstr "Limit czasu (sekundy)"
@@ -11280,7 +11280,7 @@ msgstr "Limit czasu (sekundy)"
 msgid "Transport"
 msgstr "Transport"
 
-#: lib/phoenix_kit/integrations/providers.ex:1391
+#: lib/phoenix_kit/integrations/providers.ex:1419
 #, elixir-autogen, elixir-format
 msgid "Turning verification off means the login travels to whoever answers, including an impostor. Use a CA certificate below instead whenever you can."
 msgstr "Wyłączenie weryfikacji oznacza, że dane logowania trafią do każdego, kto odpowie, także do oszusta. Gdy tylko możesz, użyj zamiast tego certyfikatu CA poniżej."
@@ -11310,7 +11310,7 @@ msgstr "Używane, gdy poniżej nie wybrano domyślnej integracji transakcyjnej."
 msgid "User not found."
 msgstr "Nie znaleziono użytkownika."
 
-#: lib/phoenix_kit/integrations/providers.ex:1395
+#: lib/phoenix_kit/integrations/providers.ex:1423
 #, elixir-autogen, elixir-format
 msgid "Verify (default)"
 msgstr "Weryfikuj (domyślnie)"
@@ -11320,7 +11320,7 @@ msgstr "Weryfikuj (domyślnie)"
 msgid "Where a freshly registered account lands. Empty = after-login path."
 msgstr "Gdzie trafia świeżo zarejestrowane konto. Puste = ścieżka po zalogowaniu."
 
-#: lib/phoenix_kit/integrations/providers.ex:1375
+#: lib/phoenix_kit/integrations/providers.ex:1403
 #, elixir-autogen, elixir-format
 msgid "Whether to send the login at all. “If offered” follows the relay; “Never” is for relays that authenticate by IP."
 msgstr "Czy w ogóle wysyłać dane logowania. „Jeśli oferowane” zależy od przekaźnika; „Nigdy” dotyczy przekaźników uwierzytelniających po IP."
@@ -11406,7 +11406,7 @@ msgstr "online"
 msgid "status unknown"
 msgstr "status nieznany"
 
-#: lib/phoenix_kit/integrations/validators.ex:585
+#: lib/phoenix_kit/integrations/validators.ex:556
 #, elixir-autogen, elixir-format
 msgid "unlimited"
 msgstr "bez ograniczeń"
@@ -11620,12 +11620,12 @@ msgstr "Nie masz uprawnień do zarządzania danymi logowania tego użytkownika"
 msgid "AI Discovery"
 msgstr "Wykrywalność przez AI"
 
-#: lib/phoenix_kit/integrations/providers.ex:973
+#: lib/phoenix_kit/integrations/providers.ex:976
 #, elixir-autogen, elixir-format
 msgid "AWS Bedrock LLMs via a Bedrock API key (OpenAI-compatible endpoint: gpt-oss models; the rest via native Converse)"
 msgstr "Modele LLM AWS Bedrock przez klucz API Bedrock (punkt końcowy zgodny z OpenAI: modele gpt-oss; pozostałe przez natywne Converse)"
 
-#: lib/phoenix_kit/integrations/providers.ex:990
+#: lib/phoenix_kit/integrations/providers.ex:993
 #, elixir-autogen, elixir-format
 msgid "AWS console → Amazon Bedrock → API keys (long-term key)"
 msgstr "Konsola AWS → Amazon Bedrock → API keys (klucz długoterminowy)"
@@ -11635,7 +11635,7 @@ msgstr "Konsola AWS → Amazon Bedrock → API keys (klucz długoterminowy)"
 msgid "Access requested."
 msgstr "Poproszono o dostęp."
 
-#: lib/phoenix_kit/integrations/validators.ex:132
+#: lib/phoenix_kit/integrations/validators.ex:146
 #, elixir-autogen, elixir-format
 msgid "Account %{id}"
 msgstr "Konto %{id}"
@@ -11650,7 +11650,7 @@ msgstr "Charakter doradczy: każdy może wysłać dowolny User-Agent, więc scra
 msgid "Allowed"
 msgstr "Dozwolone"
 
-#: lib/phoenix_kit/integrations/providers.ex:971
+#: lib/phoenix_kit/integrations/providers.ex:974
 #, elixir-autogen, elixir-format
 msgid "Amazon Bedrock"
 msgstr "Amazon Bedrock"
@@ -11665,12 +11665,12 @@ msgstr "Odpowiadaj kodem 403 na żądania, których User-Agent pasuje do zabloko
 msgid "Auth mail carries single-use tokens, and /dev/mailbox has no authentication — anyone who can reach this server can read them. Only for closed environments."
 msgstr "Wiadomości uwierzytelniające zawierają tokeny jednorazowe, a /dev/mailbox nie ma żadnego uwierzytelniania — przeczyta je każdy, kto dosięgnie tego serwera. Tylko dla zamkniętych środowisk."
 
-#: lib/phoenix_kit/integrations/providers.ex:986
+#: lib/phoenix_kit/integrations/providers.ex:989
 #, elixir-autogen, elixir-format
 msgid "Bedrock API key"
 msgstr "Klucz API Bedrock"
 
-#: lib/phoenix_kit/integrations/validators.ex:250
+#: lib/phoenix_kit/integrations/validators.ex:221
 #, elixir-autogen, elixir-format
 msgid "Bedrock error %{status}"
 msgstr "Błąd Bedrock %{status}"
@@ -11701,17 +11701,17 @@ msgstr "Domyślnie wzmianka pokazuje to, co nazywa, nawet osobie bez dostępu �
 msgid "Control how search engines and AI bots crawl and index this site"
 msgstr "Określ, jak wyszukiwarki i boty AI skanują i indeksują tę witrynę"
 
-#: lib/phoenix_kit/integrations/providers.ex:1014
+#: lib/phoenix_kit/integrations/providers.ex:1017
 #, elixir-autogen, elixir-format
 msgid "Copy the key (shown once, `ABSK…`) and paste it into the form above"
 msgstr "Skopiuj klucz (pokazywany tylko raz, `ABSK…`) i wklej go do formularza powyżej"
 
-#: lib/phoenix_kit/integrations/providers.ex:1090
+#: lib/phoenix_kit/integrations/providers.ex:1093
 #, elixir-autogen, elixir-format
 msgid "Copy the token and paste it into the form above"
 msgstr "Skopiuj token i wklej go do formularza powyżej"
 
-#: lib/phoenix_kit/integrations/validators.ex:254
+#: lib/phoenix_kit/integrations/validators.ex:225
 #, elixir-autogen, elixir-format
 msgid "Could not reach Bedrock in %{region}"
 msgstr "Nie udało się połączyć z Bedrock w regionie %{region}"
@@ -11742,22 +11742,18 @@ msgstr "Roboty indeksujące"
 msgid "Crawlers module is disabled. Enable it from the Modules page to configure settings."
 msgstr "Moduł robotów indeksujących jest wyłączony. Włącz go na stronie Moduły, aby skonfigurować ustawienia."
 
-#: lib/phoenix_kit/integrations/providers.ex:1006
+#: lib/phoenix_kit/integrations/providers.ex:1009
 #, elixir-autogen, elixir-format
 msgid "Create a Bedrock API key"
 msgstr "Utwórz klucz API Bedrock"
 
-#: lib/phoenix_kit/integrations/providers.ex:1082
+#: lib/phoenix_kit/integrations/providers.ex:1085
 #, elixir-autogen, elixir-format
 msgid "Create a token"
 msgstr "Utwórz token"
 
-#: lib/phoenix_kit/integrations/providers.ex:1146
-#, elixir-autogen, elixir-format
-msgid "Create an IAM user with SES access"
-msgstr "Utwórz użytkownika IAM z dostępem do SES"
-
-#: lib/phoenix_kit/integrations/providers.ex:1151
+#: lib/phoenix_kit/integrations/providers.ex:1159
+#: lib/phoenix_kit/integrations/providers.ex:1179
 #, elixir-autogen, elixir-format
 msgid "Create an access key for that user (Security credentials → Create access key) and paste the ID and secret above"
 msgstr "Utwórz klucz dostępu dla tego użytkownika (Security credentials → Create access key) i wklej powyżej identyfikator oraz sekret"
@@ -11772,7 +11768,7 @@ msgstr "Zdecyduj, kto może czytać tę witrynę — dyrektywy indeksowania, dos
 msgid "Deliver development mail to /dev/mailbox"
 msgstr "Dostarczaj pocztę deweloperską do /dev/mailbox"
 
-#: lib/phoenix_kit/integrations/providers.ex:1022
+#: lib/phoenix_kit/integrations/providers.ex:1025
 #, elixir-autogen, elixir-format
 msgid "Enable model access"
 msgstr "Włącz dostęp do modeli"
@@ -11793,17 +11789,17 @@ msgstr "Egzekwowanie"
 msgid "Failed to update crawler settings"
 msgstr "Nie udało się zaktualizować ustawień robotów indeksujących"
 
-#: lib/phoenix_kit/integrations/providers.ex:1055
+#: lib/phoenix_kit/integrations/providers.ex:1058
 #, elixir-autogen, elixir-format
 msgid "GitHub"
 msgstr "GitHub"
 
-#: lib/phoenix_kit/integrations/providers.ex:1057
+#: lib/phoenix_kit/integrations/providers.ex:1060
 #, elixir-autogen, elixir-format
 msgid "GitHub API token — org statistics, repositories (read-only is enough)"
 msgstr "Token API GitHub — statystyki organizacji, repozytoria (wystarczy tylko do odczytu)"
 
-#: lib/phoenix_kit/integrations/providers.ex:1084
+#: lib/phoenix_kit/integrations/providers.ex:1087
 #, elixir-autogen, elixir-format
 msgid "Go to [Fine-grained tokens](https://github.com/settings/personal-access-tokens) and click **Generate new token**"
 msgstr "Przejdź do [Fine-grained tokens](https://github.com/settings/personal-access-tokens) i kliknij **Generate new token**"
@@ -11818,32 +11814,27 @@ msgstr "Pogrupowane według powodu odwiedzin. Zablokowanie grupy zapisuje ją w 
 msgid "Hide titles of records the reader can't open"
 msgstr "Ukrywaj tytuły rekordów, których czytelnik nie może otworzyć"
 
-#: lib/phoenix_kit/integrations/providers.ex:1024
+#: lib/phoenix_kit/integrations/providers.ex:1027
 #, elixir-autogen, elixir-format
 msgid "In [Bedrock → Model access](https://console.aws.amazon.com/bedrock/home#/modelaccess) enable the models you plan to call — a key with no enabled models validates but cannot complete"
 msgstr "W [Bedrock → Model access](https://console.aws.amazon.com/bedrock/home#/modelaccess) włącz modele, które zamierzasz wywoływać — klucz bez włączonych modeli przechodzi walidację, ale nie wykona uzupełnienia"
 
-#: lib/phoenix_kit/integrations/providers.ex:1038
+#: lib/phoenix_kit/integrations/providers.ex:1041
 #, elixir-autogen, elixir-format
 msgid "In the AI module, create an endpoint pointing at this connection with a `gpt-oss` model and a base URL in the SAME region as this key"
 msgstr "W module AI utwórz punkt końcowy wskazujący na to połączenie, z modelem `gpt-oss` i bazowym adresem URL w TYM SAMYM regionie co ten klucz"
 
-#: lib/phoenix_kit/integrations/providers.ex:1148
-#, elixir-autogen, elixir-format
-msgid "In the [IAM console](https://console.aws.amazon.com/iam/home#/users) create a user for programmatic access and attach an SES policy (least privilege: `ses:SendEmail`/`ses:SendRawEmail`; docs: [SES setup](https://docs.aws.amazon.com/ses/latest/dg/setting-up.html))"
-msgstr "W [konsoli IAM](https://console.aws.amazon.com/iam/home#/users) utwórz użytkownika do dostępu programowego i dołącz politykę SES (najmniejsze uprawnienia: `ses:SendEmail`/`ses:SendRawEmail`; dokumentacja: [SES setup](https://docs.aws.amazon.com/ses/latest/dg/setting-up.html))"
-
-#: lib/phoenix_kit/integrations/providers.ex:1159
+#: lib/phoenix_kit/integrations/providers.ex:1187
 #, elixir-autogen, elixir-format
 msgid "In the [SES console](https://console.aws.amazon.com/ses/home#/identities) verify your domain or sender address — SES refuses to send from unverified identities"
 msgstr "W [konsoli SES](https://console.aws.amazon.com/ses/home#/identities) zweryfikuj swoją domenę lub adres nadawcy — SES odmawia wysyłki z niezweryfikowanych tożsamości"
 
-#: lib/phoenix_kit/integrations/validators.ex:203
+#: lib/phoenix_kit/integrations/validators.ex:174
 #, elixir-autogen, elixir-format
 msgid "Invalid region format (expected e.g. eu-central-1)"
 msgstr "Nieprawidłowy format regionu (oczekiwano np. eu-central-1)"
 
-#: lib/phoenix_kit/integrations/validators.ex:244
+#: lib/phoenix_kit/integrations/validators.ex:215
 #, elixir-autogen, elixir-format
 msgid "Key authenticated but not authorised in %{region} — allow bedrock:CallWithBearerToken (and ListFoundationModels) on its IAM identity, or check the key was issued for this region"
 msgstr "Klucz uwierzytelniony, ale bez autoryzacji w regionie %{region} — zezwól na bedrock:CallWithBearerToken (oraz ListFoundationModels) dla jego tożsamości IAM lub sprawdź, czy klucz wydano dla tego regionu"
@@ -11873,12 +11864,12 @@ msgstr "Lokalna skrzynka włączona — tokeny z wiadomości uwierzytelniającyc
 msgid "Mentions and record links"
 msgstr "Wzmianki i odnośniki do rekordów"
 
-#: lib/phoenix_kit/integrations/validators.ex:268
+#: lib/phoenix_kit/integrations/validators.ex:239
 #, elixir-autogen, elixir-format
 msgid "Model catalog in %{region}: %{count} (grants are configured separately)"
 msgstr "Katalog modeli w regionie %{region}: %{count} (uprawnienia konfiguruje się osobno)"
 
-#: lib/phoenix_kit/integrations/providers.ex:1162
+#: lib/phoenix_kit/integrations/providers.ex:1190
 #, elixir-autogen, elixir-format
 msgid "New accounts start in the SES sandbox (verified recipients only) — [request production access](https://docs.aws.amazon.com/ses/latest/dg/request-production-access.html) before real sending"
 msgstr "Nowe konta zaczynają w piaskownicy SES (tylko zweryfikowani odbiorcy) — [poproś o dostęp produkcyjny](https://docs.aws.amazon.com/ses/latest/dg/request-production-access.html) przed prawdziwą wysyłką"
@@ -11908,7 +11899,7 @@ msgstr "Nie wyświetlane na tej stronie"
 msgid "Note (optional)"
 msgstr "Notatka (opcjonalnie)"
 
-#: lib/phoenix_kit/integrations/providers.ex:1008
+#: lib/phoenix_kit/integrations/providers.ex:1011
 #, elixir-autogen, elixir-format
 msgid "Open the [Bedrock console → API keys](https://console.aws.amazon.com/bedrock/home#/api-keys) and generate a **long-term** key (docs: [Bedrock API keys](https://docs.aws.amazon.com/bedrock/latest/userguide/api-keys.html))"
 msgstr "Otwórz [konsolę Bedrock → API keys](https://console.aws.amazon.com/bedrock/home#/api-keys) i wygeneruj klucz **długoterminowy** (dokumentacja: [Bedrock API keys](https://docs.aws.amazon.com/bedrock/latest/userguide/api-keys.html))"
@@ -11918,7 +11909,7 @@ msgstr "Otwórz [konsolę Bedrock → API keys](https://console.aws.amazon.com/b
 msgid "Optional markdown: a summary paragraph, key links, docs pointers…"
 msgstr "Opcjonalny markdown: akapit podsumowania, najważniejsze odnośniki, wskazówki do dokumentacji…"
 
-#: lib/phoenix_kit/integrations/providers.ex:1011
+#: lib/phoenix_kit/integrations/providers.ex:1014
 #, elixir-autogen, elixir-format
 msgid "Or attach one to an existing IAM user: [IAM console](https://console.aws.amazon.com/iam/home#/users) → user → Security credentials → Bedrock API keys"
 msgstr "Albo dołącz go do istniejącego użytkownika IAM: [konsola IAM](https://console.aws.amazon.com/iam/home#/users) → użytkownik → Security credentials → Bedrock API keys"
@@ -11928,7 +11919,7 @@ msgstr "Albo dołącz go do istniejącego użytkownika IAM: [konsola IAM](https:
 msgid "Paste the verification content Google Search Console or Bing Webmaster Tools gives you — the meta tags are added to every layout head. Pasting the whole <meta> tag also works; the content value is extracted."
 msgstr "Wklej treść weryfikacyjną otrzymaną z Google Search Console lub Bing Webmaster Tools — metatagi zostaną dodane do sekcji head każdego układu. Można też wkleić cały tag <meta>; wartość content zostanie z niego wyodrębniona."
 
-#: lib/phoenix_kit/integrations/providers.ex:1071
+#: lib/phoenix_kit/integrations/providers.ex:1074
 #, elixir-autogen, elixir-format
 msgid "Personal access token"
 msgstr "Osobisty token dostępu"
@@ -11938,7 +11929,7 @@ msgstr "Osobisty token dostępu"
 msgid "PhoenixKit does not serve this file — it is yours, served from priv/static before any route is consulted. This is the complete file your toggles above describe: paste it into priv/static/robots.txt."
 msgstr "PhoenixKit nie serwuje tego pliku — należy on do Ciebie i jest serwowany z priv/static, zanim sprawdzona zostanie jakakolwiek trasa. Oto kompletny plik opisany przez powyższe przełączniki: wklej go do priv/static/robots.txt."
 
-#: lib/phoenix_kit/integrations/providers.ex:1027
+#: lib/phoenix_kit/integrations/providers.ex:1030
 #, elixir-autogen, elixir-format
 msgid "Pick the region where access was granted; the AI endpoint's base URL must use the same region"
 msgstr "Wybierz region, w którym przyznano dostęp; bazowy adres URL punktu końcowego AI musi używać tego samego regionu"
@@ -11948,7 +11939,7 @@ msgstr "Wybierz region, w którym przyznano dostęp; bazowy adres URL punktu ko�
 msgid "Preview of the served file:"
 msgstr "Podgląd serwowanego pliku:"
 
-#: lib/phoenix_kit/integrations/providers.ex:1087
+#: lib/phoenix_kit/integrations/providers.ex:1090
 #, elixir-autogen, elixir-format
 msgid "Repository access: **Public repositories (read-only)** — no extra permissions needed for public-org statistics"
 msgstr "Dostęp do repozytoriów: **Public repositories (read-only)** — statystyki publicznych organizacji nie wymagają dodatkowych uprawnień"
@@ -11979,12 +11970,12 @@ msgstr "Wysyłanie…"
 msgid "Sign in to request access."
 msgstr "Zaloguj się, aby poprosić o dostęp."
 
-#: lib/phoenix_kit/integrations/providers.ex:1035
+#: lib/phoenix_kit/integrations/providers.ex:1038
 #, elixir-autogen, elixir-format
 msgid "The OpenAI-compatible endpoint (`…/openai/v1`) currently serves only the `openai.gpt-oss-*` models — Anthropic and the other Bedrock models answer on the native Converse API with the same key"
 msgstr "Punkt końcowy zgodny z OpenAI (`…/openai/v1`) obsługuje obecnie wyłącznie modele `openai.gpt-oss-*` — Anthropic i pozostałe modele Bedrock odpowiadają w natywnym API Converse przy użyciu tego samego klucza"
 
-#: lib/phoenix_kit/integrations/providers.ex:1017
+#: lib/phoenix_kit/integrations/providers.ex:1020
 #, elixir-autogen, elixir-format
 msgid "The key's IAM identity must allow the `bedrock:CallWithBearerToken` action — without it every Bearer call answers 403 even when invoke permissions are in place."
 msgstr "Tożsamość IAM klucza musi zezwalać na akcję `bedrock:CallWithBearerToken` — bez niej każde wywołanie z tokenem Bearer odpowiada kodem 403, nawet gdy uprawnienia do wywołań są nadane."
@@ -12004,11 +11995,6 @@ msgstr "Przełącznik noindex i robots.txt to osobne mechanizmy: noindex to meta
 msgid "The other half of bot policy: a markdown summary telling AI assistants what this site is about, served at"
 msgstr "Druga połowa polityki wobec botów: podsumowanie w markdownie mówiące asystentom AI, czego dotyczy ta witryna, serwowane pod"
 
-#: lib/phoenix_kit/integrations/providers.ex:1167
-#, elixir-autogen, elixir-format
-msgid "This connection stores the credential. The full sending pipeline — configuration set, SNS topic, SQS event queue, delivery tracking — is configured in Admin → Settings → Emails, which can select this connection as its credential source."
-msgstr "To połączenie przechowuje poświadczenie. Cały potok wysyłki — configuration set, temat SNS, kolejka zdarzeń SQS, śledzenie doręczeń — konfiguruje się w Admin → Ustawienia → E-maile, gdzie można wskazać to połączenie jako źródło poświadczeń."
-
 #: lib/phoenix_kit/mentions/live.ex:214
 #: lib/phoenix_kit_web/components/core/textarea.ex:94
 #: lib/phoenix_kit_web/components/multilang_form.ex:1083
@@ -12021,7 +12007,7 @@ msgstr "Wpisz @, aby wspomnieć o kimś, lub #, aby podlinkować rekord."
 msgid "Unread · %{day}"
 msgstr "Nieprzeczytane · %{day}"
 
-#: lib/phoenix_kit/integrations/providers.ex:1033
+#: lib/phoenix_kit/integrations/providers.ex:1036
 #, elixir-autogen, elixir-format
 msgid "Use it from the AI module"
 msgstr "Użyj go z modułu AI"
@@ -12039,7 +12025,7 @@ msgstr "Weryfikacja"
 msgid "Verification tags saved."
 msgstr "Zapisano tagi weryfikacyjne."
 
-#: lib/phoenix_kit/integrations/providers.ex:1157
+#: lib/phoenix_kit/integrations/providers.ex:1185
 #, elixir-autogen, elixir-format
 msgid "Verify a sender in SES"
 msgstr "Zweryfikuj nadawcę w SES"
@@ -12074,7 +12060,7 @@ msgstr "Nie masz dostępu do tego elementu (%{kind}). Poproś osoby, które nim 
 msgid "You don't have access — click to request it"
 msgstr "Nie masz dostępu — kliknij, aby o niego poprosić"
 
-#: lib/phoenix_kit/integrations/providers.ex:1075
+#: lib/phoenix_kit/integrations/providers.ex:1078
 #, elixir-autogen, elixir-format
 msgid "github.com/settings/personal-access-tokens — fine-grained, read-only"
 msgstr "github.com/settings/personal-access-tokens — szczegółowy, tylko do odczytu"
@@ -12083,11 +12069,6 @@ msgstr "github.com/settings/personal-access-tokens — szczegółowy, tylko do o
 #, elixir-autogen, elixir-format
 msgid "llms.txt content saved."
 msgstr "Zapisano zawartość llms.txt."
-
-#: lib/phoenix_kit/integrations/validators.ex:173
-#, elixir-autogen, elixir-format
-msgid "management API: %{services}"
-msgstr "API zarządzania: %{services}"
 
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:204
 #, elixir-autogen, elixir-format
@@ -12274,7 +12255,7 @@ msgstr "Szyfrowanie danych integracji wymaga uwagi"
 msgid "The current encryption status could not be described by this admin page — it may be newer than what this page recognizes. Check PhoenixKit.Integrations.Encryption.status/0 directly."
 msgstr "Bieżącego stanu szyfrowania nie można opisać na tej stronie administracyjnej — może być nowszy niż rozpoznaje ta strona. Sprawdź bezpośrednio PhoenixKit.Integrations.Encryption.status/0."
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:465
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:467
 #: lib/phoenix_kit_web/live/settings/authorization.ex:452
 #, elixir-autogen, elixir-format
 msgid "A secret is already configured — leave blank to keep the current value"
@@ -12338,10 +12319,10 @@ msgstr "Nie można usunąć konta głównego."
 msgid "Context switching is not enabled"
 msgstr "Przełączanie kontekstu nie jest włączone"
 
-#: lib/phoenix_kit/integrations/validators.ex:711
-#: lib/phoenix_kit/integrations/validators.ex:718
-#: lib/phoenix_kit/integrations/validators.ex:820
-#: lib/phoenix_kit/integrations/validators.ex:828
+#: lib/phoenix_kit/integrations/validators.ex:682
+#: lib/phoenix_kit/integrations/validators.ex:689
+#: lib/phoenix_kit/integrations/validators.ex:791
+#: lib/phoenix_kit/integrations/validators.ex:799
 #, elixir-autogen, elixir-format
 msgid "Could not reach the storage endpoint"
 msgstr "Nie udało się połączyć z punktem końcowym magazynu"
@@ -12356,7 +12337,7 @@ msgstr "Nie udało się usunąć konta."
 msgid "Could not switch account."
 msgstr "Nie udało się przełączyć konta."
 
-#: lib/phoenix_kit/integrations/validators.ex:806
+#: lib/phoenix_kit/integrations/validators.ex:777
 #, elixir-autogen, elixir-format
 msgid "Credentials are valid, but not allowed to list buckets — bucket access was not verified"
 msgstr "Dane uwierzytelniające są prawidłowe, ale nie mają uprawnień do wyświetlania listy zasobników — dostępu do zasobników nie sprawdzono"
@@ -12462,7 +12443,7 @@ msgstr "Osiągnięto maksymalną liczbę kont."
 msgid "Multi-account switching is not available."
 msgstr "Przełączanie między wieloma kontami jest niedostępne."
 
-#: lib/phoenix_kit/integrations/providers.ex:1237
+#: lib/phoenix_kit/integrations/providers.ex:1265
 #, elixir-autogen, elixir-format
 msgid "Not every S3-compatible provider needs one — leave blank if the endpoint doesn't require it."
 msgstr "Nie każdy dostawca zgodny z S3 go potrzebuje — pozostaw puste, jeśli punkt końcowy go nie wymaga."
@@ -12482,7 +12463,7 @@ msgstr "Dostawca OAuth „%{provider}” jest obecnie wyłączony."
 msgid "OAuth provider '%{provider}' is not configured. Please contact your administrator."
 msgstr "Dostawca OAuth „%{provider}” nie jest skonfigurowany. Skontaktuj się z administratorem."
 
-#: lib/phoenix_kit/integrations/providers.ex:1188
+#: lib/phoenix_kit/integrations/providers.ex:1216
 #, elixir-autogen, elixir-format
 msgid "Object Storage (S3-compatible)"
 msgstr "Magazyn obiektowy (zgodny z S3)"
@@ -12520,7 +12501,7 @@ msgstr "Link rejestracyjny jest nieprawidłowy lub wygasł. Poproś o nowy."
 msgid "Registration link sent! Check your email."
 msgstr "Wysłano link rejestracyjny! Sprawdź swoją skrzynkę."
 
-#: lib/phoenix_kit/integrations/providers.ex:1249
+#: lib/phoenix_kit/integrations/providers.ex:1277
 #, elixir-autogen, elixir-format
 msgid "Required for Cloudflare R2, Backblaze B2, Tigris, and self-hosted S3-compatible storage. Leave blank for AWS S3."
 msgstr "Wymagane dla Cloudflare R2, Backblaze B2, Tigris oraz samodzielnie hostowanego magazynu zgodnego z S3. Dla AWS S3 pozostaw puste."
@@ -12530,7 +12511,7 @@ msgstr "Wymagane dla Cloudflare R2, Backblaze B2, Tigris oraz samodzielnie hosto
 msgid "Reset password link is invalid or it has expired."
 msgstr "Link do resetowania hasła jest nieprawidłowy lub wygasł."
 
-#: lib/phoenix_kit/integrations/providers.ex:1190
+#: lib/phoenix_kit/integrations/providers.ex:1218
 #, elixir-autogen, elixir-format
 msgid "S3-compatible object storage — AWS S3, Cloudflare R2, Backblaze B2, Tigris, or a self-hosted endpoint"
 msgstr "Magazyn obiektowy zgodny z S3 — AWS S3, Cloudflare R2, Backblaze B2, Tigris lub samodzielnie hostowany punkt końcowy"
@@ -12545,12 +12526,12 @@ msgstr "Wyjątek mapy witryny"
 msgid "Something went wrong"
 msgstr "Coś poszło nie tak"
 
-#: lib/phoenix_kit/integrations/validators.ex:823
+#: lib/phoenix_kit/integrations/validators.ex:794
 #, elixir-autogen, elixir-format
 msgid "Storage error: %{code}"
 msgstr "Błąd magazynu: %{code}"
 
-#: lib/phoenix_kit/integrations/validators.ex:817
+#: lib/phoenix_kit/integrations/validators.ex:788
 #, elixir-autogen, elixir-format
 msgid "Storage service is busy — try again in a moment"
 msgstr "Usługa magazynu jest zajęta — spróbuj ponownie za chwilę"
@@ -12857,8 +12838,8 @@ msgstr "Nocny marek"
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:200
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:408
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:431
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:492
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:624
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:498
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:630
 #: lib/phoenix_kit_web/live/settings/integrations.ex:568
 #, elixir-autogen, elixir-format
 msgid "Not tested — this provider has no connection check"
@@ -14832,220 +14813,220 @@ msgstr "Szerokość %"
 msgid "You can't edit this image."
 msgstr "Nie możesz edytować tego obrazu."
 
-#: lib/phoenix_kit/integrations/providers.ex:1563
+#: lib/phoenix_kit/integrations/providers.ex:1591
 #, elixir-autogen, elixir-format
 msgid "API login"
 msgstr "Login API"
 
-#: lib/phoenix_kit/integrations/providers.ex:1572
+#: lib/phoenix_kit/integrations/providers.ex:1600
 #, elixir-autogen, elixir-format
 msgid "API password"
 msgstr "Hasło API"
 
-#: lib/phoenix_kit/integrations/validators.ex:1151
+#: lib/phoenix_kit/integrations/validators.ex:1122
 #, elixir-autogen, elixir-format
 msgid "Balance: $%{amount}"
 msgstr "Saldo: $%{amount}"
 
-#: lib/phoenix_kit/integrations/validators.ex:1155
+#: lib/phoenix_kit/integrations/validators.ex:1126
 #, elixir-autogen, elixir-format
 msgid "Balance: $%{amount} — add funds before running searches"
 msgstr "Saldo: $%{amount} — zasil konto przed uruchomieniem wyszukiwań"
 
-#: lib/phoenix_kit/integrations/providers.ex:1637
+#: lib/phoenix_kit/integrations/providers.ex:1665
 #, elixir-autogen, elixir-format
 msgid "Copy the key from [API Key](https://serpapi.com/manage-api-key) and paste it into the form above"
 msgstr "Skopiuj klucz ze strony [API Key](https://serpapi.com/manage-api-key) i wklej go do formularza powyżej"
 
-#: lib/phoenix_kit/integrations/validators.ex:1097
+#: lib/phoenix_kit/integrations/validators.ex:1068
 #, elixir-autogen, elixir-format
 msgid "Could not reach DataForSEO"
 msgstr "Nie udało się połączyć z DataForSEO"
 
-#: lib/phoenix_kit/integrations/validators.ex:1271
+#: lib/phoenix_kit/integrations/validators.ex:1242
 #, elixir-autogen, elixir-format
 msgid "Could not reach SerpApi"
 msgstr "Nie udało się połączyć z SerpApi"
 
-#: lib/phoenix_kit/integrations/providers.ex:1586
+#: lib/phoenix_kit/integrations/providers.ex:1614
 #, elixir-autogen, elixir-format
 msgid "Create an account at [DataForSEO](https://app.dataforseo.com/register) — new accounts start with a small trial balance"
 msgstr "Załóż konto w [DataForSEO](https://app.dataforseo.com/register) — nowe konta otrzymują niewielkie saldo próbne"
 
-#: lib/phoenix_kit/integrations/providers.ex:1553
+#: lib/phoenix_kit/integrations/providers.ex:1581
 #, elixir-autogen, elixir-format
 msgid "DataForSEO"
 msgstr "DataForSEO"
 
-#: lib/phoenix_kit/integrations/validators.ex:1221
+#: lib/phoenix_kit/integrations/validators.ex:1192
 #, elixir-autogen, elixir-format
 msgid "DataForSEO error %{code}"
 msgstr "Błąd DataForSEO %{code}"
 
-#: lib/phoenix_kit/integrations/validators.ex:1214
+#: lib/phoenix_kit/integrations/validators.ex:1185
 #, elixir-autogen, elixir-format
 msgid "DataForSEO error %{code}: %{message}"
 msgstr "Błąd DataForSEO %{code}: %{message}"
 
-#: lib/phoenix_kit/integrations/validators.ex:1139
+#: lib/phoenix_kit/integrations/validators.ex:1110
 #, elixir-autogen, elixir-format
 msgid "DataForSEO error %{status}"
 msgstr "Błąd DataForSEO %{status}"
 
-#: lib/phoenix_kit/integrations/validators.ex:1197
+#: lib/phoenix_kit/integrations/validators.ex:1168
 #, elixir-autogen, elixir-format
 msgid "DataForSEO has paused this account — contact their support"
 msgstr "DataForSEO wstrzymało to konto — skontaktuj się z ich pomocą techniczną"
 
-#: lib/phoenix_kit/integrations/providers.ex:1577
+#: lib/phoenix_kit/integrations/providers.ex:1605
 #, elixir-autogen, elixir-format
 msgid "From app.dataforseo.com → API Access. Not the password you sign in with."
 msgstr "Z app.dataforseo.com → API Access. To nie jest hasło, którym się logujesz."
 
-#: lib/phoenix_kit/integrations/providers.ex:1632
+#: lib/phoenix_kit/integrations/providers.ex:1660
 #, elixir-autogen, elixir-format
 msgid "Get your API key"
 msgstr "Uzyskaj klucz API"
 
-#: lib/phoenix_kit/integrations/providers.ex:1584
+#: lib/phoenix_kit/integrations/providers.ex:1612
 #, elixir-autogen, elixir-format
 msgid "Get your API login and password"
 msgstr "Uzyskaj login i hasło API"
 
-#: lib/phoenix_kit/integrations/validators.ex:1292
+#: lib/phoenix_kit/integrations/validators.ex:1263
 #, elixir-autogen, elixir-format
 msgid "Invalid API key"
 msgstr "Nieprawidłowy klucz API"
 
-#: lib/phoenix_kit/integrations/validators.ex:1185
+#: lib/phoenix_kit/integrations/validators.ex:1156
 #, elixir-autogen, elixir-format
 msgid "Invalid API login or password — use the API password from the API Access page, not the one you sign in with"
 msgstr "Nieprawidłowy login lub hasło API — użyj hasła API ze strony API Access, a nie hasła do logowania"
 
-#: lib/phoenix_kit/integrations/providers.ex:1589
+#: lib/phoenix_kit/integrations/providers.ex:1617
 #, elixir-autogen, elixir-format
 msgid "Open [API Access](https://app.dataforseo.com/api-access): the API login is your account e-mail, and the API password is shown there"
 msgstr "Otwórz [API Access](https://app.dataforseo.com/api-access): login API to adres e-mail Twojego konta, a hasło API jest tam wyświetlone"
 
-#: lib/phoenix_kit/integrations/providers.ex:1595
+#: lib/phoenix_kit/integrations/providers.ex:1623
 #, elixir-autogen, elixir-format
 msgid "Paste both into the form above and press **Test Connection**"
 msgstr "Wklej oba do formularza powyżej i naciśnij **Testuj połączenie**"
 
-#: lib/phoenix_kit/integrations/providers.ex:1613
+#: lib/phoenix_kit/integrations/providers.ex:1641
 #, elixir-autogen, elixir-format
 msgid "Search engine results — a monthly plan of searches"
 msgstr "Wyniki wyszukiwarek — miesięczny pakiet wyszukiwań"
 
-#: lib/phoenix_kit/integrations/providers.ex:1555
+#: lib/phoenix_kit/integrations/providers.ex:1583
 #, elixir-autogen, elixir-format
 msgid "Search engine results, keyword and SEO data — pay as you go per request"
 msgstr "Wyniki wyszukiwarek, dane o słowach kluczowych i SEO — płatność za zapytanie"
 
-#: lib/phoenix_kit/integrations/providers.ex:1612
+#: lib/phoenix_kit/integrations/providers.ex:1640
 #, elixir-autogen, elixir-format
 msgid "SerpApi"
 msgstr "SerpApi"
 
-#: lib/phoenix_kit/integrations/validators.ex:1303
+#: lib/phoenix_kit/integrations/validators.ex:1274
 #, elixir-autogen, elixir-format
 msgid "SerpApi error %{status}"
 msgstr "Błąd SerpApi %{status}"
 
-#: lib/phoenix_kit/integrations/validators.ex:1296
+#: lib/phoenix_kit/integrations/validators.ex:1267
 #, elixir-autogen, elixir-format
 msgid "SerpApi error %{status}: %{message}"
 msgstr "Błąd SerpApi %{status}: %{message}"
 
-#: lib/phoenix_kit/integrations/validators.ex:1283
+#: lib/phoenix_kit/integrations/validators.ex:1254
 #, elixir-autogen, elixir-format
 msgid "SerpApi error: %{message}"
 msgstr "Błąd SerpApi: %{message}"
 
-#: lib/phoenix_kit/integrations/providers.ex:1634
+#: lib/phoenix_kit/integrations/providers.ex:1662
 #, elixir-autogen, elixir-format
 msgid "Sign up at [SerpApi](https://serpapi.com) — the free plan includes a number of searches each month"
 msgstr "Zarejestruj się w [SerpApi](https://serpapi.com) — darmowy plan obejmuje pewną liczbę wyszukiwań miesięcznie"
 
-#: lib/phoenix_kit/integrations/providers.ex:1598
+#: lib/phoenix_kit/integrations/providers.ex:1626
 #, elixir-autogen, elixir-format
 msgid "Test Connection is free and shows the account balance. Every search is paid from that balance, so top it up on app.dataforseo.com before it runs out."
 msgstr "„Testuj połączenie” jest bezpłatne i pokazuje saldo konta. Każde wyszukiwanie jest opłacane z tego salda, więc zasil je na app.dataforseo.com, zanim się skończy."
 
-#: lib/phoenix_kit/integrations/providers.ex:1592
+#: lib/phoenix_kit/integrations/providers.ex:1620
 #, elixir-autogen, elixir-format
 msgid "The API password is generated for you and differs from your sign-in password. After the first day it is no longer shown — use **Send by e-mail** on the same page to get it"
 msgstr "Hasło API jest generowane dla Ciebie i różni się od hasła do logowania. Po pierwszym dniu nie jest już wyświetlane — użyj **Send by e-mail** na tej samej stronie, aby je otrzymać"
 
-#: lib/phoenix_kit/integrations/providers.ex:1567
+#: lib/phoenix_kit/integrations/providers.ex:1595
 #, elixir-autogen, elixir-format
 msgid "The e-mail address of your DataForSEO account"
 msgstr "Adres e-mail Twojego konta DataForSEO"
 
-#: lib/phoenix_kit/integrations/validators.ex:1191
+#: lib/phoenix_kit/integrations/validators.ex:1162
 #, elixir-autogen, elixir-format
 msgid "This DataForSEO account is not verified yet"
 msgstr "To konto DataForSEO nie zostało jeszcze zweryfikowane"
 
-#: lib/phoenix_kit/integrations/validators.ex:1194
+#: lib/phoenix_kit/integrations/validators.ex:1165
 #, elixir-autogen, elixir-format
 msgid "This DataForSEO account needs funds — top up the balance"
 msgstr "To konto DataForSEO wymaga środków — zasil saldo"
 
-#: lib/phoenix_kit/integrations/validators.ex:1200
+#: lib/phoenix_kit/integrations/validators.ex:1171
 #, elixir-autogen, elixir-format
 msgid "Too many requests to DataForSEO — try again in a minute"
 msgstr "Zbyt wiele zapytań do DataForSEO — spróbuj ponownie za minutę"
 
-#: lib/phoenix_kit/integrations/validators.ex:1098
-#: lib/phoenix_kit/integrations/validators.ex:1136
+#: lib/phoenix_kit/integrations/validators.ex:1069
+#: lib/phoenix_kit/integrations/validators.ex:1107
 #, elixir-autogen, elixir-format
 msgid "Unexpected answer from DataForSEO"
 msgstr "Nieoczekiwana odpowiedź z DataForSEO"
 
-#: lib/phoenix_kit/integrations/validators.ex:1272
-#: lib/phoenix_kit/integrations/validators.ex:1286
-#: lib/phoenix_kit/integrations/validators.ex:1290
+#: lib/phoenix_kit/integrations/validators.ex:1243
+#: lib/phoenix_kit/integrations/validators.ex:1257
+#: lib/phoenix_kit/integrations/validators.ex:1261
 #, elixir-autogen, elixir-format
 msgid "Unexpected answer from SerpApi"
 msgstr "Nieoczekiwana odpowiedź z SerpApi"
 
-#: lib/phoenix_kit/integrations/providers.ex:1625
+#: lib/phoenix_kit/integrations/providers.ex:1653
 #, elixir-autogen, elixir-format
 msgid "From serpapi.com/manage-api-key"
 msgstr "Z serpapi.com/manage-api-key"
 
-#: lib/phoenix_kit/integrations/providers.ex:1642
+#: lib/phoenix_kit/integrations/providers.ex:1670
 #, elixir-autogen, elixir-format
 msgid "Test Connection does not use up a search. It shows your plan and how many searches are left."
 msgstr "„Testuj połączenie” nie zużywa wyszukiwania. Pokazuje Twój plan i liczbę pozostałych wyszukiwań."
 
-#: lib/phoenix_kit/integrations/validators.ex:1315
+#: lib/phoenix_kit/integrations/validators.ex:1286
 #, elixir-autogen, elixir-format
 msgid "Account status: %{status}"
 msgstr "Status konta: %{status}"
 
-#: lib/phoenix_kit/integrations/validators.ex:1336
+#: lib/phoenix_kit/integrations/validators.ex:1307
 #, elixir-autogen, elixir-format
 msgid "No searches left"
 msgstr "Brak pozostałych wyszukiwań"
 
-#: lib/phoenix_kit/integrations/validators.ex:1335
+#: lib/phoenix_kit/integrations/validators.ex:1306
 #, elixir-autogen, elixir-format
 msgid "Searches left: %{left}"
 msgstr "Pozostałe wyszukiwania: %{left}"
 
-#: lib/phoenix_kit/integrations/validators.ex:1204
+#: lib/phoenix_kit/integrations/validators.ex:1175
 #, elixir-autogen, elixir-format
 msgid "This DataForSEO account has reached its daily spending limit — raise it on app.dataforseo.com"
 msgstr "To konto DataForSEO osiągnęło dzienny limit wydatków — zwiększ go na app.dataforseo.com"
 
-#: lib/phoenix_kit/integrations/validators.ex:1210
+#: lib/phoenix_kit/integrations/validators.ex:1181
 #, elixir-autogen, elixir-format
 msgid "Too many requests to DataForSEO at once — try again shortly"
 msgstr "Zbyt wiele jednoczesnych zapytań do DataForSEO — spróbuj ponownie za chwilę"
 
-#: lib/phoenix_kit/integrations/providers.ex:1516
+#: lib/phoenix_kit/integrations/providers.ex:1544
 #, elixir-autogen, elixir-format
 msgid "A chat id you already know can be typed into **Link a chat by ID**"
 msgstr "Znany Ci już identyfikator czatu możesz wpisać w polu **Lub połącz czat po identyfikatorze**"
@@ -15093,7 +15074,7 @@ msgstr "Czat prywatny"
 msgid "Filled in automatically when the user signs in with Google."
 msgstr "Wypełniane automatycznie, gdy użytkownik loguje się przez Google."
 
-#: lib/phoenix_kit/integrations/providers.ex:1513
+#: lib/phoenix_kit/integrations/providers.ex:1541
 #, elixir-autogen, elixir-format
 msgid "For a group: add the bot to the group, send **/start@yourbotname** there, then press **Test Connection** — a bot cannot read ordinary group messages, only commands addressed to it"
 msgstr "W przypadku grupy: dodaj bota do grupy, wyślij tam **/start@yourbotname**, a następnie naciśnij **Testuj połączenie** — bot nie może czytać zwykłych wiadomości w grupie, tylko skierowane do niego polecenia"
@@ -15122,7 +15103,7 @@ msgstr "Jak połączyć czat"
 msgid "Link"
 msgstr "Połącz"
 
-#: lib/phoenix_kit/integrations/providers.ex:1508
+#: lib/phoenix_kit/integrations/providers.ex:1536
 #, elixir-autogen, elixir-format
 msgid "Link the chats the bot will message"
 msgstr "Połącz czaty, do których bot będzie pisać"
@@ -15147,7 +15128,7 @@ msgstr "To nie jest identyfikator czatu — oczekiwano liczby, np. -100123456789
 msgid "Or link a chat by ID"
 msgstr "Lub połącz czat po identyfikatorze"
 
-#: lib/phoenix_kit/integrations/providers.ex:1511
+#: lib/phoenix_kit/integrations/providers.ex:1539
 #, elixir-autogen, elixir-format
 msgid "Send **/start** to your bot in Telegram, then press **Test Connection**"
 msgstr "Wyślij **/start** do swojego bota w Telegramie, a następnie naciśnij **Testuj połączenie**"
@@ -16006,7 +15987,7 @@ msgid "Add bucket"
 msgstr "Dodaj zasobnik"
 
 #: lib/modules/storage/web/profiles_component.ex:279
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:130
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:132
 #: lib/phoenix_kit_web/live/components/library_settings.ex:1680
 #, elixir-autogen, elixir-format
 msgid "Backup"
@@ -16080,7 +16061,7 @@ msgid "Reconcile now"
 msgstr "Uzgodnij teraz"
 
 #: lib/modules/storage/web/profiles_component.ex:278
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:131
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:133
 #, elixir-autogen, elixir-format
 msgid "Replica"
 msgstr "Replika"
@@ -16099,7 +16080,7 @@ msgstr "Pokazano pierwsze %{count} z %{total}."
 #: lib/modules/storage/web/libraries_component.ex:412
 #: lib/modules/storage/web/libraries_component.ex:547
 #: lib/modules/storage/web/library_page.html.heex:206
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:132
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:134
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:728
 #: lib/phoenix_kit_web/live/components/library_preferences.ex:395
 #: lib/phoenix_kit_web/live/components/library_settings.ex:2493
@@ -16470,17 +16451,17 @@ msgstr "Zasobnik można odczytywać, zapisywać i usuwać z niego pliki"
 msgid "The bucket's r2.dev or custom domain. Without one, files are served through this server."
 msgstr "Domena r2.dev lub własna domena zasobnika. Bez niej pliki są serwowane przez ten serwer."
 
-#: lib/phoenix_kit/integrations/validators.ex:662
+#: lib/phoenix_kit/integrations/validators.ex:633
 #, elixir-autogen, elixir-format
 msgid "The endpoint is not a usable host or URL"
 msgstr "Punkt końcowy nie jest użytecznym hostem ani adresem URL"
 
-#: lib/phoenix_kit/integrations/validators.ex:668
+#: lib/phoenix_kit/integrations/validators.ex:639
 #, elixir-autogen, elixir-format
 msgid "The endpoint must not be a local, private or metadata address"
 msgstr "Punkt końcowy nie może być adresem lokalnym, prywatnym ani adresem metadanych"
 
-#: lib/phoenix_kit/integrations/validators.ex:665
+#: lib/phoenix_kit/integrations/validators.ex:636
 #, elixir-autogen, elixir-format
 msgid "The endpoint must use https"
 msgstr "Punkt końcowy musi używać https"
@@ -17076,7 +17057,7 @@ msgid "Access Key"
 msgstr "Klucz dostępu"
 
 #: lib/phoenix_kit/integrations/object_storage_services.ex:228
-#: lib/phoenix_kit/integrations/providers.ex:1258
+#: lib/phoenix_kit/integrations/providers.ex:1286
 #, elixir-autogen, elixir-format
 msgid "Account ID"
 msgstr "Identyfikator konta"
@@ -17137,7 +17118,7 @@ msgid "From console.tigris.dev → Access Keys. The endpoint is t3.storage.dev."
 msgstr "Z console.tigris.dev → Access Keys. Punkt końcowy to t3.storage.dev."
 
 #: lib/phoenix_kit/integrations/object_storage_services.ex:240
-#: lib/phoenix_kit/integrations/providers.ex:1267
+#: lib/phoenix_kit/integrations/providers.ex:1295
 #, elixir-autogen, elixir-format
 msgid "Jurisdiction"
 msgstr "Jurysdykcja"
@@ -17869,7 +17850,7 @@ msgstr "Ten zasobnik jest używany"
 #: lib/modules/storage/web/bucket_page.html.heex:118
 #: lib/modules/storage/web/settings.html.heex:115
 #: lib/modules/storage/web/settings.html.heex:146
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:146
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:148
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:241
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:87
 #, elixir-autogen, elixir-format
@@ -21753,52 +21734,52 @@ msgstr "Katalog API"
 msgid "This site"
 msgstr "Ten serwis"
 
-#: lib/phoenix_kit/integrations/providers.ex:519
+#: lib/phoenix_kit/integrations/providers.ex:522
 #, elixir-autogen, elixir-format
 msgid "Anthropic"
 msgstr "Anthropic"
 
-#: lib/phoenix_kit/integrations/providers.ex:521
+#: lib/phoenix_kit/integrations/providers.ex:524
 #, elixir-autogen, elixir-format
 msgid "AI model access via Anthropic (Claude Opus, Sonnet and Haiku models)"
 msgstr "Dostęp do modeli AI przez Anthropic (modele Claude Opus, Sonnet i Haiku)"
 
-#: lib/phoenix_kit/integrations/providers.ex:540
+#: lib/phoenix_kit/integrations/providers.ex:543
 #, elixir-autogen, elixir-format
 msgid "From platform.claude.com/settings/keys"
 msgstr "Z platform.claude.com/settings/keys"
 
-#: lib/phoenix_kit/integrations/providers.ex:547
+#: lib/phoenix_kit/integrations/providers.ex:550
 #, elixir-autogen, elixir-format
 msgid "Create an Anthropic account"
 msgstr "Utwórz konto Anthropic"
 
-#: lib/phoenix_kit/integrations/providers.ex:549
+#: lib/phoenix_kit/integrations/providers.ex:552
 #, elixir-autogen, elixir-format
 msgid "Go to [platform.claude.com](https://platform.claude.com) and sign up or log in"
 msgstr "Przejdź na [platform.claude.com](https://platform.claude.com) i zarejestruj się lub zaloguj"
 
-#: lib/phoenix_kit/integrations/providers.ex:557
+#: lib/phoenix_kit/integrations/providers.ex:560
 #, elixir-autogen, elixir-format
 msgid "Go to [Billing](https://platform.claude.com/settings/billing) and add a payment method or buy credits"
 msgstr "Przejdź do [Billing](https://platform.claude.com/settings/billing) i dodaj metodę płatności lub kup kredyty"
 
-#: lib/phoenix_kit/integrations/providers.ex:560
+#: lib/phoenix_kit/integrations/providers.ex:563
 #, elixir-autogen, elixir-format
 msgid "Anthropic requires a positive credit balance before the API will answer requests"
 msgstr "Anthropic wymaga dodatniego salda kredytów, aby API odpowiadało na żądania"
 
-#: lib/phoenix_kit/integrations/providers.ex:565
+#: lib/phoenix_kit/integrations/providers.ex:568
 #, elixir-autogen, elixir-format
 msgid "API credits are billed separately from a Claude.ai subscription — a Pro or Max plan does not include them."
 msgstr "Kredyty API są rozliczane osobno od subskrypcji Claude.ai — plan Pro lub Max ich nie obejmuje."
 
-#: lib/phoenix_kit/integrations/providers.ex:572
+#: lib/phoenix_kit/integrations/providers.ex:575
 #, elixir-autogen, elixir-format
 msgid "Go to [API Keys](https://platform.claude.com/settings/keys)"
 msgstr "Przejdź do [API Keys](https://platform.claude.com/settings/keys)"
 
-#: lib/phoenix_kit/integrations/providers.ex:575
+#: lib/phoenix_kit/integrations/providers.ex:578
 #, elixir-autogen, elixir-format
 msgid "Scope the key to a single workspace (for example Default) — a key without one is refused"
 msgstr "Ogranicz klucz do jednego workspace (na przykład Default) — klucz bez workspace jest odrzucany"
@@ -21925,47 +21906,47 @@ msgstr "Daty zależą od kraju danej osoby. Ten kraj dotyczy osób bez ustawione
 msgid "Dates are written the way this country does. When empty, the company's country, the sign-up country and then the site default are used."
 msgstr "Daty są zapisywane tak, jak w tym kraju. Gdy pole jest puste, używany jest kraj firmy, kraj rejestracji, a potem domyślny kraj witryny."
 
-#: lib/phoenix_kit/integrations/providers.ex:846
+#: lib/phoenix_kit/integrations/providers.ex:849
 #, elixir-autogen, elixir-format
 msgid "Z.ai"
 msgstr "Z.ai"
 
-#: lib/phoenix_kit/integrations/providers.ex:847
+#: lib/phoenix_kit/integrations/providers.ex:850
 #, elixir-autogen, elixir-format
 msgid "AI model access via Z.ai (GLM models)"
 msgstr "Dostęp do modeli AI przez Z.ai (modele GLM)"
 
-#: lib/phoenix_kit/integrations/providers.ex:865
+#: lib/phoenix_kit/integrations/providers.ex:868
 #, elixir-autogen, elixir-format
 msgid "From z.ai/manage-apikey/apikey-list"
 msgstr "Z z.ai/manage-apikey/apikey-list"
 
-#: lib/phoenix_kit/integrations/providers.ex:872
+#: lib/phoenix_kit/integrations/providers.ex:875
 #, elixir-autogen, elixir-format
 msgid "Create a Z.ai account"
 msgstr "Utwórz konto Z.ai"
 
-#: lib/phoenix_kit/integrations/providers.ex:874
+#: lib/phoenix_kit/integrations/providers.ex:877
 #, elixir-autogen, elixir-format
 msgid "Go to [z.ai/model-api](https://z.ai/model-api) and sign up or log in"
 msgstr "Przejdź na [z.ai/model-api](https://z.ai/model-api) i zarejestruj się lub zaloguj"
 
-#: lib/phoenix_kit/integrations/providers.ex:880
+#: lib/phoenix_kit/integrations/providers.ex:883
 #, elixir-autogen, elixir-format
 msgid "Go to [Billing](https://z.ai/manage-apikey/billing) and top up your balance"
 msgstr "Przejdź do [Billing](https://z.ai/manage-apikey/billing) i doładuj saldo"
 
-#: lib/phoenix_kit/integrations/providers.ex:883
+#: lib/phoenix_kit/integrations/providers.ex:886
 #, elixir-autogen, elixir-format
 msgid "The API bills the account balance — without credit Z.ai refuses requests with code 1113 (insufficient balance)"
 msgstr "API jest rozliczane z salda konta — bez środków Z.ai odrzuca żądania z kodem 1113 (niewystarczające saldo)"
 
-#: lib/phoenix_kit/integrations/providers.ex:888
+#: lib/phoenix_kit/integrations/providers.ex:891
 #, elixir-autogen, elixir-format
 msgid "An existing key of an account that has had a GLM Coding Plan (a Compatible key, created before 16 October 2026) is billed on this API from the account balance or usage bundles, not from the plan quota."
 msgstr "Istniejący klucz konta, które miało GLM Coding Plan (klucz Compatible, utworzony przed 16 października 2026), jest w tym API rozliczany z salda konta lub pakietów użycia, a nie z limitu planu."
 
-#: lib/phoenix_kit/integrations/providers.ex:895
+#: lib/phoenix_kit/integrations/providers.ex:898
 #, elixir-autogen, elixir-format
 msgid "Go to [API Keys](https://z.ai/manage-apikey/apikey-list) and create a key under **Standard API Key**"
 msgstr "Przejdź do [API Keys](https://z.ai/manage-apikey/apikey-list) i utwórz klucz w sekcji **Standard API Key**"
@@ -22857,7 +22838,7 @@ msgstr "Przesłane pliki w przetwarzaniu: %{count}"
 
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:594
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:178
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:170
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:176
 #: lib/phoenix_kit_web/live/settings/integrations.ex:222
 #, elixir-autogen, elixir-format
 msgid "%{count} storage bucket uses this connection and prevents its removal."
@@ -23127,7 +23108,7 @@ msgstr "Nie udało się dokończyć kopiowania lub generowania podglądu; oczeki
 msgid "Could not change renditions."
 msgstr "Nie udało się zmienić wariantów."
 
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:397
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:403
 #, elixir-autogen, elixir-format
 msgid "Could not change this setting."
 msgstr "Nie udało się zmienić tego ustawienia."
@@ -23300,7 +23281,7 @@ msgstr "Wysłane"
 msgid "If anyone else has messaged the bot too, link your chat by its ID below instead."
 msgstr "Jeśli do bota pisał też ktoś inny, połącz zamiast tego swój czat po identyfikatorze poniżej."
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:136
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:138
 #, elixir-autogen, elixir-format
 msgid "In trash"
 msgstr "W koszu"
@@ -23418,7 +23399,7 @@ msgstr "Strony historii członkostwa"
 msgid "Message your bot, then press Test above — we'll capture your chat so it can notify you. If several people have messaged the bot, we can't tell which chat is yours: link it by its ID below instead."
 msgstr "Napisz do swojego bota, a następnie naciśnij „Testuj” powyżej — zapiszemy Twój czat, aby bot mógł Cię powiadamiać. Jeśli do bota pisało kilka osób, nie wiemy, który czat jest Twój: połącz go zamiast tego po identyfikatorze poniżej."
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:184
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:186
 #, elixir-autogen, elixir-format
 msgid "New credentials could not access bucket %{bucket}. The saved credentials were kept."
 msgstr "Nowe dane uwierzytelniające nie dały dostępu do zasobnika %{bucket}. Zachowano zapisane dane uwierzytelniające."
@@ -23483,7 +23464,7 @@ msgstr "Dla niezaznaczonego typu nic nie jest wysyłane do Telegrama."
 msgid "Notifications you pick below arrive in your Telegram chat, and this chat may read your data through the site's bot."
 msgstr "Wybrane poniżej powiadomienia trafiają na Twój czat w Telegramie, a ten czat może odczytywać Twoje dane przez bota serwisu."
 
-#: lib/phoenix_kit/integrations/providers.ex:1522
+#: lib/phoenix_kit/integrations/providers.ex:1550
 #, elixir-autogen, elixir-format
 msgid "Notify your users in Telegram"
 msgstr "Powiadamiaj użytkowników w Telegramie"
@@ -23723,7 +23704,7 @@ msgid "Save renditions"
 msgstr "Zapisz warianty"
 
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:369
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:537
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:543
 #, elixir-autogen, elixir-format
 msgid "Saving stopped unexpectedly. Refresh before trying again."
 msgstr "Zapisywanie nieoczekiwanie się przerwało. Odśwież stronę przed ponowną próbą."
@@ -23828,17 +23809,17 @@ msgstr "Brak konfiguracji magazynu"
 msgid "Storage could not be added. Check your access and the bucket connection."
 msgstr "Nie udało się dodać magazynu. Sprawdź swój dostęp i połączenie z zasobnikiem."
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:160
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:162
 #, elixir-autogen, elixir-format
 msgid "Storage depends on this connection. It cannot be removed or disconnected."
 msgstr "Magazyn zależy od tego połączenia. Nie można go usunąć ani odłączyć."
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:151
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:153
 #, elixir-autogen, elixir-format
 msgid "Storage depends on this connection. Removal and disconnection are blocked. To rotate keys, the new credentials must pass a test on every bucket."
 msgstr "Magazyn zależy od tego połączenia. Usuwanie i odłączanie są zablokowane. Aby wymienić klucze, nowe dane uwierzytelniające muszą przejść test w każdym zasobniku."
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:180
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:182
 #, elixir-autogen, elixir-format
 msgid "Storage in use requires both an access key and a secret key."
 msgstr "Używany magazyn wymaga zarówno klucza dostępu, jak i tajnego klucza."
@@ -23920,7 +23901,7 @@ msgstr "Testuj"
 msgid "Testing and adding..."
 msgstr "Testowanie i dodawanie..."
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:164
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:166
 #, elixir-autogen, elixir-format
 msgid "The connection or its storage usage changed during testing. Refresh and try again."
 msgstr "Połączenie lub jego użycie przez magazyn zmieniło się podczas testowania. Odśwież i spróbuj ponownie."
@@ -23932,7 +23913,7 @@ msgstr "Połączenie lub jego użycie przez magazyn zmieniło się podczas testo
 msgid "The integration changed during testing. Refresh and try again."
 msgstr "Integracja zmieniła się podczas testowania. Odśwież i spróbuj ponownie."
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:190
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:192
 #, elixir-autogen, elixir-format
 msgid "The integration could not be updated. Refresh and try again."
 msgstr "Nie udało się zaktualizować integracji. Odśwież i spróbuj ponownie."
@@ -23977,7 +23958,7 @@ msgstr "Link działa jeden raz i wygasa po %{minutes} min."
 msgid "The place a library keeps its files stays as it is. More backup storage can be added later, and existing files are copied in the background. It is tested again when you create it. Deleting the library deletes the files it stored in your buckets."
 msgstr "Miejsce, w którym biblioteka przechowuje pliki, pozostaje bez zmian. Później można dodać kolejne magazyny kopii zapasowych, a istniejące pliki są kopiowane w tle. Przy tworzeniu biblioteki magazyn jest testowany ponownie. Usunięcie biblioteki usuwa pliki, które zapisała w Twoich zasobnikach."
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:171
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:173
 #, elixir-autogen, elixir-format
 msgid "The service cannot be changed. Create a new integration for another service."
 msgstr "Nie można zmienić usługi. Utwórz nową integrację dla innej usługi."
@@ -24008,7 +23989,7 @@ msgstr "Ta czynność nie jest już dostępna lub nie masz już dostępu."
 msgid "This bot has a webhook set, so Telegram will not hand its messages to the site and users cannot link their chats. Remove the webhook (setWebhook with an empty url) or use another bot."
 msgstr "Ten bot ma ustawiony webhook, więc Telegram nie przekaże jego wiadomości witrynie, a użytkownicy nie mogą połączyć swoich czatów. Usuń webhook (setWebhook z pustym url) lub użyj innego bota."
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:175
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:177
 #, elixir-autogen, elixir-format
 msgid "This connection is used by storage. Create another integration to change its destination."
 msgstr "To połączenie jest używane przez magazyn. Utwórz inną integrację, aby zmienić jego miejsce docelowe."
@@ -24018,7 +23999,7 @@ msgstr "To połączenie jest używane przez magazyn. Utwórz inną integrację, 
 msgid "This folder belongs to a module and can't be deleted here."
 msgstr "Ten folder należy do modułu i nie można go tu usunąć."
 
-#: lib/phoenix_kit_web/live/settings/integration_form.ex:180
+#: lib/phoenix_kit_web/live/settings/integration_form.ex:186
 #, elixir-autogen, elixir-format
 msgid "This is the website's Telegram bot for user notifications — everyone who linked a chat to it will stop receiving them. %{rest}"
 msgstr "To bot Telegrama witryny do powiadomień użytkowników — wszyscy, którzy połączyli z nim czat, przestaną je otrzymywać. %{rest}"
@@ -24053,7 +24034,7 @@ msgstr "Ten link wygasł lub został już użyty. Otwórz ustawienia powiadomie�
 msgid "This operation is no longer available, or you no longer have access to its library."
 msgstr "Ta operacja nie jest już dostępna lub nie masz już dostępu do jej biblioteki."
 
-#: lib/phoenix_kit/integrations/providers.ex:1525
+#: lib/phoenix_kit/integrations/providers.ex:1553
 #, elixir-autogen, elixir-format
 msgid "Tick **Deliver user notifications through this bot** below. Each user then links their own chat under **Profile → Notifications** with one tap — no token to copy"
 msgstr "Zaznacz poniżej **Dostarczaj powiadomienia użytkowników przez tego bota**. Każdy użytkownik połączy wtedy własny czat w **Profil → Powiadomienia** jednym dotknięciem — bez kopiowania tokenu"
@@ -24075,7 +24056,7 @@ msgstr "Śledzi kopiowanie, weryfikację, porządkowanie i aktualizacje wariant�
 msgid "Type a name"
 msgstr "Wpisz nazwę"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:125
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:127
 #, elixir-autogen, elixir-format
 msgid "Unassigned bucket"
 msgstr "Nieprzypisany zasobnik"
@@ -24090,7 +24071,7 @@ msgstr "Aktualizuje się automatycznie"
 msgid "Updating storage"
 msgstr "Aktualizowanie magazynu"
 
-#: lib/phoenix_kit/integrations/providers.ex:1531
+#: lib/phoenix_kit/integrations/providers.ex:1559
 #, elixir-autogen, elixir-format
 msgid "Use a bot only this website uses: linking reads and clears the bot's incoming messages, so a second program reading the same bot would miss them"
 msgstr "Używaj bota, z którego korzysta tylko ta witryna: łączenie odczytuje i czyści przychodzące wiadomości bota, więc drugi program odczytujący tego samego bota by je przegapił"
@@ -24100,7 +24081,7 @@ msgstr "Używaj bota, z którego korzysta tylko ta witryna: łączenie odczytuje
 msgid "Use a bot that only this website uses: the site reads and clears the bot's incoming messages to link chats, so a second program reading the same bot would miss them."
 msgstr "Używaj bota, z którego korzysta tylko ta witryna: witryna odczytuje i czyści przychodzące wiadomości bota, aby łączyć czaty, więc drugi program odczytujący tego samego bota by je przegapił."
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:124
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:126
 #, elixir-autogen, elixir-format
 msgid "User library (private)"
 msgstr "Biblioteka użytkownika (prywatna)"
@@ -24193,7 +24174,7 @@ msgstr "Kto może ją widzieć"
 msgid "Who can view this library?"
 msgstr "Kto może przeglądać tę bibliotekę?"
 
-#: lib/phoenix_kit/integrations/providers.ex:1528
+#: lib/phoenix_kit/integrations/providers.ex:1556
 #, elixir-autogen, elixir-format
 msgid "Without the tick this connection is **not used for user notifications**; code that sends through it must name the chat itself"
 msgstr "Bez zaznaczenia to połączenie **nie jest używane do powiadomień użytkowników**; kod wysyłający przez nie musi sam wskazać czat"
@@ -25004,11 +24985,6 @@ msgstr "Włączono moduł %{module}"
 msgid "%{region} (currently selected)"
 msgstr "%{region} (aktualnie wybrany)"
 
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:141
-#, elixir-autogen, elixir-format
-msgid "AWS Permissions Check"
-msgstr "Sprawdzanie uprawnień AWS"
-
 #: lib/phoenix_kit_web/components/core/aws_region_select.ex:51
 #, elixir-autogen, elixir-format
 msgid "AWS Region"
@@ -25290,11 +25266,6 @@ msgstr "Opóźnione do:"
 msgid "Delivery Delayed"
 msgstr "Dostarczenie opóźnione"
 
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:253
-#, elixir-autogen, elixir-format
-msgid "Denied"
-msgstr "Odmówiono"
-
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:685
 #, elixir-autogen, elixir-format
 msgid "Development"
@@ -25309,11 +25280,6 @@ msgstr "Odrzucone"
 #, elixir-autogen, elixir-format
 msgid "Discarded:"
 msgstr "Odrzucono:"
-
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:199
-#, elixir-autogen, elixir-format
-msgid "EC2 (Optional Feature)"
-msgstr "EC2 (funkcja opcjonalna)"
 
 #: lib/phoenix_kit_web/components/core/event_timeline_item.ex:97
 #, elixir-autogen, elixir-format
@@ -25354,12 +25320,6 @@ msgstr "Wiadomość oczekuje na wysłanie"
 #, elixir-autogen, elixir-format
 msgid "Enter new password (minimum 8 characters)"
 msgstr "Wpisz nowe hasło (minimum 8 znaków)"
-
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:116
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:128
-#, elixir-autogen, elixir-format
-msgid "Enter your AWS credentials and click \"Verify Credentials\" to test connectivity."
-msgstr "Wpisz swoje dane uwierzytelniające AWS i kliknij „Verify Credentials”, aby sprawdzić połączenie."
 
 #: lib/modules/sitemap/web/settings.ex:391
 #, elixir-autogen, elixir-format
@@ -25523,11 +25483,6 @@ msgstr "Nie udało się zaktualizować statusu użytkownika. Spróbuj ponownie."
 msgid "Feedback ID:"
 msgstr "ID opinii:"
 
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:249
-#, elixir-autogen, elixir-format
-msgid "Granted"
-msgstr "Przyznano"
-
 #: lib/phoenix_kit_web/live/modules/jobs/index.html.heex:599
 #, elixir-autogen, elixir-format
 msgid "Handler"
@@ -25648,11 +25603,6 @@ msgstr "Oznacz wszystkie jako zobaczone"
 #, elixir-autogen, elixir-format
 msgid "Minimum 8 characters"
 msgstr "Minimum 8 znaków"
-
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:223
-#, elixir-autogen, elixir-format
-msgid "Missing Critical Permissions (SQS/SNS/SES)"
-msgstr "Brak krytycznych uprawnień (SQS/SNS/SES)"
 
 #: lib/phoenix_kit_web/components/dashboard/sidebar.ex:402
 #, elixir-autogen, elixir-format
@@ -25856,12 +25806,6 @@ msgstr "Publikacje połączone w jeden plik"
 msgid "Publishing split by blog"
 msgstr "Publikacje podzielone według bloga"
 
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:114
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:126
-#, elixir-autogen, elixir-format
-msgid "Ready for Verification"
-msgstr "Gotowe do weryfikacji"
-
 #: lib/phoenix_kit_web/components/core/event_timeline_item.ex:181
 #: lib/phoenix_kit_web/components/core/event_timeline_item.ex:194
 #: lib/phoenix_kit_web/components/core/event_timeline_item.ex:304
@@ -26040,11 +25984,6 @@ msgstr "Pomyślnie wygenerowano mapę witryny (liczba adresów URL: %{count})"
 msgid "Sitemap generation queued. Stats will update automatically."
 msgstr "Generowanie mapy witryny dodano do kolejki. Statystyki zaktualizują się automatycznie."
 
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:225
-#, elixir-autogen, elixir-format
-msgid "Some required List permissions are denied. \"Setup AWS Infrastructure\" will likely fail without CREATE permissions. Please review your IAM policy."
-msgstr "Odmówiono niektórych wymaganych uprawnień List. „Setup AWS Infrastructure” prawdopodobnie zakończy się niepowodzeniem bez uprawnień CREATE. Sprawdź swoją politykę IAM."
-
 #: lib/phoenix_kit_web/components/core/event_timeline_item.ex:101
 #, elixir-autogen, elixir-format
 msgid "Spam Complaint"
@@ -26206,11 +26145,6 @@ msgstr "Aktualizowanie użytkownika..."
 msgid "Use System Default"
 msgstr "Użyj domyślnej wartości systemu"
 
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:203
-#, elixir-autogen, elixir-format
-msgid "Used for automatic region discovery. Manual region selection available if denied."
-msgstr "Używane do automatycznego wykrywania regionów. W razie odmowy dostępny jest ręczny wybór regionu."
-
 #: lib/phoenix_kit_web/users/user_form.html.heex:414
 #, elixir-autogen, elixir-format
 msgid "User Roles"
@@ -26266,16 +26200,6 @@ msgstr "Prawidłowe URI przekierowania OAuth"
 #, elixir-autogen, elixir-format
 msgid "Verified"
 msgstr "Zweryfikowano"
-
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:86
-#, elixir-autogen, elixir-format
-msgid "Verify Credentials"
-msgstr "Zweryfikuj dane uwierzytelniające"
-
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:83
-#, elixir-autogen, elixir-format
-msgid "Verifying..."
-msgstr "Weryfikowanie..."
 
 #: lib/phoenix_kit_web/live/notifications_bell.ex:204
 #, elixir-autogen, elixir-format
@@ -26358,11 +26282,6 @@ msgstr "nadużycie"
 #, elixir-autogen, elixir-format
 msgid "and will invalidate their current password immediately."
 msgstr "i natychmiast unieważni jego obecne hasło."
-
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:200
-#, elixir-autogen, elixir-format
-msgid "auto-loading regions"
-msgstr "automatyczne ładowanie regionów"
 
 #: lib/phoenix_kit_web/live/modules/jobs/index.html.heex:187
 #, elixir-autogen, elixir-format
@@ -26490,30 +26409,15 @@ msgstr "• Użytkownik może zaktualizować swój profil po pierwszym logowaniu
 msgid "• User will be assigned default \"%{role}\" role"
 msgstr "• Użytkownik otrzyma domyślną rolę „%{role}”"
 
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:146
-#, elixir-autogen, elixir-format
-msgid "ℹ️ Basic permissions checked using List operations. Actual CREATE permissions will be verified during \"Setup AWS Infrastructure\"."
-msgstr "ℹ️ Podstawowe uprawnienia sprawdzono operacjami List. Rzeczywiste uprawnienia CREATE zostaną zweryfikowane podczas „Setup AWS Infrastructure”."
-
 #: lib/phoenix_kit_web/components/core/aws_region_select.ex:149
 #, elixir-autogen, elixir-format
 msgid "✅ Region verified successfully. Available for AWS services."
 msgstr "✅ Region zweryfikowany pomyślnie. Dostępny dla usług AWS."
 
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:98
-#, elixir-autogen, elixir-format
-msgid "✅ Verification Successful"
-msgstr "✅ Weryfikacja zakończona sukcesem"
-
 #: lib/phoenix_kit_web/components/core/aws_region_select.ex:151
 #, elixir-autogen, elixir-format
 msgid "❌ Unable to verify region. Please check your credentials."
 msgstr "❌ Nie udało się zweryfikować regionu. Sprawdź swoje dane uwierzytelniające."
-
-#: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:106
-#, elixir-autogen, elixir-format
-msgid "❌ Verification Failed"
-msgstr "❌ Weryfikacja nie powiodła się"
 
 #: lib/phoenix_kit_web/components/core/aws_region_select.ex:162
 #, elixir-autogen, elixir-format
@@ -27247,28 +27151,28 @@ msgstr "Ten plik nie jest rodzajem pliku, który przyjmuje ten selektor."
 msgid "The file was saved, but it cannot be picked here."
 msgstr "Plik został zapisany, ale nie można go tutaj wybrać."
 
-#: lib/phoenix_kit/integrations/validators.ex:931
+#: lib/phoenix_kit/integrations/validators.ex:902
 #, elixir-autogen, elixir-format
 msgid "Brevo error %{status}: %{message}"
 msgstr "Błąd Brevo %{status}: %{message}"
 
-#: lib/phoenix_kit/integrations/validators.ex:912
+#: lib/phoenix_kit/integrations/validators.ex:883
 #, elixir-autogen, elixir-format
 msgid "Brevo refused this server's IP address — allow it in Brevo under Security → Authorised IPs. Brevo says: %{message}"
 msgstr "Brevo odrzuciło adres IP tego serwera — zezwól na niego w Brevo: Security → Authorised IPs. Odpowiedź Brevo: %{message}"
 
-#: lib/phoenix_kit/integrations/validators.ex:918
+#: lib/phoenix_kit/integrations/validators.ex:889
 #, elixir-autogen, elixir-format
 msgid "Invalid credentials. Brevo says: %{message}"
 msgstr "Nieprawidłowe dane uwierzytelniające. Odpowiedź Brevo: %{message}"
 
-#: lib/phoenix_kit/integrations/validators.ex:860
+#: lib/phoenix_kit/integrations/validators.ex:831
 #, elixir-autogen, elixir-format
 msgid "This is a Brevo SMTP key (xsmtpsib-…). The Brevo API needs an API key (xkeysib-…) from SMTP & API → API Keys; an SMTP key goes into an SMTP connection."
 msgstr "To jest klucz SMTP Brevo (xsmtpsib-…). API Brevo wymaga klucza API (xkeysib-…) z SMTP & API → API Keys; klucz SMTP służy do połączenia SMTP."
 
-#: lib/phoenix_kit/integrations/validators.ex:890
-#: lib/phoenix_kit/integrations/validators.ex:907
+#: lib/phoenix_kit/integrations/validators.ex:861
+#: lib/phoenix_kit/integrations/validators.ex:878
 #, elixir-autogen, elixir-format
 msgid "Unexpected answer from Brevo"
 msgstr "Nieoczekiwana odpowiedź Brevo"
@@ -27523,3 +27427,78 @@ msgstr "Nie udało się zapisać sprawdzania adresu e-mail."
 #, elixir-autogen, elixir-format
 msgid "This email domain cannot receive mail. Please check the address."
 msgstr "Ta domena e-mail nie może odbierać poczty. Sprawdź adres."
+
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:627
+#, elixir-autogen, elixir-format
+msgid "All a key needs to send mail through Amazon SES."
+msgstr "Wszystko, czego klucz potrzebuje do wysyłania poczty przez Amazon SES."
+
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:604
+#, elixir-autogen, elixir-format
+msgid "Attach this before Setup Infrastructure. It sends, creates the queues, the topic and the configuration set, and reads the queues."
+msgstr "Dołącz ją przed „Setup Infrastructure”. Wysyła, tworzy kolejki, temat i zestaw konfiguracji oraz odczytuje kolejki."
+
+#: lib/phoenix_kit/integrations/providers.ex:1173
+#, elixir-autogen, elixir-format
+msgid "Create an IAM user with the sending policy"
+msgstr "Utwórz użytkownika IAM z polityką wysyłania"
+
+#: lib/phoenix_kit/integrations/providers.ex:1153
+#, elixir-autogen, elixir-format
+msgid "Create an IAM user with the setup policy"
+msgstr "Utwórz użytkownika IAM z polityką konfiguracji"
+
+#: lib/phoenix_kit/integrations/providers.ex:1176
+#, elixir-autogen, elixir-format
+msgid "In the [IAM console](https://console.aws.amazon.com/iam/home#/users) create a user without console access and add the **sending policy** below to it as an inline policy (Permissions → Add permissions → Create inline policy → JSON)"
+msgstr "W [konsoli IAM](https://console.aws.amazon.com/iam/home#/users) utwórz użytkownika bez dostępu do konsoli i dodaj mu poniższą **politykę wysyłania** jako politykę wbudowaną (Permissions → Add permissions → Create inline policy → JSON)"
+
+#: lib/phoenix_kit/integrations/providers.ex:1156
+#, elixir-autogen, elixir-format
+msgid "In the [IAM console](https://console.aws.amazon.com/iam/home#/users) create a user without console access and add the **setup policy** below to it as an inline policy (Permissions → Add permissions → Create inline policy → JSON)"
+msgstr "W [konsoli IAM](https://console.aws.amazon.com/iam/home#/users) utwórz użytkownika bez dostępu do konsoli i dodaj mu poniższą **politykę konfiguracji** jako politykę wbudowaną (Permissions → Add permissions → Create inline policy → JSON)"
+
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:576
+#, elixir-autogen, elixir-format
+msgid "No region is saved for this connection yet: replace <region> with your AWS region, or save the connection and copy the policy then."
+msgstr "Dla tego połączenia nie zapisano jeszcze regionu: zastąp <region> swoim regionem AWS albo zapisz połączenie i skopiuj politykę później."
+
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:616
+#, elixir-autogen, elixir-format
+msgid "Replace the setup policy with this once Setup Infrastructure has succeeded. It sends and reads the queues, and can create nothing."
+msgstr "Zastąp nią politykę konfiguracji, gdy „Setup Infrastructure” się powiedzie. Wysyła i odczytuje kolejki, a niczego nie może utworzyć."
+
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:614
+#, elixir-autogen, elixir-format
+msgid "Running policy"
+msgstr "Polityka działania"
+
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:626
+#, elixir-autogen, elixir-format
+msgid "Sending policy"
+msgstr "Polityka wysyłania"
+
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:602
+#, elixir-autogen, elixir-format
+msgid "Setup policy"
+msgstr "Polityka konfiguracji"
+
+#: lib/phoenix_kit/aws/infrastructure_setup.ex:286
+#, elixir-autogen, elixir-format
+msgid "The key lacks a permission of the setup policy. Attach the setup policy to the key (it is shown with the Amazon SES connection in Settings → Integrations) and run the setup again: it is safe to repeat."
+msgstr "Kluczowi brakuje uprawnienia z polityki konfiguracji. Dołącz politykę konfiguracji do klucza (jest pokazana przy połączeniu Amazon SES w Ustawienia → Integracje) i uruchom konfigurację ponownie: można ją bezpiecznie powtarzać."
+
+#: lib/phoenix_kit/integrations/providers.ex:1167
+#, elixir-autogen, elixir-format
+msgid "The key needs nothing beyond these two policies. A site that only sends, with no delivery events, needs just the `Send` statement. Running the setup again later needs the setup policy again; it is safe to repeat."
+msgstr "Klucz nie potrzebuje niczego poza tymi dwiema politykami. Witryna, która tylko wysyła, bez zdarzeń dostarczenia, potrzebuje jedynie instrukcji `Send`. Ponowne uruchomienie konfiguracji w przyszłości znów wymaga polityki konfiguracji; można ją bezpiecznie powtarzać."
+
+#: lib/phoenix_kit/integrations/providers.ex:1162
+#, elixir-autogen, elixir-format
+msgid "Delivery events (delivered, bounced, complained) are set up in Settings → Emails Transactional: add this connection as an Amazon SES/SQS account and press **Setup Infrastructure**. Once it has succeeded, replace the setup policy with the **running policy** below"
+msgstr "Zdarzenia dostarczenia (dostarczono, odbicie, skarga) konfiguruje się w Ustawienia → E-maile transakcyjne: dodaj to połączenie jako konto Amazon SES/SQS i naciśnij **Setup Infrastructure**. Gdy operacja się powiedzie, zastąp politykę konfiguracji **polityką działania** poniżej"
+
+#: lib/phoenix_kit/integrations/providers.ex:1195
+#, elixir-autogen, elixir-format
+msgid "This connection stores the credential. Which connection sends, and the delivery-event pipeline (configuration set, SNS topic, SQS queues), are set in Settings → Emails Transactional."
+msgstr "To połączenie przechowuje dane uwierzytelniające. To, które połączenie wysyła, oraz łańcuch zdarzeń dostarczenia (zestaw konfiguracji, temat SNS, kolejki SQS) ustawia się w Ustawienia → E-maile transakcyjne."

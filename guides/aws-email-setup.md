@@ -1,363 +1,305 @@
 # AWS Email Setup Guide
 
-PhoenixKit provides comprehensive AWS integration for email tracking and event handling. This guide covers the complete setup process for AWS SES, SNS, and SQS services.
+How to send mail through Amazon SES from a PhoenixKit site, and how to receive
+its delivery events (delivered, bounced, complained) through SNS and SQS.
 
-## Overview
+Sending is part of PhoenixKit itself. Delivery events are the job of the
+`phoenix_kit_emails` module; without it you need only the sending steps.
 
-The AWS email infrastructure enables you to:
-- Track email delivery, opens, clicks, and other events
-- Process email events in real-time using SQS polling
-- Store email data with configurable retention policies
-- Integrate with AWS services for advanced analytics
+## The short version
 
-## Quick Start
+1. Create an IAM user and give it the **setup policy**.
+2. Create an access key for it and save it as an **Amazon SES** connection in
+   Settings → Integrations.
+3. Verify your sender in SES.
+4. In Settings → Emails Transactional, add the connection as an Amazon SES/SQS
+   account and press **Setup Infrastructure**.
+5. Replace the setup policy with the **running policy**.
 
-### 1. Create AWS Account (if you don't have one)
+The policies below are the only ones the key needs. The connection form in
+Settings → Integrations shows the same two, with your site's names and region
+already filled in and a Copy button: prefer those over typing the placeholders
+here by hand.
 
-1. Go to [AWS Console](https://aws.amazon.com/console/)
-2. Sign up for a new account or sign in to existing account
-3. Complete account verification process
+## IAM policies
 
-### 2. Create IAM User for PhoenixKit
+The key needs more while the infrastructure is being created than it does
+afterwards, so there are two policies, used one after the other.
 
-1. Navigate to [IAM Console](https://console.aws.amazon.com/iam/)
-2. Go to "Users" → "Add user"
-3. Enter user name (e.g., `phoenixkit-user`)
-4. Select "Programmatic access" type
-5. Attach policies:
-   ```
-   {
-     "Version": "2012-10-17",
-     "Statement": [
-       {
-         "Effect": "Allow",
-         "Action": [
-           "sqs:*",
-           "sns:*",
-           "ses:*",
-           "sts:GetCallerIdentity",
-           "ec2:DescribeRegions"
-         ],
-         "Resource": "*"
-       }
-     ]
-   }
-   ```
+In both, replace:
 
-### 3. Get AWS Credentials
+- `<region>` with the AWS region of the connection, for example `eu-north-1`;
+- `<project>` with your project name: the site's project title in lower case,
+  with every character outside `a-z`, `0-9` and `-` turned into `-` and the
+  dashes at both ends removed. "My App!" gives `my-app`. A title that leaves
+  nothing gives `myapp`.
 
-1. After creating the user, download or copy:
-   - **Access Key ID** (e.g., `AKIAIOSFODNN7EXAMPLE`)
-   - **Secret Access Key** (e.g., `wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY`)
-2. Store these credentials securely - you won't be able to see the secret key again
+### 1. Setup policy
 
-### 4. Configure in PhoenixKit Admin UI
-
-1. Navigate to `{prefix}/admin/settings/emails`
-2. Scroll to "AWS Configuration" section
-3. Enter your AWS credentials:
-   - **Access Key ID**: Your 20-character access key
-   - **Secret Access Key**: Your secret access key
-   - **Region**: Select your preferred AWS region
-4. Click "Verify Credentials" to test connectivity
-5. Click "Save AWS Settings" to persist the configuration
-
-> **Understanding Credentials Verification**
->
-> When you click "Verify Credentials", PhoenixKit calls AWS STS GetCallerIdentity to verify:
-> - ✅ Credentials are valid (not expired or revoked)
-> - ✅ AWS account ID is accessible
-> - ✅ Credentials can authenticate with AWS
->
-> **Permissions are NOT checked during verification.** Actual permissions (CreateQueue, CreateTopic, etc.)
-> are verified during "Setup AWS Infrastructure" (next step). If permissions are missing, you'll receive
-> a specific error message indicating which permission is required.
-
-### 5. Setup AWS Infrastructure
-
-1. After saving credentials, click "Setup AWS Infrastructure"
-2. PhoenixKit will automatically create:
-   - SNS Topic for email events
-   - SQS Main Queue for message processing
-   - SQS Dead Letter Queue for failed messages
-   - SES Configuration Set for tracking
-3. Wait for completion (typically 30-60 seconds)
-
-### 6. Verify Email/Domain in SES
-
-1. Navigate to [SES Console](https://console.aws.amazon.com/ses/)
-2. Go to "Verified identities" → "Email addresses" or "Domains"
-3. Verify the email address you'll use as sender
-4. If using custom domain, verify the domain
-
-### 7. Enable Email System
-
-1. Return to PhoenixKit settings
-2. Toggle "Enable Emails" to ON
-3. Configure other settings as needed
-
-### 8. Understanding AWS Permissions
-
-PhoenixKit requires the following AWS permissions for full email functionality:
-
-#### Required Permissions (for Setup AWS Infrastructure)
-
-- **SQS** (Simple Queue Service):
-  - `sqs:CreateQueue`, `sqs:GetQueueAttributes`, `sqs:SetQueueAttributes`
-  - `sqs:ReceiveMessage`, `sqs:DeleteMessage` (for SQS worker)
-
-- **SNS** (Simple Notification Service):
-  - `sns:CreateTopic`, `sns:Subscribe`, `sns:SetTopicAttributes`
-
-- **SES** (Simple Email Service):
-  - `ses:CreateConfigurationSet`, `ses:CreateConfigurationSetEventDestination`
-  - `ses:SendEmail`, `ses:SendRawEmail` (for sending emails)
-
-- **STS** (Security Token Service):
-  - `sts:GetCallerIdentity` (for credentials verification)
-
-#### Optional Permissions
-
-- **EC2** `ec2:DescribeRegions`:
-  - Used for automatic region discovery in the admin UI
-  - If not granted, manual region selection from common regions list is available
-  - NOT required for email functionality
-
-If any required permission is missing, "Setup AWS Infrastructure" will fail with a specific error message
-indicating which permission is needed. Simply add the permission to your IAM policy and try again.
-
-## Detailed Instructions
-
-### IAM Configuration
-
-#### Minimal Required Permissions
-
-For production, use least-privilege permissions:
+Attach it before you create the connection and keep it until **Setup
+Infrastructure** has succeeded.
 
 ```json
 {
   "Version": "2012-10-17",
   "Statement": [
     {
+      "Sid": "Send",
       "Effect": "Allow",
       "Action": [
-        "ses:SendEmail",
         "ses:SendRawEmail",
-        "ses:CreateConfigurationSet",
-        "ses:CreateConfigurationSetEventDestination",
-        "ses:UpdateConfigurationSetEventDestination",
-        "ses:DescribeConfigurationSets",
+        "ses:SendEmail",
         "ses:GetSendQuota"
       ],
       "Resource": "*"
     },
     {
+      "Sid": "SetupInfrastructure",
       "Effect": "Allow",
       "Action": [
-        "sqs:CreateQueue",
-        "sqs:DeleteQueue",
-        "sqs:GetQueueAttributes",
-        "sqs:SetQueueAttributes",
-        "sqs:ReceiveMessage",
-        "sqs:DeleteMessage",
-        "sqs:ListQueues"
-      ],
-      "Resource": "arn:aws:sqs:*:*:phoenixkit-*"
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
+        "ses:CreateConfigurationSet",
+        "ses:CreateConfigurationSetEventDestination",
         "sns:CreateTopic",
-        "sns:DeleteTopic",
         "sns:Subscribe",
-        "sns:ListSubscriptions",
-        "sns:GetTopicAttributes",
-        "sns:SetTopicAttributes"
+        "sqs:CreateQueue",
+        "sqs:GetQueueUrl",
+        "sqs:SetQueueAttributes"
       ],
-      "Resource": "arn:aws:sns:*:*:phoenixkit-*"
+      "Resource": [
+        "arn:aws:ses:<region>:*:configuration-set/<project>-emailing",
+        "arn:aws:sns:<region>:*:<project>-email-events",
+        "arn:aws:sqs:<region>:*:<project>-email-queue",
+        "arn:aws:sqs:<region>:*:<project>-email-dlq"
+      ]
     },
     {
+      "Sid": "ReadDeliveryEvents",
       "Effect": "Allow",
-      "Action": "sts:GetCallerIdentity",
+      "Action": [
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage"
+      ],
+      "Resource": [
+        "arn:aws:sqs:<region>:*:<project>-email-queue",
+        "arn:aws:sqs:<region>:*:<project>-email-dlq"
+      ]
+    }
+  ]
+}
+```
+
+### 2. Running policy
+
+Once the setup has succeeded, replace the setup policy with this one. It is
+the setup policy without the `SetupInfrastructure` statement: the key that
+stays on your server can send and read its two queues, and can create or
+reconfigure nothing.
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "Send",
+      "Effect": "Allow",
+      "Action": [
+        "ses:SendRawEmail",
+        "ses:SendEmail",
+        "ses:GetSendQuota"
+      ],
       "Resource": "*"
     },
     {
-      "Sid": "OptionalEC2ForAutoRegionDiscovery",
+      "Sid": "ReadDeliveryEvents",
       "Effect": "Allow",
-      "Action": "ec2:DescribeRegions",
+      "Action": [
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage"
+      ],
+      "Resource": [
+        "arn:aws:sqs:<region>:*:<project>-email-queue",
+        "arn:aws:sqs:<region>:*:<project>-email-dlq"
+      ]
+    }
+  ]
+}
+```
+
+### A site that only sends
+
+With no delivery events there is nothing to set up, and the key needs the
+`Send` statement alone:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "Send",
+      "Effect": "Allow",
+      "Action": [
+        "ses:SendRawEmail",
+        "ses:SendEmail",
+        "ses:GetSendQuota"
+      ],
       "Resource": "*"
     }
   ]
 }
 ```
 
-**Note**: The `ec2:DescribeRegions` permission allows PhoenixKit to automatically fetch the list of available AWS regions when configuring SES integration. This is optional - if not granted, PhoenixKit will fall back to a predefined list of common regions.
+### Things to know
 
-#### Environment Variables (Alternative)
+- **Running the setup again needs the setup policy again.** The setup is safe
+  to repeat: it finds what already exists and leaves it as it is.
+- **A failed setup names what was missing.** When AWS refuses a call, the
+  error shows the action it refused. Compare your policy with the setup
+  policy above and try again.
+- **If the project title changed after the setup,** the queues keep the names
+  they were created with. Use those names in the policy: each account under
+  Delivery Event Tracking shows its queue, topic and configuration set.
+- **`ses:SendEmail` is not used today.** Mail is sent with `SendRawEmail`. The
+  other action is in the policy so that a later move to the newer SES API
+  breaks no key.
+- **No List or Describe permission is needed.** Older instructions asked for
+  `sqs:ListQueues`, `sns:ListTopics`, `ses:ListConfigurationSets` and
+  `ec2:DescribeRegions`, or for `ses:*`, `sqs:*` and `sns:*`. Nothing calls
+  them; you can remove them.
 
-You can also configure credentials via config:
+### What each permission is for
 
-```elixir
-# config/config.exs
-config :phoenix_kit,
-  aws: [
-    access_key_id: "AKIAIOSFODNN7EXAMPLE",
-    secret_access_key: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
-    region: "eu-north-1"
-  ]
-```
+| When | What PhoenixKit does | IAM action |
+|---|---|---|
+| Sending | sends the message | `ses:SendRawEmail` |
+| Test Connection | reads the send quota; if refused, the test still passes with a note | `ses:GetSendQuota` |
+| Test Connection, setup | asks AWS whose key this is | `sts:GetCallerIdentity` (allowed to every key, not in the policy) |
+| Setup | creates the queue and the dead-letter queue, or finds them | `sqs:CreateQueue`, `sqs:GetQueueUrl` |
+| Setup | sets who may send to and read the queues | `sqs:SetQueueAttributes` |
+| Setup | creates the topic and subscribes the queue to it | `sns:CreateTopic`, `sns:Subscribe` |
+| Setup | creates the configuration set and its event destination | `ses:CreateConfigurationSet`, `ses:CreateConfigurationSetEventDestination` |
+| Running | reads delivery events and removes the ones it has processed | `sqs:ReceiveMessage`, `sqs:DeleteMessage` |
 
-### Region Selection
+The resources the setup creates:
 
-Choose a region based on:
-- **Data residency requirements** (GDPR, CCPA, etc.)
-- **Latency** for your users
-- **Service availability** (some services vary by region)
-- **Cost considerations** (different pricing per region)
+| Resource | Name |
+|---|---|
+| SQS queue | `<project>-email-queue` |
+| SQS dead-letter queue | `<project>-email-dlq` |
+| SNS topic | `<project>-email-events` |
+| SES configuration set | `<project>-emailing` |
 
-Common regions:
-- `us-east-1` (N. Virginia) - highest service availability
-- `us-west-2` (Oregon) - good for APAC users
-- `eu-west-1` (Ireland) - good for European users
-- `ap-southeast-1` (Singapore) - good for Asian users
+## Step by step
 
-### SES Configuration
+### 1. Create the IAM user
 
-#### Email Verification
+1. Open the [IAM console](https://console.aws.amazon.com/iam/home#/users) and
+   create a user. It needs no console access.
+2. On the user, choose Permissions → Add permissions → Create inline policy →
+   JSON, and paste the **setup policy**.
+3. Under Security credentials, create an access key. Copy the access key ID
+   and the secret access key: the secret is shown once.
 
-Before sending emails, you need to verify:
-- **Email addresses**: Send verification email to the address
-- **Domains**: Verify DNS records (MX, CNAME, etc.)
+### 2. Save the connection
 
-#### Production Considerations
+1. In the admin, open Settings → Integrations and add an **Amazon SES**
+   connection.
+2. Enter the access key ID, the secret access key and the region.
+3. Press **Test Connection**. It checks the key against SES and shows the AWS
+   account it belongs to.
 
-1. **Request Production Access**: SES starts in "sandbox mode"
-   - Request production access via [AWS Support](https://console.aws.amazon.com/support/)
-   - Alternatively, use verified email addresses in sandbox
+### 3. Verify your sender
 
-2. **Vetting Process**: Amazon may review your use case
-   - Provide details about your email volume and content
-   - Explain how you handle unsubscribe requests
+1. In the [SES console](https://console.aws.amazon.com/ses/home#/identities)
+   verify your domain or your sender address. SES refuses mail from an
+   identity that is not verified.
+2. A new account starts in the SES sandbox and can send to verified
+   recipients only.
+   [Request production access](https://docs.aws.amazon.com/ses/latest/dg/request-production-access.html)
+   before real sending.
 
-### Monitoring and Troubleshooting
+### 4. Choose the connection for sending
 
-#### Common Issues
+In Settings → Emails Transactional, select the Amazon SES connection as the one the
+site sends with, and send a test email.
 
-**1. "Invalid credentials" error**
-- Verify Access Key ID and Secret Access Key are correct
-- Ensure IAM user has the correct permissions
-- Check if the account is in good standing
+### 5. Set up delivery events
 
-**2. "Access denied" error**
-- Verify IAM permissions for SQS, SNS, and SES
-- Check resource ARN patterns in policies
-- Ensure the region is correct
+This step needs the `phoenix_kit_emails` module.
 
-**3. SQS polling not working**
-- Ensure SQS polling is enabled in settings
-- Check SQS queue URL is correct
-- Verify SNS subscription is active
+1. In Settings → Emails Transactional, open **Delivery Event Tracking** and its
+   Amazon SES/SQS section.
+2. Press **Add account** and choose the connection.
+3. Press **Setup Infrastructure**. It creates the two queues, the topic, the
+   subscription, the configuration set and its event destination in the
+   connection's region, and saves their names.
+4. Turn polling on.
 
-#### Logs and Monitoring
+### 6. Narrow the key
 
-1. **AWS CloudTrail**: Track API calls
-2. **AWS CloudWatch**: Monitor metrics and logs
-3. **PhoenixKit Logs**: Check for email processing errors
+In the IAM console, replace the setup policy on the user with the **running
+policy**. Polling and sending go on working.
 
-#### Testing Your Setup
+## Open and click tracking
 
-1. **Send Test Email**:
-   ```elixir
-   Swoosh.Email.new()
-   |> Swoosh.Email.to("test@example.com")
-   |> Swoosh.Email.from({sender_name, sender_email})
-   |> Swoosh.Email.subject("Test from PhoenixKit")
-   |> Swoosh.Email.html_body("<h1>Test Email</h1>")
-   |> PhoenixKit.Mailer.deliver_email()
-   ```
+The setup publishes eight delivery events: `SEND`, `REJECT`, `BOUNCE`,
+`COMPLAINT`, `DELIVERY`, `RENDERING_FAILURE`, `DELIVERY_DELAY` and
+`SUBSCRIPTION`.
 
-2. **Check Event Tracking**:
-   - Look for email events in PhoenixKit admin UI
-   - Monitor SQS queue for incoming messages
-   - Check SES event notifications
+It does not publish `OPEN` and `CLICK` unless asked to. With those two on, SES
+adds a tracking pixel to every message and rewrites every link in it to pass
+through its own redirect host. That includes the links of sign-in,
+confirmation and password-reset mail, with their tokens.
 
-## Advanced Configuration
+**A site set up before this changed** has both on. To turn them off, open the
+[SES console](https://console.aws.amazon.com/ses/home#/configuration-sets),
+choose the configuration set `<project>-emailing`, open Event destinations,
+edit `email-events-to-sns` and untick **Opens** and **Clicks**. PhoenixKit
+never changes an event destination that already exists.
 
-### Custom SQS Polling Settings
+## Queue settings
 
-Configure these settings in PhoenixKit admin UI:
-- **Polling Interval**: How often to check SQS (1-60 seconds)
-- **Max Messages**: Messages to process per poll (1-10)
-- **Visibility Timeout**: How long messages are hidden (30-43200 seconds)
+The setup creates the queues with these values:
 
-### S3 Archival for Long-term Storage
+| | Queue | Dead-letter queue |
+|---|---|---|
+| Visibility timeout | 10 minutes | 1 minute |
+| Message retention | 14 days | 14 days |
+| Moves to the dead-letter queue after | 3 failed reads | |
 
-1. Enable "S3 Archival" in settings
-2. Configure S3 bucket:
-   ```bash
-   aws s3 mb s3://your-phoenixkit-emails
-   ```
-3. Set retention policies for automatic cleanup
+Polling interval, messages per poll and the visibility timeout used while
+reading are set under SQS Worker Tuning in the same settings section.
 
-### Data Retention and Compliance
+## Troubleshooting
 
-- **Retention Period**: Configure how long to keep email data
-- **Compression**: Enable body compression after X days
-- **GDPR Compliance**: Implement data deletion policies
-- **Access Controls**: Use IAM roles for access control
+**"Invalid credentials" on Test Connection.** The access key ID or the secret
+is wrong, or the key was deleted or deactivated in IAM.
 
-## Security Best Practices
+**"Credentials are valid, but not authorised for GetSendQuota".** The key
+works but has no `ses:GetSendQuota`. Sending is unaffected; add the action if
+you want the quota shown.
 
-### Production Deployment
+**The setup fails with AccessDenied or "not authorized to perform".** The key
+lacks an action of the setup policy; AWS names it in the message. Attach the
+setup policy and run the setup again.
 
-1. **Use IAM Roles**: Instead of access keys, use IAM roles with EC2 instances
-2. **Rotate Credentials**: Regularly rotate access keys
-3. **Enable CloudTrail**: Monitor all API calls
-4. **Use KMS**: Encrypt sensitive data at rest
+**The setup fails although the policy is attached.** Check that `<region>` and
+`<project>` in your policy match the connection's region and your project
+name. A policy written for another region or another name matches none of the
+resources.
 
-### Network Security
+**Events stop arriving after the key was narrowed.** The running policy names
+the two queues. If they were created under an earlier project title, the
+policy must carry the names they have: each account under Delivery Event
+Tracking shows them.
 
-1. **VPC Endpoints**: Use interface VPC endpoints for private connectivity
-2. **Security Groups**: Restrict access to SQS/SNS endpoints
-3. **Network ACLs**: Control traffic flow at subnet level
+**Mail is sent but no event arrives.** Check that polling is on, that the
+message was sent with the configuration set (the account must be the one that
+sends), and in the SNS console that the topic has a confirmed subscription to
+the queue.
 
-## Cost Optimization
-
-### Cost Control Measures
-
-1. **SQS**: Use long polling to reduce costs
-2. **SNS**: Use filtered subscriptions to reduce processing
-3. **SES**: Monitor send quotas and bounce rates
-4. **Storage**: Use S3 lifecycle policies for automated cleanup
-
-### Estimated Costs
-
-Example costs for 10,000 emails/month:
-- **SES**: Free (within limits)
-- **SQS**: ~$1/month
-- **SNS**: ~$1/month
-- **S3**: ~$0.50/month (for archival)
-
-## Support and Resources
-
-### AWS Documentation
+## AWS documentation
 
 - [SES Developer Guide](https://docs.aws.amazon.com/ses/latest/dg/Welcome.html)
-- [SQS Developer Guide](https://docs.aws.amazon.com/sqs/latest/dg/Welcome.html)
-- [SNS Developer Guide](https://docs.aws.amazon.com/sns/latest/dg/Welcome.html)
-
-### PhoenixKit Resources
-
-- **Email Configuration Guide**: `/docs/EMAIL_CONFIGURATION.md`
-- **AWS Solutions Guide**: `/docs/AWS_EMAILS_SOLUTIONS.md`
-- **Troubleshooting**: `/docs/AWS_SES_SETUP.md`
-
-### Getting Help
-
-1. **AWS Support**: [AWS Support Center](https://aws.amazon.com/support/)
-2. **PhoenixKit Issues**: GitHub Issues
-3. **Community**: PhoenixKit Discord/Community forums
-
----
-
-**Note**: Always test your email setup in a non-production environment before deploying to production. Monitor costs and adjust settings as needed.
+- [SQS Developer Guide](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/welcome.html)
+- [SNS Developer Guide](https://docs.aws.amazon.com/sns/latest/dg/welcome.html)
+- [Actions, resources and condition keys for Amazon SES](https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonses.html)

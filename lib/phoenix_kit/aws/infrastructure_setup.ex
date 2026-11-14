@@ -8,7 +8,11 @@ defmodule PhoenixKit.AWS.InfrastructureSetup do
   - SQS Main Queue with DLQ redrive policy
   - SNS to SQS subscription
   - SES Configuration Set with event destinations
-  - All necessary IAM policies
+  - The access policies of the two queues (who may send to and read them)
+
+  It does not touch the IAM policy of the key it runs with. What that key
+  needs is built by `PhoenixKit.AWS.IamPolicy` from `iam_actions/0` and
+  `resource_names/1`, the same values this module creates the resources from.
 
   ## Usage
 
@@ -35,6 +39,9 @@ defmodule PhoenixKit.AWS.InfrastructureSetup do
   - `:queue_retention` - Message retention period in seconds (default: 1209600 / 14 days)
   - `:max_receive_count` - Max retries before DLQ (default: 3)
   - `:polling_interval_ms` - SQS polling interval in milliseconds (default: 5000)
+  - `:track_opens_and_clicks` - Also publish OPEN and CLICK events (default: false).
+    With them on, SES adds a tracking pixel to every message and rewrites every
+    link through its own redirect host, sign-in and password-reset links included.
 
   ## Queue Configuration (Optimized for Email Events)
 
@@ -52,6 +59,8 @@ defmodule PhoenixKit.AWS.InfrastructureSetup do
   - `{:ok, config_map}` - Successfully created infrastructure
   - `{:error, step, reason}` - Failed at specific step with reason
   """
+
+  use Gettext, backend: PhoenixKitWeb.Gettext
 
   require Logger
 
@@ -85,6 +94,93 @@ defmodule PhoenixKit.AWS.InfrastructureSetup do
   # 14 days - allows troubleshooting of failed messages
   @default_dlq_retention 1_209_600
 
+  # What an unset project title gives, and what a title with no ASCII letter
+  # or digit falls back to.
+  @default_project_name "myapp"
+
+  # The IAM actions `run/1` needs, by the kind of resource each is granted on.
+  # Keep this next to the steps: a call added below without its action here
+  # leaves the setup policy short (`PhoenixKit.AWS.IamPolicy`).
+  @iam_actions %{
+    # steps 2, 3, 5, 6 and `handle_existing_queue/4`
+    queue: ["sqs:CreateQueue", "sqs:GetQueueUrl", "sqs:SetQueueAttributes"],
+    # steps 4 and 7
+    topic: ["sns:CreateTopic", "sns:Subscribe"],
+    # steps 8 and 9
+    configuration_set: [
+      "ses:CreateConfigurationSet",
+      "ses:CreateConfigurationSetEventDestination"
+    ]
+  }
+
+  @doc """
+  The IAM actions `run/1` calls, keyed by the resource they are granted on
+  (`:queue`, `:topic`, `:configuration_set`).
+
+  Step 1 (`sts:GetCallerIdentity`) is not listed: AWS allows it to every key.
+  """
+  @spec iam_actions() :: %{atom() => [String.t()]}
+  def iam_actions, do: @iam_actions
+
+  @doc """
+  The name AWS resources are prefixed with, from the site's project title.
+
+  Lower-cased, with everything outside `[a-z0-9-]` turned into `-`. A title
+  that leaves nothing (unset, or with no ASCII letter or digit) gives
+  `"#{@default_project_name}"`.
+
+      iex> PhoenixKit.AWS.InfrastructureSetup.project_name("My App!")
+      "my-app"
+
+      iex> PhoenixKit.AWS.InfrastructureSetup.project_name("Фотки")
+      "myapp"
+  """
+  @spec project_name() :: String.t()
+  def project_name do
+    project_name(Settings.get_setting("project_title", @default_project_name))
+  end
+
+  @spec project_name(term()) :: String.t()
+  def project_name(title) when is_binary(title) do
+    name =
+      title
+      |> String.downcase()
+      |> String.replace(~r/[^a-z0-9-]/, "-")
+      |> String.trim("-")
+
+    if name == "", do: @default_project_name, else: name
+  end
+
+  def project_name(_title), do: @default_project_name
+
+  @doc """
+  The names `run/1` gives the resources of a project.
+
+      iex> PhoenixKit.AWS.InfrastructureSetup.resource_names("Fotki")
+      %{
+        dlq: "fotki-email-dlq",
+        queue: "fotki-email-queue",
+        topic: "fotki-email-events",
+        configuration_set: "fotki-emailing"
+      }
+  """
+  @spec resource_names(term()) :: %{
+          dlq: String.t(),
+          queue: String.t(),
+          topic: String.t(),
+          configuration_set: String.t()
+        }
+  def resource_names(project) do
+    name = project_name(project)
+
+    %{
+      dlq: "#{name}-email-dlq",
+      queue: "#{name}-email-queue",
+      topic: "#{name}-email-events",
+      configuration_set: "#{name}-emailing"
+    }
+  end
+
   @doc """
   Runs the complete AWS infrastructure setup.
 
@@ -94,6 +190,7 @@ defmodule PhoenixKit.AWS.InfrastructureSetup do
   - `:region` - AWS region (default: "eu-north-1")
   - `:access_key_id` - AWS access key (falls back to settings/env)
   - `:secret_access_key` - AWS secret key (falls back to settings/env)
+  - `:track_opens_and_clicks` - Publish OPEN and CLICK events too (default: false)
 
   ## Examples
 
@@ -122,7 +219,9 @@ defmodule PhoenixKit.AWS.InfrastructureSetup do
 
     # Build configuration
     config = %{
-      project_name: sanitize_project_name(project_name),
+      project_name: project_name(project_name),
+      names: resource_names(project_name),
+      track_opens_and_clicks: Keyword.get(opts, :track_opens_and_clicks, false) == true,
       region: region,
       access_key_id: access_key_id,
       secret_access_key: secret_access_key,
@@ -161,9 +260,34 @@ defmodule PhoenixKit.AWS.InfrastructureSetup do
       Logger.info("[AWS Setup] ✅ Infrastructure setup completed successfully!")
       {:ok, result_config}
     else
-      {:error, step, reason} = error ->
+      {:error, step, reason} ->
         Logger.error("[AWS Setup] ❌ Failed at step: #{step}. Reason: #{reason}")
-        error
+        {:error, step, with_policy_hint(reason)}
+    end
+  end
+
+  @doc """
+  Whether a setup failure is AWS refusing the key a permission.
+
+  Such a failure is cured by attaching the setup policy
+  (`PhoenixKit.AWS.IamPolicy.setup/1`) and running setup again.
+  """
+  @spec access_denied?(term()) :: boolean()
+  def access_denied?(reason) when is_binary(reason) do
+    String.contains?(reason, ["AccessDenied", "not authorized to perform"])
+  end
+
+  def access_denied?(_reason), do: false
+
+  defp with_policy_hint(reason) do
+    if access_denied?(reason) do
+      reason <>
+        " — " <>
+        gettext(
+          "The key lacks a permission of the setup policy. Attach the setup policy to the key (it is shown with the Amazon SES connection in Settings → Integrations) and run the setup again: it is safe to repeat."
+        )
+    else
+      reason
     end
   end
 
@@ -196,7 +320,7 @@ defmodule PhoenixKit.AWS.InfrastructureSetup do
   defp step_2_create_dlq(config, account_id) do
     Logger.info("[AWS Setup] [2/9] Creating Dead Letter Queue...")
 
-    dlq_name = "#{config.project_name}-email-dlq"
+    dlq_name = config.names.dlq
 
     case SQS.create_queue(dlq_name,
            visibility_timeout: Integer.to_string(config.dlq_visibility_timeout),
@@ -257,7 +381,7 @@ defmodule PhoenixKit.AWS.InfrastructureSetup do
   defp step_4_create_sns_topic(config) do
     Logger.info("[AWS Setup] [4/9] Creating SNS Topic...")
 
-    topic_name = "#{config.project_name}-email-events"
+    topic_name = config.names.topic
 
     case SNS.create_topic(topic_name)
          |> ExAws.request(aws_config(config)) do
@@ -278,7 +402,7 @@ defmodule PhoenixKit.AWS.InfrastructureSetup do
   defp step_5_create_main_queue(config, account_id, dlq_arn) do
     Logger.info("[AWS Setup] [5/9] Creating Main Queue with DLQ redrive policy...")
 
-    queue_name = "#{config.project_name}-email-queue"
+    queue_name = config.names.queue
 
     redrive_policy = %{
       "deadLetterTargetArn" => dlq_arn,
@@ -380,10 +504,12 @@ defmodule PhoenixKit.AWS.InfrastructureSetup do
 
         {:ok, subscription_arn}
 
+      # No error is expected to be harmless here: `Subscribe` answers with the
+      # existing subscription when there is one. Passing an error off as
+      # "already exists" let a key without `sns:Subscribe` finish the setup
+      # with a queue no event would ever reach.
       {:error, reason} ->
-        # Subscription might already exist, this is okay
-        Logger.info("[AWS Setup]   ℹ️  Subscription may already exist: #{inspect(reason)}")
-        {:ok, "existing"}
+        return_error("subscribe_sqs_to_sns", inspect(reason))
     end
   end
 
@@ -391,7 +517,7 @@ defmodule PhoenixKit.AWS.InfrastructureSetup do
   defp step_8_create_ses_config_set(config) do
     Logger.info("[AWS Setup] [8/9] Creating SES Configuration Set...")
 
-    config_set_name = "#{config.project_name}-emailing"
+    config_set_name = config.names.configuration_set
 
     case SESv2.create_configuration_set(config_set_name, aws_config(config)) do
       {:ok, ^config_set_name} ->
@@ -412,13 +538,15 @@ defmodule PhoenixKit.AWS.InfrastructureSetup do
            config_set_name,
            "email-events-to-sns",
            sns_topic_arn,
-           aws_config(config)
+           aws_config(config),
+           track_opens_and_clicks: config.track_opens_and_clicks
          ) do
       :ok ->
         Logger.info("[AWS Setup]   ✓ SES Event Tracking configured")
 
         Logger.info(
-          "[AWS Setup]     Events: SEND, REJECT, BOUNCE, COMPLAINT, DELIVERY, OPEN, CLICK, RENDERING_FAILURE, DELIVERY_DELAY, SUBSCRIPTION"
+          "[AWS Setup]     Events: " <>
+            Enum.join(SESv2.event_types(config.track_opens_and_clicks), ", ")
         )
 
         Logger.info("[AWS Setup]     Destination: #{sns_topic_arn}")
@@ -436,14 +564,6 @@ defmodule PhoenixKit.AWS.InfrastructureSetup do
       secret_access_key: String.trim(config.secret_access_key),
       region: String.trim(config.region)
     ]
-  end
-
-  # Helper: Sanitize project name for AWS resource naming
-  defp sanitize_project_name(name) do
-    name
-    |> String.downcase()
-    |> String.replace(~r/[^a-z0-9-]/, "-")
-    |> String.trim("-")
   end
 
   # Helper: Extract queue URL from a CreateQueue/GetQueueUrl response.

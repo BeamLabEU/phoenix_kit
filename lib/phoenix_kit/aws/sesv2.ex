@@ -36,7 +36,26 @@ defmodule PhoenixKit.AWS.SESv2 do
   require Logger
 
   @dialyzer {:nowarn_function,
-             create_configuration_set: 2, create_configuration_set_event_destination: 4}
+             create_configuration_set: 2, create_configuration_set_event_destination: 5}
+
+  # What happened to a message on its way: published for every setup.
+  @delivery_event_types ~w(SEND REJECT BOUNCE COMPLAINT DELIVERY RENDERING_FAILURE DELIVERY_DELAY SUBSCRIPTION)
+
+  # What the recipient did with it. Subscribing to these makes SES add a
+  # tracking pixel to every message and rewrite every link through its own
+  # redirect host, so they are published only when asked for.
+  @engagement_event_types ~w(OPEN CLICK)
+
+  @doc """
+  The SES event types an event destination is created with.
+
+  The eight delivery events always; `OPEN` and `CLICK` only when
+  `track_opens_and_clicks?` is true.
+  """
+  @spec event_types(boolean()) :: [String.t()]
+  def event_types(track_opens_and_clicks? \\ false)
+  def event_types(true), do: @delivery_event_types ++ @engagement_event_types
+  def event_types(_), do: @delivery_event_types
 
   @doc """
   Creates a SES configuration set.
@@ -127,19 +146,18 @@ defmodule PhoenixKit.AWS.SESv2 do
     - `:ok` - Event destination created or already exists
     - `{:error, reason}` - Failed to create event destination
 
+  ## Options
+
+    - `:track_opens_and_clicks` - also publish `OPEN` and `CLICK` (default
+      `false`). With them on, SES adds a tracking pixel to every message and
+      rewrites every link in it through its own redirect host, the links of
+      sign-in, confirmation and password-reset mail included.
+
   ## Events Tracked
 
-  The event destination is configured to track all 10 AWS SES email event types:
-  - `SEND` - Email accepted by AWS SES
-  - `REJECT` - Email rejected before sending
-  - `BOUNCE` - Email bounced (hard or soft)
-  - `COMPLAINT` - Recipient marked email as spam
-  - `DELIVERY` - Email successfully delivered
-  - `OPEN` - Recipient opened email (tracking pixel loaded)
-  - `CLICK` - Recipient clicked link in email
-  - `RENDERING_FAILURE` - Email template failed to render
-  - `DELIVERY_DELAY` - Temporary delivery delay occurred
-  - `SUBSCRIPTION` - Recipient updated subscription preferences or unsubscribed
+  `event_types/1` is the list. Always: `SEND`, `REJECT`, `BOUNCE`,
+  `COMPLAINT`, `DELIVERY`, `RENDERING_FAILURE`, `DELIVERY_DELAY` and
+  `SUBSCRIPTION`. An event destination that already exists is left as it is.
 
   ## Examples
 
@@ -157,24 +175,16 @@ defmodule PhoenixKit.AWS.SESv2 do
         config_set_name,
         destination_name,
         topic_arn,
-        config
+        config,
+        opts \\ []
       ) do
+    track? = Keyword.get(opts, :track_opens_and_clicks, false) == true
+
     data = %{
       "EventDestinationName" => destination_name,
       "EventDestination" => %{
         "Enabled" => true,
-        "MatchingEventTypes" => [
-          "SEND",
-          "REJECT",
-          "BOUNCE",
-          "COMPLAINT",
-          "DELIVERY",
-          "OPEN",
-          "CLICK",
-          "RENDERING_FAILURE",
-          "DELIVERY_DELAY",
-          "SUBSCRIPTION"
-        ],
+        "MatchingEventTypes" => event_types(track?),
         "SnsDestination" => %{
           "TopicArn" => topic_arn
         }

@@ -1,6 +1,6 @@
 # One answer to "what IAM policy does the SES key need?"
 
-Status: **decided (2026-11-14), not started.** Verified against `main` the same day
+Status: **phase 1 (core) built 2026-11-14; phases 2 and 3 open.** Verified against `main` the same day
 (core `ea9f60ff3`, `phoenix_kit_emails` 0.8.0 `dd32ca6`). Written from fotki.ee
 while setting up SES delivery events. Line numbers below are `main`'s. What the
 check changed is listed in "Verified against main" at the end; what was decided
@@ -350,6 +350,56 @@ the polling check waits for phase 3 or uses the emails package as published.
 policy next to Setup Infrastructure, the running policy after success,
 AccessDenied messages that name the policy (setup and poller), the open/click
 setting on the account, and core's name function behind a feature check.
+
+## Phase 1 as built (2026-11-14)
+
+What is on `main`, and where it differs from the plan above:
+
+- **`PhoenixKit.AWS.IamPolicy`**: `setup/1`, `running/1`, `json/1` as planned,
+  plus two additions:
+  - `sending/0`, the `Send` statement alone. The personal connection form
+    shows it: a user's own key has no infrastructure to set up.
+  - `names_from_tracking/1`, which turns the emails package's saved tracking
+    row into the `:names` option. Phase 3 needs it, and it had to ship in
+    core first.
+- **`InfrastructureSetup`**: `project_name/0,1` (with the `myapp` fallback),
+  `resource_names/1`, `iam_actions/0`, `access_denied?/1`. `run/1` takes
+  `track_opens_and_clicks:` (default false) and step 7 returns its error. An
+  AccessDenied failure now ends with a sentence pointing to the setup policy,
+  so the emails package shows it before phase 3 is built.
+- **The action lists** sit in `InfrastructureSetup` (`@iam_actions`, next to
+  the steps) and in `IamPolicy` (`@send_actions`, `@event_actions`, each with
+  a comment naming its caller: Swoosh's adapter and the emails package's
+  poller are not core code).
+- **The policies are shown by `IntegrationsUI.aws_ses_policies/1`.** A
+  provider's instruction section names them with `policies: [:setup,
+  :running]`; both connection forms render that.
+- **The page is called "Emails Transactional" on `main`**, not "Email
+  Sending" (the name on fotki's deployed copy). The instructions and the
+  guide use the name on `main`.
+- **Removed:** `AWSCredentialsVerify`, `check_permissions/3`,
+  `get_available_regions/3`, and the `ex_aws_ec2` dependency, which nothing
+  else used. `phoenix_kit_hello_world`'s component catalogue still lists
+  `<.aws_credentials_verify />` in a text label; that line goes when that
+  package is next touched.
+- **A test keeps the guide honest:** `iam_policy_test.exs` fails when the
+  three policies printed in `guides/aws-email-setup.md` differ from what the
+  module builds.
+
+Left for phase 3, and visible until then:
+
+- **The connection form builds the policies from the project title.** The
+  saved names live in the emails package's settings, which core does not
+  read. A site whose title changed after setup sees derived names there; the
+  guide tells such a site to take the names from Delivery Event Tracking.
+- **The region in the displayed policy is the saved one.** Typing a region
+  into a new, unsaved connection does not update it; the form says so and
+  leaves `<region>` in the text.
+- **Nothing turns open and click tracking on from the UI.** The option
+  exists on `run/1`; the account setting that passes it is phase 3.
+
+Not verified: the step-7 change and the open/click option have no test
+against AWS (the suite has no stub for SNS or SES v2). Phase 2 covers both.
 
 ## Follow-up: SES v2 send API
 

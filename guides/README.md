@@ -79,7 +79,7 @@ Configure OAuth providers and magic link authentication for PhoenixKit.
 
 #### [AWS Email Setup](aws-email-setup.md)
 
-Set up AWS SES for email infrastructure automation.
+Send through Amazon SES and receive its delivery events: the two IAM policies the key needs, and the setup step by step.
 
 #### [Auth Header Integration](auth-header-integration.md)
 

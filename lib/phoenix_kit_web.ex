@@ -159,7 +159,6 @@ defmodule PhoenixKitWeb do
       import PhoenixKitWeb.Components.Core.OAuthProvider
       import PhoenixKitWeb.Components.Core.OAuthCheckbox
       import PhoenixKitWeb.Components.Core.AWSRegionSelect
-      import PhoenixKitWeb.Components.Core.AWSCredentialsVerify
       import PhoenixKitWeb.Components.Core.Accordion
       import PhoenixKitWeb.Components.Core.FileUpload
       import PhoenixKitWeb.Components.Core.UploadManager, only: [upload_manager: 1]

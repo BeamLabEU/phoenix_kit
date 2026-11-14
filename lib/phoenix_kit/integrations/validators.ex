@@ -15,8 +15,8 @@ defmodule PhoenixKit.Integrations.Validators do
 
     * a relay that authenticates by IP and offers no `AUTH` verb passes (the
       credentials are simply unused — sending works, so the check is green);
-    * SES credentials scoped to `ses:SendEmail` only — the least-privilege policy
-      AWS itself recommends — pass, even though they cannot read the send quota.
+    * SES credentials that may only send (`ses:SendRawEmail`) pass, even
+      though they cannot read the send quota.
 
   Every check runs through `PhoenixKit.Integrations.Probe`, which bounds it with
   a hard deadline and isolates it from the caller — the libraries underneath
@@ -97,11 +97,10 @@ defmodule PhoenixKit.Integrations.Validators do
       true ->
         # The send-quota probe stays the AUTH VERDICT — its transient-
         # signature retry logic is what keeps good keys from being called
-        # invalid. The CredentialsVerifier sweep (the same one the Emails
-        # settings page runs) runs AFTERWARDS in its own probe and is
-        # strictly additive: a passing verdict may gain account identity
-        # and permission context, but enrichment failing, exiting, or
-        # timing out can never downgrade the verdict itself.
+        # invalid. The identity lookup runs AFTERWARDS in its own probe and
+        # is strictly additive: a passing verdict may gain the account id,
+        # but enrichment failing, exiting, or timing out can never downgrade
+        # the verdict itself.
         case Probe.run(fn -> request_send_quota(region, data) end) do
           :ok -> ok_with_note(region, data, %{})
           {:ok, %{} = note} -> ok_with_note(region, data, note)
@@ -110,42 +109,28 @@ defmodule PhoenixKit.Integrations.Validators do
     end
   end
 
-  # The quota is a reading; who the credentials belong to, and what they may
-  # do, are facts. Enrichment can only add — see the comment in `aws_ses/1`.
+  # The quota is a reading; who the credentials belong to is a fact.
+  # Enrichment can only add — see the comment in `aws_ses/1`.
   defp ok_with_note(region, data, note) do
     ok_note(join_facts([enrich_fact(region, data), note[:fact]]), note[:reading])
   end
 
-  # Who the credentials belong to and which management APIs they may call:
-  # standing facts, so they are what gets stored. Assembled inside the probe
-  # closure, whose contract carries the note; `:ok` means "nothing to add",
-  # and a probe that fails, exits or times out adds nothing.
+  # Which AWS account the credentials belong to: a standing fact, so it is
+  # what gets stored. Nothing here asks what the key MAY do. The List probes
+  # that used to (ListQueues, ListTopics, ListConfigurationSets) are called by
+  # nothing else, and reporting them taught operators to grant permissions no
+  # code needs; the permissions that matter are `PhoenixKit.AWS.IamPolicy`.
+  # A probe that fails, exits or times out adds nothing.
   defp enrich_fact(region, data) do
     result =
       Probe.run(fn ->
-        identity =
-          case CredentialsVerifier.verify_credentials(
-                 data["access_key"],
-                 data["secret_key"],
-                 region
-               ) do
-            {:ok, %{account_id: id}} -> gettext("Account %{id}", id: id)
-            _ -> nil
-          end
-
-        perms =
-          case CredentialsVerifier.check_permissions(
-                 data["access_key"],
-                 data["secret_key"],
-                 region
-               ) do
-            {:ok, perms} -> perms
-            _ -> nil
-          end
-
-        case aws_note(identity, perms) do
-          nil -> :ok
-          fact -> {:ok, %{fact: fact}}
+        case CredentialsVerifier.verify_credentials(
+               data["access_key"],
+               data["secret_key"],
+               region
+             ) do
+          {:ok, %{account_id: id}} -> {:ok, %{fact: aws_note(id)}}
+          _ -> :ok
         end
       end)
 
@@ -156,25 +141,11 @@ defmodule PhoenixKit.Integrations.Validators do
   end
 
   @doc false
-  # Pure note assembly, public for tests. Only GRANTED management APIs are
-  # listed — a least-privilege ses:SendEmail-only key (which the verdict
-  # deliberately passes) must not read as "SES denied" here, so denied
-  # services are omitted rather than dashed out.
-  def aws_note(identity, perms) do
-    granted =
-      for {key, label} <- [ses: "SES", sqs: "SQS", sns: "SNS"],
-          is_map(perms),
-          perms |> Map.get(key, %{}) |> Map.values() |> Enum.any?(&(&1 == :granted)),
-          do: label
+  # Pure note assembly, public for tests.
+  def aws_note(account_id) when is_binary(account_id) and account_id != "",
+    do: gettext("Account %{id}", id: account_id)
 
-    services =
-      case granted do
-        [] -> nil
-        list -> gettext("management API: %{services}", services: Enum.join(list, ", "))
-      end
-
-    join_facts([identity, services])
-  end
+  def aws_note(_account_id), do: nil
 
   @doc """
   Validates an Amazon Bedrock API key against the Bedrock control plane.
@@ -531,8 +502,8 @@ defmodule PhoenixKit.Integrations.Validators do
         {:error, gettext("AWS SES is busy — try again in a moment")}
 
       # The credentials are valid and merely lack `ses:GetSendQuota` — which is
-      # exactly what AWS's own least-privilege guidance produces (grant only
-      # ses:SendEmail / ses:SendRawEmail). Reporting "invalid credentials" here
+      # exactly what a send-only policy produces (ses:SendRawEmail alone).
+      # Reporting "invalid credentials" here
       # would put a permanent red cross on a correctly configured integration and
       # teach operators to ignore the check.
       #

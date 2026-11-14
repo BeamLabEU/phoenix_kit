@@ -461,7 +461,7 @@ config :phoenix_kit, PhoenixKit.Mailer,
 
 **AWS SES Checklist:**
 
-- ✅ Create AWS IAM user with SES permissions (`ses:*`)
+- ✅ Create an AWS IAM user with the policy from the [AWS Email Setup guide](guides/aws-email-setup.md#iam-policies)
 - ✅ Verify sender email address in AWS SES Console
 - ✅ Verify recipient emails (if in sandbox mode)
 - ✅ Ensure AWS region matches your verification region

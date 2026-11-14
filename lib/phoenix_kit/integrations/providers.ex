@@ -86,6 +86,9 @@ defmodule PhoenixKit.Integrations.Providers do
           # `PhoenixKit.Integrations.Validator`.
           optional(:base_url) => String.t(),
           optional(:validation) => validation(),
+          # A section may carry `:policies`, a list of `:setup`, `:running`
+          # or `:sending`: the form shows those `PhoenixKit.AWS.IamPolicy`
+          # documents under the section's steps.
           optional(:instructions) => [map()],
           # A module that shapes the setup form from what has been typed so far
           # (`setup_fields/2`, `setup_attrs/2`, `setup_changed/3`,
@@ -1142,11 +1145,36 @@ defmodule PhoenixKit.Integrations.Providers do
       ],
       capabilities: [:email_send],
       instructions: [
+        # The policies themselves are not written here: the form renders them
+        # from `PhoenixKit.AWS.IamPolicy` (`:policies` below), with this
+        # site's resource names and the connection's region filled in.
         %{
-          title: gettext("Create an IAM user with SES access"),
+          scopes: [:system],
+          title: gettext("Create an IAM user with the setup policy"),
+          policies: [:setup, :running],
           steps: [
             {gettext(
-               "In the [IAM console](https://console.aws.amazon.com/iam/home#/users) create a user for programmatic access and attach an SES policy (least privilege: `ses:SendEmail`/`ses:SendRawEmail`; docs: [SES setup](https://docs.aws.amazon.com/ses/latest/dg/setting-up.html))"
+               "In the [IAM console](https://console.aws.amazon.com/iam/home#/users) create a user without console access and add the **setup policy** below to it as an inline policy (Permissions → Add permissions → Create inline policy → JSON)"
+             ), nil},
+            {gettext(
+               "Create an access key for that user (Security credentials → Create access key) and paste the ID and secret above"
+             ), nil},
+            {gettext(
+               "Delivery events (delivered, bounced, complained) are set up in Settings → Emails Transactional: add this connection as an Amazon SES/SQS account and press **Setup Infrastructure**. Once it has succeeded, replace the setup policy with the **running policy** below"
+             ), nil}
+          ],
+          note:
+            gettext(
+              "The key needs nothing beyond these two policies. A site that only sends, with no delivery events, needs just the `Send` statement. Running the setup again later needs the setup policy again; it is safe to repeat."
+            )
+        },
+        %{
+          scopes: [:personal],
+          title: gettext("Create an IAM user with the sending policy"),
+          policies: [:sending],
+          steps: [
+            {gettext(
+               "In the [IAM console](https://console.aws.amazon.com/iam/home#/users) create a user without console access and add the **sending policy** below to it as an inline policy (Permissions → Add permissions → Create inline policy → JSON)"
              ), nil},
             {gettext(
                "Create an access key for that user (Security credentials → Create access key) and paste the ID and secret above"
@@ -1165,7 +1193,7 @@ defmodule PhoenixKit.Integrations.Providers do
           ],
           note:
             gettext(
-              "This connection stores the credential. The full sending pipeline — configuration set, SNS topic, SQS event queue, delivery tracking — is configured in Admin → Settings → Emails, which can select this connection as its credential source."
+              "This connection stores the credential. Which connection sends, and the delivery-event pipeline (configuration set, SNS topic, SQS queues), are set in Settings → Emails Transactional."
             )
         }
       ]

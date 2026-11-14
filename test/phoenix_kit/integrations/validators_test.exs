@@ -420,44 +420,17 @@ defmodule PhoenixKit.Integrations.ValidatorsTest do
     end
   end
 
-  # The identity and the granted APIs are FACTS — they stay true until the
-  # credentials change — so they are what gets stored. The send quota is a
-  # reading and travels separately; see the note type on
-  # `PhoenixKit.Integrations.Probe`.
-  describe "aws_note/2 assembles the standing fact additively" do
-    test "lists only GRANTED management APIs — a send-only key shows no denied dashes" do
-      perms = %{
-        ses: %{"ListConfigurationSets" => :denied},
-        sqs: %{"ListQueues" => :denied},
-        sns: %{"ListTopics" => :denied}
-      }
-
-      assert Validators.aws_note("Account 1", perms) == "Account 1"
-    end
-
-    test "grants surface by service name" do
-      perms = %{
-        ses: %{"ListConfigurationSets" => :granted},
-        sqs: %{"ListQueues" => :granted},
-        sns: %{"ListTopics" => :denied}
-      }
-
-      fact = Validators.aws_note("Account 1", perms)
-      assert fact =~ "Account 1"
-      assert fact =~ "SES, SQS"
-      refute fact =~ "SNS"
+  # The identity is a FACT — it stays true until the credentials change — so
+  # it is what gets stored. The send quota is a reading and travels
+  # separately; see the note type on `PhoenixKit.Integrations.Probe`.
+  describe "aws_note/1 is the account, and says nothing of permissions" do
+    test "an account id becomes the standing fact" do
+      assert Validators.aws_note("123456789012") == "Account 123456789012"
     end
 
     test "nothing to say means nil, so the verdict stays a bare :ok" do
-      assert Validators.aws_note(nil, nil) == nil
-    end
-
-    test "a missing permissions sweep keeps the identity" do
-      assert Validators.aws_note("Account 1", nil) == "Account 1"
-    end
-
-    test "a partial permissions map is read, not crashed on" do
-      assert Validators.aws_note(nil, %{ses: %{"ListConfigurationSets" => :granted}}) =~ "SES"
+      assert Validators.aws_note(nil) == nil
+      assert Validators.aws_note("") == nil
     end
   end
 

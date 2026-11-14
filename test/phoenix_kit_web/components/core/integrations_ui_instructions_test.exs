@@ -46,4 +46,69 @@ defmodule PhoenixKitWeb.Components.Core.IntegrationsUIInstructionsTest do
     refute html =~ "<details"
     refute html =~ "Admin only"
   end
+
+  describe "a section with policies" do
+    alias PhoenixKit.Integrations.Providers
+
+    test "the site form of Amazon SES shows the setup and the running policy" do
+      html =
+        render_component(&IntegrationsUI.setup_instructions/1,
+          provider: Providers.get("aws_ses"),
+          scope: :system,
+          region: "eu-north-1"
+        )
+
+      assert html =~ ~s(id="aws-ses-policy-setup")
+      assert html =~ ~s(id="aws-ses-policy-running")
+      refute html =~ ~s(id="aws-ses-policy-sending")
+
+      assert html =~ "SetupInfrastructure"
+      assert html =~ "arn:aws:sqs:eu-north-1:*:"
+      assert html =~ "-email-queue"
+      refute html =~ "&lt;region&gt;"
+    end
+
+    test "a personal connection gets the sending policy only" do
+      html =
+        render_component(&IntegrationsUI.setup_instructions/1,
+          provider: Providers.get("aws_ses"),
+          scope: :personal
+        )
+
+      assert html =~ ~s(id="aws-ses-policy-sending")
+      refute html =~ ~s(id="aws-ses-policy-setup")
+      refute html =~ "SetupInfrastructure"
+      refute html =~ "sqs:"
+    end
+
+    test "with no region saved the placeholder stays and the reader is told" do
+      html =
+        render_component(&IntegrationsUI.setup_instructions/1,
+          provider: Providers.get("aws_ses"),
+          scope: :system
+        )
+
+      assert html =~ "arn:aws:sqs:&lt;region&gt;:*:"
+      assert html =~ "No region is saved"
+    end
+
+    test "the instructions name no permission that nothing calls" do
+      html =
+        render_component(&IntegrationsUI.setup_instructions/1,
+          provider: Providers.get("aws_ses"),
+          scope: :system,
+          region: "eu-north-1"
+        )
+
+      for stale <- [
+            "ListQueues",
+            "ListTopics",
+            "ListConfigurationSets",
+            "DescribeRegions",
+            "ses:*"
+          ] do
+        refute html =~ stale
+      end
+    end
+  end
 end
