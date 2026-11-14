@@ -1,6 +1,6 @@
 "use strict";
 
-// Unit tests for `treePickerEnter` in priv/static/assets/phoenix_kit.js — the
+// Unit tests for `treePickerEnter` in priv/static/assets/phoenix_kit_admin.js — the
 // predicate behind TreePickerSearch's Enter (search at once, never submit the
 // surrounding form, and leave an input method's composing Enter alone) — and
 // for the hook itself: the picker often sits inside a host form, so what is
@@ -62,7 +62,7 @@ global.window = {
 global.localStorage = storage;
 global.sessionStorage = storage;
 
-const { treePickerEnter } = require("../../priv/static/assets/phoenix_kit.js");
+const { treePickerEnter } = (require("../../priv/static/assets/phoenix_kit.js"), require("../../priv/static/assets/phoenix_kit_admin.js"));
 
 test("Enter searches at once", () => {
   assert.equal(treePickerEnter({ key: "Enter" }), true);
@@ -79,7 +79,7 @@ test("other keys are typing, not a search", () => {
 
 // ── The hook: what it does with each event ──
 
-const hookDef = global.window.PhoenixKitHooks.TreePickerSearch;
+const hookDef = global.window.PhoenixKitAdminHooks.TreePickerSearch;
 
 // The hook on a fake input: records its listeners and what it pushes.
 function mountHook(value = "oak") {

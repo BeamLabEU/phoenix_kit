@@ -29,7 +29,8 @@
 // already sending stops it and sends it again from the start when resumed.
 // A file still waiting is simply held.
 //
-// SETUP (outside PhoenixKit's own bundle, which already includes this file):
+// SETUP (in a project outside PhoenixKit; PhoenixKit's own pages get this file
+// inside phoenix_kit_admin.js and need none of it):
 //
 //   import "../../deps/phoenix_kit/priv/static/assets/phoenix_kit_upload_manager.js"
 //   let liveSocket = new LiveSocket("/live", Socket, {

@@ -9,7 +9,8 @@ both media pickers; usable anywhere else, and portable (see the end).
 Read this section and the module doc of `PhoenixKitWeb.Components.Core.UploadManager`;
 nothing else is needed. In a PhoenixKit app there is nothing to install: the
 component is imported by `use PhoenixKitWeb, :live_view` / `:live_component`,
-the script is part of `phoenix_kit.js`, and the route for chunks is mounted.
+the script is part of `phoenix_kit_admin.js` (a stub in `phoenix_kit.js` loads it on the first
+mount of the manager), and the route for chunks is mounted.
 
 1. **Mount** (the one call; `accept` and `max_file_size` are yours to decide,
    LiveView's default size limit is 8 MB, which is almost never what you want):
@@ -394,8 +395,13 @@ gettext backend and an `icon/1` component) and
 `priv/static/assets/phoenix_kit_upload_manager.js`, which registers the hook
 `UploadManager` in `window.PhoenixKitHooks`. Import the script in `app.js` and
 spread `window.PhoenixKitHooks` into the `LiveSocket` hooks. PhoenixKit's own
-bundle (`phoenix_kit.js`) carries a verbatim copy of the script, kept in step by
-`test/js/upload_manager_bundle.test.cjs`.
+admin bundle (`phoenix_kit_admin.js`) carries a copy of the script (the same text but for its last lines,
+which register the hook in `window.PhoenixKitAdminHooks`), kept in step by
+`test/js/upload_manager_bundle.test.cjs`. A stub in `phoenix_kit.js` loads that bundle on the first mount of the
+manager, so on a page outside the admin area and the user dashboard the panel starts one request later
+(`guides/public-and-admin-javascript.md`): files chosen before then are sent as soon as the bundle arrives, without
+the queue, unless the page reconnects to the server first: such a file belongs to the old connection, is dropped (the
+console says so) and has to be picked again. If the admin file cannot be loaded, uploading in the media browser and the pickers does not work.
 
 ## Tests
 

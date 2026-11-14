@@ -1,7 +1,7 @@
 "use strict";
 
 // Unit tests for RowMenu's portal inside a modal dialog, in
-// priv/static/assets/phoenix_kit.js. The menu is portaled out of its row
+// priv/static/assets/phoenix_kit_admin.js. The menu is portaled out of its row
 // while open so `position: fixed` escapes any transformed ancestor; but a
 // popup shown with showModal() sits in the top layer and makes everything
 // outside it inert, so a menu portaled to <body> was hidden behind the
@@ -63,7 +63,7 @@ global.document = {
 const storage = { getItem: () => null, setItem: noop, removeItem: noop, key: () => null, length: 0 };
 
 global.window = {
-  PhoenixKitHooks: {},
+  PhoenixKitAdminHooks: {},
   addEventListener: noop,
   removeEventListener: noop,
   matchMedia: () => ({ matches: false, addEventListener: noop, removeEventListener: noop }),
@@ -81,8 +81,8 @@ global.window = {
 global.localStorage = storage;
 global.sessionStorage = storage;
 
-require("../../priv/static/assets/phoenix_kit.js");
-const RowMenu = global.window.PhoenixKitHooks.RowMenu;
+(require("../../priv/static/assets/phoenix_kit.js"), require("../../priv/static/assets/phoenix_kit_admin.js"));
+const RowMenu = global.window.PhoenixKitAdminHooks.RowMenu;
 
 // A row menu whose wrapper sits inside `dialog` (or on a plain page when
 // null); `popover` gives the <ul> the Popover API, as current browsers do.

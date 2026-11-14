@@ -1,7 +1,7 @@
 "use strict";
 
 // Unit tests for `avatarCropLayout` / `clampAvatarCropFocal` in
-// priv/static/assets/phoenix_kit.js — the geometry behind the AvatarCrop
+// priv/static/assets/phoenix_kit_admin.js — the geometry behind the AvatarCrop
 // hook. The same math lives server-side in PhoenixKit.Users.AvatarCrop
 // (layout/1), where its own tests pin the same cases: the preview must
 // render exactly what the avatar component will later render.
@@ -66,7 +66,7 @@ const {
   avatarCropLayout,
   clampAvatarCropFocal,
   avatarCropMinZoom,
-} = require("../../priv/static/assets/phoenix_kit.js");
+} = (require("../../priv/static/assets/phoenix_kit.js"), require("../../priv/static/assets/phoenix_kit_admin.js"));
 
 function near(actual, expected, message) {
   assert.ok(Math.abs(actual - expected) < 0.0001, `${message}: ${actual} vs ${expected}`);
@@ -185,7 +185,7 @@ function mountCrop(crop, opts = {}) {
             : null,
   };
   const pushes = [];
-  const hook = Object.assign(Object.create(window.PhoenixKitHooks.AvatarCrop), {
+  const hook = Object.assign(Object.create(window.PhoenixKitAdminHooks.AvatarCrop), {
     el,
     pushEventTo: (_el, event, payload) => pushes.push({ event, payload }),
   });

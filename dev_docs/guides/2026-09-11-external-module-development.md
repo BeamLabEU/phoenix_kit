@@ -27,7 +27,7 @@ Discovery is automatic at compile time via the `:phoenix_kit_css_sources` compil
 
 ## JavaScript Hooks for External Modules
 
-PhoenixKit ships hooks (RowMenu, TableCardView, SortableGrid, etc.) in `priv/static/assets/phoenix_kit.js`, exposed as `window.PhoenixKitHooks`. Parent spreads into LiveSocket:
+PhoenixKit ships hooks (RowMenu, TableCardView, SortableGrid, etc.) in `priv/static/assets/phoenix_kit.js`, exposed as `window.PhoenixKitHooks`. (The code of the admin and user-dashboard ones is in `phoenix_kit_admin.js`, fetched on the first mount of any of them, with a stub of the same name here; see `guides/public-and-admin-javascript.md`. A module's own admin-only hooks go there too: `scope: :admin` in `js_sources/0`.) Parent spreads into LiveSocket:
 
 ```javascript
 hooks: { ...window.PhoenixKitHooks, ...colocatedHooks }
@@ -35,7 +35,7 @@ hooks: { ...window.PhoenixKitHooks, ...colocatedHooks }
 
 **Parent setup (by `mix phoenix_kit.install`):** copy `phoenix_kit.js` to `priv/static/assets/vendor/`, add `<script src={~p"/assets/vendor/phoenix_kit.js"}></script>` **before** `app.js` in root layout. `mix phoenix_kit.update` refreshes it.
 
-**External modules ship their own hooks as a prebuilt bundle declared by `js_sources/0`** (`%{app:, file:, global:}`). The `:phoenix_kit_js_sources` compiler concatenates every declared bundle into `priv/static/assets/vendor/phoenix_kit_modules.js` and folds each `window.<Global>` into `window.PhoenixKitHooks`, so the host needs one `<script>` tag and no per-module `app.js` edits. Namespace hook names (`PhoenixKitCommentsAudioRecorder`, not `AudioRecorder`): the fold is last-write-wins across every bundle and core's own hooks. **Never register a hook from an inline `<script>` in a template** — morphdom does not execute inserted script tags, so an inline hook works on a hard load and silently vanishes on `live_redirect`. Reference: `phoenix_kit_comments`.
+**External modules ship their own hooks as a prebuilt bundle declared by `js_sources/0`** (`%{app:, file:, global:}`). The `:phoenix_kit_js_sources` compiler concatenates every declared bundle into `priv/static/assets/vendor/phoenix_kit_modules.js` and folds each `window.<Global>` into `window.PhoenixKitHooks`, so the host needs one `<script>` tag and no per-module `app.js` edits. Namespace hook names (`PhoenixKitCommentsAudioRecorder`, not `AudioRecorder`): the fold is last-write-wins across every bundle and core's own hooks. **Never register a hook from an inline `<script>` in a template** — morphdom does not execute inserted script tags, so an inline hook works on a hard load and silently vanishes on `live_redirect`. Reference: `phoenix_kit_comments`. **A bundle only admin pages mount** can stay out of that file (which every page loads): add `scope: :admin, hooks: ["Name", …]` to the entry and it rides in the lazily loaded admin bundle behind stubs registered under those names — see `PhoenixKit.Module` (`js_sources/0`) and `guides/public-and-admin-javascript.md`. Entries without `scope:` are unchanged.
 
 Templates in module packages use the same Layout Wrapper as core — see
 `dev_docs/guides/2026-09-11-core-components.md` → "Layout Wrapper".

@@ -1,7 +1,7 @@
 "use strict";
 
 // Unit tests for RowMenu's right-click path in
-// priv/static/assets/phoenix_kit.js. A row flagged `data-row-menu-context`
+// priv/static/assets/phoenix_kit_admin.js. A row flagged `data-row-menu-context`
 // opens the ⋮ menu rendered INSIDE it, at the pointer. The hook is driven for
 // real here — the document listener it installs is captured and invoked, and
 // the hook's own `_open` positions a stub menu — so a change to either would
@@ -62,7 +62,7 @@ const storage = {
 };
 
 global.window = {
-  PhoenixKitHooks: {},
+  PhoenixKitAdminHooks: {},
   addEventListener: noop,
   removeEventListener: noop,
   matchMedia: () => ({ matches: false, addEventListener: noop, removeEventListener: noop }),
@@ -80,8 +80,8 @@ global.window = {
 global.localStorage = storage;
 global.sessionStorage = storage;
 
-require("../../priv/static/assets/phoenix_kit.js");
-const RowMenu = global.window.PhoenixKitHooks.RowMenu;
+(require("../../priv/static/assets/phoenix_kit.js"), require("../../priv/static/assets/phoenix_kit_admin.js"));
+const RowMenu = global.window.PhoenixKitAdminHooks.RowMenu;
 
 // ---------------------------------------------------------------------------
 // Fixtures

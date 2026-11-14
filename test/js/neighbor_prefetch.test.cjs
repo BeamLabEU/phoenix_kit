@@ -30,14 +30,14 @@ function mediaBrowserSource(ext) {
   return files.map((f) => fs.readFileSync(f, "utf8")).join("\n");
 }
 
-const SOURCE = path.join(__dirname, "..", "..", "priv", "static", "assets", "phoenix_kit.js");
+const SOURCE = path.join(__dirname, "..", "..", "priv", "static", "assets", "phoenix_kit_admin.js");
 const src = fs.readFileSync(SOURCE, "utf8");
 
 const SETTLED_MS = 800; // SETTLE_QUIET_MS (600) plus slack
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function loadKeydown(connection) {
-  const start = src.indexOf("  window.PhoenixKitHooks.ViewerKeydown = {");
+  const start = src.indexOf("  window.PhoenixKitAdminHooks.ViewerKeydown = {");
   assert.notStrictEqual(start, -1, "could not find ViewerKeydown");
   const end = src.indexOf("\n  };", start) + "\n  };".length;
   const fetched = [];
@@ -58,8 +58,8 @@ function loadKeydown(connection) {
   };
   const nav = { connection };
   const fn = new Function("window", "document", "Image", "CustomEvent", "navigator",
-    "window.PhoenixKitHooks = window.PhoenixKitHooks || {};" +
-    src.slice(start, end) + "; return window.PhoenixKitHooks.ViewerKeydown;");
+    "window.PhoenixKitAdminHooks = window.PhoenixKitAdminHooks || {};" +
+    src.slice(start, end) + "; return window.PhoenixKitAdminHooks.ViewerKeydown;");
   const hook = fn(win, doc, FakeImage, function C(n, o) { this.name = n; this.detail = o && o.detail; }, nav);
   return { hook, fetched, priorities, win, dispatched, doc, listeners };
 }

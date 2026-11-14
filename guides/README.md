@@ -101,6 +101,10 @@ Translate sidebar tab labels, group labels, and tooltips inside your PhoenixKit 
 
 For an install coming from 2.x: reach V225 on 2.65.0 first, export edited email templates, then update core and every installed module together.
 
+#### [Public and Admin JavaScript](public-and-admin-javascript.md)
+
+Why `phoenix_kit.js` is only the public half, how `phoenix_kit_admin.js` loads on the first admin hook, and what a host or a module has to do (nothing, for most installs).
+
 ---
 
 ## Guide Purpose

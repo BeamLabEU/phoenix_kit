@@ -1,6 +1,6 @@
 "use strict";
 
-// Unit tests for the gallery-mode hand-off in priv/static/assets/phoenix_kit.js.
+// Unit tests for the gallery-mode hand-off in priv/static/assets/phoenix_kit_admin.js.
 // In gallery mode (`ViewerGallery`) a swipe slides between pictures itself and
 // `ViewerSwipe` stands down only after that viewer's gallery initializes.
 // While Fresco loads, or on an older fresco.js, swiping keeps stepping the
@@ -55,7 +55,7 @@ const storage = {
 };
 
 global.window = {
-  PhoenixKitHooks: {},
+  PhoenixKitAdminHooks: {},
   addEventListener: noop,
   removeEventListener: noop,
   matchMedia: () => ({ matches: false, addEventListener: noop, removeEventListener: noop }),
@@ -72,8 +72,8 @@ global.localStorage = storage;
 global.sessionStorage = storage;
 
 
-require("../../priv/static/assets/phoenix_kit.js");
-const { ViewerSwipe, ViewerGallery } = global.window.PhoenixKitHooks;
+(require("../../priv/static/assets/phoenix_kit.js"), require("../../priv/static/assets/phoenix_kit_admin.js"));
+const { ViewerSwipe, ViewerGallery } = global.window.PhoenixKitAdminHooks;
 
 // Mount ViewerSwipe over stubs; returns the pushed events and the swipe handler.
 function mountSwipe({ activeGallery = false }) {

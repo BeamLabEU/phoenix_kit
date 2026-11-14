@@ -1,7 +1,7 @@
 "use strict";
 
 // Unit tests for BulkSelectScope's `data-bulk-swap` in
-// priv/static/assets/phoenix_kit.js — the toolbar a scope REPLACES while it
+// priv/static/assets/phoenix_kit_admin.js — the toolbar a scope REPLACES while it
 // holds a selection.
 //
 // Revealing the action bar without hiding anything pushes every row down, so
@@ -67,7 +67,7 @@ global.document = {
 };
 
 global.window = {
-  PhoenixKitHooks: {},
+  PhoenixKitAdminHooks: {},
   addEventListener: noop,
   removeEventListener: noop,
   matchMedia: () => ({ matches: false, addEventListener: noop, removeEventListener: noop }),
@@ -83,8 +83,8 @@ global.window = {
 global.localStorage = storage;
 global.sessionStorage = storage;
 
-const { anyScopeClaims } = require("../../priv/static/assets/phoenix_kit.js");
-const BulkSelectScope = global.window.PhoenixKitHooks.BulkSelectScope;
+const { anyScopeClaims } = (require("../../priv/static/assets/phoenix_kit.js"), require("../../priv/static/assets/phoenix_kit_admin.js"));
+const BulkSelectScope = global.window.PhoenixKitAdminHooks.BulkSelectScope;
 
 // A scope element. `count` is the hook's live selection count, published on
 // the element; `checkedRows` is what the DOM happens to show, which can lag

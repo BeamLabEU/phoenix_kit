@@ -11,9 +11,15 @@ const vm = require("node:vm");
 // (the server holds it) as the batch event, a card that is not picked drags
 // alone, and the drop on the folder the card is in asks for nothing.
 function browser({ pickMode, cardAttrs, rootData }) {
-  const source = fs.readFileSync(path.join(__dirname, "../../priv/static/assets/phoenix_kit.js"), "utf8");
+  // The hook lives in the admin bundle (the media browser is an admin hook); a
+  // public page never loads it.
+  const source = fs.readFileSync(path.join(__dirname, "../../priv/static/assets/phoenix_kit_admin.js"), "utf8");
   const start = source.indexOf("  function startBoxSelect(");
-  const end = source.indexOf("\n  // MAINTENANCE COUNTDOWN HOOK", start);
+  const hookAt = source.indexOf("  window.PhoenixKitAdminHooks.MediaDragDrop = {", start);
+  assert.ok(start !== -1 && hookAt !== -1, "the box select code is in phoenix_kit_admin.js");
+  const hookEnd = source.indexOf("\n  };\n", hookAt);
+  assert.ok(hookEnd !== -1, "the end of the MediaDragDrop hook is in phoenix_kit_admin.js");
+  const end = hookEnd + "\n  };\n".length;
   const calls = [];
   const noop = () => {};
 
@@ -70,14 +76,14 @@ function browser({ pickMode, cardAttrs, rootData }) {
     },
   };
   const window = {
-    PhoenixKitHooks: {},
+    PhoenixKitAdminHooks: {},
     addEventListener: noop,
     removeEventListener: noop,
   };
   vm.runInNewContext(source.slice(start, end), {
     document, window, setTimeout: noop, requestAnimationFrame: () => 1, cancelAnimationFrame: noop,
   });
-  const hook = Object.assign(Object.create(window.PhoenixKitHooks.MediaDragDrop), {
+  const hook = Object.assign(Object.create(window.PhoenixKitAdminHooks.MediaDragDrop), {
     el: root,
     pushEventTo: (_el, event, payload) => calls.push({ event, payload: JSON.parse(JSON.stringify(payload)) }),
   });

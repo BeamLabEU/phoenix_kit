@@ -1305,7 +1305,13 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   daisyUI's `grid-auto-columns: max-content auto` leaves column
                   one empty, so `.drawer-content` (grid-column-start: 2) spans
                   the full width. --%>
-            <div id="admin-drawer" class={["drawer", @show_admin_nav && "lg:drawer-open"]}>
+            <%!-- `data-pk-admin` tells phoenix_kit.js this page will mount admin hooks, so
+                  it can fetch their bundle while the socket connects. --%>
+            <div
+              id="admin-drawer"
+              class={["drawer", @show_admin_nav && "lg:drawer-open"]}
+              data-pk-admin
+            >
               <input id="admin-mobile-menu" type="checkbox" class="drawer-toggle" />
 
               <%!-- Main content --%>
@@ -1344,9 +1350,11 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
               <%!-- id + hook: AdminSidebarScroll keeps the menu's scroll
                    position across navigations (a live redirect replaces
                    this whole container; cross-live_session navigation is
-                   a full reload). The hook restores pre-paint; the save
-                   side lives in phoenix_kit.js as document-level
-                   listeners so no per-element cleanup is needed. --%>
+                   a full reload). The hook (phoenix_kit_admin.js) restores pre-paint
+                   on a live redirect, and phoenix_kit.js restores a full page load
+                   as soon as it is parsed; the save side is document-level
+                   listeners in phoenix_kit_admin.js so no per-element cleanup is
+                   needed. --%>
               <PhoenixKitWeb.Components.LayoutWrapper.admin_sidebar_compact_bootstrap :if={@show_admin_nav} />
               <div
                 :if={@show_admin_nav}
