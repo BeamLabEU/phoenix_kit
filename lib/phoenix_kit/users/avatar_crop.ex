@@ -98,7 +98,7 @@ defmodule PhoenixKit.Users.AvatarCrop do
   The image's placement inside its square frame, as percentages of the
   frame: `%{width:, height:, left:, top:}`.
 
-  Mirrored by `avatarCropLayout` in `priv/static/assets/phoenix_kit.js` —
+  Mirrored by `avatarCropLayout` in `priv/static/assets/phoenix_kit_admin.js` —
   the editor previews with the same math that later renders, so the saved
   crop cannot drift from the preview. Change one, change both.
   """
@@ -129,7 +129,7 @@ defmodule PhoenixKit.Users.AvatarCrop do
   across the largest circle centred in it. In a circle (`fit` 1.0) a square
   image gets `1/√2`, a 3:1 logo `1/√10`.
 
-  Mirrored by `avatarCropMinZoom` in `priv/static/assets/phoenix_kit.js`
+  Mirrored by `avatarCropMinZoom` in `priv/static/assets/phoenix_kit_admin.js`
   (which the editor scales by the shape's fit).
   """
   def min_zoom(ar, fit \\ 1.0) when is_number(ar) and is_number(fit) do

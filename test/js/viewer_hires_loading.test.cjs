@@ -24,20 +24,20 @@ function mediaBrowserSource(ext) {
 }
 
 const src = fs.readFileSync(
-  path.join(__dirname, "..", "..", "priv", "static", "assets", "phoenix_kit.js"), "utf8");
+  path.join(__dirname, "..", "..", "priv", "static", "assets", "phoenix_kit_admin.js"), "utf8");
 
 const start = src.indexOf("  var HIRES_SHOW_DELAY_MS");
 const end = src.indexOf("// UploadResume — keep picked files until the server has them");
 assert.ok(start !== -1 && end > start, "could not find the ViewerHiresLoading section");
 
 function load() {
-  const window = { PhoenixKitHooks: {} };
+  const window = { PhoenixKitAdminHooks: {} };
   let observerCb = null;
   function MutationObserver(cb) { observerCb = cb; }
   MutationObserver.prototype.observe = function() {};
   MutationObserver.prototype.disconnect = function() {};
   new Function("window", "MutationObserver", src.slice(start, end))(window, MutationObserver);
-  return { hook: window.PhoenixKitHooks.ViewerHiresLoading, mutate: () => observerCb() };
+  return { hook: window.PhoenixKitAdminHooks.ViewerHiresLoading, mutate: () => observerCb() };
 }
 
 function fakeImg(srcAttr, complete) {
@@ -151,8 +151,8 @@ test("the instant stand-in carries its own pill, shown with it and gone with it"
   assert.match(standin, /data-standin-loading\s+style="opacity: 0;/,
     "the stand-in's pill exists, hidden by inline opacity");
 
-  const iv = src.slice(src.indexOf("window.PhoenixKitHooks.InstantViewer = {"),
-                       src.indexOf("window.PhoenixKitHooks.InstantViewer = {") + 20000);
+  const iv = src.slice(src.indexOf("window.PhoenixKitAdminHooks.InstantViewer = {"),
+                       src.indexOf("window.PhoenixKitAdminHooks.InstantViewer = {") + 20000);
   assert.match(iv, /self\._timer = setTimeout\(self\._hide, 8000\);\s*self\._loadingPill\(true\);/,
     "shown whenever the stand-in is (both its triggers share this path)");
   assert.match(iv, /self\._hide = function\(\) \{[\s\S]*?self\._loadingPill\(false\);\s*\};/,

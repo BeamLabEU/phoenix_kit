@@ -1,7 +1,7 @@
 "use strict";
 
 // Unit tests for navTabsHidden, the pure fitting logic behind the
-// NavTabsOverflow hook in priv/static/assets/phoenix_kit.js. The DOM side of
+// NavTabsOverflow hook in priv/static/assets/phoenix_kit_admin.js. The DOM side of
 // the hook (measuring, toggling classes, the menu) needs a browser.
 //
 // Run: mix test.js  (node --test needs the explicit file on Node 25)
@@ -67,11 +67,15 @@ global.window = {
 global.localStorage = storage;
 global.sessionStorage = storage;
 
-const { navTabsHidden } = require("../../priv/static/assets/phoenix_kit.js");
+const admin = (require("../../priv/static/assets/phoenix_kit.js"), require("../../priv/static/assets/phoenix_kit_admin.js"));
+if (typeof admin.navTabsHidden !== "function" || !global.window.PhoenixKitAdminHooks.NavTabsOverflow) {
+  throw new Error("NavTabsOverflow and navTabsHidden are expected in priv/static/assets/phoenix_kit_admin.js (the hook is an admin hook behind a stub)");
+}
+const { navTabsHidden } = admin;
 
 test("the hook is registered", () => {
-  assert.equal(typeof global.window.PhoenixKitHooks.NavTabsOverflow.mounted, "function");
-  assert.equal(typeof global.window.PhoenixKitHooks.NavTabsOverflow.updated, "function");
+  assert.equal(typeof global.window.PhoenixKitAdminHooks.NavTabsOverflow.mounted, "function");
+  assert.equal(typeof global.window.PhoenixKitAdminHooks.NavTabsOverflow.updated, "function");
 });
 
 test("hides nothing that fits", () => {
@@ -133,7 +137,7 @@ test("choosing a menu item closes the menu and clicks the matching strip tab", (
     querySelectorAll: (sel) => (sel === "[data-nav-strip] [data-nav-tab]" ? strip : []),
   };
 
-  const hook = Object.assign(Object.create(global.window.PhoenixKitHooks.NavTabsOverflow), { el });
+  const hook = Object.assign(Object.create(global.window.PhoenixKitAdminHooks.NavTabsOverflow), { el });
   hook.mounted();
 
   const states = [];
@@ -186,7 +190,7 @@ test("an outside pointerdown closes the menu; one on its own button or menu does
     querySelector: () => null,
     querySelectorAll: () => [],
   };
-  const hook = Object.assign(Object.create(global.window.PhoenixKitHooks.NavTabsOverflow), { el });
+  const hook = Object.assign(Object.create(global.window.PhoenixKitAdminHooks.NavTabsOverflow), { el });
   hook.mounted();
   global.document.addEventListener = noop;
 
@@ -229,7 +233,7 @@ test("modifier and middle clicks on a link tab's menu item open it in a new tab"
     querySelector: () => null,
     querySelectorAll: () => tabs,
   };
-  const hook = Object.assign(Object.create(global.window.PhoenixKitHooks.NavTabsOverflow), { el });
+  const hook = Object.assign(Object.create(global.window.PhoenixKitAdminHooks.NavTabsOverflow), { el });
   hook.mounted();
   const states = [];
   hook.setOpen = (open) => states.push(open);
@@ -298,7 +302,7 @@ test("Escape on an open menu is consumed so it does not close a surrounding dial
   };
 
   try {
-    const hook = Object.assign(Object.create(global.window.PhoenixKitHooks.NavTabsOverflow), { el });
+    const hook = Object.assign(Object.create(global.window.PhoenixKitAdminHooks.NavTabsOverflow), { el });
     hook.mounted();
     const states = [];
     hook.setOpen = function(open) { this._open = open; states.push(open); };

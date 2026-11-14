@@ -21,12 +21,12 @@ const path = require("path");
 const assert = require("node:assert");
 const { test } = require("node:test");
 
-const SOURCE = path.join(__dirname, "..", "..", "priv", "static", "assets", "phoenix_kit.js");
+const SOURCE = path.join(__dirname, "..", "..", "priv", "static", "assets", "phoenix_kit_admin.js");
 const src = fs.readFileSync(SOURCE, "utf8");
 
 // Lift the hook out of the bundle and run it against a stand-in DOM.
 function loadHook(getComputedStyle) {
-  const start = src.indexOf("  window.PhoenixKitHooks.ViewerPaneFit = {");
+  const start = src.indexOf("  window.PhoenixKitAdminHooks.ViewerPaneFit = {");
   assert.notStrictEqual(start, -1, "could not find the ViewerPaneFit hook");
   const end = src.indexOf("\n  };", start) + "\n  };".length;
 
@@ -42,8 +42,8 @@ function loadHook(getComputedStyle) {
 
   const fn = new Function(
     "window", "getComputedStyle", "MutationObserver",
-    "window.PhoenixKitHooks = window.PhoenixKitHooks || {};" +
-      src.slice(start, end) + "; return window.PhoenixKitHooks.ViewerPaneFit;"
+    "window.PhoenixKitAdminHooks = window.PhoenixKitAdminHooks || {};" +
+      src.slice(start, end) + "; return window.PhoenixKitAdminHooks.ViewerPaneFit;"
   );
   const hook = fn({}, getComputedStyle, FakeObserver);
   return { hook, observers };

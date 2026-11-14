@@ -14,12 +14,12 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const src = fs.readFileSync(
-  path.join(__dirname, "..", "..", "priv", "static", "assets", "phoenix_kit.js"),
+  path.join(__dirname, "..", "..", "priv", "static", "assets", "phoenix_kit_admin.js"),
   "utf8"
 );
 
 function load() {
-  const start = src.indexOf("  window.PhoenixKitHooks.RemovalModal = {");
+  const start = src.indexOf("  window.PhoenixKitAdminHooks.RemovalModal = {");
   assert.notEqual(start, -1, "could not find RemovalModal");
   const end = src.indexOf("\n  };", start) + "\n  };".length;
   const listeners = [];
@@ -33,7 +33,7 @@ function load() {
   const doc = { activeElement: null };
   const hook = new Function(
     "window", "document",
-    "window.PhoenixKitHooks = {};" + src.slice(start, end) + "; return window.PhoenixKitHooks.RemovalModal;"
+    "window.PhoenixKitAdminHooks = {};" + src.slice(start, end) + "; return window.PhoenixKitAdminHooks.RemovalModal;"
   )(win, doc);
   return { hook, listeners, doc };
 }

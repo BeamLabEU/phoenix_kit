@@ -2392,12 +2392,81 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
         File.exists?(@vendored_bundle)
       )
 
-    with {:pass, _} <- verdict,
-         true <- config[:app] != :phoenix_kit,
-         {:warn, _} = warning <- viewer_library_facts_verdict(@library_facts_file) do
-      warning
+    if match?({:pass, _}, verdict) and config[:app] != :phoenix_kit do
+      with {:pass, _} <- viewer_library_facts_verdict(@library_facts_file),
+           {:pass, _} <- admin_bundle_verdict(@library_facts_file),
+           {:pass, _} <- facts_tag_verdict(config[:app]) do
+        verdict
+      end
     else
-      _ -> verdict
+      verdict
+    end
+  end
+
+  @doc false
+  # The admin hooks are stubs in phoenix_kit.js until their first mount loads
+  # phoenix_kit_admin.js. Facts that name no such file, or name one that is not
+  # on disk, leave every admin hook without a body: the page renders and the
+  # parts that need JavaScript do nothing. Only the disk is provable here.
+  def admin_bundle_verdict(facts_path) do
+    case File.read(facts_path) do
+      {:ok, content} ->
+        case admin_file_in_facts(content) do
+          {:ok, file} ->
+            path = Path.join([Path.dirname(facts_path), "lib", file])
+
+            if File.regular?(path) do
+              {:pass, "#{path} is the admin hook bundle the facts name"}
+            else
+              {:warn,
+               "The install facts name the admin hook bundle #{file}, but #{path} is not on disk. " <>
+                 "Run `mix compile` (or `mix phoenix_kit.update`): without it the admin area's " <>
+                 "sortable lists, tables, editors and media browser do nothing."}
+            end
+
+          :error ->
+            {:warn,
+             "#{facts_path} names no admin hook bundle (\"admin\"), so the hooks of the admin area " <>
+               "have nothing to load. Run `mix phoenix_kit.update`, then `mix compile`."}
+        end
+
+      {:error, _} ->
+        {:warn,
+         "Could not read the install facts from #{facts_path} to find the admin hook bundle. " <>
+           "Run `mix phoenix_kit.update`."}
+    end
+  end
+
+  # The compiler writes the facts as JSON, but a host may run the file through
+  # its own minifier, which unquotes the keys and can join the statement to its
+  # neighbours. So this reads the object that follows `PHOENIX_KIT_LIBS` (found
+  # by counting braces; nothing in it holds a brace in a string) for an `admin`
+  # entry with a `file`, quoted or not.
+  @doc false
+  def admin_file_in_facts(content) do
+    with [_, rest] <- String.split(content, "PHOENIX_KIT_LIBS", parts: 2),
+         {start, 1} <- :binary.match(rest, "{"),
+         {:ok, stop} <- object_end(rest, start, 0),
+         object = binary_part(rest, start, stop - start),
+         [_, file] <-
+           Regex.run(
+             ~r/["']?\badmin["']?\s*:\s*\{[^{}]*?["']?\bfile["']?\s*:\s*["']([^"']+)["']/,
+             object
+           ) do
+      {:ok, file}
+    else
+      _ -> :error
+    end
+  end
+
+  defp object_end(text, i, _depth) when i >= byte_size(text), do: :error
+
+  defp object_end(text, i, depth) do
+    case :binary.at(text, i) do
+      ?{ -> object_end(text, i + 1, depth + 1)
+      ?} when depth == 1 -> {:ok, i + 1}
+      ?} -> object_end(text, i + 1, depth - 1)
+      _ -> object_end(text, i + 1, depth)
     end
   end
 
@@ -2423,6 +2492,67 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
          "#{path} is missing, so the viewer libraries have no file names to load. " <>
            "Run `mix compile` (or `mix phoenix_kit.update`)."}
     end
+  end
+
+  # The two root layouts a generated host has: the paths `mix phoenix_kit.install`
+  # writes the script tags into.
+  defp root_layout_paths(app) do
+    [
+      "lib/#{app}_web/components/layouts/root.html.heex",
+      "lib/#{app}_web/templates/layout/root.html.heex"
+    ]
+  end
+
+  @doc false
+  # The facts file on disk is not the facts in the browser: the browser gets them
+  # from a script tag in the root layout, and without it the admin hooks and the
+  # viewer libraries have no file names to load, while every check above passes.
+  # Only a root layout at the installer's own paths is read; a host with another
+  # layout is not guessed at.
+  @spec facts_tag_verdict(atom() | nil, Path.t()) :: {:pass, String.t()} | {:warn, String.t()}
+  def facts_tag_verdict(app, root \\ File.cwd!())
+
+  def facts_tag_verdict(nil, _root),
+    do: {:pass, "no app to look for a root layout of: not checked"}
+
+  def facts_tag_verdict(app, root) do
+    found =
+      app
+      |> root_layout_paths()
+      |> Enum.map(&Path.join(root, &1))
+      |> Enum.find(&File.regular?/1)
+
+    case found && File.read(found) do
+      nil ->
+        {:pass,
+         "no root layout at the installer's paths: whether it loads the facts is not checked"}
+
+      {:ok, content} ->
+        if content |> strip_template_comments() |> String.contains?("phoenix_kit_modules.js") do
+          {:pass, "#{found} loads phoenix_kit_modules.js"}
+        else
+          {:warn,
+           "#{found} does not load phoenix_kit_modules.js, which carries the install facts: " <>
+             "without that tag the browser does not know the file names of the admin bundle or " <>
+             "the viewer libraries, and the admin area's sortable lists, tables, editors and " <>
+             "media browser do nothing. Run `mix phoenix_kit.update`, or add " <>
+             "`<script src={~p\"/assets/vendor/phoenix_kit_modules.js\"}></script>` after the " <>
+             "phoenix_kit.js tag. (If you load the facts another way, from a component or another " <>
+             "file, ignore this: only this layout was looked at.)"}
+        end
+
+      {:error, _} ->
+        {:pass, "#{found} could not be read: not checked"}
+    end
+  end
+
+  # A tag that is commented out is not loaded: HEEx (`<%!-- --%>`), EEx (`<%# %>`)
+  # and HTML (`<!-- -->`) comments, however many lines they span.
+  defp strip_template_comments(content) do
+    content
+    |> String.replace(~r/<%!--.*?--%>/s, "")
+    |> String.replace(~r/<%#.*?%>/s, "")
+    |> String.replace(~r/<!--.*?-->/s, "")
   end
 
   defp check_daisyui do

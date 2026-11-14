@@ -1,7 +1,7 @@
 "use strict";
 
 // Unit tests for the pure helpers behind the TableFit
-// hook in priv/static/assets/phoenix_kit.js. Same global stubbing as
+// hook in priv/static/assets/phoenix_kit_admin.js. Same global stubbing as
 // push_to_owner.test.cjs — the bundle is browser code.
 //
 // Run: mix test.js
@@ -67,7 +67,7 @@ const {
   fitColumns,
   fitEscapeId,
   fitSignature,
-} = require("../../priv/static/assets/phoenix_kit.js");
+} = (require("../../priv/static/assets/phoenix_kit.js"), require("../../priv/static/assets/phoenix_kit_admin.js"));
 
 const col = (index, priority, head = index) => ({ index, head, priority });
 const order = (cols) => fitEvictionOrder(cols).map((c) => c.index);

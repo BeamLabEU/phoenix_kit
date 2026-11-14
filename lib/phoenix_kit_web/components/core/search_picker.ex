@@ -4,7 +4,7 @@ defmodule PhoenixKitWeb.Components.Core.SearchPicker do
   extracted from `phoenix_kit_crm`'s involved-parties picker.
 
   The dropdown opens, spins, and renders ENTIRELY client-side (the
-  `SearchPicker` hook in `phoenix_kit.js`); the server only executes the
+  `SearchPicker` hook, in `phoenix_kit_admin.js`); the server only executes the
   actual search and returns rows via `push_event`. Nothing visual waits on
   a round-trip.
 

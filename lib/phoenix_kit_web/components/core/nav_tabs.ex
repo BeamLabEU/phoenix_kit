@@ -94,7 +94,7 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
   plain `role="menuitem"` button for it in the menu; the strip tab stays the
   single element carrying the link / `phx-click` / `phx-target` / `phx-value-tab`
   attributes. Choosing a menu item makes the `NavTabsOverflow` hook
-  (`phoenix_kit.js`) click that strip tab — LiveView handles it exactly as a
+  (`phoenix_kit_admin.js`) click that strip tab — LiveView handles it exactly as a
   direct click. Ctrl/Cmd/Shift-click or middle-click on the menu item of a link
   tab opens the tab's URL in a new browser tab instead. The hook also measures,
   and toggles which of each pair is visible.
@@ -113,7 +113,16 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
     * The "⋯" button is 44px wide but only as tall as a tab (40px, 32px with
       `tabs-sm`), so it is under the 44px touch floor vertically.
     * Until the hook mounts (the dead render) the strip is one clipped row with
-      "⋯" hidden, so tabs that do not fit are cut off until the page connects.
+      "⋯" hidden, so tabs that do not fit are cut off until the admin bundle
+      arrives (behind a stub).
+
+  The hook is an admin hook: it lives in `phoenix_kit_admin.js` behind a stub in
+  `phoenix_kit.js`, because no core page outside the admin area and the user
+  dashboard opts in. The first change that sets `overflow={:menu}` on such a page
+  moves the hook into `phoenix_kit.js` in the same commit
+  (`guides/public-and-admin-javascript.md`). A host or module that sets
+  `overflow={:menu}` on a page of its own outside the admin area gets the hook once
+  the admin bundle has loaded, not at page load.
 
   Works with every variant, with `tabs-sm` etc. passed through `class`, and with
   the `trailing` slot (the "⋯" button sits before it). `class` lands on the

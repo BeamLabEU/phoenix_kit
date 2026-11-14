@@ -2,7 +2,7 @@ defmodule Mix.Tasks.Compile.PhoenixKitJsSources do
   @moduledoc """
   Mix compiler that vendors PhoenixKit's JS hooks into the host app.
 
-  This compiler keeps two vendored files current on **every** `mix compile`:
+  This compiler keeps the vendored files current on **every** `mix compile`:
 
   1. `priv/static/assets/vendor/phoenix_kit.js` — a straight copy of
      PhoenixKit's own core hooks file. Previously this was only copied once,
@@ -22,8 +22,35 @@ defmodule Mix.Tasks.Compile.PhoenixKitJsSources do
      that folds each bundle's `window.<Global>` into `window.PhoenixKitHooks`
      (which the host spreads into `LiveSocket`).
 
-  Both writes are diffed against the existing file first, so a `mix compile`
-  that changes nothing doesn't touch either file (avoids live-reload thrash).
+  3. `priv/static/assets/vendor/lib/admin-<version>-<hash>.js` — the second
+     half of PhoenixKit's hook bundle. `phoenix_kit.js` holds the hooks a
+     public page can render and a stub under the name of every hook that
+     belongs to the admin area or the user dashboard; the first stub to mount
+     loads this file (as the `"admin"` library named in the install facts).
+     Public pages never download it. See
+     `dev_docs/plans/2026-10-27-public-admin-js-split.md`.
+
+  Every write is diffed against the existing file first, so a `mix compile`
+  that changes nothing doesn't touch any file (avoids live-reload thrash).
+
+  ## Minified in production
+
+  In production (or with `config :phoenix_kit, minify_libraries: true`) the
+  vendored `phoenix_kit.js`, `phoenix_kit_modules.js` and the admin bundle are
+  minified with the host's own esbuild — the binary `mix assets.deploy`
+  installs, so run `mix assets.setup` before the compile that builds a release.
+  A host without it, or a minify that fails, gets the readable files and a
+  note, never a failed build. `config :phoenix_kit, js_minifier: {Mod, :fun}`
+  names another minifier. Minifying what is already minified is harmless, so
+  a host that runs the result through its own pipeline loses nothing.
+
+  ## Where the browser finds the libraries
+
+  The facts in `phoenix_kit_modules.js` carry the URL the library files are
+  served from (`window.PHOENIX_KIT_LIB_BASE`, `/assets/vendor/lib/` unless
+  `config :phoenix_kit, library_base_url: "…"` says otherwise), so they are
+  found wherever that file itself is served from. A value the host puts on
+  `window` first wins.
 
   The two `<script>` tags are **stable**: adding or removing a JS-bearing
   module only changes `phoenix_kit_modules.js`'s content on the next compile —
@@ -74,6 +101,7 @@ defmodule Mix.Tasks.Compile.PhoenixKitJsSources do
   require Logger
 
   @core_js_filename "phoenix_kit.js"
+  @admin_js_filename "phoenix_kit_admin.js"
   @core_js_output "priv/static/assets/vendor/phoenix_kit.js"
 
   @output "priv/static/assets/vendor/phoenix_kit_modules.js"
@@ -99,11 +127,17 @@ defmodule Mix.Tasks.Compile.PhoenixKitJsSources do
   the compiler.
   """
   def vendor_all(root) do
+    ViewerLibraries.reset_minify_note()
     vendor_core_js_file(root)
-    libs = ViewerLibraries.vendor!(root)
 
     specs = collect_specs()
-    content = build_content(specs, libs)
+    libs = ViewerLibraries.vendor!(root) |> Map.put("admin", vendor_admin_bundle(root, specs))
+
+    # The install facts stay as written: they are short, tools read them (the
+    # doctor, a person), and a minifier gains nothing on them. Only the module
+    # bundles and stubs after them are minified.
+    {facts, body} = build_parts(specs, libs)
+    content = facts <> ViewerLibraries.maybe_minify(body, @output)
 
     path = Path.join(root, @output)
     write_if_changed(path, content, length(specs))
@@ -117,29 +151,11 @@ defmodule Mix.Tasks.Compile.PhoenixKitJsSources do
   # `File.cp/2` in `phoenix_kit.install`/`phoenix_kit.update`, this survives a
   # `rm -rf priv/static` in a deploy pipeline that only runs `mix compile`.
   defp vendor_core_js_file(root) do
-    priv =
-      case :code.priv_dir(:phoenix_kit) do
-        {:error, :bad_name} ->
-          Mix.raise("""
-          Could not resolve the :phoenix_kit application's priv/ directory
-          while vendoring #{@core_js_filename}. Is :phoenix_kit listed as a
-          dependency of this app?
-          """)
+    content =
+      @core_js_filename
+      |> read_core_asset!()
+      |> ViewerLibraries.maybe_minify(@core_js_output)
 
-        dir ->
-          to_string(dir)
-      end
-
-    source = Path.join([priv, "static", "assets", @core_js_filename])
-
-    unless File.exists?(source) do
-      Mix.raise("""
-      Could not find #{@core_js_filename} at #{source} — the :phoenix_kit
-      dependency looks corrupted or incompletely fetched. Try `mix deps.get`.
-      """)
-    end
-
-    content = File.read!(source)
     dest = Path.join(root, @core_js_output)
 
     existing =
@@ -153,6 +169,43 @@ defmodule Mix.Tasks.Compile.PhoenixKitJsSources do
       File.write!(dest, content)
       Mix.shell().info("[PhoenixKit] Vendored #{@core_js_output}")
     end
+  end
+
+  # The admin half of the hook bundle, as a library of its own: a versioned,
+  # content-hashed name under vendor/lib/, which the facts hand to
+  # phoenix_kit.js. Returns the fact.
+  defp vendor_admin_bundle(root, specs) do
+    content = build_admin_content(read_core_asset!(@admin_js_filename), admin_specs(specs))
+    vsn = to_string(Application.spec(:phoenix_kit, :vsn) || "0")
+    ViewerLibraries.vendor_generated!(root, "admin", vsn, content)
+  end
+
+  # One of PhoenixKit's own bundles from its priv/, read from wherever the
+  # dependency was installed. Fails loud: a missing file is a broken fetch.
+  defp read_core_asset!(filename) do
+    priv =
+      case :code.priv_dir(:phoenix_kit) do
+        {:error, :bad_name} ->
+          Mix.raise("""
+          Could not resolve the :phoenix_kit application's priv/ directory
+          while vendoring #{filename}. Is :phoenix_kit listed as a
+          dependency of this app?
+          """)
+
+        dir ->
+          to_string(dir)
+      end
+
+    source = Path.join([priv, "static", "assets", filename])
+
+    unless File.exists?(source) do
+      Mix.raise("""
+      Could not find #{filename} at #{source} — the :phoenix_kit
+      dependency looks corrupted or incompletely fetched. Try `mix deps.get`.
+      """)
+    end
+
+    File.read!(source)
   end
 
   # ── Discovery ────────────────────────────────────────────────────
@@ -172,6 +225,7 @@ defmodule Mix.Tasks.Compile.PhoenixKitJsSources do
     |> Enum.uniq_by(fn s -> {s.app, s.file} end)
     |> Enum.sort_by(fn s -> {to_string(s.app), s.file} end)
     |> tap(&check_unique_globals/1)
+    |> tap(&check_unique_hooks/1)
     |> Enum.map(&resolve_source/1)
   end
 
@@ -206,7 +260,7 @@ defmodule Mix.Tasks.Compile.PhoenixKitJsSources do
   end
 
   @doc false
-  def normalize_entry(%{app: app, file: file, global: global})
+  def normalize_entry(%{app: app, file: file, global: global} = entry)
       when is_atom(app) and is_binary(file) and is_binary(global) do
     # `global` is emitted as `window.<global>` in the generated JS, so an
     # invalid identifier (e.g. "foo-bar") would produce broken JS — fail loud.
@@ -217,7 +271,24 @@ defmodule Mix.Tasks.Compile.PhoenixKitJsSources do
       """)
     end
 
-    %{app: app, file: file, global: global}
+    base = %{app: app, file: file, global: global}
+
+    # A public entry keeps exactly the shape it always had; only an admin
+    # entry carries the two extra keys.
+    case Map.get(entry, :scope, :public) do
+      :public ->
+        base
+
+      :admin ->
+        Map.merge(base, %{scope: :admin, hooks: validate_hooks!(Map.get(entry, :hooks), base)})
+
+      other ->
+        Mix.raise("""
+        Invalid js_sources/0 :scope #{inspect(other)} for #{inspect(app)}:#{file} — it is
+        :public (the default: the bundle loads on every page) or :admin (it loads
+        on demand, on the first mount of one of the hooks the entry lists).
+        """)
+    end
   end
 
   def normalize_entry(other) do
@@ -228,6 +299,95 @@ defmodule Mix.Tasks.Compile.PhoenixKitJsSources do
     app's priv/), and :global (string, the window.<Name> the bundle assigns).
     """)
   end
+
+  # An admin bundle is reached through stubs registered under the hook names the
+  # entry declares — the compiler cannot see inside a prebuilt bundle, and a
+  # hook the page does not have a name for can never be mounted. So the names
+  # are required, and must be what LiveView will look up.
+  defp validate_hooks!(hooks, %{app: app, file: file}) do
+    valid? =
+      is_list(hooks) and hooks != [] and
+        Enum.all?(hooks, &(is_binary(&1) and Regex.match?(~r/^[A-Za-z_$][A-Za-z0-9_$]*$/, &1))) and
+        length(Enum.uniq(hooks)) == length(hooks)
+
+    unless valid? do
+      Mix.raise("""
+      Invalid js_sources/0 :hooks #{inspect(hooks)} for #{inspect(app)}:#{file}.
+
+      An entry with `scope: :admin` must list, in `hooks:`, the name of every hook its
+      bundle exports (distinct strings, valid JavaScript identifiers). The page gets a
+      stub under each name; the bundle loads on the first mount of any of them.
+      """)
+    end
+
+    hooks
+  end
+
+  # Two admin bundles declaring one hook name would be one stub, mounting
+  # whichever body the later fold left behind; and a name core already has is a
+  # core hook the stub would shadow (or be shadowed by) depending on which
+  # script ran first. Both are refused.
+  @doc false
+  def check_unique_hooks(specs, core_names \\ nil) do
+    entries =
+      specs
+      |> admin_specs()
+      |> Enum.flat_map(fn s -> Enum.map(s.hooks, &{&1, "#{s.app}:#{s.file}"}) end)
+
+    dupes =
+      entries
+      |> Enum.group_by(fn {name, _} -> name end, fn {_, from} -> from end)
+      |> Enum.filter(fn {_name, from} -> length(from) > 1 end)
+
+    unless dupes == [] do
+      detail =
+        Enum.map_join(dupes, "\n", fn {name, from} -> "  #{name} <- #{Enum.join(from, ", ")}" end)
+
+      Mix.raise("""
+      Multiple js_sources/0 admin bundles declare the same hook name, so one stub would
+      stand for two bodies:
+
+      #{detail}
+
+      Namespace the hook names of each module (see PhoenixKit.Module.js_sources/0).
+      """)
+    end
+
+    core = MapSet.new(core_names || core_hook_names())
+
+    clashes = for {name, from} <- entries, MapSet.member?(core, name), do: "  #{name} <- #{from}"
+
+    unless clashes == [] do
+      Mix.raise("""
+      A js_sources/0 admin bundle declares a hook name PhoenixKit itself defines:
+
+      #{Enum.join(clashes, "\n")}
+
+      Namespace the hook names of the module (see PhoenixKit.Module.js_sources/0).
+      """)
+    end
+
+    :ok
+  end
+
+  # Every hook name core's two files register, read from the files themselves so
+  # there is no second list to keep in step.
+  @doc false
+  def core_hook_names do
+    [@core_js_filename, @admin_js_filename]
+    |> Enum.flat_map(fn filename ->
+      ~r/PhoenixKit(?:Admin)?Hooks\.([A-Za-z0-9_]+)\s*=(?!=)/
+      |> Regex.scan(read_core_asset!(filename), capture: :all_but_first)
+      |> List.flatten()
+    end)
+    |> Enum.uniq()
+    |> Enum.sort()
+  end
+
+  @doc false
+  def admin_specs(specs), do: Enum.filter(specs, &(Map.get(&1, :scope, :public) == :admin))
+
+  defp public_specs(specs), do: Enum.reject(specs, &(Map.get(&1, :scope, :public) == :admin))
 
   # Resolve the bundle's absolute path via the app's priv dir. Fail loud.
   defp resolve_source(%{app: app, file: file} = spec) do
@@ -260,32 +420,37 @@ defmodule Mix.Tasks.Compile.PhoenixKitJsSources do
   # ── Content ──────────────────────────────────────────────────────
 
   @doc false
-  def build_content(specs, libs \\ %{})
-
-  def build_content([], libs) do
-    """
-    /* Auto-generated by PhoenixKit — do not edit manually.
-       No external module declares js_sources/0. */
-    #{globals_preamble(libs)}
-    """
+  def build_content(specs, libs \\ %{}) do
+    {facts, body} = build_parts(specs, libs)
+    facts <> body
   end
 
-  def build_content(specs, libs) do
-    bundles =
-      Enum.map_join(specs, "\n", fn %{app: app, source: source} ->
-        body = File.read!(source)
+  # The file in two parts: the header and install facts, and what follows (the
+  # module bundles, their fold and the admin stubs).
+  defp build_parts(specs, libs) do
+    public = public_specs(specs)
+    admin = admin_specs(specs)
 
-        # Wrap each prebuilt bundle in an IIFE so its top-level declarations
-        # can't collide with another bundle's. Bundles export via window.<Global>,
-        # which survives the wrapper. Leading `;` guards against ASI hazards.
-        """
-        /* #{app} */
-        ;(function(){
-        #{body}
-        })();
-        """
-      end)
+    facts = """
+    /* Auto-generated by PhoenixKit — do not edit manually.
+       #{header_line(specs, public)} */
+    #{globals_preamble(libs)}
+    """
 
+    {facts, public_bundles(public) <> admin_stubs(admin)}
+  end
+
+  defp header_line([], _), do: "No external module declares js_sources/0."
+
+  defp header_line(_specs, []),
+    do: "No module bundle is loaded on every page (admin bundles load on demand)."
+
+  defp header_line(_specs, _public),
+    do: "Concatenated module hook bundles (js_sources/0), loaded before app.js."
+
+  defp public_bundles([]), do: ""
+
+  defp public_bundles(specs) do
     globals =
       specs
       |> Enum.map(& &1.global)
@@ -299,13 +464,78 @@ defmodule Mix.Tasks.Compile.PhoenixKitJsSources do
     # silently; we can't detect that without parsing the bundles. js_sources/0's
     # docs tell modules to namespace their hook names accordingly.
     """
-    /* Auto-generated by PhoenixKit — do not edit manually.
-       Concatenated module hook bundles (js_sources/0), loaded before app.js. */
-    #{globals_preamble(libs)}
-    #{bundles}
+    #{wrap_bundles(specs)}
     /* Fold each module's hooks into window.PhoenixKitHooks (spread into LiveSocket by app.js). */
     window.PhoenixKitHooks=Object.assign(window.PhoenixKitHooks||{},#{globals});
     """
+  end
+
+  # Wrap each prebuilt bundle in an IIFE so its top-level declarations can't
+  # collide with another bundle's. Bundles export via window.<Global>, which
+  # survives the wrapper. Leading `;` guards against ASI hazards.
+  defp wrap_bundles(specs) do
+    Enum.map_join(specs, "\n", fn %{app: app, source: source} ->
+      body = File.read!(source)
+
+      """
+      /* #{app} */
+      ;(function(){
+      #{body}
+      })();
+      """
+    end)
+  end
+
+  # The names of the hooks whose code is in the admin bundle. They are handed to
+  # phoenix_kit.js, which registers a stub under each in window.PhoenixKitHooks
+  # — whichever of the two scripts runs first: the names wait on the window for
+  # a phoenix_kit.js that has not run yet, and go straight in when it has.
+  defp admin_stubs([]), do: ""
+
+  defp admin_stubs(specs) do
+    names = specs |> Enum.flat_map(& &1.hooks) |> Enum.uniq() |> Jason.encode!()
+
+    """
+    /* Admin hooks of modules: stubs now, the code loads with the admin bundle on first use. */
+    (function(n){var w=window;w.PhoenixKitModuleAdminHooks=(w.PhoenixKitModuleAdminHooks||[]).concat(n);if(w.PhoenixKitRegisterAdminStubs)w.PhoenixKitRegisterAdminStubs(n)})(#{names});
+    """
+  end
+
+  @doc false
+  # Core's admin file, then each admin module's bundle (wrapped like the public
+  # ones), then the fold into the namespace the stubs read from. With no admin
+  # module it is core's file as it is.
+  def build_admin_content(core, []), do: core
+
+  def build_admin_content(core, specs) do
+    globals =
+      specs
+      |> Enum.map(& &1.global)
+      |> Enum.uniq()
+      |> Enum.map_join(",", fn g -> "window.#{g}||{}" end)
+
+    """
+    #{core}
+    /* Admin hook bundles of modules (js_sources/0, scope: :admin). */
+    #{wrap_bundles(specs)}
+    #{Enum.map_join(specs, "\n", &hooks_check/1)}
+    window.PhoenixKitAdminHooks=Object.assign(window.PhoenixKitAdminHooks||{},#{globals});
+    """
+  end
+
+  # The `hooks:` an entry lists and the hooks its bundle exports must be the
+  # same set: a listed hook the bundle lacks is a stub with nothing to mount, an
+  # exported hook nobody listed has no stub and so can never be mounted. The
+  # compiler cannot see inside the bundle, so the page says so on the console.
+  defp hooks_check(%{app: app, global: global, hooks: hooks}) do
+    check = """
+    ;(function(g,d,a){var e=Object.keys(window[g]||{}),i;\
+    for(i=0;i<d.length;i++)if(e.indexOf(d[i])<0)console.warn("[PhoenixKit] "+a+" lists the admin hook "+d[i]+" in js_sources/0 hooks:, but window."+g+" does not export it, so it will never mount.");\
+    for(i=0;i<e.length;i++)if(d.indexOf(e[i])<0)console.warn("[PhoenixKit] window."+g+" of "+a+" exports the hook "+e[i]+", which js_sources/0 hooks: does not list, so no page can mount it.")})\
+    """
+
+    check <>
+      "(#{Jason.encode!(global)},#{Jason.encode!(hooks)},#{Jason.encode!(to_string(app))});"
   end
 
   # Facts the vendored bundle cannot work out for itself, written into a file
@@ -335,6 +565,7 @@ defmodule Mix.Tasks.Compile.PhoenixKitJsSources do
     /* Install facts for the vendored bundle. */
     window.PHOENIX_KIT_PREFIX=#{inspect(prefix)};
     window.PHOENIX_KIT_CONSENT_AVAILABLE=#{consent?};
+    #{ViewerLibraries.base_js()}
     #{ViewerLibraries.facts_js(libs)}
     """
   end
