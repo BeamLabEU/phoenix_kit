@@ -1229,7 +1229,7 @@ msgstr "Функціональні модулі"
 #: lib/modules/storage/web/library_page.html.heex:165
 #: lib/modules/storage/web/settings.html.heex:123
 #: lib/modules/storage/web/settings.html.heex:148
-#: lib/phoenix_kit/users/auth.ex:3632
+#: lib/phoenix_kit/users/auth.ex:3670
 #: lib/phoenix_kit_web/components/core/preview_card.ex:284
 #: lib/phoenix_kit_web/live/users/libraries.html.heex:104
 #, elixir-autogen, elixir-format
@@ -5465,7 +5465,7 @@ msgstr "Вміст зберігається"
 
 #: lib/phoenix_kit/notifications/types.ex:272
 #: lib/phoenix_kit/notifications/types.ex:295
-#: lib/phoenix_kit/users/auth.ex:3619
+#: lib/phoenix_kit/users/auth.ex:3657
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:997
 #: lib/phoenix_kit_web/live/modules.ex:200
 #: lib/phoenix_kit_web/live/users/user_details.ex:187
@@ -5882,7 +5882,7 @@ msgstr "Сутності"
 #: lib/modules/sitemap/web/settings.html.heex:135
 #: lib/modules/sitemap/web/settings.html.heex:315
 #: lib/phoenix_kit/notifications/types.ex:256
-#: lib/phoenix_kit/users/auth.ex:3617
+#: lib/phoenix_kit/users/auth.ex:3655
 #: lib/phoenix_kit_web/live/modules.ex:212
 #, elixir-autogen
 msgid "Posts"
@@ -9898,6 +9898,7 @@ msgstr "Вийти з усіх облікових записів"
 msgid "Or add via"
 msgstr "Або додайте через"
 
+#: lib/phoenix_kit/users/referrals.ex:254
 #: lib/phoenix_kit_web/users/qr_login.ex:66
 #: lib/phoenix_kit_web/users/referral_gate.ex:88
 #, elixir-autogen, elixir-format
@@ -11498,6 +11499,12 @@ msgstr "Реферальний код"
 msgid "Served at the site root as well as under the PhoenixKit prefix, because that is where crawlers look. A priv/static/sitemap.xml file would be served instead of this one."
 msgstr "Віддається як у корені сайту, так і за префіксом PhoenixKit, бо саме там шукають пошукові роботи. Файл priv/static/sitemap.xml віддавався б замість цього."
 
+#: lib/phoenix_kit/users/referrals.ex:228
+#, elixir-autogen, elixir-format
+msgid "Referral code is required"
+msgstr "Потрібен реферальний код"
+
+#: lib/phoenix_kit/users/referrals.ex:124
 #: lib/phoenix_kit_web/users/referral_gate.ex:94
 #: lib/phoenix_kit_web/users/referral_gate.ex:104
 #: lib/phoenix_kit_web/users/referral_gate.ex:135
@@ -14203,27 +14210,27 @@ msgstr "Надіслано"
 msgid "We sent a confirmation link to %{email}."
 msgstr "Ми надіслали посилання для підтвердження на %{email}."
 
-#: lib/phoenix_kit/users/auth.ex:3612
+#: lib/phoenix_kit/users/auth.ex:3650
 #, elixir-autogen, elixir-format
 msgid "Admin notes"
 msgstr "Нотатки адміністратора"
 
-#: lib/phoenix_kit/users/auth.ex:3609
+#: lib/phoenix_kit/users/auth.ex:3647
 #, elixir-autogen, elixir-format
 msgid "Billing profiles"
 msgstr "Платіжні профілі"
 
-#: lib/phoenix_kit/users/auth.ex:3630
+#: lib/phoenix_kit/users/auth.ex:3668
 #, elixir-autogen, elixir-format
 msgid "Email logs"
 msgstr "Журнали листів"
 
-#: lib/phoenix_kit/users/auth.ex:3608
+#: lib/phoenix_kit/users/auth.ex:3646
 #, elixir-autogen, elixir-format
 msgid "OAuth connections"
 msgstr "Підключення OAuth"
 
-#: lib/phoenix_kit/users/auth.ex:3615
+#: lib/phoenix_kit/users/auth.ex:3653
 #, elixir-autogen, elixir-format
 msgid "Orders"
 msgstr "Замовлення"
@@ -14239,22 +14246,22 @@ msgstr "Видалити остаточно"
 msgid "Permanently Delete User"
 msgstr "Остаточно видалити користувача"
 
-#: lib/phoenix_kit/users/auth.ex:3607
+#: lib/phoenix_kit/users/auth.ex:3645
 #, elixir-autogen, elixir-format
 msgid "Role assignments"
 msgstr "Призначення ролей"
 
-#: lib/phoenix_kit/users/auth.ex:3606
+#: lib/phoenix_kit/users/auth.ex:3644
 #, elixir-autogen, elixir-format
 msgid "Session and other tokens"
 msgstr "Токени сеансів та інші токени"
 
-#: lib/phoenix_kit/users/auth.ex:3611
+#: lib/phoenix_kit/users/auth.ex:3649
 #, elixir-autogen, elixir-format
 msgid "Shopping carts"
 msgstr "Кошики"
 
-#: lib/phoenix_kit/users/auth.ex:3628
+#: lib/phoenix_kit/users/auth.ex:3666
 #, elixir-autogen, elixir-format
 msgid "Support tickets"
 msgstr "Запити в підтримку"

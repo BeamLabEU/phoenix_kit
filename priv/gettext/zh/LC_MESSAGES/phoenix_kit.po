@@ -21,27 +21,27 @@ msgstr "此邮箱已有待处理的邀请"
 msgid "This user already belongs to an organization"
 msgstr "此用户已属于某个组织"
 
-#: lib/phoenix_kit/users/auth.ex:1380
+#: lib/phoenix_kit/users/auth.ex:1418
 #, elixir-autogen, elixir-format
 msgid "cannot change to person while organization has members"
 msgstr "组织有成员时，无法更改为个人"
 
-#: lib/phoenix_kit/users/auth.ex:1360
+#: lib/phoenix_kit/users/auth.ex:1398
 #, elixir-autogen, elixir-format
 msgid "cannot reference self"
 msgstr "不能引用自身"
 
-#: lib/phoenix_kit/users/auth.ex:1368
+#: lib/phoenix_kit/users/auth.ex:1406
 #, elixir-autogen, elixir-format
 msgid "only person accounts can join an organization"
 msgstr "只有个人账户才能加入组织"
 
-#: lib/phoenix_kit/users/auth.ex:1355
+#: lib/phoenix_kit/users/auth.ex:1393
 #, elixir-autogen, elixir-format
 msgid "organization not found"
 msgstr "未找到组织"
 
-#: lib/phoenix_kit/users/auth.ex:1354
+#: lib/phoenix_kit/users/auth.ex:1392
 #, elixir-autogen, elixir-format
 msgid "target user is not an organization"
 msgstr "目标用户不是组织"

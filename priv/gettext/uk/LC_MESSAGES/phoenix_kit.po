@@ -21,27 +21,27 @@ msgstr "Для цієї адреси вже є запрошення, що очі
 msgid "This user already belongs to an organization"
 msgstr "Цей користувач уже входить до організації"
 
-#: lib/phoenix_kit/users/auth.ex:1380
+#: lib/phoenix_kit/users/auth.ex:1418
 #, elixir-autogen, elixir-format
 msgid "cannot change to person while organization has members"
 msgstr "не можна змінити на «фізична особа», доки в організації є учасники"
 
-#: lib/phoenix_kit/users/auth.ex:1360
+#: lib/phoenix_kit/users/auth.ex:1398
 #, elixir-autogen, elixir-format
 msgid "cannot reference self"
 msgstr "не може посилатися на себе"
 
-#: lib/phoenix_kit/users/auth.ex:1368
+#: lib/phoenix_kit/users/auth.ex:1406
 #, elixir-autogen, elixir-format
 msgid "only person accounts can join an organization"
 msgstr "приєднатися до організації можуть лише облікові записи фізичних осіб"
 
-#: lib/phoenix_kit/users/auth.ex:1355
+#: lib/phoenix_kit/users/auth.ex:1393
 #, elixir-autogen, elixir-format
 msgid "organization not found"
 msgstr "організацію не знайдено"
 
-#: lib/phoenix_kit/users/auth.ex:1354
+#: lib/phoenix_kit/users/auth.ex:1392
 #, elixir-autogen, elixir-format
 msgid "target user is not an organization"
 msgstr "указаний користувач не є організацією"

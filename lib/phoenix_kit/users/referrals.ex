@@ -73,6 +73,8 @@ defmodule PhoenixKit.Users.Referrals do
   permanently.
   """
 
+  use Gettext, backend: PhoenixKitWeb.Gettext
+
   import Ecto.Query, warn: false
 
   require Logger
@@ -113,7 +115,13 @@ defmodule PhoenixKit.Users.Referrals do
   # "usage limit") told an attacker whether a guessed code EXISTS, turning the
   # form into an enumeration oracle: existence and format confirmed for free.
   # Operators still get the real reason via `Logger.debug`.
-  @rejection_message "That code can't be used"
+  #
+  # Messages are translated here, at the source, because every caller renders
+  # them as given — the registration and magic-link forms print the string
+  # straight into the page, so an untranslated one shows up in English on a site
+  # in any other language. A function, not a module attribute: the locale is a
+  # property of the calling process, so it has to be read per call.
+  defp rejection_message, do: gettext("That code can't be used")
 
   @doc """
   Referral-codes configuration map. Disabled defaults when the module is absent.
@@ -217,7 +225,7 @@ defmodule PhoenixKit.Users.Referrals do
         {:ok, nil}
 
       trimmed == "" and required? and context == :submit ->
-        {:error, "Referral code is required"}
+        {:error, gettext("Referral code is required")}
 
       trimmed == "" ->
         # Blank and either optional, or still being filled in.
@@ -239,8 +247,11 @@ defmodule PhoenixKit.Users.Referrals do
 
   defp validate_typed_code(code_string, ip_address) do
     case rate_limit_check(ip_address) do
-      :ok -> check_code(code_string)
-      {:error, :rate_limit_exceeded} -> {:error, "Too many attempts. Please try again shortly."}
+      :ok ->
+        check_code(code_string)
+
+      {:error, :rate_limit_exceeded} ->
+        {:error, gettext("Too many attempts. Please try again shortly.")}
     end
   end
 
@@ -266,7 +277,7 @@ defmodule PhoenixKit.Users.Referrals do
 
   defp reject(code_string, reason) do
     Logger.debug("[Referrals] rejected #{inspect(code_string)}: #{reason}")
-    {:error, @rejection_message}
+    {:error, rejection_message()}
   end
 
   # ============================================================================

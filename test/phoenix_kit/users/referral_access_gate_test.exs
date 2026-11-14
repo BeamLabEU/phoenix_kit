@@ -276,6 +276,49 @@ defmodule PhoenixKit.Users.ReferralAccessGateTest do
     end
   end
 
+  describe "accounts an admin creates" do
+    # The admin form and the managed-organization flows create people the admin
+    # has already vouched for. Before this they were parked on the code screen at
+    # their first sign-in — handed a password, with no code anyone could give.
+    defp admin_create(owner) do
+      {:ok, user} =
+        Auth.admin_create_user(
+          %{
+            "email" => "added#{System.unique_integer([:positive])}@example.com",
+            "password" => "ValidPassword123!"
+          },
+          owner
+        )
+
+      user
+    end
+
+    test "are admitted, and the mark says why", %{owner: owner} do
+      enable_invite_only(DateTime.add(DateTime.utc_now(), -3600))
+      user = admin_create(owner)
+
+      assert Referrals.marked_satisfied?(user)
+      assert user.custom_fields["referral_satisfied_via"] == "admin_created"
+      assert Referrals.access_satisfied?(Scope.for_user(Auth.get_user(user.uuid)))
+    end
+
+    test "are admitted even when invite-only is switched on only later", %{owner: owner} do
+      user = admin_create(owner)
+      enable_invite_only(DateTime.add(DateTime.utc_now(), -3600))
+
+      assert Referrals.access_required?()
+      assert Referrals.access_satisfied?(Scope.for_user(Auth.get_user(user.uuid)))
+    end
+
+    test "whoever signs up on their own is still parked", %{owner: _owner} do
+      enable_invite_only(DateTime.add(DateTime.utc_now(), -3600))
+      self_signup = register_user()
+
+      refute Referrals.marked_satisfied?(Auth.get_user(self_signup.uuid))
+      refute Referrals.access_satisfied?(Scope.for_user(Auth.get_user(self_signup.uuid)))
+    end
+  end
+
   describe "mark_satisfied/2" do
     test "records when and how, and never rewrites either" do
       user = register_user()

@@ -21,27 +21,27 @@ msgstr ""
 msgid "This user already belongs to an organization"
 msgstr ""
 
-#: lib/phoenix_kit/users/auth.ex:1380
+#: lib/phoenix_kit/users/auth.ex:1418
 #, elixir-autogen, elixir-format
 msgid "cannot change to person while organization has members"
 msgstr ""
 
-#: lib/phoenix_kit/users/auth.ex:1360
+#: lib/phoenix_kit/users/auth.ex:1398
 #, elixir-autogen, elixir-format
 msgid "cannot reference self"
 msgstr ""
 
-#: lib/phoenix_kit/users/auth.ex:1368
+#: lib/phoenix_kit/users/auth.ex:1406
 #, elixir-autogen, elixir-format
 msgid "only person accounts can join an organization"
 msgstr ""
 
-#: lib/phoenix_kit/users/auth.ex:1355
+#: lib/phoenix_kit/users/auth.ex:1393
 #, elixir-autogen, elixir-format
 msgid "organization not found"
 msgstr ""
 
-#: lib/phoenix_kit/users/auth.ex:1354
+#: lib/phoenix_kit/users/auth.ex:1392
 #, elixir-autogen, elixir-format
 msgid "target user is not an organization"
 msgstr ""

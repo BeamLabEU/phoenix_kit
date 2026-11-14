@@ -1238,7 +1238,7 @@ msgstr "Módulos de funciones"
 #: lib/modules/storage/web/library_page.html.heex:165
 #: lib/modules/storage/web/settings.html.heex:123
 #: lib/modules/storage/web/settings.html.heex:148
-#: lib/phoenix_kit/users/auth.ex:3632
+#: lib/phoenix_kit/users/auth.ex:3670
 #: lib/phoenix_kit_web/components/core/preview_card.ex:284
 #: lib/phoenix_kit_web/live/users/libraries.html.heex:104
 #, elixir-autogen, elixir-format
@@ -5478,7 +5478,7 @@ msgstr "Contenido guardado"
 
 #: lib/phoenix_kit/notifications/types.ex:272
 #: lib/phoenix_kit/notifications/types.ex:295
-#: lib/phoenix_kit/users/auth.ex:3619
+#: lib/phoenix_kit/users/auth.ex:3657
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:997
 #: lib/phoenix_kit_web/live/modules.ex:200
 #: lib/phoenix_kit_web/live/users/user_details.ex:187
@@ -5891,7 +5891,7 @@ msgstr "Entidades"
 #: lib/modules/sitemap/web/settings.html.heex:135
 #: lib/modules/sitemap/web/settings.html.heex:315
 #: lib/phoenix_kit/notifications/types.ex:256
-#: lib/phoenix_kit/users/auth.ex:3617
+#: lib/phoenix_kit/users/auth.ex:3655
 #: lib/phoenix_kit_web/live/modules.ex:212
 #, elixir-autogen
 msgid "Posts"
@@ -9889,6 +9889,7 @@ msgstr "Cerrar sesión en todas las cuentas"
 msgid "Or add via"
 msgstr "O agregar con"
 
+#: lib/phoenix_kit/users/referrals.ex:254
 #: lib/phoenix_kit_web/users/qr_login.ex:66
 #: lib/phoenix_kit_web/users/referral_gate.ex:88
 #, elixir-autogen, elixir-format
@@ -11486,6 +11487,12 @@ msgstr "Código de referencia"
 msgid "Served at the site root as well as under the PhoenixKit prefix, because that is where crawlers look. A priv/static/sitemap.xml file would be served instead of this one."
 msgstr "Se sirve tanto en la raíz del sitio como bajo el prefijo de PhoenixKit, porque es ahí donde miran los rastreadores. Un archivo priv/static/sitemap.xml se serviría en su lugar."
 
+#: lib/phoenix_kit/users/referrals.ex:228
+#, elixir-autogen, elixir-format
+msgid "Referral code is required"
+msgstr "Se requiere un código de referencia"
+
+#: lib/phoenix_kit/users/referrals.ex:124
 #: lib/phoenix_kit_web/users/referral_gate.ex:94
 #: lib/phoenix_kit_web/users/referral_gate.ex:104
 #: lib/phoenix_kit_web/users/referral_gate.ex:135
@@ -14190,27 +14197,27 @@ msgstr "Enviado"
 msgid "We sent a confirmation link to %{email}."
 msgstr "Te enviamos un enlace de confirmación a %{email}."
 
-#: lib/phoenix_kit/users/auth.ex:3612
+#: lib/phoenix_kit/users/auth.ex:3650
 #, elixir-autogen, elixir-format
 msgid "Admin notes"
 msgstr "Notas de administración"
 
-#: lib/phoenix_kit/users/auth.ex:3609
+#: lib/phoenix_kit/users/auth.ex:3647
 #, elixir-autogen, elixir-format
 msgid "Billing profiles"
 msgstr "Perfiles de facturación"
 
-#: lib/phoenix_kit/users/auth.ex:3630
+#: lib/phoenix_kit/users/auth.ex:3668
 #, elixir-autogen, elixir-format
 msgid "Email logs"
 msgstr "Registros de correo"
 
-#: lib/phoenix_kit/users/auth.ex:3608
+#: lib/phoenix_kit/users/auth.ex:3646
 #, elixir-autogen, elixir-format
 msgid "OAuth connections"
 msgstr "Conexiones OAuth"
 
-#: lib/phoenix_kit/users/auth.ex:3615
+#: lib/phoenix_kit/users/auth.ex:3653
 #, elixir-autogen, elixir-format
 msgid "Orders"
 msgstr "Pedidos"
@@ -14226,22 +14233,22 @@ msgstr "Eliminar permanentemente"
 msgid "Permanently Delete User"
 msgstr "Eliminar usuario permanentemente"
 
-#: lib/phoenix_kit/users/auth.ex:3607
+#: lib/phoenix_kit/users/auth.ex:3645
 #, elixir-autogen, elixir-format
 msgid "Role assignments"
 msgstr "Asignaciones de roles"
 
-#: lib/phoenix_kit/users/auth.ex:3606
+#: lib/phoenix_kit/users/auth.ex:3644
 #, elixir-autogen, elixir-format
 msgid "Session and other tokens"
 msgstr "Sesiones y otros tokens"
 
-#: lib/phoenix_kit/users/auth.ex:3611
+#: lib/phoenix_kit/users/auth.ex:3649
 #, elixir-autogen, elixir-format
 msgid "Shopping carts"
 msgstr "Carritos de compra"
 
-#: lib/phoenix_kit/users/auth.ex:3628
+#: lib/phoenix_kit/users/auth.ex:3666
 #, elixir-autogen, elixir-format
 msgid "Support tickets"
 msgstr "Tickets de soporte"

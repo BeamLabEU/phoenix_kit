@@ -21,27 +21,27 @@ msgstr "Dla tego adresu e-mail istnieje już oczekujące zaproszenie"
 msgid "This user already belongs to an organization"
 msgstr "Ten użytkownik już należy do organizacji"
 
-#: lib/phoenix_kit/users/auth.ex:1380
+#: lib/phoenix_kit/users/auth.ex:1418
 #, elixir-autogen, elixir-format
 msgid "cannot change to person while organization has members"
 msgstr "nie można zmienić na osobę, dopóki organizacja ma członków"
 
-#: lib/phoenix_kit/users/auth.ex:1360
+#: lib/phoenix_kit/users/auth.ex:1398
 #, elixir-autogen, elixir-format
 msgid "cannot reference self"
 msgstr "nie może odnosić się do siebie"
 
-#: lib/phoenix_kit/users/auth.ex:1368
+#: lib/phoenix_kit/users/auth.ex:1406
 #, elixir-autogen, elixir-format
 msgid "only person accounts can join an organization"
 msgstr "tylko konta osób mogą dołączyć do organizacji"
 
-#: lib/phoenix_kit/users/auth.ex:1355
+#: lib/phoenix_kit/users/auth.ex:1393
 #, elixir-autogen, elixir-format
 msgid "organization not found"
 msgstr "nie znaleziono organizacji"
 
-#: lib/phoenix_kit/users/auth.ex:1354
+#: lib/phoenix_kit/users/auth.ex:1392
 #, elixir-autogen, elixir-format
 msgid "target user is not an organization"
 msgstr "użytkownik docelowy nie jest organizacją"

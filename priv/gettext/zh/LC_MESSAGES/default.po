@@ -1229,7 +1229,7 @@ msgstr "功能模块"
 #: lib/modules/storage/web/library_page.html.heex:165
 #: lib/modules/storage/web/settings.html.heex:123
 #: lib/modules/storage/web/settings.html.heex:148
-#: lib/phoenix_kit/users/auth.ex:3632
+#: lib/phoenix_kit/users/auth.ex:3670
 #: lib/phoenix_kit_web/components/core/preview_card.ex:284
 #: lib/phoenix_kit_web/live/users/libraries.html.heex:104
 #, elixir-autogen, elixir-format
@@ -5465,7 +5465,7 @@ msgstr "正文已保存"
 
 #: lib/phoenix_kit/notifications/types.ex:272
 #: lib/phoenix_kit/notifications/types.ex:295
-#: lib/phoenix_kit/users/auth.ex:3619
+#: lib/phoenix_kit/users/auth.ex:3657
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:997
 #: lib/phoenix_kit_web/live/modules.ex:200
 #: lib/phoenix_kit_web/live/users/user_details.ex:187
@@ -5874,7 +5874,7 @@ msgstr "实体"
 #: lib/modules/sitemap/web/settings.html.heex:135
 #: lib/modules/sitemap/web/settings.html.heex:315
 #: lib/phoenix_kit/notifications/types.ex:256
-#: lib/phoenix_kit/users/auth.ex:3617
+#: lib/phoenix_kit/users/auth.ex:3655
 #: lib/phoenix_kit_web/live/modules.ex:212
 #, elixir-autogen
 msgid "Posts"
@@ -9852,6 +9852,7 @@ msgstr "退出所有账户"
 msgid "Or add via"
 msgstr "或通过以下方式添加"
 
+#: lib/phoenix_kit/users/referrals.ex:254
 #: lib/phoenix_kit_web/users/qr_login.ex:66
 #: lib/phoenix_kit_web/users/referral_gate.ex:88
 #, elixir-autogen, elixir-format
@@ -11448,6 +11449,12 @@ msgstr "推荐码"
 msgid "Served at the site root as well as under the PhoenixKit prefix, because that is where crawlers look. A priv/static/sitemap.xml file would be served instead of this one."
 msgstr "除 PhoenixKit 前缀下外，还会在站点根路径提供，因为爬虫会在那里查找。如果存在 priv/static/sitemap.xml 文件，则会改为提供该文件。"
 
+#: lib/phoenix_kit/users/referrals.ex:228
+#, elixir-autogen, elixir-format
+msgid "Referral code is required"
+msgstr "必须填写推荐码"
+
+#: lib/phoenix_kit/users/referrals.ex:124
 #: lib/phoenix_kit_web/users/referral_gate.ex:94
 #: lib/phoenix_kit_web/users/referral_gate.ex:104
 #: lib/phoenix_kit_web/users/referral_gate.ex:135
@@ -14151,27 +14158,27 @@ msgstr "已发送"
 msgid "We sent a confirmation link to %{email}."
 msgstr "我们已向 %{email} 发送了确认链接。"
 
-#: lib/phoenix_kit/users/auth.ex:3612
+#: lib/phoenix_kit/users/auth.ex:3650
 #, elixir-autogen, elixir-format
 msgid "Admin notes"
 msgstr "管理员备注"
 
-#: lib/phoenix_kit/users/auth.ex:3609
+#: lib/phoenix_kit/users/auth.ex:3647
 #, elixir-autogen, elixir-format
 msgid "Billing profiles"
 msgstr "账单资料"
 
-#: lib/phoenix_kit/users/auth.ex:3630
+#: lib/phoenix_kit/users/auth.ex:3668
 #, elixir-autogen, elixir-format
 msgid "Email logs"
 msgstr "邮件日志"
 
-#: lib/phoenix_kit/users/auth.ex:3608
+#: lib/phoenix_kit/users/auth.ex:3646
 #, elixir-autogen, elixir-format
 msgid "OAuth connections"
 msgstr "OAuth 连接"
 
-#: lib/phoenix_kit/users/auth.ex:3615
+#: lib/phoenix_kit/users/auth.ex:3653
 #, elixir-autogen, elixir-format
 msgid "Orders"
 msgstr "订单"
@@ -14187,22 +14194,22 @@ msgstr "永久删除"
 msgid "Permanently Delete User"
 msgstr "永久删除用户"
 
-#: lib/phoenix_kit/users/auth.ex:3607
+#: lib/phoenix_kit/users/auth.ex:3645
 #, elixir-autogen, elixir-format
 msgid "Role assignments"
 msgstr "角色分配"
 
-#: lib/phoenix_kit/users/auth.ex:3606
+#: lib/phoenix_kit/users/auth.ex:3644
 #, elixir-autogen, elixir-format
 msgid "Session and other tokens"
 msgstr "会话及其他令牌"
 
-#: lib/phoenix_kit/users/auth.ex:3611
+#: lib/phoenix_kit/users/auth.ex:3649
 #, elixir-autogen, elixir-format
 msgid "Shopping carts"
 msgstr "购物车"
 
-#: lib/phoenix_kit/users/auth.ex:3628
+#: lib/phoenix_kit/users/auth.ex:3666
 #, elixir-autogen, elixir-format
 msgid "Support tickets"
 msgstr "支持工单"

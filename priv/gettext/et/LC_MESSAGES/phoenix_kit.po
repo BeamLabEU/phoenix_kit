@@ -21,27 +21,27 @@ msgstr "Sellele e-posti aadressile on juba ootel kutse"
 msgid "This user already belongs to an organization"
 msgstr "See kasutaja kuulub juba organisatsiooni"
 
-#: lib/phoenix_kit/users/auth.ex:1380
+#: lib/phoenix_kit/users/auth.ex:1418
 #, elixir-autogen, elixir-format
 msgid "cannot change to person while organization has members"
 msgstr "ei saa muuta isikuks, kuni organisatsioonil on liikmeid"
 
-#: lib/phoenix_kit/users/auth.ex:1360
+#: lib/phoenix_kit/users/auth.ex:1398
 #, elixir-autogen, elixir-format
 msgid "cannot reference self"
 msgstr "ei saa viidata iseendale"
 
-#: lib/phoenix_kit/users/auth.ex:1368
+#: lib/phoenix_kit/users/auth.ex:1406
 #, elixir-autogen, elixir-format
 msgid "only person accounts can join an organization"
 msgstr "organisatsiooniga saavad liituda ainult isikukontod"
 
-#: lib/phoenix_kit/users/auth.ex:1355
+#: lib/phoenix_kit/users/auth.ex:1393
 #, elixir-autogen, elixir-format
 msgid "organization not found"
 msgstr "organisatsiooni ei leitud"
 
-#: lib/phoenix_kit/users/auth.ex:1354
+#: lib/phoenix_kit/users/auth.ex:1392
 #, elixir-autogen, elixir-format
 msgid "target user is not an organization"
 msgstr "sihtkasutaja ei ole organisatsioon"

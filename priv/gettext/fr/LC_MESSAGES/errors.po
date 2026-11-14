@@ -184,12 +184,12 @@ msgstr "doit contenir le signe @ et aucun espace"
 msgid "must start with a letter and contain only letters, numbers, and underscores"
 msgstr "doit commencer par une lettre et ne contenir que des lettres, des chiffres et des tirets bas"
 
-#: lib/phoenix_kit/users/auth.ex:483
+#: lib/phoenix_kit/users/auth.ex:493
 #, elixir-autogen, elixir-format
 msgid "This email domain cannot receive mail. Please check the address."
 msgstr "Ce domaine e-mail ne peut pas recevoir de courrier. Veuillez vérifier l'adresse."
 
-#: lib/phoenix_kit/users/auth.ex:494
+#: lib/phoenix_kit/users/auth.ex:504
 #, elixir-autogen, elixir-format
 msgid "Too many registration attempts. Please try again later."
 msgstr "Trop de tentatives d'inscription. Veuillez réessayer plus tard."

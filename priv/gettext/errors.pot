@@ -191,12 +191,12 @@ msgstr ""
 msgid "must start with a letter and contain only letters, numbers, and underscores"
 msgstr ""
 
-#: lib/phoenix_kit/users/auth.ex:483
+#: lib/phoenix_kit/users/auth.ex:493
 #, elixir-autogen, elixir-format
 msgid "This email domain cannot receive mail. Please check the address."
 msgstr ""
 
-#: lib/phoenix_kit/users/auth.ex:494
+#: lib/phoenix_kit/users/auth.ex:504
 #, elixir-autogen, elixir-format
 msgid "Too many registration attempts. Please try again later."
 msgstr ""
