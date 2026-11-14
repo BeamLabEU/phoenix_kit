@@ -11441,6 +11441,11 @@ msgstr "推荐码"
 msgid "Served at the site root as well as under the PhoenixKit prefix, because that is where crawlers look. A priv/static/sitemap.xml file would be served instead of this one."
 msgstr "除 PhoenixKit 前缀下外，还会在站点根路径提供，因为爬虫会在那里查找。如果存在 priv/static/sitemap.xml 文件，则会改为提供该文件。"
 
+#: lib/phoenix_kit/users/referrals.ex:228
+#, elixir-autogen, elixir-format
+msgid "Referral code is required"
+msgstr "必须填写推荐码"
+
 #: lib/phoenix_kit_web/users/referral_gate.ex:94
 #: lib/phoenix_kit_web/users/referral_gate.ex:104
 #: lib/phoenix_kit_web/users/referral_gate.ex:135

@@ -75,7 +75,7 @@ defmodule PhoenixKit.Users.Auth do
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.Libraries
   alias PhoenixKit.Users.Auth.{User, UserNotifier, UserToken}
-  alias PhoenixKit.Users.{CustomFields, RateLimiter, Role, Roles, WelcomeEmail}
+  alias PhoenixKit.Users.{CustomFields, RateLimiter, Referrals, Role, Roles, WelcomeEmail}
   alias PhoenixKit.Users.OrganizationManagers
   alias PhoenixKit.Users.Sessions.Revocation
   alias PhoenixKit.Utils.Date, as: UtilsDate
@@ -480,6 +480,14 @@ defmodule PhoenixKit.Users.Auth do
   `created_by_uuid = actor.uuid`. `created_by_uuid` is put on the changeset
   here rather than cast, so no params map can set it.
 
+  The account is also marked as having satisfied invite-only
+  (`PhoenixKit.Users.Referrals.mark_satisfied/2`, reason `"admin_created"`): an
+  admin adding a person is the admission, and without the mark the person this
+  admin just created would be parked on the referral-code screen at their first
+  sign-in, holding a password they were handed and no code anyone could give
+  them. The mark is written whether or not invite-only is on right now, so
+  switching it on later does not park them either.
+
   Not rate limited: the registration limits exist to stop anonymous sign-up
   spam, and this path is reachable only by an authenticated actor already
   admitted to the users admin. Counting it against the admin's IP would lock
@@ -495,7 +503,27 @@ defmodule PhoenixKit.Users.Auth do
       {:error, %Ecto.Changeset{}}
   """
   def admin_create_user(attrs, %User{uuid: actor_uuid}) when is_map(attrs) do
-    do_register_user(attrs, created_by_uuid: actor_uuid)
+    with {:ok, user} <- do_register_user(attrs, created_by_uuid: actor_uuid) do
+      admit_admin_created(user)
+    end
+  end
+
+  # The account exists either way, so a failed mark must not turn into an error
+  # for the caller (the admin form would report a failure for a user that was in
+  # fact created). It is logged instead; the account then waits at the gate like
+  # any other until a code or an operator settles it.
+  defp admit_admin_created(user) do
+    case Referrals.mark_satisfied(user, "admin_created") do
+      {:ok, admitted} ->
+        {:ok, admitted}
+
+      {:error, reason} ->
+        Logger.warning(
+          "PhoenixKit: could not record admission of admin-created user #{user.uuid}: #{inspect(reason)}"
+        )
+
+        {:ok, user}
+    end
   end
 
   defp do_register_user(attrs, opts \\ []) do
