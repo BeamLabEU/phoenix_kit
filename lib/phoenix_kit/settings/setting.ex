@@ -90,6 +90,9 @@ defmodule PhoenixKit.Settings.Setting do
     "oauth_facebook_app_secret",
     # Unset until the Apple Sign-In feature and its admin UI exist
     "oauth_apple_private_key",
+    # Cloudflare Turnstile keys — unset until an admin switches it on
+    "turnstile_site_key",
+    "turnstile_secret_key",
     # Billing-provider secrets (phoenix_kit_billing) — unset until an admin
     # configures that provider
     "billing_stripe_secret_key",

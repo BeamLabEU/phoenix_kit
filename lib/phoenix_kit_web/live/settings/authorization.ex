@@ -12,6 +12,8 @@ defmodule PhoenixKitWeb.Live.Settings.Authorization do
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.OAuthConfig
   alias PhoenixKit.Users.Passkeys
+  alias PhoenixKit.Users.RateLimiter
+  alias PhoenixKit.Users.Turnstile
   alias PhoenixKit.Utils.CssValue
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Actor
@@ -46,7 +48,11 @@ defmodule PhoenixKitWeb.Live.Settings.Authorization do
     current_settings = Settings.list_all_settings()
     defaults = Settings.get_defaults()
 
-    merged_settings = Map.merge(defaults, current_settings)
+    # Turnstile's secret belongs to its own form below and is never needed
+    # here: kept out of the assigns altogether.
+    merged_settings =
+      defaults |> Map.merge(current_settings) |> Map.delete("turnstile_secret_key")
+
     changeset = Settings.change_settings(merged_settings)
 
     socket =
@@ -78,15 +84,55 @@ defmodule PhoenixKitWeb.Live.Settings.Authorization do
 
   # The tab lives in the URL (`?tab=sessions`); see `UrlTabs`.
   def handle_params(params, _url, socket) do
-    {:noreply, assign(socket, :active_tab, UrlTabs.active(params, tabs()))}
+    socket =
+      socket
+      |> assign(:active_tab, UrlTabs.active(params, tabs()))
+      # Read on every tab change, so the counters are those of the moment the
+      # tab was opened. Configuration and in-memory counters; no database.
+      |> assign(:request_limits, RateLimiter.overview())
+      # The switch, the site key and whether a secret is saved; never the secret.
+      |> assign(:turnstile, Turnstile.config())
+
+    {:noreply, socket}
   end
 
   defp tabs do
     [
       %{id: "branding", label: gettext("Login Page Branding"), icon: "hero-paint-brush"},
       %{id: "methods", label: gettext("Authentication Methods"), icon: "hero-key"},
-      %{id: "sessions", label: gettext("Sessions"), icon: "hero-user-group"}
+      %{id: "sessions", label: gettext("Sessions"), icon: "hero-user-group"},
+      %{id: "protection", label: gettext("Abuse protection"), icon: "hero-shield-check"}
     ]
+  end
+
+  # Its own form and its own keys (`turnstile_*`, `settings.security` like the
+  # rest of this page: `SecurityGate` re-checks on every event). The secret is
+  # in the event's params only; it is never assigned.
+  def handle_event("save_turnstile", %{"turnstile" => params}, socket) when is_map(params) do
+    result = Turnstile.save_config(params, actor_uuid: Actor.uuid(socket), source: "settings")
+    socket = assign(socket, :turnstile, Turnstile.config())
+
+    case result do
+      {:ok, :saved} ->
+        {:noreply, put_flash(socket, :info, gettext("Turnstile settings saved."))}
+
+      {:ok, :unverified} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :warning,
+           gettext(
+             "Turnstile settings saved, but Cloudflare could not be reached to check the secret key."
+           )
+         )}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, turnstile_error(reason))}
+    end
+  end
+
+  def handle_event("refresh_request_limits", _params, socket) do
+    {:noreply, assign(socket, :request_limits, RateLimiter.overview())}
   end
 
   def handle_event("validate_settings", %{"settings" => settings_params}, socket) do
@@ -315,6 +361,39 @@ defmodule PhoenixKitWeb.Live.Settings.Authorization do
     |> List.flatten()
     |> Enum.join(", ")
   end
+
+  defp turnstile_error(:site_key_required),
+    do: gettext("Enter the site key before switching Turnstile on.")
+
+  defp turnstile_error(:secret_key_required),
+    do: gettext("Enter the secret key before switching Turnstile on.")
+
+  defp turnstile_error(:invalid_secret),
+    do: gettext("Cloudflare does not recognise this secret key. Nothing was saved.")
+
+  defp turnstile_error(_reason), do: gettext("The Turnstile settings could not be saved.")
+
+  @doc false
+  def request_limit_label(:login), do: gettext("Sign-in (failed attempts)")
+  def request_limit_label(:registration), do: gettext("Registration")
+  def request_limit_label(:magic_link), do: gettext("Magic link")
+  def request_limit_label(:password_reset), do: gettext("Password reset")
+  def request_limit_label(:confirmation_resend), do: gettext("Confirmation email resend")
+
+  @doc false
+  def format_request_limit(%{limit: limit, window_ms: window_ms}) do
+    gettext("%{limit} per %{window}", limit: limit, window: format_limit_window(window_ms))
+  end
+
+  @doc false
+  # Rounded up: "resets in 0 min" would read as "now" for most of a minute.
+  def format_limit_window(ms) when ms < 60_000,
+    do: gettext("%{count} s", count: max(ceil(ms / 1000), 1))
+
+  def format_limit_window(ms) when ms < 3_600_000 or rem(ms, 3_600_000) != 0,
+    do: gettext("%{count} min", count: ceil(ms / 60_000))
+
+  def format_limit_window(ms), do: gettext("%{count} h", count: div(ms, 3_600_000))
 
   def signed_preview_url(file_uuid, variant) do
     URLSigner.signed_url(file_uuid, variant)

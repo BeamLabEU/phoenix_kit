@@ -42,7 +42,7 @@ defmodule PhoenixKit.Users.MagicLinkRegistration do
     # success/already-registered responses back into an existence oracle via
     # timing — the exact shape password reset had to be fixed for.
     with true <- valid_email?(email),
-         :ok <- RateLimiter.check_registration_rate_limit(email, ip_address),
+         :ok <- RateLimiter.check_registration_rate_limit(email, ip_address, site_wide: true),
          nil <- Auth.get_user_by_email(email) do
       generate_and_send_token(email, opts[:locale])
     else
@@ -184,11 +184,15 @@ defmodule PhoenixKit.Users.MagicLinkRegistration do
 
     track_geolocation = Settings.get_boolean_setting("track_registration_geolocation", false)
 
+    # Not limited again: the request for this link was (address, IP and the
+    # site-wide cap), and holding the token proves the address. Charging the
+    # address bucket here as well left a person two tries at the form before
+    # "too many registration attempts".
     result =
       if track_geolocation && ip_address do
-        Auth.register_user_with_geolocation(attrs, ip_address)
+        Auth.register_user_with_geolocation(attrs, ip_address, rate_limit: false)
       else
-        Auth.register_user(attrs, ip_address)
+        Auth.register_user(attrs, ip_address, rate_limit: false)
       end
 
     case result do

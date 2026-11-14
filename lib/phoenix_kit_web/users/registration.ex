@@ -19,6 +19,7 @@ defmodule PhoenixKitWeb.Users.Registration do
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Users.Auth, as: WebAuth
   alias PhoenixKitWeb.Users.AuthSEO
+  alias PhoenixKitWeb.Users.BotCheck
 
   def mount(params, session, socket) do
     socket = assign(socket, :page_title, gettext("Register"))
@@ -126,7 +127,10 @@ defmodule PhoenixKitWeb.Users.Registration do
 
   def handle_event("save", %{"user" => user_params} = params, socket) do
     if Settings.get_boolean_setting("allow_registration", true) do
-      do_save(user_params, params, socket)
+      case BotCheck.run(socket, params, socket.assigns[:user_ip_address]) do
+        {:ok, socket} -> do_save(user_params, params, socket)
+        {:error, socket} -> {:noreply, socket}
+      end
     else
       # Re-checked here, not just in mount/3. A LiveView socket outlives the
       # page load that created it, so a form mounted while registration was open
@@ -196,9 +200,9 @@ defmodule PhoenixKitWeb.Users.Registration do
         # Use appropriate registration function based on geolocation setting
         registration_result =
           if track_geolocation do
-            Auth.register_user_with_geolocation(user_params, ip_address)
+            Auth.register_user_with_geolocation(user_params, ip_address, site_wide: true)
           else
-            Auth.register_user(user_params, ip_address)
+            Auth.register_user(user_params, ip_address, site_wide: true)
           end
 
         case registration_result do

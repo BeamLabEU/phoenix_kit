@@ -31,9 +31,12 @@ defmodule PhoenixKit.Users.RateLimiter do
         registration_window_ms: 3600_000,  # 1 hour window
         registration_ip_limit: 10,         # Max registrations per IP per window
         registration_ip_window_ms: 3600_000, # 1 hour window
-        # The three mail-sending endpoints (magic_link, password_reset,
-        # confirmation_resend) each take three buckets: per address, per IP,
-        # and one site-wide cap on how many the install will send at all.
+        registration_global_limit: 300,    # public sign-up forms only; nil = off
+        registration_global_window_ms: 3600_000,
+        # The mail-sending endpoints (magic_link, password_reset,
+        # confirmation_resend, and public registration) each take three
+        # buckets: per address, per IP, and one site-wide cap on how many the
+        # install will send at all.
         password_reset_ip_limit: 10,
         password_reset_ip_window_ms: 300_000,
         password_reset_global_limit: 100,      # nil switches the cap off
@@ -141,6 +144,21 @@ defmodule PhoenixKit.Users.RateLimiter do
     # Registration IP: 10 attempts per hour per IP
     registration_ip_limit: 10,
     registration_ip_window_ms: 3_600_000,
+    # Registration, site-wide: how many sign-ups the PUBLIC forms accept in an
+    # hour, whoever asks. Each one sends mail to an address nobody has proven
+    # (and the password form leaves a user row behind), so a botnet with a
+    # fresh address and a fresh IP per request is bounded by this alone.
+    #
+    # Charged only when the caller says the request is an anonymous one
+    # (`site_wide: true` — the kit's sign-up form and its magic-link request
+    # do). `Auth.register_user/3` without it — fixtures, seeds, imports, OAuth,
+    # the completion of a mailed link — never spends from it.
+    #
+    # The same warning as the caps above: an attacker who trips it stops real
+    # sign-ups until the hour rolls. RAISE IT before a launch or a campaign
+    # that sends a crowd to the sign-up form. `nil` switches it off.
+    registration_global_limit: 300,
+    registration_global_window_ms: 3_600_000,
     # QR login request creation: 10 per minute per IP (pre-auth, no email to key on)
     qr_login_limit: 10,
     qr_login_window_ms: 60_000,
@@ -324,7 +342,7 @@ defmodule PhoenixKit.Users.RateLimiter do
   Returns `:ok` if the request is allowed, or `{:error, :rate_limit_exceeded}` if the limit is exceeded.
 
   Guarded by all three buckets — address, IP and site-wide. See
-  `check_mail_endpoint/3` for why the order they are charged in matters.
+  `check_mail_endpoint/4` for why the order they are charged in matters.
   Pass the caller's IP whenever one is known; omitting it leaves only the
   address and site-wide buckets, which cannot see a spray.
 
@@ -350,7 +368,7 @@ defmodule PhoenixKit.Users.RateLimiter do
   measurable oracle for which addresses are registered but unconfirmed.
 
   Guarded by all three buckets — address, IP and site-wide. See
-  `check_mail_endpoint/3`.
+  `check_mail_endpoint/4`.
 
   ## Examples
 
@@ -370,7 +388,7 @@ defmodule PhoenixKit.Users.RateLimiter do
   while still allowing legitimate users to recover their accounts.
 
   Guarded by all three buckets — address, IP and site-wide. See
-  `check_mail_endpoint/3`.
+  `check_mail_endpoint/4`.
 
   ## Examples
 
@@ -390,9 +408,20 @@ defmodule PhoenixKit.Users.RateLimiter do
 
   Returns `:ok` if the request is allowed, or `{:error, :rate_limit_exceeded}` if the limit is exceeded.
 
-  Registration has dual rate limiting:
-  - Per-email rate limiting (prevents spam account creation with same email)
-  - Per-IP rate limiting (prevents mass account creation from single source)
+  Two buckets always, narrowest first:
+  - Per-email (prevents spam account creation with same email)
+  - Per-IP (prevents mass account creation from single source)
+
+  ## Options
+
+    * `:site_wide` - `true` also charges the install's hourly sign-up cap
+      (`registration_global_limit`), last, as the other mail-sending endpoints
+      do (see `check_mail_endpoint/4`). Pass it for a request made by an
+      anonymous visitor whose address nobody has proven: the public sign-up
+      form, the request for a registration link. Default `false`, so a
+      programmatic registration (a fixture, an import, an OAuth sign-up, the
+      completion of a mailed link) cannot be stopped by, and cannot drain, a
+      cap that exists to bound anonymous mail.
 
   ## Examples
 
@@ -403,40 +432,11 @@ defmodule PhoenixKit.Users.RateLimiter do
       iex> PhoenixKit.Users.RateLimiter.check_registration_rate_limit("user@example.com", "192.168.1.1")
       {:error, :rate_limit_exceeded}
   """
-  def check_registration_rate_limit(email, ip_address \\ nil) when is_binary(email) do
-    email = normalize_email(email)
-    config = get_config()
-
-    # Check email-based rate limit
-    email_key = "auth:registration:email:#{email}"
-    email_limit = Keyword.get(config, :registration_limit)
-    email_window = Keyword.get(config, :registration_window_ms)
-
-    case check_rate_limit(email_key, email_window, email_limit) do
-      :ok ->
-        # Also check IP-based rate limit if IP is provided
-        if ip_address do
-          ip = IpAddress.network(ip_address)
-          ip_key = "auth:registration:ip:#{ip}"
-          ip_limit = Keyword.get(config, :registration_ip_limit)
-          ip_window = Keyword.get(config, :registration_ip_window_ms)
-
-          case check_rate_limit(ip_key, ip_window, ip_limit) do
-            :ok ->
-              :ok
-
-            {:error, :rate_limit_exceeded} = error ->
-              log_rate_limit_violation("registration", "ip:#{ip}", ip_limit, ip_window)
-              error
-          end
-        else
-          :ok
-        end
-
-      {:error, :rate_limit_exceeded} = error ->
-        log_rate_limit_violation("registration", "email:#{email}", email_limit, email_window)
-        error
-    end
+  def check_registration_rate_limit(email, ip_address \\ nil, opts \\ [])
+      when is_binary(email) and is_list(opts) do
+    check_mail_endpoint("registration", email, ip_address,
+      site_wide: Keyword.get(opts, :site_wide, false)
+    )
   end
 
   @doc """
@@ -707,6 +707,84 @@ defmodule PhoenixKit.Users.RateLimiter do
     max(0, limit - count)
   end
 
+  @overview_actions ~w(login registration magic_link password_reset confirmation_resend)a
+
+  @doc """
+  The limits in force on the public sign-in and sign-up endpoints, with what
+  the site-wide buckets hold right now. Read by Settings → Authorization →
+  Abuse protection; reads the configuration and the counters, changes nothing.
+
+  One map per endpoint:
+
+      %{
+        action: :registration,
+        address: %{limit: 3, window_ms: 3_600_000},
+        ip: %{limit: 10, window_ms: 3_600_000},
+        site_wide: %{limit: 300, window_ms: 3_600_000, used: 12, resets_in_ms: 1_200_000}
+      }
+
+  `site_wide` is `nil` where the endpoint has no such cap (sign-in never has
+  one: it sends nothing) or the cap is switched off. `used` counts this node
+  only, like every bucket here.
+  """
+  @spec overview() :: [map()]
+  def overview do
+    config = get_config()
+    Enum.map(@overview_actions, &overview_row(&1, config))
+  end
+
+  defp overview_row(:login, config) do
+    limit = Keyword.get(config, :login_limit)
+    window = Keyword.get(config, :login_window_ms)
+
+    %{
+      action: :login,
+      address: %{limit: limit, window_ms: window},
+      # The multiplier `hit_login_ip/3` applies.
+      ip: %{limit: limit * 3, window_ms: window},
+      site_wide: nil
+    }
+  end
+
+  defp overview_row(action, config) do
+    %{
+      action: action,
+      address: %{
+        limit: Keyword.get(config, :"#{action}_limit"),
+        window_ms: Keyword.get(config, :"#{action}_window_ms")
+      },
+      ip: %{
+        limit: Keyword.get(config, :"#{action}_ip_limit"),
+        window_ms: Keyword.get(config, :"#{action}_ip_window_ms")
+      },
+      site_wide:
+        site_wide_state(
+          action,
+          Keyword.get(config, :"#{action}_global_limit"),
+          Keyword.get(config, :"#{action}_global_window_ms")
+        )
+    }
+  end
+
+  defp site_wide_state(_action, limit, _window) when limit in [nil, false], do: nil
+
+  defp site_wide_state(action, limit, window) do
+    %{
+      limit: limit,
+      window_ms: window,
+      used: min(global_count(action, window), limit),
+      # Hammer's windows are fixed: aligned to the clock, not to the first hit.
+      resets_in_ms: window - rem(System.system_time(:millisecond), window)
+    }
+  end
+
+  # A page must render whatever state the limiter is in.
+  defp global_count(action, window) do
+    Backend.get("auth:#{action}:global", window)
+  rescue
+    _ -> 0
+  end
+
   # Private functions
 
   # The three public endpoints that SEND MAIL on an unauthenticated request,
@@ -726,13 +804,17 @@ defmodule PhoenixKit.Users.RateLimiter do
   # nothing — drain the allowance for everybody else. Charged last it counts
   # mail this install would actually send, which is the thing being rationed,
   # and draining it costs an attacker a fresh address AND a fresh IP per hit.
-  defp check_mail_endpoint(action, email, ip_address) do
+  #
+  # Registration is the fourth, with one difference: only its public doors
+  # charge the site-wide bucket (`site_wide: false` otherwise — see
+  # `check_registration_rate_limit/3`).
+  defp check_mail_endpoint(action, email, ip_address, opts \\ []) do
     config = get_config()
     email = normalize_email(email)
 
     with :ok <-
            charge(
-             "auth:#{action}:#{email}",
+             address_key(action, email),
              Keyword.get(config, :"#{action}_window_ms"),
              Keyword.get(config, :"#{action}_limit"),
              action,
@@ -745,13 +827,22 @@ defmodule PhoenixKit.Users.RateLimiter do
              Keyword.get(config, :"#{action}_ip_window_ms"),
              Keyword.get(config, :"#{action}_ip_limit")
            ) do
-      charge_global(
-        action,
-        Keyword.get(config, :"#{action}_global_window_ms"),
-        Keyword.get(config, :"#{action}_global_limit")
-      )
+      if Keyword.get(opts, :site_wide, true) do
+        charge_global(
+          action,
+          Keyword.get(config, :"#{action}_global_window_ms"),
+          Keyword.get(config, :"#{action}_global_limit")
+        )
+      else
+        :ok
+      end
     end
   end
+
+  # Registration's address bucket has always carried an `email:` segment, and
+  # `get_remaining_attempts/2` reads it under that name.
+  defp address_key("registration", email), do: "auth:registration:email:#{email}"
+  defp address_key(action, email), do: "auth:#{action}:#{email}"
 
   defp charge(key, window, limit, action, identifier) do
     case check_rate_limit(key, window, limit) do

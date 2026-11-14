@@ -15113,6 +15113,88 @@ if (typeof window.Chart === "undefined") {
   }
 })();
 
+// ---------------------------------------------------------------------------
+// Turnstile
+//
+// The Cloudflare Turnstile widget of a public form
+// (`PhoenixKitWeb.Components.Core.TurnstileWidget`, `PhoenixKit.Users.Turnstile`).
+// Loads Cloudflare's script once, on the first page that has a widget, and
+// renders into the hook element, which sits inside the form with
+// `phx-update="ignore"`: the script adds the hidden `cf-turnstile-response`
+// field there and the form's submit carries it. A token is good for one
+// verification, so the server asks for a new one after each submit it checked
+// (`phoenix_kit:turnstile_reset`).
+//
+// If the script cannot load (blocked, offline, a Content-Security-Policy
+// without challenges.cloudflare.com), the element gets `data-turnstile-failed`.
+// ---------------------------------------------------------------------------
+(function () {
+  var SCRIPT_URL = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+  var loading = null;
+
+  function loadTurnstile() {
+    if (window.turnstile) return Promise.resolve(window.turnstile);
+    if (loading) return loading;
+
+    loading = new Promise(function (resolve, reject) {
+      var script = document.createElement("script");
+      script.src = SCRIPT_URL;
+      script.async = true;
+      script.defer = true;
+      script.onload = function () {
+        if (window.turnstile) resolve(window.turnstile);
+        else { loading = null; reject(new Error("Turnstile did not initialise")); }
+      };
+      script.onerror = function () {
+        loading = null;
+        script.remove();
+        reject(new Error("Turnstile could not be loaded"));
+      };
+      document.head.appendChild(script);
+    });
+
+    return loading;
+  }
+
+  var Turnstile = {
+    mounted() {
+      var self = this;
+      this.widgetId = null;
+      this.gone = false;
+
+      loadTurnstile().then(function (turnstile) {
+        // The page may have been left while the script was loading.
+        if (self.gone || !self.el.isConnected) return;
+        self.widgetId = turnstile.render(self.el, {
+          sitekey: self.el.dataset.sitekey,
+          theme: "auto"
+        });
+      }).catch(function () {
+        self.el.setAttribute("data-turnstile-failed", "");
+      });
+
+      this.handleEvent("phoenix_kit:turnstile_reset", function () {
+        if (self.widgetId !== null && window.turnstile) {
+          try { window.turnstile.reset(self.widgetId); } catch (_err) { /* already gone */ }
+        }
+      });
+    },
+
+    destroyed() {
+      this.gone = true;
+      if (this.widgetId !== null && window.turnstile) {
+        try { window.turnstile.remove(this.widgetId); } catch (_err) { /* already gone */ }
+      }
+      this.widgetId = null;
+    }
+  };
+
+  if (typeof window !== "undefined") {
+    window.PhoenixKitHooks = window.PhoenixKitHooks || {};
+    window.PhoenixKitHooks.Turnstile = Turnstile;
+  }
+})();
+
 // >>> phoenix_kit_upload_manager.js >>> (a verbatim copy; edit that file, then copy it back between these markers)
 // ============================================================================
 // UploadManager — a queue, a speed readout and per-file controls for any

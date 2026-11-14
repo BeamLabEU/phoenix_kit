@@ -118,6 +118,7 @@ defmodule PhoenixKitWeb do
       import PhoenixKitWeb.Components.Core.Textarea
       import PhoenixKitWeb.Components.Core.Select
       import PhoenixKitWeb.Components.Core.Checkbox
+      import PhoenixKitWeb.Components.Core.TurnstileWidget
       import PhoenixKitWeb.Components.Core.SimpleForm
       import PhoenixKitWeb.Components.Core.ThemeSwitcher
       import PhoenixKitWeb.Components.Core.Badge

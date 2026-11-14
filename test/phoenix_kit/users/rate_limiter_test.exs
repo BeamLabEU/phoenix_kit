@@ -502,6 +502,94 @@ defmodule PhoenixKit.Users.RateLimiterTest do
                RateLimiter.check_magic_link_rate_limit("other_#{id}_c@e.com", "10.1.0.4")
     end
 
+    # The registration counter is one for the whole run and other files spend
+    # from it, so a limit here is "what it holds now, plus n".
+    defp registration_headroom(previous, n) do
+      with_global_limit(previous, :registration_global_limit, 1_000_000_000)
+      used = Enum.find(RateLimiter.overview(), &(&1.action == :registration)).site_wide.used
+      with_global_limit(previous, :registration_global_limit, used + n)
+    end
+
+    test "registration: only a request marked site_wide spends the cap",
+         %{previous: previous} do
+      registration_headroom(previous, 3)
+      id = :erlang.unique_integer([:positive])
+
+      # Fixtures, imports, OAuth sign-ups: any number, the cap untouched.
+      for n <- 1..10 do
+        assert :ok = RateLimiter.check_registration_rate_limit("prog_#{id}_#{n}@e.com")
+      end
+
+      # The public forms: a fresh address and a fresh IP each time, so only the
+      # site-wide bucket can be what stops the fourth.
+      for n <- 1..3 do
+        assert :ok =
+                 RateLimiter.check_registration_rate_limit(
+                   "anon_#{id}_#{n}@e.com",
+                   "10.3.#{n}.1",
+                   site_wide: true
+                 )
+      end
+
+      assert {:error, :rate_limit_exceeded} =
+               RateLimiter.check_registration_rate_limit("anon_#{id}_4@e.com", "10.3.4.1",
+                 site_wide: true
+               )
+
+      # ...and a tripped cap still does not stop a programmatic registration.
+      assert :ok = RateLimiter.check_registration_rate_limit("prog_#{id}_after@e.com")
+    end
+
+    test "registration: a request the address bucket refused does not spend the cap",
+         %{previous: previous} do
+      registration_headroom(previous, 4)
+      id = :erlang.unique_integer([:positive])
+      victim = "reg_victim_#{id}@example.com"
+
+      for _ <- 1..20 do
+        RateLimiter.check_registration_rate_limit(victim, "10.4.0.1", site_wide: true)
+      end
+
+      # Three accepted for the victim; one of the four is left.
+      assert :ok =
+               RateLimiter.check_registration_rate_limit("reg_o_#{id}@e.com", "10.4.0.2",
+                 site_wide: true
+               )
+
+      assert {:error, :rate_limit_exceeded} =
+               RateLimiter.check_registration_rate_limit("reg_p_#{id}@e.com", "10.4.0.3",
+                 site_wide: true
+               )
+    end
+
+    test "overview/0 reports the limits and what the site-wide bucket holds",
+         %{previous: previous} do
+      with_global_limit(previous, :registration_global_limit, 1_000_000_000)
+      id = :erlang.unique_integer([:positive])
+
+      before = Enum.find(RateLimiter.overview(), &(&1.action == :registration))
+
+      RateLimiter.check_registration_rate_limit("ov_#{id}@e.com", "10.5.0.1", site_wide: true)
+
+      row = Enum.find(RateLimiter.overview(), &(&1.action == :registration))
+
+      assert row.address == %{limit: 3, window_ms: 3_600_000}
+      assert row.ip == %{limit: 10, window_ms: 3_600_000}
+      assert %{limit: 1_000_000_000, window_ms: 3_600_000} = row.site_wide
+      assert row.site_wide.used == before.site_wide.used + 1
+      assert row.site_wide.resets_in_ms in 1..3_600_000
+
+      assert Enum.map(RateLimiter.overview(), & &1.action) ==
+               [:login, :registration, :magic_link, :password_reset, :confirmation_resend]
+
+      # Sign-in has no site-wide cap, and a cap switched off reads as none.
+      assert %{site_wide: nil, ip: %{limit: 15}} =
+               Enum.find(RateLimiter.overview(), &(&1.action == :login))
+
+      with_global_limit(previous, :registration_global_limit, nil)
+      assert %{site_wide: nil} = Enum.find(RateLimiter.overview(), &(&1.action == :registration))
+    end
+
     test "nil switches the cap off", %{previous: previous} do
       with_global_limit(previous, :confirmation_resend_global_limit, nil)
       id = :erlang.unique_integer([:positive])

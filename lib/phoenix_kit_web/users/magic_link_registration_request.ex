@@ -14,6 +14,7 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistrationRequest do
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Users.Auth
   alias PhoenixKitWeb.Users.AuthSEO
+  alias PhoenixKitWeb.Users.BotCheck
 
   @impl true
   def mount(_params, _session, socket) do
@@ -58,25 +59,32 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistrationRequest do
   end
 
   @impl true
-  def handle_event("send_magic_link", %{"email" => email}, socket) do
+  def handle_event("send_magic_link", %{"email" => _} = params, socket) do
     if Settings.get_boolean_setting("allow_registration", true) do
-      # Send in the background via start_async so the `@loading` spinner
-      # actually renders (a synchronous handler never re-renders with
-      # loading: true before completing). Mirrors PhoenixKitWeb.Users.MagicLink.
-      email = String.trim(email)
-
-      {:noreply,
-       socket
-       |> assign(:email, email)
-       |> assign(:loading, true)
-       |> assign(:error_message, nil)
-       |> send_registration_link_async(email)}
+      case BotCheck.run(socket, params, socket.assigns[:ip_address]) do
+        {:ok, socket} -> request_link(params, socket)
+        {:error, socket} -> {:noreply, socket}
+      end
     else
       {:noreply,
        socket
        |> put_flash(:error, gettext("User registration is currently disabled."))
        |> redirect(to: Routes.path("/users/log-in"))}
     end
+  end
+
+  defp request_link(%{"email" => email}, socket) do
+    # Send in the background via start_async so the `@loading` spinner
+    # actually renders (a synchronous handler never re-renders with
+    # loading: true before completing). Mirrors PhoenixKitWeb.Users.MagicLink.
+    email = String.trim(email)
+
+    {:noreply,
+     socket
+     |> assign(:email, email)
+     |> assign(:loading, true)
+     |> assign(:error_message, nil)
+     |> send_registration_link_async(email)}
   end
 
   @impl true

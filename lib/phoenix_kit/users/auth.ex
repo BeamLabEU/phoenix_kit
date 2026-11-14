@@ -435,6 +435,18 @@ defmodule PhoenixKit.Users.Auth do
   This function includes rate limiting protection to prevent spam account creation.
   Rate limits apply per email address and optionally per IP address.
 
+  ## Options
+
+    * `:site_wide` - `true` for a request made by an anonymous visitor through
+      a public form: the registration also counts against the install's hourly
+      sign-up cap (`RateLimiter.check_registration_rate_limit/3`). The kit's
+      own sign-up form passes it; a host's public form should too. Default
+      `false`.
+    * `:rate_limit` - `false` skips the limiter altogether. Only for a caller
+      whose request was already limited and whose address is already proven:
+      the completion of a mailed registration link, charged when the link was
+      asked for.
+
   ## Examples
 
       iex> register_user(%{field: value})
@@ -450,11 +462,11 @@ defmodule PhoenixKit.Users.Auth do
       {:ok, %User{}}
 
   """
-  def register_user(attrs, ip_address \\ nil) do
+  def register_user(attrs, ip_address \\ nil, opts \\ []) do
     # Check rate limit before attempting registration
     email = attrs["email"] || attrs[:email] || ""
 
-    case RateLimiter.check_registration_rate_limit(email, ip_address) do
+    case registration_rate_limit(email, ip_address, opts) do
       :ok ->
         do_register_user(attrs)
 
@@ -469,6 +481,16 @@ defmodule PhoenixKit.Users.Auth do
           )
 
         {:error, changeset}
+    end
+  end
+
+  defp registration_rate_limit(email, ip_address, opts) do
+    if Keyword.get(opts, :rate_limit, true) do
+      RateLimiter.check_registration_rate_limit(email, ip_address,
+        site_wide: Keyword.get(opts, :site_wide, false)
+      )
+    else
+      :ok
     end
   end
 
@@ -541,6 +563,7 @@ defmodule PhoenixKit.Users.Auth do
   If geolocation lookup fails, the user is still registered with just the IP address.
 
   This function automatically applies rate limiting based on the IP address.
+  `opts` are `register_user/3`'s.
 
   ## Examples
 
@@ -550,7 +573,9 @@ defmodule PhoenixKit.Users.Auth do
       iex> register_user_with_geolocation(%{email: "invalid"}, "192.168.1.1")
       {:error, %Ecto.Changeset{}}
   """
-  def register_user_with_geolocation(attrs, ip_address)
+  def register_user_with_geolocation(attrs, ip_address, opts \\ [])
+
+  def register_user_with_geolocation(attrs, ip_address, opts)
       when is_binary(ip_address) and ip_address != "unknown" do
     # `attrs` may arrive atom-keyed (e.g. the OAuth registration path) or
     # string-keyed (e.g. form params). Normalize to string keys before
@@ -580,24 +605,24 @@ defmodule PhoenixKit.Users.Auth do
         Logger.info("PhoenixKit: Successful geolocation lookup for IP #{ip_address}")
 
         # Pass IP address for rate limiting
-        register_user(enhanced_attrs, ip_address)
+        register_user(enhanced_attrs, ip_address, opts)
 
       {:error, reason} ->
         # Log the error but continue with registration
         Logger.warning("PhoenixKit: Geolocation lookup failed for IP #{ip_address}: #{reason}")
 
         # Register user with just IP address
-        register_user(enhanced_attrs, ip_address)
+        register_user(enhanced_attrs, ip_address, opts)
     end
   end
 
-  def register_user_with_geolocation(attrs, _invalid_or_unknown_ip) do
+  def register_user_with_geolocation(attrs, _invalid_or_unknown_ip, opts) do
     # No usable IP (nil, "unknown", or anything else non-address-shaped) —
     # register without geolocation data and without a bogus `registration_ip`.
     # A literal "unknown" here previously got stored as if it were an IP
     # (the `is_binary` guard above didn't exclude it) and rendered verbatim
     # in the admin UI.
-    register_user(attrs, nil)
+    register_user(attrs, nil, opts)
   end
 
   defp stringify_keys(attrs) do

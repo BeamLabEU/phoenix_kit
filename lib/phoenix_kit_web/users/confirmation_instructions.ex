@@ -45,6 +45,7 @@ defmodule PhoenixKitWeb.Users.ConfirmationInstructions do
   alias PhoenixKit.Users.RateLimiter
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.Users.BotCheck
 
   def mount(params, session, socket) do
     socket = assign(socket, :page_title, gettext("Resend confirmation"))
@@ -99,7 +100,38 @@ defmodule PhoenixKitWeb.Users.ConfirmationInstructions do
     end
   end
 
-  def handle_event("send_instructions", %{"user" => %{"email" => submitted_email}}, socket) do
+  def handle_event("send_instructions", %{"user" => %{"email" => _}} = params, socket) do
+    case BotCheck.run(socket, params, socket.assigns[:ip_address]) do
+      {:ok, socket} -> send_instructions(params, socket)
+      {:error, socket} -> {:noreply, socket}
+    end
+  end
+
+  def handle_event("toggle_change_email", _params, socket) do
+    if socket.assigns.awaiting_confirmation? do
+      {:noreply, update(socket, :change_email?, &(!&1))}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("validate_email_change", params, socket) do
+    if socket.assigns.awaiting_confirmation? do
+      {:noreply, do_validate_email_change(params, socket)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("update_email", params, socket) do
+    if socket.assigns.awaiting_confirmation? do
+      {:noreply, do_update_email(params, socket)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  defp send_instructions(%{"user" => %{"email" => submitted_email}}, socket) do
     # A parked visitor is already authenticated — resend to THEIR account,
     # never whatever the (still-editable) form field currently holds. Without
     # this, a logged-in unconfirmed user could edit the pre-filled field to
@@ -142,30 +174,6 @@ defmodule PhoenixKitWeb.Users.ConfirmationInstructions do
       {:noreply, assign(socket, confirmation_sent_at: sent_at)}
     else
       {:noreply, redirect(socket, to: socket.assigns.destination)}
-    end
-  end
-
-  def handle_event("toggle_change_email", _params, socket) do
-    if socket.assigns.awaiting_confirmation? do
-      {:noreply, update(socket, :change_email?, &(!&1))}
-    else
-      {:noreply, socket}
-    end
-  end
-
-  def handle_event("validate_email_change", params, socket) do
-    if socket.assigns.awaiting_confirmation? do
-      {:noreply, do_validate_email_change(params, socket)}
-    else
-      {:noreply, socket}
-    end
-  end
-
-  def handle_event("update_email", params, socket) do
-    if socket.assigns.awaiting_confirmation? do
-      {:noreply, do_update_email(params, socket)}
-    else
-      {:noreply, socket}
     end
   end
 

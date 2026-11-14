@@ -11,6 +11,7 @@ defmodule PhoenixKitWeb.Users.ForgotPassword do
   alias PhoenixKit.Users.RateLimiter
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.Users.BotCheck
 
   def mount(_params, _session, socket) do
     socket = assign(socket, :page_title, gettext("Forgot your password?"))
@@ -29,7 +30,14 @@ defmodule PhoenixKitWeb.Users.ForgotPassword do
     end
   end
 
-  def handle_event("send_email", %{"user" => %{"email" => email}}, socket) do
+  def handle_event("send_email", %{"user" => %{"email" => _}} = params, socket) do
+    case BotCheck.run(socket, params, socket.assigns[:ip_address]) do
+      {:ok, socket} -> send_email(params, socket)
+      {:error, socket} -> {:noreply, socket}
+    end
+  end
+
+  defp send_email(%{"user" => %{"email" => email}}, socket) do
     # Rate-limit BEFORE the lookup, and answer identically whatever happens.
     # The limiter used to run inside deliver_*, i.e. only for addresses that
     # resolved to a user — so past the threshold a registered address got

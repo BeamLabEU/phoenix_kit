@@ -83,7 +83,8 @@ config :phoenix_kit, PhoenixKit.Users.RateLimiter,
   # for themselves.
   magic_link_global_limit: nil,
   password_reset_global_limit: nil,
-  confirmation_resend_global_limit: nil
+  confirmation_resend_global_limit: nil,
+  registration_global_limit: nil
 
 # Configure session fingerprinting for tests
 config :phoenix_kit,

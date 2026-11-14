@@ -143,6 +143,7 @@ defmodule PhoenixKit.Settings do
     aws_secret_access_key
     website_access_password
     website_access_link_token
+    turnstile_secret_key
     billing_stripe_secret_key
     billing_stripe_webhook_secret
     billing_stripe_api_key
@@ -415,6 +416,10 @@ defmodule PhoenixKit.Settings do
       # private key set before it ships is never stored in the clear (see
       # @restricted_setting_keys).
       "oauth_apple_private_key" => "",
+      # Cloudflare Turnstile's secret (`PhoenixKit.Users.Turnstile`, which reads
+      # its other two keys with explicit defaults). Restricted: encrypted at
+      # rest, withheld from the settings history.
+      "turnstile_secret_key" => "",
       # Billing-provider secrets. Written by the separate phoenix_kit_billing
       # package through this same table — core carries no other knowledge of
       # these keys, only enough to classify them (see
@@ -1542,7 +1547,8 @@ defmodule PhoenixKit.Settings do
   # page), who sees the site (the password gate, the redirect, site close, the
   # allow list — the Website access page) and how new accounts are made
   # (registration and the new-user default role / status, on Settings → Users).
-  @security_setting_prefixes ~w(oauth_ website_access_ maintenance_)
+  # `turnstile_*`: the bot check of the public forms (`PhoenixKit.Users.Turnstile`).
+  @security_setting_prefixes ~w(oauth_ website_access_ maintenance_ turnstile_)
   # Every key the Authorization and Website access pages write, except the
   # site-wide ones they also carry as hidden fields (`project_title`,
   # `site_url`, the date/time keys) — those belong to General.

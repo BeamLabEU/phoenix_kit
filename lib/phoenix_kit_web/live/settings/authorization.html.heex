@@ -785,7 +785,7 @@
           </div>
 
           <%!-- Action Buttons --%>
-          <div class="flex gap-3 pt-4">
+          <div class={["flex gap-3 pt-4", @active_tab == "protection" && "hidden"]}>
             <button
               type="submit"
               class={[
@@ -802,6 +802,182 @@
             </button>
           </div>
         </.form>
+
+        <%!-- Outside the settings form on purpose: the limits are read-only and
+             Turnstile saves through its own form (its secret never goes into
+             the settings changeset). --%>
+        <div class={["mt-6", @active_tab != "protection" && "hidden"]}>
+          <div class="fieldset w-full">
+            <label class="label">
+              <span class="fieldset-legend text-base font-medium">
+                {gettext("Request limits")}
+              </span>
+              <span class="fieldset-label text-sm text-base-content/60">
+                {gettext(
+                  "How many requests the public sign-in and sign-up pages accept. A request is refused as soon as one of its limits is reached."
+                )}
+              </span>
+            </label>
+
+            <div class="overflow-x-auto">
+              <table id="request-limits-table" class="table table-sm">
+                <thead>
+                  <tr>
+                    <th>{gettext("Page")}</th>
+                    <th>{gettext("Per email address")}</th>
+                    <th>{gettext("Per network (IP)")}</th>
+                    <th>{gettext("Whole site")}</th>
+                    <th>{gettext("Used now")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr :for={row <- @request_limits} id={"request-limit-#{row.action}"}>
+                    <td class="font-medium">{request_limit_label(row.action)}</td>
+                    <td>{format_request_limit(row.address)}</td>
+                    <td>{format_request_limit(row.ip)}</td>
+                    <%= if row.site_wide do %>
+                      <td>{format_request_limit(row.site_wide)}</td>
+                      <td>
+                        <div class="flex flex-wrap items-center gap-2">
+                          <span class={[
+                            "badge badge-sm",
+                            if(row.site_wide.used >= row.site_wide.limit,
+                              do: "badge-error",
+                              else: "badge-ghost"
+                            )
+                          ]}>
+                            <%= if row.site_wide.used >= row.site_wide.limit do %>
+                              {gettext("Limit reached")}
+                            <% else %>
+                              {gettext("%{used} of %{limit}",
+                                used: row.site_wide.used,
+                                limit: row.site_wide.limit
+                              )}
+                            <% end %>
+                          </span>
+                          <span class="text-xs text-base-content/60">
+                            {gettext("resets in %{time}",
+                              time: format_limit_window(row.site_wide.resets_in_ms)
+                            )}
+                          </span>
+                        </div>
+                      </td>
+                    <% else %>
+                      <td class="text-base-content/60">{gettext("No limit")}</td>
+                      <td class="text-base-content/60">—</td>
+                    <% end %>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="mt-3 space-y-2 text-sm text-base-content/70">
+              <p>
+                {gettext(
+                  "The whole-site limit is a circuit breaker. Once it is reached, that page refuses everyone until it resets, so raise it before a launch or anything else that sends many people to one of these pages at once."
+                )}
+              </p>
+              <p>
+                {gettext(
+                  "The registration limit counts the public sign-up forms only. Sign-ups through a sign-in provider such as Google, and users an admin adds, are not counted."
+                )}
+              </p>
+              <p>
+                {gettext(
+                  "The limits are set in the application's configuration and are counted separately on each server."
+                )}
+                <code class="text-xs">config :phoenix_kit, PhoenixKit.Users.RateLimiter</code>
+              </p>
+            </div>
+
+            <div class="mt-3">
+              <button
+                type="button"
+                phx-click="refresh_request_limits"
+                class="btn btn-sm btn-outline"
+              >
+                <PhoenixKitWeb.Components.Core.Icons.icon_refresh class="h-4 w-4" />
+                {gettext("Refresh")}
+              </button>
+            </div>
+          </div>
+
+          <form
+            id="turnstile-settings-form"
+            phx-submit="save_turnstile"
+            class="fieldset w-full mt-8"
+            autocomplete="off"
+          >
+            <label class="label">
+              <span class="fieldset-legend text-base font-medium">
+                {gettext("Cloudflare Turnstile")}
+              </span>
+              <span class="fieldset-label text-sm text-base-content/60">
+                {gettext("A check that the visitor is a person, before a form sends an email")}
+              </span>
+            </label>
+
+            <.checkbox
+              id="turnstile-enabled"
+              name="turnstile[enabled]"
+              checked={@turnstile.enabled}
+              label={gettext("Enable Cloudflare Turnstile")}
+            >
+              <:description>
+                {gettext(
+                  "Shown on the sign-up, registration link, password reset, magic link and confirmation resend forms. A request without a passed check is refused before it counts against any limit above."
+                )}
+              </:description>
+            </.checkbox>
+
+            <div class="mt-3 grid gap-3 max-w-xl">
+              <.input
+                id="turnstile-site-key"
+                type="text"
+                name="turnstile[site_key]"
+                value={@turnstile.site_key}
+                label={gettext("Site key")}
+                autocomplete="off"
+              />
+              <.input
+                id="turnstile-secret-key"
+                type="password"
+                name="turnstile[secret_key]"
+                value=""
+                label={gettext("Secret key")}
+                placeholder={
+                  if @turnstile.secret_set?,
+                    do: gettext("Saved. Leave blank to keep it"),
+                    else: gettext("Not set")
+                }
+                autocomplete="new-password"
+              />
+            </div>
+
+            <div class="mt-3 space-y-2 text-sm text-base-content/70">
+              <p>
+                {gettext(
+                  "Both keys come from the Cloudflare dashboard: Turnstile, Add widget, with this site's domain. The secret key is checked with Cloudflare when you save and is never shown again."
+                )}
+              </p>
+              <p>
+                {gettext(
+                  "If Cloudflare cannot be reached, the forms keep working on the request limits alone."
+                )}
+              </p>
+            </div>
+
+            <div class="mt-3">
+              <button
+                type="submit"
+                class="btn btn-primary btn-sm"
+                phx-disable-with={gettext("Saving...")}
+              >
+                {gettext("Save Turnstile settings")}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   </div>

@@ -37,9 +37,12 @@ defmodule PhoenixKit.Test.SecretKeyPerimeter do
   # when the generic "ends in _key" rule below would otherwise catch it —
   # the same reasoning settings.ex's own comment gives for
   # oauth_*_client_id/oauth_*_app_id, core's own public OAuth identifiers.
+  # `_site_key`: Cloudflare Turnstile's public half, printed into every page
+  # that shows the widget (its secret half is `turnstile_secret_key`).
   @secret_suffix_exclusions ~w(
     _client_id
     _app_id
+    _site_key
   )
 
   @secret_substrings ~w(secret password private_key api_key token credential passphrase)

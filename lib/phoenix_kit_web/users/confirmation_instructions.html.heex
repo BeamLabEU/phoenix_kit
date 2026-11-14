@@ -52,6 +52,7 @@
       <% else %>
         <.input field={@form[:email]} type="email" label={gettext("Email")} required />
       <% end %>
+      <.turnstile_widget id="resend-confirmation-turnstile" />
       <button
         type="submit"
         phx-disable-with={gettext("Sending...")}

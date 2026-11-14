@@ -20,6 +20,7 @@ defmodule PhoenixKitWeb.Users.MagicLink do
   alias PhoenixKit.Utils.RecipientLocale
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Users.Auth
+  alias PhoenixKitWeb.Users.BotCheck
 
   @impl true
   def mount(params, session, socket) do
@@ -83,7 +84,14 @@ defmodule PhoenixKitWeb.Users.MagicLink do
   end
 
   @impl true
-  def handle_event("send_magic_link", %{"magic_link" => %{"email" => email}}, socket) do
+  def handle_event("send_magic_link", %{"magic_link" => %{"email" => _}} = params, socket) do
+    case BotCheck.run(socket, params, socket.assigns[:ip_address]) do
+      {:ok, socket} -> request_magic_link(params, socket)
+      {:error, socket} -> {:noreply, socket}
+    end
+  end
+
+  defp request_magic_link(%{"magic_link" => %{"email" => email}}, socket) do
     if valid_email?(email) do
       form = to_form(%{"email" => email}, as: "magic_link")
 
