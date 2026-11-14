@@ -43,6 +43,18 @@ Run `mix phoenix_kit.update` (V230, V231 and the new `phoenix_kit.js`).
 
 ### Fixed
 
+- **Invite-only: a person an admin adds is no longer parked on the code screen, and
+  the code form speaks the site language.** With `referral_codes_required` on, an
+  account added from Admin → Users or by a managed-organization flow was sent to
+  `/users/referral` at its first sign-in, holding a password the admin had given and
+  no code anyone could issue. `Auth.admin_create_user/2` now marks the account as
+  admitted (`referral_satisfied_via: "admin_created"`), whether or not invite-only
+  is on at that moment. `Referrals.validate_for_signup/2` returned its three
+  rejections ("Referral code is required", "That code can't be used", "Too many
+  attempts. Please try again shortly.") as English literals, which the registration
+  and magic-link forms print as they are; they now go through gettext, and
+  "Referral code is required" is added to the template and to the ten catalogues.
+
 - **A long or private video keeps playing and seeking.** A video on a `"signed"`
   bucket was redirected to a link that lived 5 minutes, and a browser reads that
   link for as long as the video plays: after 5 minutes every seek failed. Video and
