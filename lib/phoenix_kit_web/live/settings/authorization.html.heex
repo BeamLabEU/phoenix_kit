@@ -903,6 +903,57 @@
           </div>
 
           <form
+            id="email-check-settings-form"
+            phx-submit="save_email_check"
+            class="fieldset w-full mt-8"
+          >
+            <label class="label">
+              <span class="fieldset-legend text-base font-medium">
+                {gettext("Email address check")}
+              </span>
+              <span class="fieldset-label text-sm text-base-content/60">
+                {gettext("Stops sign-ups for addresses that can only bounce")}
+              </span>
+            </label>
+
+            <.checkbox
+              id="email-domain-check-enabled"
+              name="email_check[enabled]"
+              checked={@email_domain_check.enabled}
+              label={gettext("Check the email address at sign-up")}
+            >
+              <:description>
+                {gettext(
+                  "On the sign-up and registration link forms: an address whose domain cannot receive mail is refused, and a likely typo (gmial.com) gets a \"Did you mean\" hint the person can accept or ignore. If the domain cannot be looked up in time, the address is accepted."
+                )}
+              </:description>
+            </.checkbox>
+
+            <p :if={@email_domain_check.overridden} class="mt-2 text-sm text-warning">
+              {gettext(
+                "Switched off in the application's configuration; this setting has no effect."
+              )}
+              <code class="text-xs">config :phoenix_kit, :email_domain_check, false</code>
+            </p>
+
+            <p class="mt-3 text-sm text-base-content/70">
+              {gettext(
+                "An account that has not confirmed its address gets only the mail its holder asks for (the confirmation, a password reset, a sign-in link): no notifications, digests or security alerts."
+              )}
+            </p>
+
+            <div class="mt-3">
+              <button
+                type="submit"
+                class="btn btn-primary btn-sm"
+                phx-disable-with={gettext("Saving...")}
+              >
+                {gettext("Save email address check")}
+              </button>
+            </div>
+          </form>
+
+          <form
             id="turnstile-settings-form"
             phx-submit="save_turnstile"
             class="fieldset w-full mt-8"

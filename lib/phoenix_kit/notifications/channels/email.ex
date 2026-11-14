@@ -47,8 +47,13 @@ defmodule PhoenixKit.Notifications.Channels.Email do
     user = Auth.get_user(envelope.recipient_uuid)
 
     case User.delivery_email(user) do
+      # An address nobody has proven gets no notification mail
+      # (`Auth.unsolicited_mail_allowed?/1`). `:ok`, not an error: a permanent
+      # error switches the channel off, and it must work once they confirm.
       address when is_binary(address) and address != "" ->
-        send_email(user, address, envelope)
+        if Auth.unsolicited_mail_allowed?(user),
+          do: send_email(user, address, envelope),
+          else: :ok
 
       _ ->
         {:error, {:permanent, :no_recipient_email}}

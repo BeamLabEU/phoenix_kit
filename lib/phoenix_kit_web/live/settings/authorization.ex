@@ -10,6 +10,7 @@ defmodule PhoenixKitWeb.Live.Settings.Authorization do
 
   alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.EmailDomain
   alias PhoenixKit.Users.OAuthConfig
   alias PhoenixKit.Users.Passkeys
   alias PhoenixKit.Users.RateLimiter
@@ -92,6 +93,7 @@ defmodule PhoenixKitWeb.Live.Settings.Authorization do
       |> assign(:request_limits, RateLimiter.overview())
       # The switch, the site key and whether a secret is saved; never the secret.
       |> assign(:turnstile, Turnstile.config())
+      |> assign(:email_domain_check, email_domain_check_state())
 
     {:noreply, socket}
   end
@@ -128,6 +130,26 @@ defmodule PhoenixKitWeb.Live.Settings.Authorization do
 
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, turnstile_error(reason))}
+    end
+  end
+
+  # Its own form too: one switch, written straight to its setting.
+  def handle_event("save_email_check", params, socket) do
+    enabled? = get_in(params, ["email_check", "enabled"]) == "true"
+
+    case Settings.update_boolean_setting(EmailDomain.setting_key(), enabled?,
+           actor_uuid: Actor.uuid(socket),
+           source: "settings"
+         ) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> assign(:email_domain_check, email_domain_check_state())
+         |> put_flash(:info, gettext("Email address check saved."))}
+
+      {:error, _} ->
+        {:noreply,
+         put_flash(socket, :error, gettext("The email address check could not be saved."))}
     end
   end
 
@@ -360,6 +382,15 @@ defmodule PhoenixKitWeb.Live.Settings.Authorization do
     |> Map.values()
     |> List.flatten()
     |> Enum.join(", ")
+  end
+
+  # `enabled`: what the switch is saved as. `overridden`: the application
+  # configuration switches the check off whatever the setting says.
+  defp email_domain_check_state do
+    %{
+      enabled: Settings.get_boolean_setting(EmailDomain.setting_key(), true),
+      overridden: Application.get_env(:phoenix_kit, :email_domain_check, true) == false
+    }
   end
 
   defp turnstile_error(:site_key_required),

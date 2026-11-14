@@ -19,6 +19,8 @@ defmodule PhoenixKit.Email.DialectLocaleTest do
     %User{
       uuid: Ecto.UUID.generate(),
       email: "reader@example.test",
+      # Confirmed: the alerts go only to a proven address.
+      confirmed_at: ~U[2026-01-01 00:00:00Z],
       custom_fields: %{"preferred_locale" => locale}
     }
   end

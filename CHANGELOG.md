@@ -68,8 +68,30 @@ Run `mix phoenix_kit.update` (V230, V231 and the new `phoenix_kit.js`).
   `PhoenixKitWeb.Users.BotCheck.run/3` first in its submit.
   `PhoenixKit.Users.Turnstile`, `PhoenixKitWeb.Components.Core.TurnstileWidget`.
 
+- **An email address check at sign-up**, on by default: Settings → Authorization →
+  Abuse protection (`email_domain_check_enabled`). On the sign-up form and the
+  registration-link request, an address whose domain cannot receive mail is
+  refused before anything is sent (the domain does not exist, has neither a mail
+  host nor an address, or publishes a null MX), and a likely typo of a big
+  provider (`gmial.com`, `hotmail.con`) gets a "Did you mean …@gmail.com?" hint
+  the person can take or ignore. Only a definite DNS answer refuses: a timeout
+  or a resolver error lets the address through. The lookup runs on submit, after
+  the bot check and the rate limiter. `Auth.register_user/3` checks only with
+  `check_email_domain: true`. ⚠️ A host test suite that signs up through the
+  kit's form with `@example.com` addresses (a domain that really publishes "no
+  mail") sets `config :phoenix_kit, :email_domain_check, false` in its
+  `config/test.exs`. `PhoenixKit.Users.EmailDomain`.
+
 ### Changed
 
+- **An account that has not confirmed its address gets only the mail its holder
+  asks for** (the confirmation, a password reset, a sign-in link). Notification
+  and digest emails, the new-login and failed-sign-in alerts and the passkey
+  notices are no longer sent to it: an unproven address may be a typo or made up,
+  and every mail to it is a bounce or a complaint against the sender. In-app
+  notifications are unchanged. With `require_email_confirmation` off the rule
+  does not apply (such a site has no confirmed accounts to tell apart).
+  `Auth.unsolicited_mail_allowed?/1`.
 - The new-login email now says "a new device or location" (it can be either), and the
   Security notification type's description says the same.
 - `LoginAlerts.check/2` returns the conn (it sets the device cookie) instead of `:ok`.
@@ -82,6 +104,10 @@ Run `mix phoenix_kit.update` (V230, V231 and the new `phoenix_kit.js`).
   at the form (a password too short, twice) answered "Too many registration
   attempts". The completion is not limited again: the request was, and the token
   proves the address (`register_user/3`, `rate_limit: false`).
+
+- **"Too many registration attempts" is shown on the sign-up form.** The refusal
+  came back as a changeset with no action, which a form renders without errors:
+  the page simply did nothing. It is translated now, too.
 
 - **A long or private video keeps playing and seeking.** A video on a `"signed"`
   bucket was redirected to a link that lived 5 minutes, and a browser reads that

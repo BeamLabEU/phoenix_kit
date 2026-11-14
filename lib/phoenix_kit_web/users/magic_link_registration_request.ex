@@ -9,6 +9,7 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistrationRequest do
 
   alias Phoenix.LiveView.JS
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.EmailDomain
   alias PhoenixKit.Users.MagicLinkRegistration
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
@@ -38,6 +39,7 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistrationRequest do
            |> assign(:page_title, gettext("Register via Magic Link"))
            |> assign(:project_title, project_title)
            |> assign(:email, "")
+           |> assign(:email_suggestion, nil)
            |> assign(:ip_address, IpAddress.extract_from_socket(socket))
            |> assign(:email_sent, false)
            |> assign(:error_message, nil)
@@ -58,7 +60,28 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistrationRequest do
     end
   end
 
+  # Keeps the typed address and the "did you mean" hint under it: a pure rule
+  # over the text, no DNS and no lookup.
   @impl true
+  def handle_event("validate", %{"email" => email}, socket) when is_binary(email) do
+    {:noreply,
+     socket
+     |> assign(:email, email)
+     |> assign(:email_suggestion, EmailDomain.suggestion(email))}
+  end
+
+  def handle_event("validate", _params, socket), do: {:noreply, socket}
+
+  def handle_event("use_email_suggestion", _params, socket) do
+    case socket.assigns[:email_suggestion] do
+      suggestion when is_binary(suggestion) ->
+        {:noreply, socket |> assign(:email, suggestion) |> assign(:email_suggestion, nil)}
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
   def handle_event("send_magic_link", %{"email" => _} = params, socket) do
     if Settings.get_boolean_setting("allow_registration", true) do
       case BotCheck.run(socket, params, socket.assigns[:ip_address]) do
@@ -116,6 +139,14 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistrationRequest do
            socket,
            gettext("Please enter a valid email address."),
            gettext("Invalid email format")
+         )}
+
+      {:error, :no_mail_host} ->
+        {:noreply,
+         error_state(
+           socket,
+           gettext("This email domain cannot receive mail. Please check the address."),
+           gettext("Email domain cannot receive mail")
          )}
 
       {:error, :rate_limit_exceeded} ->

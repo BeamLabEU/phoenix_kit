@@ -43,7 +43,12 @@
     </div>
   <% else %>
     <%!-- Email input form --%>
-    <form phx-submit="send_magic_link" class="space-y-4">
+    <form
+      id="registration-link-form"
+      phx-submit="send_magic_link"
+      phx-change="validate"
+      class="space-y-4"
+    >
       <%= if @error_message do %>
         <div class="alert alert-error text-sm">
           <PhoenixKitWeb.Components.Core.Icons.icon_error_circle class="stroke-current shrink-0 h-5 w-5" />
@@ -60,6 +65,17 @@
             <PhoenixKitWeb.Components.Core.Icons.icon_email class="h-[1em] w-[1em] opacity-50" />
           </:icon>
         </.input>
+        <p :if={@email_suggestion} id="email-suggestion" class="mt-1 text-sm">
+          {gettext("Did you mean")}
+          <button
+            type="button"
+            phx-click="use_email_suggestion"
+            class="link link-primary font-medium break-all"
+          >
+            {@email_suggestion}
+          </button>
+          ?
+        </p>
       </div>
 
       <.turnstile_widget id="registration-link-turnstile" class="" />

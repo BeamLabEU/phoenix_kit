@@ -17,6 +17,7 @@ defmodule PhoenixKit.Users.MagicLinkRegistration do
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.{User, UserToken}
+  alias PhoenixKit.Users.EmailDomain
   alias PhoenixKit.Users.RateLimiter
   alias PhoenixKit.Users.Referrals
   alias PhoenixKit.Users.WelcomeEmail
@@ -43,11 +44,15 @@ defmodule PhoenixKit.Users.MagicLinkRegistration do
     # timing — the exact shape password reset had to be fixed for.
     with true <- valid_email?(email),
          :ok <- RateLimiter.check_registration_rate_limit(email, ip_address, site_wide: true),
+         # After the limiter (a refused request costs no DNS lookup) and before
+         # the account lookup (the answer is about the domain, for everyone).
+         :ok <- EmailDomain.check(email),
          nil <- Auth.get_user_by_email(email) do
       generate_and_send_token(email, opts[:locale])
     else
       false -> {:error, :invalid_email}
       {:error, :rate_limit_exceeded} -> {:error, :rate_limit_exceeded}
+      {:error, :no_mail_host} -> {:error, :no_mail_host}
       %User{} -> {:error, :email_already_exists}
     end
   end

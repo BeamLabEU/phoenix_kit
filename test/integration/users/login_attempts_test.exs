@@ -30,6 +30,9 @@ defmodule PhoenixKit.Integration.Users.LoginAttemptsTest do
     {:ok, user} =
       Auth.register_user(Map.merge(%{email: unique_email(), password: @password}, attrs))
 
+    # Confirmed: mail nobody asked for goes only to a proven address
+    # (`Auth.unsolicited_mail_allowed?/1`).
+    {:ok, user} = Auth.admin_confirm_user(user)
     user
   end
 

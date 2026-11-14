@@ -131,159 +131,189 @@ Everything below is part of the `phoenix_kit` Hex package itself — no extra de
 
 ```
 ✅ One-command install via Igniter (`mix igniter.install phoenix_kit`, updates via `mix phoenix_kit.update`)
-✅ Tailwind and DaisyUI integration
-✅ App layout integration
-✅ App database integration (Postgres only for now)
-✅ Custom slug prefix (default: `/phoenix_kit`)
-✅ Versioned migration chain shared across the whole PhoenixKit ecosystem
-   (170+ tables at V174 once every module is installed; core alone ships ~25)
+✅ `mix phoenix_kit.status` and `mix phoenix_kit.doctor` — what is installed, what is out of date
+✅ Tailwind and daisyUI 5 integration, your app's layout around every page
+✅ Your app's database (PostgreSQL), optionally in its own schema (`--prefix`)
+✅ Custom URL prefix (default: `/phoenix_kit`) and a renameable admin segment (`admin_path`)
+✅ Versioned migrations: core creates its own tables; each module creates and
+   migrates its own, when it is installed
 
-✅ Backend Admin module
-    ✅ Modules Manager — enable/disable installed modules at runtime, `/admin/modules`,
-       backed by a live Hex.pm catalog of known companion packages
-    ✅ Session Manager — active session listing/management, `/admin/users/sessions`
-    ✅ Activity Feed — audit trail of business-level actions, `/admin/activity`
-    ✅ Notifications — per-user inbox driven by the activity feed, mute-by-type
-       preferences, external delivery channels (Email, Telegram), digest cron
-    ✅ Integrations system — centralized OAuth/API-key/bot-token credential
-       storage, system-wide and per-user scopes, `/admin/settings/integrations`
-    ✅ Audit Log — tracks sensitive admin actions (password resets, user edits)
-    ✅ Mentions — cross-module `@`-mentions and `#`-record links
-    ✅ Annotations — shape overlays on media files (rectangle/circle/polygon/freehand)
-    ✅ Dashboard tab system — extensible admin + user-dashboard navigation,
-       `mix phoenix_kit.gen.admin.page` generator for custom pages
+✅ Sign-up and sign-in
+    ✅ Registration (password, or a link sent by email), login, logout, password reset
+    ✅ Magic link sign-in, QR-code sign-in from a signed-in phone
+    ✅ Passkeys (Face ID, Touch ID, Windows Hello, security keys)
+    ✅ OAuth (Google, GitHub, Facebook)
+    ✅ Email confirmation, enforced at every entry point (`require_email_confirmation`)
+    ✅ Several accounts in one browser, with an account switcher
+    ✅ Admin "log in as user" (impersonation)
+    ✅ Invite-only sign-up with referral codes
+    ✅ Login page branding (logo, background)
 
-✅ User Module
-  ✅ Registration
-  ✅ Login
-  ✅ Logout
-  ✅ Magic link
-  ✅ Email confirmation (enforced at every auth entry point; `require_email_confirmation` setting)
-  ✅ Rate limiting on public auth endpoints (Hammer-backed, per-endpoint)
-  ✅ New-login security alerts (unrecognized device/IP → email + activity entry)
-  ✅ Password reset
-  ✅ User roles
-  ✅ Custom user fields
-    ✅ JSONB storage for flexibility
-  ✅ Location of registration (ip, country, region, city)
-  ✅ User's timezone (and mismatch detection)
-  ✅ User's locale
-  ✅ OAuth (Google, GitHub, Facebook — Apple sign-in was removed, see CHANGELOG)
-  ✅ Multi-session support, incl. admin "log in as user" (impersonation)
+✅ Protection of the public forms
+    ✅ Rate limits per address, per network and for the whole site, shown live on
+       Settings → Authorization → Abuse protection
+    ✅ Cloudflare Turnstile on the forms that send email (optional)
+    ✅ Email address check at sign-up: domains that cannot receive mail are
+       refused, common typos get a "Did you mean" hint
+    ✅ No automated mail to an address nobody has confirmed
+    ✅ Alerts for a sign-in from a new device or country, and for repeated failed sign-ins
+    ✅ A record of failed sign-ins
+    ✅ A plug for your endpoint that answers scanner probes (`/.env`, `wp-login.php`) with a bare 404
 
-✅ Users Module
-    ✅ Role management
-    ✅ Module-level, granular per-role permissions
-    ✅ Referral Program
+✅ Users, roles and permissions
+    ✅ Owner / Admin / User and custom roles, role order
+    ✅ Per-role permissions for every admin section and module, with sub-permissions
+    ✅ Role switcher: a person with several roles acts as one per session (optional)
+    ✅ Custom user fields (JSONB), admin notes, user's timezone and locale
+    ✅ Location of registration (IP, country, region, city)
+    ✅ Sessions: list, end, live sessions — `/admin/users/sessions`
 
-✅ Maintenance Mode Module
+✅ Organizations
+    ✅ Person and organization accounts, organization invitations
+    ✅ Managed organizations: people act for a company through a link
+       (manager, staff, or your own relationship types), with all or some of its roles
+
+✅ Admin
+    ✅ Modules — enable/disable installed modules, with a catalog of the
+       companion packages on Hex.pm — `/admin/modules`
+    ✅ Activity feed — audit trail of business-level actions — `/admin/activity`
+    ✅ Notifications — per-user inbox driven by the activity feed, per-type
+       preferences, delivery by email and Telegram, immediately or as a digest
+       (hourly to weekly)
+    ✅ Jobs — long background work an admin can watch, pause, resume and retry — `/admin/jobs`
+    ✅ Integrations — one place for OAuth connections, API keys and bot tokens,
+       for the site and per user — `/admin/settings/integrations`
+    ✅ Audit log of sensitive admin actions
+    ✅ Mentions — `@`-mentions and `#`-record links across modules
+    ✅ Your own admin pages, declared in config (`mix phoenix_kit.gen.admin.page`)
+
+✅ Machine API (off by default)
+    ✅ REST for admins and for the public site, with OpenAPI documents
+    ✅ MCP endpoints for AI agents
+    ✅ API keys with scopes, personal keys, service users, key rotation
+    ✅ Dry runs, confirmations and approvals for writes; idempotency keys
+    ✅ Modules and your own app add tools with one callback
+
+✅ Website access
+    ✅ Maintenance mode
+    ✅ Password gate for a site that is not public yet, with an allow list
+    ✅ Redirect the whole site elsewhere
 
 ✅ Email
-    ✅ Pluggable delivery via any Swoosh adapter (AWS SES, SMTP, SendGrid, Mailgun, ...)
-    ✅ AWS SES gets first-class setup assistance (IAM/credentials/region checklist)
-    ✅ Multiple named Send Profiles
+    ✅ Any Swoosh adapter (AWS SES, SMTP, SendGrid, Mailgun, Brevo, ...)
+    ✅ Several named send profiles; a user's own SMTP connection
+    ✅ Emails as template files you can override, per language, with a preview page
+    ✅ AWS SES setup help (IAM, credentials, region checklist)
 
-✅ Media / Storage Module
-    ✅ Photos and Videos
-    ✅ Local storage + cloud storage providers: AWS S3, Cloudflare R2,
-       Backblaze B2, Tigris — Azure/GCS/DigitalOcean Spaces not yet supported
-    ✅ Image resizing
-    ✅ Video resizing
+✅ Media and storage
+    ✅ Libraries: the site's Media, plus libraries of users and of modules
+    ✅ Local disk and S3-compatible storage: AWS S3, Cloudflare R2, Backblaze B2, Tigris
+    ✅ Storage profiles: which buckets a library uses, with backups and health checks
+    ✅ A user's own bucket for their own library
+    ✅ Image and video sizes, image editing with the original kept
+    ✅ Private files behind time-limited links
+    ✅ Annotations on media (rectangle, circle, polygon, freehand)
+    ✅ Each viewer sees their own files unless allowed to see everyone's
 
-✅ Sitemap Module
+✅ Languages
+    ✅ Admin languages (ten translations shipped) and site languages, by country and region
+    ✅ The language lives in the URL; the default language can be prefixless
 
-✅ Crawlers Module (robots.txt, llms.txt, bot-policy configuration)
-
-✅ Languages (Backend and frontend languages, broken down to countries and regions)
-    ✅ Backend languages
-    ✅ Frontend enduser languages, broken down and organized by countries and regions
+✅ Sitemap (XML and HTML) and Crawlers (robots.txt, llms.txt, bot policy)
 
 ✅ Settings
-    ✅ General
-    ✅ App title
-    ✅ Global app timezone (native Elixir, no timex dependency)
-    ✅ Global time format (native Elixir, no timex dependency)
-    ✅ Language configuration
+    ✅ Site title and URL, timezone, date and time formats
+    ✅ Users, Authorization, Website access, Languages, Media, Email, API, Integrations, Organization
 
-✅ Core UI Component Library
-    ✅ [Draggable List](guides/draggable-list-component.md) - Drag-and-drop grid/list component
-    ✅ Sortable tables/grids, bulk-select, tree tables, reorder-strategy modal,
-       load-more & standalone pagination
-    ✅ Embeddable MediaBrowser (folder tree, grid/list, upload, search, trash)
-    ✅ Core form components (Input/Select/Textarea/Checkbox) and multilang
-       (translatable-field) form components
+✅ UI component library
+    ✅ [Draggable List](guides/draggable-list-component.md) — drag-and-drop grid/list
+    ✅ Sortable tables and grids, bulk select, tree tables, reorder modal, pagination
+    ✅ Embeddable media browser (folders, grid/list, upload, search, trash) and media picker
+    ✅ Form components (input, select, textarea, checkbox) and translatable-field forms
 ```
 
 ## 🧩 Companion Modules (separate Hex packages)
 
-These extend PhoenixKit but ship as their own Hex packages with their own version/CHANGELOG — install them alongside `phoenix_kit` when you need them (`extra_applications: [:phoenix_kit]` wires them into module discovery automatically). Maturity varies by package; check each one's own CHANGELOG before relying on it in production. Representative examples from the BeamLabEU org:
+These extend PhoenixKit but ship as their own Hex packages with their own version and CHANGELOG. Add one to your `mix.exs` and it is discovered automatically; `/admin/modules` shows what is installed and what else exists. Each creates and migrates its own tables. Maturity varies by package: check each one's CHANGELOG before relying on it in production.
 
 ```
-📦 phoenix_kit_ai            — AI Module: OpenRouter + other provider integrations
-📦 phoenix_kit_entities      — Dynamic content types, 13 field types, JSONB storage
-📦 phoenix_kit_publishing    — Blog/article publishing: timed + slug-based, multilingual, timezone-aware
-📦 phoenix_kit_posts         — User-generated posts (UGC)
-📦 phoenix_kit_billing       — Invoices, orders, subscriptions; Stripe/PayPal payment providers
-📦 phoenix_kit_emails        — Email logs, delivery dashboard/analytics, SQS/Brevo event polling
-📦 phoenix_kit_comments      — Threaded comments (likes/dislikes/media)
-📦 phoenix_kit_newsletters   — Mailing lists and broadcasts
-📦 phoenix_kit_legal         — Cookie consent, ToS, GDPR/CCPA, privacy policy, data retention
-📦 phoenix_kit_ecommerce     — Storefront, physical + digital products
-📦 phoenix_kit_customer_support — Support ticketing
-📦 phoenix_kit_crm           — Companies, contacts, interactions, lists
-📦 phoenix_kit_bookings      — Calendar-based booking
-📦 phoenix_kit_catalogue     — Supplier/manufacturer catalogue, PDF extraction
-📦 phoenix_kit_document_creator — Document templates/generation
-📦 phoenix_kit_projects      — Projects and tasks with dependencies
-📦 phoenix_kit_user_connections — User-to-user connections
-📦 phoenix_kit_sync          — Cross-site data sync over WebSocket
-📦 phoenix_kit_staff         — Departments, teams, skills
-📦 phoenix_kit_db            — Database management tooling
+Content
+📦 phoenix_kit_publishing     — CMS: blog posts and pages, multi-language, scheduled
+📦 phoenix_kit_entities       — Dynamic content types with flexible field schemas
+📦 phoenix_kit_posts          — User posts with tags, boards, likes, media, scheduling
+📦 phoenix_kit_comments       — Threaded comments, likes/dislikes, moderation
+📦 phoenix_kit_knowledge_base — Linked markdown notes: vaults, tags, wiki-links, search
+📦 phoenix_kit_boards         — Collaborative infinite-canvas boards
+📦 phoenix_kit_photos         — A personal photo and video library, built for very large collections
+📦 phoenix_kit_open_graph     — Open Graph images and templates
 
-... and more (open graph, SEO, web analytics, warehouse/manufacturing, calendar, message boards, and others) — see the BeamLabEU GitHub org for the current full list.
+Commerce and operations
+📦 phoenix_kit_billing        — Payments, subscriptions, invoices
+📦 phoenix_kit_ecommerce      — Products, categories, cart, checkout
+📦 phoenix_kit_catalogue      — Manufacturers, suppliers and product catalogues
+📦 phoenix_kit_warehouse      — Inventory, stock, goods receipts and issues
+📦 phoenix_kit_manufacturing  — Machines and production orders
+📦 phoenix_kit_bookings       — Bookings: stays, fixed slots
+📦 phoenix_kit_locations      — Physical locations with custom types
+
+People and work
+📦 phoenix_kit_crm            — Organization accounts, contacts, role-scoped views
+📦 phoenix_kit_staff          — Departments, teams and people
+📦 phoenix_kit_projects       — Projects, reusable tasks, assignments, dependencies
+📦 phoenix_kit_calendar       — Personal calendars
+📦 phoenix_kit_customer_support — Support tickets
+📦 phoenix_kit_user_connections — Follows, mutual connections, blocking
+📦 phoenix_kit_referrals      — Referral codes: issue, track, apply at sign-up
+
+Email and messaging
+📦 phoenix_kit_emails         — Email log, delivery tracking and analytics, AWS SES events
+📦 phoenix_kit_newsletters    — Broadcasts and subscriptions
+📦 phoenix_kit_inbox          — Internal mailboxes, user and shared
+📦 phoenix_kit_templates_editor — Edit the email templates from the admin
+
+AI
+📦 phoenix_kit_ai             — AI endpoints, prompts, completions, usage tracking
+📦 phoenix_kit_agent          — Per-user AI chats that call tools from the machine API
+
+Insight and tooling
+📦 phoenix_kit_dashboards     — Dashboards composed from widgets any module exposes
+📦 phoenix_kit_stats          — Metric groups per source
+📦 phoenix_kit_web_analytics  — Cookieless, privacy-first web analytics
+📦 phoenix_kit_legal          — Legal pages, cookie consent, consent log (GDPR/CCPA)
+📦 phoenix_kit_document_creator — Document templates and PDFs via Google Docs
+📦 phoenix_kit_sync           — Two-way data sync between PhoenixKit sites
+📦 phoenix_kit_db             — Database explorer: tables, rows, live changes
+📦 phoenix_kit_hello_world    — A demo module to copy when you write your own
 ```
+
+Writing your own module, or treating your own app as one: [Your App as a Module](guides/your-app-as-a-module.md).
 
 ## 🛣️ Roadmap / Ideas / Feature requests
 
-Notifications, background jobs (Oban), newsletters, legal/compliance, customer
-support, and e-commerce are no longer just ideas — they've shipped, either
-built into core or as companion packages (see "Companion Modules" above). What's still genuinely open:
+Much of the earlier roadmap has shipped, in core or as a companion package:
+notifications, background jobs, the machine API, passkeys, web analytics,
+newsletters, legal pages, customer support, e-commerce. What is still open:
 
 --- Next priority
 
-- Missing features for User Auth Module
-  - 2FA
-- Cron Module (generic admin UI for scheduling background jobs — Oban itself
-  already powers core's own workers; this would be a user-facing job manager)
+- Two-factor sign-in with an authenticator app (passkeys already work as a
+  phishing-resistant sign-in; a second step for password sign-ins is not built)
+- Step-up confirmation and trusted devices for sensitive actions
 - Live chat (`phoenix_kit_customer_support` covers ticketing, not real-time chat)
 
---- To sort items
+--- To sort
 
 - Design / templates / themes
-- Integration with notification providers (Twilio, etc...)
-- Video processing/streaming: Adaptive Bitrate (ABR), HTTP Live Streaming (HLS),
-  H.264/H.265/VP8/VP9 transcoding (core's Media module only resizes video, no streaming pipeline)
+- Notification providers beyond email and Telegram (SMS, push)
+- Video streaming: adaptive bitrate, HLS, transcoding (core resizes video; it has no streaming pipeline)
 - Audio
-- Azure Blob Storage / Google Cloud Storage support (S3-compatible storage —
-  AWS S3, R2, Backblaze, Tigris, Spaces — already works via core's Media module)
+- Azure Blob Storage / Google Cloud Storage (S3-compatible storage already works)
 - CDN
-- Search (full-text/site search — distinct from Mentions' cross-module `#`-record lookup)
-- Blocks
-- Sliders
-- Video player (mp4, youtube, etc)
-- Popups Module
-- Contact Us Module
-- What's New Module
-- Internal Chat Module (https://github.com/basecamp/once-campfire)
-- Feedback Module
-- Roadmap / Ideas Module
-- App Analytics / BI Module
-  - ClickHouse backend
-  - Events
-  - Charts, trends and notifications
-- API Module
-- Forms Module
-- Cluster Module
+- Site search
+- Blocks, sliders, popups
+- Contact Us, What's New, Feedback, Roadmap / Ideas modules
+- Forms module
+- Cluster module
 
 💡 Send your ideas and suggestions about any existing modules and features our way. Start building your apps today!
 
@@ -426,7 +456,7 @@ For AWS SES, PhoenixKit automatically configures required dependencies and HTTP 
 # Production configuration
 config :phoenix_kit, PhoenixKit.Mailer,
   adapter: Swoosh.Adapters.AmazonSES,
-  region: "eu-north-1"  # or "eu-north-1", "eu-west-1", etc.
+  region: "eu-north-1"  # or "eu-west-1", "us-east-1", etc.
 ```
 
 **AWS SES Checklist:**
@@ -457,7 +487,7 @@ config :phoenix_kit, PhoenixKit.Mailer,
 
 ### OAuth Configuration
 
-Enable social authentication (Google, GitHub, Facebook) through admin UI at `{prefix}/admin/settings`.
+Enable social authentication (Google, GitHub, Facebook) through the admin UI at `{prefix}/admin/settings/authorization`.
 Built-in setup instructions included. For reverse proxy deployments, ensure `X-Forwarded-Proto` header is set:
 
 ```nginx
@@ -474,33 +504,42 @@ See [OAuth Setup Guide](guides/oauth-and-magic-link-setup.md) for details.
 
 ## Routes
 
-### User Authentication Routes
+### Sign-up and sign-in
 
 - `GET {prefix}/users/register` - Registration form
+- `GET {prefix}/users/register/magic-link` - Registration by a link sent by email
 - `GET {prefix}/users/log-in` - Login form
+- `GET {prefix}/users/magic-link` - Sign in with a link sent by email
+- `GET {prefix}/users/qr-login` - Sign in by scanning a QR code with a signed-in phone
 - `GET {prefix}/users/reset-password` - Password reset
 - `GET {prefix}/users/confirm/:token` - Email confirmation
 - `DELETE {prefix}/users/log-out` - Logout endpoint
 
-### User Dashboard Routes
+### The signed-in person
 
-- `GET {prefix}/dashboard` - User dashboard home
-- `GET {prefix}/dashboard/settings` - User settings
-- `GET {prefix}/dashboard/settings/confirm-email/:token` - Email confirmation
+- `GET {prefix}/profile/settings` - Account settings (profile, security, passkeys, notifications)
+- `GET {prefix}/profile/settings/integrations` - Their own connections
+- `GET {prefix}/profile/settings/api-keys` - Their own API keys
+- `GET {prefix}/dashboard` - User dashboard. New pages for signed-in people go under
+  `{prefix}/admin/...`, which serves users as well as admins according to their permissions.
 
-### Admin Routes (Owner/Admin only)
+### Admin (by permission)
 
 - `GET {prefix}/admin` - Admin dashboard
-- `GET {prefix}/admin/users` - User management
-- `GET {prefix}/admin/users/permissions` - Permission matrix
-- `GET {prefix}/admin/users/sessions` - Active session management
+- `GET {prefix}/admin/users` - Users, roles (`/roles`), permissions (`/permissions`), sessions (`/sessions`)
 - `GET {prefix}/admin/activity` - Activity feed
-- `GET {prefix}/admin/media` - Media/storage browser
+- `GET {prefix}/admin/notifications` - Notification inbox
+- `GET {prefix}/admin/media` - Media browser; `{prefix}/admin/libraries` - libraries
+- `GET {prefix}/admin/jobs` - Background jobs
 - `GET {prefix}/admin/modules` - Enable/disable modules
-- `GET {prefix}/admin/settings` - System settings
-- `GET {prefix}/admin/settings/integrations` - System-wide integration credentials
+- `GET {prefix}/admin/settings` - Settings (see "Built-in Admin Interface" below)
 
-Companion packages (if installed) register additional routes under `{prefix}/admin/*` automatically via module discovery — see "External Module Route Discovery" in this project's `AGENTS.md`.
+### Machine API (when switched on)
+
+- `{prefix}/api/admin/v1`, `{prefix}/api/public/v1` - REST, each with an `openapi.json`
+- `POST {prefix}/mcp/admin`, `POST {prefix}/mcp/public` - MCP for AI agents
+
+Companion packages register their own routes under `{prefix}/admin/*` automatically through module discovery.
 
 ## API Usage
 
@@ -538,32 +577,23 @@ on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_authenticated_scope}]
 
 ## Database Schema
 
-The versioned migration chain (`lib/phoenix_kit/migrations/postgres/`, currently at
-V174) is centralized in this package and shared across the whole PhoenixKit
-ecosystem: installing just `phoenix_kit` already creates the full current
-schema — 170+ tables covering every companion package's data model, not only
-core's own. This keeps tables ready the moment a companion package is added,
-at the cost of a wider schema than a core-only app strictly uses. Tables that
-matter without any companion package installed include:
+Migrations are versioned, Oban-style, and run by `mix phoenix_kit.update`
+(`lib/phoenix_kit/migrations/postgres/`). Core creates only its own tables;
+since 3.0 each companion package creates and migrates its own when it is
+installed, so a core-only app carries no tables it does not use. The main ones:
 
-- `phoenix_kit_users` - User accounts with email, names, status
-- `phoenix_kit_users_tokens` - Authentication tokens (session, reset, confirm)
-- `phoenix_kit_user_roles` - System and custom roles
-- `phoenix_kit_user_role_assignments` - User-role mappings with audit trail
-- `phoenix_kit_role_permissions` - Module-level permission grants per role
-- `phoenix_kit_user_oauth_providers` - Linked OAuth identities
-- `phoenix_kit_referral_codes` / `phoenix_kit_referral_code_usage` - Referral program
-- `phoenix_kit_settings` - System/module settings
-- `phoenix_kit_activities` - Activity feed entries
-- `phoenix_kit_notifications` - Per-user notification inbox
-- `phoenix_kit_audit_logs` - Sensitive admin-action audit trail
-- `phoenix_kit_annotations` / `phoenix_kit_mentions` - Media annotations, cross-module mentions
-- `phoenix_kit_buckets`, `phoenix_kit_files`, `phoenix_kit_file_instances`, `phoenix_kit_file_locations` - Media/storage
-- `phoenix_kit_email_logs`, `phoenix_kit_email_events`, `phoenix_kit_email_templates`, `phoenix_kit_email_blocklist` - Email tracking
-
-The remaining tables (CRM, catalogue, publishing, warehouse, projects,
-newsletters, and more) sit dormant — unused, but present — until you add the
-matching companion package and enable it.
+- `phoenix_kit_users`, `phoenix_kit_users_tokens` - Accounts and their tokens (session, reset, confirm)
+- `phoenix_kit_user_roles`, `phoenix_kit_user_role_assignments`, `phoenix_kit_role_permissions` - Roles and permissions
+- `phoenix_kit_user_oauth_providers`, `phoenix_kit_user_passkeys`, `phoenix_kit_user_known_devices` - Sign-in methods and known devices
+- `phoenix_kit_login_attempts`, `phoenix_kit_access_attempts` - Failed sign-ins and website-gate attempts
+- `phoenix_kit_organization_managers`, `phoenix_kit_organization_invitations`, `phoenix_kit_relationship_types` - Organizations and who acts for them
+- `phoenix_kit_settings` - Settings of the site and of modules; integration connections
+- `phoenix_kit_activities`, `phoenix_kit_notifications`, `phoenix_kit_audit_logs` - Activity feed, inbox, audit trail
+- `phoenix_kit_mentions`, `phoenix_kit_annotations` - Mentions and media annotations
+- `phoenix_kit_files`, `phoenix_kit_file_instances`, `phoenix_kit_file_locations`, `phoenix_kit_media_folders`, `phoenix_kit_buckets`, `phoenix_kit_storage_libraries`, `phoenix_kit_storage_profiles` - Media and storage
+- `phoenix_kit_api_keys`, `phoenix_kit_api_confirmations`, `phoenix_kit_api_idempotency` - Machine API
+- `phoenix_kit_job_runs`, `phoenix_kit_scheduled_jobs` - Background jobs (Oban's own tables ride the same schema)
+- `phoenix_kit_email_send_profiles` - Email send profiles
 
 ## Role-Based Access Control
 
@@ -592,11 +622,11 @@ PhoenixKit.Users.Roles.create_role(%{name: "Manager", description: "Team lead"})
 
 PhoenixKit includes a granular permission system that controls which roles can access which admin sections and feature modules.
 
-**5 core section keys** ship fixed with this package: `dashboard`, `users`, `media`, `settings`, `modules`. Each installed companion package can register its own feature-module key (and dotted sub-permission keys, e.g. `calendar.view_others`) — the total key count grows as you add companion packages, not a fixed number. There's also a blanket `"*"` superadmin key, honored the same as Owner.
+**Core section keys** ship with this package: `dashboard`, `users`, `media`, `settings`, `modules`, `jobs`, `languages`, `api`, `api_personal_keys`, plus two for integrations. Core sections have sub-permissions too (`media.view_all`, `media.manage`, `jobs.manage`, `settings.security`). Each installed companion package registers its own key and dotted sub-permission keys (e.g. `calendar.view_others`), so the total grows with the packages you add. There is also a blanket `"*"` superadmin key, honored the same as Owner.
 
 **Access rules**:
 - **Owner** bypasses all checks (full access always)
-- **Admin** seeded with every known key (core + every installed feature module) by default
+- **Admin** gets every known key by default (core + every installed feature module), except the opt-in ones: the machine API (`api`, `api_personal_keys`) and personal integrations
 - **Custom roles** start with no permissions, assigned via matrix UI or API
 
 ```elixir
@@ -621,7 +651,7 @@ Scope.system_role?(scope)                        # Owner or Admin?
 
 ### Module System
 
-PhoenixKit uses a modular architecture where features can be enabled/disabled at runtime. **All modules are disabled by default** and must be enabled before use.
+PhoenixKit uses a modular architecture where features can be enabled/disabled at runtime. **Feature modules are disabled by default** and must be enabled before use. (Core sections such as Users, Media, Languages and Jobs are always there.)
 
 **Enable via Admin UI:**
 Visit `{prefix}/admin/modules` to toggle modules on/off.
@@ -638,9 +668,6 @@ PhoenixKitEntities.enabled?()           # => false (default)
 # Enable modules before use
 PhoenixKitAI.enable_system()
 PhoenixKitEntities.enable_system()
-PhoenixKitPosts.enable_system()
-PhoenixKit.Modules.Emails.enable_system()
-PhoenixKitBilling.enable_system()
 
 # Disable when no longer needed
 PhoenixKitAI.disable_system()
@@ -652,24 +679,29 @@ PhoenixKitAI.disable_system()
 
 ### Built-in Admin Interface
 
-**Core Administration (ships with this package):**
-- `{prefix}/admin` - System statistics and overview
-- `{prefix}/admin/users` - User management with role controls
-- `{prefix}/admin/users/permissions` - Permission matrix for all roles
-- `{prefix}/admin/users/sessions` - Active session management
+**Core administration (ships with this package):**
+- `{prefix}/admin` - Overview
+- `{prefix}/admin/users` - Users, with roles, permissions, sessions and relationship types beneath it
 - `{prefix}/admin/activity` - Activity feed
-- `{prefix}/admin/media` - Media/storage browser
+- `{prefix}/admin/notifications` - Notification inbox and its settings
+- `{prefix}/admin/media`, `{prefix}/admin/libraries` - Media browser and libraries
+- `{prefix}/admin/jobs` - Background jobs
+- `{prefix}/admin/approvals` - Writes of API keys that wait for a person (shown while in use)
 - `{prefix}/admin/modules` - Enable/disable PhoenixKit modules
-- `{prefix}/admin/settings` - System settings (timezone, date/time formats)
 
-**Settings & Configuration (core):**
-- `{prefix}/admin/settings/users` - Auth, session, and login-alert policy
-- `{prefix}/admin/settings/languages` - Multi-language configuration
-- `{prefix}/admin/settings/media` - Storage buckets and image dimensions
-- `{prefix}/admin/settings/sitemap` - Sitemap generation settings
-- `{prefix}/admin/settings/crawlers` - Crawler / bot-policy configuration
-- `{prefix}/profile/settings/integrations` - Personal (per-user) integration credentials
-- `{prefix}/admin/settings/integrations` - System-wide integration credentials (OAuth/API keys/bot tokens)
+**Settings (core):**
+- `{prefix}/admin/settings` - Site title and URL, timezone, date and time formats
+- `{prefix}/admin/settings/users` - Registration, new-user defaults, sessions, profile sections
+- `{prefix}/admin/settings/authorization` - Login page branding, sign-in methods (magic link, QR, passkeys, OAuth), sessions, abuse protection (request limits, email address check, Cloudflare Turnstile)
+- `{prefix}/admin/settings/website-access` - Maintenance mode, password gate, redirect
+- `{prefix}/admin/settings/organization` - The site's own organization details
+- `{prefix}/admin/settings/languages` - Admin and site languages
+- `{prefix}/admin/settings/media` - Buckets, storage profiles, image and video sizes, health
+- `{prefix}/admin/settings/email-sending` - Send profiles, transport, email preview
+- `{prefix}/admin/settings/integrations` - System-wide connections (OAuth, API keys, bot tokens)
+- `{prefix}/admin/settings/api` - Machine API: keys, service users, switches and limits, a how-to-connect guide
+- `{prefix}/admin/settings/sitemap`, `{prefix}/admin/settings/crawlers` - Sitemap and crawler policy
+- `{prefix}/profile/settings/integrations` - A person's own connections
 
 **Your own admin pages** are declared, not hand-routed. List them under
 `config :phoenix_kit, :admin_dashboard_tabs` (with a `live_view:` field) and
@@ -682,14 +714,7 @@ writes a starting page and its config entry. Full reference:
 In the page header, `page_action` is a single **navigation** chip (a real link);
 anything **interactive** — a modal, a `phx-click` — goes in `page_toolbar`.
 
-**The following require installing their companion package** (see "Companion Modules" above) — they 404 until that package is added:
-
-- `{prefix}/admin/publishing` - Blog posts and articles management (`phoenix_kit_publishing`)
-- `{prefix}/admin/posts` - User-generated content / social posts (`phoenix_kit_posts`)
-- `{prefix}/admin/entities` - Dynamic content types (`phoenix_kit_entities`)
-- `{prefix}/admin/emails`, `{prefix}/admin/emails/dashboard` - Email logs, delivery tracking, metrics (`phoenix_kit_emails`)
-- `{prefix}/admin/ai/endpoints`, `/ai/prompts`, `/ai/usage` - AI provider endpoints, prompts, usage stats (`phoenix_kit_ai`)
-- `{prefix}/admin/billing`, `/billing/orders`, `/billing/invoices`, `/billing/subscriptions` - Billing dashboard (`phoenix_kit_billing`)
+**Pages of companion packages** (`{prefix}/admin/publishing`, `{prefix}/admin/billing`, `{prefix}/admin/ai/endpoints`, ...) exist only once that package is installed and its module is enabled.
 
 ## Architecture
 

@@ -75,7 +75,7 @@ defmodule PhoenixKit.Users.Auth do
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.Libraries
   alias PhoenixKit.Users.Auth.{User, UserNotifier, UserToken}
-  alias PhoenixKit.Users.{CustomFields, RateLimiter, Role, Roles, WelcomeEmail}
+  alias PhoenixKit.Users.{CustomFields, EmailDomain, RateLimiter, Role, Roles, WelcomeEmail}
   alias PhoenixKit.Users.OrganizationManagers
   alias PhoenixKit.Users.Sessions.Revocation
   alias PhoenixKit.Utils.Date, as: UtilsDate
@@ -442,6 +442,9 @@ defmodule PhoenixKit.Users.Auth do
       sign-up cap (`RateLimiter.check_registration_rate_limit/3`). The kit's
       own sign-up form passes it; a host's public form should too. Default
       `false`.
+    * `:check_email_domain` - `true` for the same kind of request: the
+      address's domain is asked for in DNS and a domain that cannot receive
+      mail is refused (`PhoenixKit.Users.EmailDomain.check/1`). Default `false`.
     * `:rate_limit` - `false` skips the limiter altogether. Only for a caller
       whose request was already limited and whose address is already proven:
       the completion of a mailed registration link, charged when the link was
@@ -468,21 +471,67 @@ defmodule PhoenixKit.Users.Auth do
 
     case registration_rate_limit(email, ip_address, opts) do
       :ok ->
-        do_register_user(attrs)
+        # After the limiter: a refused request must not cost a DNS lookup.
+        case registration_email_domain(email, opts) do
+          :ok ->
+            do_register_user(attrs)
+
+          {:error, :no_mail_host} ->
+            {:error,
+             registration_refusal(
+               attrs,
+               dgettext_noop(
+                 "errors",
+                 "This email domain cannot receive mail. Please check the address."
+               )
+             )}
+        end
 
       {:error, :rate_limit_exceeded} ->
-        # Return changeset error for rate limit
-        changeset =
-          %User{}
-          |> User.registration_changeset(attrs)
-          |> Ecto.Changeset.add_error(
-            :email,
-            "Too many registration attempts. Please try again later."
-          )
-
-        {:error, changeset}
+        {:error,
+         registration_refusal(
+           attrs,
+           dgettext_noop("errors", "Too many registration attempts. Please try again later.")
+         )}
     end
   end
+
+  # A refusal made before any insert. The action is what makes a form show the
+  # error: a changeset without one renders none, so "too many attempts" used to
+  # reach the sign-up page as a form that silently did nothing.
+  defp registration_refusal(attrs, message) do
+    %User{}
+    |> User.registration_changeset(attrs)
+    |> Ecto.Changeset.add_error(:email, message)
+    |> Map.put(:action, :insert)
+  end
+
+  defp registration_email_domain(email, opts) do
+    if Keyword.get(opts, :check_email_domain, false), do: EmailDomain.check(email), else: :ok
+  end
+
+  @doc """
+  Whether mail nobody asked for in that moment (a notification, a digest, a
+  security alert) may go to `user`: only to an address somebody has proven.
+
+  An account that never confirmed its address may be a typo or a made-up
+  address, and every mail to it is a bounce or a complaint against the sender.
+  Such an account gets only what its holder just asked for: the confirmation
+  mail, a password reset, a sign-in link.
+
+  True for a confirmed account, for a managed organization (its delivery
+  address is set by its managers) and, with `require_email_confirmation` off,
+  for everyone: a site that does not ask for confirmation has no confirmed
+  accounts to tell apart.
+  """
+  @spec unsolicited_mail_allowed?(term()) :: boolean()
+  def unsolicited_mail_allowed?(%User{managed_by_members: true}), do: true
+  def unsolicited_mail_allowed?(%User{confirmed_at: %_{}}), do: true
+
+  def unsolicited_mail_allowed?(%User{}),
+    do: not PhoenixKit.Settings.get_boolean_setting("require_email_confirmation", true)
+
+  def unsolicited_mail_allowed?(_), do: false
 
   defp registration_rate_limit(email, ip_address, opts) do
     if Keyword.get(opts, :rate_limit, true) do

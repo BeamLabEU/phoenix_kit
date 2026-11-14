@@ -1572,6 +1572,7 @@ defmodule PhoenixKit.Settings do
     failed_login_alert_threshold
     login_attempt_logging_enabled
     login_attempt_retention_days
+    email_domain_check_enabled
   )
 
   # The keys a settings FORM may write through `update_settings/2`: what the

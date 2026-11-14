@@ -67,6 +67,17 @@
             <PhoenixKitWeb.Components.Core.Icons.icon_email class="h-[1em] w-[1em] opacity-50" />
           </:icon>
         </.input>
+        <p :if={@email_suggestion} id="email-suggestion" class="mt-1 text-sm">
+          {gettext("Did you mean")}
+          <button
+            type="button"
+            phx-click="use_email_suggestion"
+            class="link link-primary font-medium break-all"
+          >
+            {@email_suggestion}
+          </button>
+          ?
+        </p>
       </div>
 
       <%!-- Username Field (optional, controlled by admin setting) --%>

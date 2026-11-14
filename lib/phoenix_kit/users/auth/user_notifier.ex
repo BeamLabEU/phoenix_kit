@@ -31,6 +31,7 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
   alias PhoenixKit.Email.Content
   alias PhoenixKit.Email.CoreTemplates
   alias PhoenixKit.Mailer
+  alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.LoginAttempts
   alias PhoenixKit.Utils.Date, as: UtilsDate
@@ -278,6 +279,12 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
   didn't resolve), and `:first_seen_at` (a `DateTime`).
   """
   def deliver_new_login_alert(user, attrs) do
+    if Auth.unsolicited_mail_allowed?(user),
+      do: do_deliver_new_login_alert(user, attrs),
+      else: {:ok, %{suppressed: true}}
+  end
+
+  defp do_deliver_new_login_alert(user, attrs) do
     browser_os = [attrs[:browser], attrs[:os]] |> Enum.filter(& &1) |> Enum.join(" on ")
 
     # The winning content layer is rendered in the recipient's locale, so the
@@ -322,6 +329,12 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
   the point is to reach the reader while it is still only attempts.
   """
   def deliver_failed_login_alert(user, attrs) do
+    if Auth.unsolicited_mail_allowed?(user),
+      do: do_deliver_failed_login_alert(user, attrs),
+      else: {:ok, %{suppressed: true}}
+  end
+
+  defp do_deliver_failed_login_alert(user, attrs) do
     variables =
       RecipientLocale.in_locale(RecipientLocale.for_rendering(user), fn ->
         %{
@@ -365,6 +378,12 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
   when it was not them.
   """
   def deliver_passkey_added(user, attrs) do
+    if Auth.unsolicited_mail_allowed?(user),
+      do: do_deliver_passkey_added(user, attrs),
+      else: {:ok, %{suppressed: true}}
+  end
+
+  defp do_deliver_passkey_added(user, attrs) do
     variables =
       RecipientLocale.in_locale(RecipientLocale.for_rendering(user), fn ->
         %{
@@ -391,6 +410,12 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
   administrator (`attrs.by_owner?`).
   """
   def deliver_passkey_removed(user, attrs) do
+    if Auth.unsolicited_mail_allowed?(user),
+      do: do_deliver_passkey_removed(user, attrs),
+      else: {:ok, %{suppressed: true}}
+  end
+
+  defp do_deliver_passkey_removed(user, attrs) do
     variables =
       RecipientLocale.in_locale(RecipientLocale.for_rendering(user), fn ->
         %{

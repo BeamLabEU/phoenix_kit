@@ -15114,6 +15114,25 @@ if (typeof window.Chart === "undefined") {
 })();
 
 // ---------------------------------------------------------------------------
+// phoenix_kit:set_input
+//
+// Lets a LiveView put a value into an input it cannot re-render: the sign-up
+// form is a temporary assign (it holds the typed password), so taking the
+// "Did you mean ...@gmail.com?" hint sets the email field here and fires the
+// field's own input event, which sends the whole form back through its
+// phx-change. `push_event(socket, "phoenix_kit:set_input", %{id:, value:})`.
+// ---------------------------------------------------------------------------
+if (typeof window !== "undefined") {
+  window.addEventListener("phx:phoenix_kit:set_input", function (event) {
+    var detail = event.detail || {};
+    var el = typeof detail.id === "string" ? document.getElementById(detail.id) : null;
+    if (!el || !("value" in el) || typeof detail.value !== "string") return;
+    el.value = detail.value;
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Turnstile
 //
 // The Cloudflare Turnstile widget of a public form

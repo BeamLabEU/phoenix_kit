@@ -95,7 +95,7 @@ msgstr "Gestion des rôles"
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:185
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:144
 #: lib/phoenix_kit_web/components/profile_settings_tabs.ex:351
-#: lib/phoenix_kit_web/live/settings/authorization.ex:103
+#: lib/phoenix_kit_web/live/settings/authorization.ex:105
 #: lib/phoenix_kit_web/live/settings/users.ex:100
 #: lib/phoenix_kit_web/live/settings/users.ex:480
 #, elixir-autogen
@@ -1235,7 +1235,7 @@ msgstr "Modules de fonctionnalités"
 #: lib/modules/storage/web/library_page.html.heex:165
 #: lib/modules/storage/web/settings.html.heex:123
 #: lib/modules/storage/web/settings.html.heex:148
-#: lib/phoenix_kit/users/auth.ex:3583
+#: lib/phoenix_kit/users/auth.ex:3632
 #: lib/phoenix_kit_web/components/core/preview_card.ex:284
 #: lib/phoenix_kit_web/live/users/libraries.html.heex:104
 #, elixir-autogen, elixir-format
@@ -1358,7 +1358,7 @@ msgstr "Italique"
 #: lib/phoenix_kit_web/users/login.html.heex:62
 #: lib/phoenix_kit_web/users/magic_link_registration.html.heex:146
 #: lib/phoenix_kit_web/users/qr_login.html.heex:39
-#: lib/phoenix_kit_web/users/registration.html.heex:191
+#: lib/phoenix_kit_web/users/registration.html.heex:202
 #, elixir-autogen, elixir-format
 msgid "Keep me logged in"
 msgstr "Rester connecté"
@@ -1585,7 +1585,7 @@ msgstr "Options"
 
 #: lib/phoenix_kit_web/components/oauth_buttons.ex:61
 #: lib/phoenix_kit_web/users/login.html.heex:110
-#: lib/phoenix_kit_web/users/registration.html.heex:218
+#: lib/phoenix_kit_web/users/registration.html.heex:229
 #, elixir-autogen, elixir-format
 msgid "Or continue with"
 msgstr "Ou continuer avec"
@@ -1622,7 +1622,7 @@ msgstr "Page publiée avec succès"
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:69
 #: lib/phoenix_kit_web/users/login.html.heex:39
 #: lib/phoenix_kit_web/users/magic_link_registration.html.heex:42
-#: lib/phoenix_kit_web/users/registration.html.heex:167
+#: lib/phoenix_kit_web/users/registration.html.heex:178
 #: lib/phoenix_kit_web/users/user_form.html.heex:127
 #, elixir-autogen, elixir-format
 msgid "Password"
@@ -1952,7 +1952,8 @@ msgstr "Enregistré"
 #: lib/phoenix_kit_web/components/core/markdown_editor.ex:417
 #: lib/phoenix_kit_web/live/settings.html.heex:673
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:798
-#: lib/phoenix_kit_web/live/settings/authorization.html.heex:974
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:949
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:1025
 #: lib/phoenix_kit_web/live/settings/users.html.heex:748
 #, elixir-autogen, elixir-format
 msgid "Saving..."
@@ -1987,7 +1988,7 @@ msgstr "Sélectionnez les sections et modules auxquels ce rôle peut accéder. V
 #: lib/phoenix_kit_web/live/modules/languages.ex:54
 #: lib/phoenix_kit_web/live/settings.ex:69
 #: lib/phoenix_kit_web/live/settings/api.ex:160
-#: lib/phoenix_kit_web/live/settings/authorization.ex:65
+#: lib/phoenix_kit_web/live/settings/authorization.ex:66
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:669
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:676
 #: lib/phoenix_kit_web/live/settings/crawlers.ex:45
@@ -2012,7 +2013,7 @@ msgstr "Paramètres"
 msgid "Shared across modules"
 msgstr "Partagé entre les modules"
 
-#: lib/phoenix_kit_web/users/registration.html.heex:249
+#: lib/phoenix_kit_web/users/registration.html.heex:260
 #, elixir-autogen, elixir-format
 msgid "Sign in"
 msgstr "Se connecter"
@@ -2186,8 +2187,8 @@ msgid "Unconfirmed"
 msgstr "Non confirmé"
 
 #: lib/phoenix_kit/email/core_templates.ex:556
-#: lib/phoenix_kit/users/auth/user_notifier.ex:294
-#: lib/phoenix_kit/users/auth/user_notifier.ex:375
+#: lib/phoenix_kit/users/auth/user_notifier.ex:301
+#: lib/phoenix_kit/users/auth/user_notifier.ex:394
 #: lib/phoenix_kit_web/comments_gettext_manifest.ex:64
 #: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:257
 #: lib/phoenix_kit_web/components/core/time_display.ex:180
@@ -2254,7 +2255,7 @@ msgstr "Rôles définis par l'utilisateur"
 #: lib/phoenix_kit_web/live/components/user_settings.ex:1100
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:251
 #: lib/phoenix_kit_web/users/magic_link_registration.html.heex:30
-#: lib/phoenix_kit_web/users/registration.html.heex:76
+#: lib/phoenix_kit_web/users/registration.html.heex:87
 #: lib/phoenix_kit_web/users/user_form.html.heex:111
 #, elixir-autogen, elixir-format
 msgid "Username"
@@ -2699,7 +2700,7 @@ msgstr "Application en cours..."
 msgid "At least one option is required for %{type} fields"
 msgstr "Au moins une option est requise pour les champs %{type}"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:102
+#: lib/phoenix_kit_web/live/settings/authorization.ex:104
 #, elixir-autogen, elixir-format
 msgid "Authentication Methods"
 msgstr "Méthodes d'authentification"
@@ -2745,7 +2746,7 @@ msgid "CSS color or gradient for auth page background. Ignored if a background i
 msgstr "Couleur ou dégradé CSS pour l'arrière-plan des pages d'authentification. Ignoré si une image d'arrière-plan est définie."
 
 #: lib/phoenix_kit_web/components/core/oauth_utils.ex:22
-#: lib/phoenix_kit_web/live/settings/authorization.ex:483
+#: lib/phoenix_kit_web/live/settings/authorization.ex:514
 #, elixir-autogen, elixir-format
 msgid "Callback URL"
 msgstr "URL de rappel"
@@ -2835,7 +2836,7 @@ msgid "Copy this URL to Google Cloud Console"
 msgstr "Copiez cette URL dans Google Cloud Console"
 
 #: lib/phoenix_kit_web/components/core/oauth_utils.ex:31
-#: lib/phoenix_kit_web/live/settings/authorization.ex:493
+#: lib/phoenix_kit_web/live/settings/authorization.ex:524
 #, elixir-autogen, elixir-format
 msgid "Copy to clipboard"
 msgstr "Copier dans le presse-papiers"
@@ -3017,7 +3018,7 @@ msgstr "Comment les dates sont affichées"
 msgid "How times are displayed"
 msgstr "Comment les heures sont affichées"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:518
+#: lib/phoenix_kit_web/live/settings/authorization.ex:549
 #, elixir-autogen, elixir-format
 msgid "If behind nginx/apache, ensure"
 msgstr "Si vous êtes derrière nginx/apache, assurez-vous que"
@@ -3056,7 +3057,7 @@ msgstr "Mentions légales"
 msgid "Local Filesystem"
 msgstr "Système de fichiers local"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:101
+#: lib/phoenix_kit_web/live/settings/authorization.ex:103
 #, elixir-autogen, elixir-format
 msgid "Login Page Branding"
 msgstr "Personnalisation de la page de connexion"
@@ -3076,7 +3077,7 @@ msgstr "Lien magique"
 msgid "Maintain Aspect Ratio"
 msgstr "Conserver le ratio d'aspect"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:63
+#: lib/phoenix_kit_web/live/settings/authorization.ex:64
 #, elixir-autogen, elixir-format
 msgid "Manage login page branding and authentication methods"
 msgstr "Gérez la personnalisation de la page de connexion et les méthodes d'authentification"
@@ -3271,7 +3272,7 @@ msgstr "Réinitialiser aux valeurs par défaut"
 msgid "Resolution"
 msgstr "Résolution"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:516
+#: lib/phoenix_kit_web/live/settings/authorization.ex:547
 #, elixir-autogen, elixir-format
 msgid "Reverse Proxy Users:"
 msgstr "Utilisateurs de proxy inverse :"
@@ -3351,7 +3352,7 @@ msgid "Session actions"
 msgstr "Actions sur la session"
 
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:496
-#: lib/phoenix_kit_web/live/settings/authorization.ex:471
+#: lib/phoenix_kit_web/live/settings/authorization.ex:502
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:468
 #, elixir-autogen, elixir-format
 msgid "Setup Instructions"
@@ -3591,7 +3592,7 @@ msgstr "par exemple, thumbnail, medium, 720p"
 msgid "files"
 msgstr "fichiers"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:522
+#: lib/phoenix_kit_web/live/settings/authorization.ex:553
 #, elixir-autogen, elixir-format
 msgid "header is set to"
 msgstr "l'en-tête est défini sur"
@@ -3777,7 +3778,7 @@ msgid "Account"
 msgstr "Compte"
 
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:227
-#: lib/phoenix_kit_web/users/registration.html.heex:126
+#: lib/phoenix_kit_web/users/registration.html.heex:137
 #: lib/phoenix_kit_web/users/user_form.html.heex:138
 #, elixir-autogen, elixir-format
 msgid "Account Type"
@@ -4745,7 +4746,7 @@ msgstr "Org"
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:230
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:264
 #: lib/phoenix_kit_web/live/users/users.html.heex:223
-#: lib/phoenix_kit_web/users/registration.html.heex:143
+#: lib/phoenix_kit_web/users/registration.html.heex:154
 #: lib/phoenix_kit_web/users/user_form.html.heex:159
 #, elixir-autogen, elixir-format
 msgid "Organization"
@@ -4760,7 +4761,7 @@ msgstr "Membres de l'organisation"
 #: lib/phoenix_kit_web/live/components/user_settings.ex:1080
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:218
 #: lib/phoenix_kit_web/users/magic_link_registration.html.heex:64
-#: lib/phoenix_kit_web/users/registration.html.heex:155
+#: lib/phoenix_kit_web/users/registration.html.heex:166
 #: lib/phoenix_kit_web/users/user_form.html.heex:170
 #, elixir-autogen, elixir-format
 msgid "Organization Name"
@@ -4779,7 +4780,7 @@ msgstr "Boîte de réception par utilisateur alimentée par le flux d'activité"
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:63
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:231
 #: lib/phoenix_kit_web/live/users/users.html.heex:222
-#: lib/phoenix_kit_web/users/registration.html.heex:137
+#: lib/phoenix_kit_web/users/registration.html.heex:148
 #: lib/phoenix_kit_web/users/user_form.html.heex:149
 #, elixir-autogen, elixir-format
 msgid "Personal"
@@ -5470,7 +5471,7 @@ msgstr "Corps enregistré"
 
 #: lib/phoenix_kit/notifications/types.ex:272
 #: lib/phoenix_kit/notifications/types.ex:295
-#: lib/phoenix_kit/users/auth.ex:3570
+#: lib/phoenix_kit/users/auth.ex:3619
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:997
 #: lib/phoenix_kit_web/live/modules.ex:200
 #: lib/phoenix_kit_web/live/users/user_details.ex:187
@@ -5883,7 +5884,7 @@ msgstr "Entités"
 #: lib/modules/sitemap/web/settings.html.heex:135
 #: lib/modules/sitemap/web/settings.html.heex:315
 #: lib/phoenix_kit/notifications/types.ex:256
-#: lib/phoenix_kit/users/auth.ex:3568
+#: lib/phoenix_kit/users/auth.ex:3617
 #: lib/phoenix_kit_web/live/modules.ex:212
 #, elixir-autogen
 msgid "Posts"
@@ -5989,7 +5990,7 @@ msgid "Logout"
 msgstr "Déconnexion"
 
 #: lib/modules/sitemap/web/settings.html.heex:434
-#: lib/phoenix_kit_web/live/settings/authorization.ex:378
+#: lib/phoenix_kit_web/live/settings/authorization.ex:409
 #: lib/phoenix_kit_web/live/settings/users.ex:99
 #, elixir-autogen
 msgid "Registration"
@@ -7261,12 +7262,12 @@ msgstr "Lorsque cette option est activée, la langue principale supprime son seg
 msgid "Account Confirmation"
 msgstr "Confirmation du compte"
 
-#: lib/phoenix_kit_web/users/registration.html.heex:244
+#: lib/phoenix_kit_web/users/registration.html.heex:255
 #, elixir-autogen, elixir-format
 msgid "Already have an account?"
 msgstr "Vous avez déjà un compte ?"
 
-#: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:117
+#: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:133
 #, elixir-autogen, elixir-format
 msgid "Already have an account? Sign in"
 msgstr "Vous avez déjà un compte ? Connectez-vous"
@@ -7324,7 +7325,7 @@ msgid "Confirming..."
 msgstr "Confirmation en cours..."
 
 #: lib/phoenix_kit_web/users/registration.html.heex:8
-#: lib/phoenix_kit_web/users/registration.html.heex:201
+#: lib/phoenix_kit_web/users/registration.html.heex:212
 #, elixir-autogen, elixir-format
 msgid "Create account"
 msgstr "Créer un compte"
@@ -7341,7 +7342,7 @@ msgid "Don't have an account?"
 msgstr "Vous n'avez pas de compte ?"
 
 #: lib/phoenix_kit_web/live/components/user_settings.ex:1352
-#: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:56
+#: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:61
 #, elixir-autogen, elixir-format
 msgid "Email Address"
 msgstr "Adresse e-mail"
@@ -7403,12 +7404,12 @@ msgstr "Vous n'avez pas reçu les instructions de confirmation ?"
 msgid "Oops, something went wrong! Please check the errors below."
 msgstr "Oups, une erreur s'est produite ! Veuillez vérifier les erreurs ci-dessous."
 
-#: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:102
+#: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:118
 #, elixir-autogen, elixir-format
 msgid "Other options"
 msgstr "Autres options"
 
-#: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:89
+#: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:105
 #, elixir-autogen, elixir-format
 msgid "Passwordless Registration"
 msgstr "Inscription sans mot de passe"
@@ -7419,31 +7420,31 @@ msgid "Prefer a password?"
 msgstr "Vous préférez un mot de passe ?"
 
 #: lib/phoenix_kit_web/users/magic_link_registration.html.heex:115
-#: lib/phoenix_kit_web/users/registration.html.heex:93
+#: lib/phoenix_kit_web/users/registration.html.heex:104
 #, elixir-autogen, elixir-format
 msgid "Referral Code"
 msgstr "Code de parrainage"
 
 #: lib/phoenix_kit_web/users/confirmation.html.heex:26
 #: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:134
-#: lib/phoenix_kit_web/users/registration.ex:25
+#: lib/phoenix_kit_web/users/registration.ex:26
 #: lib/phoenix_kit_web/users/reset_password.html.heex:47
 #, elixir-autogen, elixir-format
 msgid "Register"
 msgstr "S'inscrire"
 
-#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:38
+#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:39
 #: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:7
 #, elixir-autogen, elixir-format
 msgid "Register via Magic Link"
 msgstr "S'inscrire par lien magique"
 
-#: lib/phoenix_kit_web/users/registration.html.heex:230
+#: lib/phoenix_kit_web/users/registration.html.heex:241
 #, elixir-autogen, elixir-format
 msgid "Register with Magic Link"
 msgstr "S'inscrire avec un lien magique"
 
-#: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:110
+#: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:126
 #, elixir-autogen, elixir-format
 msgid "Register with Password"
 msgstr "S'inscrire avec un mot de passe"
@@ -7483,7 +7484,7 @@ msgid "Resetting..."
 msgstr "Réinitialisation en cours..."
 
 #: lib/phoenix_kit_web/users/magic_link.html.heex:53
-#: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:77
+#: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:93
 #, elixir-autogen, elixir-format
 msgid "Send Magic Link"
 msgstr "Envoyer le lien magique"
@@ -7499,7 +7500,7 @@ msgid "Sending magic link..."
 msgstr "Envoi du lien magique en cours..."
 
 #: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:58
-#: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:74
+#: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:90
 #, elixir-autogen, elixir-format
 msgid "Sending..."
 msgstr "Envoi en cours..."
@@ -7519,7 +7520,7 @@ msgstr "Nous enverrons un nouveau lien de confirmation à votre boîte de récep
 msgid "We'll send a password reset link to your inbox"
 msgstr "Nous allons vous envoyer un lien de réinitialisation du mot de passe"
 
-#: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:92
+#: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:108
 #, elixir-autogen, elixir-format
 msgid "We'll send you a secure link to complete your registration. The link expires in 30 minutes."
 msgstr "Nous allons vous envoyer un lien sécurisé pour finaliser votre inscription. Le lien expire dans 30 minutes."
@@ -7714,7 +7715,7 @@ msgid "View details"
 msgstr "Voir les détails"
 
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:425
-#: lib/phoenix_kit_web/live/settings/authorization.ex:60
+#: lib/phoenix_kit_web/live/settings/authorization.ex:61
 #, elixir-autogen, elixir-format
 msgid "Authorization"
 msgstr "Autorisation"
@@ -8263,7 +8264,7 @@ msgstr "Aucun utilisateur n'est encore enregistré."
 msgid "No users found"
 msgstr "Aucun utilisateur trouvé"
 
-#: lib/phoenix_kit_web/live/settings/authorization.html.heex:951
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:1002
 #: lib/phoenix_kit_web/live/users/user_details.ex:940
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:255
 #, elixir-autogen, elixir-format
@@ -8917,7 +8918,7 @@ msgid "List"
 msgstr "Liste"
 
 #: lib/phoenix_kit_web/components/user_dashboard_nav.ex:356
-#: lib/phoenix_kit_web/live/settings/authorization.ex:379
+#: lib/phoenix_kit_web/live/settings/authorization.ex:410
 #, elixir-autogen, elixir-format
 msgid "Magic link"
 msgstr "Lien magique"
@@ -9291,7 +9292,7 @@ msgstr "Votre navigateur ne prend pas en charge la balise audio."
 msgid "Log Out"
 msgstr "Se déconnecter"
 
-#: lib/phoenix_kit_web/users/registration.html.heex:84
+#: lib/phoenix_kit_web/users/registration.html.heex:95
 #, elixir-autogen, elixir-format
 msgid "Auto-filled from your email — edit it to choose your own"
 msgstr "Rempli automatiquement d'après votre e-mail — modifiez-le pour choisir le vôtre"
@@ -12126,7 +12127,7 @@ msgstr "Sélectionner un fichier audio"
 msgid "Select Avatar"
 msgstr "Sélectionner un avatar"
 
-#: lib/phoenix_kit_web/live/settings/authorization.html.heex:992
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:1043
 #, elixir-autogen, elixir-format
 msgid "Select Background Image"
 msgstr "Sélectionner une image de fond"
@@ -12143,7 +12144,7 @@ msgstr "Sélectionner des images"
 
 #: lib/phoenix_kit_web/components/media_browser/browser.html.heex:847
 #: lib/phoenix_kit_web/live/settings.html.heex:717
-#: lib/phoenix_kit_web/live/settings/authorization.html.heex:993
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:1044
 #, elixir-autogen, elixir-format
 msgid "Select Logo"
 msgstr "Sélectionner un logo"
@@ -12248,7 +12249,7 @@ msgid "The current encryption status could not be described by this admin page �
 msgstr "Le statut de chiffrement actuel n'a pas pu être décrit par cette page d'administration — il pourrait être plus récent que ce que cette page reconnaît. Vérifiez directement PhoenixKit.Integrations.Encryption.status/0."
 
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:465
-#: lib/phoenix_kit_web/live/settings/authorization.ex:421
+#: lib/phoenix_kit_web/live/settings/authorization.ex:452
 #, elixir-autogen, elixir-format
 msgid "A secret is already configured — leave blank to keep the current value"
 msgstr "Un secret est déjà configuré — laissez vide pour conserver la valeur actuelle"
@@ -12365,7 +12366,7 @@ msgstr "Si votre adresse e-mail figure dans notre système, vous recevrez sous p
 msgid "Invalid context"
 msgstr "Contexte invalide"
 
-#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:118
+#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:141
 #, elixir-autogen, elixir-format
 msgid "Invalid email format"
 msgstr "Format d'e-mail invalide"
@@ -12471,7 +12472,7 @@ msgid "Password updated successfully!"
 msgstr "Mot de passe mis à jour avec succès !"
 
 #: lib/phoenix_kit_web/users/magic_link_registration.ex:35
-#: lib/phoenix_kit_web/users/registration.ex:141
+#: lib/phoenix_kit_web/users/registration.ex:146
 #, elixir-autogen, elixir-format
 msgid "Registration is currently disabled."
 msgstr "L'inscription est actuellement désactivée."
@@ -12487,8 +12488,8 @@ msgstr "Le lien d'inscription est invalide ou a expiré."
 msgid "Registration link is invalid or has expired. Please request a new one."
 msgstr "Le lien d'inscription est invalide ou a expiré. Veuillez en demander un nouveau."
 
-#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:100
-#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:111
+#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:123
+#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:134
 #, elixir-autogen, elixir-format
 msgid "Registration link sent! Check your email."
 msgstr "Lien d'inscription envoyé ! Consultez votre messagerie."
@@ -12513,7 +12514,7 @@ msgstr "Stockage d'objets compatible S3 — AWS S3, Cloudflare R2, Backblaze B2,
 msgid "Sitemap Exemption"
 msgstr "Exception du plan du site"
 
-#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:154
+#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:185
 #, elixir-autogen, elixir-format
 msgid "Something went wrong"
 msgstr "Une erreur s'est produite"
@@ -12554,7 +12555,7 @@ msgstr "Ce compte est inactif."
 msgid "That email is already registered. Please log in instead."
 msgstr "Cette adresse e-mail est déjà enregistrée. Veuillez plutôt vous connecter."
 
-#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:126
+#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:157
 #, elixir-autogen, elixir-format
 msgid "Too many attempts"
 msgstr "Trop de tentatives"
@@ -12580,13 +12581,13 @@ msgstr "Le lien de confirmation est invalide ou a expiré."
 msgid "User confirmed successfully."
 msgstr "Utilisateur confirmé avec succès."
 
-#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:71
+#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:94
 #, elixir-autogen, elixir-format
 msgid "User registration is currently disabled."
 msgstr "L'inscription des utilisateurs est actuellement désactivée."
 
-#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:52
-#: lib/phoenix_kit_web/users/registration.ex:120
+#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:54
+#: lib/phoenix_kit_web/users/registration.ex:121
 #, elixir-autogen, elixir-format
 msgid "User registration is currently disabled. Please contact an administrator."
 msgstr "L'inscription des utilisateurs est actuellement désactivée. Veuillez contacter un administrateur."
@@ -12672,7 +12673,7 @@ msgstr "Vous n'avez plus la permission d'accéder à cette section."
 msgid "Failed to send magic link. Please try again."
 msgstr "Échec de la déconnexion du fournisseur. Veuillez réessayer."
 
-#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:153
+#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:184
 #, elixir-autogen, elixir-format
 msgid "Failed to send registration link. Please try again."
 msgstr "Échec du refus de l'invitation. Veuillez réessayer."
@@ -12682,12 +12683,12 @@ msgstr "Échec du refus de l'invitation. Veuillez réessayer."
 msgid "Please enter a valid email address"
 msgstr "Veuillez saisir un nom"
 
-#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:117
+#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:140
 #, elixir-autogen, elixir-format
 msgid "Please enter a valid email address."
 msgstr "Veuillez saisir un nom"
 
-#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:125
+#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:156
 #, elixir-autogen, elixir-format
 msgid "Too many registration attempts. Please try again later."
 msgstr "Trop de tentatives d'inscription. Veuillez réessayer plus tard."
@@ -14200,27 +14201,27 @@ msgstr "Envoyé"
 msgid "We sent a confirmation link to %{email}."
 msgstr "Nous avons envoyé un lien de confirmation à %{email}."
 
-#: lib/phoenix_kit/users/auth.ex:3563
+#: lib/phoenix_kit/users/auth.ex:3612
 #, elixir-autogen, elixir-format
 msgid "Admin notes"
 msgstr "Notes d'administration"
 
-#: lib/phoenix_kit/users/auth.ex:3560
+#: lib/phoenix_kit/users/auth.ex:3609
 #, elixir-autogen, elixir-format
 msgid "Billing profiles"
 msgstr "Profils de facturation"
 
-#: lib/phoenix_kit/users/auth.ex:3581
+#: lib/phoenix_kit/users/auth.ex:3630
 #, elixir-autogen, elixir-format
 msgid "Email logs"
 msgstr "Journaux d'e-mails"
 
-#: lib/phoenix_kit/users/auth.ex:3559
+#: lib/phoenix_kit/users/auth.ex:3608
 #, elixir-autogen, elixir-format
 msgid "OAuth connections"
 msgstr "Connexions OAuth"
 
-#: lib/phoenix_kit/users/auth.ex:3566
+#: lib/phoenix_kit/users/auth.ex:3615
 #, elixir-autogen, elixir-format
 msgid "Orders"
 msgstr "Commandes"
@@ -14236,22 +14237,22 @@ msgstr "Supprimer définitivement"
 msgid "Permanently Delete User"
 msgstr "Supprimer définitivement l'utilisateur"
 
-#: lib/phoenix_kit/users/auth.ex:3558
+#: lib/phoenix_kit/users/auth.ex:3607
 #, elixir-autogen, elixir-format
 msgid "Role assignments"
 msgstr "Attributions de rôles"
 
-#: lib/phoenix_kit/users/auth.ex:3557
+#: lib/phoenix_kit/users/auth.ex:3606
 #, elixir-autogen, elixir-format
 msgid "Session and other tokens"
 msgstr "Jetons de session et autres jetons"
 
-#: lib/phoenix_kit/users/auth.ex:3562
+#: lib/phoenix_kit/users/auth.ex:3611
 #, elixir-autogen, elixir-format
 msgid "Shopping carts"
 msgstr "Paniers"
 
-#: lib/phoenix_kit/users/auth.ex:3579
+#: lib/phoenix_kit/users/auth.ex:3628
 #, elixir-autogen, elixir-format
 msgid "Support tickets"
 msgstr "Tickets d'assistance"
@@ -14436,7 +14437,7 @@ msgstr "Google a rejeté ces identifiants (invalid_client) — l'ID client et le
 msgid "Missing %{provider} OAuth credentials: %{fields}"
 msgstr "Identifiants OAuth %{provider} manquants : %{fields}"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:188
+#: lib/phoenix_kit_web/live/settings/authorization.ex:210
 #, elixir-autogen, elixir-format
 msgid "OAuth configuration reloaded from database"
 msgstr "Configuration OAuth rechargée depuis la base de données"
@@ -16897,7 +16898,7 @@ msgid "Part"
 msgstr "Partie"
 
 #: lib/phoenix_kit/email/core_templates.ex:56
-#: lib/phoenix_kit_web/live/settings/authorization.ex:380
+#: lib/phoenix_kit_web/live/settings/authorization.ex:411
 #, elixir-autogen, elixir-format
 msgid "Password reset"
 msgstr "Réinitialisation du mot de passe"
@@ -25035,7 +25036,7 @@ msgstr "Tentée :"
 msgid "Authorization callback URL"
 msgstr "URL de rappel d'autorisation"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:337
+#: lib/phoenix_kit_web/live/settings/authorization.ex:359
 #, elixir-autogen, elixir-format
 msgid "Authorization settings updated successfully"
 msgstr "Paramètres d'autorisation mis à jour avec succès"
@@ -26908,7 +26909,7 @@ msgstr "Ajouter une clé d'accès"
 msgid "Added %{date}"
 msgstr "Ajoutée le %{date}"
 
-#: lib/phoenix_kit/users/auth/user_notifier.ex:401
+#: lib/phoenix_kit/users/auth/user_notifier.ex:426
 #, elixir-autogen, elixir-format
 msgid "An administrator"
 msgstr "Un administrateur"
@@ -27082,7 +27083,7 @@ msgid "Too many attempts. Wait a minute and try again."
 msgstr "Trop de tentatives. Attendez une minute et réessayez."
 
 #: lib/phoenix_kit/email/core_templates.ex:195
-#: lib/phoenix_kit/users/auth/user_notifier.ex:401
+#: lib/phoenix_kit/users/auth/user_notifier.ex:426
 #, elixir-autogen, elixir-format
 msgid "You"
 msgstr "Vous"
@@ -27190,22 +27191,22 @@ msgstr "Ceci est une clé SMTP Brevo (xsmtpsib-…). L’API Brevo demande une c
 msgid "Unexpected answer from Brevo"
 msgstr "Réponse inattendue de Brevo"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:396
+#: lib/phoenix_kit_web/live/settings/authorization.ex:427
 #, elixir-autogen, elixir-format
 msgid "%{count} h"
 msgstr "%{count} h"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:394
+#: lib/phoenix_kit_web/live/settings/authorization.ex:425
 #, elixir-autogen, elixir-format
 msgid "%{count} min"
 msgstr "%{count} min"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:391
+#: lib/phoenix_kit_web/live/settings/authorization.ex:422
 #, elixir-autogen, elixir-format
 msgid "%{count} s"
 msgstr "%{count} s"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:385
+#: lib/phoenix_kit_web/live/settings/authorization.ex:416
 #, elixir-autogen, elixir-format
 msgid "%{limit} per %{window}"
 msgstr "%{limit} par %{window}"
@@ -27215,12 +27216,12 @@ msgstr "%{limit} par %{window}"
 msgid "%{used} of %{limit}"
 msgstr "%{used} sur %{limit}"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:104
+#: lib/phoenix_kit_web/live/settings/authorization.ex:106
 #, elixir-autogen, elixir-format
 msgid "Abuse protection"
 msgstr "Protection contre les abus"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:381
+#: lib/phoenix_kit_web/live/settings/authorization.ex:412
 #, elixir-autogen, elixir-format
 msgid "Confirmation email resend"
 msgstr "Renvoi de l'e-mail de confirmation"
@@ -27255,7 +27256,7 @@ msgstr "Par réseau (IP)"
 msgid "Request limits"
 msgstr "Limites de requêtes"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:377
+#: lib/phoenix_kit_web/live/settings/authorization.ex:408
 #, elixir-autogen, elixir-format
 msgid "Sign-in (failed attempts)"
 msgstr "Connexion (tentatives échouées)"
@@ -27290,42 +27291,42 @@ msgstr "Tout le site"
 msgid "resets in %{time}"
 msgstr "réinitialisation dans %{time}"
 
-#: lib/phoenix_kit_web/live/settings/authorization.html.heex:916
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:967
 #, elixir-autogen, elixir-format
 msgid "A check that the visitor is a person, before a form sends an email"
 msgstr "Une vérification que le visiteur est une personne, avant qu'un formulaire n'envoie un e-mail"
 
-#: lib/phoenix_kit_web/live/settings/authorization.html.heex:959
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:1010
 #, elixir-autogen, elixir-format
 msgid "Both keys come from the Cloudflare dashboard: Turnstile, Add widget, with this site's domain. The secret key is checked with Cloudflare when you save and is never shown again."
 msgstr "Les deux clés proviennent du tableau de bord Cloudflare : Turnstile, Ajouter un widget, avec le domaine de ce site. La clé secrète est vérifiée auprès de Cloudflare à l'enregistrement et n'est plus jamais affichée."
 
-#: lib/phoenix_kit_web/live/settings/authorization.html.heex:913
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:964
 #, elixir-autogen, elixir-format
 msgid "Cloudflare Turnstile"
 msgstr "Cloudflare Turnstile"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:372
+#: lib/phoenix_kit_web/live/settings/authorization.ex:403
 #, elixir-autogen, elixir-format
 msgid "Cloudflare does not recognise this secret key. Nothing was saved."
 msgstr "Cloudflare ne reconnaît pas cette clé secrète. Rien n'a été enregistré."
 
-#: lib/phoenix_kit_web/live/settings/authorization.html.heex:924
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:975
 #, elixir-autogen, elixir-format
 msgid "Enable Cloudflare Turnstile"
 msgstr "Activer Cloudflare Turnstile"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:369
+#: lib/phoenix_kit_web/live/settings/authorization.ex:400
 #, elixir-autogen, elixir-format
 msgid "Enter the secret key before switching Turnstile on."
 msgstr "Saisissez la clé secrète avant d'activer Turnstile."
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:366
+#: lib/phoenix_kit_web/live/settings/authorization.ex:397
 #, elixir-autogen, elixir-format
 msgid "Enter the site key before switching Turnstile on."
 msgstr "Saisissez la clé du site avant d'activer Turnstile."
 
-#: lib/phoenix_kit_web/live/settings/authorization.html.heex:964
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:1015
 #, elixir-autogen, elixir-format
 msgid "If Cloudflare cannot be reached, the forms keep working on the request limits alone."
 msgstr "Si Cloudflare est injoignable, les formulaires continuent de fonctionner avec les seules limites de requêtes."
@@ -27335,32 +27336,32 @@ msgstr "Si Cloudflare est injoignable, les formulaires continuent de fonctionner
 msgid "Please wait for the verification to finish, then try again. If you do not see it, reload the page."
 msgstr "Veuillez attendre la fin de la vérification, puis réessayer. Si vous ne la voyez pas, rechargez la page."
 
-#: lib/phoenix_kit_web/live/settings/authorization.html.heex:976
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:1027
 #, elixir-autogen, elixir-format
 msgid "Save Turnstile settings"
 msgstr "Enregistrer les paramètres Turnstile"
 
-#: lib/phoenix_kit_web/live/settings/authorization.html.heex:950
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:1001
 #, elixir-autogen, elixir-format
 msgid "Saved. Leave blank to keep it"
 msgstr "Enregistrée. Laissez vide pour la conserver"
 
-#: lib/phoenix_kit_web/live/settings/authorization.html.heex:947
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:998
 #, elixir-autogen, elixir-format
 msgid "Secret key"
 msgstr "Clé secrète"
 
-#: lib/phoenix_kit_web/live/settings/authorization.html.heex:927
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:978
 #, elixir-autogen, elixir-format
 msgid "Shown on the sign-up, registration link, password reset, magic link and confirmation resend forms. A request without a passed check is refused before it counts against any limit above."
 msgstr "Affiché sur les formulaires d'inscription, de lien d'inscription, de réinitialisation du mot de passe, de lien magique et de renvoi de confirmation. Une requête sans vérification réussie est refusée avant d'être comptée dans l'une des limites ci-dessus."
 
-#: lib/phoenix_kit_web/live/settings/authorization.html.heex:939
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:990
 #, elixir-autogen, elixir-format
 msgid "Site key"
 msgstr "Clé du site"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:374
+#: lib/phoenix_kit_web/live/settings/authorization.ex:405
 #, elixir-autogen, elixir-format
 msgid "The Turnstile settings could not be saved."
 msgstr "Les paramètres Turnstile n'ont pas pu être enregistrés."
@@ -27370,12 +27371,73 @@ msgstr "Les paramètres Turnstile n'ont pas pu être enregistrés."
 msgid "The verification did not succeed. Please try again."
 msgstr "La vérification n'a pas abouti. Veuillez réessayer."
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:124
+#: lib/phoenix_kit_web/live/settings/authorization.ex:126
 #, elixir-autogen, elixir-format
 msgid "Turnstile settings saved, but Cloudflare could not be reached to check the secret key."
 msgstr "Paramètres Turnstile enregistrés, mais Cloudflare n'a pas pu être joint pour vérifier la clé secrète."
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:117
+#: lib/phoenix_kit_web/live/settings/authorization.ex:119
 #, elixir-autogen, elixir-format
 msgid "Turnstile settings saved."
 msgstr "Paramètres Turnstile enregistrés."
+
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:940
+#, elixir-autogen, elixir-format
+msgid "An account that has not confirmed its address gets only the mail its holder asks for (the confirmation, a password reset, a sign-in link): no notifications, digests or security alerts."
+msgstr "Un compte qui n'a pas confirmé son adresse ne reçoit que les e-mails que son titulaire demande (la confirmation, une réinitialisation du mot de passe, un lien de connexion) : ni notifications, ni résumés, ni alertes de sécurité."
+
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:923
+#, elixir-autogen, elixir-format
+msgid "Check the email address at sign-up"
+msgstr "Vérifier l'adresse e-mail à l'inscription"
+
+#: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:69
+#: lib/phoenix_kit_web/users/registration.html.heex:71
+#, elixir-autogen, elixir-format
+msgid "Did you mean"
+msgstr "Vouliez-vous dire"
+
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:912
+#, elixir-autogen, elixir-format
+msgid "Email address check"
+msgstr "Vérification de l'adresse e-mail"
+
+#: lib/phoenix_kit_web/live/settings/authorization.ex:148
+#, elixir-autogen, elixir-format
+msgid "Email address check saved."
+msgstr "Vérification de l'adresse e-mail enregistrée."
+
+#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:149
+#, elixir-autogen, elixir-format
+msgid "Email domain cannot receive mail"
+msgstr "Le domaine de l'e-mail ne peut pas recevoir de courrier"
+
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:926
+#, elixir-autogen, elixir-format
+msgid "On the sign-up and registration link forms: an address whose domain cannot receive mail is refused, and a likely typo (gmial.com) gets a \"Did you mean\" hint the person can accept or ignore. If the domain cannot be looked up in time, the address is accepted."
+msgstr "Sur les formulaires d'inscription et de lien d'inscription : une adresse dont le domaine ne peut pas recevoir de courrier est refusée, et une faute de frappe probable (gmial.com) reçoit une suggestion « Vouliez-vous dire » que la personne peut accepter ou ignorer. Si le domaine ne peut pas être interrogé à temps, l'adresse est acceptée."
+
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:951
+#, elixir-autogen, elixir-format
+msgid "Save email address check"
+msgstr "Enregistrer la vérification de l'adresse e-mail"
+
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:915
+#, elixir-autogen, elixir-format
+msgid "Stops sign-ups for addresses that can only bounce"
+msgstr "Empêche les inscriptions avec des adresses qui ne peuvent que rebondir"
+
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:933
+#, elixir-autogen, elixir-format
+msgid "Switched off in the application's configuration; this setting has no effect."
+msgstr "Désactivé dans la configuration de l'application ; ce paramètre n'a aucun effet."
+
+#: lib/phoenix_kit_web/live/settings/authorization.ex:152
+#, elixir-autogen, elixir-format
+msgid "The email address check could not be saved."
+msgstr "La vérification de l'adresse e-mail n'a pas pu être enregistrée."
+
+#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:148
+#, elixir-autogen, elixir-format
+msgid "This email domain cannot receive mail. Please check the address."
+msgstr "Ce domaine e-mail ne peut pas recevoir de courrier. Veuillez vérifier l'adresse."

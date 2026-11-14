@@ -212,3 +212,13 @@ msgstr "должно содержать символ @ и не содержат�
 #, elixir-autogen, elixir-format
 msgid "must start with a letter and contain only letters, numbers, and underscores"
 msgstr "должно начинаться с буквы и содержать только буквы, цифры и подчёркивания"
+
+#: lib/phoenix_kit/users/auth.ex:483
+#, elixir-autogen, elixir-format
+msgid "This email domain cannot receive mail. Please check the address."
+msgstr "Этот почтовый домен не может принимать письма. Проверьте адрес."
+
+#: lib/phoenix_kit/users/auth.ex:494
+#, elixir-autogen, elixir-format
+msgid "Too many registration attempts. Please try again later."
+msgstr "Слишком много попыток регистрации. Повторите попытку позже."

@@ -89,7 +89,7 @@ msgstr "角色管理"
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:185
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:144
 #: lib/phoenix_kit_web/components/profile_settings_tabs.ex:351
-#: lib/phoenix_kit_web/live/settings/authorization.ex:103
+#: lib/phoenix_kit_web/live/settings/authorization.ex:105
 #: lib/phoenix_kit_web/live/settings/users.ex:100
 #: lib/phoenix_kit_web/live/settings/users.ex:480
 #, elixir-autogen
@@ -1229,7 +1229,7 @@ msgstr "功能模块"
 #: lib/modules/storage/web/library_page.html.heex:165
 #: lib/modules/storage/web/settings.html.heex:123
 #: lib/modules/storage/web/settings.html.heex:148
-#: lib/phoenix_kit/users/auth.ex:3583
+#: lib/phoenix_kit/users/auth.ex:3632
 #: lib/phoenix_kit_web/components/core/preview_card.ex:284
 #: lib/phoenix_kit_web/live/users/libraries.html.heex:104
 #, elixir-autogen, elixir-format
@@ -1352,7 +1352,7 @@ msgstr "斜体"
 #: lib/phoenix_kit_web/users/login.html.heex:62
 #: lib/phoenix_kit_web/users/magic_link_registration.html.heex:146
 #: lib/phoenix_kit_web/users/qr_login.html.heex:39
-#: lib/phoenix_kit_web/users/registration.html.heex:191
+#: lib/phoenix_kit_web/users/registration.html.heex:202
 #, elixir-autogen, elixir-format
 msgid "Keep me logged in"
 msgstr "保持登录状态"
@@ -1579,7 +1579,7 @@ msgstr "选项"
 
 #: lib/phoenix_kit_web/components/oauth_buttons.ex:61
 #: lib/phoenix_kit_web/users/login.html.heex:110
-#: lib/phoenix_kit_web/users/registration.html.heex:218
+#: lib/phoenix_kit_web/users/registration.html.heex:229
 #, elixir-autogen, elixir-format
 msgid "Or continue with"
 msgstr "或继续使用"
@@ -1616,7 +1616,7 @@ msgstr "页面发布成功"
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:69
 #: lib/phoenix_kit_web/users/login.html.heex:39
 #: lib/phoenix_kit_web/users/magic_link_registration.html.heex:42
-#: lib/phoenix_kit_web/users/registration.html.heex:167
+#: lib/phoenix_kit_web/users/registration.html.heex:178
 #: lib/phoenix_kit_web/users/user_form.html.heex:127
 #, elixir-autogen, elixir-format
 msgid "Password"
@@ -1946,7 +1946,8 @@ msgstr "已保存"
 #: lib/phoenix_kit_web/components/core/markdown_editor.ex:417
 #: lib/phoenix_kit_web/live/settings.html.heex:673
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:798
-#: lib/phoenix_kit_web/live/settings/authorization.html.heex:974
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:949
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:1025
 #: lib/phoenix_kit_web/live/settings/users.html.heex:748
 #, elixir-autogen, elixir-format
 msgid "Saving..."
@@ -1981,7 +1982,7 @@ msgstr "选择此角色可以访问的板块和模块。您只能授予您自己
 #: lib/phoenix_kit_web/live/modules/languages.ex:54
 #: lib/phoenix_kit_web/live/settings.ex:69
 #: lib/phoenix_kit_web/live/settings/api.ex:160
-#: lib/phoenix_kit_web/live/settings/authorization.ex:65
+#: lib/phoenix_kit_web/live/settings/authorization.ex:66
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:669
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:676
 #: lib/phoenix_kit_web/live/settings/crawlers.ex:45
@@ -2006,7 +2007,7 @@ msgstr "设置"
 msgid "Shared across modules"
 msgstr "跨模块共享"
 
-#: lib/phoenix_kit_web/users/registration.html.heex:249
+#: lib/phoenix_kit_web/users/registration.html.heex:260
 #, elixir-autogen, elixir-format
 msgid "Sign in"
 msgstr "登录"
@@ -2180,8 +2181,8 @@ msgid "Unconfirmed"
 msgstr "未确认"
 
 #: lib/phoenix_kit/email/core_templates.ex:556
-#: lib/phoenix_kit/users/auth/user_notifier.ex:294
-#: lib/phoenix_kit/users/auth/user_notifier.ex:375
+#: lib/phoenix_kit/users/auth/user_notifier.ex:301
+#: lib/phoenix_kit/users/auth/user_notifier.ex:394
 #: lib/phoenix_kit_web/comments_gettext_manifest.ex:64
 #: lib/phoenix_kit_web/components/core/aws_credentials_verify.ex:257
 #: lib/phoenix_kit_web/components/core/time_display.ex:180
@@ -2248,7 +2249,7 @@ msgstr "用户自定义角色"
 #: lib/phoenix_kit_web/live/components/user_settings.ex:1100
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:251
 #: lib/phoenix_kit_web/users/magic_link_registration.html.heex:30
-#: lib/phoenix_kit_web/users/registration.html.heex:76
+#: lib/phoenix_kit_web/users/registration.html.heex:87
 #: lib/phoenix_kit_web/users/user_form.html.heex:111
 #, elixir-autogen, elixir-format
 msgid "Username"
@@ -2693,7 +2694,7 @@ msgstr "正在应用…"
 msgid "At least one option is required for %{type} fields"
 msgstr "%{type} 字段至少需要一个选项"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:102
+#: lib/phoenix_kit_web/live/settings/authorization.ex:104
 #, elixir-autogen, elixir-format
 msgid "Authentication Methods"
 msgstr "认证方式"
@@ -2739,7 +2740,7 @@ msgid "CSS color or gradient for auth page background. Ignored if a background i
 msgstr "认证页面背景的 CSS 颜色或渐变。设置了背景图片时将被忽略。"
 
 #: lib/phoenix_kit_web/components/core/oauth_utils.ex:22
-#: lib/phoenix_kit_web/live/settings/authorization.ex:483
+#: lib/phoenix_kit_web/live/settings/authorization.ex:514
 #, elixir-autogen, elixir-format
 msgid "Callback URL"
 msgstr "回调 URL"
@@ -2829,7 +2830,7 @@ msgid "Copy this URL to Google Cloud Console"
 msgstr "将此 URL 复制到 Google Cloud Console"
 
 #: lib/phoenix_kit_web/components/core/oauth_utils.ex:31
-#: lib/phoenix_kit_web/live/settings/authorization.ex:493
+#: lib/phoenix_kit_web/live/settings/authorization.ex:524
 #, elixir-autogen, elixir-format
 msgid "Copy to clipboard"
 msgstr "复制到剪贴板"
@@ -3011,7 +3012,7 @@ msgstr "日期的显示方式"
 msgid "How times are displayed"
 msgstr "时间的显示方式"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:518
+#: lib/phoenix_kit_web/live/settings/authorization.ex:549
 #, elixir-autogen, elixir-format
 msgid "If behind nginx/apache, ensure"
 msgstr "如果位于 nginx/apache 之后，请确保"
@@ -3050,7 +3051,7 @@ msgstr "法律"
 msgid "Local Filesystem"
 msgstr "本地文件系统"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:101
+#: lib/phoenix_kit_web/live/settings/authorization.ex:103
 #, elixir-autogen, elixir-format
 msgid "Login Page Branding"
 msgstr "登录页品牌"
@@ -3070,7 +3071,7 @@ msgstr "魔法链接"
 msgid "Maintain Aspect Ratio"
 msgstr "保持宽高比"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:63
+#: lib/phoenix_kit_web/live/settings/authorization.ex:64
 #, elixir-autogen, elixir-format
 msgid "Manage login page branding and authentication methods"
 msgstr "管理登录页品牌和认证方式"
@@ -3265,7 +3266,7 @@ msgstr "重置为默认值"
 msgid "Resolution"
 msgstr "分辨率"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:516
+#: lib/phoenix_kit_web/live/settings/authorization.ex:547
 #, elixir-autogen, elixir-format
 msgid "Reverse Proxy Users:"
 msgstr "反向代理用户："
@@ -3345,7 +3346,7 @@ msgid "Session actions"
 msgstr "会话操作"
 
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:496
-#: lib/phoenix_kit_web/live/settings/authorization.ex:471
+#: lib/phoenix_kit_web/live/settings/authorization.ex:502
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:468
 #, elixir-autogen, elixir-format
 msgid "Setup Instructions"
@@ -3585,7 +3586,7 @@ msgstr "例如：thumbnail、medium、720p"
 msgid "files"
 msgstr "文件"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:522
+#: lib/phoenix_kit_web/live/settings/authorization.ex:553
 #, elixir-autogen, elixir-format
 msgid "header is set to"
 msgstr "标头设置为"
@@ -3771,7 +3772,7 @@ msgid "Account"
 msgstr "账户"
 
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:227
-#: lib/phoenix_kit_web/users/registration.html.heex:126
+#: lib/phoenix_kit_web/users/registration.html.heex:137
 #: lib/phoenix_kit_web/users/user_form.html.heex:138
 #, elixir-autogen, elixir-format
 msgid "Account Type"
@@ -4739,7 +4740,7 @@ msgstr "组织"
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:230
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:264
 #: lib/phoenix_kit_web/live/users/users.html.heex:223
-#: lib/phoenix_kit_web/users/registration.html.heex:143
+#: lib/phoenix_kit_web/users/registration.html.heex:154
 #: lib/phoenix_kit_web/users/user_form.html.heex:159
 #, elixir-autogen, elixir-format
 msgid "Organization"
@@ -4754,7 +4755,7 @@ msgstr "组织成员"
 #: lib/phoenix_kit_web/live/components/user_settings.ex:1080
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:218
 #: lib/phoenix_kit_web/users/magic_link_registration.html.heex:64
-#: lib/phoenix_kit_web/users/registration.html.heex:155
+#: lib/phoenix_kit_web/users/registration.html.heex:166
 #: lib/phoenix_kit_web/users/user_form.html.heex:170
 #, elixir-autogen, elixir-format
 msgid "Organization Name"
@@ -4773,7 +4774,7 @@ msgstr "基于动态的每用户收件箱"
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:63
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:231
 #: lib/phoenix_kit_web/live/users/users.html.heex:222
-#: lib/phoenix_kit_web/users/registration.html.heex:137
+#: lib/phoenix_kit_web/users/registration.html.heex:148
 #: lib/phoenix_kit_web/users/user_form.html.heex:149
 #, elixir-autogen, elixir-format
 msgid "Personal"
@@ -5464,7 +5465,7 @@ msgstr "正文已保存"
 
 #: lib/phoenix_kit/notifications/types.ex:272
 #: lib/phoenix_kit/notifications/types.ex:295
-#: lib/phoenix_kit/users/auth.ex:3570
+#: lib/phoenix_kit/users/auth.ex:3619
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:997
 #: lib/phoenix_kit_web/live/modules.ex:200
 #: lib/phoenix_kit_web/live/users/user_details.ex:187
@@ -5873,7 +5874,7 @@ msgstr "实体"
 #: lib/modules/sitemap/web/settings.html.heex:135
 #: lib/modules/sitemap/web/settings.html.heex:315
 #: lib/phoenix_kit/notifications/types.ex:256
-#: lib/phoenix_kit/users/auth.ex:3568
+#: lib/phoenix_kit/users/auth.ex:3617
 #: lib/phoenix_kit_web/live/modules.ex:212
 #, elixir-autogen
 msgid "Posts"
@@ -5979,7 +5980,7 @@ msgid "Logout"
 msgstr "退出登录"
 
 #: lib/modules/sitemap/web/settings.html.heex:434
-#: lib/phoenix_kit_web/live/settings/authorization.ex:378
+#: lib/phoenix_kit_web/live/settings/authorization.ex:409
 #: lib/phoenix_kit_web/live/settings/users.ex:99
 #, elixir-autogen
 msgid "Registration"
@@ -7235,12 +7236,12 @@ msgstr "开启后，主语言会在所有 URL 中省略语言区域段（例如 
 msgid "Account Confirmation"
 msgstr "账户确认"
 
-#: lib/phoenix_kit_web/users/registration.html.heex:244
+#: lib/phoenix_kit_web/users/registration.html.heex:255
 #, elixir-autogen, elixir-format
 msgid "Already have an account?"
 msgstr "已有账户？"
 
-#: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:117
+#: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:133
 #, elixir-autogen, elixir-format
 msgid "Already have an account? Sign in"
 msgstr "已有账户？登录"
@@ -7298,7 +7299,7 @@ msgid "Confirming..."
 msgstr "正在确认…"
 
 #: lib/phoenix_kit_web/users/registration.html.heex:8
-#: lib/phoenix_kit_web/users/registration.html.heex:201
+#: lib/phoenix_kit_web/users/registration.html.heex:212
 #, elixir-autogen, elixir-format
 msgid "Create account"
 msgstr "创建账户"
@@ -7315,7 +7316,7 @@ msgid "Don't have an account?"
 msgstr "还没有账户？"
 
 #: lib/phoenix_kit_web/live/components/user_settings.ex:1352
-#: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:56
+#: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:61
 #, elixir-autogen, elixir-format
 msgid "Email Address"
 msgstr "邮箱地址"
@@ -7377,12 +7378,12 @@ msgstr "没有收到确认说明？"
 msgid "Oops, something went wrong! Please check the errors below."
 msgstr "糟糕，出错了！请检查下方的错误。"
 
-#: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:102
+#: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:118
 #, elixir-autogen, elixir-format
 msgid "Other options"
 msgstr "其他选项"
 
-#: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:89
+#: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:105
 #, elixir-autogen, elixir-format
 msgid "Passwordless Registration"
 msgstr "无密码注册"
@@ -7393,31 +7394,31 @@ msgid "Prefer a password?"
 msgstr "想使用密码？"
 
 #: lib/phoenix_kit_web/users/magic_link_registration.html.heex:115
-#: lib/phoenix_kit_web/users/registration.html.heex:93
+#: lib/phoenix_kit_web/users/registration.html.heex:104
 #, elixir-autogen, elixir-format
 msgid "Referral Code"
 msgstr "推荐码"
 
 #: lib/phoenix_kit_web/users/confirmation.html.heex:26
 #: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:134
-#: lib/phoenix_kit_web/users/registration.ex:25
+#: lib/phoenix_kit_web/users/registration.ex:26
 #: lib/phoenix_kit_web/users/reset_password.html.heex:47
 #, elixir-autogen, elixir-format
 msgid "Register"
 msgstr "注册"
 
-#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:38
+#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:39
 #: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:7
 #, elixir-autogen, elixir-format
 msgid "Register via Magic Link"
 msgstr "通过魔法链接注册"
 
-#: lib/phoenix_kit_web/users/registration.html.heex:230
+#: lib/phoenix_kit_web/users/registration.html.heex:241
 #, elixir-autogen, elixir-format
 msgid "Register with Magic Link"
 msgstr "使用魔法链接注册"
 
-#: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:110
+#: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:126
 #, elixir-autogen, elixir-format
 msgid "Register with Password"
 msgstr "使用密码注册"
@@ -7457,7 +7458,7 @@ msgid "Resetting..."
 msgstr "正在重置…"
 
 #: lib/phoenix_kit_web/users/magic_link.html.heex:53
-#: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:77
+#: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:93
 #, elixir-autogen, elixir-format
 msgid "Send Magic Link"
 msgstr "发送魔法链接"
@@ -7473,7 +7474,7 @@ msgid "Sending magic link..."
 msgstr "正在发送魔法链接…"
 
 #: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:58
-#: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:74
+#: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:90
 #, elixir-autogen, elixir-format
 msgid "Sending..."
 msgstr "正在发送…"
@@ -7493,7 +7494,7 @@ msgstr "我们会向您的收件箱发送新的确认链接"
 msgid "We'll send a password reset link to your inbox"
 msgstr "我们会向您的收件箱发送密码重置链接"
 
-#: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:92
+#: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:108
 #, elixir-autogen, elixir-format
 msgid "We'll send you a secure link to complete your registration. The link expires in 30 minutes."
 msgstr "我们会向您发送一个用于完成注册的安全链接。该链接将在 30 分钟后过期。"
@@ -7687,7 +7688,7 @@ msgid "View details"
 msgstr "查看详情"
 
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:425
-#: lib/phoenix_kit_web/live/settings/authorization.ex:60
+#: lib/phoenix_kit_web/live/settings/authorization.ex:61
 #, elixir-autogen, elixir-format
 msgid "Authorization"
 msgstr "授权"
@@ -8235,7 +8236,7 @@ msgstr "尚无已注册的用户。"
 msgid "No users found"
 msgstr "未找到用户"
 
-#: lib/phoenix_kit_web/live/settings/authorization.html.heex:951
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:1002
 #: lib/phoenix_kit_web/live/users/user_details.ex:940
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:255
 #, elixir-autogen, elixir-format
@@ -8888,7 +8889,7 @@ msgid "List"
 msgstr "列表"
 
 #: lib/phoenix_kit_web/components/user_dashboard_nav.ex:356
-#: lib/phoenix_kit_web/live/settings/authorization.ex:379
+#: lib/phoenix_kit_web/live/settings/authorization.ex:410
 #, elixir-autogen, elixir-format
 msgid "Magic link"
 msgstr "魔法链接"
@@ -9262,7 +9263,7 @@ msgstr "您的浏览器不支持 audio 标签。"
 msgid "Log Out"
 msgstr "退出登录"
 
-#: lib/phoenix_kit_web/users/registration.html.heex:84
+#: lib/phoenix_kit_web/users/registration.html.heex:95
 #, elixir-autogen, elixir-format
 msgid "Auto-filled from your email — edit it to choose your own"
 msgstr "根据您的邮箱地址自动填写，可编辑为您自己的选择"
@@ -12096,7 +12097,7 @@ msgstr "选择音频"
 msgid "Select Avatar"
 msgstr "选择头像"
 
-#: lib/phoenix_kit_web/live/settings/authorization.html.heex:992
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:1043
 #, elixir-autogen, elixir-format
 msgid "Select Background Image"
 msgstr "选择背景图片"
@@ -12113,7 +12114,7 @@ msgstr "选择图片"
 
 #: lib/phoenix_kit_web/components/media_browser/browser.html.heex:847
 #: lib/phoenix_kit_web/live/settings.html.heex:717
-#: lib/phoenix_kit_web/live/settings/authorization.html.heex:993
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:1044
 #, elixir-autogen, elixir-format
 msgid "Select Logo"
 msgstr "选择徽标"
@@ -12218,7 +12219,7 @@ msgid "The current encryption status could not be described by this admin page �
 msgstr "此管理页面无法描述当前的加密状态，它可能比本页面能识别的版本更新。请直接检查 PhoenixKit.Integrations.Encryption.status/0。"
 
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:465
-#: lib/phoenix_kit_web/live/settings/authorization.ex:421
+#: lib/phoenix_kit_web/live/settings/authorization.ex:452
 #, elixir-autogen, elixir-format
 msgid "A secret is already configured — leave blank to keep the current value"
 msgstr "已配置密钥，留空则保留当前值"
@@ -12335,7 +12336,7 @@ msgstr "如果您的邮箱地址在我们的系统中，您很快会收到重置
 msgid "Invalid context"
 msgstr "无效的上下文"
 
-#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:118
+#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:141
 #, elixir-autogen, elixir-format
 msgid "Invalid email format"
 msgstr "邮箱地址格式无效"
@@ -12441,7 +12442,7 @@ msgid "Password updated successfully!"
 msgstr "密码更新成功！"
 
 #: lib/phoenix_kit_web/users/magic_link_registration.ex:35
-#: lib/phoenix_kit_web/users/registration.ex:141
+#: lib/phoenix_kit_web/users/registration.ex:146
 #, elixir-autogen, elixir-format
 msgid "Registration is currently disabled."
 msgstr "注册当前已停用。"
@@ -12457,8 +12458,8 @@ msgstr "注册链接无效或已过期。"
 msgid "Registration link is invalid or has expired. Please request a new one."
 msgstr "注册链接无效或已过期。请重新申请。"
 
-#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:100
-#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:111
+#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:123
+#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:134
 #, elixir-autogen, elixir-format
 msgid "Registration link sent! Check your email."
 msgstr "注册链接已发送！请查收电子邮件。"
@@ -12483,7 +12484,7 @@ msgstr "兼容 S3 的对象存储：AWS S3、Cloudflare R2、Backblaze B2、Tigr
 msgid "Sitemap Exemption"
 msgstr "站点地图豁免"
 
-#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:154
+#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:185
 #, elixir-autogen, elixir-format
 msgid "Something went wrong"
 msgstr "出了点问题"
@@ -12524,7 +12525,7 @@ msgstr "该账户未激活。"
 msgid "That email is already registered. Please log in instead."
 msgstr "该邮箱地址已注册。请直接登录。"
 
-#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:126
+#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:157
 #, elixir-autogen, elixir-format
 msgid "Too many attempts"
 msgstr "尝试次数过多"
@@ -12550,13 +12551,13 @@ msgstr "用户确认链接无效或已过期。"
 msgid "User confirmed successfully."
 msgstr "用户确认成功。"
 
-#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:71
+#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:94
 #, elixir-autogen, elixir-format
 msgid "User registration is currently disabled."
 msgstr "用户注册当前已停用。"
 
-#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:52
-#: lib/phoenix_kit_web/users/registration.ex:120
+#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:54
+#: lib/phoenix_kit_web/users/registration.ex:121
 #, elixir-autogen, elixir-format
 msgid "User registration is currently disabled. Please contact an administrator."
 msgstr "用户注册当前已停用。请联系管理员。"
@@ -12642,7 +12643,7 @@ msgstr "您已不再有权访问此部分。"
 msgid "Failed to send magic link. Please try again."
 msgstr "发送魔法链接失败。请重试。"
 
-#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:153
+#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:184
 #, elixir-autogen, elixir-format
 msgid "Failed to send registration link. Please try again."
 msgstr "发送注册链接失败。请重试。"
@@ -12652,12 +12653,12 @@ msgstr "发送注册链接失败。请重试。"
 msgid "Please enter a valid email address"
 msgstr "请输入有效的邮箱地址"
 
-#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:117
+#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:140
 #, elixir-autogen, elixir-format
 msgid "Please enter a valid email address."
 msgstr "请输入有效的邮箱地址。"
 
-#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:125
+#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:156
 #, elixir-autogen, elixir-format
 msgid "Too many registration attempts. Please try again later."
 msgstr "注册尝试次数过多。请稍后再试。"
@@ -14169,27 +14170,27 @@ msgstr "已发送"
 msgid "We sent a confirmation link to %{email}."
 msgstr "我们已向 %{email} 发送了确认链接。"
 
-#: lib/phoenix_kit/users/auth.ex:3563
+#: lib/phoenix_kit/users/auth.ex:3612
 #, elixir-autogen, elixir-format
 msgid "Admin notes"
 msgstr "管理员备注"
 
-#: lib/phoenix_kit/users/auth.ex:3560
+#: lib/phoenix_kit/users/auth.ex:3609
 #, elixir-autogen, elixir-format
 msgid "Billing profiles"
 msgstr "账单资料"
 
-#: lib/phoenix_kit/users/auth.ex:3581
+#: lib/phoenix_kit/users/auth.ex:3630
 #, elixir-autogen, elixir-format
 msgid "Email logs"
 msgstr "邮件日志"
 
-#: lib/phoenix_kit/users/auth.ex:3559
+#: lib/phoenix_kit/users/auth.ex:3608
 #, elixir-autogen, elixir-format
 msgid "OAuth connections"
 msgstr "OAuth 连接"
 
-#: lib/phoenix_kit/users/auth.ex:3566
+#: lib/phoenix_kit/users/auth.ex:3615
 #, elixir-autogen, elixir-format
 msgid "Orders"
 msgstr "订单"
@@ -14205,22 +14206,22 @@ msgstr "永久删除"
 msgid "Permanently Delete User"
 msgstr "永久删除用户"
 
-#: lib/phoenix_kit/users/auth.ex:3558
+#: lib/phoenix_kit/users/auth.ex:3607
 #, elixir-autogen, elixir-format
 msgid "Role assignments"
 msgstr "角色分配"
 
-#: lib/phoenix_kit/users/auth.ex:3557
+#: lib/phoenix_kit/users/auth.ex:3606
 #, elixir-autogen, elixir-format
 msgid "Session and other tokens"
 msgstr "会话及其他令牌"
 
-#: lib/phoenix_kit/users/auth.ex:3562
+#: lib/phoenix_kit/users/auth.ex:3611
 #, elixir-autogen, elixir-format
 msgid "Shopping carts"
 msgstr "购物车"
 
-#: lib/phoenix_kit/users/auth.ex:3579
+#: lib/phoenix_kit/users/auth.ex:3628
 #, elixir-autogen, elixir-format
 msgid "Support tickets"
 msgstr "支持工单"
@@ -14405,7 +14406,7 @@ msgstr "Google 拒绝了这些凭据（invalid_client）：客户端 ID 和客�
 msgid "Missing %{provider} OAuth credentials: %{fields}"
 msgstr "缺少 %{provider} OAuth 凭据：%{fields}"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:188
+#: lib/phoenix_kit_web/live/settings/authorization.ex:210
 #, elixir-autogen, elixir-format
 msgid "OAuth configuration reloaded from database"
 msgstr "已从数据库重新加载 OAuth 配置"
@@ -16853,7 +16854,7 @@ msgid "Part"
 msgstr "部分"
 
 #: lib/phoenix_kit/email/core_templates.ex:56
-#: lib/phoenix_kit_web/live/settings/authorization.ex:380
+#: lib/phoenix_kit_web/live/settings/authorization.ex:411
 #, elixir-autogen, elixir-format
 msgid "Password reset"
 msgstr "密码重置"
@@ -25041,7 +25042,7 @@ msgstr "尝试时间："
 msgid "Authorization callback URL"
 msgstr "授权回调 URL"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:337
+#: lib/phoenix_kit_web/live/settings/authorization.ex:359
 #, elixir-autogen, elixir-format
 msgid "Authorization settings updated successfully"
 msgstr "授权设置更新成功"
@@ -26931,7 +26932,7 @@ msgstr "添加通行密钥"
 msgid "Added %{date}"
 msgstr "添加于 %{date}"
 
-#: lib/phoenix_kit/users/auth/user_notifier.ex:401
+#: lib/phoenix_kit/users/auth/user_notifier.ex:426
 #, elixir-autogen, elixir-format
 msgid "An administrator"
 msgstr "管理员"
@@ -27105,7 +27106,7 @@ msgid "Too many attempts. Wait a minute and try again."
 msgstr "尝试次数过多。请等待一分钟后重试。"
 
 #: lib/phoenix_kit/email/core_templates.ex:195
-#: lib/phoenix_kit/users/auth/user_notifier.ex:401
+#: lib/phoenix_kit/users/auth/user_notifier.ex:426
 #, elixir-autogen, elixir-format
 msgid "You"
 msgstr "您"
@@ -27212,22 +27213,22 @@ msgstr "这是 Brevo 的 SMTP 密钥（xsmtpsib-…）。Brevo API 需要 SMTP &
 msgid "Unexpected answer from Brevo"
 msgstr "Brevo 返回了意外的响应"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:396
+#: lib/phoenix_kit_web/live/settings/authorization.ex:427
 #, elixir-autogen, elixir-format
 msgid "%{count} h"
 msgstr "%{count} 小时"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:394
+#: lib/phoenix_kit_web/live/settings/authorization.ex:425
 #, elixir-autogen, elixir-format
 msgid "%{count} min"
 msgstr "%{count} 分钟"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:391
+#: lib/phoenix_kit_web/live/settings/authorization.ex:422
 #, elixir-autogen, elixir-format
 msgid "%{count} s"
 msgstr "%{count} 秒"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:385
+#: lib/phoenix_kit_web/live/settings/authorization.ex:416
 #, elixir-autogen, elixir-format
 msgid "%{limit} per %{window}"
 msgstr "每 %{window} %{limit} 次"
@@ -27237,12 +27238,12 @@ msgstr "每 %{window} %{limit} 次"
 msgid "%{used} of %{limit}"
 msgstr "%{used} / %{limit}"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:104
+#: lib/phoenix_kit_web/live/settings/authorization.ex:106
 #, elixir-autogen, elixir-format
 msgid "Abuse protection"
 msgstr "滥用防护"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:381
+#: lib/phoenix_kit_web/live/settings/authorization.ex:412
 #, elixir-autogen, elixir-format
 msgid "Confirmation email resend"
 msgstr "重新发送确认邮件"
@@ -27277,7 +27278,7 @@ msgstr "每个网络 (IP)"
 msgid "Request limits"
 msgstr "请求限制"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:377
+#: lib/phoenix_kit_web/live/settings/authorization.ex:408
 #, elixir-autogen, elixir-format
 msgid "Sign-in (failed attempts)"
 msgstr "登录（失败尝试）"
@@ -27312,42 +27313,42 @@ msgstr "全站"
 msgid "resets in %{time}"
 msgstr "%{time} 后重置"
 
-#: lib/phoenix_kit_web/live/settings/authorization.html.heex:916
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:967
 #, elixir-autogen, elixir-format
 msgid "A check that the visitor is a person, before a form sends an email"
 msgstr "在表单发送邮件之前，检查访问者是否为真人"
 
-#: lib/phoenix_kit_web/live/settings/authorization.html.heex:959
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:1010
 #, elixir-autogen, elixir-format
 msgid "Both keys come from the Cloudflare dashboard: Turnstile, Add widget, with this site's domain. The secret key is checked with Cloudflare when you save and is never shown again."
 msgstr "两个密钥都来自 Cloudflare 控制台：Turnstile，添加小组件，并填写本站域名。密钥在保存时会向 Cloudflare 校验，之后不再显示。"
 
-#: lib/phoenix_kit_web/live/settings/authorization.html.heex:913
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:964
 #, elixir-autogen, elixir-format
 msgid "Cloudflare Turnstile"
 msgstr "Cloudflare Turnstile"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:372
+#: lib/phoenix_kit_web/live/settings/authorization.ex:403
 #, elixir-autogen, elixir-format
 msgid "Cloudflare does not recognise this secret key. Nothing was saved."
 msgstr "Cloudflare 无法识别此密钥。未保存任何内容。"
 
-#: lib/phoenix_kit_web/live/settings/authorization.html.heex:924
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:975
 #, elixir-autogen, elixir-format
 msgid "Enable Cloudflare Turnstile"
 msgstr "启用 Cloudflare Turnstile"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:369
+#: lib/phoenix_kit_web/live/settings/authorization.ex:400
 #, elixir-autogen, elixir-format
 msgid "Enter the secret key before switching Turnstile on."
 msgstr "请先输入密钥，再启用 Turnstile。"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:366
+#: lib/phoenix_kit_web/live/settings/authorization.ex:397
 #, elixir-autogen, elixir-format
 msgid "Enter the site key before switching Turnstile on."
 msgstr "请先输入站点密钥，再启用 Turnstile。"
 
-#: lib/phoenix_kit_web/live/settings/authorization.html.heex:964
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:1015
 #, elixir-autogen, elixir-format
 msgid "If Cloudflare cannot be reached, the forms keep working on the request limits alone."
 msgstr "如果无法连接 Cloudflare，表单将仅依靠请求限制继续工作。"
@@ -27357,32 +27358,32 @@ msgstr "如果无法连接 Cloudflare，表单将仅依靠请求限制继续工�
 msgid "Please wait for the verification to finish, then try again. If you do not see it, reload the page."
 msgstr "请等待验证完成后重试。如果看不到验证，请刷新页面。"
 
-#: lib/phoenix_kit_web/live/settings/authorization.html.heex:976
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:1027
 #, elixir-autogen, elixir-format
 msgid "Save Turnstile settings"
 msgstr "保存 Turnstile 设置"
 
-#: lib/phoenix_kit_web/live/settings/authorization.html.heex:950
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:1001
 #, elixir-autogen, elixir-format
 msgid "Saved. Leave blank to keep it"
 msgstr "已保存。留空则保持不变"
 
-#: lib/phoenix_kit_web/live/settings/authorization.html.heex:947
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:998
 #, elixir-autogen, elixir-format
 msgid "Secret key"
 msgstr "密钥"
 
-#: lib/phoenix_kit_web/live/settings/authorization.html.heex:927
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:978
 #, elixir-autogen, elixir-format
 msgid "Shown on the sign-up, registration link, password reset, magic link and confirmation resend forms. A request without a passed check is refused before it counts against any limit above."
 msgstr "显示在注册、注册链接、重置密码、魔法链接和重新发送确认邮件的表单上。未通过验证的请求会在计入上述任何限制之前被拒绝。"
 
-#: lib/phoenix_kit_web/live/settings/authorization.html.heex:939
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:990
 #, elixir-autogen, elixir-format
 msgid "Site key"
 msgstr "站点密钥"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:374
+#: lib/phoenix_kit_web/live/settings/authorization.ex:405
 #, elixir-autogen, elixir-format
 msgid "The Turnstile settings could not be saved."
 msgstr "无法保存 Turnstile 设置。"
@@ -27392,12 +27393,73 @@ msgstr "无法保存 Turnstile 设置。"
 msgid "The verification did not succeed. Please try again."
 msgstr "验证未通过。请重试。"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:124
+#: lib/phoenix_kit_web/live/settings/authorization.ex:126
 #, elixir-autogen, elixir-format
 msgid "Turnstile settings saved, but Cloudflare could not be reached to check the secret key."
 msgstr "Turnstile 设置已保存，但无法连接 Cloudflare 校验密钥。"
 
-#: lib/phoenix_kit_web/live/settings/authorization.ex:117
+#: lib/phoenix_kit_web/live/settings/authorization.ex:119
 #, elixir-autogen, elixir-format
 msgid "Turnstile settings saved."
 msgstr "Turnstile 设置已保存。"
+
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:940
+#, elixir-autogen, elixir-format
+msgid "An account that has not confirmed its address gets only the mail its holder asks for (the confirmation, a password reset, a sign-in link): no notifications, digests or security alerts."
+msgstr "尚未确认邮箱地址的账户只会收到其持有人主动请求的邮件（确认邮件、重置密码、登录链接）：不会收到通知、摘要或安全提醒。"
+
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:923
+#, elixir-autogen, elixir-format
+msgid "Check the email address at sign-up"
+msgstr "注册时检查邮箱地址"
+
+#: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:69
+#: lib/phoenix_kit_web/users/registration.html.heex:71
+#, elixir-autogen, elixir-format
+msgid "Did you mean"
+msgstr "您是不是想输入"
+
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:912
+#, elixir-autogen, elixir-format
+msgid "Email address check"
+msgstr "邮箱地址检查"
+
+#: lib/phoenix_kit_web/live/settings/authorization.ex:148
+#, elixir-autogen, elixir-format
+msgid "Email address check saved."
+msgstr "邮箱地址检查已保存。"
+
+#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:149
+#, elixir-autogen, elixir-format
+msgid "Email domain cannot receive mail"
+msgstr "邮箱域名无法接收邮件"
+
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:926
+#, elixir-autogen, elixir-format
+msgid "On the sign-up and registration link forms: an address whose domain cannot receive mail is refused, and a likely typo (gmial.com) gets a \"Did you mean\" hint the person can accept or ignore. If the domain cannot be looked up in time, the address is accepted."
+msgstr "在注册和注册链接表单上：域名无法接收邮件的地址会被拒绝，可能的拼写错误（gmial.com）会得到“您是不是想输入”的提示，用户可以接受或忽略。如果无法及时查询域名，则接受该地址。"
+
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:951
+#, elixir-autogen, elixir-format
+msgid "Save email address check"
+msgstr "保存邮箱地址检查"
+
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:915
+#, elixir-autogen, elixir-format
+msgid "Stops sign-ups for addresses that can only bounce"
+msgstr "阻止使用只会被退信的地址注册"
+
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:933
+#, elixir-autogen, elixir-format
+msgid "Switched off in the application's configuration; this setting has no effect."
+msgstr "已在应用程序配置中关闭；此设置不起作用。"
+
+#: lib/phoenix_kit_web/live/settings/authorization.ex:152
+#, elixir-autogen, elixir-format
+msgid "The email address check could not be saved."
+msgstr "无法保存邮箱地址检查。"
+
+#: lib/phoenix_kit_web/users/magic_link_registration_request.ex:148
+#, elixir-autogen, elixir-format
+msgid "This email domain cannot receive mail. Please check the address."
+msgstr "此邮箱域名无法接收邮件。请检查地址。"

@@ -344,6 +344,36 @@ Abuse protection shows them with the live site-wide counters
 - A site-wide cap is the one limit an attacker can turn on everybody else. It
   goes last, so a request the narrower buckets refused never spends it.
 
+## The email address check, and mail to unconfirmed accounts
+
+`PhoenixKit.Users.EmailDomain`, on by default (`email_domain_check_enabled`, its
+own form on the Abuse protection tab; `config :phoenix_kit,
+:email_domain_check, false` overrides it and is what `config/test.exs` sets).
+
+- `check/1` asks DNS (MX, then A/AAAA) and refuses on a definite "no": NXDOMAIN,
+  nothing mail could go to, a null MX. Everything else passes. It costs a
+  lookup, so it runs on a SUBMIT only, after `BotCheck` and the limiter:
+  `Auth.register_user(attrs, ip, check_email_domain: true)` and
+  `MagicLinkRegistration.send_registration_link/3`. Never on `phx-change`.
+- `suggestion/1` is the "Did you mean" hint: a pure rule (a list of providers,
+  one edit away, mistyped endings), safe on every keystroke, never a refusal.
+  On the sign-up page the form is a temporary assign, so taking the hint goes
+  through the browser (`push_event "phoenix_kit:set_input"`, a listener in
+  `phoenix_kit.js`), which keeps the typed password.
+- A refusal made before the insert (`registration_refusal/2`: the limiter, the
+  domain) needs `action: :insert` on its changeset or the form shows nothing.
+- Tests: `config :phoenix_kit, :email_domain_resolver, {Mod, :fun}` replaces
+  DNS (`test/integration/users/email_domain_test.exs`).
+
+⚠️ **Mail nobody asked for goes only to a proven address**:
+`Auth.unsolicited_mail_allowed?/1` (confirmed, or a managed organization, or
+`require_email_confirmation` off). The notification email channel and the
+`UserNotifier` alerts (new login, failed sign-ins, passkey added/removed) ask
+it; a new automated email does too. What the holder asks for in the moment
+(confirmation, password reset, magic link) is always sent. The channel answers
+`:ok` for a skipped mail, not a permanent error, which would switch the channel
+off for good.
+
 ## Cloudflare Turnstile
 
 `PhoenixKit.Users.Turnstile`, off by default; the switch and the two keys are on

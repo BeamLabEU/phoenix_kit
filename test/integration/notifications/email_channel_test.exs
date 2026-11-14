@@ -19,6 +19,9 @@ defmodule PhoenixKit.Integration.Notifications.EmailChannelTest do
         password: "ValidPassword123!"
       })
 
+    # Confirmed: mail nobody asked for goes only to a proven address
+    # (`Auth.unsolicited_mail_allowed?/1`).
+    {:ok, user} = Auth.admin_confirm_user(user)
     user
   end
 

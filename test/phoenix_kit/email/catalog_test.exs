@@ -501,6 +501,8 @@ defmodule PhoenixKit.Email.CatalogTest do
       %User{
         uuid: Ecto.UUID.generate(),
         email: "reader@example.test",
+        # Confirmed: the alerts go only to a proven address.
+        confirmed_at: ~U[2026-01-01 00:00:00Z],
         custom_fields: %{"preferred_locale" => locale}
       }
     end
@@ -678,6 +680,7 @@ defmodule PhoenixKit.Email.CatalogTest do
               password: "ValidPassword123!"
             })
 
+          {:ok, reader} = Auth.admin_confirm_user(reader)
           envelope = %{recipient_uuid: reader.uuid, title: "Hi", text: "Body", url: nil}
           :ok = EmailChannel.deliver(envelope, %{})
           {:ok, :sent}

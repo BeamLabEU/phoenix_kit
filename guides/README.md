@@ -97,6 +97,10 @@ Using the draggable list component for sortable UIs.
 
 Translate sidebar tab labels, group labels, and tooltips inside your PhoenixKit module. Each module ships its own Gettext backend and `.po` files; tabs render localized labels at request time. Required for every module that exposes UI on `phoenix_kit ~> 1.8`.
 
+#### [Upgrading to PhoenixKit 3.0](upgrading-to-3.0.md)
+
+For an install coming from 2.x: reach V225 on 2.65.0 first, export edited email templates, then update core and every installed module together.
+
 ---
 
 ## Guide Purpose
@@ -180,7 +184,7 @@ Future guides to add:
 - **Testing LiveView Pages** - Patterns for testing real-time features
 - **Database Migrations** - PhoenixKit's versioned migration system
 - **UI Components** - Creating reusable Phoenix components
-- **Internationalization** - Multi-language support patterns
+- **Machine API** - Keys, tools, REST and MCP (today: Settings → API → guide, in the admin)
 
 ## Completed Guides
 
@@ -190,6 +194,11 @@ Future guides to add:
 - ✅ **OAuth & Magic Link Setup** - Authentication providers
 - ✅ **AWS Email Setup** - Email infrastructure automation
 - ✅ **Auth Header Integration** - Authentication header patterns
+- ✅ **Your App as a Module** - PhoenixKit's module hooks from your own application
+- ✅ **Locale Routing** - The language in the URL
+- ✅ **Customizing Emails with Template Files** - Override any email, per language
+- ✅ **Per-Module i18n with Gettext** - Translations of a module package
+- ✅ **Upgrading to PhoenixKit 3.0** - For installs coming from 2.x
 
 ## Feedback
 
