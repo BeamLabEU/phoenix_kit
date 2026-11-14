@@ -201,6 +201,11 @@ defmodule PhoenixKit.AWS.IamPolicyTest do
                "User: arn:aws:iam::1:user/x is not authorized to perform: ses:CreateConfigurationSet"
              )
 
+      # SNS names it AuthorizationError, not AccessDenied (seen on a real account).
+      assert InfrastructureSetup.access_denied?(
+               ~s({:http_error, 403, %{code: "AuthorizationError", message: "User: arn:aws:iam::1:user/x is not authorized to perform: SNS:Subscribe on resource: arn:aws:sns:eu-north-1:1:t"}})
+             )
+
       refute InfrastructureSetup.access_denied?("Could not parse account ID")
       refute InfrastructureSetup.access_denied?(nil)
     end
