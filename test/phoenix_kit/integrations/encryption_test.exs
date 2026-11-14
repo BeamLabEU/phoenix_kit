@@ -27,6 +27,44 @@ defmodule PhoenixKit.Integrations.EncryptionTest.FlakyStore do
   def describe(_opts), do: "/flaky/store.key"
 end
 
+# A host endpoint as `PhoenixKit.Config.get_parent_endpoint/0` finds it, whose
+# running config can be switched between "not started" (Phoenix raises: the
+# endpoint's ETS table does not exist yet) and "started" with a given secret.
+defmodule PhoenixKitSkbHost.Endpoint do
+  @running_key {__MODULE__, :running_secret}
+
+  def url, do: "http://localhost"
+
+  def config(:secret_key_base) do
+    case :persistent_term.get(@running_key, :not_started) do
+      :not_started ->
+        raise ArgumentError, "the table identifier does not refer to an existing ETS table"
+
+      secret ->
+        secret
+    end
+  end
+
+  def config(_key), do: nil
+
+  def start(secret), do: :persistent_term.put(@running_key, secret)
+  def stop, do: :persistent_term.erase(@running_key)
+end
+
+# A host endpoint that defines the deprecated `init/2` callback: Phoenix runs it
+# at start and uses the config it returns, so its app env may not hold the
+# secret it will run with.
+defmodule PhoenixKitSkbInitHost.Endpoint do
+  def url, do: "http://localhost"
+
+  def config(:secret_key_base),
+    do: raise(ArgumentError, "the table identifier does not refer to an existing ETS table")
+
+  def config(_key), do: nil
+
+  def init(_context, config), do: {:ok, Keyword.put(config, :secret_key_base, "from-init")}
+end
+
 defmodule PhoenixKit.Integrations.EncryptionTest do
   # async: false — the encryption_key/0 fallback tests mutate the global
   # `:phoenix_kit` app env (`:secret_key_base`, `:parent_module`), which
@@ -217,6 +255,152 @@ defmodule PhoenixKit.Integrations.EncryptionTest do
       on_exit(fn -> :persistent_term.erase(flag_key) end)
 
       ExUnit.CaptureLog.capture_log(fn -> assert Encryption.encrypt_fields(data) == data end)
+    end
+  end
+
+  describe "secret_key_base before the host endpoint has started" do
+    import ExUnit.CaptureLog
+
+    @host_app :phoenix_kit_skb_host
+    @host_endpoint PhoenixKitSkbHost.Endpoint
+    @no_key_flag {Encryption, :no_key_decrypt_logged}
+
+    setup do
+      original_flat = Application.get_env(:phoenix_kit, :secret_key_base)
+      original_parent = Application.get_env(:phoenix_kit, :parent_module)
+
+      # A loaded (not started) application that owns the endpoint module, as
+      # the host app is for its own endpoint.
+      :ok =
+        :application.load(
+          {:application, @host_app,
+           [
+             description: ~c"skb host",
+             vsn: ~c"0.0.0",
+             modules: [@host_endpoint],
+             registered: [],
+             applications: [:kernel, :stdlib]
+           ]}
+        )
+
+      Application.delete_env(:phoenix_kit, :secret_key_base)
+      Application.put_env(:phoenix_kit, :parent_module, PhoenixKitSkbHost)
+      @host_endpoint.stop()
+      :persistent_term.erase(@no_key_flag)
+
+      on_exit(fn ->
+        @host_endpoint.stop()
+        :application.unload(@host_app)
+        :persistent_term.erase(@no_key_flag)
+        restore_env(:secret_key_base, original_flat)
+        restore_env(:parent_module, original_parent)
+      end)
+
+      :ok
+    end
+
+    # Encrypts under the key derived from `secret`, the way a running app with
+    # that secret_key_base would have written the row.
+    defp written_under(secret, data) do
+      Application.put_env(:phoenix_kit, :secret_key_base, secret)
+      encrypted = Encryption.encrypt_fields(data)
+      Application.delete_env(:phoenix_kit, :secret_key_base)
+      assert String.starts_with?(encrypted["api_key"], "enc:v1:")
+      encrypted
+    end
+
+    test "reads the endpoint's secret from the host app env while the endpoint is not running" do
+      stored = written_under("host-endpoint-secret-for-this-test", %{"api_key" => "sk-valid"})
+
+      Application.put_env(@host_app, @host_endpoint,
+        secret_key_base: "host-endpoint-secret-for-this-test"
+      )
+
+      assert_raise ArgumentError, fn -> @host_endpoint.config(:secret_key_base) end
+      assert Encryption.status() == :legacy_secret_key_base
+      assert Encryption.decrypt_fields(stored)["api_key"] == "sk-valid"
+      assert Encryption.decrypt_value(stored["api_key"]) == {:ok, "sk-valid"}
+    end
+
+    test "the app env is not used when the endpoint defines init/2" do
+      app = :phoenix_kit_skb_init_host
+      endpoint = PhoenixKitSkbInitHost.Endpoint
+
+      :ok =
+        :application.load(
+          {:application, app,
+           [
+             description: ~c"skb init host",
+             vsn: ~c"0.0.0",
+             modules: [endpoint],
+             registered: [],
+             applications: [:kernel, :stdlib]
+           ]}
+        )
+
+      on_exit(fn -> :application.unload(app) end)
+      Application.put_env(app, endpoint, secret_key_base: "app-env-secret-init-may-replace")
+      Application.put_env(:phoenix_kit, :parent_module, PhoenixKitSkbInitHost)
+
+      assert Encryption.status() == :disabled_no_key
+    end
+
+    test "a malformed :parent_module resolves no key instead of raising" do
+      Application.put_env(:phoenix_kit, :parent_module, %{not: "a module"})
+
+      assert Encryption.status() == :disabled_no_key
+    end
+
+    test "the running endpoint's secret wins over the app env once it has started" do
+      stored = written_under("running-endpoint-secret", %{"api_key" => "sk-valid"})
+      Application.put_env(@host_app, @host_endpoint, secret_key_base: "stale-app-env-secret")
+      @host_endpoint.start("running-endpoint-secret")
+
+      assert Encryption.decrypt_fields(stored)["api_key"] == "sk-valid"
+    end
+
+    test "an explicit config :phoenix_kit, :secret_key_base wins over the endpoint" do
+      stored = written_under("explicit-phoenix-kit-secret", %{"api_key" => "sk-valid"})
+      Application.put_env(@host_app, @host_endpoint, secret_key_base: "endpoint-app-env-secret")
+      @host_endpoint.start("endpoint-running-secret")
+      Application.put_env(:phoenix_kit, :secret_key_base, "explicit-phoenix-kit-secret")
+
+      assert Encryption.decrypt_fields(stored)["api_key"] == "sk-valid"
+    end
+
+    test "no secret anywhere: an error naming the setting, never a key from a missing secret" do
+      stored = written_under("the-secret-it-was-written-under", %{"api_key" => "sk-valid"})
+      # Neither running nor configured; an empty explicit value is not a secret.
+      Application.put_env(:phoenix_kit, :secret_key_base, "")
+
+      assert Encryption.status() == :disabled_no_key
+
+      log =
+        capture_log(fn ->
+          assert Encryption.decrypt_value(stored["api_key"]) == {:error, :encryption_unavailable}
+        end)
+
+      assert log =~ "config :phoenix_kit, secret_key_base"
+
+      map_log =
+        capture_log(fn ->
+          assert {%{} = result, ["api_key"]} = Encryption.decrypt_fields_with_failures(stored)
+          refute Map.has_key?(result, "api_key")
+        end)
+
+      assert map_log =~ "config :phoenix_kit, secret_key_base"
+      refute map_log =~ "sk-valid"
+    end
+
+    test "the decrypt_value/1 remedy is logged once per VM, not per read" do
+      stored = written_under("the-secret-it-was-written-under", %{"api_key" => "sk-valid"})
+
+      log =
+        capture_log(fn ->
+          for _ <- 1..3, do: Encryption.decrypt_value(stored["api_key"])
+        end)
+
+      assert length(String.split(log, ":encryption_unavailable")) == 2
     end
   end
 

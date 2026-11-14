@@ -18,15 +18,33 @@ defmodule PhoenixKit.Integrations.Encryption do
            config :phoenix_kit,
              integrations_encryption_key: System.get_env("PHOENIX_KIT_INTEGRATIONS_ENCRYPTION_KEY")
 
-    2. **Legacy fallback** — the application's `secret_key_base` (flat
-       `config :phoenix_kit, :secret_key_base`, or the host app's own
-       Endpoint secret). This is what every install used before the
-       dedicated key existed, and it stays supported for backwards
-       compatibility — but it means anyone who can read `secret_key_base`
-       (env, config file, git history) can decrypt every stored integration
-       credential, since that secret is shared with session signing, CSRF
-       tokens, and everything else Phoenix derives from it. `status/0`
-       reports this tier as `:legacy_secret_key_base`. `mix phoenix_kit.doctor`
+    2. **Legacy fallback** — the application's `secret_key_base`, looked up
+       in this order:
+
+         * `config :phoenix_kit, :secret_key_base` — explicit, and available
+           in every process from the moment config is loaded;
+         * the host endpoint's running config (`MyAppWeb.Endpoint.config/1`,
+           the endpoint found through `config :phoenix_kit, :parent_module`);
+         * the same endpoint's entry in the host app's env
+           (`config :my_app, MyAppWeb.Endpoint, secret_key_base: ...`), for
+           code that runs before the endpoint has started or on a node that
+           never starts it (`mix run --no-start`, a release `eval`, a job
+           picked up at boot). Skipped when the endpoint defines the
+           deprecated `init/2` callback, which may replace that secret at
+           start.
+
+       Setting the flat key to the value your Endpoint uses is the explicit
+       way to pin it:
+
+           config :phoenix_kit, secret_key_base: secret_key_base
+
+       This is what every install used before the dedicated key existed, and
+       it stays supported for backwards compatibility — but it means anyone
+       who can read `secret_key_base` (env, config file, git history) can
+       decrypt every stored integration credential, since that secret is
+       shared with session signing, CSRF tokens, and everything else Phoenix
+       derives from it. `status/0` reports this tier as
+       `:legacy_secret_key_base`. `mix phoenix_kit.doctor`
        and the admin-only system page always surface it; a boot-time log line
        is also available (see `warn_if_insecure/0`) but OFF by default — set
        `config :phoenix_kit, integration_encryption_warn_on_boot: true` to
@@ -198,8 +216,8 @@ defmodule PhoenixKit.Integrations.Encryption do
         @encrypted_prefix <> _ ->
           Logger.error(
             "[Integrations.Encryption] Field #{inspect(field)} is encrypted but no " <>
-              "encryption key is available (encryption disabled or key store unreachable). " <>
-              "Treating the credential as missing rather than returning ciphertext."
+              "encryption key is available. Treating the credential as missing rather " <>
+              "than returning ciphertext. " <> no_key_remedy()
           )
 
           {Map.delete(acc, field), [field | failed]}
@@ -273,8 +291,9 @@ defmodule PhoenixKit.Integrations.Encryption do
   when the value IS prefixed but no encryption key is available (no
   `secret_key_base`) — unlike the nil-key path in `encrypt_value/1`, there
   is no plaintext to fall back to here, only ciphertext nobody can read
-  right now. `{:error, reason}` for any other decrypt failure (wrong/rotated
-  key, corrupted ciphertext).
+  right now. That case also logs one error per VM naming the setting to
+  fix; a key is never derived from a missing secret. `{:error, reason}`
+  for any other decrypt failure (wrong/rotated key, corrupted ciphertext).
   """
   @spec decrypt_value(String.t() | nil) :: {:ok, String.t() | nil} | {:error, term()}
   def decrypt_value(nil), do: {:ok, nil}
@@ -283,8 +302,12 @@ defmodule PhoenixKit.Integrations.Encryption do
   def decrypt_value(value) when is_binary(value) do
     if encrypted?(value) do
       case encryption_key() do
-        nil -> {:error, :encryption_unavailable}
-        key -> decrypt_value(value, key)
+        nil ->
+          log_no_key_decrypt_once()
+          {:error, :encryption_unavailable}
+
+        key ->
+          decrypt_value(value, key)
       end
     else
       {:ok, value}
@@ -1353,16 +1376,101 @@ defmodule PhoenixKit.Integrations.Encryption do
     end
   end
 
+  # The running endpoint first, then the endpoint's own app env.
+  #
+  # `endpoint.config/1` reads the endpoint's ETS table, which exists only once
+  # the endpoint has started. Everything that runs before that — the settings
+  # cache warmer, other children started ahead of the endpoint, an Oban job
+  # picked up at boot — and every node that never starts it (`mix run
+  # --no-start`, a release `eval`, a one-off script) used to find no secret
+  # here, resolve NO key, and treat every stored `enc:v1:` credential as
+  # missing: an AI call went out without its API key and the provider answered
+  # "invalid API key" for a key that is perfectly valid. The endpoint takes its
+  # configuration from the host app's env, which is loaded (`runtime.exs`
+  # included) before any application starts — so, unless the endpoint
+  # defines `init/2` (see `configured_endpoint_secret/1`), the secret it will
+  # run with is already there.
   defp endpoint_secret_key_base do
     case PhoenixKit.Config.get_parent_endpoint() do
-      {:ok, endpoint} -> endpoint.config(:secret_key_base)
-      :error -> nil
+      {:ok, endpoint} ->
+        usable_secret(running_endpoint_secret(endpoint)) ||
+          usable_secret(configured_endpoint_secret(endpoint))
+
+      :error ->
+        nil
     end
   rescue
-    # The endpoint may be loaded but not started (early boot), or its
-    # config table may not exist yet — either way, no key means no
-    # encryption, not a crash.
+    # A malformed `:parent_module` means no endpoint, hence no key — not a
+    # crash in `status/0` or on a read.
     _ -> nil
+  end
+
+  defp running_endpoint_secret(endpoint) do
+    endpoint.config(:secret_key_base)
+  rescue
+    # Loaded but not started: its config table does not exist yet.
+    _ -> nil
+  end
+
+  # Phoenix still calls a deprecated `init/2` callback at start and runs with
+  # the config it returns, so such an endpoint may run with a secret other than
+  # its app env's. Reading the app env there would encrypt before start under
+  # one key and decrypt after start under another; no key (plaintext writes,
+  # the state before this lookup existed) is the safer answer.
+  defp configured_endpoint_secret(endpoint) do
+    cond do
+      # `function_exported?/3` is false for a module not loaded yet.
+      Code.ensure_loaded?(endpoint) and function_exported?(endpoint, :init, 2) ->
+        nil
+
+      app = Application.get_application(endpoint) ->
+        app |> Application.get_env(endpoint, []) |> Keyword.get(:secret_key_base)
+
+      true ->
+        nil
+    end
+  rescue
+    # An endpoint env that is not a keyword list is not ours to interpret.
+    _ -> nil
+  end
+
+  defp usable_secret(secret) when is_binary(secret) and secret != "", do: secret
+  defp usable_secret(_other), do: nil
+
+  # What an operator has to do when an `enc:v1:` value cannot be read because
+  # no key resolves at all. Shared by the map path and the single-value path so
+  # the two cannot give different advice about the same state.
+  defp no_key_remedy do
+    if encryption_enabled_flag?() do
+      "No encryption key resolved: no `:integrations_encryption_key` (in config or a " <>
+        "readable key store), no " <>
+        "`config :phoenix_kit, :secret_key_base`, and no `secret_key_base` for the " <>
+        "host endpoint (found through `config :phoenix_kit, :parent_module`). Set " <>
+        "`config :phoenix_kit, secret_key_base: ...` in config/runtime.exs to the same " <>
+        "value your Endpoint uses (or restore the `:integrations_encryption_key` the " <>
+        "value was written under)."
+    else
+      "Integration encryption is switched off (`integration_encryption_enabled: false`), " <>
+        "so stored encrypted values cannot be read; switch it back on to read them."
+    end
+  end
+
+  # `decrypt_value/1` is called per read (settings, buckets) and its callers log
+  # only the bare reason, so the remedy is logged here — once per VM, enough to
+  # be found without repeating on every request.
+  defp log_no_key_decrypt_once do
+    key = {__MODULE__, :no_key_decrypt_logged}
+
+    if :persistent_term.get(key, false) == false do
+      :persistent_term.put(key, true)
+
+      Logger.error(
+        "[PhoenixKit.Integrations.Encryption] An encrypted value could not be decrypted " <>
+          "(:encryption_unavailable) and is treated as missing. " <> no_key_remedy()
+      )
+    end
+
+    :ok
   end
 
   defp derive_key(secret) do

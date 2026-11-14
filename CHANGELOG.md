@@ -130,6 +130,24 @@ Run `mix phoenix_kit.update` (V230, V231 and the new `phoenix_kit.js`).
 
 ### Fixed
 
+- **Stored integration credentials are readable before the endpoint has started.**
+  With no `config :phoenix_kit, :secret_key_base`, the legacy encryption key came
+  only from the running endpoint (`MyAppWeb.Endpoint.config/1`), so anything that
+  ran before it started (the settings cache warmer, a job picked up at boot) or on
+  a node that never starts it (`mix run --no-start`, a release `eval`) resolved no key and
+  treated every `enc:v1:` credential as missing: an AI call went out without its
+  API key and the provider answered "invalid API key" for a valid key. The key now
+  also comes from the endpoint's entry in the host app's env
+  (`config :my_app, MyAppWeb.Endpoint, secret_key_base: ...`), which is loaded
+  before anything starts. The order is: `config :phoenix_kit, :secret_key_base`,
+  the running endpoint, the endpoint's app env (skipped when the endpoint defines
+  the deprecated `init/2`, which may replace the secret). When none resolves, the
+  credential is still treated as missing (never derived from an empty secret),
+  and the log now says which setting to add: once per VM from
+  `Encryption.decrypt_value/1` (it returned `{:error, :encryption_unavailable}`
+  silently) and on every stripped field from `decrypt_fields/1`. Documented in the
+  integration guide.
+
 - **Finishing a registration from a mailed link no longer counts as another sign-up
   attempt.** The request for the link took one of the address's three hourly
   attempts and every submit of the completion form took another, so the third try

@@ -138,6 +138,40 @@ checks the setup (configuration, assets, hooks, Oban) and says what to fix.
 | `admin_path` | string | "/admin" | Top-level segment of the admin area, inside `url_prefix` |
 | `layout` | tuple | PhoenixKit default | `{LayoutModule, :template}` |
 | `root_layout` | tuple | PhoenixKit default | Root layout for pages |
+| `secret_key_base` | string | your Endpoint's | Secret behind signed tokens and, without `integrations_encryption_key`, the secret the key for stored integration credentials is derived from. See below |
+
+### `secret_key_base` and stored credentials
+
+API keys and tokens saved under Integrations (and restricted settings such as
+OAuth client secrets) are stored encrypted. Without a dedicated
+`integrations_encryption_key`, the key is derived from `secret_key_base`, looked
+up in this order:
+
+1. `config :phoenix_kit, :secret_key_base`;
+2. your endpoint while it runs (`MyAppWeb.Endpoint.config(:secret_key_base)`,
+   the endpoint found through `config :phoenix_kit, :parent_module`);
+3. your endpoint's entry in the app env
+   (`config :my_app, MyAppWeb.Endpoint, secret_key_base: ...`), for code that
+   runs before the endpoint has started or on a node that never starts it
+   (`mix run --no-start`, a release `eval`, a job picked up at boot). Skipped
+   when the endpoint defines the deprecated `init/2` callback, which may
+   replace the secret at start; set step 1 in that case.
+
+Setting it explicitly to the value your endpoint uses makes it independent of
+how the endpoint is found and configured:
+
+```elixir
+# config/runtime.exs
+config :my_app, MyAppWeb.Endpoint, secret_key_base: secret_key_base
+config :phoenix_kit, secret_key_base: secret_key_base
+```
+
+Use the same value the endpoint has: a different secret derives a different key,
+and values stored under the old one no longer decrypt. Every node must have the
+same `secret_key_base`, including nodes that never start the endpoint (a
+worker-only node given a placeholder `SECRET_KEY_BASE` would encrypt under it). When no secret resolves
+at all, an encrypted credential is treated as missing and the log names this
+setting.
 
 ### Renaming the admin area
 
