@@ -1,6 +1,6 @@
 # One answer to "what IAM policy does the SES key need?"
 
-Status: **phase 1 (core) built 2026-11-14; phases 2 and 3 open.** Verified against `main` the same day
+Status: **phases 1 (core) and 2 (real AWS check) done 2026-11-14; phase 3 (emails package) open.** Verified against `main` the same day
 (core `ea9f60ff3`, `phoenix_kit_emails` 0.8.0 `dd32ca6`). Written from fotki.ee
 while setting up SES delivery events. Line numbers below are `main`'s. What the
 check changed is listed in "Verified against main" at the end; what was decided
@@ -262,7 +262,7 @@ Use a throwaway IAM user in a test account:
    that names the setup policy.
 
 Record the result, including the `CreateConfigurationSet` resource question,
-in a `dev_docs/reports/` file.
+in `dev_docs/investigations/`.
 
 ## Related: open and click tracking
 
@@ -343,7 +343,7 @@ Settled without a question, because there is only one reasonable answer:
 7. Gettext in all ten locales, `mix precommit`, `mix test`.
 
 **Phase 2, real AWS (needs the throwaway key):** Build 6, with the report in
-`dev_docs/reports/`. Runs against core alone where it can (setup, a send);
+`dev_docs/investigations/`. Runs against core alone where it can (setup, a send);
 the polling check waits for phase 3 or uses the emails package as published.
 
 **Phase 3, `phoenix_kit_emails` (after its pending work lands):** the setup
@@ -398,8 +398,14 @@ Left for phase 3, and visible until then:
 - **Nothing turns open and click tracking on from the UI.** The option
   exists on `run/1`; the account setting that passes it is phase 3.
 
-Not verified: the step-7 change and the open/click option have no test
-against AWS (the suite has no stub for SNS or SES v2). Phase 2 covers both.
+## Phase 2 as run (2026-11-14)
+
+All ten checks passed against a real account:
+`dev_docs/investigations/2026-11-14-aws-ses-iam-policies-real-account.md`. The
+configuration-set ARN is accepted by AWS, the running policy sends and reads,
+setup is refused under it with the pointer to the setup policy, and step 7
+fails without `sns:Subscribe`. Not run: `track_opens_and_clicks: true`, and
+the emails package's poller and panel themselves.
 
 ## Follow-up: SES v2 send API
 
