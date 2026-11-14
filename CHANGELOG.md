@@ -55,6 +55,15 @@ Run `mix phoenix_kit.update` (V230, V231 and the new `phoenix_kit.js`).
   and magic-link forms print as they are; they now go through gettext, and
   "Referral code is required" is added to the template and to the ten catalogues.
 
+- **Invite-only: the OAuth callback no longer redeems codes for accounts that already
+  exist.** `?referral_code=` on `/users/auth/:provider` was redeemed on every
+  callback, so an account parked by invite-only could guess codes by repeating the
+  provider sign-in, outside the per-account limit of the code screen. The code is
+  now honoured only for the account the callback has just created, and that check
+  is charged to the per-IP budget the signup forms use
+  (`check_referral_validation_rate_limit/1`). Existing accounts enter a code at
+  `/users/referral`. An over-limit new account is created and parked, not refused.
+
 - **A long or private video keeps playing and seeking.** A video on a `"signed"`
   bucket was redirected to a link that lived 5 minutes, and a browser reads that
   link for as long as the video plays: after 5 minutes every seek failed. Video and

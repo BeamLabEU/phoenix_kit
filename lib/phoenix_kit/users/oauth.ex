@@ -15,6 +15,7 @@ if Code.ensure_loaded?(Ueberauth) do
     alias PhoenixKit.Users.Auth
     alias PhoenixKit.Users.Auth.User
     alias PhoenixKit.Users.OAuthProvider
+    alias PhoenixKit.Users.RateLimiter
     alias PhoenixKit.Users.Referrals
     alias PhoenixKit.Users.Sessions.Revocation
     alias PhoenixKit.Utils.Routes
@@ -31,12 +32,12 @@ if Code.ensure_loaded?(Ueberauth) do
       referral_code = Keyword.get(opts, :referral_code)
 
       Revocation.transaction(fn ->
-        with {:ok, user, _status} <-
+        with {:ok, user, status} <-
                find_or_create_user(oauth_data, track_geolocation, ip_address),
              {:ok, _provider} <- link_oauth_provider(user, oauth_data),
              {:ok, user} <- maybe_fill_google_email(user, oauth_data),
              {:ok, user} <- maybe_save_oauth_avatar(user, oauth_data),
-             :ok <- maybe_process_referral_code(user, referral_code) do
+             :ok <- maybe_process_referral_code(user, status, referral_code, ip_address) do
           user
         else
           {:error, reason} -> Repo.rollback(reason)
@@ -507,15 +508,42 @@ if Code.ensure_loaded?(Ueberauth) do
 
     defp serialize_value(value), do: value
 
-    defp maybe_process_referral_code(_user, nil), do: :ok
+    # A referral code on the callback is a SIGN-UP code: it is honoured only for
+    # the account this callback has just created.
+    #
+    # ⚠️ Not for an account that already exists. The callback carries the code
+    # straight from `?referral_code=` on `/users/auth/:provider`, and it used to
+    # be redeemed for every callback — so a parked account (created without a
+    # code) could guess codes by repeating the Google round trip, with none of
+    # the limits the code screen has (`check_referral_redemption_rate_limit/1`,
+    # per account). It also let an already-admitted account redeem a code a
+    # second time and look like it came in on one. An existing account enters a
+    # code at `/users/referral`, where the per-account limit applies.
+    #
+    # The new-account case is still a guess per callback, so it spends a token
+    # from the same per-IP budget the signup forms use
+    # (`check_referral_validation_rate_limit/1`). Over the limit, the account is
+    # kept and simply not admitted: it is parked and can enter the code at the
+    # gate. Blank codes are not checks and cost nothing.
+    defp maybe_process_referral_code(user, :created, referral_code, ip_address)
+         when is_binary(referral_code) do
+      case String.trim(referral_code) do
+        "" ->
+          :ok
 
-    defp maybe_process_referral_code(user, referral_code) when is_binary(referral_code) do
-      if Code.ensure_loaded?(Referrals) do
-        Referrals.record_signup_use(user, referral_code)
+        code ->
+          case RateLimiter.check_referral_validation_rate_limit(ip_address) do
+            :ok ->
+              Referrals.record_signup_use(user, code)
+
+            {:error, :rate_limit_exceeded} ->
+              Logger.info("[OAuth] referral code check rate-limited; new account left parked")
+              :ok
+          end
       end
-
-      :ok
     end
+
+    defp maybe_process_referral_code(_user, _status, _referral_code, _ip_address), do: :ok
   end
 else
   # Fallback module when Ueberauth is not loaded

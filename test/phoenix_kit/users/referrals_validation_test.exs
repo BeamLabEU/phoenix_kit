@@ -115,7 +115,8 @@ defmodule PhoenixKit.Users.ReferralsValidationTest do
     end
 
     test "the rate-limit refusal" do
-      ip = "203.0.113.#{:erlang.unique_integer([:positive]) |> rem(250)}"
+      # A /64 no other test can land on, so its spent budget never leaks.
+      ip = "2001:db8:5e:#{Integer.to_string(:erlang.unique_integer([:positive]), 16)}::1"
       opts = @enabled ++ [context: :submit, ip_address: ip]
 
       messages =
