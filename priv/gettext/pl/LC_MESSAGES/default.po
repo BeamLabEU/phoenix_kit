@@ -2804,7 +2804,7 @@ msgstr "Nadpisanie kodeka"
 msgid "Configure system preferences and options"
 msgstr "Skonfiguruj preferencje i opcje systemu"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:590
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:596
 #: lib/phoenix_kit_web/live/components/personal_api_keys.ex:1091
 #: lib/phoenix_kit_web/live/settings/api.html.heex:981
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:588
@@ -27435,12 +27435,12 @@ msgstr "Nie udało się zapisać sprawdzania adresu e-mail."
 msgid "This email domain cannot receive mail. Please check the address."
 msgstr "Ta domena e-mail nie może odbierać poczty. Sprawdź adres."
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:627
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:633
 #, elixir-autogen, elixir-format
 msgid "All a key needs to send mail through Amazon SES."
 msgstr "Wszystko, czego klucz potrzebuje do wysyłania poczty przez Amazon SES."
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:604
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:610
 #, elixir-autogen, elixir-format
 msgid "Attach this before Setup Infrastructure. It sends, creates the queues, the topic and the configuration set, and reads the queues."
 msgstr "Dołącz ją przed „Setup Infrastructure”. Wysyła, tworzy kolejki, temat i zestaw konfiguracji oraz odczytuje kolejki."
@@ -27465,32 +27465,32 @@ msgstr "W [konsoli IAM](https://console.aws.amazon.com/iam/home#/users) utwórz 
 msgid "In the [IAM console](https://console.aws.amazon.com/iam/home#/users) create a user without console access and add the **setup policy** below to it as an inline policy (Permissions → Add permissions → Create inline policy → JSON)"
 msgstr "W [konsoli IAM](https://console.aws.amazon.com/iam/home#/users) utwórz użytkownika bez dostępu do konsoli i dodaj mu poniższą **politykę konfiguracji** jako politykę wbudowaną (Permissions → Add permissions → Create inline policy → JSON)"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:576
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:582
 #, elixir-autogen, elixir-format
 msgid "No region is saved for this connection yet: replace <region> with your AWS region, or save the connection and copy the policy then."
 msgstr "Dla tego połączenia nie zapisano jeszcze regionu: zastąp <region> swoim regionem AWS albo zapisz połączenie i skopiuj politykę później."
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:616
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:622
 #, elixir-autogen, elixir-format
 msgid "Replace the setup policy with this once Setup Infrastructure has succeeded. It sends and reads the queues, and can create nothing."
 msgstr "Zastąp nią politykę konfiguracji, gdy „Setup Infrastructure” się powiedzie. Wysyła i odczytuje kolejki, a niczego nie może utworzyć."
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:614
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:620
 #, elixir-autogen, elixir-format
 msgid "Running policy"
 msgstr "Polityka działania"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:626
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:632
 #, elixir-autogen, elixir-format
 msgid "Sending policy"
 msgstr "Polityka wysyłania"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:602
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:608
 #, elixir-autogen, elixir-format
 msgid "Setup policy"
 msgstr "Polityka konfiguracji"
 
-#: lib/phoenix_kit/aws/infrastructure_setup.ex:286
+#: lib/phoenix_kit/aws/infrastructure_setup.ex:292
 #, elixir-autogen, elixir-format
 msgid "The key lacks a permission of the setup policy. Attach the setup policy to the key (it is shown with the Amazon SES connection in Settings → Integrations) and run the setup again: it is safe to repeat."
 msgstr "Kluczowi brakuje uprawnienia z polityki konfiguracji. Dołącz politykę konfiguracji do klucza (jest pokazana przy połączeniu Amazon SES w Ustawienia → Integracje) i uruchom konfigurację ponownie: można ją bezpiecznie powtarzać."

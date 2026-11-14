@@ -2804,7 +2804,7 @@ msgstr "Sovrascrivi codec"
 msgid "Configure system preferences and options"
 msgstr "Configura preferenze e opzioni di sistema"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:590
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:596
 #: lib/phoenix_kit_web/live/components/personal_api_keys.ex:1091
 #: lib/phoenix_kit_web/live/settings/api.html.heex:981
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:588
@@ -27353,12 +27353,12 @@ msgstr "Impossibile salvare il controllo dell'indirizzo email."
 msgid "This email domain cannot receive mail. Please check the address."
 msgstr "Questo dominio email non può ricevere posta. Controlla l'indirizzo."
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:627
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:633
 #, elixir-autogen, elixir-format
 msgid "All a key needs to send mail through Amazon SES."
 msgstr "Tutto ciò che serve a una chiave per inviare email tramite Amazon SES."
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:604
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:610
 #, elixir-autogen, elixir-format
 msgid "Attach this before Setup Infrastructure. It sends, creates the queues, the topic and the configuration set, and reads the queues."
 msgstr "Da allegare prima di «Setup Infrastructure». Invia, crea le code, il topic e il set di configurazione e legge le code."
@@ -27383,32 +27383,32 @@ msgstr "Nella [console IAM](https://console.aws.amazon.com/iam/home#/users) crea
 msgid "In the [IAM console](https://console.aws.amazon.com/iam/home#/users) create a user without console access and add the **setup policy** below to it as an inline policy (Permissions → Add permissions → Create inline policy → JSON)"
 msgstr "Nella [console IAM](https://console.aws.amazon.com/iam/home#/users) crea un utente senza accesso alla console e aggiungigli la **policy di configurazione** qui sotto come policy inline (Permissions → Add permissions → Create inline policy → JSON)"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:576
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:582
 #, elixir-autogen, elixir-format
 msgid "No region is saved for this connection yet: replace <region> with your AWS region, or save the connection and copy the policy then."
 msgstr "Per questa connessione non è ancora salvata alcuna regione: sostituisci <region> con la tua regione AWS, oppure salva la connessione e copia la policy dopo."
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:616
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:622
 #, elixir-autogen, elixir-format
 msgid "Replace the setup policy with this once Setup Infrastructure has succeeded. It sends and reads the queues, and can create nothing."
 msgstr "Sostituisci la policy di configurazione con questa quando «Setup Infrastructure» è riuscito. Invia e legge le code e non può creare nulla."
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:614
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:620
 #, elixir-autogen, elixir-format
 msgid "Running policy"
 msgstr "Policy di esercizio"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:626
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:632
 #, elixir-autogen, elixir-format
 msgid "Sending policy"
 msgstr "Policy di invio"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:602
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:608
 #, elixir-autogen, elixir-format
 msgid "Setup policy"
 msgstr "Policy di configurazione"
 
-#: lib/phoenix_kit/aws/infrastructure_setup.ex:286
+#: lib/phoenix_kit/aws/infrastructure_setup.ex:292
 #, elixir-autogen, elixir-format
 msgid "The key lacks a permission of the setup policy. Attach the setup policy to the key (it is shown with the Amazon SES connection in Settings → Integrations) and run the setup again: it is safe to repeat."
 msgstr "Alla chiave manca un permesso della policy di configurazione. Allega la policy di configurazione alla chiave (è mostrata con la connessione Amazon SES in Impostazioni → Integrazioni) ed esegui di nuovo la configurazione: si può ripetere senza rischi."

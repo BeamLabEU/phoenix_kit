@@ -2808,7 +2808,7 @@ msgstr "Kodeki alistamine"
 msgid "Configure system preferences and options"
 msgstr "Seadista süsteemi eelistused ja valikud"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:590
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:596
 #: lib/phoenix_kit_web/live/components/personal_api_keys.ex:1091
 #: lib/phoenix_kit_web/live/settings/api.html.heex:981
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:588
@@ -27363,12 +27363,12 @@ msgstr "E-posti aadressi kontrolli ei õnnestunud salvestada."
 msgid "This email domain cannot receive mail. Please check the address."
 msgstr "See e-posti domeen ei saa kirju vastu võtta. Palun kontrollige aadressi."
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:627
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:633
 #, elixir-autogen, elixir-format
 msgid "All a key needs to send mail through Amazon SES."
 msgstr "Kõik, mida võti vajab kirjade saatmiseks Amazon SES-i kaudu."
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:604
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:610
 #, elixir-autogen, elixir-format
 msgid "Attach this before Setup Infrastructure. It sends, creates the queues, the topic and the configuration set, and reads the queues."
 msgstr "Lisa see enne nupu „Loo taristu“ vajutamist. See saadab, loob järjekorrad, teema ja konfiguratsioonikomplekti ning loeb järjekordi."
@@ -27393,32 +27393,32 @@ msgstr "Loo [IAM-konsoolis](https://console.aws.amazon.com/iam/home#/users) kasu
 msgid "In the [IAM console](https://console.aws.amazon.com/iam/home#/users) create a user without console access and add the **setup policy** below to it as an inline policy (Permissions → Add permissions → Create inline policy → JSON)"
 msgstr "Loo [IAM-konsoolis](https://console.aws.amazon.com/iam/home#/users) kasutaja ilma konsoolile ligipääsuta ja lisa talle allpool olev **seadistuspoliitika** tekstisisese poliitikana (Permissions → Add permissions → Create inline policy → JSON)"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:576
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:582
 #, elixir-autogen, elixir-format
 msgid "No region is saved for this connection yet: replace <region> with your AWS region, or save the connection and copy the policy then."
 msgstr "Selle ühenduse jaoks pole regiooni veel salvestatud: asenda <region> oma AWS-i regiooniga või salvesta ühendus ja kopeeri poliitika pärast seda."
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:616
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:622
 #, elixir-autogen, elixir-format
 msgid "Replace the setup policy with this once Setup Infrastructure has succeeded. It sends and reads the queues, and can create nothing."
 msgstr "Asenda seadistuspoliitika sellega, kui „Loo taristu“ on õnnestunud. See saadab ja loeb järjekordi ega saa midagi luua."
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:614
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:620
 #, elixir-autogen, elixir-format
 msgid "Running policy"
 msgstr "Tööpoliitika"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:626
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:632
 #, elixir-autogen, elixir-format
 msgid "Sending policy"
 msgstr "Saatmispoliitika"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:602
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:608
 #, elixir-autogen, elixir-format
 msgid "Setup policy"
 msgstr "Seadistuspoliitika"
 
-#: lib/phoenix_kit/aws/infrastructure_setup.ex:286
+#: lib/phoenix_kit/aws/infrastructure_setup.ex:292
 #, elixir-autogen, elixir-format
 msgid "The key lacks a permission of the setup policy. Attach the setup policy to the key (it is shown with the Amazon SES connection in Settings → Integrations) and run the setup again: it is safe to repeat."
 msgstr "Võtmel puudub üks seadistuspoliitika õigus. Lisa võtmele seadistuspoliitika (see on näha Amazon SES-i ühenduse juures lehel Seaded → Integratsioonid) ja käivita seadistus uuesti: seda on ohutu korrata."

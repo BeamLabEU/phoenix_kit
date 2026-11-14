@@ -76,16 +76,17 @@ defmodule PhoenixKit.AWS.IamPolicy do
   The resource names saved by a finished setup, in the shape `:names` takes.
 
   Reads the tracking map the emails package stores per account (`queue_arn`,
-  `dlq_url`, `sns_topic_arn`, `configuration_set`). Answers `nil` unless all
-  four are there, so a half-filled row falls back to the derived names.
+  `dlq_url`, `sns_topic_arn`, `configuration_set`), with string or atom keys.
+  Answers `nil` unless all four are there, so a half-filled row falls back to
+  the derived names.
   """
   @spec names_from_tracking(term()) :: map() | nil
   def names_from_tracking(%{} = tracking) do
     names = %{
-      queue: last_segment(tracking["queue_arn"], ":"),
-      dlq: last_segment(tracking["dlq_url"], "/"),
-      topic: last_segment(tracking["sns_topic_arn"], ":"),
-      configuration_set: last_segment(tracking["configuration_set"], "/")
+      queue: last_segment(field(tracking, :queue_arn), ":"),
+      dlq: last_segment(field(tracking, :dlq_url), "/"),
+      topic: last_segment(field(tracking, :sns_topic_arn), ":"),
+      configuration_set: last_segment(field(tracking, :configuration_set), "/")
     }
 
     if Enum.all?(Map.values(names), &is_binary/1), do: names
@@ -175,6 +176,8 @@ defmodule PhoenixKit.AWS.IamPolicy do
   end
 
   defp region(_region), do: @region_placeholder
+
+  defp field(map, key), do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
 
   defp last_segment(value, separator) when is_binary(value) do
     case value |> String.trim() |> String.split(separator) |> List.last() do

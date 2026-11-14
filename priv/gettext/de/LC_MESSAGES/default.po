@@ -2804,7 +2804,7 @@ msgstr "Codec überschreiben"
 msgid "Configure system preferences and options"
 msgstr "Systemeinstellungen und Optionen konfigurieren"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:590
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:596
 #: lib/phoenix_kit_web/live/components/personal_api_keys.ex:1091
 #: lib/phoenix_kit_web/live/settings/api.html.heex:981
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:588
@@ -27353,12 +27353,12 @@ msgstr "Die Prüfung der E-Mail-Adresse konnte nicht gespeichert werden."
 msgid "This email domain cannot receive mail. Please check the address."
 msgstr "Diese E-Mail-Domain kann keine E-Mails empfangen. Bitte überprüfen Sie die Adresse."
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:627
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:633
 #, elixir-autogen, elixir-format
 msgid "All a key needs to send mail through Amazon SES."
 msgstr "Alles, was ein Schlüssel braucht, um E-Mails über Amazon SES zu senden."
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:604
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:610
 #, elixir-autogen, elixir-format
 msgid "Attach this before Setup Infrastructure. It sends, creates the queues, the topic and the configuration set, and reads the queues."
 msgstr "Vor „Setup Infrastructure“ anhängen. Sie sendet, legt die Warteschlangen, das Topic und das Configuration Set an und liest die Warteschlangen."
@@ -27383,32 +27383,32 @@ msgstr "In der [IAM-Konsole](https://console.aws.amazon.com/iam/home#/users) ein
 msgid "In the [IAM console](https://console.aws.amazon.com/iam/home#/users) create a user without console access and add the **setup policy** below to it as an inline policy (Permissions → Add permissions → Create inline policy → JSON)"
 msgstr "In der [IAM-Konsole](https://console.aws.amazon.com/iam/home#/users) einen Benutzer ohne Konsolenzugriff anlegen und ihm die **Einrichtungsrichtlinie** unten als Inline-Richtlinie hinzufügen (Permissions → Add permissions → Create inline policy → JSON)"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:576
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:582
 #, elixir-autogen, elixir-format
 msgid "No region is saved for this connection yet: replace <region> with your AWS region, or save the connection and copy the policy then."
 msgstr "Für diese Verbindung ist noch keine Region gespeichert: <region> durch die eigene AWS-Region ersetzen oder die Verbindung speichern und die Richtlinie danach kopieren."
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:616
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:622
 #, elixir-autogen, elixir-format
 msgid "Replace the setup policy with this once Setup Infrastructure has succeeded. It sends and reads the queues, and can create nothing."
 msgstr "Die Einrichtungsrichtlinie hierdurch ersetzen, sobald „Setup Infrastructure“ erfolgreich war. Sie sendet und liest die Warteschlangen und kann nichts anlegen."
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:614
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:620
 #, elixir-autogen, elixir-format
 msgid "Running policy"
 msgstr "Betriebsrichtlinie"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:626
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:632
 #, elixir-autogen, elixir-format
 msgid "Sending policy"
 msgstr "Senderichtlinie"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:602
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:608
 #, elixir-autogen, elixir-format
 msgid "Setup policy"
 msgstr "Einrichtungsrichtlinie"
 
-#: lib/phoenix_kit/aws/infrastructure_setup.ex:286
+#: lib/phoenix_kit/aws/infrastructure_setup.ex:292
 #, elixir-autogen, elixir-format
 msgid "The key lacks a permission of the setup policy. Attach the setup policy to the key (it is shown with the Amazon SES connection in Settings → Integrations) and run the setup again: it is safe to repeat."
 msgstr "Dem Schlüssel fehlt eine Berechtigung der Einrichtungsrichtlinie. Die Einrichtungsrichtlinie an den Schlüssel anhängen (sie wird bei der Amazon-SES-Verbindung unter Einstellungen → Integrationen angezeigt) und die Einrichtung erneut ausführen: Sie kann gefahrlos wiederholt werden."

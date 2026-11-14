@@ -46,7 +46,7 @@ defmodule PhoenixKit.AWS.IamPolicyTest do
     test "grants no List or Describe action: nothing calls one" do
       actions = IamPolicy.setup(@opts)["Statement"] |> Enum.flat_map(& &1["Action"])
 
-      refute Enum.any?(actions, &(&1 =~ ~r/:(List|Describe|Update|DeleteQueue|DeleteTopic)/))
+      refute Enum.any?(actions, &(&1 =~ ~r/:(List|Describe|DeleteQueue|DeleteTopic)/))
       refute Enum.any?(actions, &String.ends_with?(&1, "*"))
     end
   end
@@ -133,6 +133,20 @@ defmodule PhoenixKit.AWS.IamPolicyTest do
       assert text =~ "old-email-queue"
       assert text =~ "configuration-set/old-emailing"
       refute text =~ "renamed"
+    end
+
+    test "the tracking row is read with atom keys too, as the emails package holds it" do
+      names =
+        IamPolicy.names_from_tracking(%{
+          queue_arn: "arn:aws:sqs:eu-north-1:1:old-email-queue",
+          dlq_url: "https://sqs.eu-north-1.amazonaws.com/1/old-email-dlq",
+          sns_topic_arn: "arn:aws:sns:eu-north-1:1:old-email-events",
+          configuration_set: "old-emailing",
+          region: "eu-north-1"
+        })
+
+      assert names.queue == "old-email-queue"
+      assert names.dlq == "old-email-dlq"
     end
 
     test "a half-filled tracking row gives no names, so the title is used" do

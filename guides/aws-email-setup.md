@@ -59,6 +59,7 @@ Infrastructure** has succeeded.
       "Action": [
         "ses:CreateConfigurationSet",
         "ses:CreateConfigurationSetEventDestination",
+        "ses:UpdateConfigurationSetEventDestination",
         "sns:CreateTopic",
         "sns:Subscribe",
         "sqs:CreateQueue",
@@ -177,6 +178,7 @@ With no delivery events there is nothing to set up, and the key needs the
 | Setup | sets who may send to and read the queues | `sqs:SetQueueAttributes` |
 | Setup | creates the topic and subscribes the queue to it | `sns:CreateTopic`, `sns:Subscribe` |
 | Setup | creates the configuration set and its event destination | `ses:CreateConfigurationSet`, `ses:CreateConfigurationSetEventDestination` |
+| Setup | turns open and click tracking on or off on an event destination that already exists | `ses:UpdateConfigurationSetEventDestination` |
 | Running | reads delivery events and removes the ones it has processed | `sqs:ReceiveMessage`, `sqs:DeleteMessage` |
 
 The resources the setup creates:
@@ -250,11 +252,20 @@ adds a tracking pixel to every message and rewrites every link in it to pass
 through its own redirect host. That includes the links of sign-in,
 confirmation and password-reset mail, with their tokens.
 
-**A site set up before this changed** has both on. To turn them off, open the
-[SES console](https://console.aws.amazon.com/ses/home#/configuration-sets),
+Each account under Delivery Event Tracking has a **Track opens and clicks**
+box. **Setup Infrastructure** applies it: tick or untick it, save, attach the
+setup policy and run the setup. It changes the event destination to match,
+whether it is new or already there.
+
+**A site set up before this changed** has both on, and its box shows unticked
+until someone saves it. Run the setup once with the box as you want it. You
+can also do it by hand: in the
+[SES console](https://console.aws.amazon.com/ses/home#/configuration-sets)
 choose the configuration set `<project>-emailing`, open Event destinations,
-edit `email-events-to-sns` and untick **Opens** and **Clicks**. PhoenixKit
-never changes an event destination that already exists.
+edit `email-events-to-sns` and untick **Opens** and **Clicks**.
+
+A setup run by code that does not say what it wants (an older
+`phoenix_kit_emails`) leaves an existing event destination as it is.
 
 ## Queue settings
 

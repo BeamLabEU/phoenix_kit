@@ -110,5 +110,24 @@ defmodule PhoenixKitWeb.Components.Core.IntegrationsUIInstructionsTest do
         refute html =~ stale
       end
     end
+
+    test "saved names and an id of the caller's replace the derived ones" do
+      html =
+        render_component(&IntegrationsUI.aws_ses_policies/1,
+          policies: [:running],
+          region: "eu-north-1",
+          id: "account-1-policy",
+          names: %{
+            queue: "old-email-queue",
+            dlq: "old-email-dlq",
+            topic: "old-email-events",
+            configuration_set: "old-emailing"
+          }
+        )
+
+      assert html =~ ~s(id="account-1-policy-running")
+      assert html =~ "arn:aws:sqs:eu-north-1:*:old-email-queue"
+      refute html =~ "SetupInfrastructure"
+    end
   end
 end

@@ -1,6 +1,6 @@
 # One answer to "what IAM policy does the SES key need?"
 
-Status: **phases 1 (core) and 2 (real AWS check) done 2026-11-14; phase 3 (emails package) open.** Verified against `main` the same day
+Status: **all three phases built 2026-11-14.** Open: one more real-AWS check, for the open/click update added in phase 3, and the releases. Verified against `main` the same day
 (core `ea9f60ff3`, `phoenix_kit_emails` 0.8.0 `dd32ca6`). Written from fotki.ee
 while setting up SES delivery events. Line numbers below are `main`'s. What the
 check changed is listed in "Verified against main" at the end; what was decided
@@ -406,6 +406,56 @@ configuration-set ARN is accepted by AWS, the running policy sends and reads,
 setup is refused under it with the pointer to the setup policy, and step 7
 fails without `sns:Subscribe`. Not run: `track_opens_and_clicks: true`, and
 the emails package's poller and panel themselves.
+
+## Phase 3 as built (2026-11-14)
+
+`phoenix_kit_emails` (after its 0.9.0) and one addition to core.
+
+**Decision 12, taken with Dmitri at the start of phase 3: Setup
+Infrastructure applies the open/click choice every time it runs.** SES keeps
+the event list on the event destination and the setup used to leave an
+existing one alone, so a switch would have acted once. The alternatives
+turned down: a checkbox that acts at first setup only, and no switch at all.
+
+In core:
+
+- `SESv2.create_configuration_set_event_destination/5` updates an existing
+  destination when `track_opens_and_clicks:` is given as `true` or `false`,
+  and leaves it alone when the option is absent. `InfrastructureSetup.run/1`
+  passes the option through the same way. So `phoenix_kit_emails` 0.9.0 and
+  older, which say nothing, change no existing site on a core upgrade.
+- The setup policy gains `ses:UpdateConfigurationSetEventDestination` (the
+  action list, the guide and its table follow from `iam_actions/0`).
+- `IamPolicy.names_from_tracking/1` reads atom keys too, and
+  `IntegrationsUI.aws_ses_policies/1` takes `names` and an `id`.
+
+In the emails package:
+
+- Each account under Delivery Event Tracking shows "IAM policies for this
+  account's key": the setup and the running policy, from the saved names
+  once the setup has run and from the project title before.
+- A "Track opens and clicks" box per account, saved in the account's
+  tracking row (`track_opens_and_clicks`) and passed to the setup.
+- The setup's success message says the key can be narrowed; a refused read
+  in the poller logs a line naming the running policy.
+- The project name comes from core where core has the function.
+- Everything above is feature-detected: on core 3.5.0 the panel is as it
+  was. The suite passes against 3.5.0 and against local core.
+
+Differences from the plan:
+
+- **The poller has no row to report in.** The plan said an AccessDenied
+  there "should point to the running policy" in the tracker row; the poller
+  only logs, so the pointer is a log line. Showing poll failures in the
+  panel is a separate piece of work.
+- **An old site's box shows unticked while AWS still tracks.** Nothing reads
+  the event destination back (that needs a permission the policies do not
+  grant). The box's help text and the guide say to run the setup once.
+
+Not verified against AWS: the update call and the new action in the setup
+policy. The phase 2 run predates them. It needs one more check with a
+throwaway key: setup with the box ticked on an existing destination, then
+unticked, reading the result in the SES console.
 
 ## Follow-up: SES v2 send API
 

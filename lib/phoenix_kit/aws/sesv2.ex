@@ -130,9 +130,11 @@ defmodule PhoenixKit.AWS.SESv2 do
   end
 
   @doc """
-  Creates an event destination for a configuration set.
+  Creates the event destination of a configuration set, or brings an existing
+  one in line.
 
-  Event destinations define where SES publishes email sending events (send, delivery, bounce, etc.).
+  Event destinations define where SES publishes email sending events (send,
+  delivery, bounce, etc.).
 
   ## Parameters
 
@@ -140,24 +142,30 @@ defmodule PhoenixKit.AWS.SESv2 do
     - `destination_name` - Name for the event destination (e.g., "email-events-to-sns")
     - `topic_arn` - SNS topic ARN where events will be published
     - `config` - AWS configuration keyword list
-
-  ## Returns
-
-    - `:ok` - Event destination created or already exists
-    - `{:error, reason}` - Failed to create event destination
+    - `opts` - see Options
 
   ## Options
 
-    - `:track_opens_and_clicks` - also publish `OPEN` and `CLICK` (default
-      `false`). With them on, SES adds a tracking pixel to every message and
-      rewrites every link in it through its own redirect host, the links of
-      sign-in, confirmation and password-reset mail included.
+    - `:track_opens_and_clicks` - whether `OPEN` and `CLICK` are published.
+      With them on, SES adds a tracking pixel to every message and rewrites
+      every link in it through its own redirect host, the links of sign-in,
+      confirmation and password-reset mail included.
+
+      Left out, a new destination is created without the two and **an
+      existing one is left exactly as it is**. Given as `true` or `false`, the
+      caller has made a choice, so an existing destination is updated to it
+      (`ses:UpdateConfigurationSetEventDestination`).
 
   ## Events Tracked
 
   `event_types/1` is the list. Always: `SEND`, `REJECT`, `BOUNCE`,
   `COMPLAINT`, `DELIVERY`, `RENDERING_FAILURE`, `DELIVERY_DELAY` and
-  `SUBSCRIPTION`. An event destination that already exists is left as it is.
+  `SUBSCRIPTION`.
+
+  ## Returns
+
+    - `:ok` - the destination exists as asked
+    - `{:error, reason}` - Failed to create or update it
 
   ## Examples
 
@@ -178,52 +186,65 @@ defmodule PhoenixKit.AWS.SESv2 do
         config,
         opts \\ []
       ) do
-    track? = Keyword.get(opts, :track_opens_and_clicks, false) == true
+    choice = Keyword.get(opts, :track_opens_and_clicks)
+    destination = event_destination(topic_arn, choice == true)
+    base = "/v2/email/configuration-sets/#{URI.encode(config_set_name)}/event-destinations"
 
-    data = %{
-      "EventDestinationName" => destination_name,
-      "EventDestination" => %{
-        "Enabled" => true,
-        "MatchingEventTypes" => event_types(track?),
-        "SnsDestination" => %{
-          "TopicArn" => topic_arn
-        }
-      }
-    }
-
-    request = %ExAws.Operation.JSON{
+    create = %ExAws.Operation.JSON{
       http_method: :post,
       service: :ses,
-      path: "/v2/email/configuration-sets/#{URI.encode(config_set_name)}/event-destinations",
-      data: data,
-      headers: [
-        {"content-type", "application/json"}
-      ]
+      path: base,
+      data: %{"EventDestinationName" => destination_name, "EventDestination" => destination},
+      headers: [{"content-type", "application/json"}]
     }
 
-    case ExAws.request(request, config) do
-      {:ok, _} ->
-        :ok
+    case destination_result(ExAws.request(create, config)) do
+      :exists when is_boolean(choice) ->
+        update = %ExAws.Operation.JSON{
+          http_method: :put,
+          service: :ses,
+          path: base <> "/" <> URI.encode(destination_name),
+          data: %{"EventDestination" => destination},
+          headers: [{"content-type", "application/json"}]
+        }
 
-      {:error, {:http_error, 409, _}} ->
-        # Already exists - this is fine
-        :ok
-
-      {:error, {:http_error, _code, %{body: body}}} when is_binary(body) ->
-        case JSON.decode(body) do
-          {:ok, %{"__type" => "AlreadyExistsException"}} ->
-            :ok
-
-          {:ok, %{"message" => msg}} ->
-            # Check if message indicates resource already exists
-            if String.contains?(msg, "already exists"), do: :ok, else: {:error, msg}
-
-          _ ->
-            {:error, body}
+        case destination_result(ExAws.request(update, config)) do
+          :exists -> :ok
+          result -> result
         end
 
-      {:error, reason} ->
-        {:error, inspect(reason)}
+      :exists ->
+        :ok
+
+      result ->
+        result
     end
   end
+
+  defp event_destination(topic_arn, track?) do
+    %{
+      "Enabled" => true,
+      "MatchingEventTypes" => event_types(track?),
+      "SnsDestination" => %{"TopicArn" => topic_arn}
+    }
+  end
+
+  # `:ok`, `:exists` (the create found one already there) or `{:error, reason}`.
+  defp destination_result({:ok, _}), do: :ok
+  defp destination_result({:error, {:http_error, 409, _}}), do: :exists
+
+  defp destination_result({:error, {:http_error, _code, %{body: body}}}) when is_binary(body) do
+    case JSON.decode(body) do
+      {:ok, %{"__type" => "AlreadyExistsException"}} ->
+        :exists
+
+      {:ok, %{"message" => msg}} ->
+        if String.contains?(msg, "already exists"), do: :exists, else: {:error, msg}
+
+      _ ->
+        {:error, body}
+    end
+  end
+
+  defp destination_result({:error, reason}), do: {:error, inspect(reason)}
 end

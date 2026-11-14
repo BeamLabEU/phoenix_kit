@@ -2804,7 +2804,7 @@ msgstr ""
 msgid "Configure system preferences and options"
 msgstr ""
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:590
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:596
 #: lib/phoenix_kit_web/live/components/personal_api_keys.ex:1091
 #: lib/phoenix_kit_web/live/settings/api.html.heex:981
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:588
@@ -27344,12 +27344,12 @@ msgstr ""
 msgid "This email domain cannot receive mail. Please check the address."
 msgstr ""
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:627
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:633
 #, elixir-autogen, elixir-format
 msgid "All a key needs to send mail through Amazon SES."
 msgstr ""
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:604
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:610
 #, elixir-autogen, elixir-format
 msgid "Attach this before Setup Infrastructure. It sends, creates the queues, the topic and the configuration set, and reads the queues."
 msgstr ""
@@ -27374,32 +27374,32 @@ msgstr ""
 msgid "In the [IAM console](https://console.aws.amazon.com/iam/home#/users) create a user without console access and add the **setup policy** below to it as an inline policy (Permissions → Add permissions → Create inline policy → JSON)"
 msgstr ""
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:576
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:582
 #, elixir-autogen, elixir-format
 msgid "No region is saved for this connection yet: replace <region> with your AWS region, or save the connection and copy the policy then."
 msgstr ""
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:616
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:622
 #, elixir-autogen, elixir-format
 msgid "Replace the setup policy with this once Setup Infrastructure has succeeded. It sends and reads the queues, and can create nothing."
 msgstr ""
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:614
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:620
 #, elixir-autogen, elixir-format
 msgid "Running policy"
 msgstr ""
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:626
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:632
 #, elixir-autogen, elixir-format
 msgid "Sending policy"
 msgstr ""
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:602
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:608
 #, elixir-autogen, elixir-format
 msgid "Setup policy"
 msgstr ""
 
-#: lib/phoenix_kit/aws/infrastructure_setup.ex:286
+#: lib/phoenix_kit/aws/infrastructure_setup.ex:292
 #, elixir-autogen, elixir-format
 msgid "The key lacks a permission of the setup policy. Attach the setup policy to the key (it is shown with the Amazon SES connection in Settings → Integrations) and run the setup again: it is safe to repeat."
 msgstr ""

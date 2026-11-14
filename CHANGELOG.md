@@ -104,11 +104,14 @@ Run `mix phoenix_kit.update` (V230, V231 and the new `phoenix_kit.js`).
   the List permissions older instructions asked for can be removed.
 - **Amazon SES setup no longer turns on open and click tracking.** The event
   destination is created with the eight delivery events; `OPEN` and `CLICK` are
-  added only with `InfrastructureSetup.run(track_opens_and_clicks: true)`. With
+  a choice, `InfrastructureSetup.run(track_opens_and_clicks: true | false)`. With
   them on, SES adds a tracking pixel and rewrites every link through its own
-  redirect host, sign-in and password-reset links included. ⚠️ An account that is
-  already set up is not changed: the guide says how to untick the two events in
-  the SES console.
+  redirect host, sign-in and password-reset links included. Given the choice,
+  the setup also brings an event destination that already exists in line with it
+  (`ses:UpdateConfigurationSetEventDestination`, part of the setup policy); not
+  given it, as by `phoenix_kit_emails` up to 0.9.0, an existing one is left as it
+  is. ⚠️ An account that is already set up therefore keeps tracking opens and
+  clicks until the setup is run with the choice: the guide says how.
 - **Test Connection on an Amazon SES connection** shows the AWS account and no
   longer probes `sqs:ListQueues`, `sns:ListTopics`, `ses:ListConfigurationSets`
   and `ec2:DescribeRegions`. Nothing uses those permissions, and the

@@ -39,9 +39,11 @@ defmodule PhoenixKit.AWS.InfrastructureSetup do
   - `:queue_retention` - Message retention period in seconds (default: 1209600 / 14 days)
   - `:max_receive_count` - Max retries before DLQ (default: 3)
   - `:polling_interval_ms` - SQS polling interval in milliseconds (default: 5000)
-  - `:track_opens_and_clicks` - Also publish OPEN and CLICK events (default: false).
+  - `:track_opens_and_clicks` - Whether OPEN and CLICK events are published.
     With them on, SES adds a tracking pixel to every message and rewrites every
     link through its own redirect host, sign-in and password-reset links included.
+    Left out: a new event destination gets neither, and one that already exists
+    is not touched. `true` or `false`: an existing one is updated to match.
 
   ## Queue Configuration (Optimized for Email Events)
 
@@ -106,10 +108,12 @@ defmodule PhoenixKit.AWS.InfrastructureSetup do
     queue: ["sqs:CreateQueue", "sqs:GetQueueUrl", "sqs:SetQueueAttributes"],
     # steps 4 and 7
     topic: ["sns:CreateTopic", "sns:Subscribe"],
-    # steps 8 and 9
+    # steps 8 and 9. The update is called only when the caller chose the
+    # open/click setting and the event destination already exists.
     configuration_set: [
       "ses:CreateConfigurationSet",
-      "ses:CreateConfigurationSetEventDestination"
+      "ses:CreateConfigurationSetEventDestination",
+      "ses:UpdateConfigurationSetEventDestination"
     ]
   }
 
@@ -190,7 +194,8 @@ defmodule PhoenixKit.AWS.InfrastructureSetup do
   - `:region` - AWS region (default: "eu-north-1")
   - `:access_key_id` - AWS access key (falls back to settings/env)
   - `:secret_access_key` - AWS secret key (falls back to settings/env)
-  - `:track_opens_and_clicks` - Publish OPEN and CLICK events too (default: false)
+  - `:track_opens_and_clicks` - `true` or `false` sets OPEN and CLICK on the event
+    destination, existing or new; left out, an existing one is not touched
 
   ## Examples
 
@@ -221,7 +226,8 @@ defmodule PhoenixKit.AWS.InfrastructureSetup do
     config = %{
       project_name: project_name(project_name),
       names: resource_names(project_name),
-      track_opens_and_clicks: Keyword.get(opts, :track_opens_and_clicks, false) == true,
+      # nil (not said), true or false: see `step_9_configure_ses_events/3`.
+      track_opens_and_clicks: track_choice(Keyword.get(opts, :track_opens_and_clicks)),
       region: region,
       access_key_id: access_key_id,
       secret_access_key: secret_access_key,
@@ -539,15 +545,11 @@ defmodule PhoenixKit.AWS.InfrastructureSetup do
            "email-events-to-sns",
            sns_topic_arn,
            aws_config(config),
-           track_opens_and_clicks: config.track_opens_and_clicks
+           track_opts(config.track_opens_and_clicks)
          ) do
       :ok ->
         Logger.info("[AWS Setup]   ✓ SES Event Tracking configured")
-
-        Logger.info(
-          "[AWS Setup]     Events: " <>
-            Enum.join(SESv2.event_types(config.track_opens_and_clicks), ", ")
-        )
+        Logger.info("[AWS Setup]     " <> events_note(config.track_opens_and_clicks))
 
         Logger.info("[AWS Setup]     Destination: #{sns_topic_arn}")
         :ok
@@ -556,6 +558,19 @@ defmodule PhoenixKit.AWS.InfrastructureSetup do
         return_error("configure_ses_events", inspect(reason))
     end
   end
+
+  defp track_choice(choice) when is_boolean(choice), do: choice
+  defp track_choice(_choice), do: nil
+
+  defp track_opts(nil), do: []
+  defp track_opts(choice), do: [track_opens_and_clicks: choice]
+
+  defp events_note(nil) do
+    "Events of a new destination: " <>
+      Enum.join(SESv2.event_types(false), ", ") <> ". An existing one is left as it is."
+  end
+
+  defp events_note(choice), do: "Events: " <> Enum.join(SESv2.event_types(choice), ", ")
 
   # Helper: Build AWS configuration
   defp aws_config(config) do

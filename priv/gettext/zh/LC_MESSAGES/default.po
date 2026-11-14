@@ -2798,7 +2798,7 @@ msgstr "编解码器覆盖"
 msgid "Configure system preferences and options"
 msgstr "配置系统偏好和选项"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:590
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:596
 #: lib/phoenix_kit_web/live/components/personal_api_keys.ex:1091
 #: lib/phoenix_kit_web/live/settings/api.html.heex:981
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:588
@@ -27375,12 +27375,12 @@ msgstr "无法保存邮箱地址检查。"
 msgid "This email domain cannot receive mail. Please check the address."
 msgstr "此邮箱域名无法接收邮件。请检查地址。"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:627
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:633
 #, elixir-autogen, elixir-format
 msgid "All a key needs to send mail through Amazon SES."
 msgstr "密钥通过 Amazon SES 发送邮件所需的全部权限。"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:604
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:610
 #, elixir-autogen, elixir-format
 msgid "Attach this before Setup Infrastructure. It sends, creates the queues, the topic and the configuration set, and reads the queues."
 msgstr "在点击“Setup Infrastructure”之前附加。它可以发送邮件，创建队列、主题和配置集，并读取队列。"
@@ -27405,32 +27405,32 @@ msgstr "在 [IAM 控制台](https://console.aws.amazon.com/iam/home#/users)中�
 msgid "In the [IAM console](https://console.aws.amazon.com/iam/home#/users) create a user without console access and add the **setup policy** below to it as an inline policy (Permissions → Add permissions → Create inline policy → JSON)"
 msgstr "在 [IAM 控制台](https://console.aws.amazon.com/iam/home#/users)中创建一个没有控制台访问权限的用户，并将下方的**设置策略**作为内联策略添加给它（Permissions → Add permissions → Create inline policy → JSON）"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:576
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:582
 #, elixir-autogen, elixir-format
 msgid "No region is saved for this connection yet: replace <region> with your AWS region, or save the connection and copy the policy then."
 msgstr "此连接尚未保存区域：请将 <region> 替换为你的 AWS 区域，或先保存连接再复制策略。"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:616
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:622
 #, elixir-autogen, elixir-format
 msgid "Replace the setup policy with this once Setup Infrastructure has succeeded. It sends and reads the queues, and can create nothing."
 msgstr "“Setup Infrastructure”成功后，用它替换设置策略。它可以发送邮件并读取队列，但不能创建任何资源。"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:614
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:620
 #, elixir-autogen, elixir-format
 msgid "Running policy"
 msgstr "运行策略"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:626
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:632
 #, elixir-autogen, elixir-format
 msgid "Sending policy"
 msgstr "发送策略"
 
-#: lib/phoenix_kit_web/components/core/integrations_ui.ex:602
+#: lib/phoenix_kit_web/components/core/integrations_ui.ex:608
 #, elixir-autogen, elixir-format
 msgid "Setup policy"
 msgstr "设置策略"
 
-#: lib/phoenix_kit/aws/infrastructure_setup.ex:286
+#: lib/phoenix_kit/aws/infrastructure_setup.ex:292
 #, elixir-autogen, elixir-format
 msgid "The key lacks a permission of the setup policy. Attach the setup policy to the key (it is shown with the Amazon SES connection in Settings → Integrations) and run the setup again: it is safe to repeat."
 msgstr "密钥缺少设置策略中的某项权限。请将设置策略附加到密钥（它显示在 设置 → 集成 的 Amazon SES 连接中），然后重新运行设置：重复运行是安全的。"

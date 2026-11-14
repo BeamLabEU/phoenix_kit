@@ -547,9 +547,15 @@ defmodule PhoenixKitWeb.Components.Core.IntegrationsUI do
   attr :policies, :list, required: true
   attr :region, :string, default: nil
 
+  attr :names, :map,
+    default: nil,
+    doc: "the resource names a finished setup saved (`IamPolicy.names_from_tracking/1`)"
+
+  attr :id, :string, default: "aws-ses-policy", doc: "prefix of the DOM ids, unique per page"
+
   def aws_ses_policies(assigns) do
     region = if is_binary(assigns.region), do: String.trim(assigns.region), else: ""
-    opts = [project: InfrastructureSetup.project_name(), region: region]
+    opts = [project: InfrastructureSetup.project_name(), region: region, names: assigns.names]
 
     documents =
       for kind <- assigns.policies, document = policy_document(kind, opts), do: document
@@ -563,7 +569,7 @@ defmodule PhoenixKitWeb.Components.Core.IntegrationsUI do
     <div class="mt-3 ml-2 space-y-2">
       <details
         :for={document <- @documents}
-        id={"aws-ses-policy-#{document.kind}"}
+        id={"#{@id}-#{document.kind}"}
         phx-mounted={Phoenix.LiveView.JS.ignore_attributes(["open"])}
         class="rounded-lg border border-base-300 bg-base-100"
       >
@@ -579,13 +585,13 @@ defmodule PhoenixKitWeb.Components.Core.IntegrationsUI do
           </p>
           <div class="relative">
             <pre
-              id={"aws-ses-policy-#{document.kind}-json"}
+              id={"#{@id}-#{document.kind}-json"}
               class="text-xs font-mono bg-base-200 text-base-content rounded p-3 pr-20 overflow-x-auto"
             >{document.json}</pre>
             <button
               type="button"
               class="btn btn-xs btn-outline absolute top-2 right-2"
-              onclick={"navigator.clipboard.writeText(document.getElementById('aws-ses-policy-#{document.kind}-json').textContent)"}
+              onclick={"navigator.clipboard.writeText(document.getElementById('#{@id}-#{document.kind}-json').textContent)"}
             >
               <.icon name="hero-clipboard" class="w-3 h-3" /> {gettext("Copy")}
             </button>
