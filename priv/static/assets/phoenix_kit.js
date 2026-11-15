@@ -6720,7 +6720,10 @@ if (typeof window !== "undefined") {
 // (`phoenix_kit:turnstile_reset`).
 //
 // If the script cannot load (blocked, offline, a Content-Security-Policy
-// without challenges.cloudflare.com), the element gets `data-turnstile-failed`.
+// without challenges.cloudflare.com), the element gets `data-turnstile-failed`
+// and shows the sentence the server put in `data-failed-text`. Without it the
+// visitor saw an empty box, and every submit answered "wait for the
+// verification to finish" about a verification that was never going to start.
 // ---------------------------------------------------------------------------
 (function () {
   var SCRIPT_URL = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
@@ -6764,7 +6767,13 @@ if (typeof window !== "undefined") {
           theme: "auto"
         });
       }).catch(function () {
+        if (self.gone || !self.el.isConnected) return;
         self.el.setAttribute("data-turnstile-failed", "");
+        var text = self.el.dataset.failedText;
+        if (text) {
+          self.el.setAttribute("role", "alert");
+          self.el.textContent = text;
+        }
       });
 
       this.handleEvent("phoenix_kit:turnstile_reset", function () {

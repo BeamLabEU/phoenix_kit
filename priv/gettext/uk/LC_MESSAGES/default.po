@@ -1229,7 +1229,7 @@ msgstr "Функціональні модулі"
 #: lib/modules/storage/web/library_page.html.heex:165
 #: lib/modules/storage/web/settings.html.heex:123
 #: lib/modules/storage/web/settings.html.heex:148
-#: lib/phoenix_kit/users/auth.ex:3670
+#: lib/phoenix_kit/users/auth.ex:3684
 #: lib/phoenix_kit_web/components/core/preview_card.ex:284
 #: lib/phoenix_kit_web/live/users/libraries.html.heex:104
 #, elixir-autogen, elixir-format
@@ -5465,7 +5465,7 @@ msgstr "Вміст зберігається"
 
 #: lib/phoenix_kit/notifications/types.ex:272
 #: lib/phoenix_kit/notifications/types.ex:295
-#: lib/phoenix_kit/users/auth.ex:3657
+#: lib/phoenix_kit/users/auth.ex:3671
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:997
 #: lib/phoenix_kit_web/live/modules.ex:200
 #: lib/phoenix_kit_web/live/users/user_details.ex:187
@@ -5882,7 +5882,7 @@ msgstr "Сутності"
 #: lib/modules/sitemap/web/settings.html.heex:135
 #: lib/modules/sitemap/web/settings.html.heex:315
 #: lib/phoenix_kit/notifications/types.ex:256
-#: lib/phoenix_kit/users/auth.ex:3655
+#: lib/phoenix_kit/users/auth.ex:3669
 #: lib/phoenix_kit_web/live/modules.ex:212
 #, elixir-autogen
 msgid "Posts"
@@ -10033,12 +10033,12 @@ msgstr "Активний зараз"
 msgid "Devices currently signed in to your account. If you don't recognize one, sign it out."
 msgstr "Пристрої, з яких зараз виконано вхід у ваш обліковий запис. Якщо якийсь вам незнайомий, завершіть його сеанс."
 
-#: lib/phoenix_kit/users/login_alerts.ex:457
+#: lib/phoenix_kit/users/login_alerts.ex:462
 #, elixir-autogen, elixir-format
 msgid "New sign-in to your account from %{details}."
 msgstr "Новий вхід у ваш обліковий запис: %{details}."
 
-#: lib/phoenix_kit/users/login_alerts.ex:456
+#: lib/phoenix_kit/users/login_alerts.ex:461
 #, elixir-autogen, elixir-format
 msgid "New sign-in to your account."
 msgstr "Новий вхід у ваш обліковий запис."
@@ -14210,27 +14210,27 @@ msgstr "Надіслано"
 msgid "We sent a confirmation link to %{email}."
 msgstr "Ми надіслали посилання для підтвердження на %{email}."
 
-#: lib/phoenix_kit/users/auth.ex:3650
+#: lib/phoenix_kit/users/auth.ex:3664
 #, elixir-autogen, elixir-format
 msgid "Admin notes"
 msgstr "Нотатки адміністратора"
 
-#: lib/phoenix_kit/users/auth.ex:3647
+#: lib/phoenix_kit/users/auth.ex:3661
 #, elixir-autogen, elixir-format
 msgid "Billing profiles"
 msgstr "Платіжні профілі"
 
-#: lib/phoenix_kit/users/auth.ex:3668
+#: lib/phoenix_kit/users/auth.ex:3682
 #, elixir-autogen, elixir-format
 msgid "Email logs"
 msgstr "Журнали листів"
 
-#: lib/phoenix_kit/users/auth.ex:3646
+#: lib/phoenix_kit/users/auth.ex:3660
 #, elixir-autogen, elixir-format
 msgid "OAuth connections"
 msgstr "Підключення OAuth"
 
-#: lib/phoenix_kit/users/auth.ex:3653
+#: lib/phoenix_kit/users/auth.ex:3667
 #, elixir-autogen, elixir-format
 msgid "Orders"
 msgstr "Замовлення"
@@ -14246,22 +14246,22 @@ msgstr "Видалити остаточно"
 msgid "Permanently Delete User"
 msgstr "Остаточно видалити користувача"
 
-#: lib/phoenix_kit/users/auth.ex:3645
+#: lib/phoenix_kit/users/auth.ex:3659
 #, elixir-autogen, elixir-format
 msgid "Role assignments"
 msgstr "Призначення ролей"
 
-#: lib/phoenix_kit/users/auth.ex:3644
+#: lib/phoenix_kit/users/auth.ex:3658
 #, elixir-autogen, elixir-format
 msgid "Session and other tokens"
 msgstr "Токени сеансів та інші токени"
 
-#: lib/phoenix_kit/users/auth.ex:3649
+#: lib/phoenix_kit/users/auth.ex:3663
 #, elixir-autogen, elixir-format
 msgid "Shopping carts"
 msgstr "Кошики"
 
-#: lib/phoenix_kit/users/auth.ex:3666
+#: lib/phoenix_kit/users/auth.ex:3680
 #, elixir-autogen, elixir-format
 msgid "Support tickets"
 msgstr "Запити в підтримку"
@@ -16077,7 +16077,7 @@ msgstr "Порядок віддачі"
 msgid "Showing the first %{count} of %{total}."
 msgstr "Показано перші %{count} із %{total}."
 
-#: lib/modules/storage/storage.ex:5425
+#: lib/modules/storage/storage.ex:5426
 #: lib/modules/storage/web/libraries_component.ex:412
 #: lib/modules/storage/web/libraries_component.ex:547
 #: lib/modules/storage/web/library_page.html.heex:206
@@ -26765,7 +26765,7 @@ msgstr "Цей сеанс завершено. Увійдіть знову, що�
 msgid "Administrator with elevated privileges"
 msgstr "Адміністратор із розширеними правами"
 
-#: lib/modules/storage/storage.ex:5433
+#: lib/modules/storage/storage.ex:5434
 #, elixir-autogen, elixir-format
 msgid "Create libraries"
 msgstr "Створення бібліотек"
@@ -26780,7 +26780,7 @@ msgstr "БД"
 msgid "Full Access (Superadmin)"
 msgstr "Повний доступ (суперадміністратор)"
 
-#: lib/modules/storage/storage.ex:5444
+#: lib/modules/storage/storage.ex:5445
 #, elixir-autogen, elixir-format
 msgid "Make libraries public"
 msgstr "Публічні бібліотеки"
@@ -26820,7 +26820,7 @@ msgstr "Системні інтеграції"
 msgid "System owner with full access"
 msgstr "Власник системи з повним доступом"
 
-#: lib/modules/storage/storage.ex:5438
+#: lib/modules/storage/storage.ex:5439
 #, elixir-autogen, elixir-format
 msgid "Use their own storage"
 msgstr "Власне сховище"
@@ -27038,7 +27038,7 @@ msgstr "Ви ввійшли за ключем доступу."
 msgid "That passkey could not be added. Try again, or use another device."
 msgstr "Не вдалося додати ключ доступу. Спробуйте ще раз або скористайтеся іншим пристроєм."
 
-#: lib/phoenix_kit_web/users/login.ex:145
+#: lib/phoenix_kit_web/users/login.ex:143
 #, elixir-autogen, elixir-format
 msgid "That passkey did not work. Try again, or sign in another way."
 msgstr "Цей ключ доступу не спрацював. Спробуйте ще раз або увійдіть іншим способом."
@@ -27503,3 +27503,8 @@ msgstr "Події доставки (доставлено, повернення,
 #, elixir-autogen, elixir-format
 msgid "This connection stores the credential. Which connection sends, and the delivery-event pipeline (configuration set, SNS topic, SQS queues), are set in Settings → Emails Transactional."
 msgstr "Це підключення зберігає облікові дані. Яке підключення надсилає листи та ланцюжок подій доставки (набір конфігурації, топік SNS, черги SQS) задаються в розділі Налаштування → Транзакційні листи."
+
+#: lib/phoenix_kit_web/components/core/turnstile_widget.ex:33
+#, elixir-autogen, elixir-format
+msgid "The verification could not load, so this form cannot be sent. Your browser or network is blocking challenges.cloudflare.com: allow it (a content blocker is the usual cause), then reload the page."
+msgstr "Перевірку не вдалося завантажити, тому надіслати цю форму неможливо. Ваш браузер або мережа блокує challenges.cloudflare.com: дозвольте цю адресу (зазвичай причина в блокувальнику вмісту) і перезавантажте сторінку."

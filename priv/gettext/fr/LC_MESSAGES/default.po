@@ -1235,7 +1235,7 @@ msgstr "Modules de fonctionnalités"
 #: lib/modules/storage/web/library_page.html.heex:165
 #: lib/modules/storage/web/settings.html.heex:123
 #: lib/modules/storage/web/settings.html.heex:148
-#: lib/phoenix_kit/users/auth.ex:3670
+#: lib/phoenix_kit/users/auth.ex:3684
 #: lib/phoenix_kit_web/components/core/preview_card.ex:284
 #: lib/phoenix_kit_web/live/users/libraries.html.heex:104
 #, elixir-autogen, elixir-format
@@ -5471,7 +5471,7 @@ msgstr "Corps enregistré"
 
 #: lib/phoenix_kit/notifications/types.ex:272
 #: lib/phoenix_kit/notifications/types.ex:295
-#: lib/phoenix_kit/users/auth.ex:3657
+#: lib/phoenix_kit/users/auth.ex:3671
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:997
 #: lib/phoenix_kit_web/live/modules.ex:200
 #: lib/phoenix_kit_web/live/users/user_details.ex:187
@@ -5884,7 +5884,7 @@ msgstr "Entités"
 #: lib/modules/sitemap/web/settings.html.heex:135
 #: lib/modules/sitemap/web/settings.html.heex:315
 #: lib/phoenix_kit/notifications/types.ex:256
-#: lib/phoenix_kit/users/auth.ex:3655
+#: lib/phoenix_kit/users/auth.ex:3669
 #: lib/phoenix_kit_web/live/modules.ex:212
 #, elixir-autogen
 msgid "Posts"
@@ -10016,12 +10016,12 @@ msgstr "Actif maintenant"
 msgid "Devices currently signed in to your account. If you don't recognize one, sign it out."
 msgstr "Appareils actuellement connectés à votre compte. Si vous n'en reconnaissez pas un, déconnectez-le."
 
-#: lib/phoenix_kit/users/login_alerts.ex:457
+#: lib/phoenix_kit/users/login_alerts.ex:462
 #, elixir-autogen, elixir-format
 msgid "New sign-in to your account from %{details}."
 msgstr "Nouvelle connexion à votre compte depuis %{details}."
 
-#: lib/phoenix_kit/users/login_alerts.ex:456
+#: lib/phoenix_kit/users/login_alerts.ex:461
 #, elixir-autogen, elixir-format
 msgid "New sign-in to your account."
 msgstr "Nouvelle connexion à votre compte."
@@ -14189,27 +14189,27 @@ msgstr "Envoyé"
 msgid "We sent a confirmation link to %{email}."
 msgstr "Nous avons envoyé un lien de confirmation à %{email}."
 
-#: lib/phoenix_kit/users/auth.ex:3650
+#: lib/phoenix_kit/users/auth.ex:3664
 #, elixir-autogen, elixir-format
 msgid "Admin notes"
 msgstr "Notes d'administration"
 
-#: lib/phoenix_kit/users/auth.ex:3647
+#: lib/phoenix_kit/users/auth.ex:3661
 #, elixir-autogen, elixir-format
 msgid "Billing profiles"
 msgstr "Profils de facturation"
 
-#: lib/phoenix_kit/users/auth.ex:3668
+#: lib/phoenix_kit/users/auth.ex:3682
 #, elixir-autogen, elixir-format
 msgid "Email logs"
 msgstr "Journaux d'e-mails"
 
-#: lib/phoenix_kit/users/auth.ex:3646
+#: lib/phoenix_kit/users/auth.ex:3660
 #, elixir-autogen, elixir-format
 msgid "OAuth connections"
 msgstr "Connexions OAuth"
 
-#: lib/phoenix_kit/users/auth.ex:3653
+#: lib/phoenix_kit/users/auth.ex:3667
 #, elixir-autogen, elixir-format
 msgid "Orders"
 msgstr "Commandes"
@@ -14225,22 +14225,22 @@ msgstr "Supprimer définitivement"
 msgid "Permanently Delete User"
 msgstr "Supprimer définitivement l'utilisateur"
 
-#: lib/phoenix_kit/users/auth.ex:3645
+#: lib/phoenix_kit/users/auth.ex:3659
 #, elixir-autogen, elixir-format
 msgid "Role assignments"
 msgstr "Attributions de rôles"
 
-#: lib/phoenix_kit/users/auth.ex:3644
+#: lib/phoenix_kit/users/auth.ex:3658
 #, elixir-autogen, elixir-format
 msgid "Session and other tokens"
 msgstr "Jetons de session et autres jetons"
 
-#: lib/phoenix_kit/users/auth.ex:3649
+#: lib/phoenix_kit/users/auth.ex:3663
 #, elixir-autogen, elixir-format
 msgid "Shopping carts"
 msgstr "Paniers"
 
-#: lib/phoenix_kit/users/auth.ex:3666
+#: lib/phoenix_kit/users/auth.ex:3680
 #, elixir-autogen, elixir-format
 msgid "Support tickets"
 msgstr "Tickets d'assistance"
@@ -16048,7 +16048,7 @@ msgstr "Ordre de service"
 msgid "Showing the first %{count} of %{total}."
 msgstr "Affichage des %{count} premiers sur %{total}."
 
-#: lib/modules/storage/storage.ex:5425
+#: lib/modules/storage/storage.ex:5426
 #: lib/modules/storage/web/libraries_component.ex:412
 #: lib/modules/storage/web/libraries_component.ex:547
 #: lib/modules/storage/web/library_page.html.heex:206
@@ -26690,7 +26690,7 @@ msgstr "Cette session est terminée. Reconnectez-vous pour agir au nom d'une org
 msgid "Administrator with elevated privileges"
 msgstr "Administrateur avec des privilèges étendus"
 
-#: lib/modules/storage/storage.ex:5433
+#: lib/modules/storage/storage.ex:5434
 #, elixir-autogen, elixir-format
 msgid "Create libraries"
 msgstr "Créer des bibliothèques"
@@ -26705,7 +26705,7 @@ msgstr "BD"
 msgid "Full Access (Superadmin)"
 msgstr "Accès complet (superadministrateur)"
 
-#: lib/modules/storage/storage.ex:5444
+#: lib/modules/storage/storage.ex:5445
 #, elixir-autogen, elixir-format
 msgid "Make libraries public"
 msgstr "Rendre les bibliothèques publiques"
@@ -26745,7 +26745,7 @@ msgstr "Intégrations système"
 msgid "System owner with full access"
 msgstr "Propriétaire du système avec un accès complet"
 
-#: lib/modules/storage/storage.ex:5438
+#: lib/modules/storage/storage.ex:5439
 #, elixir-autogen, elixir-format
 msgid "Use their own storage"
 msgstr "Utiliser leur propre stockage"
@@ -26963,7 +26963,7 @@ msgstr "Connecté avec une clé d'accès."
 msgid "That passkey could not be added. Try again, or use another device."
 msgstr "Impossible d'ajouter la clé d'accès. Réessayez ou utilisez un autre appareil."
 
-#: lib/phoenix_kit_web/users/login.ex:145
+#: lib/phoenix_kit_web/users/login.ex:143
 #, elixir-autogen, elixir-format
 msgid "That passkey did not work. Try again, or sign in another way."
 msgstr "Cette clé d'accès n'a pas fonctionné. Réessayez ou connectez-vous autrement."
@@ -27427,3 +27427,8 @@ msgstr "Les événements de livraison (livré, rebond, plainte) se configurent d
 #, elixir-autogen, elixir-format
 msgid "This connection stores the credential. Which connection sends, and the delivery-event pipeline (configuration set, SNS topic, SQS queues), are set in Settings → Emails Transactional."
 msgstr "Cette connexion conserve l'identifiant. La connexion qui envoie, et la chaîne des événements de livraison (jeu de configuration, topic SNS, files d'attente SQS), se définissent dans Paramètres → E-mails transactionnels."
+
+#: lib/phoenix_kit_web/components/core/turnstile_widget.ex:33
+#, elixir-autogen, elixir-format
+msgid "The verification could not load, so this form cannot be sent. Your browser or network is blocking challenges.cloudflare.com: allow it (a content blocker is the usual cause), then reload the page."
+msgstr "La vérification n'a pas pu se charger, ce formulaire ne peut donc pas être envoyé. Votre navigateur ou votre réseau bloque challenges.cloudflare.com : autorisez-le (un bloqueur de contenu en est la cause habituelle), puis rechargez la page."

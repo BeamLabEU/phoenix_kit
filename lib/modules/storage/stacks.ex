@@ -455,6 +455,30 @@ defmodule PhoenixKit.Modules.Storage.Stacks do
     end)
   end
 
+  @doc """
+  Takes a stack apart if fewer than two files are left in it, after one of its
+  files was deleted for good. Returns the uuids of the files that left it.
+
+  Called by `Storage` in the transaction that deletes the file's row: a stack is
+  dissolved by `remove/2` and `unstack/2`, and a permanent delete went past both,
+  leaving a "stack" of one file, or a stack row with no file at all. A trashed
+  file still counts: it is in its stack, and comes back to it when restored.
+  """
+  @spec tidy_after_delete(String.t() | nil) :: [String.t()]
+  def tidy_after_delete(nil), do: []
+
+  def tidy_after_delete(stack_uuid) do
+    left = members_for_update(stack_uuid)
+
+    if length(left) < @min_files do
+      dissolve(stack_uuid)
+      Enum.map(left, & &1.uuid)
+    else
+      touch(stack_uuid)
+      []
+    end
+  end
+
   defp unplace(file_uuids) do
     from(f in StorageFile, where: f.uuid in ^file_uuids)
     |> repo().update_all(set: [stack_uuid: nil, stack_position: nil])

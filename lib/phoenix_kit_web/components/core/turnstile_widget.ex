@@ -12,6 +12,7 @@ defmodule PhoenixKitWeb.Components.Core.TurnstileWidget do
   The element is `phx-update="ignore"`: Cloudflare's script owns what is in it.
   """
   use Phoenix.Component
+  use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.Users.Turnstile
 
@@ -28,7 +29,15 @@ defmodule PhoenixKitWeb.Components.Core.TurnstileWidget do
       phx-hook="Turnstile"
       phx-update="ignore"
       data-sitekey={@site_key}
-      class={["min-h-[65px]", @class]}
+      data-failed-text={
+        gettext(
+          "The verification could not load, so this form cannot be sent. Your browser or network is blocking challenges.cloudflare.com: allow it (a content blocker is the usual cause), then reload the page."
+        )
+      }
+      class={[
+        "min-h-[65px] data-[turnstile-failed]:text-sm data-[turnstile-failed]:text-error",
+        @class
+      ]}
     >
     </div>
     """

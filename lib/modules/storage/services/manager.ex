@@ -769,6 +769,10 @@ defmodule PhoenixKit.Modules.Storage.Manager do
         error -> {:error, Exception.message(error)}
       catch
         :exit, reason -> {:error, "exited: #{inspect(reason)}"}
+        # A throw too: this runs in a task linked to the caller, so one that
+        # got out would take the uploading LiveView or job down with it
+        # instead of failing this one bucket.
+        :throw, value -> {:error, "threw: #{inspect(value)}"}
       end
 
     ok? = result == :ok or match?({:ok, _}, result)

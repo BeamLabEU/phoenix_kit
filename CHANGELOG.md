@@ -1,8 +1,47 @@
 ## Unreleased
 
-Run `mix phoenix_kit.update` (V230, V231 and the new `phoenix_kit.js`).
+Run `mix phoenix_kit.update` (V230, V231, V232, and the JavaScript now split into
+`phoenix_kit.js` and an admin bundle: see "Public pages no longer download the
+admin JavaScript" under Changed).
 
 ### Added
+
+- **Stacks of files** (V232, `phoenix_kit_file_stacks`): two or more files of one
+  library seen as one thing, such as the pages of a document or a burst.
+  `Storage.Stacks`: `create/4`, `add/3`, `remove/2`, `unstack/2`, `make_cover/2`,
+  `update/3`, `files/1`. A stack stores no date and no cover: its date is its files'
+  capture dates and its cover is the first file the reader may see. A stack left
+  with fewer than two files is taken apart, by `remove/2` and by a permanent delete
+  alike. Changes are announced on a topic of their own
+  (`Storage.subscribe_to_file_changes/0`).
+
+- **Dates and places set by hand.** `Storage.ManualDate.set/3` gives files a capture
+  date (the first file gets the date, the others move by the same amount) and
+  `reset/2` goes back to the file's own; `Storage.ManualLocation.set/4`, `clear/2` and
+  `reset/2` do the same for where a photo was taken. Nothing automatic replaces a
+  value set by hand.
+
+- **An overflow menu for `<.nav_tabs>`**, opt-in: `overflow={:menu}` keeps the strip
+  on one row and moves the tabs that do not fit into a trailing "⋯" menu. The active
+  tab always stays in the strip. The default (`:wrap`) renders as before.
+
+- **Mention notifications that say who, in the reader's language, and link to the
+  mention.** `Mentions.notify/2` takes `link:` (a local path; anything else is
+  dropped). A new `mentions` notification type owns `mention.created`, so a mention
+  can be muted or routed to email.
+
+- **Media viewer: one dark bar, a View | Annotate switch and Export as PDF**
+  (fresco 0.16). The PDF is made from the original, not the screen-sized picture.
+
+- **A laser measure tool in the media viewer**, off by default:
+  `config :phoenix_kit, laser_measure: true` (etcher 0.26). It reads a Bosch GLM / PLR
+  distance meter over Web Bluetooth (Chrome and Edge, over HTTPS) into the label of
+  the line being drawn. `MediaCanvasViewer.laser_measure_tools/0`.
+
+- **A new file has its size and capture date at once.**
+  `ProcessFileJob.read_metadata/2` reads them from the copy the uploader still has
+  on disk, and a file is announced when its metadata is in and again when its small
+  sizes are stored, before a video's renditions are made.
 
 - **`PhoenixKit.AWS.IamPolicy`**: `setup/1`, `running/1` and `sending/0` build the
   policies from the actions the code calls (`InfrastructureSetup.iam_actions/0`)
@@ -91,6 +130,37 @@ Run `mix phoenix_kit.update` (V230, V231 and the new `phoenix_kit.js`).
 
 ### Changed
 
+- ⚠️ **Public pages no longer download the admin JavaScript.** `phoenix_kit.js` is
+  now the public half: the hooks a public page can render and a stub under the name
+  of every admin hook. The admin and user-dashboard hooks are in
+  `phoenix_kit_admin.js`, fetched on the first mount of any of them. A public page of
+  an empty host goes from 152 KB to 34 KB of PhoenixKit JavaScript (minified, gzip).
+  **A host with the `:phoenix_kit_js_sources` compiler and the facts tag
+  (`vendor/phoenix_kit_modules.js`) changes nothing; any other host runs
+  `mix phoenix_kit.update` once**, or the admin hooks do nothing. A router compiled
+  without the compiler warns, and `mix phoenix_kit.doctor` checks the admin bundle.
+  Also: Chart.js is its own vendored library and `window.Chart` is no longer defined
+  at page load (`window.PhoenixKitLibraries.chartjs()` returns it); the vendored files
+  are minified in production with the host's esbuild (`js_minifier:` names another);
+  a module's `js_sources/0` entry may say `scope: :admin, hooks: [...]`;
+  `config :phoenix_kit, library_base_url:` says where the files are served from.
+  Guide: `guides/public-and-admin-javascript.md`.
+
+- **Processing a file is about twice as fast.** The original is fetched once instead
+  of once per size, each question about it (size, transparency, EXIF) is asked once,
+  and an object's copies are written to their buckets at the same time.
+
+- **The Brevo connection check tells an SMTP key from a bad API key** and shows
+  Brevo's own message: an `xsmtpsib-` key is refused with where the API key is, a
+  refused IP says where to allow it. `Validators.brevo_api/2` (#1031).
+
+- **The profile's Libraries list** opens a library on the host's page when the host
+  names one (`:library_public_path`), lists the site's Media only for someone with
+  the `media` permission, and says "You own N libraries (up to 10)".
+
+- **Dependencies:** fresco `~> 0.16.0`, etcher `~> 0.26.0`, tessera `~> 0.3.11`,
+  leaf 0.12, new `wax_` (passkeys); `ex_aws_ec2` removed.
+
 - **Amazon SES: one answer to "which IAM policy does the key need?"** The connection
   form, the guide, the README and the generated mailer config gave seven different
   ones (from `ses:SendEmail` only to `ses:*`, `sqs:*`, `sns:*`), and the guide's
@@ -132,6 +202,58 @@ Run `mix phoenix_kit.update` (V230, V231 and the new `phoenix_kit.js`).
 - `LoginAlerts.check/2` returns the conn (it sets the device cookie) instead of `:ok`.
 
 ### Fixed
+
+- **Passkey sign-in could be refused to everyone at once.** On a host that passes no
+  client address to the socket, every visitor shared one bucket of ten attempts a
+  minute. An unknown address is no longer limited, as for the mail endpoints.
+
+- **A submit that cannot register no longer spends the site-wide sign-up cap.** The
+  cap was charged before the form was validated, so a script posting forms that
+  could never succeed (a password too short) closed sign-up for everybody without
+  sending a mail. The address and the IP are still charged for every submit; the cap
+  only for one that passes the form's own validations
+  (`RateLimiter.charge_registration_site_wide/0`).
+
+- **The sign-up typo hint no longer swaps one country's domain for another's.**
+  `yahoo.in` was "corrected" to `yahoo.it`, `hotmail.se` to `hotmail.de`, `op.pl` to
+  `wp.pl`: one click registered the person under a stranger's address. A hint now
+  needs the typo to be in the provider's name, with the same ending, and a name of
+  four letters or more.
+
+- **Deleting a stacked file for good takes the stack apart** when fewer than two
+  files are left. It used to leave a stack of one, or a stack row with no file.
+
+- **A download through the server is no longer cut to 8 MB.** A ranged request for a
+  file in a private bucket was answered with one 8 MB part whoever asked. A browser
+  playing video asks again; `curl`, `wget -c` and download managers ended with a cut
+  file that looked finished. Only audio and video shown in the page get a part now;
+  a download, or a range longer than a part for anything else, gets the whole file.
+
+- **A storage provider that throws fails its one bucket** instead of taking down the
+  upload: copies are written in linked tasks, and a `throw` was not caught.
+
+- **A blocked Turnstile says so.** When the browser cannot load Cloudflare's script
+  (a content blocker, a network filter), the form showed an empty box and every
+  submit answered "wait for the verification to finish". The box now says the
+  verification could not load and what to allow.
+
+- **A device whose cookie was replaced is still recognized after a browser update.**
+  A row matched by network and browser kept its first cookie's hash for good; it
+  now carries the cookie the browser holds.
+
+- **A picker upload that matches a trashed file is restored and picked**, and an
+  upload that cannot be picked says why in the upload panel (#1026).
+
+- **Annotated thumbnails with text are made again** where ImageMagick's default font
+  is not installed: a font that exists is chosen (`config :phoenix_kit,
+  :annotation_font` names one) (#1025).
+
+- **Drag and drop with two media panels on a page**, and on rows LiveView reuses: each
+  hook keeps its own handlers (#1027).
+
+- The overflow menu of `<.nav_tabs>` no longer closes a surrounding dialog on Escape.
+- PhoenixKit's own dev/test router no longer warns about a host's profile tab pages
+  when compiled as a dependency.
 
 - **Stored integration credentials are readable before the endpoint has started.**
   With no `config :phoenix_kit, :secret_key_base`, the legacy encryption key came

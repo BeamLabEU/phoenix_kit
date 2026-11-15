@@ -136,10 +136,8 @@ defmodule PhoenixKitWeb.Users.Login do
     {:noreply, put_flash(socket, :error, passkey_failed_message())}
   end
 
-  defp passkey_rate_limit(ip) when is_binary(ip),
-    do: RateLimiter.check_passkey_login_rate_limit(ip)
-
-  defp passkey_rate_limit(_ip), do: RateLimiter.check_passkey_login_rate_limit("unknown")
+  # An address nobody could read is not limited: see the limiter's own doc.
+  defp passkey_rate_limit(ip), do: RateLimiter.check_passkey_login_rate_limit(ip)
 
   defp passkey_failed_message do
     gettext("That passkey did not work. Try again, or sign in another way.")

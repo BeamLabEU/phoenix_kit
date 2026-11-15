@@ -129,9 +129,35 @@ defmodule PhoenixKit.Users.EmailDomain do
 
     cond do
       fixed in @known_domains -> fixed
-      near = Enum.find(@known_domains, &(distance(fixed, &1) == 1)) -> near
+      near = Enum.find(@known_domains, &near_typo?(fixed, &1)) -> near
       fixed != domain -> fixed
       true -> nil
+    end
+  end
+
+  # One edit away from a known provider, in the provider's NAME and with the
+  # same ending. The ending is not guessed at: `yahoo.in`, `hotmail.se` and
+  # `outlook.dk` are real domains one letter from `yahoo.it`, `hotmail.de` and
+  # `outlook.de`, and a hint that swaps one country for another sends the
+  # confirmation mail to a stranger (a mistyped ending is `@tld_typos`'s job,
+  # which lists the endings that are never real). A name under four letters is
+  # left alone too: one edit is most of it, and `op.pl` is not `wp.pl`.
+  defp near_typo?(domain, known) do
+    {name, ending} = split_ending(domain)
+    {known_name, known_ending} = split_ending(known)
+
+    ending == known_ending and String.length(known_name) >= 4 and
+      distance(name, known_name) == 1
+  end
+
+  defp split_ending(domain) do
+    case String.split(domain, ".") do
+      [_ | _] = labels when length(labels) > 1 ->
+        {ending, name} = List.pop_at(labels, -1)
+        {Enum.join(name, "."), ending}
+
+      _ ->
+        {domain, ""}
     end
   end
 

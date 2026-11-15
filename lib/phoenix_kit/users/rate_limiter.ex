@@ -440,6 +440,26 @@ defmodule PhoenixKit.Users.RateLimiter do
   end
 
   @doc """
+  Charges the install's hourly sign-up cap (`registration_global_limit`) alone.
+
+  For a caller that has already passed `check_registration_rate_limit/3`
+  without `site_wide:` and now knows the request will send mail. The cap
+  rations anonymous mail, so a submit that fails validation (a password too
+  short) must not spend it: charged on every submit, a script posting forms
+  that can never succeed closed sign-up for everybody.
+  """
+  @spec charge_registration_site_wide() :: :ok | {:error, :rate_limit_exceeded}
+  def charge_registration_site_wide do
+    config = get_config()
+
+    charge_global(
+      "registration",
+      Keyword.get(config, :registration_global_window_ms),
+      Keyword.get(config, :registration_global_limit)
+    )
+  end
+
+  @doc """
   Checks if QR device-handoff login request creation is within rate limit.
 
   Returns `:ok` if the request is allowed, or `{:error, :rate_limit_exceeded}` if the limit is
@@ -477,7 +497,17 @@ defmodule PhoenixKit.Users.RateLimiter do
   the device answers before anyone is known. Checked before the passkey is looked up,
   as every public sign-in endpoint is, so the limit says nothing about which passkeys
   exist.
+
+  An unknown address (`nil`, `""`, `"unknown"`) is not limited. On a host that
+  passes no peer data to the socket every visitor has that one address, and a
+  shared bucket of a few attempts a minute would refuse passkey sign-in to the
+  whole site. `charge_ip/4` makes the same exception for the mail endpoints. The
+  answer itself is a signature over a one-time challenge, so the limit is a
+  brake on load, not what keeps a passkey safe.
   """
+  def check_passkey_login_rate_limit(ip_address) when ip_address in [nil, "", "unknown"],
+    do: :ok
+
   def check_passkey_login_rate_limit(ip_address) when is_binary(ip_address) do
     config = get_config()
 

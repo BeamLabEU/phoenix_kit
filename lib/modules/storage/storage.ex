@@ -135,6 +135,7 @@ defmodule PhoenixKit.Modules.Storage do
   alias PhoenixKit.Modules.Storage.Shape
   alias PhoenixKit.Modules.Storage.ShortCode
   alias PhoenixKit.Modules.Storage.Sniff
+  alias PhoenixKit.Modules.Storage.Stacks
   alias PhoenixKit.Modules.Storage.StorageProfile
   # NOTE: Temporary helper for Publishing component system.
   # The dedicated storage/media APIs under development should replace this fallback once available.
@@ -6475,6 +6476,15 @@ defmodule PhoenixKit.Modules.Storage do
         _ -> :ok
       end
 
+      # Read under the lock: the struct handed in may predate a stacking.
+      stack_uuid =
+        repo().one(
+          from(f in PhoenixKit.Modules.Storage.File,
+            where: f.uuid == ^file.uuid,
+            select: f.stack_uuid
+          )
+        )
+
       family = [file | list_system_children(file.uuid)]
       lock_storage_paths(Enum.map(family, & &1.file_path))
 
@@ -6486,10 +6496,23 @@ defmodule PhoenixKit.Modules.Storage do
         |> repo().all()
 
       case delete_file(file) do
-        {:ok, deleted} -> {deleted, unreferenced_keys(keys)}
-        {:error, changeset} -> repo().rollback(changeset)
+        {:ok, deleted} ->
+          # A stack this leaves with fewer than two files is no stack.
+          unstacked = Stacks.tidy_after_delete(stack_uuid)
+          {deleted, unreferenced_keys(keys), unstacked}
+
+        {:error, changeset} ->
+          repo().rollback(changeset)
       end
     end)
+    |> case do
+      {:ok, {deleted, keys, unstacked}} ->
+        if unstacked != [], do: broadcast_files_changed(unstacked)
+        {:ok, {deleted, keys}}
+
+      other ->
+        other
+    end
   end
 
   @doc """

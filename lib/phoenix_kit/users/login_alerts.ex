@@ -273,14 +273,19 @@ defmodule PhoenixKit.Users.LoginAlerts do
     new_country? =
       not is_nil(device.device_token_hash) and new_country?(repo, user, place.country_code)
 
-    # Keep the first browser and country recorded for this pair, even when
-    # two sign-ins both read the row before either can refresh it.
+    # The row carries the cookie this browser holds NOW. A row matched by
+    # network and browser whose cookie was since replaced (cleared once) used
+    # to keep the first cookie's hash for good: the new one was stored
+    # nowhere, so after the browser's next update neither the cookie nor the
+    # user agent matched, and a device with a valid cookie got a "new device"
+    # mail. A sign-in with no cookie keeps what the row has. The first
+    # country stays as recorded: `record_country/3` writes it once.
     from(d in KnownDevice,
       where: d.uuid == ^device.uuid,
       update: [
         set: [
           last_seen_at: fragment("GREATEST(?, ?)", d.last_seen_at, ^now),
-          device_token_hash: coalesce(d.device_token_hash, ^device_hash)
+          device_token_hash: coalesce(type(^device_hash, :string), d.device_token_hash)
         ]
       ]
     )

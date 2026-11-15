@@ -1504,7 +1504,7 @@ defmodule PhoenixKitWeb.FileController do
   # a part of it (a browser playing a video) reads only that part from the
   # bucket; anything else, or a bucket that cannot read a part, downloads it.
   defp proxy_remote_file(conn, file, instance, file_name, cache, download?) do
-    case proxy_range(conn, instance, file_name, cache) do
+    case proxy_range(conn, instance, file_name, cache, player?(instance, download?)) do
       {:ok, first, last, bytes} ->
         conn
         |> put_variant_cache_headers(instance, cache)
@@ -1518,24 +1518,51 @@ defmodule PhoenixKitWeb.FileController do
     end
   end
 
-  # At most this much of a proxied file per answer. A browser asks for
-  # `bytes=0-` (all of it) first and is content with less: it asks again from
-  # where the answer ended, so a part is all that is ever held in memory.
+  # At most this much of a proxied file is held in memory for one answer.
   @proxy_part_bytes 8 * 1024 * 1024
+
+  defp proxy_part_bytes,
+    do: Application.get_env(:phoenix_kit, :proxy_part_bytes, @proxy_part_bytes)
+
+  # A browser playing audio or video in the page. It asks for `bytes=0-` (all
+  # of it) first, is content with less, and asks again from where the answer
+  # ended. Nothing else is known to: a download, or a tool resuming one, takes
+  # a short answer for the whole of what it asked and ends with a cut file.
+  defp player?(_instance, true = _download?), do: false
+
+  defp player?(instance, _download?) do
+    mime = instance.mime_type || ""
+    String.starts_with?(mime, "video/") or String.starts_with?(mime, "audio/")
+  end
 
   # Only for the exact bytes of this URL (not a stand-in, see
   # `send_file_ranged/3`), one valid range, and an instance whose size is known.
-  defp proxy_range(conn, instance, file_name, cache) do
+  #
+  # A range longer than a part is cut to one for a player, which asks again.
+  # For anyone else it is answered with the whole file instead: a client may
+  # always be given everything, and may not be given less than it asked for
+  # without being told in a way it understands.
+  defp proxy_range(conn, instance, file_name, cache, player?) do
     with false <- cache == :pending,
          size when is_integer(size) and size > 0 <- instance.size,
          [range] <- get_req_header(conn, "range"),
          true <- if_range_matches?(conn, ~s("#{instance.checksum}")),
          {:ok, first, last, _} <- FileServer.parse_range_header(range, size),
-         last = min(last, first + @proxy_part_bytes - 1),
+         {:ok, last} <- part_end(first, last, player?),
          {:ok, bytes} <- Manager.read_range(file_name, first, last) do
       {:ok, first, last, bytes}
     else
       _ -> :whole
+    end
+  end
+
+  defp part_end(first, last, player?) do
+    limit = first + proxy_part_bytes() - 1
+
+    cond do
+      last <= limit -> {:ok, last}
+      player? -> {:ok, limit}
+      true -> :whole
     end
   end
 

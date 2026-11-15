@@ -229,6 +229,29 @@ defmodule PhoenixKit.Modules.Storage.StacksTest do
       assert {:error, :not_found} = Stacks.remove(p1.uuid, scope(ctx.owner))
     end
 
+    test "deleting a file for good takes apart a stack it leaves with one", ctx do
+      [a, b] = for n <- 1..2, do: file!(ctx.owner, ctx.library, "d#{n}.jpg")
+      {:ok, stack} = Stacks.create([a.uuid, b.uuid], scope(ctx.owner))
+
+      assert {:ok, _} = Storage.delete_file_completely(a.uuid)
+
+      assert Repo.get!(StorageFile, b.uuid).stack_uuid == nil
+      assert Repo.get(FileStack, stack.uuid) == nil
+    end
+
+    test "deleting one of three leaves the stack; deleting every file leaves no stack row", ctx do
+      [a, b, c] = for n <- 1..3, do: file!(ctx.owner, ctx.library, "e#{n}.jpg")
+      {:ok, stack} = Stacks.create([a.uuid, b.uuid, c.uuid], scope(ctx.owner))
+
+      assert {:ok, _} = Storage.delete_file_completely(a.uuid)
+      assert Repo.get!(StorageFile, b.uuid).stack_uuid == stack.uuid
+      assert Repo.get(FileStack, stack.uuid)
+
+      assert {:ok, _} = Storage.delete_file_completely(b.uuid)
+      assert {:ok, _} = Storage.delete_file_completely(c.uuid)
+      assert Repo.get(FileStack, stack.uuid) == nil
+    end
+
     test "a cover moves to the front and the rest keep their order", ctx do
       [_p1, _p2, p3] = ctx.files
 

@@ -603,4 +603,12 @@ defmodule PhoenixKit.Users.RateLimiterTest do
       end
     end
   end
+
+  describe "check_passkey_login_rate_limit/1 with no address" do
+    test "an unknown address is never limited: every visitor of such a host shares it" do
+      for unknown <- [nil, "", "unknown"], _ <- 1..50 do
+        assert RateLimiter.check_passkey_login_rate_limit(unknown) == :ok
+      end
+    end
+  end
 end

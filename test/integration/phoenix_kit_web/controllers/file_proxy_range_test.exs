@@ -130,12 +130,16 @@ defmodule PhoenixKitWeb.FileProxyRangeTest do
     %{stored: file, table: table, bucket: bucket}
   end
 
-  defp request(file, headers) do
-    params = %{
-      "file_uuid" => file.uuid,
-      "variant" => "original",
-      "token" => URLSigner.generate_token(file.uuid, "original")
-    }
+  defp request(file, headers, extra \\ %{}) do
+    params =
+      Map.merge(
+        %{
+          "file_uuid" => file.uuid,
+          "variant" => "original",
+          "token" => URLSigner.generate_token(file.uuid, "original")
+        },
+        extra
+      )
 
     headers
     |> Enum.reduce(conn(:get, "/"), fn {k, v}, conn -> Plug.Conn.put_req_header(conn, k, v) end)
@@ -165,6 +169,49 @@ defmodule PhoenixKitWeb.FileProxyRangeTest do
     assert tail.status == 206
     assert tail.resp_body == binary_part(@bytes, 99_900, 100)
     assert gets(ctx.table) |> Enum.sort() == [["bytes=0-99999"], ["bytes=99900-99999"]]
+  end
+
+  describe "a range longer than one part" do
+    setup do
+      previous = Application.get_env(:phoenix_kit, :proxy_part_bytes)
+      Application.put_env(:phoenix_kit, :proxy_part_bytes, 10_000)
+
+      on_exit(fn ->
+        if previous,
+          do: Application.put_env(:phoenix_kit, :proxy_part_bytes, previous),
+          else: Application.delete_env(:phoenix_kit, :proxy_part_bytes)
+      end)
+    end
+
+    test "a player gets one part and is told where it ended", ctx do
+      conn = request(ctx.stored, [{"range", "bytes=0-"}])
+
+      assert conn.status == 206
+      assert byte_size(conn.resp_body) == 10_000
+      assert Plug.Conn.get_resp_header(conn, "content-range") == ["bytes 0-9999/100000"]
+    end
+
+    # curl, wget -c and download managers do not ask again: a short 206 was a
+    # cut file that looked like a finished download.
+    test "a download gets the whole file, never a part passed off as all of it", ctx do
+      conn = request(ctx.stored, [{"range", "bytes=0-"}], %{"dl" => "1"})
+
+      # Everything it asked for, from the whole-file path: as a 200, or as a
+      # 206 that says it reaches the last byte.
+      assert conn.status in [200, 206]
+      assert IO.iodata_length(conn.resp_body) == 100_000
+
+      if conn.status == 206 do
+        assert Plug.Conn.get_resp_header(conn, "content-range") == ["bytes 0-99999/100000"]
+      end
+    end
+
+    test "a range that fits in a part is served as asked, to a download too", ctx do
+      conn = request(ctx.stored, [{"range", "bytes=50000-54999"}], %{"dl" => "1"})
+
+      assert conn.status == 206
+      assert conn.resp_body == binary_part(@bytes, 50_000, 5_000)
+    end
   end
 
   test "without Range the whole file still comes, and says ranges are welcome", ctx do

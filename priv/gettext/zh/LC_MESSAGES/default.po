@@ -1229,7 +1229,7 @@ msgstr "功能模块"
 #: lib/modules/storage/web/library_page.html.heex:165
 #: lib/modules/storage/web/settings.html.heex:123
 #: lib/modules/storage/web/settings.html.heex:148
-#: lib/phoenix_kit/users/auth.ex:3670
+#: lib/phoenix_kit/users/auth.ex:3684
 #: lib/phoenix_kit_web/components/core/preview_card.ex:284
 #: lib/phoenix_kit_web/live/users/libraries.html.heex:104
 #, elixir-autogen, elixir-format
@@ -5465,7 +5465,7 @@ msgstr "正文已保存"
 
 #: lib/phoenix_kit/notifications/types.ex:272
 #: lib/phoenix_kit/notifications/types.ex:295
-#: lib/phoenix_kit/users/auth.ex:3657
+#: lib/phoenix_kit/users/auth.ex:3671
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:997
 #: lib/phoenix_kit_web/live/modules.ex:200
 #: lib/phoenix_kit_web/live/users/user_details.ex:187
@@ -5874,7 +5874,7 @@ msgstr "实体"
 #: lib/modules/sitemap/web/settings.html.heex:135
 #: lib/modules/sitemap/web/settings.html.heex:315
 #: lib/phoenix_kit/notifications/types.ex:256
-#: lib/phoenix_kit/users/auth.ex:3655
+#: lib/phoenix_kit/users/auth.ex:3669
 #: lib/phoenix_kit_web/live/modules.ex:212
 #, elixir-autogen
 msgid "Posts"
@@ -9987,12 +9987,12 @@ msgstr "当前活跃"
 msgid "Devices currently signed in to your account. If you don't recognize one, sign it out."
 msgstr "当前已登录您账户的设备。如果您不认识某台设备，请将其退出登录。"
 
-#: lib/phoenix_kit/users/login_alerts.ex:457
+#: lib/phoenix_kit/users/login_alerts.ex:462
 #, elixir-autogen, elixir-format
 msgid "New sign-in to your account from %{details}."
 msgstr "您的账户在 %{details} 有新的登录。"
 
-#: lib/phoenix_kit/users/login_alerts.ex:456
+#: lib/phoenix_kit/users/login_alerts.ex:461
 #, elixir-autogen, elixir-format
 msgid "New sign-in to your account."
 msgstr "您的账户有新的登录。"
@@ -14158,27 +14158,27 @@ msgstr "已发送"
 msgid "We sent a confirmation link to %{email}."
 msgstr "我们已向 %{email} 发送了确认链接。"
 
-#: lib/phoenix_kit/users/auth.ex:3650
+#: lib/phoenix_kit/users/auth.ex:3664
 #, elixir-autogen, elixir-format
 msgid "Admin notes"
 msgstr "管理员备注"
 
-#: lib/phoenix_kit/users/auth.ex:3647
+#: lib/phoenix_kit/users/auth.ex:3661
 #, elixir-autogen, elixir-format
 msgid "Billing profiles"
 msgstr "账单资料"
 
-#: lib/phoenix_kit/users/auth.ex:3668
+#: lib/phoenix_kit/users/auth.ex:3682
 #, elixir-autogen, elixir-format
 msgid "Email logs"
 msgstr "邮件日志"
 
-#: lib/phoenix_kit/users/auth.ex:3646
+#: lib/phoenix_kit/users/auth.ex:3660
 #, elixir-autogen, elixir-format
 msgid "OAuth connections"
 msgstr "OAuth 连接"
 
-#: lib/phoenix_kit/users/auth.ex:3653
+#: lib/phoenix_kit/users/auth.ex:3667
 #, elixir-autogen, elixir-format
 msgid "Orders"
 msgstr "订单"
@@ -14194,22 +14194,22 @@ msgstr "永久删除"
 msgid "Permanently Delete User"
 msgstr "永久删除用户"
 
-#: lib/phoenix_kit/users/auth.ex:3645
+#: lib/phoenix_kit/users/auth.ex:3659
 #, elixir-autogen, elixir-format
 msgid "Role assignments"
 msgstr "角色分配"
 
-#: lib/phoenix_kit/users/auth.ex:3644
+#: lib/phoenix_kit/users/auth.ex:3658
 #, elixir-autogen, elixir-format
 msgid "Session and other tokens"
 msgstr "会话及其他令牌"
 
-#: lib/phoenix_kit/users/auth.ex:3649
+#: lib/phoenix_kit/users/auth.ex:3663
 #, elixir-autogen, elixir-format
 msgid "Shopping carts"
 msgstr "购物车"
 
-#: lib/phoenix_kit/users/auth.ex:3666
+#: lib/phoenix_kit/users/auth.ex:3680
 #, elixir-autogen, elixir-format
 msgid "Support tickets"
 msgstr "支持工单"
@@ -16009,7 +16009,7 @@ msgstr "提供顺序"
 msgid "Showing the first %{count} of %{total}."
 msgstr "显示前 %{count} 条，共 %{total} 条。"
 
-#: lib/modules/storage/storage.ex:5425
+#: lib/modules/storage/storage.ex:5426
 #: lib/modules/storage/web/libraries_component.ex:412
 #: lib/modules/storage/web/libraries_component.ex:547
 #: lib/modules/storage/web/library_page.html.heex:206
@@ -26695,7 +26695,7 @@ msgstr "此会话已结束。请重新登录以代表组织操作。"
 msgid "Administrator with elevated privileges"
 msgstr "具有更高权限的管理员"
 
-#: lib/modules/storage/storage.ex:5433
+#: lib/modules/storage/storage.ex:5434
 #, elixir-autogen, elixir-format
 msgid "Create libraries"
 msgstr "创建库"
@@ -26710,7 +26710,7 @@ msgstr "数据库"
 msgid "Full Access (Superadmin)"
 msgstr "完全访问（超级管理员）"
 
-#: lib/modules/storage/storage.ex:5444
+#: lib/modules/storage/storage.ex:5445
 #, elixir-autogen, elixir-format
 msgid "Make libraries public"
 msgstr "公开库"
@@ -26750,7 +26750,7 @@ msgstr "系统集成"
 msgid "System owner with full access"
 msgstr "拥有完全访问权限的系统所有者"
 
-#: lib/modules/storage/storage.ex:5438
+#: lib/modules/storage/storage.ex:5439
 #, elixir-autogen, elixir-format
 msgid "Use their own storage"
 msgstr "使用自己的存储"
@@ -26986,7 +26986,7 @@ msgstr "已使用通行密钥登录。"
 msgid "That passkey could not be added. Try again, or use another device."
 msgstr "无法添加该通行密钥。请重试，或使用其他设备。"
 
-#: lib/phoenix_kit_web/users/login.ex:145
+#: lib/phoenix_kit_web/users/login.ex:143
 #, elixir-autogen, elixir-format
 msgid "That passkey did not work. Try again, or sign in another way."
 msgstr "该通行密钥无效。请重试，或用其他方式登录。"
@@ -27449,3 +27449,8 @@ msgstr "投递事件（已送达、退信、投诉）在 设置 → 事务邮件
 #, elixir-autogen, elixir-format
 msgid "This connection stores the credential. Which connection sends, and the delivery-event pipeline (configuration set, SNS topic, SQS queues), are set in Settings → Emails Transactional."
 msgstr "此连接保存凭证。由哪个连接发送，以及投递事件管道（配置集、SNS 主题、SQS 队列），在 设置 → 事务邮件 中设置。"
+
+#: lib/phoenix_kit_web/components/core/turnstile_widget.ex:33
+#, elixir-autogen, elixir-format
+msgid "The verification could not load, so this form cannot be sent. Your browser or network is blocking challenges.cloudflare.com: allow it (a content blocker is the usual cause), then reload the page."
+msgstr "验证未能加载，因此无法提交此表单。你的浏览器或网络拦截了 challenges.cloudflare.com：请放行该地址（通常是内容拦截器所致），然后重新加载页面。"

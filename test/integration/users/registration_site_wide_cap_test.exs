@@ -73,6 +73,23 @@ defmodule PhoenixKit.Integration.Users.RegistrationSiteWideCapTest do
       assert used() == before + 2
     end
 
+    test "a submit that cannot register does not spend the cap" do
+      before = used()
+
+      # The cap rations mail; these send none.
+      assert {:error, %Ecto.Changeset{}} =
+               Auth.register_user(%{email: unique_email(), password: "short"}, unique_ip(),
+                 site_wide: true
+               )
+
+      assert {:error, %Ecto.Changeset{}} =
+               Auth.register_user(%{email: "not-an-address", password: @password}, unique_ip(),
+                 site_wide: true
+               )
+
+      assert used() == before
+    end
+
     test "a reached cap refuses the public form and nothing else" do
       previous = Application.get_env(:phoenix_kit, RateLimiter, [])
 

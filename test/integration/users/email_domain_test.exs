@@ -122,6 +122,19 @@ defmodule PhoenixKit.Integration.Users.EmailDomainTest do
 
       assert EmailDomain.suggest("@gmial.com") == nil
       assert EmailDomain.suggest("not an address") == nil
+    end
+
+    # A hint is one click from registering under it, and the confirmation mail
+    # then goes to whoever holds that address.
+    test "never swaps one country's domain for another's, nor one short name for another" do
+      for address <- ~w(ann@yahoo.in ann@yahoo.dk ann@hotmail.se ann@outlook.dk ann@yahoo.ca
+                        ann@op.pl ann@o3.pl ann@gmx.at ann@live.fr ann@yandex.by) do
+        assert EmailDomain.suggest(address) == nil, address
+      end
+
+      # A typo in the name is still caught when the ending is the provider's own.
+      assert EmailDomain.suggest("ann@yaho.de") == "ann@yahoo.de"
+      assert EmailDomain.suggest("ann@hotmial.fr") == "ann@hotmail.fr"
       assert EmailDomain.suggest(nil) == nil
     end
   end

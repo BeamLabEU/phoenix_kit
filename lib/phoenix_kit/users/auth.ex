@@ -479,7 +479,7 @@ defmodule PhoenixKit.Users.Auth do
     # Check rate limit before attempting registration
     email = attrs["email"] || attrs[:email] || ""
 
-    case registration_rate_limit(email, ip_address, opts) do
+    case registration_rate_limit(email, ip_address, attrs, opts) do
       :ok ->
         # After the limiter: a refused request must not cost a DNS lookup.
         case registration_email_domain(email, opts) do
@@ -543,14 +543,28 @@ defmodule PhoenixKit.Users.Auth do
 
   def unsolicited_mail_allowed?(_), do: false
 
-  defp registration_rate_limit(email, ip_address, opts) do
+  # The address and the IP are charged for every submit, as before the lookup
+  # as ever. The site-wide cap is charged last and only for a submit that
+  # could register: it rations mail to unproven addresses, and a submit that
+  # fails validation sends none. Charged on every submit, a script posting
+  # forms that can never succeed spent the whole cap and closed sign-up.
+  defp registration_rate_limit(email, ip_address, attrs, opts) do
     if Keyword.get(opts, :rate_limit, true) do
-      RateLimiter.check_registration_rate_limit(email, ip_address,
-        site_wide: Keyword.get(opts, :site_wide, false)
-      )
+      with :ok <- RateLimiter.check_registration_rate_limit(email, ip_address) do
+        if Keyword.get(opts, :site_wide, false) and registration_could_succeed?(attrs),
+          do: RateLimiter.charge_registration_site_wide(),
+          else: :ok
+      end
     else
       :ok
     end
+  end
+
+  # The form's own validations, with no database read and no password hash:
+  # whether the address is taken is not asked here, so a refusal for the cap
+  # says nothing about who has an account.
+  defp registration_could_succeed?(attrs) do
+    User.registration_changeset(%User{}, attrs, hash_password: false, validate_email: false).valid?
   end
 
   @doc """
