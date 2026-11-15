@@ -1,15 +1,16 @@
 defmodule PhoenixKit.Integration.I18n.PrefixlessAuthPostLocaleTest do
   @moduledoc """
   A form POST to a prefixless auth endpoint (`POST /users/log-in`, which the
-  registration and login forms of the primary language submit to) answers in
-  the site's primary language, as the prefixless pages themselves do: the
-  flash is translated and the redirect carries no other language's segment.
+  registration, login and password-change forms of the primary language
+  submit to) answers in the site's primary language, as the prefixless pages
+  themselves do: the flash is translated and the redirect is the primary
+  language's URL of the destination.
 
-  The process locale is set to "en" before each request: that is what a host
-  whose gettext default is English hands the request, whatever the site's
-  language.
+  Each request starts with the process's Gettext locale at "en": that is what
+  a host whose gettext default is English hands the request, whatever the
+  site's language.
 
-  `async: false`: languages and the process locale are global.
+  `async: false`: the language settings are site-wide.
   """
   use PhoenixKitWeb.ConnCase, async: false
 
@@ -22,9 +23,6 @@ defmodule PhoenixKit.Integration.I18n.PrefixlessAuthPostLocaleTest do
   @password "ValidPassword123!"
 
   setup %{conn: conn} do
-    previous = Gettext.get_locale(PhoenixKitWeb.Gettext)
-    on_exit(fn -> Gettext.put_locale(PhoenixKitWeb.Gettext, previous) end)
-
     # A seeded Owner, so the users below get the ordinary role.
     {:ok, seed} = Auth.register_user(%{email: unique_email(), password: @password})
     {:ok, _} = Auth.admin_confirm_user(seed)
@@ -42,13 +40,13 @@ defmodule PhoenixKit.Integration.I18n.PrefixlessAuthPostLocaleTest do
     %{conn | adapter: {adapter, Map.put(payload, :peer_data, peer)}, remote_ip: ip}
   end
 
-  defp prefixless(path), do: String.trim_trailing(Config.get_url_prefix(), "/") <> path
+  defp prefixed(path), do: String.trim_trailing(Config.get_url_prefix(), "/") <> path
 
-  defp post_credentials(conn, path, user) do
+  defp post_credentials(conn, path, email, password \\ @password) do
     Gettext.put_locale(PhoenixKitWeb.Gettext, "en")
 
-    post(conn, prefixless(path), %{
-      "user" => %{"email_or_username" => user.email, "password" => @password}
+    post(conn, prefixed(path), %{
+      "user" => %{"email_or_username" => email, "password" => password}
     })
   end
 
@@ -62,39 +60,47 @@ defmodule PhoenixKit.Integration.I18n.PrefixlessAuthPostLocaleTest do
     user
   end
 
-  for {label, setup_fun} <- [
-        {"a single-language Russian site", :single_language_ru},
-        {"a multi-language site whose primary language is Russian", :multi_language_ru}
+  # `segment` is the locale segment the primary language's URLs carry.
+  for {label, setup_fun, segment} <- [
+        {"a single-language Russian site", :single_language_ru, ""},
+        {"a multi-language site with a prefixless Russian primary language",
+         :multi_language_ru_prefixless, ""},
+        {"a multi-language site with a prefixed Russian primary language",
+         :multi_language_ru_prefixed, "/ru"}
       ] do
     describe "on #{label}" do
       setup do
         apply(__MODULE__, unquote(setup_fun), [])
-        :ok
+        {:ok, segment: unquote(segment)}
       end
 
-      test "the registration handoff says so in Russian and stays out of /en/", %{conn: conn} do
-        conn = post_credentials(conn, "/users/log-in?_action=registered", new_user())
+      test "the registration handoff answers in Russian", %{conn: conn, segment: segment} do
+        conn = post_credentials(conn, "/users/log-in?_action=registered", new_user().email)
 
-        refute redirected_to(conn) =~ "/en/"
+        assert redirected_to(conn) == prefixed(segment <> "/admin")
         assert Phoenix.Flash.get(conn.assigns.flash, :info) == "Аккаунт успешно создан!"
       end
 
-      test "an ordinary sign-in says so in Russian and stays out of /en/", %{conn: conn} do
-        conn = post_credentials(conn, "/users/log-in", confirmed_user())
+      test "an ordinary sign-in answers in Russian", %{conn: conn, segment: segment} do
+        conn = post_credentials(conn, "/users/log-in", confirmed_user().email)
 
-        refute redirected_to(conn) =~ "/en/"
+        assert redirected_to(conn) == prefixed(segment <> "/admin")
         assert Phoenix.Flash.get(conn.assigns.flash, :info) == "С возвращением!"
       end
 
-      test "a refused sign-in says so in Russian and stays out of /en/", %{conn: conn} do
-        Gettext.put_locale(PhoenixKitWeb.Gettext, "en")
-
+      test "the sign-in after a password change answers in Russian",
+           %{conn: conn, segment: segment} do
         conn =
-          post(conn, prefixless("/users/log-in"), %{
-            "user" => %{"email_or_username" => unique_email(), "password" => "wrong-password"}
-          })
+          post_credentials(conn, "/users/log-in?_action=password_updated", confirmed_user().email)
 
-        refute redirected_to(conn) =~ "/en/"
+        assert redirected_to(conn) == prefixed(segment <> "/profile/settings")
+        assert Phoenix.Flash.get(conn.assigns.flash, :info) == "Пароль успешно обновлён!"
+      end
+
+      test "a refused sign-in answers in Russian", %{conn: conn, segment: segment} do
+        conn = post_credentials(conn, "/users/log-in", unique_email(), "wrong-password")
+
+        assert redirected_to(conn) == prefixed(segment <> "/users/log-in")
 
         assert Phoenix.Flash.get(conn.assigns.flash, :error) ==
                  "Неверная эл. почта/имя пользователя или пароль"
@@ -107,7 +113,17 @@ defmodule PhoenixKit.Integration.I18n.PrefixlessAuthPostLocaleTest do
     {:ok, _} = Languages.set_primary_language("ru")
   end
 
-  def multi_language_ru do
+  def multi_language_ru_prefixless do
+    multi_language_ru()
+    {:ok, _} = Languages.set_default_language_no_prefix(true)
+  end
+
+  def multi_language_ru_prefixed do
+    multi_language_ru()
+    {:ok, _} = Languages.set_default_language_no_prefix(false)
+  end
+
+  defp multi_language_ru do
     {:ok, _} = Languages.enable_system()
     {:ok, _} = Languages.add_language("ru")
     {:ok, _} = Languages.set_primary_language("ru")

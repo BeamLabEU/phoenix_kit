@@ -256,15 +256,26 @@ Run `mix phoenix_kit.update` (V230, V231 and the new `phoenix_kit.js`).
 - **A project title with no ASCII letter or digit** (e.g. "Фотки") no longer makes
   the setup create resources named `-email-queue` and `-emailing`: the name falls
   back to `myapp`, as an unset title does.
-- **Signing in and registering answer in the site's primary language.** The sign-in
-  and registration forms of the primary language post to the prefixless
-  `POST /users/log-in`, whose scope had no locale step, so the flash ("Account
-  created successfully!", "Welcome back!", the error messages) and the redirect
-  followed the host's gettext default: a Russian site with an English default sent
-  a new account to `/en/users/confirm` in English. The prefixless auth endpoints
-  (`generate_basic_scope/1`) now run `:phoenix_kit_locale_validation`, as their
-  `/:locale/` twins and the prefixless pages do. A host no longer needs
-  `config :gettext, :default_locale` set to the site's language for this.
+- **The prefixless auth endpoints answer in the site's primary language.** The
+  sign-in, registration and password-change forms of the primary language post to
+  the prefixless `POST /users/log-in`, whose scope (`generate_basic_scope/1`) had
+  no locale step, so the flash ("Account created successfully!", "Welcome back!",
+  "Password updated successfully!", the error messages) and the redirect followed
+  the host's gettext default: a Russian site with an English default sent a new
+  account to `/en/users/confirm` in English. The scope now runs
+  `:phoenix_kit_locale_validation`, as its `/:locale/` twins and the prefixless
+  pages do, so every endpoint in it answers in the primary language: also
+  `GET`/`DELETE /users/log-out`, the OAuth request and callback, the magic-link,
+  QR, passkey and registration-link completions, and context and organization
+  switching. A host no longer needs `config :gettext, :default_locale` set to the
+  site's language for this.
+  - `GET /api/consent-config` (the cookie banner's texts, fetched by pages that
+    render no `#pk-consent-root`) now comes in the primary language, whatever
+    language the page that asks for it is in.
+  - A host that sets the PhoenixKit Gettext locale in its own `:browser` pipeline
+    is now overridden on these endpoints by the primary language, as it already
+    was on the prefixless pages. A per-domain default set with
+    `Languages.put_request_default_language/1` now applies to them.
 
 ### Removed
 
