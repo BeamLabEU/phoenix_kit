@@ -1,3 +1,11 @@
+## Unreleased
+
+### Changed
+
+- **`phoenix_kit_templates` floor is `~> 0.2.5`.** `Email.Markdown` finds placeholders with
+  `PhoenixKit.Templates.Substitution.split/1` instead of its own copy of the placeholder regex, so the Markdown
+  renderer and the substitution it feeds can no longer disagree about what a placeholder is. No change in output.
+
 ## 3.6.0 - 2026-11-15
 
 Run `mix phoenix_kit.update` (V230, V231, V232, and the JavaScript now split into

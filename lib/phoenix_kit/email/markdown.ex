@@ -68,10 +68,6 @@ defmodule PhoenixKit.Email.Markdown do
     render: [unsafe: false]
   ]
 
-  # The placeholder grammar of `PhoenixKit.Templates.Substitution`: triple and
-  # double braces, one pass. Linear — no nested quantifiers.
-  @placeholder ~r/\{\{\{\s*[a-zA-Z_][a-zA-Z0-9_]*\s*\}\}\}|\{\{\s*[a-zA-Z_][a-zA-Z0-9_]*\s*\}\}/
-
   @font "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif"
 
   @paragraph ~s(<p style="margin:0 0 16px;">)
@@ -172,9 +168,10 @@ defmodule PhoenixKit.Email.Markdown do
   defp protect(markdown) do
     nonce = nonce(markdown)
 
+    # Text and placeholders alternate, with `Substitution`'s own grammar.
     {pieces, placeholders} =
-      @placeholder
-      |> Regex.split(markdown, include_captures: true)
+      markdown
+      |> Substitution.split()
       |> Enum.with_index()
       |> Enum.map_reduce(%{}, fn
         {text, index}, acc when rem(index, 2) == 0 ->

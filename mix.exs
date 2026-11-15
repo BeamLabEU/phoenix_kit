@@ -105,11 +105,13 @@ defmodule PhoenixKit.MixProject do
       # A leaf by construction — no runtime deps of its own — which is what lets
       # core depend on it rather than feature-detecting it through a behaviour.
       #
-      # 0.2.2 is the floor: email bodies in Markdown and layout groups need the
+      # 0.2.5 is the floor: the Markdown renderer splits out placeholders with
+      # `Substitution.split/1` rather than a copy of the placeholder regex.
+      # Before it, 0.2.2: email bodies in Markdown and layout groups need the
       # `markdown` and `layout` parts, the preview needs `Overrides.locate/4` and
       # `Templates.sources/3`, and a subject must arrive as one line. (0.2.1
       # was the first to find the `_layout`/`_header`/`_footer` names.)
-      local_dep(:phoenix_kit_templates, "~> 0.2.2"),
+      local_dep(:phoenix_kit_templates, "~> 0.2.5"),
 
       # Slugs. Locale-aware because ö must expand to "oe" in German and fold to "o"
       # in Estonian, and core's hand-rolled table could not express the difference —
