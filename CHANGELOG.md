@@ -1,4 +1,4 @@
-## Unreleased
+## 3.6.0 - 2026-11-15
 
 Run `mix phoenix_kit.update` (V230, V231, V232, and the JavaScript now split into
 `phoenix_kit.js` and an admin bundle: see "Public pages no longer download the
