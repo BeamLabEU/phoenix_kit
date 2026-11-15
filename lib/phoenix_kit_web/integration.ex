@@ -301,8 +301,17 @@ defmodule PhoenixKitWeb.Integration do
   # Helper function to generate basic scope routes
   defp generate_basic_scope(url_prefix) do
     quote do
+      # The locale pipeline gives a prefixless request the primary language,
+      # as on the prefixless pages: the primary language's sign-in and
+      # registration forms post here, and without it their flash and the
+      # redirect they build followed the host's gettext default instead.
       scope unquote(url_prefix), PhoenixKitWeb do
-        pipe_through [:phoenix_kit_already_logged_out, :browser, :phoenix_kit_auto_setup]
+        pipe_through [
+          :phoenix_kit_already_logged_out,
+          :browser,
+          :phoenix_kit_auto_setup,
+          :phoenix_kit_locale_validation
+        ]
 
         post "/users/log-in", Users.Session, :create
         delete "/users/log-out", Users.Session, :delete

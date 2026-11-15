@@ -256,6 +256,15 @@ Run `mix phoenix_kit.update` (V230, V231 and the new `phoenix_kit.js`).
 - **A project title with no ASCII letter or digit** (e.g. "Фотки") no longer makes
   the setup create resources named `-email-queue` and `-emailing`: the name falls
   back to `myapp`, as an unset title does.
+- **Signing in and registering answer in the site's primary language.** The sign-in
+  and registration forms of the primary language post to the prefixless
+  `POST /users/log-in`, whose scope had no locale step, so the flash ("Account
+  created successfully!", "Welcome back!", the error messages) and the redirect
+  followed the host's gettext default: a Russian site with an English default sent
+  a new account to `/en/users/confirm` in English. The prefixless auth endpoints
+  (`generate_basic_scope/1`) now run `:phoenix_kit_locale_validation`, as their
+  `/:locale/` twins and the prefixless pages do. A host no longer needs
+  `config :gettext, :default_locale` set to the site's language for this.
 
 ### Removed
 
