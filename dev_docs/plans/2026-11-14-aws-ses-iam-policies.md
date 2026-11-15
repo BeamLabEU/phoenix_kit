@@ -1,6 +1,6 @@
 # One answer to "what IAM policy does the SES key need?"
 
-Status: **all three phases built 2026-11-14.** Open: one more real-AWS check, for the open/click update added in phase 3, and the releases. Verified against `main` the same day
+Status: **all three phases built and checked against real AWS, 2026-11-14.** Open: the releases, and a look at the panel in a browser on a host app. Verified against `main` the same day
 (core `ea9f60ff3`, `phoenix_kit_emails` 0.8.0 `dd32ca6`). Written from fotki.ee
 while setting up SES delivery events. Line numbers below are `main`'s. What the
 check changed is listed in "Verified against main" at the end; what was decided
@@ -452,10 +452,10 @@ Differences from the plan:
   the event destination back (that needs a permission the policies do not
   grant). The box's help text and the guide say to run the setup once.
 
-Not verified against AWS: the update call and the new action in the setup
-policy. The phase 2 run predates them. It needs one more check with a
-throwaway key: setup with the box ticked on an existing destination, then
-unticked, reading the result in the SES console.
+Checked against AWS the same day (checks 11 to 14 of the report): the update
+call works under the new setup policy, in both directions, and a setup that
+says nothing leaves an existing destination alone. Not done: the panel in a
+browser.
 
 ## Follow-up: SES v2 send API
 

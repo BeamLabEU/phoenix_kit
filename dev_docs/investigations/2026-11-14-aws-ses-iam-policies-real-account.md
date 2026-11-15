@@ -55,11 +55,35 @@ passed.
   `InfrastructureSetup.access_denied?/1` matches it through the "not
   authorized to perform" text; a test now holds that shape.
 
+## Second run: the open/click choice (same day, core `478874fa7`)
+
+Phase 3 added `ses:UpdateConfigurationSetEventDestination` to the setup
+policy and made the setup update an existing event destination when the
+open/click choice is given. This run used the new setup policy for
+`pk-iam-verify`, plus `ses:GetConfigurationSetEventDestinations` on the
+configuration set, added for the check only so the result could be read back.
+The destination already existed from the first run.
+
+| # | Setup called with | Expected | Read back from AWS |
+|---|---|---|---|
+| 11 | no choice | destination untouched | the eight delivery events, as before |
+| 12 | `track_opens_and_clicks: true` | OPEN and CLICK added | ten events, with OPEN and CLICK |
+| 13 | `track_opens_and_clicks: false` | OPEN and CLICK removed | the eight delivery events |
+| 14 | (send, then read the queue) | events still arrive | Send and Delivery received and deleted |
+
+So the update call works under the new setup policy, a setup that says
+nothing leaves an existing destination alone, and the choice applies in both
+directions.
+
+Each create or update of the destination makes SES publish one "Successfully
+validated SNS topic for Amazon SES event publishing" notice to the queue. The
+emails package's processor already recognises and drops it
+(`sqs_processor.ex`).
+
 ## Not covered
 
-- The event destination was not read back from AWS (the policies grant no
-  read of it), so "no OPEN or CLICK" rests on the request that was sent.
-- `track_opens_and_clicks: true` was not run.
+- The admin panel itself (the box, the policies under the account, the Copy
+  buttons) was not driven in a browser.
 - The emails package's poller, its settings panel and the Integrations form
   were not driven; only the AWS calls they make.
 - One region, one account, the `aws` partition.
