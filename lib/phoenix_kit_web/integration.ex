@@ -298,6 +298,98 @@ defmodule PhoenixKitWeb.Integration do
     end
   end
 
+  # The OAuth authorization server of the admin MCP endpoint (`PhoenixKit.API.OAuth`).
+  #
+  # Three groups, each under the kit's URL prefix (`/oauth` is a reserved segment, so the locale
+  # plugs leave it alone):
+  #
+  #   * `GET /oauth/authorize`: the host's `:browser` pipeline and the locale plug, **no login
+  #     plug**: the controller validates the request, stores it and redirects to the consent URL.
+  #     (Behind a login plug an anonymous visitor would be sent to the sign-in with the whole
+  #     long query as the return path.)
+  #   * `/oauth/consent/:id`: the same, plus `:phoenix_kit_require_authenticated`, which lets in
+  #     any signed-in person and runs the account gate. The only place the flow needs a login.
+  #   * `POST /oauth/token`, `POST /oauth/revoke`: the API's empty pipeline (no session, no CSRF).
+  #     `PhoenixKit.API.BodyGuard` reads their form body in the endpoint.
+  #
+  # Every controller route is `log: false`: the parameters hold codes, verifiers, refresh tokens,
+  # `state` and the PKCE challenge, and the consent path is a capability URL.
+  #
+  # The discovery documents live at the site root, as `/.well-known/api-catalog` does: for a
+  # root-mounted install in the kit's own scope, for a prefixed one in a root scope, never both.
+  defp generate_oauth_routes(url_prefix) do
+    quote do
+      scope unquote(url_prefix), PhoenixKitWeb do
+        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
+
+        get "/oauth/authorize", OAuth.AuthorizeController, :new, log: false
+      end
+
+      scope unquote(url_prefix), PhoenixKitWeb do
+        pipe_through [
+          :browser,
+          :phoenix_kit_auto_setup,
+          :phoenix_kit_require_authenticated,
+          :phoenix_kit_locale_validation
+        ]
+
+        get "/oauth/consent/:id", OAuth.ConsentController, :show, log: false
+        post "/oauth/consent/:id", OAuth.ConsentController, :decide, log: false
+        post "/oauth/consent/:id/revoke", OAuth.ConsentController, :revoke, log: false
+      end
+
+      scope unquote(url_prefix), PhoenixKitWeb do
+        pipe_through [:phoenix_kit_api_v1]
+
+        post "/oauth/token", OAuth.TokenController, :create, log: false
+        post "/oauth/revoke", OAuth.TokenController, :revoke, log: false
+      end
+
+      unquote(oauth_metadata_routes(url_prefix))
+    end
+  end
+
+  # The metadata routes: at the site root, so under a URL prefix they sit in a `scope "/"` of
+  # their own (no alias, like `root_sitemap_routes/1`), and in a root-mounted install in the
+  # kit's scope. The protected resource's document is the path variant of RFC 9728: the
+  # well-known segment, then the path of the resource (prefix included).
+  defp oauth_metadata_routes(url_prefix) do
+    resource_path =
+      case url_prefix do
+        prefix when prefix in ["/", ""] -> Paths.mcp_path(:admin)
+        prefix -> prefix <> Paths.mcp_path(:admin)
+      end
+
+    resource_document = "/.well-known/oauth-protected-resource" <> resource_path
+
+    routes =
+      quote do
+        get unquote(resource_document),
+            PhoenixKitWeb.OAuth.MetadataController,
+            :protected_resource,
+            metadata: %{sitemap: false}
+
+        get "/.well-known/oauth-authorization-server",
+            PhoenixKitWeb.OAuth.MetadataController,
+            :authorization_server,
+            metadata: %{sitemap: false}
+      end
+
+    if url_prefix in ["/", ""] do
+      quote do
+        scope unquote(url_prefix) do
+          unquote(routes)
+        end
+      end
+    else
+      quote do
+        scope "/" do
+          unquote(routes)
+        end
+      end
+    end
+  end
+
   # Helper function to generate basic scope routes
   defp generate_basic_scope(url_prefix) do
     quote do
@@ -2100,6 +2192,10 @@ defmodule PhoenixKitWeb.Integration do
       # with `locale = "api"`. Pinned by
       # test/phoenix_kit_web/api_routing_test.exs.
       unquote(generate_api_routes(url_prefix))
+
+      # The authorization server of the MCP endpoint (`/oauth/...`). Literal-rooted like the
+      # machine API above, so it too stays ahead of every `/:locale`-rooted surface.
+      unquote(generate_oauth_routes(url_prefix))
 
       # ⚠️ THE ORDER OF EVERYTHING BELOW IS LOAD-BEARING — DO NOT REORDER.
       #

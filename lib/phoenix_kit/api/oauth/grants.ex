@@ -54,7 +54,12 @@ defmodule PhoenixKit.API.OAuth.Grants do
   UTF-8 - is refused as `:invalid_client_name`), `expires_at` (required; at most
   `PhoenixKit.API.PersonalKeysConfig.latest_expiry/0`), `resource` (default
   `PhoenixKit.API.OAuth.Resource.resource/0`) and `created_ip`. `opts` is the one of
-  `PhoenixKit.API.Keys.create_oauth_key/3`: `impersonated: true | false`, with no default.
+  `PhoenixKit.API.Keys.create_oauth_key/3`: `impersonated: true | false`, with no default;
+  and `ceiling: n`, how many live grants (`count_live/1`) the person may hold at most.
+
+  The ceiling is counted inside the transaction, after the hidden key took the person's
+  advisory lock (the one the personal keys use), so two consents that run together cannot both
+  pass it. A person at the ceiling gets `{:error, :grant_limit}` and nothing is created.
 
   Returns `{:ok, grant, key}`, or the key's refusal (`:forbidden`, `:impersonated`,
   `:invalid_scopes`, `:invalid_client_name`, `:owner_inactive`, a changeset, ...), or `:client_gone` when the client was
@@ -80,6 +85,7 @@ defmodule PhoenixKit.API.OAuth.Grants do
          client_name,
          opts
        ) do
+    {ceiling, opts} = Keyword.pop(opts, :ceiling)
     grant_uuid = UUIDv7.generate()
     expires_at = attrs |> Map.get(:expires_at) |> truncate()
 
@@ -92,6 +98,7 @@ defmodule PhoenixKit.API.OAuth.Grants do
 
     repo().transaction(fn ->
       with {:ok, key} <- Keys.create_oauth_key(scope, key_attrs, opts),
+           :ok <- check_ceiling(user_uuid, ceiling),
            {:ok, grant} <-
              insert(%Grant{
                uuid: grant_uuid,
@@ -133,6 +140,50 @@ defmodule PhoenixKit.API.OAuth.Grants do
     end
   end
 
+  # The person's advisory lock is held by now (the hidden key took it), and stays until the
+  # transaction ends.
+  defp check_ceiling(_user_uuid, nil), do: :ok
+
+  defp check_ceiling(user_uuid, ceiling) when is_integer(ceiling) do
+    if count_live(user_uuid) >= ceiling, do: {:error, :grant_limit}, else: :ok
+  end
+
+  @doc """
+  How many grants of `user_uuid` count against the ceiling: not revoked, not expired, and either
+  activated (a code was exchanged) or not yet activated with an authorization code still alive.
+  A consent nobody finished stops counting when its code runs out.
+  """
+  @spec count_live(String.t()) :: non_neg_integer()
+  def count_live(user_uuid), do: user_uuid |> live_query() |> repo().aggregate(:count)
+
+  @doc "The grants `count_live/1` counts, with their clients, least recently used first."
+  @spec list_live(String.t()) :: [Grant.t()]
+  def list_live(user_uuid) do
+    from(g in live_query(user_uuid),
+      preload: [:client],
+      order_by: [asc: fragment("COALESCE(?, ?)", g.last_used_at, g.inserted_at), asc: g.uuid]
+    )
+    |> repo().all()
+  end
+
+  defp live_query(user_uuid) do
+    now = DateTime.truncate(DateTime.utc_now(), :second)
+
+    from(g in Grant,
+      as: :grant,
+      where: g.user_uuid == ^user_uuid and is_nil(g.revoked_at) and g.expires_at > ^now,
+      where:
+        not is_nil(g.activated_at) or
+          exists(
+            from(c in PhoenixKit.API.OAuth.Code,
+              where:
+                c.grant_uuid == parent_as(:grant).uuid and is_nil(c.used_at) and
+                  c.expires_at > ^now
+            )
+          )
+    )
+  end
+
   # The column is `varchar(45)` (the longest IPv6 text); a longer value must not abort the
   # consent's transaction with a database error.
   defp ip_column(ip) when is_binary(ip), do: String.slice(ip, 0, 45)
@@ -170,6 +221,39 @@ defmodule PhoenixKit.API.OAuth.Grants do
   end
 
   def revoke(_grant, _opts), do: {:error, :not_found}
+
+  @doc """
+  Runs `fun.(grant, key)` in a transaction that holds the grant's locks in the order of the
+  moduledoc (the hidden key, then the grant), so it cannot cross a revoke or another exchange.
+  The grant is read under the lock: `fun` sees its current state. Returns what the transaction
+  returns: `{:ok, fun's value}`, `{:error, reason}` when `fun` rolls back, `{:error, :not_found}`
+  when the grant or its key is gone.
+  """
+  @spec locked(String.t(), (Grant.t(), Key.t() -> term())) :: {:ok, term()} | {:error, term()}
+  def locked(grant_uuid, fun) when is_function(fun, 2) do
+    repo().transaction(fn ->
+      with %Grant{key_uuid: key_uuid} <- get(grant_uuid),
+           {:ok, key} <- Keys.lock_oauth_row(key_uuid),
+           {:ok, grant} <- lock_grant(grant_uuid) do
+        fun.(grant, key)
+      else
+        nil -> repo().rollback(:not_found)
+        {:error, reason} -> repo().rollback(reason)
+      end
+    end)
+  end
+
+  @doc """
+  Whether the grant can still be used: not revoked and not expired, and for this install's
+  resource (`PhoenixKit.API.OAuth.Resource`).
+  """
+  @spec live?(Grant.t()) :: boolean()
+  def live?(%Grant{} = grant) do
+    now = DateTime.utc_now()
+
+    is_nil(grant.revoked_at) and DateTime.compare(grant.expires_at, now) == :gt and
+      Resource.matches?(grant.resource)
+  end
 
   defp end_grant(%Grant{key_uuid: key_uuid, uuid: uuid}, opts) do
     reason = Keyword.get(opts, :reason, @default_reason)

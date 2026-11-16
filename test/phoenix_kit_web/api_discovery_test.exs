@@ -15,6 +15,7 @@ defmodule PhoenixKitWeb.APIDiscoveryTest do
   alias PhoenixKit.API.KeyTestSupport
   alias PhoenixKit.API.MCP
   alias PhoenixKit.API.MCP.Names
+  alias PhoenixKit.API.OAuth.Resource
   alias PhoenixKit.API.PublicDiscovery
   alias PhoenixKit.API.RateLimit
   alias PhoenixKit.API.Registry
@@ -840,6 +841,12 @@ defmodule PhoenixKitWeb.APIDiscoveryTest do
   end
 
   describe "nothing names the admin API" do
+    setup do
+      switch(:admin, true)
+      put_setting("api_oauth_enabled", "true")
+      :ok
+    end
+
     # Every public document of the module, with its status line and headers.
     defp public_responses(conn) do
       ip = unique_ip()
@@ -855,9 +862,22 @@ defmodule PhoenixKitWeb.APIDiscoveryTest do
         {"openapi", fetch(conn, Routes.path("/api/public/v1/openapi.json"), ip: ip)},
         {"mcp 405", fetch(conn, Routes.path("/mcp/public"), ip: ip)},
         {"mcp tools/list", mcp_list(conn, ip)},
-        {"mcp initialize", mcp_initialize(conn, ip)}
+        {"mcp initialize", mcp_initialize(conn, ip)},
+        {"oauth prm", fetch(conn, Resource.metadata_path(), ip: ip)},
+        {"oauth as", fetch(conn, "/.well-known/oauth-authorization-server", ip: ip)}
       ]
     end
+
+    # The one place a public document may name the admin MCP path: the `resource` member of the
+    # protected resource metadata (RFC 9728 wants the identifier of the resource there). It is
+    # taken out of the text that is scanned, and nothing else is.
+    defp scanned_text("oauth prm", response) do
+      resource = Resource.resource()
+      assert %{"resource" => ^resource} = JSON.decode!(response.resp_body)
+      String.replace(text_of(response), ~s("resource":"#{resource}"), ~s("resource":""))
+    end
+
+    defp scanned_text(_label, response), do: text_of(response)
 
     defp mcp_list(conn, ip), do: mcp_call(conn, ip, "tools/list", nil)
 
@@ -923,7 +943,7 @@ defmodule PhoenixKitWeb.APIDiscoveryTest do
       banned = banned()
 
       for {label, response} <- responses, regex <- banned do
-        refute Regex.match?(regex, text_of(response)),
+        refute Regex.match?(regex, scanned_text(label, response)),
                "#{label} names #{inspect(Regex.source(regex))}"
       end
 
@@ -941,7 +961,9 @@ defmodule PhoenixKitWeb.APIDiscoveryTest do
                "openapi" => 200,
                "mcp 405" => 405,
                "mcp tools/list" => 200,
-               "mcp initialize" => 200
+               "mcp initialize" => 200,
+               "oauth prm" => 200,
+               "oauth as" => 200
              }
     end
 
@@ -950,6 +972,28 @@ defmodule PhoenixKitWeb.APIDiscoveryTest do
       for {label, response} <- public_responses(conn) do
         refute response |> text_of() |> String.downcase() |> String.contains?("approval"),
                "#{label} mentions approvals"
+      end
+    end
+
+    test "the OAuth documents are 404 while OAuth is off, and still hold no banned term", %{
+      conn: conn
+    } do
+      put_setting("api_oauth_enabled", "false")
+
+      ip = unique_ip()
+
+      responses = [
+        {"oauth prm", fetch(conn, Resource.metadata_path(), ip: ip)},
+        {"oauth as", fetch(conn, "/.well-known/oauth-authorization-server", ip: ip)}
+      ]
+
+      for {label, response} <- responses do
+        assert response.status == 404, label
+
+        for regex <- banned() do
+          refute Regex.match?(regex, text_of(response)),
+                 "#{label} names #{inspect(Regex.source(regex))}"
+        end
       end
     end
 
