@@ -357,6 +357,7 @@ if Code.ensure_loaded?(Igniter) do
              {"35 4 * * *", PhoenixKit.API.Idempotency.PruneWorker},
              {"*/5 * * * *", PhoenixKit.API.Confirm.ExpiryWorker},
              {"40 4 * * *", PhoenixKit.API.Confirm.PruneWorker},
+             {"50 4 * * *", PhoenixKit.API.OAuth.PruneWorker},
              {"0 * * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "hourly"}},
              {"0 */12 * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "12h"}},
              {"0 6 * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "daily"}},
@@ -1611,7 +1612,8 @@ if Code.ensure_loaded?(Igniter) do
       # worker a pending approval is never expired and an interrupted one never failed.
       {"35 4 * * *", "PhoenixKit.API.Idempotency.PruneWorker"},
       {"*/5 * * * *", "PhoenixKit.API.Confirm.ExpiryWorker"},
-      {"40 4 * * *", "PhoenixKit.API.Confirm.PruneWorker"}
+      {"40 4 * * *", "PhoenixKit.API.Confirm.PruneWorker"},
+      {"50 4 * * *", "PhoenixKit.API.OAuth.PruneWorker"}
     ]
 
     @doc """
@@ -2107,6 +2109,7 @@ if Code.ensure_loaded?(Igniter) do
                {"35 4 * * *", PhoenixKit.API.Idempotency.PruneWorker},
                {"*/5 * * * *", PhoenixKit.API.Confirm.ExpiryWorker},
                {"40 4 * * *", PhoenixKit.API.Confirm.PruneWorker},
+               {"50 4 * * *", PhoenixKit.API.OAuth.PruneWorker},
                {"0 * * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "hourly"}},
                {"0 */12 * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "12h"}},
                {"0 6 * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "daily"}},

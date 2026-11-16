@@ -63,6 +63,25 @@ defmodule PhoenixKit.API.BodyGuard do
   `PhoenixKit.API.Auth.gated?/2`, the same cached settings reads `Auth` uses;
   an unreadable switch counts as off.
 
+  ## The authorization server's endpoints
+
+  `<prefix>/oauth/token`, `<prefix>/oauth/revoke` (bodies in `application/x-www-form-urlencoded`
+  form, RFC 6749) and `<prefix>/oauth/register` (a JSON object, RFC 7591) are not entries of
+  `PhoenixKit.API.Paths` (that table feeds the router's `forward`s and the JSON decoding
+  above would break a form body), so they have a table of their own. Their switch is
+  `PhoenixKit.API.Config.oauth_enabled?/0`: while it is off, `body_params` is set to `%{}`
+  without reading, as above. While it is on, a `POST` body is read up to 16 KB (the host's
+  `Plug.Parsers` would read up to 8 MB before any limit of the controller) and decoded in the
+  mode of the path: a form body must be valid UTF-8 and a registration body a JSON object.
+  An empty body is `%{}`. `params` becomes the **body only**: the query string is not merged,
+  so an endpoint reads its parameters from `body_params`.
+
+  A refusal is an RFC 6749 section 5.2 answer, not a problem document: status `400` and
+  `{"error":"invalid_request","error_description":...}` with `cache-control: no-store` and
+  `pragma: no-cache`, for a body that is too large, that cannot be read, that is not
+  UTF-8 or not the expected shape. The text never repeats the body. `guarded?/1` is about the
+  machine API only; `oauth_guarded?/1` asks the same about these paths.
+
   ## Cost before authentication
 
   The guard runs before `PhoenixKit.API.Auth` and before any rate bucket, so
@@ -115,6 +134,7 @@ defmodule PhoenixKit.API.BodyGuard do
   alias PhoenixKit.API.Problem
   alias PhoenixKit.API.REST
   alias PhoenixKit.Utils.Routes
+  alias Plug.Conn.Query
 
   @body_methods ["POST", "PUT", "PATCH", "DELETE"]
 
@@ -126,6 +146,17 @@ defmodule PhoenixKit.API.BodyGuard do
   # `/mcp/...` paths are not guarded.
   @guarded Paths.entries()
 
+  # The authorization server's endpoints: path segments under the kit's URL prefix and the way
+  # the body is decoded. Their switch is `api_oauth_enabled`, not an audience's.
+  @oauth_guarded [
+    {["oauth", "token"], :form},
+    {["oauth", "revoke"], :form},
+    {["oauth", "register"], :json}
+  ]
+
+  # Largest body of an OAuth endpoint (a token request is a few hundred bytes).
+  @oauth_max_body_bytes 16_384
+
   # Bytes asked of the socket per read; the total is bounded separately.
   @read_chunk 1_048_576
 
@@ -136,7 +167,7 @@ defmodule PhoenixKit.API.BodyGuard do
   def call(%Plug.Conn{} = conn, _opts) do
     case match(conn) do
       nil ->
-        conn
+        oauth_call(conn)
 
       {audience, cors?, prefix_length} ->
         conn
@@ -155,6 +186,13 @@ defmodule PhoenixKit.API.BodyGuard do
   end
 
   defp body(conn, _audience, _cors?), do: conn
+
+  @doc """
+  Whether `conn` is a request to one of the authorization server's body-reading endpoints
+  (`/oauth/token`, `/oauth/revoke`, `/oauth/register`), compared like `guarded?/1`.
+  """
+  @spec oauth_guarded?(Plug.Conn.t()) :: boolean()
+  def oauth_guarded?(%Plug.Conn{} = conn), do: oauth_match(conn) != nil
 
   @doc """
   Whether `conn` is a request to a guarded API path.
@@ -180,6 +218,93 @@ defmodule PhoenixKit.API.BodyGuard do
       if List.starts_with?(decoded, prefix ++ path),
         do: {audience, cors?, length(prefix) + length(path)}
     end)
+  end
+
+  defp oauth_match(%Plug.Conn{path_info: segments}) do
+    prefix = Routes.prefix_base() |> String.split("/", trim: true)
+    decoded = decode_segments(segments)
+
+    Enum.find_value(@oauth_guarded, fn {path, mode} ->
+      if decoded == prefix ++ path, do: mode
+    end)
+  end
+
+  defp oauth_call(%Plug.Conn{method: method, body_params: %Plug.Conn.Unfetched{}} = conn)
+       when method in @body_methods do
+    case oauth_match(conn) do
+      nil -> conn
+      mode -> if Config.oauth_enabled?(), do: oauth_guard(conn, mode), else: switched_off(conn)
+    end
+  end
+
+  defp oauth_call(conn), do: conn
+
+  defp oauth_guard(conn, mode) do
+    if declared_length(conn) > @oauth_max_body_bytes do
+      oauth_error(conn, "The request body is too large.")
+    else
+      oauth_read(conn, mode)
+    end
+  end
+
+  defp oauth_read(conn, mode) do
+    case read_body(conn,
+           length: @oauth_max_body_bytes + 1,
+           read_length: @oauth_max_body_bytes + 1
+         ) do
+      {:ok, body, conn} when byte_size(body) <= @oauth_max_body_bytes ->
+        oauth_parse(conn, mode, body)
+
+      {:ok, _body, conn} ->
+        oauth_error(conn, "The request body is too large.")
+
+      {:more, _partial, conn} ->
+        oauth_error(conn, "The request body is too large.")
+
+      {:error, _reason} ->
+        oauth_error(conn, "The request body could not be read.")
+    end
+  end
+
+  defp oauth_parse(conn, mode, body) do
+    if String.trim(body) == "" do
+      put_body(conn, %{})
+    else
+      case oauth_decode(mode, body) do
+        {:ok, %{} = params} -> put_body(conn, params)
+        :error -> oauth_error(conn, oauth_text(mode))
+      end
+    end
+  end
+
+  defp oauth_decode(:form, body) do
+    if String.valid?(body), do: {:ok, Query.decode(body)}, else: :error
+  rescue
+    # An invalid escape, invalid UTF-8 after decoding, a key nested too deep.
+    _error -> :error
+  end
+
+  defp oauth_decode(:json, body) do
+    case safe_decode(body) do
+      {:ok, %{} = map} -> {:ok, map}
+      _other -> :error
+    end
+  end
+
+  defp oauth_text(:form), do: "The request body is not a valid form."
+  defp oauth_text(:json), do: "The request body is not a valid JSON object."
+
+  # RFC 6749 section 5.2; the status is 400 for every refusal of the body. Neither this text
+  # nor anything else here repeats a byte of the request.
+  defp oauth_error(conn, description) do
+    body = JSON.encode!(%{"error" => "invalid_request", "error_description" => description})
+
+    conn
+    |> put_resp_header("content-type", "application/json; charset=utf-8")
+    |> put_resp_header("cache-control", "no-store")
+    |> put_resp_header("pragma", "no-cache")
+    |> send_resp(400, body)
+    |> halt()
   end
 
   # The matched prefix in decoded form (see "Encoded segments of the path" in

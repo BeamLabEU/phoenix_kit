@@ -13,6 +13,8 @@ defmodule PhoenixKit.API.Config do
   |---|---|
   | `api_admin_enabled` | `false` |
   | `api_public_enabled` | `false` |
+  | `api_oauth_enabled` | `false` (only counts while `api_admin_enabled` is on) |
+  | `api_oauth_access_ttl_seconds` | `3600` (clamped to 300..86400) |
   | `api_disabled_tools` | `""` (newline separated tool names) |
   | `api_disabled_modules` | `""` (newline separated module keys) |
   | `api_session_write_modules` | `""` (newline separated module keys) |
@@ -58,6 +60,30 @@ defmodule PhoenixKit.API.Config do
   @doc "Whether the public API (`/api/public/v1`, MCP) is switched on. Fails closed."
   @spec public_enabled?() :: boolean()
   def public_enabled?, do: flag("api_public_enabled")
+
+  @doc """
+  Whether OAuth for the admin MCP endpoint (`PhoenixKit.API.OAuth`) is switched on: the
+  `api_oauth_enabled` setting reads exactly `"true"` **and** the admin API is on. Fails closed
+  like the other switches. While it is off, no OAuth token is accepted, the `401` challenge of
+  the MCP endpoint is the plain one and the OAuth paths read no body.
+  """
+  @spec oauth_enabled?() :: boolean()
+  def oauth_enabled?, do: admin_enabled?() and flag("api_oauth_enabled")
+
+  @oauth_access_ttl_default 3_600
+  @oauth_access_ttl_range 300..86_400
+
+  @doc """
+  Seconds an OAuth access token lives (`api_oauth_access_ttl_seconds`): 5 minutes to 24 hours,
+  one hour when the setting is missing or unreadable.
+  """
+  @spec oauth_access_ttl_seconds() :: pos_integer()
+  def oauth_access_ttl_seconds do
+    "api_oauth_access_ttl_seconds"
+    |> int(@oauth_access_ttl_default)
+    |> max(@oauth_access_ttl_range.first)
+    |> min(@oauth_access_ttl_range.last)
+  end
 
   @doc """
   Tool names the install has hidden (`api_disabled_tools`). For display only: a list that

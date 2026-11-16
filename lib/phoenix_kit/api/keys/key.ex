@@ -19,6 +19,11 @@ defmodule PhoenixKit.API.Keys.Key do
       (V226). Set by the server only, never cast from attributes: it works only while the
       owner holds `api_personal_keys` or `api`, always expires, never needs approval, and
       only its owner may rotate it. `false` for every other key.
+    * `oauth_grant_uuid` - set only on the hidden key an OAuth grant owns
+      (`PhoenixKit.API.Keys.create_oauth_key/3`, V233), never cast from attributes. Such a key
+      is not a key a person handles: no token of it exists, `PhoenixKit.API.Keys.verify/2`
+      refuses it, and every listing, count and edit of keys leaves it out. `nil` for every
+      other key.
     * `last_used_at`, `last_used_ip` - written at most once a minute.
 
   This module is the schema only. Creating, verifying, revoking and rotating keys is
@@ -45,6 +50,7 @@ defmodule PhoenixKit.API.Keys.Key do
     field :last_used_at, :utc_datetime
     field :last_used_ip, :string
     field :personal, :boolean, default: false
+    field :oauth_grant_uuid, UUIDv7
 
     belongs_to :user, User, foreign_key: :user_uuid, references: :uuid, type: UUIDv7
     belongs_to :created_by, User, foreign_key: :created_by_uuid, references: :uuid, type: UUIDv7

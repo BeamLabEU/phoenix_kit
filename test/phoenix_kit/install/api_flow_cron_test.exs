@@ -13,7 +13,8 @@ defmodule PhoenixKit.Install.ApiFlowCronTest do
   @workers [
     {"35 4 * * *", "PhoenixKit.API.Idempotency.PruneWorker"},
     {"*/5 * * * *", "PhoenixKit.API.Confirm.ExpiryWorker"},
-    {"40 4 * * *", "PhoenixKit.API.Confirm.PruneWorker"}
+    {"40 4 * * *", "PhoenixKit.API.Confirm.PruneWorker"},
+    {"50 4 * * *", "PhoenixKit.API.OAuth.PruneWorker"}
   ]
 
   @host """

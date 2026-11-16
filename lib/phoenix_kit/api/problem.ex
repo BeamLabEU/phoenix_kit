@@ -229,13 +229,50 @@ defmodule PhoenixKit.API.Problem do
       conn |> get_resp_header("x-request-id") |> List.first()
   end
 
-  defp put_challenge(conn, :unauthorized, _context),
-    do: put_resp_header(conn, "www-authenticate", ~s(Bearer error="invalid_token"))
+  # With OAuth on, `PhoenixKit.API.Auth` leaves `:phoenix_kit_api_oauth_challenge` on the
+  # conn and the challenge says where the protected resource's metadata is (RFC 9728). A
+  # request that carried no credentials gets no `error` (RFC 6750 section 3.1). Without the
+  # private the challenge is the plain one.
+  defp put_challenge(conn, :unauthorized, _context) do
+    case oauth_challenge(conn) do
+      %{missing: true} = oauth ->
+        challenge(conn, "Bearer " <> metadata_param(oauth))
 
-  defp put_challenge(conn, :forbidden, %{required_scope: scope}) when is_binary(scope),
-    do: put_resp_header(conn, "www-authenticate", ~s(Bearer error="insufficient_scope"))
+      %{} = oauth ->
+        challenge(conn, ~s(Bearer error="invalid_token", ) <> metadata_param(oauth))
+
+      nil ->
+        challenge(conn, ~s(Bearer error="invalid_token"))
+    end
+  end
+
+  defp put_challenge(conn, :forbidden, %{required_scope: scope}) when is_binary(scope) do
+    case oauth_challenge(conn) do
+      %{} = oauth ->
+        challenge(conn, ~s(Bearer error="insufficient_scope", ) <> metadata_param(oauth))
+
+      nil ->
+        challenge(conn, ~s(Bearer error="insufficient_scope"))
+    end
+  end
 
   defp put_challenge(conn, _code, _context), do: conn
+
+  defp challenge(conn, value), do: put_resp_header(conn, "www-authenticate", value)
+
+  defp metadata_param(%{resource_metadata: url}), do: ~s(resource_metadata="#{url}")
+
+  # A URL that could break out of the quoted parameter (a quote, a backslash, a control
+  # character, a space) is not sent at all: the plain challenge is the safe answer.
+  defp oauth_challenge(conn) do
+    case conn.private[:phoenix_kit_api_oauth_challenge] do
+      %{resource_metadata: url} = oauth when is_binary(url) ->
+        if url =~ ~r/\A[\x21\x23-\x5B\x5D-\x7E]+\z/, do: oauth, else: nil
+
+      _ ->
+        nil
+    end
+  end
 
   defp put_retry_after(conn, %{retry_after: seconds}) when is_integer(seconds) and seconds > 0,
     do: put_resp_header(conn, "retry-after", Integer.to_string(seconds))
