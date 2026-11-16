@@ -49,7 +49,12 @@ defmodule PhoenixKitWeb.OAuth.Responses do
         put_resp_header(conn, "content-security-policy", "frame-ancestors 'none'")
 
       policies ->
-        conn = delete_resp_header(conn, "content-security-policy")
+        # `delete_resp_header/2` drops only the first header of a name; all of them go.
+        conn = %{
+          conn
+          | resp_headers:
+              Enum.reject(conn.resp_headers, &match?({"content-security-policy", _}, &1))
+        }
 
         Enum.reduce(policies, conn, fn policy, acc ->
           prepend_resp_headers(acc, [{"content-security-policy", replace_directive(policy)}])

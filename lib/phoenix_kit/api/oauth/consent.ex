@@ -46,9 +46,13 @@ defmodule PhoenixKit.API.OAuth.Consent do
   @spec options(User.t(), Request.t()) :: options()
   def options(%User{} = user, %Request{requested_scopes: requested}) do
     allowed = Keys.allowed_scopes_for(user)
-    asked = Enum.filter(requested, &(&1 in allowed))
 
-    selectable = if asked == [], do: allowed, else: asked
+    # A client that named scopes gets at most those; when it named none the person may grant
+    # anything they hold. Scopes it named that the person does not hold are not replaced by
+    # others: the person is offered nothing rather than more than was asked.
+    selectable =
+      if requested == [], do: allowed, else: Enum.filter(requested, &(&1 in allowed))
+
     %{selectable: selectable, preselected: Enum.filter(selectable, &Scopes.read?/1)}
   end
 
@@ -56,8 +60,15 @@ defmodule PhoenixKit.API.OAuth.Consent do
   @spec days() :: {pos_integer(), [pos_integer()]}
   def days do
     max_days = PersonalKeysConfig.max_days()
-    choices = Enum.filter(@day_choices, &(&1 <= max_days))
-    {min(@default_days, max_days), choices}
+    default = min(@default_days, max_days)
+
+    choices =
+      [default | @day_choices]
+      |> Enum.filter(&(&1 <= max_days))
+      |> Enum.uniq()
+      |> Enum.sort()
+
+    {default, choices}
   end
 
   @doc """

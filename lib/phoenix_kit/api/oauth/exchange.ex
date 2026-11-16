@@ -301,7 +301,9 @@ defmodule PhoenixKit.API.OAuth.Exchange do
            Tokens.issue(grant, :refresh, family: family, parent_uuid: parent) do
       response(grant, access, access_row, refresh)
     else
-      {:error, _reason} -> invalid_grant("The tokens could not be issued.")
+      # Rolled back, as the first pair is: the mark on the presented token must not outlive a
+      # pair that was never made, or its retry would find no successor and end the grant.
+      {:error, _reason} -> repo().rollback(:issue_failed)
     end
   end
 

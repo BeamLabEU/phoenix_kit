@@ -12,7 +12,7 @@ defmodule PhoenixKitWeb.OAuth.ConsentTest do
   import PhoenixKit.API.OAuthTestSupport,
     only: [client!: 0, client!: 1, enable_oauth!: 0, pkce: 0]
 
-  import PhoenixKit.Test.ApiHarness, only: [put_setting: 2, setup_api: 0]
+  import PhoenixKit.Test.ApiHarness, only: [put_setting: 2, setup_api: 0, with_client_ip: 1]
 
   alias PhoenixKit.API.KeyTestSupport
   alias PhoenixKit.API.OAuth.Code
@@ -217,6 +217,46 @@ defmodule PhoenixKitWeb.OAuth.ConsentTest do
     end
   end
 
+  describe "the switch" do
+    test "OAuth turned off after the request was made: 404, nothing granted, the request kept",
+         %{user: user, client: client, challenge: challenge} do
+      id = request_id(client, challenge)
+      put_setting("api_oauth_enabled", "false")
+
+      assert consent(browser(user), id).status == 404
+
+      answer = decide(browser(user), id, allow_form())
+      assert answer.status == 404
+      assert get_resp_header(answer, "location") == []
+      assert Repo.all(Grant) == []
+      assert Repo.all(Code) == []
+      assert Requests.live_count() == 1
+    end
+  end
+
+  describe "the lifetime to choose" do
+    test "the default is a choice of the select even when the ceiling is not one of the usual steps",
+         %{user: user, client: client, challenge: challenge} do
+      for {max_days, selected} <- [{"10", "10"}, {"20", "20"}, {"7", "7"}, {"400", "30"}] do
+        put_setting("api_personal_key_max_days", max_days)
+        id = request_id(client, challenge)
+
+        html =
+          user |> browser() |> consent(id) |> Map.fetch!(:resp_body) |> Floki.parse_document!()
+
+        values =
+          html
+          |> Floki.find("#consent-days option")
+          |> Enum.flat_map(&Floki.attribute(&1, "value"))
+
+        assert selected in values, "max #{max_days}: #{inspect(values)}"
+
+        assert [option] = Floki.find(html, "#consent-days option[selected]")
+        assert Floki.attribute(option, "value") == [selected], "max #{max_days}"
+      end
+    end
+  end
+
   describe "the name of the client" do
     test "a name that is nothing once stripped gives way to the client_id", %{
       user: user,
@@ -274,6 +314,30 @@ defmodule PhoenixKitWeb.OAuth.ConsentTest do
       refute csp =~ "frame-ancestors 'self'"
     end
 
+    test "a response with no policy at all gets one that carries only frame-ancestors" do
+      conn = Plug.Test.conn(:get, "/") |> Responses.secure()
+
+      assert get_resp_header(conn, "content-security-policy") == ["frame-ancestors 'none'"]
+      assert get_resp_header(conn, "x-frame-options") == ["DENY"]
+    end
+
+    test "every policy a host set has its frame-ancestors replaced" do
+      conn =
+        Plug.Test.conn(:get, "/")
+        |> put_resp_header("content-security-policy", "default-src 'self'")
+        |> Plug.Conn.prepend_resp_headers([
+          {"content-security-policy", "frame-ancestors *; img-src data:"}
+        ])
+        |> Responses.secure()
+
+      assert policies = get_resp_header(conn, "content-security-policy")
+      assert length(policies) == 2
+      assert Enum.all?(policies, &(&1 =~ "frame-ancestors 'none'"))
+      assert Enum.any?(policies, &(&1 =~ "default-src 'self'"))
+      assert Enum.any?(policies, &(&1 =~ "img-src data:"))
+      refute Enum.any?(policies, &(&1 =~ "frame-ancestors *"))
+    end
+
     test "a host policy without frame-ancestors gets the directive appended" do
       assert Responses.replace_directive("default-src 'self'") ==
                "default-src 'self'; frame-ancestors 'none'"
@@ -310,6 +374,42 @@ defmodule PhoenixKitWeb.OAuth.ConsentTest do
       assert_error_sent 403, fn -> decide(conn, id, allow_form()) end
       assert Repo.all(Grant) == []
       assert Requests.live_count() == 1
+    end
+  end
+
+  describe "CSRF, end to end" do
+    test "the token the page carries is accepted for the answer of the same session", %{
+      user: user,
+      client: client,
+      challenge: challenge
+    } do
+      id = request_id(client, challenge)
+
+      page =
+        user
+        |> browser()
+        |> put_private(:plug_skip_csrf_protection, false)
+        |> consent(id)
+
+      assert page.status == 200
+
+      [token] =
+        page.resp_body
+        |> Floki.parse_document!()
+        |> Floki.attribute("#consent-form input[name=_csrf_token]", "value")
+
+      assert token != ""
+
+      answer =
+        page
+        |> Phoenix.ConnTest.recycle()
+        |> with_client_ip()
+        |> put_private(:plug_skip_csrf_protection, false)
+        |> decide(id, Map.put(allow_form(), "_csrf_token", token))
+
+      assert answer.status == 302
+      assert String.starts_with?(location(answer), hd(client.redirect_uris) <> "?")
+      assert [%Grant{}] = Repo.all(Grant)
     end
   end
 

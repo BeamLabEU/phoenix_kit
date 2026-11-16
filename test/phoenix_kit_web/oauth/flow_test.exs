@@ -171,13 +171,30 @@ defmodule PhoenixKitWeb.OAuth.FlowTest do
       assert redirected_to(conn, 302) =~ "/users/log-in"
     end
 
-    test "a magic link opened in another browser finds no session: the page says start again", %{
-      user: user
-    } do
-      # The id lives in the first browser's session only; a second browser has no request.
-      conn = consent(browser(user), String.duplicate("A", 43))
-      assert conn.status == 400
-      assert [_] = conn.resp_body |> Floki.parse_document!() |> Floki.find("h1")
+    test "the request lives on the server: a second browser reaches it, and finds it gone once it ran out",
+         %{user: user, client: client} do
+      {_verifier, challenge} = pkce()
+      id = browser() |> authorize(authorize_params(client, challenge)) |> consent_id()
+
+      # The first browser has no session: it is sent to the sign-in with the way back in ITS
+      # session. A magic link then opens in another browser, which has a session of its own and
+      # no way back, only the consent URL.
+      first = consent(browser(), id)
+      assert redirected_to(first, 302) =~ "/users/log-in"
+      assert get_session(first, :user_return_to) == path("/consent/" <> id)
+
+      assert consent(browser(user), id).status == 200
+
+      # Past the lifetime of the request (the letter took too long) the other browser meets the
+      # start-again page, and nothing was granted.
+      Repo.update_all(PhoenixKit.API.OAuth.Request,
+        set: [expires_at: DateTime.add(DateTime.utc_now(), -5, :second)]
+      )
+
+      late = consent(browser(user), id)
+      assert late.status == 400
+      assert [_] = late.resp_body |> Floki.parse_document!() |> Floki.find("h1")
+      assert Repo.all(Grant) == []
     end
   end
 
@@ -210,6 +227,22 @@ defmodule PhoenixKitWeb.OAuth.FlowTest do
       assert [_] = Floki.find(html, ~s(input[name="scopes[]"][value="#{@read}"][checked]))
       assert [_] = Floki.find(html, ~s(input[name="scopes[]"][value="#{@write}"]))
       assert [] = Floki.find(html, ~s(input[name="scopes[]"][value="#{@write}"][checked]))
+    end
+
+    test "a client that named only scopes the person does not hold is offered nothing else", %{
+      client: client
+    } do
+      {reader, _role} = holder(["dashboard"])
+      {_verifier, challenge} = pkce()
+      params = authorize_params(client, challenge, %{"scope" => @write})
+      id = browser() |> authorize(params) |> consent_id()
+
+      assert [] = Floki.find(consent_html(reader, id), ~s(input[name="scopes[]"]))
+
+      # Nor does a forged answer get the reading scope the client never asked for.
+      conn = decide(browser(reader), id, %{"decision" => "allow", "scopes" => [@read]})
+      assert conn.status == 422
+      assert Repo.all(Grant) == []
     end
 
     test "a scope outside what was offered is dropped; with nothing left the screen asks again",
@@ -351,6 +384,16 @@ defmodule PhoenixKitWeb.OAuth.FlowTest do
       Repo.update_all(Grant, set: [expires_at: past])
 
       assert %{"error" => "invalid_grant"} = client |> refresh(tokens["refresh_token"]) |> body()
+    end
+
+    test "a grant marked revoked refuses its refresh token though the token itself is untouched",
+         %{client: client, tokens: tokens} do
+      # Only the grant row: the refresh token is neither used nor revoked, so what refuses it
+      # is the grant check, not the state of the token.
+      Repo.update_all(Grant, set: [revoked_at: DateTime.utc_now()])
+
+      assert %{"error" => "invalid_grant"} = client |> refresh(tokens["refresh_token"]) |> body()
+      assert tools_list(tokens["access_token"]).status == 401
     end
 
     test "a revoked grant cannot be refreshed", %{client: client, tokens: tokens} do

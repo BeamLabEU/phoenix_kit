@@ -27460,117 +27460,117 @@ msgstr "此连接保存凭证。由哪个连接发送，以及投递事件管道
 msgid "The verification could not load, so this form cannot be sent. Your browser or network is blocking challenges.cloudflare.com: allow it (a content blocker is the usual cause), then reload the page."
 msgstr "验证未能加载，因此无法提交此表单。你的浏览器或网络拦截了 challenges.cloudflare.com：请放行该地址（通常是内容拦截器所致），然后重新加载页面。"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:71
+#: lib/phoenix_kit_web/oauth/pages.ex:80
 #, elixir-autogen, elixir-format
 msgid "This connection cannot be started"
-msgstr ""
+msgstr "无法开始此连接"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:74
+#: lib/phoenix_kit_web/oauth/pages.ex:83
 #, elixir-autogen, elixir-format
 msgid "The link that brought you here is not valid. Go back to the application and start the connection again."
-msgstr ""
+msgstr "您使用的链接无效。请返回应用程序，重新开始连接。"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:88
+#: lib/phoenix_kit_web/oauth/pages.ex:97
 #, elixir-autogen, elixir-format
 msgid "Start the connection again"
-msgstr ""
+msgstr "重新开始连接"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:91
+#: lib/phoenix_kit_web/oauth/pages.ex:100
 #, elixir-autogen, elixir-format
 msgid "This request has expired or was already used. Go back to the application and start the connection again."
-msgstr ""
+msgstr "此请求已过期或已被使用。请返回应用程序，重新开始连接。"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:105
+#: lib/phoenix_kit_web/oauth/pages.ex:114
 #, elixir-autogen, elixir-format
 msgid "You cannot connect applications"
-msgstr ""
+msgstr "您无法连接应用程序"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:108
+#: lib/phoenix_kit_web/oauth/pages.ex:117
 #, elixir-autogen, elixir-format
 msgid "Applications cannot be connected while you are acting as another person."
-msgstr ""
+msgstr "当您以他人身份操作时，无法连接应用程序。"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:111
+#: lib/phoenix_kit_web/oauth/pages.ex:120
 #, elixir-autogen, elixir-format
 msgid "You do not have the right to connect applications. Ask an administrator."
-msgstr ""
+msgstr "您没有连接应用程序的权限。请联系管理员。"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:129
+#: lib/phoenix_kit_web/oauth/pages.ex:138
 #, elixir-autogen, elixir-format
 msgid "Allow access"
-msgstr ""
+msgstr "允许访问"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:130
+#: lib/phoenix_kit_web/oauth/pages.ex:139
 #, elixir-autogen, elixir-format
 msgid "%{client} asks for access"
-msgstr ""
-
-#: lib/phoenix_kit_web/oauth/pages.ex:131
-#, elixir-autogen, elixir-format
-msgid "on behalf of %{email}"
-msgstr ""
-
-#: lib/phoenix_kit_web/oauth/pages.ex:132
-#, elixir-autogen, elixir-format
-msgid "After you decide, your browser is sent to"
-msgstr ""
-
-#: lib/phoenix_kit_web/oauth/pages.ex:135
-#, elixir-autogen, elixir-format
-msgid "This address is on the computer you are using now. Allow it only if you started this connection yourself."
-msgstr ""
+msgstr "%{client} 请求访问"
 
 #: lib/phoenix_kit_web/oauth/pages.ex:140
 #, elixir-autogen, elixir-format
-msgid "Choose at least one permission."
-msgstr ""
+msgid "on behalf of %{email}"
+msgstr "代表 %{email}"
+
+#: lib/phoenix_kit_web/oauth/pages.ex:141
+#, elixir-autogen, elixir-format
+msgid "After you decide, your browser is sent to"
+msgstr "您做出决定后，浏览器将被转到"
 
 #: lib/phoenix_kit_web/oauth/pages.ex:144
 #, elixir-autogen, elixir-format
-msgid "What it may do"
-msgstr ""
+msgid "This address is on the computer you are using now. Allow it only if you started this connection yourself."
+msgstr "此地址位于您当前使用的计算机上。仅当您自己发起了此连接时才允许。"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:155
+#: lib/phoenix_kit_web/oauth/pages.ex:149
+#, elixir-autogen, elixir-format
+msgid "Choose at least one permission."
+msgstr "请至少选择一项权限。"
+
+#: lib/phoenix_kit_web/oauth/pages.ex:153
+#, elixir-autogen, elixir-format
+msgid "What it may do"
+msgstr "它可以做什么"
+
+#: lib/phoenix_kit_web/oauth/pages.ex:164
 #, elixir-autogen, elixir-format
 msgid "read"
-msgstr ""
+msgstr "读取"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:162
+#: lib/phoenix_kit_web/oauth/pages.ex:171
 #, elixir-autogen, elixir-format
 msgid "Reading is selected by default. Anything that changes data you turn on yourself."
-msgstr ""
+msgstr "默认只选中读取。任何会更改数据的权限都由您自己开启。"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:165
+#: lib/phoenix_kit_web/oauth/pages.ex:174
 #, elixir-autogen, elixir-format
 msgid "Permissions are counted across all your roles, not only the one you are using now."
-msgstr ""
+msgstr "权限按您的所有角色计算，而不仅仅是您当前使用的角色。"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:167
+#: lib/phoenix_kit_web/oauth/pages.ex:178
 #, elixir-autogen, elixir-format
 msgid "How long"
-msgstr ""
+msgstr "持续多久"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:177
+#: lib/phoenix_kit_web/oauth/pages.ex:188
 #, elixir-autogen, elixir-format
 msgid "Allow"
-msgstr ""
+msgstr "允许"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:198
+#: lib/phoenix_kit_web/oauth/pages.ex:209
 #, elixir-autogen, elixir-format
 msgid "Too many connections"
-msgstr ""
+msgstr "连接过多"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:201
+#: lib/phoenix_kit_web/oauth/pages.ex:212
 #, elixir-autogen, elixir-format
 msgid "You already have as many connected applications as are allowed. Disconnect one to connect another."
-msgstr ""
+msgstr "您已连接了允许的最大数量的应用程序。请断开一个，再连接另一个。"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:208
+#: lib/phoenix_kit_web/oauth/pages.ex:219
 #, elixir-autogen, elixir-format
 msgid "Application"
-msgstr ""
+msgstr "应用程序"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:230
+#: lib/phoenix_kit_web/oauth/pages.ex:248
 #, elixir-autogen, elixir-format
 msgid "Back to the request"
-msgstr ""
+msgstr "返回请求"

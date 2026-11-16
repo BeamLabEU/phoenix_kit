@@ -13,7 +13,9 @@ defmodule PhoenixKitWeb.OAuth.TokenTest do
   alias PhoenixKit.API.OAuth.Code
   alias PhoenixKit.API.OAuth.Grant
   alias PhoenixKit.API.OAuth.Resource
+  alias PhoenixKit.API.OAuth.Token
   alias PhoenixKit.Test.Repo
+  alias PhoenixKit.Users.Permissions
   alias PhoenixKit.Utils.Routes
 
   @read "testkit.items:read"
@@ -75,6 +77,29 @@ defmodule PhoenixKitWeb.OAuth.TokenTest do
 
       # The code was spent by the attempt: the right verifier does not help any more.
       assert error_of(exchange_code(flow)) == "invalid_grant"
+    end
+
+    test "a code whose grant was ended in the meantime gets no tokens", %{flow: flow} do
+      # The grant row only: the code itself is fresh, so what refuses it is the grant check.
+      Repo.update_all(Grant, set: [revoked_at: DateTime.utc_now()])
+
+      conn = exchange_code(flow)
+      assert conn.status == 400
+      assert error_of(conn) == "invalid_grant"
+      assert Repo.all(Token) == []
+    end
+
+    test "a person who lost the right between the consent and the exchange gets no tokens", %{
+      client: client
+    } do
+      {user, role} = holder(["dashboard"])
+      flow = code_for(user, client, [@read])
+      :ok = Permissions.revoke_permission(role.uuid, "api_personal_keys")
+
+      conn = exchange_code(flow)
+      assert conn.status == 400
+      assert error_of(conn) == "invalid_grant"
+      assert Repo.all(Token) == []
     end
 
     test "a verifier of the wrong length is invalid_request", %{flow: flow} do

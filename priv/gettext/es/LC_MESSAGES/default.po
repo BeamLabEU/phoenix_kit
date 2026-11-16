@@ -27447,117 +27447,117 @@ msgstr "Esta conexión guarda la credencial. Qué conexión envía, y la cadena 
 msgid "The verification could not load, so this form cannot be sent. Your browser or network is blocking challenges.cloudflare.com: allow it (a content blocker is the usual cause), then reload the page."
 msgstr "La verificación no se pudo cargar, por lo que este formulario no se puede enviar. Tu navegador o tu red bloquea challenges.cloudflare.com: permítelo (la causa habitual es un bloqueador de contenido) y vuelve a cargar la página."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:71
+#: lib/phoenix_kit_web/oauth/pages.ex:80
 #, elixir-autogen, elixir-format
 msgid "This connection cannot be started"
-msgstr ""
+msgstr "No se puede iniciar esta conexión"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:74
+#: lib/phoenix_kit_web/oauth/pages.ex:83
 #, elixir-autogen, elixir-format
 msgid "The link that brought you here is not valid. Go back to the application and start the connection again."
-msgstr ""
+msgstr "El enlace que le ha traído hasta aquí no es válido. Vuelva a la aplicación e inicie la conexión de nuevo."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:88
+#: lib/phoenix_kit_web/oauth/pages.ex:97
 #, elixir-autogen, elixir-format
 msgid "Start the connection again"
-msgstr ""
+msgstr "Iniciar la conexión de nuevo"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:91
+#: lib/phoenix_kit_web/oauth/pages.ex:100
 #, elixir-autogen, elixir-format
 msgid "This request has expired or was already used. Go back to the application and start the connection again."
-msgstr ""
+msgstr "Esta solicitud ha caducado o ya se ha utilizado. Vuelva a la aplicación e inicie la conexión de nuevo."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:105
+#: lib/phoenix_kit_web/oauth/pages.ex:114
 #, elixir-autogen, elixir-format
 msgid "You cannot connect applications"
-msgstr ""
+msgstr "No puede conectar aplicaciones"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:108
+#: lib/phoenix_kit_web/oauth/pages.ex:117
 #, elixir-autogen, elixir-format
 msgid "Applications cannot be connected while you are acting as another person."
-msgstr ""
+msgstr "No se pueden conectar aplicaciones mientras actúa como otra persona."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:111
+#: lib/phoenix_kit_web/oauth/pages.ex:120
 #, elixir-autogen, elixir-format
 msgid "You do not have the right to connect applications. Ask an administrator."
-msgstr ""
+msgstr "No tiene permiso para conectar aplicaciones. Consulte a un administrador."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:129
+#: lib/phoenix_kit_web/oauth/pages.ex:138
 #, elixir-autogen, elixir-format
 msgid "Allow access"
-msgstr ""
+msgstr "Permitir el acceso"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:130
+#: lib/phoenix_kit_web/oauth/pages.ex:139
 #, elixir-autogen, elixir-format
 msgid "%{client} asks for access"
-msgstr ""
-
-#: lib/phoenix_kit_web/oauth/pages.ex:131
-#, elixir-autogen, elixir-format
-msgid "on behalf of %{email}"
-msgstr ""
-
-#: lib/phoenix_kit_web/oauth/pages.ex:132
-#, elixir-autogen, elixir-format
-msgid "After you decide, your browser is sent to"
-msgstr ""
-
-#: lib/phoenix_kit_web/oauth/pages.ex:135
-#, elixir-autogen, elixir-format
-msgid "This address is on the computer you are using now. Allow it only if you started this connection yourself."
-msgstr ""
+msgstr "%{client} solicita acceso"
 
 #: lib/phoenix_kit_web/oauth/pages.ex:140
 #, elixir-autogen, elixir-format
-msgid "Choose at least one permission."
-msgstr ""
+msgid "on behalf of %{email}"
+msgstr "en nombre de %{email}"
+
+#: lib/phoenix_kit_web/oauth/pages.ex:141
+#, elixir-autogen, elixir-format
+msgid "After you decide, your browser is sent to"
+msgstr "Después de su decisión, su navegador será redirigido a"
 
 #: lib/phoenix_kit_web/oauth/pages.ex:144
 #, elixir-autogen, elixir-format
-msgid "What it may do"
-msgstr ""
+msgid "This address is on the computer you are using now. Allow it only if you started this connection yourself."
+msgstr "Esta dirección está en el ordenador que está usando ahora. Permítala solo si usted mismo inició esta conexión."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:155
+#: lib/phoenix_kit_web/oauth/pages.ex:149
+#, elixir-autogen, elixir-format
+msgid "Choose at least one permission."
+msgstr "Elija al menos un permiso."
+
+#: lib/phoenix_kit_web/oauth/pages.ex:153
+#, elixir-autogen, elixir-format
+msgid "What it may do"
+msgstr "Qué puede hacer"
+
+#: lib/phoenix_kit_web/oauth/pages.ex:164
 #, elixir-autogen, elixir-format
 msgid "read"
-msgstr ""
+msgstr "lectura"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:162
+#: lib/phoenix_kit_web/oauth/pages.ex:171
 #, elixir-autogen, elixir-format
 msgid "Reading is selected by default. Anything that changes data you turn on yourself."
-msgstr ""
+msgstr "La lectura está seleccionada por defecto. Todo lo que modifica datos lo activa usted mismo."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:165
+#: lib/phoenix_kit_web/oauth/pages.ex:174
 #, elixir-autogen, elixir-format
 msgid "Permissions are counted across all your roles, not only the one you are using now."
-msgstr ""
+msgstr "Los permisos se calculan según todos sus roles, no solo el que está usando ahora."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:167
+#: lib/phoenix_kit_web/oauth/pages.ex:178
 #, elixir-autogen, elixir-format
 msgid "How long"
-msgstr ""
+msgstr "Durante cuánto tiempo"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:177
+#: lib/phoenix_kit_web/oauth/pages.ex:188
 #, elixir-autogen, elixir-format
 msgid "Allow"
-msgstr ""
+msgstr "Permitir"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:198
+#: lib/phoenix_kit_web/oauth/pages.ex:209
 #, elixir-autogen, elixir-format
 msgid "Too many connections"
-msgstr ""
+msgstr "Demasiadas conexiones"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:201
+#: lib/phoenix_kit_web/oauth/pages.ex:212
 #, elixir-autogen, elixir-format
 msgid "You already have as many connected applications as are allowed. Disconnect one to connect another."
-msgstr ""
+msgstr "Ya tiene tantas aplicaciones conectadas como se permiten. Desconecte una para conectar otra."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:208
+#: lib/phoenix_kit_web/oauth/pages.ex:219
 #, elixir-autogen, elixir-format
 msgid "Application"
-msgstr ""
+msgstr "Aplicación"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:230
+#: lib/phoenix_kit_web/oauth/pages.ex:248
 #, elixir-autogen, elixir-format
 msgid "Back to the request"
-msgstr ""
+msgstr "Volver a la solicitud"

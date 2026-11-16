@@ -30,6 +30,8 @@ defmodule PhoenixKitWeb.OAuth.AuthorizeController do
   alias PhoenixKitWeb.OAuth.Pages
   alias PhoenixKitWeb.OAuth.Responses
 
+  @seen_every_seconds 3600
+
   plug :secure_headers
 
   defp secure_headers(conn, _opts), do: Responses.secure(conn)
@@ -93,9 +95,18 @@ defmodule PhoenixKitWeb.OAuth.AuthorizeController do
 
   defp error_page(conn, status), do: Responses.page(conn, status, Pages.error(%{}))
 
-  # The client was seen now (a registered client nobody uses can be removed by its age). A
-  # failed write must not turn a valid request into an error.
-  defp touch(client) do
+  # The client was seen now (a registered client nobody uses can be removed by its age, so an
+  # hour's precision is plenty and a busy client does not cost a write per request). A failed
+  # write must not turn a valid request into an error.
+  defp touch(%{last_seen_at: %DateTime{} = seen} = client) do
+    if DateTime.diff(DateTime.utc_now(), seen) >= @seen_every_seconds,
+      do: mark_seen(client),
+      else: :ok
+  end
+
+  defp touch(client), do: mark_seen(client)
+
+  defp mark_seen(client) do
     now = DateTime.truncate(DateTime.utc_now(), :second)
 
     client

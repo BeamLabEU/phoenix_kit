@@ -27448,117 +27448,117 @@ msgstr "See ühendus hoiab võtit. See, milline ühendus saadab, ja kohaletoimet
 msgid "The verification could not load, so this form cannot be sent. Your browser or network is blocking challenges.cloudflare.com: allow it (a content blocker is the usual cause), then reload the page."
 msgstr "Kontrolli ei õnnestunud laadida, seega ei saa seda vormi saata. Sinu brauser või võrk blokeerib aadressi challenges.cloudflare.com: luba see (tavaliselt on põhjuseks sisublokeerija) ja laadi leht uuesti."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:71
+#: lib/phoenix_kit_web/oauth/pages.ex:80
 #, elixir-autogen, elixir-format
 msgid "This connection cannot be started"
 msgstr "Seda ühendust ei saa alustada"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:74
+#: lib/phoenix_kit_web/oauth/pages.ex:83
 #, elixir-autogen, elixir-format
 msgid "The link that brought you here is not valid. Go back to the application and start the connection again."
 msgstr "Link, mille kaudu siia jõudsite, ei kehti. Minge tagasi rakendusse ja alustage ühendamist uuesti."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:88
+#: lib/phoenix_kit_web/oauth/pages.ex:97
 #, elixir-autogen, elixir-format
 msgid "Start the connection again"
 msgstr "Alustage ühendamist uuesti"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:91
+#: lib/phoenix_kit_web/oauth/pages.ex:100
 #, elixir-autogen, elixir-format
 msgid "This request has expired or was already used. Go back to the application and start the connection again."
 msgstr "See päring on aegunud või juba kasutatud. Minge tagasi rakendusse ja alustage ühendamist uuesti."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:105
+#: lib/phoenix_kit_web/oauth/pages.ex:114
 #, elixir-autogen, elixir-format
 msgid "You cannot connect applications"
 msgstr "Te ei saa rakendusi ühendada"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:108
+#: lib/phoenix_kit_web/oauth/pages.ex:117
 #, elixir-autogen, elixir-format
 msgid "Applications cannot be connected while you are acting as another person."
 msgstr "Rakendusi ei saa ühendada, kui tegutsete teise isiku nimel."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:111
+#: lib/phoenix_kit_web/oauth/pages.ex:120
 #, elixir-autogen, elixir-format
 msgid "You do not have the right to connect applications. Ask an administrator."
 msgstr "Teil ei ole õigust rakendusi ühendada. Pöörduge administraatori poole."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:129
+#: lib/phoenix_kit_web/oauth/pages.ex:138
 #, elixir-autogen, elixir-format
 msgid "Allow access"
 msgstr "Luba juurdepääs"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:130
+#: lib/phoenix_kit_web/oauth/pages.ex:139
 #, elixir-autogen, elixir-format
 msgid "%{client} asks for access"
 msgstr "%{client} küsib juurdepääsu"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:131
+#: lib/phoenix_kit_web/oauth/pages.ex:140
 #, elixir-autogen, elixir-format
 msgid "on behalf of %{email}"
 msgstr "kasutaja %{email} nimel"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:132
+#: lib/phoenix_kit_web/oauth/pages.ex:141
 #, elixir-autogen, elixir-format
 msgid "After you decide, your browser is sent to"
 msgstr "Pärast otsust suunatakse teie brauser aadressile"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:135
+#: lib/phoenix_kit_web/oauth/pages.ex:144
 #, elixir-autogen, elixir-format
 msgid "This address is on the computer you are using now. Allow it only if you started this connection yourself."
 msgstr "See aadress asub arvutis, mida praegu kasutate. Lubage see ainult siis, kui alustasite seda ühendust ise."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:140
+#: lib/phoenix_kit_web/oauth/pages.ex:149
 #, elixir-autogen, elixir-format
 msgid "Choose at least one permission."
 msgstr "Valige vähemalt üks õigus."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:144
+#: lib/phoenix_kit_web/oauth/pages.ex:153
 #, elixir-autogen, elixir-format
 msgid "What it may do"
 msgstr "Mida see tohib teha"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:155
+#: lib/phoenix_kit_web/oauth/pages.ex:164
 #, elixir-autogen, elixir-format
 msgid "read"
 msgstr "lugemine"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:162
+#: lib/phoenix_kit_web/oauth/pages.ex:171
 #, elixir-autogen, elixir-format
 msgid "Reading is selected by default. Anything that changes data you turn on yourself."
 msgstr "Vaikimisi on valitud ainult lugemine. Kõik, mis andmeid muudab, lülitate ise sisse."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:165
+#: lib/phoenix_kit_web/oauth/pages.ex:174
 #, elixir-autogen, elixir-format
 msgid "Permissions are counted across all your roles, not only the one you are using now."
 msgstr "Õigused arvestatakse kõigi teie rollide põhjal, mitte ainult selle järgi, mida praegu kasutate."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:167
+#: lib/phoenix_kit_web/oauth/pages.ex:178
 #, elixir-autogen, elixir-format
 msgid "How long"
 msgstr "Kui kauaks"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:177
+#: lib/phoenix_kit_web/oauth/pages.ex:188
 #, elixir-autogen, elixir-format
 msgid "Allow"
 msgstr "Luba"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:198
+#: lib/phoenix_kit_web/oauth/pages.ex:209
 #, elixir-autogen, elixir-format
 msgid "Too many connections"
 msgstr "Liiga palju ühendusi"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:201
+#: lib/phoenix_kit_web/oauth/pages.ex:212
 #, elixir-autogen, elixir-format
 msgid "You already have as many connected applications as are allowed. Disconnect one to connect another."
 msgstr "Teil on juba ühendatud lubatud arv rakendusi. Katkestage üks, et ühendada teine."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:208
+#: lib/phoenix_kit_web/oauth/pages.ex:219
 #, elixir-autogen, elixir-format
 msgid "Application"
 msgstr "Rakendus"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:230
+#: lib/phoenix_kit_web/oauth/pages.ex:248
 #, elixir-autogen, elixir-format
 msgid "Back to the request"
 msgstr "Tagasi päringu juurde"

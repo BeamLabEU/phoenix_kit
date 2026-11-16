@@ -27534,117 +27534,117 @@ msgstr "Это подключение хранит учётные данные. 
 msgid "The verification could not load, so this form cannot be sent. Your browser or network is blocking challenges.cloudflare.com: allow it (a content blocker is the usual cause), then reload the page."
 msgstr "Проверку не удалось загрузить, поэтому отправить эту форму нельзя. Ваш браузер или сеть блокирует challenges.cloudflare.com: разрешите этот адрес (обычно причина в блокировщике содержимого) и перезагрузите страницу."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:71
+#: lib/phoenix_kit_web/oauth/pages.ex:80
 #, elixir-autogen, elixir-format
 msgid "This connection cannot be started"
 msgstr "Это подключение нельзя начать"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:74
+#: lib/phoenix_kit_web/oauth/pages.ex:83
 #, elixir-autogen, elixir-format
 msgid "The link that brought you here is not valid. Go back to the application and start the connection again."
 msgstr "Ссылка, по которой вы пришли, недействительна. Вернитесь в приложение и начните подключение заново."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:88
+#: lib/phoenix_kit_web/oauth/pages.ex:97
 #, elixir-autogen, elixir-format
 msgid "Start the connection again"
 msgstr "Начните подключение заново"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:91
+#: lib/phoenix_kit_web/oauth/pages.ex:100
 #, elixir-autogen, elixir-format
 msgid "This request has expired or was already used. Go back to the application and start the connection again."
 msgstr "Этот запрос истёк или уже использован. Вернитесь в приложение и начните подключение заново."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:105
+#: lib/phoenix_kit_web/oauth/pages.ex:114
 #, elixir-autogen, elixir-format
 msgid "You cannot connect applications"
 msgstr "Вы не можете подключать приложения"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:108
+#: lib/phoenix_kit_web/oauth/pages.ex:117
 #, elixir-autogen, elixir-format
 msgid "Applications cannot be connected while you are acting as another person."
 msgstr "Приложения нельзя подключать, пока вы действуете от имени другого человека."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:111
+#: lib/phoenix_kit_web/oauth/pages.ex:120
 #, elixir-autogen, elixir-format
 msgid "You do not have the right to connect applications. Ask an administrator."
 msgstr "У вас нет права подключать приложения. Обратитесь к администратору."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:129
+#: lib/phoenix_kit_web/oauth/pages.ex:138
 #, elixir-autogen, elixir-format
 msgid "Allow access"
 msgstr "Разрешить доступ"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:130
+#: lib/phoenix_kit_web/oauth/pages.ex:139
 #, elixir-autogen, elixir-format
 msgid "%{client} asks for access"
 msgstr "%{client} запрашивает доступ"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:131
+#: lib/phoenix_kit_web/oauth/pages.ex:140
 #, elixir-autogen, elixir-format
 msgid "on behalf of %{email}"
 msgstr "от имени %{email}"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:132
+#: lib/phoenix_kit_web/oauth/pages.ex:141
 #, elixir-autogen, elixir-format
 msgid "After you decide, your browser is sent to"
 msgstr "После вашего решения браузер будет отправлен на"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:135
+#: lib/phoenix_kit_web/oauth/pages.ex:144
 #, elixir-autogen, elixir-format
 msgid "This address is on the computer you are using now. Allow it only if you started this connection yourself."
 msgstr "Этот адрес находится на компьютере, которым вы пользуетесь сейчас. Разрешайте, только если вы сами начали это подключение."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:140
+#: lib/phoenix_kit_web/oauth/pages.ex:149
 #, elixir-autogen, elixir-format
 msgid "Choose at least one permission."
 msgstr "Выберите хотя бы одно разрешение."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:144
+#: lib/phoenix_kit_web/oauth/pages.ex:153
 #, elixir-autogen, elixir-format
 msgid "What it may do"
 msgstr "Что оно сможет делать"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:155
+#: lib/phoenix_kit_web/oauth/pages.ex:164
 #, elixir-autogen, elixir-format
 msgid "read"
 msgstr "чтение"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:162
+#: lib/phoenix_kit_web/oauth/pages.ex:171
 #, elixir-autogen, elixir-format
 msgid "Reading is selected by default. Anything that changes data you turn on yourself."
 msgstr "По умолчанию выбрано только чтение. Всё, что изменяет данные, вы включаете сами."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:165
+#: lib/phoenix_kit_web/oauth/pages.ex:174
 #, elixir-autogen, elixir-format
 msgid "Permissions are counted across all your roles, not only the one you are using now."
 msgstr "Права считаются по всем вашим ролям, а не только по той, которой вы пользуетесь сейчас."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:167
+#: lib/phoenix_kit_web/oauth/pages.ex:178
 #, elixir-autogen, elixir-format
 msgid "How long"
 msgstr "На какой срок"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:177
+#: lib/phoenix_kit_web/oauth/pages.ex:188
 #, elixir-autogen, elixir-format
 msgid "Allow"
 msgstr "Разрешить"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:198
+#: lib/phoenix_kit_web/oauth/pages.ex:209
 #, elixir-autogen, elixir-format
 msgid "Too many connections"
 msgstr "Слишком много подключений"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:201
+#: lib/phoenix_kit_web/oauth/pages.ex:212
 #, elixir-autogen, elixir-format
 msgid "You already have as many connected applications as are allowed. Disconnect one to connect another."
 msgstr "У вас уже подключено максимально допустимое число приложений. Отключите одно, чтобы подключить другое."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:208
+#: lib/phoenix_kit_web/oauth/pages.ex:219
 #, elixir-autogen, elixir-format
 msgid "Application"
 msgstr "Приложение"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:230
+#: lib/phoenix_kit_web/oauth/pages.ex:248
 #, elixir-autogen, elixir-format
 msgid "Back to the request"
 msgstr "Назад к запросу"

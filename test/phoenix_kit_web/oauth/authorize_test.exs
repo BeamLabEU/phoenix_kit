@@ -59,6 +59,23 @@ defmodule PhoenixKitWeb.OAuth.AuthorizeTest do
       assert %DateTime{} = Repo.reload!(client).last_seen_at
     end
 
+    test "a client seen within the hour is not written again, an older one is", %{
+      client: client,
+      challenge: challenge
+    } do
+      recent = DateTime.utc_now() |> DateTime.add(-60, :second) |> DateTime.truncate(:second)
+      Repo.update_all(PhoenixKit.API.OAuth.Client, set: [last_seen_at: recent])
+
+      authorize(browser(), authorize_params(client, challenge))
+      assert Repo.reload!(client).last_seen_at == recent
+
+      stale = DateTime.add(recent, -2 * 3600, :second)
+      Repo.update_all(PhoenixKit.API.OAuth.Client, set: [last_seen_at: stale])
+
+      authorize(browser(), authorize_params(client, challenge))
+      assert DateTime.compare(Repo.reload!(client).last_seen_at, recent) == :gt
+    end
+
     test "an own resource written with another case and a trailing slash is accepted", %{
       client: client,
       challenge: challenge
