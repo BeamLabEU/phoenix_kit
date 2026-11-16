@@ -28,6 +28,9 @@
             file_uuid={uuid}
             variants={Map.get(@variants_map, uuid, [])}
             alt=""
+            sizes={assigns[:thumb_sizes] || thumb_sizes(@cols)}
+            fit="cover"
+            box_aspect={1}
             class={"w-full h-full object-cover rounded-lg border-2 border-base-300 #{rotation_class(%{rotation: Map.get(@rotations_map, uuid)})}"}
             loading="eager"
           />

@@ -30,7 +30,11 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
   - `cols` — grid columns for the thumbnail layout (default `4`). Either an
     integer 1..6, or a string of Tailwind grid-column classes for a responsive
     grid (e.g. `"grid-cols-4 lg:grid-cols-6 2xl:grid-cols-8"`). Plumbed straight
-    through to `<.draggable_list>`.
+    through to `<.draggable_list>`. It also sets the thumbnails' `sizes`
+    (`thumb_sizes/1`), so a tile downloads a variant for its own width, not
+    the screen's.
+  - `thumb_sizes` — the thumbnails' `sizes` attribute, for a gallery in a
+    narrow container; default derived from `cols`
   - `featured_first` — when `true`, the first item in `:selected` renders a
     "Featured" badge in the bottom-left corner. Matches the
     `phoenix_kit_posts` post-creation convention where the first image is the
@@ -233,6 +237,7 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
       |> assign_new(:selected, fn -> [] end)
       |> assign_new(:mode, fn -> :multiple end)
       |> assign_new(:cols, fn -> 4 end)
+      |> assign_new(:thumb_sizes, fn -> nil end)
       |> assign_new(:featured_first, fn -> false end)
       |> assign_new(:scope_folder_id, fn -> nil end)
       |> assign_new(:group_by_folder, fn -> false end)
@@ -350,6 +355,43 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
   end
 
   # ── Private helpers ────────────────────────────────────────────────────
+
+  @breakpoints [{"2xl", 1536}, {"xl", 1280}, {"lg", 1024}, {"md", 768}, {"sm", 640}]
+
+  @doc """
+  The `sizes` of a thumbnail in a grid of `cols`: the viewport split into
+  that many columns, per Tailwind breakpoint for a responsive class string.
+  An upper bound (the gallery's container is never wider than the
+  viewport), where `image_set`'s default of `100vw` had every tile download
+  the largest variant.
+
+      iex> PhoenixKitWeb.Components.MediaGallery.thumb_sizes(4)
+      "calc(100vw / 4)"
+
+      iex> PhoenixKitWeb.Components.MediaGallery.thumb_sizes("grid-cols-3 lg:grid-cols-6")
+      "(min-width: 1024px) calc(100vw / 6), calc(100vw / 3)"
+  """
+  @spec thumb_sizes(integer() | String.t() | nil) :: String.t()
+  def thumb_sizes(cols) when is_integer(cols) and cols > 0, do: "calc(100vw / #{cols})"
+
+  def thumb_sizes(cols) when is_binary(cols) do
+    found =
+      for [_, prefix, n] <- Regex.scan(~r/(?:^|\s)(?:([a-z0-9]+):)?grid-cols-(\d+)(?=\s|$)/, cols),
+          into: %{},
+          do: {prefix, String.to_integer(n)}
+
+    conditional =
+      for {name, px} <- @breakpoints, n = found[name], is_integer(n) and n > 0 do
+        "(min-width: #{px}px) calc(100vw / #{n})"
+      end
+
+    case {conditional, found[""]} do
+      {[], nil} -> "100vw"
+      {_, base} -> Enum.join(conditional ++ [thumb_sizes(base || 1)], ", ")
+    end
+  end
+
+  def thumb_sizes(_cols), do: thumb_sizes(4)
 
   defp load_files(socket) do
     selected = socket.assigns.selected
