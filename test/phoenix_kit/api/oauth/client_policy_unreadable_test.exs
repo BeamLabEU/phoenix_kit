@@ -1,6 +1,6 @@
 defmodule PhoenixKit.API.OAuth.ClientPolicyUnreadableTest do
   @moduledoc """
-  A client list that cannot be read refuses the client (fail closed), under either policy, and a
+  An allow-list that cannot be read refuses the client (fail closed), and a
   pre-registered client is still the administrator's own choice. The Settings store is replaced by
   a repo that raises for the lists, the way `ConfigUnreadableTest` does it.
   """
@@ -13,7 +13,7 @@ defmodule PhoenixKit.API.OAuth.ClientPolicyUnreadableTest do
 
   defmodule UnreadableRepo do
     def get_by(_schema, key: key)
-        when key in ["api_oauth_client_deny_hosts", "api_oauth_client_allow_hosts"] do
+        when key == "api_oauth_client_allow_hosts" do
       case Process.get({:read, key}) do
         :missing -> nil
         _ -> raise DBConnection.ConnectionError, message: "database unavailable"
@@ -40,17 +40,14 @@ defmodule PhoenixKit.API.OAuth.ClientPolicyUnreadableTest do
   end
 
   @tag capture_log: true
-  test "a deny-list that cannot be read refuses, even under the default policy" do
-    Process.put({:read, "api_oauth_client_allow_hosts"}, :missing)
-
-    refute ClientPolicy.allowed?("cimd", @claude_id, @claude_uris)
-    refute ClientPolicy.allowed?("dcr", "dcr_x", @claude_uris)
+  test "the default policy does not read the list at all" do
+    assert ClientPolicy.allowed?("cimd", @claude_id, @claude_uris)
+    assert ClientPolicy.allowed?("dcr", "dcr_x", @claude_uris)
   end
 
   @tag capture_log: true
   test "an allow-list that cannot be read refuses under the allow-list policy" do
     PhoenixKit.Cache.put(:settings, "api_oauth_client_policy", "allow_list")
-    Process.put({:read, "api_oauth_client_deny_hosts"}, :missing)
 
     refute ClientPolicy.allowed?("cimd", @claude_id, @claude_uris)
   end

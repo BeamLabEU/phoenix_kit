@@ -1,7 +1,7 @@
 defmodule PhoenixKit.API.OAuth.ClientPolicyTest do
   @moduledoc """
   Which clients may use the server: any https client (the default) or only the hosts of an
-  allow-list, and never the hosts of the deny-list.
+  allow-list.
   """
   use PhoenixKit.DataCase, async: false
 
@@ -24,49 +24,58 @@ defmodule PhoenixKit.API.OAuth.ClientPolicyTest do
     end
   end
 
-  describe "the deny-list" do
-    test "refuses a client whose id host or redirect host is listed, in any case" do
-      put_setting("api_oauth_client_deny_hosts", "Evil.Example\nother.example")
+  describe "how an allow-list entry is read" do
+    setup do
+      put_setting("api_oauth_client_policy", "allow_list")
+    end
 
-      refute ClientPolicy.allowed?("cimd", "https://evil.example/c.json", @claude_uris)
-      refute ClientPolicy.allowed?("cimd", @claude_id, ["https://EVIL.example/cb"])
-      refute ClientPolicy.allowed?("dcr", "dcr_x", ["https://other.example/cb"])
+    test "in any case" do
+      put_setting("api_oauth_client_allow_hosts", "Claude.AI")
+
       assert ClientPolicy.allowed?("cimd", @claude_id, @claude_uris)
+      assert ClientPolicy.allowed?("cimd", "https://CLAUDE.ai/c.json", ["https://Claude.ai/cb"])
     end
 
     test "an entry written as a URL counts as its host" do
-      put_setting("api_oauth_client_deny_hosts", "https://evil.example/path")
-      refute ClientPolicy.allowed?("dcr", "dcr_x", ["https://evil.example/cb"])
+      put_setting("api_oauth_client_allow_hosts", "https://claude.ai/path")
+      assert ClientPolicy.allowed?("dcr", "dcr_x", @claude_uris)
     end
 
-    test "a trailing dot (the same name to the resolver) does not get around an entry" do
-      put_setting("api_oauth_client_deny_hosts", "evil.example")
+    test "a trailing dot (the same name to the resolver) is no other host, on either side" do
+      put_setting("api_oauth_client_allow_hosts", "claude.ai")
 
-      refute ClientPolicy.allowed?("dcr", "dcr_x", ["https://evil.example./cb"])
-      refute ClientPolicy.allowed?("cimd", "https://EVIL.example./c.json", @claude_uris)
+      assert ClientPolicy.allowed?("dcr", "dcr_x", ["https://claude.ai./cb"])
+      assert ClientPolicy.allowed?("cimd", "https://CLAUDE.ai./c.json", @claude_uris)
 
-      put_setting("api_oauth_client_deny_hosts", "evil.example.")
-      refute ClientPolicy.allowed?("dcr", "dcr_x", ["https://evil.example/cb"])
+      put_setting("api_oauth_client_allow_hosts", "claude.ai.")
+      assert ClientPolicy.allowed?("dcr", "dcr_x", @claude_uris)
     end
 
     test "an IPv6 entry written in brackets, with or without a port, counts as its address" do
       for entry <- ["[2001:db8::1]", "[2001:DB8::1]:8443", "https://[2001:db8::1]"] do
-        put_setting("api_oauth_client_deny_hosts", entry)
-        refute ClientPolicy.allowed?("dcr", "dcr_x", ["https://[2001:db8::1]/cb"]), entry
+        put_setting("api_oauth_client_allow_hosts", entry)
+        assert ClientPolicy.allowed?("dcr", "dcr_x", ["https://[2001:db8::1]/cb"]), entry
+        refute ClientPolicy.allowed?("dcr", "dcr_x", ["https://[2001:db8::2]/cb"]), entry
       end
     end
 
     test "an entry written with a port counts as its host" do
-      put_setting("api_oauth_client_deny_hosts", "evil.example:8443")
-      refute ClientPolicy.allowed?("dcr", "dcr_x", ["https://evil.example/cb"])
+      put_setting("api_oauth_client_allow_hosts", "claude.ai:8443")
+      assert ClientPolicy.allowed?("dcr", "dcr_x", @claude_uris)
     end
 
-    test "holds under the allow-list policy too" do
-      put_setting("api_oauth_client_policy", "allow_list")
+    test "a host that merely ends with an entry is not the entry" do
       put_setting("api_oauth_client_allow_hosts", "claude.ai")
-      put_setting("api_oauth_client_deny_hosts", "claude.ai")
 
-      refute ClientPolicy.allowed?("cimd", @claude_id, @claude_uris)
+      refute ClientPolicy.allowed?("dcr", "dcr_x", ["https://evilclaude.ai/cb"])
+      refute ClientPolicy.allowed?("dcr", "dcr_x", ["https://claude.ai.evil.example/cb"])
+    end
+  end
+
+  describe "there is no deny-list" do
+    test "a setting of that old name changes nothing" do
+      put_setting("api_oauth_client_deny_hosts", "claude.ai")
+      assert ClientPolicy.allowed?("cimd", @claude_id, @claude_uris)
     end
   end
 

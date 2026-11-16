@@ -46,13 +46,17 @@ defmodule PhoenixKit.API.OAuth.Limits do
     end
   end
 
-  @doc false
-  # Empties a bucket; for the tests, whose counters live as long as the node.
-  @spec reset(bucket(), String.t() | nil) :: :ok
-  def reset(bucket, subject) do
-    {scale, _limit} = window(bucket)
-    Backend.set(key(bucket, subject), scale, 0)
-    :ok
+  # Empties a bucket, for the tests whose counters would otherwise live as long as the node. It
+  # exists only in a build compiled with `config :phoenix_kit, oauth_test_seams: true` (this
+  # library's own `config/test.exs`): the public API of an application has no such function.
+  if Application.compile_env(:phoenix_kit, :oauth_test_seams, false) do
+    @doc false
+    @spec reset(bucket(), String.t() | nil) :: :ok
+    def reset(bucket, subject) do
+      {scale, _limit} = window(bucket)
+      Backend.set(key(bucket, subject), scale, 0)
+      :ok
+    end
   end
 
   defp window(:authorize), do: {@minute, Config.oauth_authorize_per_min()}

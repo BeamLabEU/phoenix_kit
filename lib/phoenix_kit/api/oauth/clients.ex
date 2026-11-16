@@ -17,6 +17,8 @@ defmodule PhoenixKit.API.OAuth.Clients do
   alias PhoenixKit.API.OAuth.Cimd
   alias PhoenixKit.API.OAuth.Client
   alias PhoenixKit.API.OAuth.ClientPolicy
+  alias PhoenixKit.API.OAuth.Grant
+  alias PhoenixKit.API.OAuth.Grants
   alias PhoenixKit.API.OAuth.Input
   alias PhoenixKit.API.OAuth.Limits
   alias PhoenixKit.API.OAuth.RedirectUri
@@ -43,7 +45,7 @@ defmodule PhoenixKit.API.OAuth.Clients do
     |> Ecto.Changeset.validate_required([:client_id])
     |> Ecto.Changeset.update_change(:client_name, &clean_name/1)
     |> Ecto.Changeset.validate_length(:client_id, max: 2048)
-    |> validate_storable([:client_id, :client_name, :client_uri])
+    |> validate_storable([:client_id, :client_uri])
     |> Ecto.Changeset.validate_change(:redirect_uris, fn :redirect_uris, uris ->
       if Enum.all?(uris, &RedirectUri.valid?/1),
         do: [],
@@ -54,7 +56,7 @@ defmodule PhoenixKit.API.OAuth.Clients do
   end
 
   # A NUL byte or bytes that are not UTF-8 cannot be stored: a changeset error, not a raised
-  # database error.
+  # database error. (The name is not here: `clean_name/1` strips what it cannot keep.)
   defp validate_storable(changeset, fields) do
     Enum.reduce(fields, changeset, fn field, acc ->
       Ecto.Changeset.validate_change(acc, field, fn _field, value ->
@@ -66,10 +68,16 @@ defmodule PhoenixKit.API.OAuth.Clients do
   @doc """
   A client's own name made safe to store and show: control, format and line-separator characters
   removed, trimmed, cut to 160 characters and to 160 code points (the size of the column). `nil`
-  when what is left is empty or `name` is not text.
+  when what is left is empty or `name` is not valid text.
   """
   @spec clean_name(term()) :: String.t() | nil
   def clean_name(name) when is_binary(name) do
+    if String.valid?(name), do: clean_valid_name(name), else: nil
+  end
+
+  def clean_name(_name), do: nil
+
+  defp clean_valid_name(name) do
     cleaned =
       name
       |> String.replace(~r/[\p{C}\p{Zl}\p{Zp}]/u, "")
@@ -79,8 +87,6 @@ defmodule PhoenixKit.API.OAuth.Clients do
 
     if cleaned == "", do: nil, else: cleaned
   end
-
-  def clean_name(_name), do: nil
 
   @doc """
   `text` cut to at most `max_graphemes` characters as a person counts them and at most 160 code
@@ -146,14 +152,20 @@ defmodule PhoenixKit.API.OAuth.Clients do
   def resolve(client_id, opts \\ [])
 
   def resolve(client_id, opts) when is_binary(client_id) and byte_size(client_id) in 1..2048 do
+    if Input.valid?(client_id),
+      do: resolve_valid(client_id, opts),
+      else: {:error, :unknown_client}
+  end
+
+  def resolve(_client_id, _opts), do: {:error, :unknown_client}
+
+  defp resolve_valid(client_id, opts) do
     case get_by_client_id(client_id) do
       %Client{kind: "cimd"} = row -> cached_or_fetch(row, opts)
       %Client{} = client -> allowed(client)
       nil -> fetch_new(client_id, opts)
     end
   end
-
-  def resolve(_client_id, _opts), do: {:error, :unknown_client}
 
   defp cached_or_fetch(%Client{} = row, opts) do
     if fresh?(row), do: allowed(row), else: fetch(row.client_id, opts)
@@ -171,11 +183,16 @@ defmodule PhoenixKit.API.OAuth.Clients do
 
   defp fresh?(_client), do: false
 
-  defp allowed(%Client{} = client) do
-    if ClientPolicy.allowed?(client.kind, client.client_id, client.redirect_uris),
-      do: {:ok, client},
-      else: {:error, :not_allowed}
-  end
+  defp allowed(%Client{} = client),
+    do: if(allowed?(client), do: {:ok, client}, else: {:error, :not_allowed})
+
+  @doc """
+  Whether the client policy (`PhoenixKit.API.OAuth.ClientPolicy`) lets `client` be used now. The
+  consent screen and the token endpoint ask it again at every step.
+  """
+  @spec allowed?(Client.t()) :: boolean()
+  def allowed?(%Client{} = client),
+    do: ClientPolicy.allowed?(client.kind, client.client_id, client.redirect_uris)
 
   defp fetch(client_id, opts) do
     with :ok <- host_allowed(client_id, []),
@@ -258,6 +275,66 @@ defmodule PhoenixKit.API.OAuth.Clients do
       _other -> {:error, :unknown_client}
     end
   end
+
+  @doc """
+  Removes a client (a `Client` or its row uuid) and ends every grant of it first.
+
+  The tables would take the grants and their tokens with the client (`ON DELETE CASCADE`) and
+  leave the hidden keys of those grants behind, alive. So each grant goes through
+  `PhoenixKit.API.OAuth.Grants.revoke/2` (the lock order key, grant, tokens; reason
+  `"client_deleted"`; one `oauth.grant_revoked` entry each), and only then is the client deleted,
+  all in one transaction: if a grant cannot be ended, the client stays. `opts`: `:actor_uuid`, who
+  deletes, for the activity entries.
+
+  Returns `{:ok, client}`, or `{:error, :not_found}` for a client that is not there.
+  """
+  @spec delete(Client.t() | String.t() | nil, keyword()) ::
+          {:ok, Client.t()} | {:error, :not_found | term()}
+  def delete(client_or_uuid, opts \\ [])
+
+  def delete(%Client{uuid: uuid}, opts), do: delete(uuid, opts)
+
+  def delete(uuid, opts) when is_binary(uuid) do
+    case get(uuid) do
+      %Client{} = client -> remove(client, opts)
+      nil -> {:error, :not_found}
+    end
+  end
+
+  def delete(_client, _opts), do: {:error, :not_found}
+
+  defp remove(%Client{uuid: uuid}, opts) do
+    revoke_opts = [reason: "client_deleted", actor_uuid: opts[:actor_uuid]]
+
+    repo().transaction(fn ->
+      # A consent that is making a grant of this client either commits first (its grant is then
+      # read and ended below) or waits here and fails on the foreign key once the client is gone:
+      # never a grant that outlives its client.
+      case repo().one(from(c in Client, where: c.uuid == ^uuid, lock: "FOR UPDATE")) do
+        %Client{} = locked ->
+          end_grants(locked, revoke_opts)
+          repo().delete(locked) |> unwrap()
+
+        nil ->
+          repo().rollback(:not_found)
+      end
+    end)
+  end
+
+  defp end_grants(%Client{uuid: uuid}, revoke_opts) do
+    from(g in Grant, where: g.client_uuid == ^uuid, select: g.uuid, order_by: g.inserted_at)
+    |> repo().all()
+    |> Enum.each(fn grant_uuid ->
+      case Grants.revoke(grant_uuid, revoke_opts) do
+        {:ok, _grant} -> :ok
+        {:error, :not_found} -> :ok
+        {:error, reason} -> repo().rollback(reason)
+      end
+    end)
+  end
+
+  defp unwrap({:ok, client}), do: client
+  defp unwrap({:error, changeset}), do: repo().rollback(changeset)
 
   @doc "A client by its row uuid; `nil` for an unknown or malformed uuid."
   @spec get(term()) :: Client.t() | nil

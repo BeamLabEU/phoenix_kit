@@ -7,13 +7,17 @@ defmodule PhoenixKit.API.OAuth.ClientPolicy do
     * Policy `allow_list`: only a client whose every host is in `api_oauth_client_allow_hosts`.
       The hosts of a client are the host of its `client_id` (when that is a URL, a metadata
       document) and the host of each of its redirect URIs.
-    * `api_oauth_client_deny_hosts` applies under either policy: one host of the client in it
-      refuses the client.
 
   Hosts are compared in lower case and without a final dot, whole (no wildcards); an entry
   written as a URL, or with a port, counts as its host. A pre-registered client (the
-  administrator typed it in) is exempt from both lists.
+  administrator typed it in) is exempt from the list.
   A list that cannot be read refuses (fail closed), and so does a policy value nobody knows.
+
+  The policy is judged again every time a client is used: when its authorization request is
+  checked (`PhoenixKit.API.OAuth.Clients.resolve/2`), when the person answers the consent screen,
+  and when a code or a refresh token is exchanged, so a client that stops being allowed can
+  neither be connected nor keep a connection alive through refreshes. (An access token already
+  issued lives out its lifetime; the person or an administrator can end the grant.)
   """
 
   alias PhoenixKit.API.Config
@@ -28,30 +32,20 @@ defmodule PhoenixKit.API.OAuth.ClientPolicy do
   def allowed?("preregistered", _client_id, _redirect_uris), do: true
 
   def allowed?(kind, client_id, redirect_uris) do
-    hosts = hosts(kind, client_id, redirect_uris)
-
-    with {:ok, denied} <- Config.fetch_oauth_hosts(:deny),
-         true <- disjoint?(hosts, normalize(denied)) do
-      allowed_by_policy?(hosts)
-    else
-      _ -> false
+    case Config.oauth_client_policy() do
+      :any -> true
+      :allow_list -> listed?(hosts(kind, client_id, redirect_uris))
     end
   end
 
-  defp allowed_by_policy?(hosts) do
-    case Config.oauth_client_policy() do
-      :any ->
-        true
+  defp listed?(hosts) do
+    case Config.fetch_oauth_allow_hosts() do
+      {:ok, entries} ->
+        entries = normalize(entries)
+        hosts != [] and Enum.all?(hosts, &(&1 in entries))
 
-      :allow_list ->
-        case Config.fetch_oauth_hosts(:allow) do
-          {:ok, listed} ->
-            listed = normalize(listed)
-            hosts != [] and Enum.all?(hosts, &(&1 in listed))
-
-          :unreadable ->
-            false
-        end
+      :unreadable ->
+        false
     end
   end
 
@@ -76,8 +70,6 @@ defmodule PhoenixKit.API.OAuth.ClientPolicy do
       nil -> []
     end
   end
-
-  defp disjoint?(hosts, listed), do: not Enum.any?(hosts, &(&1 in listed))
 
   defp normalize(entries) do
     entries

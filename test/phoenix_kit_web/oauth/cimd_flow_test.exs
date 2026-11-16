@@ -13,8 +13,10 @@ defmodule PhoenixKitWeb.OAuth.CimdFlowTest do
   import PhoenixKit.API.OAuthTestSupport, only: [client!: 0, enable_oauth!: 0, pkce: 0]
   import PhoenixKit.Test.ApiHarness, only: [put_setting: 2, setup_api: 0]
 
+  alias PhoenixKit.API.Keys.Key
   alias PhoenixKit.API.OAuth.Client
   alias PhoenixKit.API.OAuth.Clients
+  alias PhoenixKit.API.OAuth.Grant
   alias PhoenixKit.API.OAuth.Limits
   alias PhoenixKit.API.OAuth.Request
   alias PhoenixKit.API.OAuthCimdStub, as: Stub
@@ -296,6 +298,10 @@ defmodule PhoenixKitWeb.OAuth.CimdFlowTest do
       assert String.starts_with?(location(answer), @claude_redirect <> "?")
       %{"code" => code} = location_params(answer)
 
+      # The hidden key is named after what the person saw, not after the row's newer name.
+      assert [%Grant{key_uuid: key_uuid}] = Repo.all(Grant)
+      assert Repo.get!(Key, key_uuid).name == "OAuth: Claude"
+
       # ... and the code is exchanged for the very redirect it was asked for.
       flow = %{
         code: code,
@@ -348,9 +354,10 @@ defmodule PhoenixKitWeb.OAuth.CimdFlowTest do
   end
 
   describe "what is refused looks the same" do
-    test "a document that cannot be had, a secret in it, a mismatch, a denied host", %{
-      challenge: challenge
-    } do
+    test "a document that cannot be had, a secret in it, a mismatch, a host outside the allow-list",
+         %{
+           challenge: challenge
+         } do
       bodies =
         for setup <- [
               fn -> Stub.put(@claude, {:error, :blocked_host}) end,
@@ -364,7 +371,8 @@ defmodule PhoenixKitWeb.OAuth.CimdFlowTest do
               fn -> Stub.put(@claude, Map.put(Stub.claude_document(), "redirect_uris", [])) end,
               fn ->
                 Stub.put(@claude, Stub.claude_document())
-                put_setting("api_oauth_client_deny_hosts", "claude.ai")
+                put_setting("api_oauth_client_policy", "allow_list")
+                put_setting("api_oauth_client_allow_hosts", "other.example")
               end
             ] do
           setup.()

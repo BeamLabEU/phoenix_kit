@@ -130,6 +130,7 @@ config :phoenix_kit,
     PhoenixKit.Test.JobKinds.Short
   ]
 
-# The OAuth client metadata download may be replaced by a test module (`oauth_cimd_downloader`)
+# The OAuth client metadata download may be replaced by a test module (`oauth_cimd_downloader`),
+# and the rate-limit counters of the OAuth endpoints may be emptied (`PhoenixKit.API.OAuth.Limits.reset/2`),
 # in this build only.
-config :phoenix_kit, oauth_cimd_seam: true
+config :phoenix_kit, oauth_test_seams: true

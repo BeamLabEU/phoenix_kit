@@ -22,7 +22,6 @@ defmodule PhoenixKit.API.Config do
   | `api_oauth_dcr_enabled` | `false` (Dynamic Client Registration, `POST /oauth/register`; only counts while OAuth is on) |
   | `api_oauth_client_policy` | `"any"` (`"allow_list"`: only the hosts of `api_oauth_client_allow_hosts`) |
   | `api_oauth_client_allow_hosts` | `""` (newline separated hosts) |
-  | `api_oauth_client_deny_hosts` | `""` (newline separated hosts) |
   | `api_oauth_cimd_per_min` | `20` (client metadata fetches per client network) |
   | `api_oauth_cimd_client_per_min` | `5` (client metadata fetches per client) |
   | `api_oauth_register_per_hour` | `10` (registrations per client network) |
@@ -93,7 +92,7 @@ defmodule PhoenixKit.API.Config do
   @doc """
   Which clients may use the server (`api_oauth_client_policy`): `:any` (the default, any https
   client, its host shown to the person) or `:allow_list` (only the hosts of
-  `fetch_oauth_hosts(:allow)`). A value that is neither, or a setting that cannot be read, is
+  `fetch_oauth_allow_hosts/0`). A value that is neither, or a setting that cannot be read, is
   `:allow_list`: the stricter reading.
   """
   @spec oauth_client_policy() :: :any | :allow_list
@@ -109,12 +108,11 @@ defmodule PhoenixKit.API.Config do
   end
 
   @doc """
-  The hosts of the client allow-list (`:allow`, `api_oauth_client_allow_hosts`) or deny-list
-  (`:deny`, `api_oauth_client_deny_hosts`), as the person wrote them, or `:unreadable`.
+  The hosts of the client allow-list (`api_oauth_client_allow_hosts`), as the person wrote them,
+  or `:unreadable`.
   """
-  @spec fetch_oauth_hosts(:allow | :deny) :: {:ok, [String.t()]} | :unreadable
-  def fetch_oauth_hosts(:allow), do: fetch_list("api_oauth_client_allow_hosts")
-  def fetch_oauth_hosts(:deny), do: fetch_list("api_oauth_client_deny_hosts")
+  @spec fetch_oauth_allow_hosts() :: {:ok, [String.t()]} | :unreadable
+  def fetch_oauth_allow_hosts, do: fetch_list("api_oauth_client_allow_hosts")
 
   @doc "Client metadata fetches per minute and client network (`api_oauth_cimd_per_min`, 20)."
   @spec oauth_cimd_per_min() :: pos_integer()

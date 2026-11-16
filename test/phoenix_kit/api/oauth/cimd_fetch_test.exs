@@ -31,6 +31,12 @@ defmodule PhoenixKit.API.OAuth.CimdFetchTest do
     plug(:dispatch)
 
     get "/ok" do
+      # The server listens on the loopback only: a request seen here came to 127.0.0.1.
+      case Application.get_env(:phoenix_kit, :oauth_cimd_test_probe) do
+        pid when is_pid(pid) -> send(pid, {:served, conn.request_path})
+        _ -> :ok
+      end
+
       document =
         OAuthCimdStub.claude_document()
         |> Map.put("client_id", "https://doc.test/ok")
@@ -146,6 +152,7 @@ defmodule PhoenixKit.API.OAuth.CimdFetchTest do
     on_exit(fn ->
       Application.delete_env(:phoenix_kit, :oauth_cimd_test_port)
       Application.delete_env(:phoenix_kit, :oauth_cimd_test_counter)
+      Application.delete_env(:phoenix_kit, :oauth_cimd_test_probe)
       Application.delete_env(:phoenix_kit, :oauth_cimd_downloader)
     end)
 
@@ -232,9 +239,14 @@ defmodule PhoenixKit.API.OAuth.CimdFetchTest do
       counter = :counters.new(1, [])
       Application.put_env(:phoenix_kit, :oauth_cimd_test_counter, counter)
       Application.put_env(:phoenix_kit, :oauth_cimd_downloader, Rebinding)
+      Application.put_env(:phoenix_kit, :oauth_cimd_test_probe, self())
 
       assert {:ok, %{client_name: "Claude"}} = Cimd.fetch(@site <> "/ok")
       assert :counters.get(counter, 1) == 1
+
+      # The first answer (the loopback, where the server is) is the one that was connected to; the
+      # second (the metadata address) would have been a timeout and never reached the server.
+      assert_received {:served, "/ok"}
     end
   end
 

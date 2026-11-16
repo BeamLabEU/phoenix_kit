@@ -3,13 +3,14 @@ defmodule PhoenixKitWeb.OAuth.MalformedInputTest do
   Text the database cannot hold (a NUL byte; bytes that are not UTF-8) in any input of the public
   endpoints of the authorization server gets the endpoint's ordinary refusal and never a database
   error (HTTP 500): the authorization endpoint answers its page, the token endpoints their JSON
-  error, the consent screen its "start again" page.
+  error, the registration its `invalid_client_metadata` or its cleaned answer, the consent screen
+  its "start again" page.
   """
   use PhoenixKitWeb.ConnCase, async: false
 
   import PhoenixKit.API.OAuthFlowSupport
   import PhoenixKit.API.OAuthTestSupport, only: [client!: 0, enable_oauth!: 0, pkce: 0]
-  import PhoenixKit.Test.ApiHarness, only: [setup_api: 0]
+  import PhoenixKit.Test.ApiHarness, only: [put_setting: 2, setup_api: 0]
 
   alias PhoenixKit.API.OAuth.Client
   alias PhoenixKit.API.OAuth.Grant
@@ -22,6 +23,7 @@ defmodule PhoenixKitWeb.OAuth.MalformedInputTest do
   setup do
     setup_api()
     enable_oauth!()
+    put_setting("api_oauth_dcr_enabled", "true")
     {user, _role} = holder(["dashboard"])
     client = client!()
     {_verifier, challenge} = pkce()
@@ -42,6 +44,20 @@ defmodule PhoenixKitWeb.OAuth.MalformedInputTest do
         assert get_resp_header(conn, "location") == []
         assert {Repo.aggregate(Request, :count), Repo.aggregate(Client, :count)} == before
       end
+    end
+
+    test "a NUL byte in a client_id that looks like a metadata document is never fetched", %{
+      challenge: challenge
+    } do
+      params = %{
+        "response_type" => "code",
+        "client_id" => "https://claude.ai/oauth/\0client",
+        "redirect_uri" => "https://claude.ai/api/mcp/auth_callback",
+        "code_challenge" => challenge,
+        "code_challenge_method" => "S256"
+      }
+
+      assert authorize(browser(), params).status == 400
     end
 
     test "bytes that are not UTF-8 are refused before the controller" do
@@ -102,6 +118,44 @@ defmodule PhoenixKitWeb.OAuth.MalformedInputTest do
       assert exchange_code(flow).status == 200
       assert revoke(%{"token" => "x\0y", "client_id" => flow.client.client_id}).status == 400
       assert [%Grant{revoked_at: nil}] = Repo.all(Grant)
+    end
+  end
+
+  describe "POST /oauth/register" do
+    test "a NUL byte in a redirect URI is invalid_redirect_uri" do
+      conn = register(%{"redirect_uris" => ["https://app.example/cb\0"]})
+      assert conn.status == 400
+      assert body(conn)["error"] == "invalid_redirect_uri"
+    end
+
+    test "a NUL byte in the name is cleaned away, in the home page it is left out" do
+      conn =
+        register(%{
+          "redirect_uris" => ["https://app.example/cb"],
+          "client_name" => "My\0Agent",
+          "client_uri" => "https://app.example/\0"
+        })
+
+      assert conn.status == 201
+      assert %{"client_name" => "MyAgent"} = body = body(conn)
+      refute Map.has_key?(body, "client_uri")
+    end
+
+    test "a NUL byte in a field the server ignores changes nothing" do
+      conn =
+        register(%{
+          "redirect_uris" => ["https://app.example/cb"],
+          "scope\0" => "a\0b",
+          "jwks" => %{"k\0" => ["\0"]}
+        })
+
+      assert conn.status == 201
+    end
+
+    test "a NUL byte as text where text is wanted is invalid_client_metadata" do
+      conn = register(%{"redirect_uris" => ["https://app.example/cb"], "client_name" => 5})
+      assert conn.status == 400
+      assert body(conn)["error"] == "invalid_client_metadata"
     end
   end
 

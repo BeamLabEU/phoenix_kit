@@ -222,11 +222,6 @@ defmodule PhoenixKitWeb.OAuth.RegisterTest do
   end
 
   describe "the policy" do
-    test "a redirect host on the deny-list is refused" do
-      put_setting("api_oauth_client_deny_hosts", "app.example")
-      assert error_of(register(valid()), 400)["error"] == "invalid_redirect_uri"
-    end
-
     test "under the allow-list only listed redirect hosts are accepted" do
       put_setting("api_oauth_client_policy", "allow_list")
       put_setting("api_oauth_client_allow_hosts", "claude.ai")
@@ -340,7 +335,8 @@ defmodule PhoenixKitWeb.OAuth.RegisterTest do
       client = register(valid()) |> body()
       {_verifier, challenge} = pkce()
       app = %{client_id: client["client_id"], redirect_uris: client["redirect_uris"]}
-      put_setting("api_oauth_client_deny_hosts", "app.example")
+      put_setting("api_oauth_client_policy", "allow_list")
+      put_setting("api_oauth_client_allow_hosts", "other.example")
 
       assert authorize(browser(), authorize_params(app, challenge)).status == 400
     end

@@ -37,7 +37,9 @@ defmodule PhoenixKit.API.OAuth.Exchange do
       honest client never received it, so it cannot present it).
 
   The check of the grant (`PhoenixKit.API.OAuth.Grants.live?/1`) and of the person's right to
-  hold a key (`PhoenixKit.API.Keys.active_owner/1`) is made again on every refresh.
+  hold a key (`PhoenixKit.API.Keys.active_owner/1`) is made again on every refresh, and so is the
+  client policy (`PhoenixKit.API.OAuth.ClientPolicy`, here and for the code): a client that is no
+  longer allowed is `invalid_client`.
   """
 
   import Ecto.Query, only: [from: 2]
@@ -424,10 +426,17 @@ defmodule PhoenixKit.API.OAuth.Exchange do
      }}
   end
 
+  # The client policy is judged here too, for a code and for every refresh: a client that is no
+  # longer allowed cannot keep a connection alive.
   defp known_client(client_id) do
     case Clients.get_by_client_id(client_id) do
-      %Client{} = client -> {:ok, client}
-      nil -> {:error, "invalid_client", "The client is not known."}
+      %Client{} = client ->
+        if Clients.allowed?(client),
+          do: {:ok, client},
+          else: {:error, "invalid_client", "The client is not allowed."}
+
+      nil ->
+        {:error, "invalid_client", "The client is not known."}
     end
   end
 

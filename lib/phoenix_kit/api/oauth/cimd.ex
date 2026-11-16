@@ -37,7 +37,7 @@ defmodule PhoenixKit.API.OAuth.Cimd do
   failed fetch is a refusal that is **not remembered** (`PhoenixKit.API.OAuth.Clients` keeps only
   what it fetched).
 
-  The downloader is `RemoteFetch`. A build compiled with `config :phoenix_kit, oauth_cimd_seam:
+  The downloader is `RemoteFetch`. A build compiled with `config :phoenix_kit, oauth_test_seams:
   true` (this library's own `config/test.exs`) lets the `:oauth_cimd_downloader` application
   setting replace it with another module that has `download/2` of the same contract; any other
   build ignores the setting.
@@ -202,7 +202,7 @@ defmodule PhoenixKit.API.OAuth.Cimd do
 
   # The downloader can be replaced only in a build whose config says so (`config/test.exs`): a
   # setting at run time must never be able to swap out the guard against server-side requests.
-  @downloader_seam Application.compile_env(:phoenix_kit, :oauth_cimd_seam, false)
+  @downloader_seam Application.compile_env(:phoenix_kit, :oauth_test_seams, false)
 
   defp downloader do
     if @downloader_seam,

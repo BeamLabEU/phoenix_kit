@@ -82,6 +82,46 @@ defmodule PhoenixKit.API.OAuth.ClientsResolveTest do
     end
   end
 
+  describe "an administrator's input the database cannot hold" do
+    test "a NUL byte in the id, the home page or a redirect URI is a changeset error" do
+      for attrs <- [
+            %{client_id: "pre\0x", redirect_uris: ["https://app.example/cb"]},
+            %{client_id: "pre_ok", client_uri: "https://app.example/\0", redirect_uris: []},
+            %{client_id: "pre_ok", redirect_uris: ["https://app.example/cb\0"]}
+          ] do
+        assert {:error, %Ecto.Changeset{valid?: false}} = Clients.register_preregistered(attrs)
+      end
+
+      assert Repo.aggregate(Client, :count) == 0
+    end
+
+    test "bytes that are not UTF-8 are a changeset error, and a name of them is no name" do
+      assert {:error, %Ecto.Changeset{}} =
+               Clients.register_preregistered(%{
+                 client_id: <<"pre", 0xFF>>,
+                 redirect_uris: ["https://app.example/cb"]
+               })
+
+      assert {:ok, %Client{client_name: nil}} =
+               Clients.register_preregistered(%{
+                 client_id: "pre_bytes",
+                 client_name: <<0xFF, ?a>>,
+                 redirect_uris: ["https://app.example/cb"]
+               })
+
+      assert Clients.clean_name(<<0xFF, ?a>>) == nil
+    end
+
+    test "a client is never looked up, or resolved, by such an id", %{ip: ip} do
+      for id <- ["a\0b", <<0xFF>>, "https://claude.ai/\0", "dcr_\0"] do
+        assert Clients.get_by_client_id(id) == nil
+        assert {:error, :unknown_client} = resolve(id, ip)
+      end
+
+      assert Stub.calls() == []
+    end
+  end
+
   describe "an identifier that is not a URL" do
     test "is looked up and never fetched", %{ip: ip} do
       assert {:error, :unknown_client} = resolve("dcr_nobody", ip)
@@ -223,8 +263,9 @@ defmodule PhoenixKit.API.OAuth.ClientsResolveTest do
   end
 
   describe "the policy" do
-    test "a denied host is refused before the document is fetched", %{ip: ip} do
-      put_setting("api_oauth_client_deny_hosts", "claude.ai")
+    test "a host outside the allow-list is refused before the document is fetched", %{ip: ip} do
+      put_setting("api_oauth_client_policy", "allow_list")
+      put_setting("api_oauth_client_allow_hosts", "other.example")
 
       assert {:error, :not_allowed} = resolve(@claude, ip)
       assert Stub.calls() == []
@@ -251,7 +292,8 @@ defmodule PhoenixKit.API.OAuth.ClientsResolveTest do
     test "is judged again for a client that is already stored", %{ip: ip} do
       assert {:ok, _client} = resolve(@claude, ip)
 
-      put_setting("api_oauth_client_deny_hosts", "claude.ai")
+      put_setting("api_oauth_client_policy", "allow_list")
+      put_setting("api_oauth_client_allow_hosts", "other.example")
       assert {:error, :not_allowed} = resolve(@claude, ip)
       assert length(Stub.calls(@claude)) == 1
     end
@@ -265,7 +307,8 @@ defmodule PhoenixKit.API.OAuth.ClientsResolveTest do
 
       assert {:ok, _client} = resolve("dcr_a", ip)
 
-      put_setting("api_oauth_client_deny_hosts", "evil.example")
+      put_setting("api_oauth_client_policy", "allow_list")
+      put_setting("api_oauth_client_allow_hosts", "other.example")
       assert {:error, :not_allowed} = resolve("dcr_a", ip)
     end
   end
