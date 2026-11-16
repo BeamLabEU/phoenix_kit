@@ -47,7 +47,6 @@ function page(opts) {
     addEventListener: (n, fn) => ((docListeners[n] = docListeners[n] || []).push(fn))
   };
   if (opts.fetch) window.fetch = opts.fetch;
-  else delete window.fetch;
   function CustomEvent(type, init) { this.type = type; this.detail = init && init.detail; }
   const sessionStorage = {
     getItem: (k) => (k in storage ? storage[k] : null),
@@ -432,6 +431,18 @@ test("facts that name the file but leave no library base are not called outdated
   await settle();
   assert.strictEqual(fetch.calls.length, 0);
   assert.strictEqual(p.window.__pkLibFailures.Fresco.reason, "facts");
+});
+
+test("a failure cleared while the fetch was out is not brought back", async () => {
+  let answer;
+  const fetch = fetchStub(() => new Promise((r) => { answer = r; }));
+  const p = page({ facts: {}, docScripts: [{ src: FACTS_SRC }], fetch });
+  await assert.rejects(p.lib.loadVendored("Fresco", "fresco", { check: () => false }));
+  delete p.window.__pkLibFailures.Fresco; // what a later successful load does
+  answer({ ok: true, text: () => Promise.resolve(factsFile(FACTS)) });
+  await settle();
+  assert.strictEqual(p.window.__pkLibFailures.Fresco, undefined);
+  assert.strictEqual(p.events.length, 1);
 });
 
 test("several libraries missing from the facts share one re-fetch", async () => {

@@ -408,7 +408,8 @@
     var src = typeof window.fetch === "function" && ran && !(ran[key] && ran[key].file) && pkFactsSrc();
     if (!src) return;
     pkFreshFacts(src).then(function(fresh) {
-      if (fresh && fresh[key] && fresh[key].file) pkLibFail(name, src, "stale");
+      var now = pkLibFailures[name];
+      if (now && now.reason === "facts" && fresh && fresh[key] && fresh[key].file) pkLibFail(name, src, "stale");
     });
   }
 
