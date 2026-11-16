@@ -49,6 +49,13 @@ defmodule PhoenixKit.API.OAuth.ClientPolicyTest do
       refute ClientPolicy.allowed?("dcr", "dcr_x", ["https://evil.example/cb"])
     end
 
+    test "an IPv6 entry written in brackets, with or without a port, counts as its address" do
+      for entry <- ["[2001:db8::1]", "[2001:DB8::1]:8443", "https://[2001:db8::1]"] do
+        put_setting("api_oauth_client_deny_hosts", entry)
+        refute ClientPolicy.allowed?("dcr", "dcr_x", ["https://[2001:db8::1]/cb"]), entry
+      end
+    end
+
     test "an entry written with a port counts as its host" do
       put_setting("api_oauth_client_deny_hosts", "evil.example:8443")
       refute ClientPolicy.allowed?("dcr", "dcr_x", ["https://evil.example/cb"])

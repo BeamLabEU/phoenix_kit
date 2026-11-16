@@ -109,6 +109,34 @@ defmodule PhoenixKit.API.OAuth.CimdFetchTest do
     end
   end
 
+  defmodule Rebinding do
+    @moduledoc false
+    # A name that answers the loopback the first time it is resolved and the cloud metadata
+    # address every time after: a download that resolves twice (once to judge the address, once
+    # to connect) would be sent to the second answer.
+    def download(url, opts) do
+      port = Application.fetch_env!(:phoenix_kit, :oauth_cimd_test_port)
+      counter = Application.fetch_env!(:phoenix_kit, :oauth_cimd_test_counter)
+      target = "http://localhost:#{port}#{URI.parse(url).path}"
+
+      local = [
+        allow_http: true,
+        allowed_ports: [port, 80],
+        timeout: 400,
+        unsafe_resolver: fn "localhost" ->
+          :counters.add(counter, 1, 1)
+
+          case :counters.get(counter, 1) do
+            1 -> {:ok, {127, 0, 0, 1}}
+            _ -> {:ok, {169, 254, 169, 254}}
+          end
+        end
+      ]
+
+      RemoteFetch.download(target, Keyword.merge(opts, local))
+    end
+  end
+
   setup do
     server = start_supervised!({Bandit, plug: Server, port: 0, ip: :loopback, startup_log: false})
     {:ok, {_ip, port}} = ThousandIsland.listener_info(server)
@@ -117,6 +145,7 @@ defmodule PhoenixKit.API.OAuth.CimdFetchTest do
 
     on_exit(fn ->
       Application.delete_env(:phoenix_kit, :oauth_cimd_test_port)
+      Application.delete_env(:phoenix_kit, :oauth_cimd_test_counter)
       Application.delete_env(:phoenix_kit, :oauth_cimd_downloader)
     end)
 
@@ -195,6 +224,17 @@ defmodule PhoenixKit.API.OAuth.CimdFetchTest do
       end
 
       assert temp_files() -- before == []
+    end
+  end
+
+  describe "DNS rebinding" do
+    test "the name is resolved once, and the connection goes to the address that was judged" do
+      counter = :counters.new(1, [])
+      Application.put_env(:phoenix_kit, :oauth_cimd_test_counter, counter)
+      Application.put_env(:phoenix_kit, :oauth_cimd_downloader, Rebinding)
+
+      assert {:ok, %{client_name: "Claude"}} = Cimd.fetch(@site <> "/ok")
+      assert :counters.get(counter, 1) == 1
     end
   end
 

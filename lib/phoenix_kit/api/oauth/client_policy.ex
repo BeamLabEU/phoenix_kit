@@ -94,7 +94,16 @@ defmodule PhoenixKit.API.OAuth.ClientPolicy do
         _ -> ""
       end
     else
-      entry |> String.replace(~r/^([^:\[\]]+):\d+$/, "\\1") |> host_name()
+      bare_host(entry)
+    end
+  end
+
+  # `host`, `host:port`, `[v6]` and `[v6]:port` (an IPv6 literal is written in brackets, the host
+  # of a URI is not).
+  defp bare_host(entry) do
+    case Regex.run(~r/^\[([^\]]+)\](?::\d+)?$/, entry) do
+      [_whole, v6] -> host_name(v6)
+      nil -> entry |> String.replace(~r/^([^:\[\]]+):\d+$/, "\\1") |> host_name()
     end
   end
 

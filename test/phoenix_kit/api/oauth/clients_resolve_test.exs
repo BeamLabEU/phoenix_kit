@@ -62,6 +62,26 @@ defmodule PhoenixKit.API.OAuth.ClientsResolveTest do
     end
   end
 
+  describe "an administrator's name with a control character" do
+    test "is stripped, not a database error" do
+      assert {:ok, %Client{client_name: "ab"}} =
+               Clients.register_preregistered(%{
+                 client_id: "pre_nul",
+                 client_name: "a\u0000b",
+                 redirect_uris: ["https://app.example/cb"]
+               })
+    end
+
+    test "a name of nothing but control characters is stored as no name" do
+      assert {:ok, %Client{client_name: nil}} =
+               Clients.register_preregistered(%{
+                 client_id: "pre_blank",
+                 client_name: " \u0000 ",
+                 redirect_uris: ["https://app.example/cb"]
+               })
+    end
+  end
+
   describe "an identifier that is not a URL" do
     test "is looked up and never fetched", %{ip: ip} do
       assert {:error, :unknown_client} = resolve("dcr_nobody", ip)

@@ -25,6 +25,7 @@ defmodule PhoenixKitWeb.OAuth.TokenController do
   alias PhoenixKit.API.OAuth.Limits
   alias PhoenixKit.API.Problem
   alias PhoenixKit.Utils.IpAddress
+  alias PhoenixKitWeb.OAuth.Responses
 
   @doc "The token request."
   def create(conn, _params) do
@@ -98,11 +99,5 @@ defmodule PhoenixKitWeb.OAuth.TokenController do
   defp error_answer(conn, error, description),
     do: json_answer(conn, 400, %{"error" => error, "error_description" => description})
 
-  defp json_answer(conn, status, body) do
-    conn
-    |> put_resp_header("cache-control", "no-store")
-    |> put_resp_header("pragma", "no-cache")
-    |> put_resp_content_type("application/json")
-    |> send_resp(status, JSON.encode!(body))
-  end
+  defp json_answer(conn, status, body), do: Responses.json(conn, status, body)
 end

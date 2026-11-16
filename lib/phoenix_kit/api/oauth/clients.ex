@@ -27,7 +27,7 @@ defmodule PhoenixKit.API.OAuth.Clients do
 
   @doc """
   Registers a client an administrator named: `attrs` takes `client_id` (required, unique, at most
-  2048 characters), `client_name` (cut to 160 characters), `client_uri` and `redirect_uris`.
+  2048 characters), `client_name` (made safe by `clean_name/1`), `client_uri` and `redirect_uris`.
 
   Every redirect URI must be one a client may register (`PhoenixKit.API.OAuth.RedirectUri`:
   `https`, or `http` to the loopback; no fragment, no wildcard, no custom scheme), and the text
@@ -41,7 +41,7 @@ defmodule PhoenixKit.API.OAuth.Clients do
     %Client{kind: "preregistered"}
     |> Ecto.Changeset.cast(attrs, [:client_id, :client_name, :client_uri, :redirect_uris])
     |> Ecto.Changeset.validate_required([:client_id])
-    |> Ecto.Changeset.update_change(:client_name, &cut_name/1)
+    |> Ecto.Changeset.update_change(:client_name, &clean_name/1)
     |> Ecto.Changeset.validate_length(:client_id, max: 2048)
     |> validate_storable([:client_id, :client_name, :client_uri])
     |> Ecto.Changeset.validate_change(:redirect_uris, fn :redirect_uris, uris ->
@@ -74,7 +74,7 @@ defmodule PhoenixKit.API.OAuth.Clients do
       name
       |> String.replace(~r/[\p{C}\p{Zl}\p{Zp}]/u, "")
       |> String.trim()
-      |> cut_name()
+      |> cut_name(@max_name_length)
       |> String.trim()
 
     if cleaned == "", do: nil, else: cleaned
@@ -82,14 +82,17 @@ defmodule PhoenixKit.API.OAuth.Clients do
 
   def clean_name(_name), do: nil
 
-  # At most 160 characters as a person counts them (graphemes) and as the column counts them
-  # (code points: a name of combining marks has far more code points than graphemes). Whole
-  # graphemes only, so a mark is never left without its letter.
-  defp cut_name(name) do
+  @doc """
+  `text` cut to at most `max_graphemes` characters as a person counts them and at most 160 code
+  points, the size of the columns that hold a name (a name of combining marks has far more code
+  points than graphemes). Whole graphemes only, so a mark is never left without its letter.
+  """
+  @spec cut_name(String.t(), pos_integer()) :: String.t()
+  def cut_name(text, max_graphemes) when is_binary(text) and max_graphemes > 0 do
     {_points, kept} =
-      name
+      text
       |> String.graphemes()
-      |> Enum.take(@max_name_length)
+      |> Enum.take(max_graphemes)
       |> Enum.reduce_while({0, []}, fn grapheme, {points, kept} ->
         points = points + length(String.to_charlist(grapheme))
 

@@ -30,16 +30,17 @@ defmodule PhoenixKit.API.OAuth.Cimd do
   nothing), **no redirect is followed**, 64 KB at most whatever the server claims, 5 seconds in
   all, and the response must say it is JSON. The download runs in a task of
   `PhoenixKit.API.OAuth.FetchSupervisor`, at most four at a time (`{:error, :busy}` beyond that).
-  The temporary file is always removed.
+  The temporary file is read and removed by the download task itself.
 
   `fetch/1` returns the document and `ttl`, the seconds it may be cached: `max-age` of
   `Cache-Control`, one hour without one, and never less than 5 minutes nor more than a day. A
   failed fetch is a refusal that is **not remembered** (`PhoenixKit.API.OAuth.Clients` keeps only
   what it fetched).
 
-  The downloader is `RemoteFetch`; the `:oauth_cimd_downloader` application setting replaces it
-  with another module that has `download/2` of the same contract (for tests: nothing else should
-  set it).
+  The downloader is `RemoteFetch`. A build compiled with `config :phoenix_kit, oauth_cimd_seam:
+  true` (this library's own `config/test.exs`) lets the `:oauth_cimd_downloader` application
+  setting replace it with another module that has `download/2` of the same contract; any other
+  build ignores the setting.
   """
 
   alias PhoenixKit.API.OAuth.Clients
@@ -168,13 +169,22 @@ defmodule PhoenixKit.API.OAuth.Cimd do
     end
   end
 
+  # The task downloads, reads and removes the file, and sends back the body and the headers:
+  # no temporary file outlives it, whatever becomes of the process that waits.
   defp download(url) do
-    opts = [max_bytes: @max_bytes, timeout: @timeout, max_redirects: 0, return_headers: true]
-
-    case run(fn -> downloader().download(url, opts) end) do
-      {:ok, {:ok, %{path: path} = result}} -> read(path, Map.get(result, :headers, []))
+    case run(fn -> download_and_read(url) end) do
+      {:ok, {:ok, body, headers}} -> {:ok, body, headers}
       {:ok, {:error, reason}} -> {:error, {:fetch_failed, reason}}
       {:error, _reason} = error -> error
+    end
+  end
+
+  defp download_and_read(url) do
+    opts = [max_bytes: @max_bytes, timeout: @timeout, max_redirects: 0, return_headers: true]
+
+    case downloader().download(url, opts) do
+      {:ok, %{path: path} = result} -> read(path, Map.get(result, :headers, []))
+      {:error, reason} -> {:error, reason}
     end
   end
 
@@ -183,14 +193,22 @@ defmodule PhoenixKit.API.OAuth.Cimd do
          {:ok, body} <- File.read(path) do
       {:ok, body, headers}
     else
-      {:ok, %File.Stat{}} -> {:error, {:fetch_failed, :too_large}}
-      {:error, reason} -> {:error, {:fetch_failed, {:read_failed, reason}}}
+      {:ok, %File.Stat{}} -> {:error, :too_large}
+      {:error, reason} -> {:error, {:read_failed, reason}}
     end
   after
     File.rm(path)
   end
 
-  defp downloader, do: Application.get_env(:phoenix_kit, :oauth_cimd_downloader, RemoteFetch)
+  # The downloader can be replaced only in a build whose config says so (`config/test.exs`): a
+  # setting at run time must never be able to swap out the guard against server-side requests.
+  @downloader_seam Application.compile_env(:phoenix_kit, :oauth_cimd_seam, false)
+
+  defp downloader do
+    if @downloader_seam,
+      do: Application.get_env(:phoenix_kit, :oauth_cimd_downloader, RemoteFetch),
+      else: RemoteFetch
+  end
 
   # The download runs in a task of its own supervisor (`max_children` is the concurrency limit).
   defp run(fun) do

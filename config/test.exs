@@ -129,3 +129,7 @@ config :phoenix_kit,
     PhoenixKit.Test.JobKinds.Guarded,
     PhoenixKit.Test.JobKinds.Short
   ]
+
+# The OAuth client metadata download may be replaced by a test module (`oauth_cimd_downloader`)
+# in this build only.
+config :phoenix_kit, oauth_cimd_seam: true
