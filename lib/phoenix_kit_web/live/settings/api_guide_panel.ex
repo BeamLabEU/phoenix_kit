@@ -14,7 +14,16 @@ defmodule PhoenixKitWeb.Live.Settings.ApiGuidePanel do
 
   A key. Every snippet carries the placeholder `<your key>` (or, for VS Code, an
   `inputs` prompt that keeps the key out of the file), and the guide warns that a key
-  must not be committed. The guide reads no key and no token from anywhere.
+  must not be committed. The guide reads no key and no token from anywhere. The section
+  "Connect with a sign-in (OAuth)" has no key at all: its snippets name the server and its
+  address, and the sign-in happens in the browser.
+
+  ## The OAuth section
+
+  Built from `PhoenixKit.API.OAuth.Status` (the addresses are the ones the discovery
+  documents publish) and shown whether or not OAuth is on, with a note and a link to the
+  switch while it is off. The table of clients says plainly which connection was checked
+  against a live client and which only against the client's published documents.
 
   ## Where the numbers come from
 
@@ -33,6 +42,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiGuidePanel do
   alias PhoenixKit.API.FlowConfig
   alias PhoenixKit.API.MCP.Names
   alias PhoenixKit.API.MCP.Shape
+  alias PhoenixKit.API.OAuth.Status
   alias PhoenixKit.API.Paths
   alias PhoenixKit.API.Problem
   alias PhoenixKit.API.Registry
@@ -69,6 +79,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiGuidePanel do
       claude_code_command: claude_code_command(name, mcp),
       cursor_config: cursor_config(name, mcp),
       vscode_config: vscode_config(name, mcp),
+      oauth: oauth(name, mcp),
       tool_groups: tool_groups(),
       confirm_ttl_seconds: FlowConfig.confirm_ttl_seconds(),
       confirm_batch_over: FlowConfig.confirm_batch_over(),
@@ -122,7 +133,30 @@ defmodule PhoenixKitWeb.Live.Settings.ApiGuidePanel do
     })
   end
 
+  # No key and no header: the client finds the sign-in from the 401 answer of the server.
+  defp oauth(name, url) do
+    report = Status.report()
+
+    %{
+      enabled: report.oauth_enabled,
+      dcr_enabled: report.dcr_enabled,
+      settings_path: Routes.path("/admin/settings/api?tab=oauth"),
+      mcp_url: url,
+      metadata_url: Keyword.fetch!(report.urls, :protected_resource_metadata),
+      server_metadata_url: Keyword.fetch!(report.urls, :authorization_server_metadata),
+      claude_code_command: "claude mcp add --transport http #{name} #{shell_quote(url)}",
+      codex_config: "[mcp_servers.#{toml_key(name)}]\nurl = #{toml_string(url)}",
+      codex_login_command: "codex mcp login #{name}"
+    }
+  end
+
   defp json(term), do: Jason.encode!(term, pretty: true)
+
+  # The server name is a slug (`ClientName.slug/1`): letters, digits and dashes.
+  defp toml_key(name),
+    do: if(Regex.match?(~r/\A[A-Za-z0-9_-]+\z/, name), do: name, else: toml_string(name))
+
+  defp toml_string(text), do: Jason.encode!(text)
 
   defp shell_quote(text), do: "'" <> String.replace(text, "'", "'\\''") <> "'"
 

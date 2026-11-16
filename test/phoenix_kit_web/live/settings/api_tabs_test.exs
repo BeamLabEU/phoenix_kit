@@ -2,9 +2,10 @@ defmodule PhoenixKitWeb.Live.Settings.ApiTabsTest do
   @moduledoc """
   Settings -> API is split into tabs held in the URL (`?tab=…`, see
   `PhoenixKitWeb.Live.Settings.UrlTabs`): switches and modules, keys and service
-  users, approvals and limits, and the guide. Every pane but the guide is rendered
-  and only hidden, so a form in a hidden pane keeps what was typed; the guide is
-  built only when its tab is shown, again on each visit. The old guide address
+  users, approvals and limits, sign-in (OAuth), and the guide. Every pane but the guide
+  and the OAuth panel is rendered and only hidden, so a form in a hidden pane keeps what
+  was typed; the guide is built, and the OAuth panel mounted, only when its tab is shown,
+  again on each visit. The old guide address
   opens the guide tab.
   """
   use PhoenixKitWeb.ConnCase, async: false
@@ -21,6 +22,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiTabsTest do
     "access" => ~w(api-switches api-modules-card),
     "keys" => ~w(api-keys-card api-service-users-card),
     "approvals" => ~w(api-approvals-card api-limits-card api-flow-card),
+    "oauth" => [],
     "guide" => ~w(api-guide-page)
   }
 
@@ -60,7 +62,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiTabsTest do
       assert_only_visible(view, "access")
     end
 
-    test "four tabs, each linking to its own ?tab=", %{conn: conn} do
+    test "five tabs, each linking to its own ?tab=", %{conn: conn} do
       {:ok, view, _html} = live(conn, @path)
 
       hrefs =
@@ -70,7 +72,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiTabsTest do
         |> LazyHTML.query(~s([role="tablist"] [role="tab"]))
         |> LazyHTML.attribute("href")
 
-      assert hrefs == Enum.map(~w(access keys approvals guide), &tab_path/1)
+      assert hrefs == Enum.map(~w(access keys approvals oauth guide), &tab_path/1)
     end
 
     test "?tab=keys shows keys and service users and hides the rest", %{conn: conn} do
@@ -132,6 +134,26 @@ defmodule PhoenixKitWeb.Live.Settings.ApiTabsTest do
       assert_patch(view, tab_path("keys"))
       assert view.pid == pid
       assert_only_visible(view, "keys")
+    end
+  end
+
+  describe "the OAuth tab" do
+    test "?tab=oauth mounts the panel and hides the rest", %{conn: conn} do
+      {:ok, view, _html} = live(conn, tab_path("oauth"))
+
+      assert active_tab_hrefs(view) == [tab_path("oauth")]
+      assert_only_visible(view, "oauth")
+      assert has_element?(view, "#api-tab-oauth #api-oauth-switches")
+    end
+
+    test "is mounted only when its tab is shown", %{conn: conn} do
+      {:ok, view, _html} = live(conn, @path)
+      refute has_element?(view, "#api-oauth")
+
+      view |> element(~s([role="tab"][href="#{tab_path("oauth")}"])) |> render_click()
+
+      assert_patch(view, tab_path("oauth"))
+      assert has_element?(view, "#api-tab-oauth #api-oauth-switches")
     end
   end
 

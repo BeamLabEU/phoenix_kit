@@ -22,7 +22,8 @@ This guide describes what exists in core: REST, MCP and the generated OpenAPI do
 | Paths | `PhoenixKit.API.Paths` | The one table of API paths; the router and the body guard both read it |
 | Legacy | `PhoenixKit.API.Legacy` | Every deprecated name (paths, settings keys, error codes), deleted in 3.0.0; see "Deprecated aliases" |
 | Body guard | `PhoenixKit.API.BodyGuard` | Endpoint plug before `Plug.Parsers`: 2 MB limit, JSON errors as problem+json (JSON-RPC parse errors on `/mcp/*`) |
-| Admin page | `PhoenixKitWeb.Live.Settings.Api` | Four tabs held in the URL (`?tab=access\|keys\|approvals\|guide`): switches and modules, keys and service users, approvals and limits, the guide (route `/admin/settings/api`) |
+| Admin page | `PhoenixKitWeb.Live.Settings.Api` | Five tabs held in the URL (`?tab=access\|keys\|approvals\|oauth\|guide`): switches and modules, keys and service users, approvals and limits, sign-in (OAuth), the guide (route `/admin/settings/api`) |
+| OAuth | `PhoenixKit.API.OAuth.*`, `PhoenixKit.API.OAuthConfig` | The authorization server that lets an MCP client connect after a sign-in instead of a key; see [Connecting with OAuth](#connecting-with-oauth) |
 | Admin guide | `PhoenixKitWeb.Live.Settings.ApiGuidePanel` | Read-only "how to connect" tab (`/admin/settings/api?tab=guide`, permission `api`), built when the tab is opened from the registry: endpoints, client snippets, tools by module, errors. `ApiGuide` is only the redirect of the retired `/admin/settings/api/guide` |
 
 ## Switching it on
@@ -319,11 +320,46 @@ claude mcp add --transport http <name>-admin 'https://<host>/mcp/admin' --header
 
 `--header` takes any number of values, so it comes after the URL. The line uses Claude Code's default `local` scope, which keeps the key out of the shared project file. Cursor takes `{"mcpServers": {"<name>-admin": {"url": "...", "headers": {"Authorization": "Bearer <your key>"}}}}` in `~/.cursor/mcp.json` (the user file), VS Code a `servers` entry in `.vscode/mcp.json` whose header is `Bearer ${input:<name>-admin-key}` with an `inputs` prompt of `"password": true`, so the key is asked for and not written down. `<name>` is the slug of the project title; `-admin` keeps it apart from the public server of the same site. Claude's desktop and web connectors cannot send a fixed Bearer header and are not covered. For the public server the site publishes the commands itself: see [Public discovery](#public-discovery) (`GET /mcp`).
 
-Clients that support only OAuth for remote servers work only while `api_oauth_enabled` is on (off by default; it counts only while the admin API is on): they then connect through the authorization code flow of `/oauth/authorize`. Put the key in the client's secret store, never in the URL: a URL with `?token=...` is refused.
+Clients that support only OAuth for remote servers connect through [OAuth](#connecting-with-oauth), and work only while `api_oauth_enabled` is on (off by default; it counts only while the admin API is on): they then use the authorization code flow of `/oauth/authorize`. Put the key in the client's secret store, never in the URL: a URL with `?token=...` is refused.
 
 The pages of that flow (the consent screen, the page of a person at the connection limit, the error pages) carry no locale in their URL, so each request picks its language: the `lang` query parameter (the switcher on the page sets it), then the signed-in person's saved language (consent pages only), then the browser's `Accept-Language`, then the site's default language, each only when the site has that language enabled. The sign-in page a person passes before the consent screen is the site's own and stays in the site's language.
 
 If a CDN or WAF in front of the site challenges bots, exempt `/api` and `/mcp`: an agent cannot pass an HTML challenge, and the API has its own rate limits.
+
+### Connecting with OAuth
+
+An MCP client that cannot send a fixed header (Claude's desktop, web and mobile connectors, ChatGPT's custom connector) connects to `/mcp/admin` through OAuth 2.1 with PKCE: the person signs in to the site, reads what the client asks for and allows it. No key is copied; the client holds an access token and a refresh token, and nothing else. Settings -> API -> **Sign-in (OAuth)** is where it is switched on, and the API guide tab has the text to give a person (`#guide-oauth`).
+
+**Off by default, in two steps.** `api_oauth_enabled` needs `api_admin_enabled`; `api_oauth_dcr_enabled` (self-registration of clients, RFC 7591) needs OAuth. While OAuth is off every `/oauth/*` address and both discovery documents answer `404`, and the `401` answer of `/mcp/admin` carries no `resource_metadata` pointer. The switches are refused on the server, not only hidden in the page, and each change is a permanent `setting.changed` Activity entry with the person as actor.
+
+**The addresses** (the tab shows them for this site, `PhoenixKit.API.OAuth.Status`): `GET /.well-known/oauth-protected-resource/mcp/admin` (the resource, RFC 9728), `GET /.well-known/oauth-authorization-server` (RFC 8414), `GET /oauth/authorize`, `POST /oauth/token`, `POST /oauth/revoke`, `POST /oauth/register`. Under a non-root `url_prefix` the `/oauth` addresses live under it; the two `/.well-known/` documents are at the origin root.
+
+**Who may connect.** A person whose role holds `api_personal_keys` (or `api`). Every grant stands on a hidden key owned by that person, so what the connection may do is its scopes **intersected with the person's rights at the time of each request**, exactly like a personal key. Take the right away from a role and the connection stops at the next request (the grant is not deleted; it is listed as "No permission" for an Owner and works again when the right returns). A person can hold up to `api_oauth_grants_per_person` connections.
+
+**How a client is known.** A client that names itself by an `https` metadata document (Client ID Metadata Document: Claude, ChatGPT) is fetched through `Storage.RemoteFetch` (public addresses only) and cached; one that registers itself needs DCR (Claude Code, MCP Inspector); one an administrator adds by hand (Settings -> API -> Sign-in -> "Add an application by hand") needs neither and is never judged by the allow-list. Redirect addresses are `https`, or `http` to `127.0.0.1` / `[::1]` (the port may differ); custom schemes (`cursor://`) are not supported, and such a client uses a key.
+
+**Which clients may connect** (`api_oauth_client_policy`): `any` (the default; the person sees the client's name and redirect host on the consent screen) or `allow_list` (only clients whose own host and every redirect host are in `api_oauth_client_allow_hosts`). The list is judged at authorize, at consent **and** at every code exchange and refresh, so a host removed from it stops working at once. There is no deny-list.
+
+**Ending a connection.** A person ends their own in "Connected apps" on My API keys (and the API keys section of the profile); an Owner who holds `api` ends anyone's in the Sign-in tab. Both go through `PhoenixKit.API.OAuth.Connections.revoke/3` and end in `OAuth.Grants.revoke/2`: the hidden key, the grant and every token in one transaction. Deleting a client in the Sign-in tab does the same for every grant it has (`Clients.delete/2`, reason `client_deleted`). Neither a person nor an administrator can see or copy a token, ever.
+
+**What is logged** (Activity, module `api`; no code, verifier, token or redirect address is ever in an entry, and the tests scan for them): `oauth.grant_created` (at the code exchange), `oauth.grant_revoked` (who, the client, the key prefix, the reason), `oauth.refresh_retry` (a repeat of a refresh token inside ten seconds: a network retry, the family named), `oauth.refresh_reuse` (a repeat after that: the whole grant is ended), `oauth.client_registered` (by DCR, not permanent; by hand, permanent, hosts only).
+
+**Settings** (Settings -> API -> Sign-in, all or nothing, only what changed is written; `PhoenixKit.API.OAuthConfig`): the access token life (300 to 86400 s, default 3600), connections per person (1 to 100, default 10), the limits of the public addresses (authorize and token per minute and per address, the number of pending authorization requests, metadata downloads per address and per client, registrations per hour and per day), the client policy and the allowed hosts. How long one **connection** lasts is the person's choice on the consent screen, up to `api_personal_key_max_days`; a refresh token lives as long as the connection.
+
+#### Client matrix
+
+What follows is what the implementation assumes of each client from its published behaviour; **none of it was tried against a live client**, and the clients change. A live check (an account of each product that can reach the site over https on port 443) is open.
+
+| Client | How it identifies itself | What is known | Checked live |
+|---|---|---|---|
+| Claude (claude.ai, desktop, mobile) | metadata document | Custom connector with the MCP URL; the call comes from the provider's servers, so the site must be public on 443; fixed return address of the provider | no |
+| Claude Code | DCR (`claude mcp add --transport http <name> <url>`, then `/mcp`) | Needs `api_oauth_dcr_enabled`; return address is a loopback port | no |
+| ChatGPT | metadata document | Custom MCP server where the plan offers it (not on every plan); the return address is the provider's | no |
+| Codex | DCR | `codex mcp login <name>`; the exact steps are the client's and change | no |
+| Cursor, VS Code | custom URL scheme or per-client | Not promised; use a key | no |
+| MCP Inspector | DCR | Loopback return address | no |
+
+**Known limits.** The metadata documents (resource and server) are cached by the client on a plain TTL; there is no ETag revalidation in this version. `/oauth/*` is meant for browsers and MCP clients and is not part of the REST or OpenAPI documents.
 
 ## OpenAPI
 

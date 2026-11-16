@@ -9,8 +9,9 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
   The page is split into tabs held in the URL (`?tab=…`, see
   `PhoenixKitWeb.Live.Settings.UrlTabs`): switches and modules (the default), keys and
   service users, approvals and limits, and the API guide
-  (`PhoenixKitWeb.Live.Settings.ApiGuidePanel`, built each time its tab is opened). The
-  other panes are all rendered and only hidden, so a form keeps what was typed when the
+  (`PhoenixKitWeb.Live.Settings.ApiGuidePanel`, built each time its tab is opened) and the
+  OAuth tab (`PhoenixKitWeb.Live.Settings.ApiOauthPanel`, a LiveComponent mounted while its
+  tab is open). The other panes are all rendered and only hidden, so a form keeps what was typed when the
   tab changes; the dialogs sit outside the panes.
 
   Gated by the `api` permission (opt-in for Admin; see
@@ -132,6 +133,7 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
   alias PhoenixKitWeb.Actor
   alias PhoenixKitWeb.Components.PersonalKeyDisplay
   alias PhoenixKitWeb.Live.Settings.ApiGuidePanel
+  alias PhoenixKitWeb.Live.Settings.ApiOauthPanel
   alias PhoenixKitWeb.Live.Settings.UrlTabs
   alias PhoenixKitWeb.Users.MultiSession
 
@@ -208,6 +210,7 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
       %{id: "access", label: gettext("Switches and modules"), icon: "hero-power"},
       %{id: "keys", label: gettext("Keys and service users"), icon: "hero-key"},
       %{id: "approvals", label: gettext("Approvals and limits"), icon: "hero-shield-check"},
+      %{id: "oauth", label: gettext("Sign-in (OAuth)"), icon: "hero-link"},
       %{id: "guide", label: gettext("API guide"), icon: "hero-book-open"}
     ]
   end

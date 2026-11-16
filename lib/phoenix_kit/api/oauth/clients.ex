@@ -40,10 +40,39 @@ defmodule PhoenixKit.API.OAuth.Clients do
   fields must be storable (`PhoenixKit.API.OAuth.Input`: no NUL byte, valid UTF-8).
 
   Returns the row, or a changeset error (a taken `client_id` is `{"has already been taken", ...}`
-  on `:client_id`).
+  on `:client_id`). With `opts[:actor_uuid]` (the administrator who typed it in) the registration
+  is written to the activity feed as `oauth.client_registered`, kind `"preregistered"`.
   """
-  @spec register_preregistered(map()) :: {:ok, Client.t()} | {:error, Ecto.Changeset.t()}
-  def register_preregistered(attrs) when is_map(attrs) do
+  @spec register_preregistered(map(), keyword()) ::
+          {:ok, Client.t()} | {:error, Ecto.Changeset.t()}
+  def register_preregistered(attrs, opts \\ []) when is_map(attrs) and is_list(opts) do
+    case insert_preregistered(attrs) do
+      {:ok, client} = ok ->
+        log_registered(client, opts[:actor_uuid])
+        ok
+
+      {:error, _changeset} = error ->
+        error
+    end
+  end
+
+  # Hosts only: the path and query of a redirect can carry anything.
+  defp log_registered(%Client{} = client, actor_uuid) when is_binary(actor_uuid) do
+    PhoenixKit.Activity.log("api", "oauth.client_registered",
+      actor_uuid: actor_uuid,
+      resource_type: "oauth_client",
+      resource_uuid: client.uuid,
+      permanent: true,
+      metadata: %{
+        "kind" => "preregistered",
+        "redirect_hosts" => client.redirect_uris |> Enum.map(&RedirectUri.host/1) |> Enum.uniq()
+      }
+    )
+  end
+
+  defp log_registered(_client, _actor_uuid), do: :ok
+
+  defp insert_preregistered(attrs) do
     %Client{kind: "preregistered"}
     |> Ecto.Changeset.cast(attrs, [:client_id, :client_name, :client_uri, :redirect_uris])
     |> Ecto.Changeset.validate_required([:client_id])
@@ -354,6 +383,29 @@ defmodule PhoenixKit.API.OAuth.Clients do
 
   defp unwrap({:ok, client}), do: client
   defp unwrap({:error, changeset}), do: repo().rollback(changeset)
+
+  @doc """
+  The clients for a page, newest first (at most 200), each with how many live grants it has:
+  `[%{client: client, grants: count}]`. A grant is live when it is activated, not revoked and not
+  expired.
+  """
+  @spec list() :: [%{client: Client.t(), grants: non_neg_integer()}]
+  def list do
+    now = DateTime.truncate(DateTime.utc_now(), :second)
+
+    counts =
+      from(g in Grant,
+        where: not is_nil(g.activated_at) and is_nil(g.revoked_at) and g.expires_at > ^now,
+        group_by: g.client_uuid,
+        select: {g.client_uuid, count(g.uuid)}
+      )
+      |> repo().all()
+      |> Map.new()
+
+    from(c in Client, order_by: [desc: c.inserted_at, desc: c.uuid], limit: 200)
+    |> repo().all()
+    |> Enum.map(&%{client: &1, grants: Map.get(counts, &1.uuid, 0)})
+  end
 
   @doc "A client by its row uuid; `nil` for an unknown or malformed uuid."
   @spec get(term()) :: Client.t() | nil

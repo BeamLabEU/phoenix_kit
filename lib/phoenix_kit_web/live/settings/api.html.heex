@@ -810,6 +810,16 @@
       </.form_section>
     </div>
 
+    <div id="api-tab-oauth" class={["space-y-6", @active_tab != "oauth" && "hidden"]}>
+      <.live_component
+        :if={@active_tab == "oauth"}
+        module={ApiOauthPanel}
+        id="api-oauth"
+        scope={@phoenix_kit_current_scope}
+        impersonated={@impersonated}
+      />
+    </div>
+
     <div id="api-tab-guide" class={@active_tab != "guide" && "hidden"}>
       <ApiGuidePanel.api_guide_panel :if={@guide} guide={@guide} />
     </div>

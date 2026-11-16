@@ -27704,3 +27704,513 @@ msgstr "Приложение"
 #, elixir-autogen, elixir-format
 msgid "Back to the request"
 msgstr "Назад к запросу"
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:129
+#, elixir-autogen, elixir-format
+msgid "The connection was ended. The application stops working at once."
+msgstr "Подключение завершено. Приложение перестаёт работать немедленно."
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:139
+#, elixir-autogen, elixir-format
+msgid "The connection could not be ended."
+msgstr "Не удалось завершить подключение."
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:161
+#, elixir-autogen, elixir-format
+msgid "Connections cannot be changed while you act in another account."
+msgstr "Подключения нельзя менять, пока вы действуете от имени другой учётной записи."
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:183
+#, elixir-autogen, elixir-format
+msgid "That connection was not found."
+msgstr "Это подключение не найдено."
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:207
+#, elixir-autogen, elixir-format
+msgid "Site address changed"
+msgstr "Адрес сайта изменился"
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:234
+#, elixir-autogen, elixir-format
+msgid "You are acting in another account, so connections are shown but cannot be ended here."
+msgstr "Вы действуете от имени другой учётной записи: подключения показаны, но завершить их здесь нельзя."
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:243
+#, elixir-autogen, elixir-format
+msgid "OAuth is switched off by an administrator. These connections do not work now."
+msgstr "OAuth отключён администратором. Эти подключения сейчас не работают."
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:249
+#, elixir-autogen, elixir-format
+msgid "Connected apps"
+msgstr "Подключённые приложения"
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:255
+#, elixir-autogen, elixir-format
+msgid "Applications you let act with your rights after a sign-in, such as an AI assistant. A connection never has more rights than you, and stops working at once when you lose them."
+msgstr "Приложения, которым вы после входа позволяете действовать с вашими правами, например ИИ-ассистент. У подключения никогда не больше прав, чем у вас, и оно перестаёт работать сразу, как только вы их теряете."
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:266
+#, elixir-autogen, elixir-format
+msgid "Person"
+msgstr "Пользователь"
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:323
+#, elixir-autogen, elixir-format
+msgid "The owner no longer holds the right to API keys: this connection does not work until they hold it again."
+msgstr "У владельца больше нет права на API-ключи: это подключение не работает, пока право не вернут."
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:367
+#, elixir-autogen, elixir-format
+msgid "No application is connected."
+msgstr "Ни одно приложение не подключено."
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:369
+#, elixir-autogen, elixir-format
+msgid "Add the server's address in the application, then sign in and allow access."
+msgstr "Добавьте адрес сервера в приложении, войдите и разрешите доступ."
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:382
+#, elixir-autogen, elixir-format
+msgid "Disconnect this application?"
+msgstr "Отключить это приложение?"
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:394
+#, elixir-autogen, elixir-format
+msgid "The application stops working at once and has to ask for access again. This cannot be undone."
+msgstr "Приложение сразу перестанет работать и должно будет снова запросить доступ. Это действие нельзя отменить."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:75
+#, elixir-autogen, elixir-format
+msgid "Switch the admin API on first."
+msgstr "Сначала включите административный API."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:83
+#, elixir-autogen, elixir-format
+msgid "Switch OAuth on first."
+msgstr "Сначала включите OAuth."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:108
+#, elixir-autogen, elixir-format
+msgid "Every number must be a whole number inside its range, and the hosts must be plain host names, one per line."
+msgstr "Каждое число должно быть целым и лежать в своих пределах, а хосты должны быть простыми именами хостов, по одному в строке."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:126
+#, elixir-autogen, elixir-format
+msgid "That client was not found."
+msgstr "Этот клиент не найден."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:151
+#, elixir-autogen, elixir-format
+msgid "The client was removed."
+msgstr "Клиент удалён."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:153
+#, elixir-autogen, elixir-format
+msgid "The client could not be removed."
+msgstr "Не удалось удалить клиента."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:218
+#, elixir-autogen, elixir-format
+msgid "Give from 1 to 10 redirect addresses, one per line."
+msgstr "Укажите от 1 до 10 адресов возврата, по одному в строке."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:227
+#, elixir-autogen, elixir-format
+msgid "The client was added."
+msgstr "Клиент добавлен."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:242
+#, elixir-autogen, elixir-format
+msgid "That client ID is already registered."
+msgstr "Этот ID клиента уже зарегистрирован."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:243
+#, elixir-autogen, elixir-format
+msgid "The client ID is required (at most 2048 characters, plain text)."
+msgstr "ID клиента обязателен (не более 2048 символов, обычный текст)."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:246
+#, elixir-autogen, elixir-format
+msgid "A redirect address must be https, or http to 127.0.0.1 or [::1], with no fragment and no wildcard."
+msgstr "Адрес возврата должен быть https либо http на 127.0.0.1 или [::1], без фрагмента и без подстановочных знаков."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:251
+#, elixir-autogen, elixir-format
+msgid "The client could not be saved."
+msgstr "Не удалось сохранить клиента."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:265
+#, elixir-autogen, elixir-format
+msgid "Added by hand"
+msgstr "Добавлен вручную"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:266
+#, elixir-autogen, elixir-format
+msgid "Registered itself"
+msgstr "Зарегистрировался сам"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:267
+#, elixir-autogen, elixir-format
+msgid "Metadata document"
+msgstr "Документ метаданных"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:274
+#, elixir-autogen, elixir-format
+msgid "Protected resource metadata"
+msgstr "Метаданные защищённого ресурса"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:275
+#, elixir-autogen, elixir-format
+msgid "Authorization server metadata"
+msgstr "Метаданные сервера авторизации"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:276
+#, elixir-autogen, elixir-format
+msgid "Authorization endpoint"
+msgstr "Адрес авторизации"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:277
+#, elixir-autogen, elixir-format
+msgid "Token endpoint"
+msgstr "Адрес токенов"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:278
+#, elixir-autogen, elixir-format
+msgid "Revocation endpoint"
+msgstr "Адрес отзыва"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:279
+#, elixir-autogen, elixir-format
+msgid "Registration endpoint"
+msgstr "Адрес регистрации"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:283
+#, elixir-autogen, elixir-format
+msgid "The admin API is off, so every OAuth address answers 404 whatever this tab says."
+msgstr "Административный API выключен, поэтому каждый адрес OAuth отвечает 404, что бы ни говорила эта вкладка."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:287
+#, elixir-autogen, elixir-format
+msgid "The site address is not https. Web assistants refuse to connect to it: set the site address in the general settings."
+msgstr "Адрес сайта не https. Веб-ассистенты отказываются подключаться: задайте адрес сайта в общих настройках."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:293
+#, elixir-autogen, elixir-format
+msgid "Only listed hosts may connect and the list is empty: no application can connect, except one added by hand below."
+msgstr "Подключаться могут только перечисленные хосты, а список пуст: ни одно приложение не сможет подключиться, кроме добавленного ниже вручную."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:299
+#, elixir-autogen, elixir-format
+msgid "Any application (its address is shown to the person)"
+msgstr "Любое приложение (его адрес показывается человеку)"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:300
+#, elixir-autogen, elixir-format
+msgid "Only the hosts listed below"
+msgstr "Только перечисленные ниже хосты"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:328
+#, elixir-autogen, elixir-format
+msgid "Sign-in connections (OAuth)"
+msgstr "Подключения через вход (OAuth)"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:334
+#, elixir-autogen, elixir-format
+msgid "Lets AI assistants such as Claude and ChatGPT connect after a sign-in, with no key to copy. It is off until you switch it on; while it is off every OAuth address answers 404."
+msgstr "Позволяет ИИ-ассистентам, таким как Claude и ChatGPT, подключаться после входа, без ключа для копирования. Пока вы не включите, функция выключена; пока она выключена, каждый адрес OAuth отвечает 404."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:342
+#, elixir-autogen, elixir-format
+msgid "OAuth for the MCP server"
+msgstr "OAuth для MCP-сервера"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:345
+#, elixir-autogen, elixir-format
+msgid "Needs the admin API. A person who may keep personal API keys connects an application by signing in and allowing access."
+msgstr "Требует административный API. Тот, кому разрешены личные API-ключи, подключает приложение, войдя и разрешив доступ."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:369
+#, elixir-autogen, elixir-format
+msgid "Self-registration of applications"
+msgstr "Саморегистрация приложений"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:372
+#, elixir-autogen, elixir-format
+msgid "Lets programs register themselves (Claude Code, MCP Inspector). Off by default. Applications that name themselves by a metadata document, as Claude and ChatGPT do, do not need it."
+msgstr "Позволяет программам регистрироваться самостоятельно (Claude Code, MCP Inspector). По умолчанию выключено. Приложениям, которые называют себя документом метаданных, как Claude и ChatGPT, это не нужно."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:397
+#, elixir-autogen, elixir-format
+msgid "Status and addresses"
+msgstr "Состояние и адреса"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:427
+#, elixir-autogen, elixir-format
+msgid "These addresses answer without a key, and only while OAuth is on. An application that cannot open them cannot connect."
+msgstr "Эти адреса отвечают без ключа и только пока OAuth включён. Приложение, которое не может их открыть, не сможет подключиться."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:436
+#, elixir-autogen, elixir-format
+msgid "OAuth settings"
+msgstr "Настройки OAuth"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:442
+#, elixir-autogen, elixir-format
+msgid "How long a connection lasts is chosen by the person, up to the longest life of a personal key. Every change is kept in the history of the settings."
+msgstr "Срок подключения выбирает сам человек, но не дольше максимального срока личного ключа. Каждое изменение сохраняется в истории настроек."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:470
+#, elixir-autogen, elixir-format
+msgid "Access token life, in seconds (300 to 86400)"
+msgstr "Срок жизни токена доступа, в секундах (от 300 до 86400)"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:479
+#, elixir-autogen, elixir-format
+msgid "Connections one person may have (1 to 100)"
+msgstr "Подключений на одного человека (от 1 до 100)"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:489
+#, elixir-autogen, elixir-format
+msgid "Which applications may connect"
+msgstr "Какие приложения могут подключаться"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:500
+#, elixir-autogen, elixir-format
+msgid "Allowed hosts (one per line)"
+msgstr "Разрешённые хосты (по одному в строке)"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:502
+#, elixir-autogen, elixir-format
+msgid "For example claude.ai. Judged on the host of the application's address and of each redirect address; an application added by hand below is always allowed."
+msgstr "Например, claude.ai. Проверяется хост адреса приложения и каждого адреса возврата; приложение, добавленное ниже вручную, разрешено всегда."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:512
+#, elixir-autogen, elixir-format
+msgid "Limits of the public OAuth addresses"
+msgstr "Лимиты публичных адресов OAuth"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:521
+#, elixir-autogen, elixir-format
+msgid "Authorization requests per minute, per address"
+msgstr "Запросов авторизации в минуту, с одного адреса"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:530
+#, elixir-autogen, elixir-format
+msgid "Token requests per minute, per address"
+msgstr "Запросов токенов в минуту, с одного адреса"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:539
+#, elixir-autogen, elixir-format
+msgid "Authorization requests waiting for an answer, in all"
+msgstr "Запросов авторизации, ожидающих ответа, всего"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:548
+#, elixir-autogen, elixir-format
+msgid "Metadata document downloads per minute, per address"
+msgstr "Загрузок документа метаданных в минуту, с одного адреса"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:557
+#, elixir-autogen, elixir-format
+msgid "Metadata document downloads per minute, per application"
+msgstr "Загрузок документа метаданных в минуту, для одного приложения"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:566
+#, elixir-autogen, elixir-format
+msgid "Registrations per hour, per address"
+msgstr "Регистраций в час, с одного адреса"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:575
+#, elixir-autogen, elixir-format
+msgid "Registrations per day, in all"
+msgstr "Регистраций в сутки, всего"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:592
+#, elixir-autogen, elixir-format
+msgid "Known applications"
+msgstr "Известные приложения"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:598
+#, elixir-autogen, elixir-format
+msgid "Applications that connected or registered, and those you add by hand. Removing one ends every connection it has."
+msgstr "Приложения, которые подключались или регистрировались, и те, что вы добавили вручную. Удаление приложения завершает все его подключения."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:609
+#, elixir-autogen, elixir-format
+msgid "How it became known"
+msgstr "Как стало известно"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:650
+#, elixir-autogen, elixir-format
+msgid "No application is known yet."
+msgstr "Пока не известно ни одного приложения."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:660
+#, elixir-autogen, elixir-format
+msgid "Add an application by hand"
+msgstr "Добавить приложение вручную"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:686
+#, elixir-autogen, elixir-format
+msgid "Name shown to the person"
+msgstr "Название, которое увидит человек"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:697
+#, elixir-autogen, elixir-format
+msgid "Redirect addresses (one per line)"
+msgstr "Адреса возврата (по одному в строке)"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:699
+#, elixir-autogen, elixir-format
+msgid "Where the application receives the answer: https, or http to 127.0.0.1 or [::1]. Compared exactly (a loopback port may differ)."
+msgstr "Куда приложение получает ответ: https либо http на 127.0.0.1 или [::1]. Сравнивается точно (порт loopback может отличаться)."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:728
+#, elixir-autogen, elixir-format
+msgid "Remove this application?"
+msgstr "Удалить это приложение?"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:735
+#, elixir-autogen, elixir-format
+msgid "Every connection of this application ends at once and it has to ask for access again. An application that names itself by a metadata document is known again when it is used."
+msgstr "Все подключения этого приложения завершатся сразу, и оно должно будет снова запросить доступ. Приложение, которое называет себя документом метаданных, снова становится известным при использовании."
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:161
+#, elixir-autogen, elixir-format
+msgid "Connect with a sign-in (OAuth)"
+msgstr "Подключение через вход (OAuth)"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:171
+#, elixir-autogen, elixir-format
+msgid "Open the OAuth settings"
+msgstr "Открыть настройки OAuth"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:175
+#, elixir-autogen, elixir-format
+msgid "No key to copy: the person signs in to this site and allows access. The application then works with that person's rights, never more, and only with what they allowed."
+msgstr "Ключ копировать не нужно: человек входит на этот сайт и разрешает доступ. Приложение работает с правами этого человека, никогда не с большими, и только с тем, что он разрешил."
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:186
+#, elixir-autogen, elixir-format
+msgid "OAuth is switched off, so none of this works yet."
+msgstr "OAuth выключен, поэтому пока ничего из этого не работает."
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:189
+#, elixir-autogen, elixir-format
+msgid "Who may connect: a person whose role holds the right to personal API keys (or to the API). They end a connection under My API keys; an Owner ends any of them in the OAuth settings."
+msgstr "Кто может подключаться: человек, чья роль имеет право на личные API-ключи (или на API). Завершить подключение он может в разделе «Мои API-ключи»; Owner завершает любое в настройках OAuth."
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:204
+#, elixir-autogen, elixir-format
+msgid "Open Settings, then Connectors, then Add custom connector."
+msgstr "Откройте Настройки, затем Коннекторы, затем «Добавить пользовательский коннектор»."
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:205
+#, elixir-autogen, elixir-format
+msgid "Paste the MCP server address above and connect."
+msgstr "Вставьте адрес MCP-сервера, указанный выше, и подключитесь."
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:207
+#, elixir-autogen, elixir-format
+msgid "Sign in to this site if asked, read what the application asks for, and choose Allow."
+msgstr "Войдите на этот сайт, если попросят, прочитайте, что запрашивает приложение, и выберите «Разрешить»."
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:213
+#, elixir-autogen, elixir-format
+msgid "The connection is made from the provider's servers, so the site must be reachable from the internet over https on port 443."
+msgstr "Подключение выполняется с серверов провайдера, поэтому сайт должен быть доступен из интернета по https на порту 443."
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:222
+#, elixir-autogen, elixir-format
+msgid "Add the server without a header, then run /mcp inside a session and choose to authenticate. Claude Code registers itself, so switch on self-registration of applications first."
+msgstr "Добавьте сервер без заголовка, затем выполните /mcp внутри сессии и выберите аутентификацию. Claude Code регистрируется сам, поэтому сначала включите саморегистрацию приложений."
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:232
+#, elixir-autogen, elixir-format
+msgid "On a plan that offers custom MCP servers, add the MCP server address above, choose OAuth as the authentication and follow the sign-in."
+msgstr "На тарифе, где есть пользовательские MCP-серверы, добавьте адрес MCP-сервера выше, выберите OAuth как способ аутентификации и пройдите вход."
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:241
+#, elixir-autogen, elixir-format
+msgid "Add the server to the Codex configuration, then run the login command. The exact steps are the client's own and may change."
+msgstr "Добавьте сервер в конфигурацию Codex, затем выполните команду входа. Точные шаги определяет сам клиент, и они могут измениться."
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:250
+#, elixir-autogen, elixir-format
+msgid "Other clients"
+msgstr "Другие клиенты"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:252
+#, elixir-autogen, elixir-format
+msgid "A client that follows the MCP authorization specification needs only the MCP server address: it learns the rest from the 401 answer and from these two documents."
+msgstr "Клиенту, который следует спецификации авторизации MCP, нужен только адрес MCP-сервера: остальное он узнаёт из ответа 401 и из этих двух документов."
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:267
+#, elixir-autogen, elixir-format
+msgid "The client must use PKCE with S256 and return to an https address or to 127.0.0.1 or [::1]. Custom URL schemes such as cursor:// are not supported: such a client uses a key, as above."
+msgstr "Клиент должен использовать PKCE с S256 и возвращаться на адрес https либо на 127.0.0.1 или [::1]. Собственные схемы URL, например cursor://, не поддерживаются: такой клиент использует ключ, как описано выше."
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:274
+#, elixir-autogen, elixir-format
+msgid "What the person sees"
+msgstr "Что видит человек"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:276
+#, elixir-autogen, elixir-format
+msgid "The name of the application and the address it returns to, what it may do (reading is selected, writing is not) and for how long. A person without the right is told so and nothing is granted."
+msgstr "Название приложения и адрес, на который оно возвращается, что оно может делать (чтение выбрано, запись нет) и на какой срок. Человеку без права сообщат об этом, и ничего не будет выдано."
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:281
+#, elixir-autogen, elixir-format
+msgid "A connection has the rights its person holds now. Take the right to personal API keys away from a role and its connections stop at the next request; give it back and they work again."
+msgstr "У подключения те права, которые у его владельца сейчас. Если отнять у роли право на личные API-ключи, её подключения остановятся при следующем запросе; верните право, и они снова заработают."
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:288
+#, elixir-autogen, elixir-format
+msgid "Which clients were checked"
+msgstr "Какие клиенты проверялись"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:293
+#, elixir-autogen, elixir-format
+msgid "Client"
+msgstr "Клиент"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:294
+#, elixir-autogen, elixir-format
+msgid "Connects by"
+msgstr "Подключается через"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:295
+#, elixir-autogen, elixir-format
+msgid "Checked"
+msgstr "Проверено"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:302
+#, elixir-autogen, elixir-format
+msgid "Document and return address read; not yet tried live"
+msgstr "Документ и адрес возврата прочитаны; вживую ещё не проверялось"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:307
+#, elixir-autogen, elixir-format
+msgid "Document read; not yet tried live; depends on the plan"
+msgstr "Документ прочитан; вживую ещё не проверялось; зависит от тарифа"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:312
+#, elixir-autogen, elixir-format
+msgid "Not yet tried live"
+msgstr "Вживую ещё не проверялось"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:321
+#, elixir-autogen, elixir-format
+msgid "A key, as above"
+msgstr "Ключ, как описано выше"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:322
+#, elixir-autogen, elixir-format
+msgid "OAuth is not promised: custom URL schemes are not supported"
+msgstr "OAuth не обещан: собственные схемы URL не поддерживаются"
+
+#: lib/phoenix_kit_web/live/settings/api.ex:213
+#, elixir-autogen, elixir-format
+msgid "Sign-in (OAuth)"
+msgstr "Вход (OAuth)"

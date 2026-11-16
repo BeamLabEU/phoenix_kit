@@ -153,6 +153,181 @@
     </div>
   </div>
 
+  <%!-- Connect with a sign-in (OAuth) --%>
+  <div id="guide-oauth" class="card bg-base-100 shadow-lg border border-base-200">
+    <div class="card-body space-y-4">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <h2 class="card-title text-lg">
+          <.icon name="hero-arrow-right-end-on-rectangle" class="w-5 h-5" /> {gettext(
+            "Connect with a sign-in (OAuth)"
+          )}
+        </h2>
+        <.button
+          id="guide-oauth-settings-link"
+          variant="outline"
+          size="sm"
+          patch={@guide.oauth.settings_path}
+        >
+          {gettext("Open the OAuth settings")}
+        </.button>
+      </div>
+      <p class="text-sm text-base-content/70">
+        {gettext(
+          "No key to copy: the person signs in to this site and allows access. The application then works with that person's rights, never more, and only with what they allowed."
+        )}
+      </p>
+      <div
+        :if={not @guide.oauth.enabled}
+        id="guide-oauth-off"
+        role="note"
+        class="alert alert-warning text-sm"
+      >
+        <.icon name="hero-power" class="w-5 h-5" />
+        <span>{gettext("OAuth is switched off, so none of this works yet.")}</span>
+      </div>
+      <p id="guide-oauth-who" class="text-sm text-base-content/70">
+        {gettext(
+          "Who may connect: a person whose role holds the right to personal API keys (or to the API). They end a connection under My API keys; an Owner ends any of them in the OAuth settings."
+        )}
+      </p>
+
+      <dl class="grid grid-cols-1 sm:grid-cols-[12rem_1fr] gap-x-4 gap-y-2 text-sm">
+        <dt class="font-medium">{gettext("MCP server")}</dt>
+        <dd>
+          <code id="guide-oauth-url" class="font-mono break-all">{@guide.oauth.mcp_url}</code>
+        </dd>
+      </dl>
+
+      <div id="guide-oauth-claude" class="space-y-1">
+        <h3 class="font-medium">Claude (claude.ai, desktop, mobile)</h3>
+        <ol class="list-decimal pl-5 text-sm text-base-content/70 space-y-1">
+          <li>{gettext("Open Settings, then Connectors, then Add custom connector.")}</li>
+          <li>{gettext("Paste the MCP server address above and connect.")}</li>
+          <li>
+            {gettext(
+              "Sign in to this site if asked, read what the application asks for, and choose Allow."
+            )}
+          </li>
+        </ol>
+        <p class="text-sm text-base-content/70">
+          {gettext(
+            "The connection is made from the provider's servers, so the site must be reachable from the internet over https on port 443."
+          )}
+        </p>
+      </div>
+
+      <div id="guide-oauth-claude-code" class="space-y-1">
+        <h3 class="font-medium">Claude Code</h3>
+        <p class="text-sm text-base-content/70">
+          {gettext(
+            "Add the server without a header, then run /mcp inside a session and choose to authenticate. Claude Code registers itself, so switch on self-registration of applications first."
+          )}
+        </p>
+        <pre class="bg-base-200 rounded-lg p-3 text-xs overflow-x-auto"><code id="guide-oauth-claude-code-command">{@guide.oauth.claude_code_command}</code></pre>
+      </div>
+
+      <div id="guide-oauth-chatgpt" class="space-y-1">
+        <h3 class="font-medium">ChatGPT</h3>
+        <p class="text-sm text-base-content/70">
+          {gettext(
+            "On a plan that offers custom MCP servers, add the MCP server address above, choose OAuth as the authentication and follow the sign-in."
+          )}
+        </p>
+      </div>
+
+      <div id="guide-oauth-codex" class="space-y-1">
+        <h3 class="font-medium">Codex</h3>
+        <p class="text-sm text-base-content/70">
+          {gettext(
+            "Add the server to the Codex configuration, then run the login command. The exact steps are the client's own and may change."
+          )}
+        </p>
+        <pre class="bg-base-200 rounded-lg p-3 text-xs overflow-x-auto"><code id="guide-oauth-codex-config">{@guide.oauth.codex_config}</code></pre>
+        <pre class="bg-base-200 rounded-lg p-3 text-xs overflow-x-auto"><code id="guide-oauth-codex-login">{@guide.oauth.codex_login_command}</code></pre>
+      </div>
+
+      <div id="guide-oauth-other" class="space-y-1">
+        <h3 class="font-medium">{gettext("Other clients")}</h3>
+        <p class="text-sm text-base-content/70">
+          {gettext(
+            "A client that follows the MCP authorization specification needs only the MCP server address: it learns the rest from the 401 answer and from these two documents."
+          )}
+        </p>
+        <dl class="grid grid-cols-1 sm:grid-cols-[14rem_1fr] gap-x-4 gap-y-2 text-sm">
+          <dt class="font-medium">{gettext("Protected resource metadata")}</dt>
+          <dd>
+            <code id="guide-oauth-metadata-url" class="font-mono break-all">{@guide.oauth.metadata_url}</code>
+          </dd>
+          <dt class="font-medium">{gettext("Authorization server metadata")}</dt>
+          <dd>
+            <code id="guide-oauth-server-metadata-url" class="font-mono break-all">{@guide.oauth.server_metadata_url}</code>
+          </dd>
+        </dl>
+        <p class="text-sm text-base-content/70">
+          {gettext(
+            "The client must use PKCE with S256 and return to an https address or to 127.0.0.1 or [::1]. Custom URL schemes such as cursor:// are not supported: such a client uses a key, as above."
+          )}
+        </p>
+      </div>
+
+      <div id="guide-oauth-consent" class="space-y-1">
+        <h3 class="font-medium">{gettext("What the person sees")}</h3>
+        <p class="text-sm text-base-content/70">
+          {gettext(
+            "The name of the application and the address it returns to, what it may do (reading is selected, writing is not) and for how long. A person without the right is told so and nothing is granted."
+          )}
+        </p>
+        <p id="guide-oauth-rights" class="text-sm text-base-content/70">
+          {gettext(
+            "A connection has the rights its person holds now. Take the right to personal API keys away from a role and its connections stop at the next request; give it back and they work again."
+          )}
+        </p>
+      </div>
+
+      <div id="guide-oauth-matrix" class="space-y-1">
+        <h3 class="font-medium">{gettext("Which clients were checked")}</h3>
+        <div class="overflow-x-auto">
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>{gettext("Client")}</th>
+                <th>{gettext("Connects by")}</th>
+                <th>{gettext("Checked")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr id="guide-oauth-matrix-claude">
+                <td>Claude</td>
+                <td>{gettext("Metadata document")}</td>
+                <td>{gettext("Document and return address read; not yet tried live")}</td>
+              </tr>
+              <tr id="guide-oauth-matrix-chatgpt">
+                <td>ChatGPT</td>
+                <td>{gettext("Metadata document")}</td>
+                <td>{gettext("Document read; not yet tried live; depends on the plan")}</td>
+              </tr>
+              <tr id="guide-oauth-matrix-claude-code">
+                <td>Claude Code</td>
+                <td>{gettext("Self-registration of applications")}</td>
+                <td>{gettext("Not yet tried live")}</td>
+              </tr>
+              <tr id="guide-oauth-matrix-codex">
+                <td>Codex</td>
+                <td>{gettext("Self-registration of applications")}</td>
+                <td>{gettext("Not yet tried live")}</td>
+              </tr>
+              <tr id="guide-oauth-matrix-cursor">
+                <td>Cursor, VS Code</td>
+                <td>{gettext("A key, as above")}</td>
+                <td>{gettext("OAuth is not promised: custom URL schemes are not supported")}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <%!-- Tools --%>
   <div id="guide-tools" class="card bg-base-100 shadow-lg border border-base-200">
     <div class="card-body space-y-4">
