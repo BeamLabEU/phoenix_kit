@@ -73,8 +73,10 @@ defmodule PhoenixKit.API.BodyGuard do
   without reading, as above. While it is on, a `POST` body is read up to 16 KB (the host's
   `Plug.Parsers` would read up to 8 MB before any limit of the controller) and decoded in the
   mode of the path: a form body must be valid UTF-8 and a registration body a JSON object.
-  An empty body is `%{}`. `params` becomes the **body only**: the query string is not merged,
-  so an endpoint reads its parameters from `body_params`.
+  An empty body is `%{}`. The guard sets `body_params` (and `params` to the same map), but
+  the host's `Plug.Parsers`, which runs next, then merges the query string and the path
+  parameters into `params`. So an endpoint reads its parameters from `body_params`: a
+  `?code=...` in the URL is in `params`, never in `body_params`.
 
   A refusal is an RFC 6749 section 5.2 answer, not a problem document: status `400` and
   `{"error":"invalid_request","error_description":...}` with `cache-control: no-store` and

@@ -46,6 +46,21 @@ defmodule PhoenixKit.API.OAuth.GrantsTest do
     assert key.name == "OAuth: " <> ctx.client.client_name
   end
 
+  test "an address longer than its column is cut, not a database error", ctx do
+    long = String.duplicate("1", 80)
+
+    assert {:ok, grant, _key} =
+             Grants.create(ctx.scope, ctx.client, attrs(%{created_ip: long}), impersonated: false)
+
+    assert grant.created_ip == String.duplicate("1", 45)
+    assert Repo.get!(Grant, grant.uuid).created_ip == String.duplicate("1", 45)
+
+    assert {:ok, no_ip, _key} =
+             Grants.create(ctx.scope, ctx.client, attrs(%{created_ip: 5}), impersonated: false)
+
+    assert no_ip.created_ip == nil
+  end
+
   test "the grant is stored as made", ctx do
     {:ok, grant, _key} = Grants.create(ctx.scope, ctx.client, attrs(), impersonated: false)
     assert Grants.get(grant.uuid).key_uuid == grant.key_uuid

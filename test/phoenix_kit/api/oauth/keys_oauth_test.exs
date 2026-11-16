@@ -17,6 +17,7 @@ defmodule PhoenixKit.API.KeysOAuthTest do
   alias PhoenixKit.API.OAuth.Grants
   alias PhoenixKit.API.OAuth.Token
   alias PhoenixKit.Test.ManagedOrganizationFixtures, as: F
+  alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.ManagedOrganizations
   alias PhoenixKit.Users.Permissions
 
@@ -38,6 +39,9 @@ defmodule PhoenixKit.API.KeysOAuthTest do
       extra
     )
   end
+
+  defp oauth_key_count,
+    do: Repo.aggregate(from(k in Key, where: not is_nil(k.oauth_grant_uuid)), :count)
 
   defp entries(action, resource_uuid) do
     Repo.all(from(e in Entry, where: e.action == ^action and e.resource_uuid == ^resource_uuid))
@@ -96,10 +100,7 @@ defmodule PhoenixKit.API.KeysOAuthTest do
       assert {:error, :invalid_scopes} = Keys.create_oauth_key(scope, attrs, impersonated: false)
     end
 
-    test "refuses a service user, a blocked person and a missing or past expiry", %{
-      scope: scope,
-      user: user
-    } do
+    test "refuses a missing, past or too far expiry", %{scope: scope} do
       assert {:error, %Ecto.Changeset{}} =
                Keys.create_oauth_key(scope, grant_attrs(%{expires_at: nil}), impersonated: false)
 
@@ -114,19 +115,61 @@ defmodule PhoenixKit.API.KeysOAuthTest do
                Keys.create_oauth_key(scope, grant_attrs(%{expires_at: far}), impersonated: false)
 
       assert %{expires_at: [_ | _]} = errors_on(changeset)
+    end
 
+    test "refuses a service user without the personal right at the first guard" do
       service = service_user_with(["User"])
 
-      assert {:error, reason} =
+      assert {:error, :forbidden} =
                Keys.create_oauth_key(scope_of(service), grant_attrs(), impersonated: false)
 
-      assert reason in [:forbidden, :owner_not_allowed]
+      assert oauth_key_count() == 0
+    end
 
+    test "refuses a service user who does hold the personal right: the owner is a person" do
+      {role, _} = role_with(["api_personal_keys", "media"])
+      service = service_user_with([role.name])
+
+      assert {:error, :owner_not_allowed} =
+               Keys.create_oauth_key(scope_of(service), grant_attrs(), impersonated: false)
+
+      assert oauth_key_count() == 0
+    end
+
+    test "refuses a person who has not confirmed their address while confirmation is required",
+         %{scope: scope, user: user} do
+      Repo.update_all(from(u in User, where: u.uuid == ^user.uuid), set: [confirmed_at: nil])
+
+      assert {:error, :owner_inactive} =
+               Keys.create_oauth_key(scope, grant_attrs(), impersonated: false)
+
+      assert oauth_key_count() == 0
+    end
+
+    test "refuses a blocked person", %{scope: scope, user: user} do
       user |> Ecto.Changeset.change(is_active: false) |> Repo.update!()
 
       # The locked row says inactive: the answer `create_personal_key/3` gives too.
       assert {:error, :forbidden} =
                Keys.create_oauth_key(scope, grant_attrs(), impersonated: false)
+
+      assert oauth_key_count() == 0
+    end
+
+    test "refuses an account that is a managed organization by the time the row is locked", %{
+      scope: scope,
+      user: user
+    } do
+      # The scope was built before the conversion, as in a consent that crosses it: the
+      # lock re-reads the row and refuses (`lock_mint_users`), whatever the scope still says.
+      Repo.update_all(from(u in User, where: u.uuid == ^user.uuid),
+        set: [account_type: "organization", managed_by_members: true]
+      )
+
+      assert {:error, :forbidden} =
+               Keys.create_oauth_key(scope, grant_attrs(), impersonated: false)
+
+      assert oauth_key_count() == 0
     end
 
     test "one key per grant uuid", %{scope: scope} do
@@ -264,6 +307,16 @@ defmodule PhoenixKit.API.KeysOAuthTest do
       assert entries("api.key_revoked", seed.key.uuid) == []
     end
 
+    test "forgets the key in the key cache once the revocation has committed", %{seed: seed} do
+      key = Repo.get!(Key, seed.key.uuid)
+      assert %Key{revoked_at: nil} = Keys.Cache.fetch(key.prefix, fn -> key end)
+
+      assert {:ok, _} = Grants.revoke(seed.grant)
+
+      # A cached row would be returned as it is; the loader runs only on a miss.
+      assert :reloaded = Keys.Cache.fetch(key.prefix, fn -> :reloaded end)
+    end
+
     test "Grants.revoke/2 is the same end, reached from the grant", %{seed: seed} do
       assert {:ok, %Grant{revoked_at: %DateTime{}}} = Grants.revoke(seed.grant, actor_uuid: nil)
       assert %DateTime{} = Repo.get!(Key, seed.key.uuid).revoked_at
@@ -282,6 +335,21 @@ defmodule PhoenixKit.API.KeysOAuthTest do
       assert {:ok, _} = Grants.revoke(seed.grant)
       assert Repo.get!(Token, seed.refresh_row.uuid).revoke_reason == "retry_superseded"
       assert Repo.get!(Token, seed.access_row.uuid).revoke_reason == "grant_revoked"
+    end
+
+    test "a key whose grant is gone (its client was deleted) is still revoked, never refused", %{
+      seed: seed,
+      user: user
+    } do
+      Repo.delete_all(from(c in PhoenixKit.API.OAuth.Client, where: c.uuid == ^seed.client.uuid))
+
+      assert Repo.get(Grant, seed.grant.uuid) == nil
+      assert Repo.get!(Key, seed.key.uuid).revoked_at == nil
+
+      assert {:ok, %Key{revoked_at: %DateTime{}}} =
+               Keys.revoke(Repo.get!(Key, seed.key.uuid), user.uuid)
+
+      assert %DateTime{} = Repo.get!(Key, seed.key.uuid).revoked_at
     end
 
     test "an unknown grant is not found", %{} do

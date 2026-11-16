@@ -125,6 +125,7 @@ defmodule PhoenixKit.API.Auth do
   def credential_name?(_name), do: false
 
   @audiences [:admin, :public]
+  @credential_prefixes ["pk_", "pkoa_", "pkor_"]
 
   @impl Plug
   def init(opts) do
@@ -186,7 +187,8 @@ defmodule PhoenixKit.API.Auth do
   Whether the query string carries a credential: a parameter whose name is a
   credential (`credential_name?/1`: `api_key`, `authorization`, `token`, `secret`,
   anything ending in `_token` and so on; any case, with or without a `[]` suffix),
-  or any parameter whose value starts with `pk_` (any case, after trimming spaces).
+  or any parameter whose value starts with `pk_`, `pkoa_` or `pkor_` (any case, after
+  trimming spaces).
 
   Names and values are compared after percent-decoding, so `%61pi_key=...`
   is caught too.
@@ -203,12 +205,13 @@ defmodule PhoenixKit.API.Auth do
   defp param_credential?(name),
     do: name |> String.split("[", parts: 2) |> hd() |> credential_name?()
 
-  # Any value that starts with `pk_` is refused, whatever its parameter name
-  # and on both audiences: a key may sit under a name nobody listed, and the
-  # public audience has no business with a `pk_` value either. A search for a
-  # `pk_`-prefixed word in the query string is refused too; that is intended.
-  defp credential_value?(value),
-    do: value |> String.trim() |> String.downcase() |> String.starts_with?("pk_")
+  # Any value that starts with `pk_` (a key) or `pkoa_` / `pkor_` (an OAuth access or refresh
+  # token) is refused, whatever its parameter name and on both audiences: a credential may sit
+  # under a name nobody listed, and the public audience has no business with one either. A
+  # search for such a prefixed word in the query string is refused too; that is intended.
+  defp credential_value?(value) do
+    value |> String.trim() |> String.downcase() |> String.starts_with?(@credential_prefixes)
+  end
 
   defp api_enabled?(:admin), do: Config.admin_enabled?()
   defp api_enabled?(:public), do: Config.public_enabled?()

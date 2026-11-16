@@ -62,7 +62,7 @@ defmodule PhoenixKit.API.OAuth.Resource do
   @doc """
   Normalizes a resource identifier: an absolute `http(s)` URL with a host, no userinfo and
   no fragment. The scheme and the host are lowered, the default port is dropped and a
-  trailing `/` is removed. `:error` for anything else.
+  one trailing `/` is removed (two are kept: they name another path). `:error` for anything else.
   """
   @spec normalize(term()) :: {:ok, String.t()} | :error
   def normalize(candidate) when is_binary(candidate) do
@@ -94,7 +94,7 @@ defmodule PhoenixKit.API.OAuth.Resource do
   defp port_suffix(_scheme, port), do: ":#{port}"
 
   defp trim_slash(nil), do: ""
-  defp trim_slash(path), do: String.trim_trailing(path, "/")
+  defp trim_slash(path), do: String.replace_suffix(path, "/", "")
 
   defp query_suffix(nil), do: ""
   defp query_suffix(query), do: "?" <> query

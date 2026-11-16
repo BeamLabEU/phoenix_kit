@@ -122,8 +122,8 @@ defmodule PhoenixKit.API.OAuth.AuthTest do
       assert challenge(conn) == nil
     end
 
-    test "a pk_ key still works on the admin MCP endpoint", %{holder: holder} do
-      {_key, token} = issue_key(holder_with_api(holder), [@read])
+    test "a pk_ key still works on the admin MCP endpoint" do
+      {_key, token} = issue_key(holder_with_api(), [@read])
       conn = post_rpc(:admin, message("tools/list"), token: token)
       assert conn.status == 200
     end
@@ -207,6 +207,25 @@ defmodule PhoenixKit.API.OAuth.AuthTest do
         |> Problem.send(:unauthorized, "No.", %{})
 
       assert challenge(conn) == ~s(Bearer error="invalid_token")
+    end
+  end
+
+  describe "an OAuth token in the URL" do
+    test "is refused whatever the parameter is called, as a pk_ key is", %{seed: seed} do
+      enable_oauth!()
+      {refresh, _} = Tokens.generate(:refresh)
+
+      for value <- [seed.access, refresh, String.upcase(seed.access), " " <> seed.access],
+          query <- ["?anything=", "?filter[x]=", "?q=1&note="] do
+        conn =
+          :post
+          |> api_conn("/x" <> query <> URI.encode_www_form(value), token: seed.access)
+          |> Auth.call(Auth.init(audience: :admin, oauth: true))
+
+        assert conn.halted
+        assert conn.status == 400
+        assert %{"code" => "token_in_url"} = JSON.decode!(conn.resp_body)
+      end
     end
   end
 
@@ -316,9 +335,8 @@ defmodule PhoenixKit.API.OAuth.AuthTest do
   defp rest_with_oauth(conn), do: Auth.call(conn, Auth.init(audience: :admin, oauth: true))
 
   # `issue_key/3` needs a holder of `api`: give this one the right on its role.
-  defp holder_with_api(holder) do
+  defp holder_with_api do
     {user, _role} = user_with(["dashboard"])
-    _ = holder
     user
   end
 end

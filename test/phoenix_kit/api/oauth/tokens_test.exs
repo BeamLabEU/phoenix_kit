@@ -161,6 +161,18 @@ defmodule PhoenixKit.API.OAuth.TokensTest do
       assert actor.scopes == [read_scope()]
     end
 
+    test "a key row wider than its grant is cut to the grant", %{scope: scope} do
+      narrow = seed_grant!(scope, scopes: [read_scope()])
+
+      # The key row says more than the grant does (set directly: nothing but a bug makes it so).
+      Repo.update_all(from(k in Keys.Key, where: k.uuid == ^narrow.key.uuid),
+        set: [scopes: [read_scope(), write_scope()]]
+      )
+
+      assert {:ok, actor} = Tokens.verify(narrow.access, nil)
+      assert actor.scopes == [read_scope()]
+    end
+
     test "writes last_used_at of the grant, at most once a minute", %{seed: seed} do
       assert Repo.get!(Grant, seed.grant.uuid).last_used_at == nil
       assert {:ok, _} = Tokens.verify(seed.access, nil)
@@ -180,6 +192,32 @@ defmodule PhoenixKit.API.OAuth.TokensTest do
       for bad <- [nil, "", "x", seed.refresh, pk_token, unknown, seed.access <> "x"] do
         assert {:error, :invalid_token} = Tokens.verify(bad, nil)
       end
+    end
+
+    test "a refresh secret under the access prefix, and an access secret under the refresh one",
+         %{seed: seed} do
+      "pkor_" <> refresh_secret = seed.refresh
+      "pkoa_" <> access_secret = seed.access
+
+      assert {:error, :invalid_token} = Tokens.verify("pkoa_" <> refresh_secret, nil)
+      assert {:error, :invalid_token} = Tokens.verify("pkor_" <> access_secret, nil)
+
+      # The kind is part of the hash: the same secret is a different token under each prefix.
+      {:ok, :access, access_as_access} = Tokens.parse("pkoa_" <> access_secret)
+      {:ok, :refresh, access_as_refresh} = Tokens.parse("pkor_" <> access_secret)
+      refute access_as_access == access_as_refresh
+    end
+
+    test "a refresh row is no access token even when its hash was made the access way", %{
+      seed: seed
+    } do
+      # The kind filter of the lookup is the second barrier: a row of the refresh kind that
+      # carries an access-style hash (a future code path mixing the two up) still never verifies.
+      "pkor_" <> refresh_secret = seed.refresh
+      {:ok, secret} = Base.url_decode64(refresh_secret, padding: false)
+      set_token(seed.refresh_row, token_hash: Tokens.hash(:access, secret))
+
+      assert {:error, :invalid_token} = Tokens.verify("pkoa_" <> refresh_secret, nil)
     end
 
     test "a revoked token", %{seed: seed} do

@@ -135,7 +135,7 @@ defmodule PhoenixKit.API.OAuth.PruneTest do
       live_code = insert_code!(seed.grant, ahead(30))
 
       Repo.update_all(from(t in Token, where: t.uuid == ^seed.access_row.uuid),
-        set: [expires_at: ago(5)]
+        set: [expires_at: ago(4 * 86_400)]
       )
 
       counts = Prune.run()
@@ -147,6 +147,73 @@ defmodule PhoenixKit.API.OAuth.PruneTest do
       assert Repo.get(Code, live_code.uuid)
       assert Repo.get(Token, seed.access_row.uuid) == nil
       assert Repo.get(Token, seed.refresh_row.uuid)
+    end
+
+    test "an access token that ended a moment ago stays: its client may still come back", %{
+      scope: scope
+    } do
+      seed = seed_grant!(scope)
+
+      Repo.update_all(from(t in Token, where: t.uuid == ^seed.access_row.uuid),
+        set: [expires_at: ago(3600)]
+      )
+
+      assert %{tokens: 0} = Prune.run()
+      assert Repo.get(Token, seed.access_row.uuid)
+    end
+
+    test "a run clears more than one batch of every kind", %{scope: scope} do
+      seed = seed_grant!(scope)
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      token_rows =
+        for _ <- 1..620 do
+          %{
+            uuid: UUIDv7.generate(),
+            token_hash: :crypto.strong_rand_bytes(32),
+            kind: "access",
+            grant_uuid: seed.grant.uuid,
+            family: UUIDv7.generate(),
+            expires_at: ago(10 * 86_400),
+            inserted_at: now
+          }
+        end
+
+      code_rows =
+        for _ <- 1..620 do
+          %{
+            uuid: UUIDv7.generate(),
+            code_hash: :crypto.strong_rand_bytes(32),
+            grant_uuid: seed.grant.uuid,
+            redirect_uri: "https://client.example/callback",
+            code_challenge: "x",
+            expires_at: ago(5),
+            inserted_at: now
+          }
+        end
+
+      request_rows =
+        for _ <- 1..620 do
+          %{
+            uuid: UUIDv7.generate(),
+            request_token_hash: :crypto.strong_rand_bytes(32),
+            client_uuid: seed.client.uuid,
+            redirect_uri: "https://client.example/callback",
+            code_challenge: "x",
+            resource: "https://x.example/mcp/admin",
+            expires_at: ago(5),
+            inserted_at: now
+          }
+        end
+
+      for {schema, rows} <- [{Token, token_rows}, {Code, code_rows}, {Request, request_rows}] do
+        rows |> Enum.chunk_every(200) |> Enum.each(&Repo.insert_all(schema, &1))
+      end
+
+      counts = Prune.run()
+
+      assert counts.tokens == 620 and counts.codes == 620 and counts.requests == 620
+      assert Repo.aggregate(from(t in Token, where: t.expires_at < ^ago(86_400)), :count) == 0
     end
 
     test "a used refresh token stays until its grant is over", %{scope: scope} do

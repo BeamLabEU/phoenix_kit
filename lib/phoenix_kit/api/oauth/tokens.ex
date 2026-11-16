@@ -7,9 +7,11 @@ defmodule PhoenixKit.API.OAuth.Tokens do
 
   `pkoa_<43 base64url>` is an access token and `pkor_<43 base64url>` a refresh token: 32
   random bytes, shown once (the token endpoint returns them), and only the SHA-256 of those
-  bytes is stored (`PhoenixKit.API.OAuth.Token`). The secret has 256 bits of entropy, so a
-  fast hash is enough. A token is found by its hash through a unique index; there is no
-  prefix to look up.
+  bytes is stored (`PhoenixKit.API.OAuth.Token`), taken together with the kind's prefix, so the
+  same secret under `pkoa_` and under `pkor_` is two different hashes and a refresh token can
+  never be looked up as an access token (the lookup also filters on the kind). The secret has
+  256 bits of entropy, so a fast hash is enough. A token is found by its hash through a unique
+  index; there is no prefix to look up.
 
   ## Verifying
 
@@ -73,7 +75,7 @@ defmodule PhoenixKit.API.OAuth.Tokens do
   @spec generate(kind()) :: {token :: String.t(), hash :: binary()}
   def generate(kind) when kind in [:access, :refresh] do
     secret = :crypto.strong_rand_bytes(@secret_bytes)
-    {prefix(kind) <> Base.url_encode64(secret, padding: false), hash(secret)}
+    {prefix(kind) <> Base.url_encode64(secret, padding: false), hash(kind, secret)}
   end
 
   @doc """
@@ -87,7 +89,8 @@ defmodule PhoenixKit.API.OAuth.Tokens do
          {:ok, secret} <- Base.url_decode64(secret_text, padding: false),
          @secret_bytes <- byte_size(secret),
          true <- Base.url_encode64(secret, padding: false) == secret_text do
-      {:ok, kind_of(scheme), hash(secret)}
+      kind = kind_of(scheme)
+      {:ok, kind, hash(kind, secret)}
     else
       _ -> :error
     end
@@ -95,9 +98,10 @@ defmodule PhoenixKit.API.OAuth.Tokens do
 
   def parse(_token), do: :error
 
-  @doc "SHA-256 of the raw secret bytes."
-  @spec hash(binary()) :: binary()
-  def hash(secret) when is_binary(secret), do: :crypto.hash(:sha256, secret)
+  @doc "SHA-256 of the kind's prefix and the raw secret bytes."
+  @spec hash(kind(), binary()) :: binary()
+  def hash(kind, secret) when kind in [:access, :refresh] and is_binary(secret),
+    do: :crypto.hash(:sha256, [prefix(kind), secret])
 
   @doc """
   Issues a token of `kind` for `grant` and returns it once: `{:ok, token, row}`.

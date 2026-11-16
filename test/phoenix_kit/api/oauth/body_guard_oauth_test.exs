@@ -132,9 +132,29 @@ defmodule PhoenixKit.API.OAuth.BodyGuardTest do
       refusal(form(oauth_path("token"), "a=%FF%FE"))
     end
 
-    test "a malformed escape is read as Plug.Parsers reads it, without a crash" do
+    test "the host's Plug.Parsers, which runs next, merges the query string into params" do
+      conn =
+        form(oauth_path("token") <> "?code=from_query", "grant_type=refresh_token&code=from_body")
+
+      # What a controller sees: `params` carries the query too, `body_params` the body only.
+      parsed = Plug.Parsers.call(conn, Plug.Parsers.init(parsers: [:urlencoded]))
+
+      assert parsed.body_params == %{"grant_type" => "refresh_token", "code" => "from_body"}
+      assert parsed.params["code"] == "from_body"
+      assert parsed.query_params == %{"code" => "from_query"}
+
+      query_only = form(oauth_path("token") <> "?code=from_query", "")
+      parsed = Plug.Parsers.call(query_only, Plug.Parsers.init(parsers: [:urlencoded]))
+      assert parsed.body_params == %{}
+      assert parsed.params["code"] == "from_query"
+    end
+
+    test "a malformed escape is accepted and kept as it was sent, as Plug.Parsers reads it" do
       conn = form(oauth_path("token"), "a=%zz")
-      assert conn.status == nil or conn.status == 400
+
+      refute conn.halted
+      assert conn.status == nil
+      assert conn.body_params == %{"a" => "%zz"}
     end
 
     test "the refusal never repeats the body" do

@@ -11,8 +11,10 @@ defmodule PhoenixKit.API.OAuth.Prune do
        lock, so a code exchanged a moment ago keeps its grant.
     2. **Requests** past their ten minutes.
     3. **Codes** past their minute.
-    4. **Tokens** past their own end. A refresh token ends with its grant, so a used refresh
-       token is never removed before the grant is over (reuse of it is still told from a retry).
+    4. **Tokens** three days past their own end: an application that comes back after its
+       access token ran out is still told "expired" (not charged to the failure bucket) and
+       not "unknown". A refresh token ends with its grant, so a used refresh token is never
+       removed before the grant is over (reuse of it is still told from a retry).
     5. **Registered clients** (`dcr`) with no grant, a day after they registered, and with no
        authorization request still waiting.
 
@@ -20,8 +22,8 @@ defmodule PhoenixKit.API.OAuth.Prune do
   have history (confirmations and activity point at them); an ended grant keeps its key row,
   revoked or expired.
 
-  Every step works in batches of `#{500}` rows and a run that finds more leaves the rest for
-  tomorrow. Returns the counts per step.
+  Every step works in batches of 500 rows and repeats until a batch comes back short, so a
+  busy install is cleared in one run. Returns the counts per step.
   """
 
   import Ecto.Query, only: [from: 2]
@@ -37,6 +39,7 @@ defmodule PhoenixKit.API.OAuth.Prune do
   @batch 500
   @abandoned_grace_seconds 3600
   @dcr_client_seconds 86_400
+  @token_grace_seconds 3 * 86_400
 
   @doc "Runs every step at `now`; returns `%{grants: n, requests: n, codes: n, tokens: n, clients: n}`."
   @spec run(DateTime.t()) :: %{atom() => non_neg_integer()}
@@ -45,61 +48,81 @@ defmodule PhoenixKit.API.OAuth.Prune do
 
     %{
       grants: abandoned_grants(now),
-      requests: delete_batch(from(r in Request, where: r.expires_at < ^now)),
-      codes: delete_batch(from(c in Code, where: c.expires_at < ^now)),
-      tokens: delete_batch(from(t in Token, where: t.expires_at < ^now)),
+      requests: delete_all_batches(from(r in Request, where: r.expires_at < ^now)),
+      codes: delete_all_batches(from(c in Code, where: c.expires_at < ^now)),
+      tokens: delete_all_batches(from(t in Token, where: t.expires_at < ^token_cutoff(now))),
       clients: idle_clients(now)
     }
   end
 
-  defp abandoned_grants(now) do
+  defp token_cutoff(now), do: DateTime.add(now, -@token_grace_seconds, :second)
+
+  # A grant that stays (`:kept`: a code is alive after all, or it was just activated) comes back
+  # in the next batch; the run goes on while a full batch still deleted something.
+  defp abandoned_grants(now, deleted \\ 0) do
     cutoff = DateTime.add(now, -@abandoned_grace_seconds, :second)
 
-    from(g in Grant,
-      where: is_nil(g.activated_at) and g.inserted_at < ^cutoff,
-      where:
-        not exists(
-          from(c in Code,
-            where: c.grant_uuid == parent_as(:grant).uuid and c.expires_at > ^cutoff
-          )
-        ),
-      limit: @batch,
-      select: g.uuid
-    )
-    |> Ecto.Query.from(as: :grant)
-    |> repo().all()
-    |> Enum.count(&(Grants.delete_unactivated(&1, cutoff) == :deleted))
+    uuids =
+      from(g in Grant,
+        where: is_nil(g.activated_at) and g.inserted_at < ^cutoff,
+        where:
+          not exists(
+            from(c in Code,
+              where: c.grant_uuid == parent_as(:grant).uuid and c.expires_at > ^cutoff
+            )
+          ),
+        order_by: [asc: g.inserted_at],
+        limit: @batch,
+        select: g.uuid
+      )
+      |> Ecto.Query.from(as: :grant)
+      |> repo().all()
+
+    removed = Enum.count(uuids, &(Grants.delete_unactivated(&1, cutoff) == :deleted))
+
+    if length(uuids) == @batch and removed > 0,
+      do: abandoned_grants(now, deleted + removed),
+      else: deleted + removed
   end
 
-  defp idle_clients(now) do
+  defp idle_clients(now, deleted \\ 0) do
     cutoff = DateTime.add(now, -@dcr_client_seconds, :second)
 
-    from(c in Client,
-      as: :client,
-      where: c.kind == "dcr" and c.inserted_at < ^cutoff,
-      where: not exists(from(g in Grant, where: g.client_uuid == parent_as(:client).uuid)),
-      where:
-        not exists(
-          from(r in Request,
-            where:
-              r.client_uuid == parent_as(:client).uuid and is_nil(r.consumed_at) and
-                r.expires_at >= ^now
-          )
-        ),
-      limit: @batch,
-      select: c.uuid
-    )
-    |> repo().all()
-    |> then(fn uuids -> delete_batch(from(c in Client, where: c.uuid in ^uuids)) end)
+    uuids =
+      from(c in Client,
+        as: :client,
+        where: c.kind == "dcr" and c.inserted_at < ^cutoff,
+        where: not exists(from(g in Grant, where: g.client_uuid == parent_as(:client).uuid)),
+        where:
+          not exists(
+            from(r in Request,
+              where:
+                r.client_uuid == parent_as(:client).uuid and is_nil(r.consumed_at) and
+                  r.expires_at >= ^now
+            )
+          ),
+        limit: @batch,
+        select: c.uuid
+      )
+      |> repo().all()
+
+    {removed, _} = repo().delete_all(from(c in Client, where: c.uuid in ^uuids))
+
+    if length(uuids) == @batch and removed > 0,
+      do: idle_clients(now, deleted + removed),
+      else: deleted + removed
   end
 
-  # `delete_all` takes no `limit`, so the batch is cut by uuid first.
-  defp delete_batch(query) do
+  # `delete_all` takes no `limit`, so a batch is cut by uuid first; goes on while a batch is full.
+  defp delete_all_batches(query, deleted \\ 0) do
     uuids = repo().all(from(q in query, select: q.uuid, limit: @batch))
     schema = query.from.source |> elem(1)
 
-    {count, _} = repo().delete_all(from(s in schema, where: s.uuid in ^uuids))
-    count
+    {removed, _} = repo().delete_all(from(s in schema, where: s.uuid in ^uuids))
+
+    if length(uuids) == @batch and removed > 0,
+      do: delete_all_batches(query, deleted + removed),
+      else: deleted + removed
   end
 
   defp repo, do: RepoHelper.repo()

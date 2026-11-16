@@ -80,7 +80,7 @@ defmodule PhoenixKit.API.OAuth.Grants do
                resource: Map.get(attrs, :resource) || Resource.resource(),
                scopes: key.scopes,
                expires_at: key.expires_at,
-               created_ip: Map.get(attrs, :created_ip)
+               created_ip: attrs |> Map.get(:created_ip) |> ip_column()
              }) do
         {grant, key}
       else
@@ -94,6 +94,11 @@ defmodule PhoenixKit.API.OAuth.Grants do
   end
 
   def create(_scope, _client, _attrs, opts) when is_list(opts), do: {:error, :forbidden}
+
+  # The column is `varchar(45)` (the longest IPv6 text); a longer value must not abort the
+  # consent's transaction with a database error.
+  defp ip_column(ip) when is_binary(ip), do: String.slice(ip, 0, 45)
+  defp ip_column(_ip), do: nil
 
   @doc "A grant by its row uuid; `nil` for an unknown or malformed uuid."
   @spec get(term()) :: Grant.t() | nil

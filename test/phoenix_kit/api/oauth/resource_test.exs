@@ -64,6 +64,15 @@ defmodule PhoenixKit.API.OAuth.ResourceTest do
       assert Resource.normalize("https://[::1]:8080/a") == {:ok, "https://[::1]:8080/a"}
     end
 
+    test "removes one trailing slash only: a path with more is another resource" do
+      assert Resource.normalize("https://h.example/mcp/admin//") ==
+               {:ok, "https://h.example/mcp/admin/"}
+
+      assert Resource.normalize("https://h.example///") == {:ok, "https://h.example//"}
+      refute Resource.matches?(Resource.resource() <> "///")
+      assert Resource.matches?(Resource.resource() <> "/")
+    end
+
     test "keeps the path's case and a query" do
       assert Resource.normalize("https://h.example/MCP/Admin?x=1") ==
                {:ok, "https://h.example/MCP/Admin?x=1"}
