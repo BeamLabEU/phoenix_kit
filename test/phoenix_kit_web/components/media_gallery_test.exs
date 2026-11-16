@@ -257,6 +257,30 @@ defmodule PhoenixKitWeb.Components.MediaGalleryTest do
       assert html =~ "sortable-item"
     end
 
+    test "a thumbnail asks for a variant its tile needs, not the screen's" do
+      uuid = "01900000-0000-7000-8000-000000000001"
+
+      variants =
+        for {name, w, h} <- [{"small", 300, 169}, {"medium", 600, 338}, {"original", 1920, 1080}] do
+          %{variant_name: name, mime_type: "image/jpeg", width: w, height: h, url: "/f/#{name}"}
+        end
+
+      html =
+        render(
+          gallery_assigns(
+            selected: [uuid],
+            cols: "grid-cols-3 lg:grid-cols-6",
+            variants_map: %{uuid => variants}
+          )
+        )
+
+      [img] = Regex.run(~r/<img[^>]*srcset[^>]*>/, html)
+      # the tile's width per breakpoint, never image_set's default 100vw
+      assert img =~ ~s|sizes="(min-width: 1024px) calc(100vw / 6), calc(100vw / 3)"|
+      # square tiles: a 16:9 variant covers a box as wide as it is tall
+      assert img =~ ~s|srcset="/f/small 169w, /f/medium 338w, /f/original 1080w"|
+    end
+
     test "thumbnails carry the file's saved rotation, unrotated files none" do
       # The gallery grid iterates uuids, so orientation comes from the
       # rotations_map lookup; thumbnails render it as a CSS transform to
