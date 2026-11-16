@@ -64,6 +64,11 @@ defmodule PhoenixKitWeb.Components.Core.LibraryLoadNotice do
           "Its file is unknown: PhoenixKit's install facts are missing. Recompile the app (the :phoenix_kit_js_sources compiler) or run mix phoenix_kit.update."
         )
       }
+      data-stale={
+        gettext(
+          "This page ran an outdated copy of phoenix_kit_modules.js, which does not name this file; the server's current copy does and has now been fetched. Reload the page."
+        )
+      }
       data-audience={gettext("Only administrators see this message.")}
       class="fixed bottom-4 right-4 z-[60] w-[min(28rem,calc(100vw-2rem))] rounded-lg border border-warning/60 bg-base-100 p-3 text-sm shadow-xl"
     >

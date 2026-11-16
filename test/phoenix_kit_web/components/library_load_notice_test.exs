@@ -44,6 +44,12 @@ defmodule PhoenixKitWeb.Components.Core.LibraryLoadNoticeTest do
     refute log =~ "missing Gettext bindings"
   end
 
+  test "carries the reload advice for a page that ran an outdated copy of the install facts" do
+    html = render(scope(["Owner"]))
+    assert html =~ ~s(data-stale=")
+    assert html =~ "Reload the page."
+  end
+
   test "renders nothing for an anonymous visitor, a user, or a single-permission holder" do
     for s <- [nil, scope(["User"]), scope(["Editor"], ["media"])] do
       assert render(s) == ""

@@ -10597,7 +10597,7 @@ msgstr "Vaikimisi saatmisprofiil on uuendatud"
 msgid "Disabled profiles are never used to send, not even as the default."
 msgstr "Keelatud profiile ei kasutata kunagi saatmiseks, ka mitte vaikimisi profiilina."
 
-#: lib/phoenix_kit_web/components/core/library_load_notice.ex:81
+#: lib/phoenix_kit_web/components/core/library_load_notice.ex:86
 #: lib/phoenix_kit_web/components/core/upload_manager.ex:264
 #: lib/phoenix_kit_web/components/core/upload_manager.ex:265
 #: lib/phoenix_kit_web/components/media_browser/browser.html.heex:294
@@ -19229,7 +19229,7 @@ msgstr "Selle saidi Content-Security-Policy blokeeris (%{directive}). Kontrollig
 msgid "Could not be loaded or run; the cause is unknown. Check the network, and that the site's build includes PhoenixKit's JavaScript (the :phoenix_kit_js_sources compiler, or mix phoenix_kit.update)."
 msgstr "Ei õnnestunud laadida ega käivitada; põhjus pole teada. Kontrollige võrku ja seda, kas saidi build sisaldab PhoenixKiti JavaScripti (kompilaator :phoenix_kit_js_sources või mix phoenix_kit.update)."
 
-#: lib/phoenix_kit_web/components/core/library_load_notice.ex:67
+#: lib/phoenix_kit_web/components/core/library_load_notice.ex:72
 #, elixir-autogen, elixir-format
 msgid "Only administrators see this message."
 msgstr "Seda teadet näevad ainult administraatorid."
@@ -19243,6 +19243,11 @@ msgstr "Mõnda selle lehe funktsiooni ei õnnestunud laadida"
 #, elixir-autogen, elixir-format
 msgid "Its file is unknown: PhoenixKit's install facts are missing. Recompile the app (the :phoenix_kit_js_sources compiler) or run mix phoenix_kit.update."
 msgstr "Selle fail pole teada: PhoenixKiti paigaldusandmed puuduvad. Kompileerige rakendus uuesti (kompilaator :phoenix_kit_js_sources) või käivitage mix phoenix_kit.update."
+
+#: lib/phoenix_kit_web/components/core/library_load_notice.ex:68
+#, elixir-autogen, elixir-format
+msgid "This page ran an outdated copy of phoenix_kit_modules.js, which does not name this file; the server's current copy does and has now been fetched. Reload the page."
+msgstr "See leht käivitas faili phoenix_kit_modules.js aegunud koopia, mis seda faili ei nimeta; serveri praegune koopia nimetab seda ja on nüüd alla laaditud. Laadige leht uuesti."
 
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:665
 #, elixir-autogen, elixir-format

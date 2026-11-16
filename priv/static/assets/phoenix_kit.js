@@ -126,6 +126,8 @@
   //     module import() is terminal for the document.
   //   - Final failures go to window.__pkLibFailures and a `pk:library-failed`
   //     event, which the admin-only LibraryLoadNotice shows.
+  //   - A library the install facts do not name is a "facts" failure, refined
+  //     to "stale" when the server's copy of the facts file names it.
   //
   // A script error has no HTTP status, so failures are "load" unless a
   // matching, enforced `securitypolicyviolation` makes them "csp" — and that
@@ -216,13 +218,17 @@
       ? "blocked by the page's Content-Security-Policy (" + (f.directive || "script-src") + ")"
       : f.reason === "facts"
         ? "has no file: PhoenixKit's install facts (window.PHOENIX_KIT_LIBS) are missing or do not name it"
-        : "could not be loaded or run (network, a missing file, or an error in the file)";
+        : f.reason === "stale"
+          ? "has no file in the outdated copy of the install facts this page ran (the server's copy names it)"
+          : "could not be loaded or run (network, a missing file, or an error in the file)";
     console.error("[PhoenixKit] The " + name + " library " + cause + ": " + f.url +
       ". Features that need it are unavailable on this page. " +
       (f.reason === "csp"
         ? "Check that the page's policy allows " + (pkLibOrigin(f.url) || f.url) + "."
-        : "Check the network, and that the host build vendors PhoenixKit's JavaScript " +
-          "(:phoenix_kit_js_sources in compilers, or mix phoenix_kit.update)."));
+        : f.reason === "stale"
+          ? "Reload the page."
+          : "Check the network, and that the host build vendors PhoenixKit's JavaScript " +
+            "(:phoenix_kit_js_sources in compilers, or mix phoenix_kit.update)."));
     try {
       window.dispatchEvent(new CustomEvent("pk:library-failed", {
         detail: { name: name, url: f.url, reason: f.reason, directive: f.directive || null }
@@ -364,6 +370,49 @@
     return p;
   }
 
+  // The page's undigested facts tag (a digested name changes with its content,
+  // so it cannot be outdated), and the library list of the server's copy of
+  // it, fetched past the cache once per page (null when unreadable).
+  function pkFactsSrc() {
+    var list = document.scripts || [];
+    for (var i = 0; i < list.length; i++) {
+      var src = (list[i] && list[i].src) || "";
+      if (/(^|\/)phoenix_kit_modules\.js$/.test(src.split(/[?#]/)[0])) return src;
+    }
+    return null;
+  }
+
+  var pkFreshFactsAt = {};
+  function pkFreshFacts(src) {
+    if (!pkFreshFactsAt[src]) {
+      pkFreshFactsAt[src] = window.fetch(src, { cache: "reload", credentials: "same-origin" })
+        .then(function(r) { return r.ok ? r.text() : null; })
+        .then(function(text) {
+          var m = text && /^window\.PHOENIX_KIT_LIBS\s*=\s*(\{.*\});?\s*$/m.exec(text);
+          return m ? JSON.parse(m[1]) : null;
+        })
+        .catch(function() { return null; });
+    }
+    return pkFreshFactsAt[src];
+  }
+
+  // Reported as missing facts at once; turned into "stale" when the page ran
+  // a copy of the facts that lacks the file and the server's copy names it:
+  // an outdated (cached) copy, which a reload cures — the fetch having
+  // refreshed the cache.
+  function pkFactsFail(name, key) {
+    var prev = pkLibFailures[name];
+    if (prev && prev.reason === "stale") return;
+    pkLibFail(name, "lib/" + key, "facts");
+    var ran = window.PHOENIX_KIT_LIBS;
+    var src = typeof window.fetch === "function" && ran && !(ran[key] && ran[key].file) && pkFactsSrc();
+    if (!src) return;
+    pkFreshFacts(src).then(function(fresh) {
+      var now = pkLibFailures[name];
+      if (now && now.reason === "facts" && fresh && fresh[key] && fresh[key].file) pkLibFail(name, src, "stale");
+    });
+  }
+
   // A vendored library by its key in window.PHOENIX_KIT_LIBS. A pre-imported
   // copy still wins; with no facts there is nothing to load and the failure
   // says so (the notice tells the host to recompile or run phoenix_kit.update).
@@ -372,7 +421,7 @@
     if (opts.check && opts.check()) return Promise.resolve();
     var urls = pkLibUrls(key);
     if (!urls) {
-      pkLibFail(name, "lib/" + key, "facts");
+      pkFactsFail(name, key);
       var noFacts = new Error(name + ": no install facts name its file");
       noFacts.pkNoFacts = true; // no request was made, so a caller's pause after a failed request has nothing to protect
       return Promise.reject(noFacts);
@@ -432,7 +481,8 @@
   // LibraryLoadNotice — fills the admin-only shell rendered beside the flash
   // group, from failures already recorded and from `pk:library-failed`. The
   // copy follows the evidence (CSP from another origin, CSP on this origin,
-  // or "could not load", cause unknown); text goes in as textContent only.
+  // facts missing or outdated, or "could not load", cause unknown); text goes
+  // in as textContent only.
   // Dismissal lasts the session, per library and URL.
   var LIB_NOTICE_KEY = "pk:library-notice:dismissed";
 
@@ -485,6 +535,8 @@
           text = text.replace("%{directive}", f.directive || "script-src").replace("%{origin}", origin);
         } else if (f.reason === "facts") {
           text = d.facts || "";
+        } else if (f.reason === "stale") {
+          text = d.stale || d.facts || "";
         } else {
           text = d.load || "";
         }

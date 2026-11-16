@@ -10558,7 +10558,7 @@ msgstr "默认发送配置已更新"
 msgid "Disabled profiles are never used to send, not even as the default."
 msgstr "已停用的配置绝不会用于发送，即使它是默认配置。"
 
-#: lib/phoenix_kit_web/components/core/library_load_notice.ex:81
+#: lib/phoenix_kit_web/components/core/library_load_notice.ex:86
 #: lib/phoenix_kit_web/components/core/upload_manager.ex:264
 #: lib/phoenix_kit_web/components/core/upload_manager.ex:265
 #: lib/phoenix_kit_web/components/media_browser/browser.html.heex:294
@@ -19245,7 +19245,7 @@ msgstr "被此站点的内容安全策略（%{directive}）阻止。请检查站
 msgid "Could not be loaded or run; the cause is unknown. Check the network, and that the site's build includes PhoenixKit's JavaScript (the :phoenix_kit_js_sources compiler, or mix phoenix_kit.update)."
 msgstr "无法加载或运行；原因未知。请检查网络，并确认站点的构建包含 PhoenixKit 的 JavaScript（:phoenix_kit_js_sources 编译器，或 mix phoenix_kit.update）。"
 
-#: lib/phoenix_kit_web/components/core/library_load_notice.ex:67
+#: lib/phoenix_kit_web/components/core/library_load_notice.ex:72
 #, elixir-autogen, elixir-format
 msgid "Only administrators see this message."
 msgstr "只有管理员能看到此消息。"
@@ -19259,6 +19259,11 @@ msgstr "此页面上的某些功能无法加载"
 #, elixir-autogen, elixir-format
 msgid "Its file is unknown: PhoenixKit's install facts are missing. Recompile the app (the :phoenix_kit_js_sources compiler) or run mix phoenix_kit.update."
 msgstr "其文件未知：缺少 PhoenixKit 的安装信息。请重新编译应用（:phoenix_kit_js_sources 编译器）或运行 mix phoenix_kit.update。"
+
+#: lib/phoenix_kit_web/components/core/library_load_notice.ex:68
+#, elixir-autogen, elixir-format
+msgid "This page ran an outdated copy of phoenix_kit_modules.js, which does not name this file; the server's current copy does and has now been fetched. Reload the page."
+msgstr "此页面运行的是 phoenix_kit_modules.js 的过期副本，其中没有该文件；服务器上的当前副本包含它，并且已重新获取。请重新加载页面。"
 
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:665
 #, elixir-autogen, elixir-format
