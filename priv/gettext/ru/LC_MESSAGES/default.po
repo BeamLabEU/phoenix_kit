@@ -10626,7 +10626,7 @@ msgstr "Профиль отправки по умолчанию обновлён
 msgid "Disabled profiles are never used to send, not even as the default."
 msgstr "Отключённые профили никогда не используются для отправки, даже как профиль по умолчанию."
 
-#: lib/phoenix_kit_web/components/core/library_load_notice.ex:81
+#: lib/phoenix_kit_web/components/core/library_load_notice.ex:86
 #: lib/phoenix_kit_web/components/core/upload_manager.ex:264
 #: lib/phoenix_kit_web/components/core/upload_manager.ex:265
 #: lib/phoenix_kit_web/components/media_browser/browser.html.heex:294
@@ -19285,7 +19285,7 @@ msgstr "Заблокировано политикой Content-Security-Policy э
 msgid "Could not be loaded or run; the cause is unknown. Check the network, and that the site's build includes PhoenixKit's JavaScript (the :phoenix_kit_js_sources compiler, or mix phoenix_kit.update)."
 msgstr "Не удалось загрузить или выполнить; причина неизвестна. Проверьте сеть и то, что сборка сайта включает JavaScript PhoenixKit (компилятор :phoenix_kit_js_sources или mix phoenix_kit.update)."
 
-#: lib/phoenix_kit_web/components/core/library_load_notice.ex:67
+#: lib/phoenix_kit_web/components/core/library_load_notice.ex:72
 #, elixir-autogen, elixir-format
 msgid "Only administrators see this message."
 msgstr "Это сообщение видят только администраторы."
@@ -19299,6 +19299,11 @@ msgstr "Некоторые функции этой страницы не уда�
 #, elixir-autogen, elixir-format
 msgid "Its file is unknown: PhoenixKit's install facts are missing. Recompile the app (the :phoenix_kit_js_sources compiler) or run mix phoenix_kit.update."
 msgstr "Его файл неизвестен: отсутствуют сведения об установке PhoenixKit. Перекомпилируйте приложение (компилятор :phoenix_kit_js_sources) или выполните mix phoenix_kit.update."
+
+#: lib/phoenix_kit_web/components/core/library_load_notice.ex:68
+#, elixir-autogen, elixir-format
+msgid "This page ran an outdated copy of phoenix_kit_modules.js, which does not name this file; the server's current copy does and has now been fetched. Reload the page."
+msgstr "Страница выполнила устаревшую копию phoenix_kit_modules.js, в которой этого файла нет; в текущей копии на сервере он есть, и она уже загружена. Обновите страницу."
 
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:665
 #, elixir-autogen, elixir-format

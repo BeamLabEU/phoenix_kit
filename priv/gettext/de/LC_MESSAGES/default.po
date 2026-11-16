@@ -10588,7 +10588,7 @@ msgstr "Standard-Sendeprofil aktualisiert"
 msgid "Disabled profiles are never used to send, not even as the default."
 msgstr "Deaktivierte Profile werden nie zum Senden verwendet, auch nicht als Standard."
 
-#: lib/phoenix_kit_web/components/core/library_load_notice.ex:81
+#: lib/phoenix_kit_web/components/core/library_load_notice.ex:86
 #: lib/phoenix_kit_web/components/core/upload_manager.ex:264
 #: lib/phoenix_kit_web/components/core/upload_manager.ex:265
 #: lib/phoenix_kit_web/components/media_browser/browser.html.heex:294
@@ -19220,7 +19220,7 @@ msgstr "Von der Content-Security-Policy dieser Website blockiert (%{directive}).
 msgid "Could not be loaded or run; the cause is unknown. Check the network, and that the site's build includes PhoenixKit's JavaScript (the :phoenix_kit_js_sources compiler, or mix phoenix_kit.update)."
 msgstr "Konnte nicht geladen oder ausgeführt werden; die Ursache ist unbekannt. Prüfen Sie das Netzwerk und ob der Build der Website das JavaScript von PhoenixKit enthält (den Compiler :phoenix_kit_js_sources oder mix phoenix_kit.update)."
 
-#: lib/phoenix_kit_web/components/core/library_load_notice.ex:67
+#: lib/phoenix_kit_web/components/core/library_load_notice.ex:72
 #, elixir-autogen, elixir-format
 msgid "Only administrators see this message."
 msgstr "Nur Administratoren sehen diese Meldung."
@@ -19234,6 +19234,11 @@ msgstr "Einige Funktionen dieser Seite konnten nicht geladen werden"
 #, elixir-autogen, elixir-format
 msgid "Its file is unknown: PhoenixKit's install facts are missing. Recompile the app (the :phoenix_kit_js_sources compiler) or run mix phoenix_kit.update."
 msgstr "Ihre Datei ist unbekannt: Die Installationsangaben von PhoenixKit fehlen. Kompilieren Sie die App neu (der Compiler :phoenix_kit_js_sources) oder führen Sie mix phoenix_kit.update aus."
+
+#: lib/phoenix_kit_web/components/core/library_load_notice.ex:68
+#, elixir-autogen, elixir-format
+msgid "This page ran an outdated copy of phoenix_kit_modules.js, which does not name this file; the server's current copy does and has now been fetched. Reload the page."
+msgstr "Diese Seite hat eine veraltete Kopie von phoenix_kit_modules.js ausgeführt, die diese Datei nicht nennt; die aktuelle Kopie auf dem Server nennt sie und wurde soeben geladen. Laden Sie die Seite neu."
 
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:665
 #, elixir-autogen, elixir-format
