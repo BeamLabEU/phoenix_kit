@@ -338,8 +338,13 @@ defmodule PhoenixKit.API.OAuth.Clients do
       removal itself is a permanent `oauth.client_removed` entry (the kind of the client and how
       many live connections were ended; no name, no address), written once the client is gone.
     * `:only_idle` - when `true` the client is removed only if it has no live connection, counted
-      under the same row lock the removal takes, so a connection made a moment ago is never ended
-      by someone who may not end other people's: `{:error, :has_connections}` otherwise.
+      under the same row lock the removal takes (`Grants.count_live_for_client/1`: an activated
+      grant, or a consent just approved whose code has not been exchanged yet), so a connection
+      made a moment ago is never ended by someone who may not end other people's:
+      `{:error, :has_connections}` otherwise.
+
+  Nothing here checks who may end other people's connections: a caller that is not an Owner passes
+  `only_idle: true` (the default, `false`, ends every connection of the client).
 
   Returns `{:ok, client}`, `{:error, :not_found}` for a client that is not there, or
   `{:error, :has_connections}`.
@@ -369,7 +374,7 @@ defmodule PhoenixKit.API.OAuth.Clients do
         # never a grant that outlives its client.
         case repo().one(from(c in Client, where: c.uuid == ^uuid, lock: "FOR UPDATE")) do
           %Client{} = locked ->
-            live = live_grants(uuid)
+            live = Grants.count_live_for_client(uuid)
 
             if opts[:only_idle] == true and live > 0, do: repo().rollback(:has_connections)
 
@@ -402,19 +407,6 @@ defmodule PhoenixKit.API.OAuth.Clients do
   end
 
   defp log_removed(_client, _live, _actor_uuid), do: :ok
-
-  defp live_grants(client_uuid) do
-    now = DateTime.truncate(DateTime.utc_now(), :second)
-
-    repo().aggregate(
-      from(g in Grant,
-        where:
-          g.client_uuid == ^client_uuid and not is_nil(g.activated_at) and is_nil(g.revoked_at) and
-            g.expires_at > ^now
-      ),
-      :count
-    )
-  end
 
   defp end_grants(%Client{uuid: uuid}, revoke_opts) do
     from(g in Grant, where: g.client_uuid == ^uuid, select: g.uuid, order_by: g.inserted_at)

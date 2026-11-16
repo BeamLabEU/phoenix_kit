@@ -28150,3 +28150,13 @@ msgstr "只有 Owner 可以移除已有连接的应用。"
 #, elixir-autogen, elixir-format
 msgid "Only the newest %{count} are shown."
 msgstr "仅显示最新的 %{count} 条。"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:100
+#, elixir-autogen, elixir-format
+msgid "Nothing here can be changed while you act in another account."
+msgstr "在您以其他账户操作期间，此处无法更改任何内容。"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:280
+#, elixir-autogen, elixir-format
+msgid "The client ID is the address of a metadata document. An application that names itself by a metadata document is known when it is used: do not add it by hand."
+msgstr "客户端 ID 是元数据文档的地址。通过元数据文档表明身份的应用在使用时即被识别：请勿手动添加。"

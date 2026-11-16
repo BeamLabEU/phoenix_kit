@@ -18,6 +18,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanelTest do
   alias PhoenixKit.API.OAuth.Tokens
   alias PhoenixKit.API.OAuthConfig
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.Auth, as: AuthCtx
   alias PhoenixKit.Users.Permissions
   alias PhoenixKit.Users.RolePermission
   alias PhoenixKit.Users.Roles
@@ -142,12 +143,16 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanelTest do
     end
 
     test "the label follows the stored switch, not the effective state", %{conn: conn} do
-      switch("api_admin_enabled", true)
+      # The admin API is off, so OAuth is stored on but does not work: the effective state
+      # (Status.oauth_enabled) says off, the stored switch says on.
+      switch("api_oauth_enabled", true)
+      refute Config.oauth_enabled?()
+
       {:ok, view, _html} = live(conn, @path)
 
-      view |> element("#api-oauth-switch") |> render_click()
-      assert render(view) =~ ~r/Enabled/
       assert has_element?(view, "#api-oauth-switch[checked]")
+      assert has_element?(view, "#api-oauth-switch-row-0", "Enabled")
+      refute has_element?(view, "#api-oauth-switch-row-0", "Disabled")
     end
 
     test "a refused click makes the browser draw the stored state again", %{conn: conn} do
@@ -287,7 +292,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanelTest do
 
     test "a taken client ID and a bad redirect address are explained", %{conn: conn} do
       {:ok, view, _html} = live(conn, @path)
-      taken = client!()
+      taken = client!(%{client_id: "taken-by-hand"})
 
       html =
         client_form(view, %{
@@ -355,6 +360,22 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanelTest do
                "client_name" => "",
                "redirect_uris" => "ftp://elsewhere.example/cb"
              }) =~ "http to localhost, 127.0.0.1 or [::1]"
+    end
+
+    test "the address of a metadata document is not accepted as a client ID", %{conn: conn} do
+      {:ok, view, _html} = live(conn, @path)
+      url = "https://claude.ai/oauth/mcp-oauth-client-metadata"
+
+      html =
+        client_form(view, %{
+          "client_id" => url,
+          "client_name" => "Claude",
+          "redirect_uris" => "https://elsewhere.example/cb"
+        })
+
+      assert html =~ "names itself by a metadata document"
+      assert has_element?(view, "#api-oauth-client-errors")
+      assert Repo.get_by(Client, client_id: url) == nil
     end
 
     test "a client ID with a NUL byte is a form error, not a crash", %{conn: conn} do
@@ -438,6 +459,32 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanelTest do
 
       assert entry.resource_uuid == ctx.client.uuid
       assert entry.metadata["connections_ended"] == 1
+    end
+
+    test "the list of every connection on the same tab drops the removed client's connections",
+         ctx do
+      row = "#api-oauth-connected-apps-grant-#{ctx.seeded.grant.uuid}"
+      assert has_element?(ctx.view, row)
+
+      ctx.view |> element("#api-oauth-client-remove-#{ctx.client.uuid}") |> render_click()
+      ctx.view |> element("#api-oauth-client-delete-confirm") |> render_click()
+
+      refute has_element?(ctx.view, "#api-oauth-client-#{ctx.client.uuid}")
+      refute has_element?(ctx.view, row)
+    end
+
+    test "ending a connection in the list of everyone updates the count of its client", ctx do
+      count = "#api-oauth-client-grants-#{ctx.client.uuid}"
+      assert has_element?(ctx.view, count, "1")
+
+      ctx.view
+      |> element("#api-oauth-connected-apps-revoke-#{ctx.seeded.grant.uuid}")
+      |> render_click()
+
+      ctx.view |> element("#api-oauth-connected-apps-revoke-confirm") |> render_click()
+
+      assert has_element?(ctx.view, count, "0")
+      assert has_element?(ctx.view, "#api-oauth-client-remove-#{ctx.client.uuid}")
     end
 
     test "the confirming event takes no uuid from its params", ctx do
@@ -538,6 +585,56 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanelTest do
     end
   end
 
+  describe "a borrowed session" do
+    setup %{conn: conn} do
+      {root, _role} = KeyTestSupport.user_without_api(["api"])
+      root_token = AuthCtx.generate_user_session_token(root)
+      active_token = Plug.Conn.get_session(conn, :user_token)
+      borrowed = Plug.Conn.put_session(conn, :pk_session_accounts, [root_token, active_token])
+      %{borrowed: borrowed}
+    end
+
+    test "says so and refuses every event, writing nothing", %{borrowed: conn, admin: admin} do
+      switch("api_admin_enabled", true)
+      client = client!()
+      {:ok, view, html} = live(conn, @path)
+
+      assert html =~ "Nothing here can be changed while you act in another account."
+      assert has_element?(view, "#api-oauth-impersonated")
+
+      events = [
+        {"set_oauth", %{"state" => "on"}},
+        {"set_dcr", %{"state" => "on"}},
+        {"save_settings", %{"oauth" => Map.put(OAuthConfig.current(), "token_per_min", "5")}},
+        {"add_client",
+         %{
+           "client" => %{
+             "client_id" => "late",
+             "client_name" => "",
+             "redirect_uris" => "https://late.example/cb"
+           }
+         }},
+        {"request_delete_client", %{"uuid" => client.uuid}},
+        {"confirm_delete_client", %{}}
+      ]
+
+      for {event, params} <- events do
+        assert fire(view, event, params) =~ "while you act in another account", event
+      end
+
+      refute Config.oauth_enabled?()
+      assert Config.oauth_token_per_min() == 60
+      assert Repo.get_by(Client, client_id: "late") == nil
+      assert Repo.get(Client, client.uuid)
+      assert changed_settings(admin) == []
+    end
+
+    test "an ordinary session shows no such notice", %{conn: conn} do
+      {:ok, view, _html} = live(conn, @path)
+      refute has_element?(view, "#api-oauth-impersonated")
+    end
+  end
+
   describe "a right lost in the middle of the session" do
     test "every event is refused and writes nothing", %{conn: conn, admin: admin} do
       switch("api_admin_enabled", true)
@@ -606,6 +703,25 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanelTest do
       {:ok, view, _html} = live(conn, @path)
 
       assert has_element?(view, "[id^=api-oauth-connected-apps-no-permission-]")
+    end
+
+    test "a connection whose owner is blocked is listed as inactive", ctx do
+      seeded = seed_grant!(ctx.holder_scope)
+      {:ok, _} = AuthCtx.update_user_status(ctx.holder, %{is_active: false})
+
+      conn = log_in_user(Phoenix.ConnTest.build_conn(), KeyTestSupport.owner_user())
+      {:ok, view, _html} = live(conn, @path)
+
+      assert has_element?(
+               view,
+               "#api-oauth-connected-apps-status-#{seeded.grant.uuid}[data-status=owner_inactive]"
+             )
+
+      assert has_element?(
+               view,
+               "#api-oauth-connected-apps-grant-#{seeded.grant.uuid}",
+               "Owner inactive"
+             )
     end
 
     test "an Owner downgraded to Admin during the session ends nobody's connection", ctx do

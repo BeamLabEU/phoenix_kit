@@ -11,6 +11,7 @@ defmodule PhoenixKit.API.OAuth.ClientsAdminTest do
 
   alias PhoenixKit.Activity.Entry
   alias PhoenixKit.API.OAuth.Clients
+  alias PhoenixKit.API.OAuth.Codes
   alias PhoenixKit.API.OAuth.Grants
 
   setup do
@@ -153,6 +154,37 @@ defmodule PhoenixKit.API.OAuth.ClientsAdminTest do
       assert Repo.get(PhoenixKit.API.OAuth.Client, client.uuid)
       assert Repo.get!(PhoenixKit.API.Keys.Key, seeded.key.uuid).revoked_at == nil
       assert removed_entries(client) == []
+    end
+
+    test "only_idle: a consent just approved, its code not yet exchanged, is a live connection",
+         ctx do
+      client = client!()
+      attrs = %{scopes: [read_scope()], expires_at: DateTime.add(DateTime.utc_now(), 86_400)}
+      {:ok, grant, key} = Grants.create(ctx.scope, client, attrs, impersonated: false)
+
+      {:ok, _code, _row} =
+        Codes.issue(grant, %{redirect_uri: "https://x/cb", code_challenge: "c"})
+
+      assert grant.activated_at == nil
+
+      assert {:error, :has_connections} =
+               Clients.delete(client.uuid, actor_uuid: ctx.user.uuid, only_idle: true)
+
+      assert Repo.get(PhoenixKit.API.OAuth.Client, client.uuid)
+      assert Repo.get!(PhoenixKit.API.Keys.Key, key.uuid).revoked_at == nil
+    end
+
+    test "only_idle: a consent whose code ran out is not a connection", ctx do
+      client = client!()
+      attrs = %{scopes: [read_scope()], expires_at: DateTime.add(DateTime.utc_now(), 86_400)}
+      {:ok, grant, _key} = Grants.create(ctx.scope, client, attrs, impersonated: false)
+      {:ok, _code, row} = Codes.issue(grant, %{redirect_uri: "https://x/cb", code_challenge: "c"})
+
+      Repo.update_all(from(c in PhoenixKit.API.OAuth.Code, where: c.uuid == ^row.uuid),
+        set: [expires_at: DateTime.add(DateTime.utc_now(), -60) |> DateTime.truncate(:second)]
+      )
+
+      assert {:ok, _} = Clients.delete(client.uuid, actor_uuid: ctx.user.uuid, only_idle: true)
     end
 
     test "only_idle: removes a client whose grants all ended", ctx do

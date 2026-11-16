@@ -86,6 +86,40 @@ defmodule PhoenixKitWeb.Live.Users.ConnectedAppsTest do
       assert render(view) =~ "Site address changed"
     end
 
+    test "shows when a connection was last used, and 'Never' for one that was not", %{
+      conn: conn,
+      scope: scope
+    } do
+      used = seed_grant!(scope)
+      unused = seed_grant!(scope)
+      at = DateTime.add(DateTime.utc_now(), -7200) |> DateTime.truncate(:second)
+
+      Repo.update_all(from(g in Grant, where: g.uuid == ^used.grant.uuid),
+        set: [last_used_at: at]
+      )
+
+      {:ok, view, _html} = live(conn, @path)
+
+      assert has_element?(view, "#personal-api-keys-connected-apps-used-#{used.grant.uuid}")
+      refute has_element?(view, "#personal-api-keys-connected-apps-used-#{unused.grant.uuid}")
+      assert has_element?(view, row_id(unused), "Never")
+    end
+
+    test "names the first three scopes and counts the rest", %{conn: conn, scope: scope} do
+      seeded = seed_grant!(scope)
+      scopes = ["a:1", "b:2", "c:3", "d:4", "e:5"]
+
+      Repo.update_all(from(g in Grant, where: g.uuid == ^seeded.grant.uuid),
+        set: [scopes: scopes]
+      )
+
+      {:ok, view, _html} = live(conn, @path)
+
+      assert has_element?(view, row_id(seeded), "c:3")
+      refute has_element?(view, row_id(seeded), "d:4")
+      assert has_element?(view, row_id(seeded), "+2")
+    end
+
     test "does not show the connection of another person", %{conn: conn} do
       {_other, _role, other_scope} = oauth_holder(["media"])
       theirs = seed_grant!(other_scope)
@@ -211,6 +245,23 @@ defmodule PhoenixKitWeb.Live.Users.ConnectedAppsTest do
 
       refute has_element?(view, "#personal-api-keys-connected-apps-revoke-confirm")
       assert Repo.get!(Grant, seeded.grant.uuid).revoked_at == nil
+    end
+
+    test "the list is read again with what the person holds now: no rows, no buttons", %{
+      conn: conn,
+      role: role,
+      scope: scope
+    } do
+      seeded = seed_grant!(scope)
+      {:ok, view, _html} = live(conn, @path)
+      assert has_element?(view, row_id(seeded))
+      drop_right_silently!(role)
+
+      fire(view, "request_revoke", %{"uuid" => seeded.grant.uuid})
+
+      refute has_element?(view, row_id(seeded))
+      refute has_element?(view, "#personal-api-keys-connected-apps-revoke-#{seeded.grant.uuid}")
+      assert has_element?(view, "#personal-api-keys-connected-apps-message")
     end
 
     test "confirming after the right was lost ends nothing", %{

@@ -28119,3 +28119,13 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "Only the newest %{count} are shown."
 msgstr ""
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:100
+#, elixir-autogen, elixir-format
+msgid "Nothing here can be changed while you act in another account."
+msgstr ""
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:280
+#, elixir-autogen, elixir-format
+msgid "The client ID is the address of a metadata document. An application that names itself by a metadata document is known when it is used: do not add it by hand."
+msgstr ""

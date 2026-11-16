@@ -28137,4 +28137,14 @@ msgstr "Ühendustega rakenduse saab eemaldada ainult Owner."
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:640
 #, elixir-autogen, elixir-format
 msgid "Only the newest %{count} are shown."
-msgstr "Näidatakse ainult uusimat %{count}."
+msgstr "Näidatakse ainult %{count} uusimat."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:100
+#, elixir-autogen, elixir-format
+msgid "Nothing here can be changed while you act in another account."
+msgstr "Kuni tegutsete teises kontos, ei saa siin midagi muuta."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:280
+#, elixir-autogen, elixir-format
+msgid "The client ID is the address of a metadata document. An application that names itself by a metadata document is known when it is used: do not add it by hand."
+msgstr "Kliendi ID on metaandmete dokumendi aadress. Rakendus, mis nimetab end metaandmete dokumendi kaudu, saab teatavaks esimesel kasutamisel: ärge lisage seda käsitsi."

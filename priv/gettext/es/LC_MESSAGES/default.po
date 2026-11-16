@@ -28137,3 +28137,13 @@ msgstr "Solo un Owner puede quitar una aplicación que tiene conexiones."
 #, elixir-autogen, elixir-format
 msgid "Only the newest %{count} are shown."
 msgstr "Solo se muestran los %{count} más recientes."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:100
+#, elixir-autogen, elixir-format
+msgid "Nothing here can be changed while you act in another account."
+msgstr "Mientras actúa en otra cuenta, aquí no se puede cambiar nada."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:280
+#, elixir-autogen, elixir-format
+msgid "The client ID is the address of a metadata document. An application that names itself by a metadata document is known when it is used: do not add it by hand."
+msgstr "El ID de cliente es la dirección de un documento de metadatos. Una aplicación que se identifica mediante un documento de metadatos se conoce cuando se usa: no la añada a mano."

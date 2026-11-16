@@ -14,8 +14,12 @@ defmodule PhoenixKitWeb.Live.Components.ConnectedApps do
   Required assigns: `id`, `scope` (the session's `PhoenixKit.Users.Auth.Scope`) and
   `impersonated` (a boolean: whether the session is borrowed, read with
   `PhoenixKitWeb.Users.MultiSession.impersonated?/1`). Optional: `mode`, `:own` (default, the
-  person's own connections) or `:all` (every connection, an Owner's view). A component without a
-  usable `scope` or boolean `impersonated` shows nothing and refuses every event.
+  person's own connections) or `:all` (every connection, an Owner's view); `refresh`, any value:
+  the list is read again each time it changes (a parent that ended connections some other way
+  bumps it); `notify`, `{module, id}` of a LiveComponent that shows the same grants: it is sent
+  an update (`refresh: true`) each time a connection was ended here, so its counts follow. A
+  component without a usable `scope` or boolean `impersonated` shows nothing and refuses every
+  event.
 
   ## Rights are checked on every event
 
@@ -25,7 +29,7 @@ defmodule PhoenixKitWeb.Live.Components.ConnectedApps do
   `PhoenixKit.API.OAuth.Connections.revoke/3`, which finds the connection inside the view and
   authorizes again. The uuid of the connection to end is the one the server stored when the dialog
   opened, never a param of the confirming event. A person who lost the right in the meantime sees
-  an error and the list reread, and nothing is ended.
+  an error and an empty list (what a page opened now would show), and nothing is ended.
 
   A grant is not removed when its owner loses the right: it is listed as "No permission" and does
   not work (every request reads the owner's rights again) until the right comes back.
@@ -51,6 +55,7 @@ defmodule PhoenixKitWeb.Live.Components.ConnectedApps do
       |> assign(:scope, Map.get(assigns, :scope, socket.assigns[:scope]))
       |> assign(:impersonated, Map.get(assigns, :impersonated, socket.assigns[:impersonated]))
       |> assign(:mode, Map.get(assigns, :mode, socket.assigns[:mode] || :own))
+      |> assign(:notify, Map.get(assigns, :notify, socket.assigns[:notify]))
       |> assign_new(:message, fn -> nil end)
       |> assign_new(:revoke_confirmation, fn -> %{show: false} end)
 
@@ -82,6 +87,17 @@ defmodule PhoenixKitWeb.Live.Components.ConnectedApps do
     |> assign(:oauth_enabled, true)
     |> assign(:truncated, false)
   end
+
+  # A person whose right is gone is shown what a page opened now would show: no connection.
+  defp no_rows(socket) do
+    socket |> assign(:rows, []) |> assign(:scope_tools, %{}) |> assign(:truncated, false)
+  end
+
+  # Tells the component that shows the same grants (`notify`, `{module, id}`) to read them again.
+  defp notify(%{assigns: %{notify: {module, id}}}) when is_atom(module) and is_binary(id),
+    do: send_update(module, id: id, refresh: true)
+
+  defp notify(_socket), do: :ok
 
   # Scope -> names of the tools it unlocks, for the hint on each badge.
   defp scope_tools([]), do: %{}
@@ -139,6 +155,7 @@ defmodule PhoenixKitWeb.Live.Components.ConnectedApps do
   defp revoke(socket, uuid) do
     case Connections.revoke(socket.assigns.fresh_scope, uuid, socket.assigns.mode) do
       {:ok, _grant} ->
+        notify(socket)
         info(socket, gettext("The connection was ended. The application stops working at once."))
 
       {:error, :forbidden} ->
@@ -176,7 +193,7 @@ defmodule PhoenixKitWeb.Live.Components.ConnectedApps do
             {:noreply, socket}
 
           :error ->
-            {:noreply, socket |> deny(gettext("You are not allowed to do that.")) |> load(scope)}
+            {:noreply, socket |> deny(gettext("You are not allowed to do that.")) |> no_rows()}
         end
     end
   end

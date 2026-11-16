@@ -1,7 +1,7 @@
 defmodule PhoenixKitWeb.OAuth.ActivitySecrecyTest do
   @moduledoc """
-  The five `oauth.*` Activity entries (grant created, grant revoked, refresh retry, refresh reuse,
-  client registered) hold no secret: not the authorization code, the PKCE verifier, an access or a
+  The six `oauth.*` Activity entries (grant created, grant revoked, refresh retry, refresh reuse,
+  client registered, client removed) hold no secret: not the authorization code, the PKCE verifier, an access or a
   refresh token, nor the key behind the grant or its hash. The feed is read by everyone who may
   read Activity, and entries are kept past the end of a connection.
   """
@@ -13,6 +13,7 @@ defmodule PhoenixKitWeb.OAuth.ActivitySecrecyTest do
   import PhoenixKit.Test.ApiHarness, only: [put_setting: 2, setup_api: 0]
 
   alias PhoenixKit.Activity.Entry
+  alias PhoenixKit.API.OAuth.Clients
   alias PhoenixKit.API.OAuth.Grant
   alias PhoenixKit.API.OAuth.Grants
   alias PhoenixKit.API.OAuth.Limits
@@ -20,7 +21,7 @@ defmodule PhoenixKitWeb.OAuth.ActivitySecrecyTest do
 
   @read "testkit.items:read"
   @actions ~w(oauth.grant_created oauth.grant_revoked oauth.refresh_retry oauth.refresh_reuse
-              oauth.client_registered)
+              oauth.client_registered oauth.client_removed)
 
   setup do
     setup_api()
@@ -51,7 +52,7 @@ defmodule PhoenixKitWeb.OAuth.ActivitySecrecyTest do
     %{"access_token" => a3, "refresh_token" => r3} = client |> refresh(r1) |> body()
     assert refresh(client, r2).status == 400
 
-    # A second connection, ended by hand, and a client that registered itself.
+    # A second connection, ended by hand, a client that registered itself, and a client removed.
     flow2 = code_for(user, client, [@read])
     %{"access_token" => a4, "refresh_token" => r4} = flow2 |> exchange_code() |> body()
 
@@ -66,6 +67,9 @@ defmodule PhoenixKitWeb.OAuth.ActivitySecrecyTest do
              "redirect_uris" => ["https://app.example/oauth/callback"],
              "client_name" => "Secrecy Agent"
            }).status == 201
+
+    # Removing a client ends the connections it still has and is an entry of its own.
+    {:ok, _} = Clients.delete(client, actor_uuid: user.uuid)
 
     rows = entries(user)
     seen = rows |> Enum.map(& &1.action) |> Enum.uniq() |> Enum.sort()

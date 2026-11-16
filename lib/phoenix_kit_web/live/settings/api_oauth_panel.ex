@@ -9,7 +9,15 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
 
   A LiveComponent that `PhoenixKitWeb.Live.Settings.Api` mounts when its tab is opened, so the
   other tabs do not read this tab's data. Assigns: `id`, `scope` (the page's scope) and
-  `impersonated` (a boolean, for the connected apps below).
+  `impersonated` (a boolean: whether the session is borrowed). In a borrowed session the tab is
+  read-only: the page says so and every event is refused, as the connected apps below do (a
+  borrowed session would otherwise switch OAuth or end people's connections as the account it
+  borrowed).
+
+  The list of every connection below the clients and the clients' own count of connections show
+  the same grants: removing a client refreshes the list (a `refresh` assign that changes), and
+  ending a connection in the list refreshes this panel (`notify`, see
+  `PhoenixKitWeb.Live.Components.ConnectedApps`).
 
   ## Rights are checked on the server
 
@@ -31,6 +39,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
 
   alias PhoenixKit.API.Access
   alias PhoenixKit.API.Config
+  alias PhoenixKit.API.OAuth.Cimd
   alias PhoenixKit.API.OAuth.Client
   alias PhoenixKit.API.OAuth.Clients
   alias PhoenixKit.API.OAuth.RedirectUri
@@ -51,6 +60,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
       |> assign(:impersonated, Map.get(assigns, :impersonated, socket.assigns[:impersonated]))
       |> assign_new(:message, fn -> nil end)
       |> assign_new(:switch_nonce, fn -> 0 end)
+      |> assign_new(:connections_nonce, fn -> 0 end)
       |> assign_new(:settings_params, fn -> OAuthConfig.current() end)
       |> assign_new(:settings_errors, fn -> [] end)
       |> assign_new(:client_params, fn -> blank_client() end)
@@ -181,10 +191,19 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
            actor_uuid: Scope.user_uuid(fresh),
            only_idle: not Scope.owner?(fresh)
          ) do
-      {:ok, _client} -> info(socket, gettext("The client was removed."))
-      {:error, :not_found} -> error(socket, gettext("That client was not found."))
-      {:error, :has_connections} -> error(socket, owner_only_text())
-      _other -> error(socket, gettext("The client could not be removed."))
+      {:ok, _client} ->
+        socket
+        |> update(:connections_nonce, &(&1 + 1))
+        |> info(gettext("The client was removed."))
+
+      {:error, :not_found} ->
+        error(socket, gettext("That client was not found."))
+
+      {:error, :has_connections} ->
+        error(socket, owner_only_text())
+
+      _other ->
+        error(socket, gettext("The client could not be removed."))
     end
   end
 
@@ -194,6 +213,11 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
   # Every event that changes something goes through here: the person's rights are read again for
   # THIS event, and the fresh scope is the one that acts. The message of the previous event is
   # dropped first, so a green "saved" never stays beside a new error. A refusal closes the dialog.
+  defp with_access(%{assigns: %{impersonated: impersonated}} = socket, _fun)
+       when impersonated != false do
+    {:noreply, socket |> assign(:delete_confirmation, %{show: false}) |> error(borrowed_text())}
+  end
+
   defp with_access(socket, fun) do
     case Access.fresh_scope(socket.assigns.scope) do
       {:ok, fresh} ->
@@ -207,6 +231,9 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
          |> error(gettext("You are not allowed to do that."))}
     end
   end
+
+  defp borrowed_text,
+    do: gettext("Nothing here can be changed while you act in another account.")
 
   defp history(socket),
     do: [actor_uuid: Scope.user_uuid(socket.assigns.fresh_scope), source: "settings"]
@@ -249,25 +276,47 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
       redirect_uris: redirects
     }
 
-    if redirects == [] or length(redirects) > @max_redirects do
-      socket
-      |> assign(:client_params, params)
-      |> assign(:client_errors, [gettext("Give from 1 to 10 redirect addresses, one per line.")])
-    else
-      actor = Scope.user_uuid(socket.assigns.fresh_scope)
+    cond do
+      redirects == [] or length(redirects) > @max_redirects ->
+        client_refused(
+          socket,
+          params,
+          gettext("Give from 1 to 10 redirect addresses, one per line.")
+        )
 
-      case Clients.register_preregistered(attrs, actor_uuid: actor) do
-        {:ok, _client} ->
-          socket
-          |> assign(:client_params, blank_client())
-          |> assign(:client_errors, [])
-          |> info(gettext("The client was added."))
+      # Stored under the address of its document, the row would stand in for the application that
+      # names itself by it, with the redirect addresses typed here and not the ones it published.
+      Cimd.validate_client_id(attrs.client_id) == :ok ->
+        client_refused(
+          socket,
+          params,
+          gettext(
+            "The client ID is the address of a metadata document. An application that names itself by a metadata document is known when it is used: do not add it by hand."
+          )
+        )
 
-        {:error, %Ecto.Changeset{} = changeset} ->
-          socket
-          |> assign(:client_params, params)
-          |> assign(:client_errors, client_errors(changeset))
-      end
+      true ->
+        register_client(socket, params, attrs)
+    end
+  end
+
+  defp client_refused(socket, params, text),
+    do: socket |> assign(:client_params, params) |> assign(:client_errors, [text])
+
+  defp register_client(socket, params, attrs) do
+    actor = Scope.user_uuid(socket.assigns.fresh_scope)
+
+    case Clients.register_preregistered(attrs, actor_uuid: actor) do
+      {:ok, _client} ->
+        socket
+        |> assign(:client_params, blank_client())
+        |> assign(:client_errors, [])
+        |> info(gettext("The client was added."))
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        socket
+        |> assign(:client_params, params)
+        |> assign(:client_errors, client_errors(changeset))
     end
   end
 
@@ -357,6 +406,16 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
         >
           {elem(@message, 1)}
         </div>
+      </div>
+
+      <div
+        :if={@impersonated != false}
+        id="api-oauth-impersonated"
+        role="note"
+        class="alert alert-warning text-sm"
+      >
+        <.icon name="hero-exclamation-triangle" class="w-5 h-5 shrink-0" />
+        <span>{borrowed_text()}</span>
       </div>
 
       <%!-- Switches --%>
@@ -664,7 +723,12 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
                   </div>
                 </.table_default_cell>
                 <.table_default_cell class="text-sm">{kind_label(row.client)}</.table_default_cell>
-                <.table_default_cell class="text-sm">{row.grants}</.table_default_cell>
+                <.table_default_cell
+                  id={"api-oauth-client-grants-#{row.client.uuid}"}
+                  class="text-sm"
+                >
+                  {row.grants}
+                </.table_default_cell>
                 <.table_default_cell>
                   <span
                     :if={row.grants > 0 and not @owner?}
@@ -772,6 +836,8 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
         scope={@scope}
         impersonated={@impersonated}
         mode={:all}
+        refresh={@connections_nonce}
+        notify={{__MODULE__, @id}}
       />
 
       <.modal
