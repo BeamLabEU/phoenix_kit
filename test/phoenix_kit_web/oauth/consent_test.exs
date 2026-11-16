@@ -102,7 +102,9 @@ defmodule PhoenixKitWeb.OAuth.ConsentTest do
       |> Repo.update!()
 
       conn = decide(browser(user), id, allow_form())
-      refute conn.status == 302 and location(conn) =~ client.client_id
+      # A managed organization has no browser session of its own: it is sent to the sign-in,
+      # never to the client.
+      assert redirected_to(conn, 302) =~ "/users/log-in"
       assert Repo.all(Grant) == []
     end
 
@@ -212,6 +214,21 @@ defmodule PhoenixKitWeb.OAuth.ConsentTest do
       assert conn.status == 302
       assert [%Grant{expires_at: expires_at}] = Repo.all(Grant)
       assert DateTime.diff(expires_at, DateTime.utc_now(), :day) in 9..10
+    end
+  end
+
+  describe "the name of the client" do
+    test "a name that is nothing once stripped gives way to the client_id", %{
+      user: user,
+      challenge: challenge
+    } do
+      # Zero-width characters only: stripped, the name is empty.
+      client = client!(%{client_name: "\u200B\u200B"})
+      id = request_id(client, challenge)
+
+      html = user |> browser() |> consent(id) |> Map.fetch!(:resp_body) |> Floki.parse_document!()
+      assert [title] = Floki.find(html, "#consent-title")
+      assert Floki.text(title) =~ client.client_id
     end
   end
 

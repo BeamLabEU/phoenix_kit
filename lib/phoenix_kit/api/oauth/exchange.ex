@@ -10,9 +10,12 @@ defmodule PhoenixKit.API.OAuth.Exchange do
 
   ## Authorization code
 
-  `PhoenixKit.API.OAuth.Codes.redeem/1` is the first step: one atomic update decides who gets the
-  code. A code that was already used is a replay: the grant, its tokens and its hidden key are
-  revoked (RFC 6749 section 4.1.2) and the answer is `invalid_grant`. Then the code must belong to
+  The exchange runs under the grant's locks (`PhoenixKit.API.OAuth.Grants.locked/2`), so of any
+  number of simultaneous presentations of one code the first gets its pair and each of the others
+  is a replay behind it. `PhoenixKit.API.OAuth.Codes.redeem/1` is the first step: one atomic
+  update decides who gets the code. A code that was already used is a replay: the grant, its
+  tokens and its hidden key are revoked (RFC 6749 section 4.1.2, so the pair of the winner dies
+  with the first replay) and the answer is `invalid_grant`. Then the code must belong to
   the presented client, the `redirect_uri` must be the very string of the authorization request, the
   `code_verifier` must hash (S256) to the stored challenge, and `resource`, when sent, must be the
   one of the grant. On success the grant is activated, an access token and a refresh token are
@@ -85,19 +88,48 @@ defmodule PhoenixKit.API.OAuth.Exchange do
          {:ok, client_id} <- required(params, "client_id"),
          {:ok, verifier} <- verifier(params),
          {:ok, client} <- known_client(client_id),
-         {:ok, row} <- redeem(code),
-         {:ok, grant} <- code_grant(row, client, redirect_uri, verifier, params) do
-      issue_first_pair(grant)
+         {:ok, grant_uuid} <- code_owner(code) do
+      exchange_code(grant_uuid, code, client, redirect_uri, verifier, params)
     end
   end
 
-  defp redeem(code) do
+  defp code_owner(code) do
+    case Codes.grant_uuid(code) do
+      {:ok, grant_uuid} -> {:ok, grant_uuid}
+      :error -> invalid_grant("The authorization code is invalid or has expired.")
+    end
+  end
+
+  # The whole exchange runs under the grant's locks, so that of any number of simultaneous
+  # presentations of one code the first gets its pair and every other one is a replay that
+  # finds the code used (and ends the grant), in that order and never the other way round.
+  # What is refused is returned as a value, not rolled back: the burnt code and a revoked grant
+  # stay burnt and revoked. Only a failure to issue the tokens rolls the exchange back.
+  defp exchange_code(grant_uuid, code, client, redirect_uri, verifier, params) do
+    result =
+      Grants.locked(grant_uuid, fn grant, key ->
+        with {:ok, row} <- redeem(grant, code),
+             :ok <- code_checks(row, grant, client, redirect_uri, verifier, params),
+             :ok <- usable(grant, key),
+             {:ok, grant} <- activate(grant) do
+          issue_first_pair(grant)
+        end
+      end)
+
+    case result do
+      {:ok, {:ok, _response} = ok} -> ok
+      {:ok, {:error, _error, _description} = error} -> error
+      {:error, _reason} -> invalid_grant("The grant is no longer valid.")
+    end
+  end
+
+  defp redeem(%Grant{uuid: grant_uuid}, code) do
     case Codes.redeem(code) do
       {:ok, row} ->
         {:ok, row}
 
-      {:error, :reused, row} ->
-        revoke_grant(row.grant_uuid, "code_reuse")
+      {:error, :reused, _row} ->
+        revoke_grant(grant_uuid, "code_reuse")
         invalid_grant("The authorization code was already used.")
 
       {:error, :invalid} ->
@@ -105,11 +137,9 @@ defmodule PhoenixKit.API.OAuth.Exchange do
     end
   end
 
-  defp code_grant(row, %Client{} = client, redirect_uri, verifier, params) do
-    grant = Grants.get(row.grant_uuid)
-
+  defp code_checks(row, %Grant{} = grant, %Client{} = client, redirect_uri, verifier, params) do
     cond do
-      is_nil(grant) or grant.client_uuid != client.uuid ->
+      grant.client_uuid != client.uuid ->
         invalid_grant("The authorization code was not issued to this client.")
 
       row.redirect_uri != redirect_uri ->
@@ -119,7 +149,7 @@ defmodule PhoenixKit.API.OAuth.Exchange do
         invalid_grant("The code_verifier does not match.")
 
       true ->
-        with :ok <- check_resource(params, grant), do: {:ok, grant}
+        check_resource(params, grant)
     end
   end
 
@@ -128,35 +158,28 @@ defmodule PhoenixKit.API.OAuth.Exchange do
     Plug.Crypto.secure_compare(computed, challenge)
   end
 
-  # Activation and the first pair under the grant's locks: a grant revoked a moment ago
-  # (the person withdrew it, the ceiling flow) must not come to life.
-  defp issue_first_pair(%Grant{uuid: uuid}) do
-    result =
-      Grants.locked(uuid, fn grant, key ->
-        with true <- usable?(grant, key),
-             {:ok, grant} <- activate(grant),
-             family = UUIDv7.generate(),
-             {:ok, access, access_row} <- Tokens.issue(grant, :access, family: family),
-             {:ok, refresh, _row} <- Tokens.issue(grant, :refresh, family: family) do
-          log(grant, "oauth.grant_created", %{"client_uuid" => grant.client_uuid})
-          response(grant, access, access_row, refresh)
-        else
-          _ -> repo().rollback(:invalid_grant)
-        end
-      end)
+  defp activate(%Grant{activated_at: nil} = grant) do
+    now = DateTime.truncate(DateTime.utc_now(), :second)
 
-    case result do
-      {:ok, {:ok, _response} = ok} -> ok
-      {:error, _reason} -> invalid_grant("The grant is no longer valid.")
+    case grant |> Ecto.Changeset.change(activated_at: now) |> repo().update() do
+      {:ok, grant} -> {:ok, grant}
+      {:error, _changeset} -> repo().rollback(:activation_failed)
     end
   end
 
-  defp activate(%Grant{activated_at: nil} = grant) do
-    now = DateTime.truncate(DateTime.utc_now(), :second)
-    grant |> Ecto.Changeset.change(activated_at: now) |> repo().update()
-  end
-
   defp activate(%Grant{} = grant), do: {:ok, grant}
+
+  defp issue_first_pair(%Grant{} = grant) do
+    family = UUIDv7.generate()
+
+    with {:ok, access, access_row} <- Tokens.issue(grant, :access, family: family),
+         {:ok, refresh, _row} <- Tokens.issue(grant, :refresh, family: family) do
+      log(grant, "oauth.grant_created", %{"client_uuid" => grant.client_uuid})
+      response(grant, access, access_row, refresh)
+    else
+      _ -> repo().rollback(:issue_failed)
+    end
+  end
 
   # --- refresh token -------------------------------------------------------------
 
@@ -205,6 +228,8 @@ defmodule PhoenixKit.API.OAuth.Exchange do
   defp own_grant(_grant, _client),
     do: invalid_grant("The refresh token was not issued to this client.")
 
+  defp by_state(nil, _grant), do: invalid_grant("The refresh token is invalid.")
+
   defp by_state(%Token{revoked_at: %DateTime{}, revoke_reason: "retry_superseded"}, grant),
     do: reuse(grant)
 
@@ -220,10 +245,13 @@ defmodule PhoenixKit.API.OAuth.Exchange do
   end
 
   # Used before: a retry only inside the window and while its successor is untouched.
+  # `used_at` keeps whole seconds (cut down), so the real use was at or after it: measuring
+  # from it in microseconds never lets a repeat in after more than the window.
   defp by_state(%Token{used_at: %DateTime{} = used_at} = row, grant) do
-    if DateTime.diff(DateTime.utc_now(), used_at) <= @retry_window_seconds,
-      do: retry(row, grant),
-      else: reuse(grant)
+    if DateTime.diff(DateTime.utc_now(), used_at, :microsecond) <=
+         @retry_window_seconds * 1_000_000,
+       do: retry(row, grant),
+       else: reuse(grant)
   end
 
   defp mark_used(%Token{uuid: uuid}) do

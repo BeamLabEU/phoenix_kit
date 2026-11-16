@@ -1,7 +1,8 @@
 defmodule PhoenixKit.API.OAuth.ExchangeConcurrencyTest do
   @moduledoc """
   The one-shot rules of the token endpoint under real concurrency: separate database sessions,
-  real commits, no sandbox. A code is redeemed by one caller; a refresh token is rotated by one
+  real commits, no sandbox. A code is redeemed by one caller (the others are replays that end the
+  grant); a refresh token is rotated by one
   caller, and a burst of presentations of one used token is never more than one new pair
   (the retry window) before the family is revoked.
   """
@@ -77,19 +78,29 @@ defmodule PhoenixKit.API.OAuth.ExchangeConcurrencyTest do
     |> Enum.map(fn {:ok, result} -> result end)
   end
 
-  test "simultaneous exchanges of one code give at most one pair, and a replay revokes the grant",
+  test "of simultaneous exchanges of one code exactly one gets a pair; the replays end the grant",
        ctx do
     results = concurrently(@callers, fn _ -> Exchange.token(ctx.params) end)
 
-    # A loser that finds the code already used revokes the grant (a replayed code means a stolen
-    # one), which can happen before the winner has activated it: then nobody gets a pair.
-    # Never more than one.
-    assert Enum.count(results, &match?({:ok, %{"access_token" => _}}, &1)) <= 1, inspect(results)
-    assert Enum.count(results, &match?({:error, "invalid_grant", _}, &1)) >= @callers - 1
+    # The exchange runs under the grant's locks: the first caller is the winner and gets its
+    # pair, every other caller is a replay behind it (RFC 6749 section 4.1.2).
+    assert Enum.count(results, &match?({:ok, %{"access_token" => _, "refresh_token" => _}}, &1)) ==
+             1,
+           inspect(results)
 
-    # A replay of the code (whichever order the callers ran in) ends the grant.
-    assert {:error, "invalid_grant", _} = Exchange.token(ctx.params)
+    assert Enum.count(results, &match?({:error, "invalid_grant", _}, &1)) == @callers - 1,
+           inspect(results)
+
+    # ... and the replay took the grant, and with it the winner's tokens, away.
     assert %Grant{revoked_at: %DateTime{}} = Repo.get!(Grant, ctx.grant.uuid)
+
+    live_tokens =
+      Repo.aggregate(
+        from(t in Token, where: t.grant_uuid == ^ctx.grant.uuid and is_nil(t.revoked_at)),
+        :count
+      )
+
+    assert live_tokens == 0
   end
 
   test "simultaneous refreshes of one token never leave two live successors", ctx do

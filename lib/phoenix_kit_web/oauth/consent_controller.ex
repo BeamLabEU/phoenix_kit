@@ -24,7 +24,9 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
   Everything the answer needs comes from the stored request, never from the form: the form
   carries only the decision, the chosen scopes (cut down to what may be offered) and the lifetime.
   The request is used once: a second click, a replayed form or a request that ran out meet the
-  "start again" page. A person at the ceiling of connections is not served: the page lists their
+  "start again" page. The protection against a form posted from another site is the host's
+  `:browser` pipeline (`protect_from_forgery`), which these routes sit in: a host whose browser
+  pipeline lacks it would let an attacker's consent id be answered from the victim's browser. A person at the ceiling of connections is not served: the page lists their
   grants and the request stays unused while they disconnect one.
   """
   use PhoenixKitWeb, :controller
@@ -191,7 +193,7 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
       Pages.consent(%{
         csrf_token: CSRFProtection.get_csrf_token(),
         action: Routes.path("/oauth/consent/" <> id),
-        client_name: Pages.client_name(snapshot["client_name"] || snapshot["client_id"]),
+        client_name: Pages.client_label(snapshot["client_name"], snapshot["client_id"]),
         redirect_host: RedirectUri.host(request.redirect_uri),
         loopback?: RedirectUri.loopback?(request.redirect_uri),
         email: user.email,

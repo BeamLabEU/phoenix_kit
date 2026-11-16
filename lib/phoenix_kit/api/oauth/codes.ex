@@ -6,7 +6,9 @@ defmodule PhoenixKit.API.OAuth.Codes do
   A code is 32 random bytes (base64url), good for 60 seconds, stored as its SHA-256, bound to
   the grant, the `redirect_uri` and the PKCE challenge of the request it came from.
 
-  `redeem/1` is the single atomic step the token endpoint starts from:
+  `grant_uuid/1` tells which grant a code belongs to without touching the code, so the token
+  endpoint can take the grant's locks before it redeems. `redeem/1` is the single atomic step the
+  exchange starts from:
 
       UPDATE codes SET used_at = now WHERE code_hash = $1 AND used_at IS NULL AND expires_at > now RETURNING ...
 
@@ -47,6 +49,21 @@ defmodule PhoenixKit.API.OAuth.Codes do
 
     with {:ok, row} <- repo().insert(row),
          do: {:ok, Base.url_encode64(secret, padding: false), row}
+  end
+
+  @doc """
+  The grant the code `presented` was issued for, whatever the code's state (unused, used or run
+  out), or `:error` for a code that is malformed or unknown. Changes nothing.
+  """
+  @spec grant_uuid(term()) :: {:ok, String.t()} | :error
+  def grant_uuid(presented) do
+    with {:ok, hash} <- parse(presented),
+         %Code{grant_uuid: grant_uuid} <-
+           repo().one(from(c in Code, where: c.code_hash == ^hash)) do
+      {:ok, grant_uuid}
+    else
+      _ -> :error
+    end
   end
 
   @doc """

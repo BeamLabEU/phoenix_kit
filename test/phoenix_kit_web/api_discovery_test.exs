@@ -870,11 +870,14 @@ defmodule PhoenixKitWeb.APIDiscoveryTest do
 
     # The one place a public document may name the admin MCP path: the `resource` member of the
     # protected resource metadata (RFC 9728 wants the identifier of the resource there). It is
-    # taken out of the text that is scanned, and nothing else is.
+    # taken out of the text that is scanned, and nothing else is: the literal `/mcp/admin` at the
+    # end of that member goes, the origin and the URL prefix before it are still scanned.
     defp scanned_text("oauth prm", response) do
       resource = Resource.resource()
       assert %{"resource" => ^resource} = JSON.decode!(response.resp_body)
-      String.replace(text_of(response), ~s("resource":"#{resource}"), ~s("resource":""))
+      assert String.ends_with?(resource, "/mcp/admin")
+      masked = String.replace_suffix(resource, "/mcp/admin", "")
+      String.replace(text_of(response), ~s("resource":"#{resource}"), ~s("resource":"#{masked}"))
     end
 
     defp scanned_text(_label, response), do: text_of(response)

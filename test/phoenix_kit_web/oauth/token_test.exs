@@ -14,6 +14,7 @@ defmodule PhoenixKitWeb.OAuth.TokenTest do
   alias PhoenixKit.API.OAuth.Grant
   alias PhoenixKit.API.OAuth.Resource
   alias PhoenixKit.Test.Repo
+  alias PhoenixKit.Utils.Routes
 
   @read "testkit.items:read"
 
@@ -261,15 +262,27 @@ defmodule PhoenixKitWeb.OAuth.TokenTest do
       Logger.configure(level: :debug)
       on_exit(fn -> Logger.configure(level: previous) end)
 
-      log = ExUnit.CaptureLog.capture_log([level: :debug], fn -> exchange_code(flow) end)
+      log =
+        ExUnit.CaptureLog.capture_log([level: :debug], fn ->
+          exchange_code(flow)
+
+          # A control: the same logger does print the parameters of a route without `log: false`.
+          dispatch(
+            browser(),
+            @endpoint,
+            :get,
+            Routes.path("/api/consent-config") <> "?marker=CONTROLMARK",
+            nil
+          )
+        end)
 
       route_lines =
         log
         |> String.split("\n")
         |> Enum.filter(&(&1 =~ "Processing with" or &1 =~ "Parameters:"))
 
+      assert Enum.any?(route_lines, &(&1 =~ "CONTROLMARK"))
       refute Enum.any?(route_lines, &(&1 =~ flow.code or &1 =~ flow.verifier))
-      refute log =~ "Parameters: %{"
     end
   end
 

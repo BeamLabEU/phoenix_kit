@@ -6,14 +6,18 @@ defmodule PhoenixKitWeb.OAuth.FlowTest do
   """
   use PhoenixKitWeb.ConnCase, async: false
 
+  import Ecto.Query, only: [from: 2]
   import PhoenixKit.API.OAuthFlowSupport
   import PhoenixKit.API.OAuthTestSupport, only: [client!: 0, enable_oauth!: 0, pkce: 0]
   import PhoenixKit.Test.ApiHarness, only: [setup_api: 0]
 
+  alias PhoenixKit.Activity.Entry
   alias PhoenixKit.API.OAuth.Grant
+  alias PhoenixKit.API.OAuth.Grants
   alias PhoenixKit.API.OAuth.Resource
   alias PhoenixKit.API.OAuth.Token
   alias PhoenixKit.Test.Repo
+  alias PhoenixKit.Users.Permissions
 
   @read "testkit.items:read"
   @write "testkit.items:write"
@@ -23,6 +27,33 @@ defmodule PhoenixKitWeb.OAuth.FlowTest do
     enable_oauth!()
     {user, role} = holder(["dashboard", "settings"])
     %{user: user, role: role, client: client!()}
+  end
+
+  defp consent_html(user, id) do
+    id
+    |> then(&consent(browser(user), &1))
+    |> Map.fetch!(:resp_body)
+    |> Floki.parse_document!()
+  end
+
+  # Entries are kept past the end of a test; every test has a person of its own.
+  defp activity(action, user) do
+    Repo.all(
+      from(e in Entry,
+        where: e.action == ^action and e.actor_uuid == ^user.uuid,
+        order_by: e.inserted_at
+      )
+    )
+  end
+
+  # Moves only the used refresh token (R1) back; the successor keeps `used_at: nil`.
+  defp age_used_refresh!(seconds) do
+    at = DateTime.utc_now() |> DateTime.add(-seconds, :second) |> DateTime.truncate(:second)
+
+    {1, _} =
+      Repo.update_all(from(t in Token, where: t.kind == "refresh" and not is_nil(t.used_at)),
+        set: [used_at: at]
+      )
   end
 
   describe "the whole flow" do
@@ -151,7 +182,7 @@ defmodule PhoenixKitWeb.OAuth.FlowTest do
   end
 
   describe "the scope of a request" do
-    test "a client that names its scope gets it preselected, and only it offered", %{
+    test "a client that names only a writing scope gets it offered, and not ticked", %{
       user: user,
       client: client
     } do
@@ -159,14 +190,26 @@ defmodule PhoenixKitWeb.OAuth.FlowTest do
       params = authorize_params(client, challenge, %{"scope" => @write <> " unknown.thing:read"})
       id = browser() |> authorize(params) |> consent_id()
 
-      html =
-        id
-        |> then(&consent(browser(user), &1))
-        |> Map.fetch!(:resp_body)
-        |> Floki.parse_document!()
+      html = consent_html(user, id)
 
-      assert [_] = Floki.find(html, ~s(input[name="scopes[]"][value="#{@write}"][checked]))
+      assert [_] = Floki.find(html, ~s(input[name="scopes[]"][value="#{@write}"]))
+      assert [] = Floki.find(html, ~s(input[name="scopes[]"][value="#{@write}"][checked]))
       assert [] = Floki.find(html, ~s(input[name="scopes[]"][value="#{@read}"]))
+    end
+
+    test "writing is never preselected, whatever the client asked for", %{
+      user: user,
+      client: client
+    } do
+      {_verifier, challenge} = pkce()
+      params = authorize_params(client, challenge, %{"scope" => @read <> " " <> @write})
+      id = browser() |> authorize(params) |> consent_id()
+
+      html = consent_html(user, id)
+
+      assert [_] = Floki.find(html, ~s(input[name="scopes[]"][value="#{@read}"][checked]))
+      assert [_] = Floki.find(html, ~s(input[name="scopes[]"][value="#{@write}"]))
+      assert [] = Floki.find(html, ~s(input[name="scopes[]"][value="#{@write}"][checked]))
     end
 
     test "a scope outside what was offered is dropped; with nothing left the screen asks again",
@@ -184,6 +227,29 @@ defmodule PhoenixKitWeb.OAuth.FlowTest do
       assert [_] = conn.resp_body |> Floki.parse_document!() |> Floki.find("#consent-error")
       # The request is still usable.
       assert consent(browser(user), id).status == 200
+    end
+  end
+
+  describe "the activity feed" do
+    test "oauth.grant_created is written when the code is exchanged, not when the person allows",
+         %{user: user, client: client} do
+      flow = code_for(user, client, [@read])
+      assert activity("oauth.grant_created", user) == []
+
+      assert exchange_code(flow).status == 200
+      grant = Repo.one(Grant)
+      assert [%Entry{} = entry] = activity("oauth.grant_created", user)
+      assert entry.actor_uuid == user.uuid
+      assert entry.resource_uuid == grant.uuid
+      assert entry.resource_type == "oauth_grant"
+      assert entry.permanent
+      assert entry.metadata == %{"client_uuid" => client.uuid}
+    end
+
+    test "a refused exchange writes no grant_created", %{user: user, client: client} do
+      flow = code_for(user, client, [@read])
+      assert exchange_code(flow, %{"code_verifier" => String.duplicate("a", 43)}).status == 400
+      assert activity("oauth.grant_created", user) == []
     end
   end
 
@@ -214,6 +280,7 @@ defmodule PhoenixKitWeb.OAuth.FlowTest do
     end
 
     test "a retry inside the window gets a fresh pair and ends the unused successor", %{
+      user: user,
       client: client,
       tokens: tokens
     } do
@@ -227,20 +294,79 @@ defmodule PhoenixKitWeb.OAuth.FlowTest do
 
       assert tools_list(a2).status == 401
       assert tools_list(a3).status == 200
+      assert [%Entry{actor_uuid: actor, metadata: meta}] = activity("oauth.refresh_retry", user)
+      assert actor == user.uuid
+      assert is_binary(meta["family"])
+      assert activity("oauth.refresh_reuse", user) == []
+
       # R2 was handed out by the retry's predecessor and then superseded: it ends the grant.
       assert refresh(client, r2).status == 400
+      assert [%Entry{}] = activity("oauth.refresh_reuse", user)
       assert tools_list(a3).status == 401
       assert refresh(client, r3).status == 400
     end
 
-    test "a repeat of R1 after the window ends the grant", %{client: client, tokens: tokens} do
+    test "a repeat of R1 after the window ends the grant, though its successor is untouched", %{
+      user: user,
+      client: client,
+      tokens: tokens
+    } do
       %{"refresh_token" => r1} = tokens
       assert %{"access_token" => a2} = client |> refresh(r1) |> body()
 
-      Repo.update_all(Token, set: [used_at: DateTime.add(DateTime.utc_now(), -30, :second)])
-      # `used_at` of R1 only matters: the others are unused (nil) and stay so.
+      # Only R1 is moved back; R2 stays unused, so only the window can tell this from a retry.
+      age_used_refresh!(30)
       assert refresh(client, r1).status == 400
       assert tools_list(a2).status == 401
+      assert [%Entry{}] = activity("oauth.refresh_reuse", user)
+      assert activity("oauth.refresh_retry", user) == []
+    end
+
+    test "the window is ten real seconds: a repeat a hair over it is not a retry", %{
+      client: client,
+      tokens: tokens
+    } do
+      %{"refresh_token" => r1} = tokens
+      assert %{"access_token" => a2} = client |> refresh(r1) |> body()
+
+      # `used_at` keeps whole seconds: exactly ten of them back, the real age is over ten.
+      age_used_refresh!(10)
+      assert refresh(client, r1).status == 400
+      assert tools_list(a2).status == 401
+    end
+
+    test "an expired refresh token is refused and ends nothing", %{client: client, tokens: tokens} do
+      past = DateTime.add(DateTime.utc_now(), -5, :second)
+      Repo.update_all(from(t in Token, where: t.kind == "refresh"), set: [expires_at: past])
+
+      conn = refresh(client, tokens["refresh_token"])
+      assert conn.status == 400
+      assert %{"error" => "invalid_grant"} = body(conn)
+      assert is_nil(Repo.one(Grant).revoked_at)
+      assert tools_list(tokens["access_token"]).status == 200
+    end
+
+    test "a grant that has run out cannot be refreshed", %{client: client, tokens: tokens} do
+      past = DateTime.add(DateTime.utc_now(), -5, :second)
+      Repo.update_all(Grant, set: [expires_at: past])
+
+      assert %{"error" => "invalid_grant"} = client |> refresh(tokens["refresh_token"]) |> body()
+    end
+
+    test "a revoked grant cannot be refreshed", %{client: client, tokens: tokens} do
+      {:ok, _} = Grants.revoke(Repo.one(Grant))
+
+      assert %{"error" => "invalid_grant"} = client |> refresh(tokens["refresh_token"]) |> body()
+    end
+
+    test "an owner who lost api_personal_keys cannot refresh, though every module right is left",
+         %{client: client, tokens: tokens, role: role} do
+      :ok = Permissions.revoke_permission(role.uuid, "api_personal_keys")
+
+      conn = refresh(client, tokens["refresh_token"])
+      assert conn.status == 400
+      assert %{"error" => "invalid_grant"} = body(conn)
+      assert tools_list(tokens["access_token"]).status == 401
     end
 
     test "another client cannot use the refresh token", %{tokens: tokens} do

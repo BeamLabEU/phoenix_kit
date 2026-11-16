@@ -7,8 +7,8 @@ defmodule PhoenixKit.API.OAuth.Consent do
   `options/2` lists the scopes the person can hand out: the ones they hold right now
   (`PhoenixKit.API.Keys.allowed_scopes_for/1`, computed from **all** their roles, as the API
   does), and, when the client asked for particular scopes, only those. The preselection is the
-  scopes the client asked for, or, when it asked for none, **all the reading scopes**: writing is
-  never on unless the person turns it on.
+  **reading** scopes among them (when the client asked for none: all the reading scopes the
+  person holds): writing is never on unless the person turns it on, whatever the client asked.
 
   ## Allowing
 
@@ -48,10 +48,8 @@ defmodule PhoenixKit.API.OAuth.Consent do
     allowed = Keys.allowed_scopes_for(user)
     asked = Enum.filter(requested, &(&1 in allowed))
 
-    case asked do
-      [] -> %{selectable: allowed, preselected: Enum.filter(allowed, &Scopes.read?/1)}
-      _ -> %{selectable: asked, preselected: asked}
-    end
+    selectable = if asked == [], do: allowed, else: asked
+    %{selectable: selectable, preselected: Enum.filter(selectable, &Scopes.read?/1)}
   end
 
   @doc "How long a grant may last: `{default_days, [day choices up to the personal key ceiling]}`."

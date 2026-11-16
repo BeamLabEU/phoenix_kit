@@ -62,6 +62,15 @@ defmodule PhoenixKitWeb.OAuth.Pages do
 
   def client_name(_name), do: ""
 
+  @doc "The client name as shown, or its `client_id` when the name is empty once stripped."
+  @spec client_label(term(), term()) :: String.t()
+  def client_label(name, client_id) do
+    case client_name(name) do
+      "" -> client_name(client_id)
+      shown -> shown
+    end
+  end
+
   @doc "The error page of a request that cannot be answered with a redirect."
   @spec error(map()) :: iodata()
   def error(assigns) do
@@ -216,7 +225,10 @@ defmodule PhoenixKitWeb.OAuth.Pages do
         <tbody>
           <tr :for={grant <- @grants} id={"grant-#{grant.uuid}"}>
             <td>
-              {client_name(grant.client && (grant.client.client_name || grant.client.client_id))}
+              {client_label(
+                grant.client && grant.client.client_name,
+                grant.client && grant.client.client_id
+              )}
             </td>
             <td>{Calendar.strftime(grant.inserted_at, "%Y-%m-%d")}</td>
             <td>

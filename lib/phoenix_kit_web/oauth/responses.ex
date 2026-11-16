@@ -12,6 +12,12 @@ defmodule PhoenixKitWeb.OAuth.Responses do
   rewritten that way), and a response with no policy gets one that carries just that directive.
   Overwriting the header would take `default-src` and `script-src` away from the page.
 
+  The pages carry an inline `<style>`, and the answer to the consent form is a redirect to the
+  client's `redirect_uri`: a host policy with a strict `style-src` cuts the style (the page stays
+  usable), and one with `form-action 'self'` makes some browsers refuse that redirect, so such a
+  host has to list the redirect origins of its clients in `form-action` (or leave the directive
+  out) for the flow to complete.
+
   ## Redirects to the client
 
   `to_client/3` appends parameters to the client's redirect URI (which is already confirmed

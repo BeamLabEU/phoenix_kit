@@ -105,6 +105,9 @@ defmodule PhoenixKitWeb.OAuth.MetadataTest do
       assert doc["grant_types_supported"] == ["authorization_code", "refresh_token"]
       assert doc["code_challenge_methods_supported"] == ["S256"]
       assert doc["token_endpoint_auth_methods_supported"] == ["none"]
+      # RFC 8414 defaults the revocation endpoint to client_secret_basic; public clients are
+      # let in without authentication, and the document says so.
+      assert doc["revocation_endpoint_auth_methods_supported"] == ["none"]
       assert doc["authorization_response_iss_parameter_supported"] == true
     end
 
