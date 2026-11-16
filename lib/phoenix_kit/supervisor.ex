@@ -190,6 +190,12 @@ defmodule PhoenixKit.Supervisor do
       PhoenixKit.Users.RateLimiter.Backend,
       # Task supervisor for fire-and-forget background work (e.g. stale fixer)
       {Task.Supervisor, name: PhoenixKit.TaskSupervisor},
+      # The downloads of OAuth client metadata documents (`PhoenixKit.API.OAuth.Cimd`): the
+      # four places are the limit of downloads that run at once.
+      Supervisor.child_spec(
+        {Task.Supervisor, name: PhoenixKit.API.OAuth.FetchSupervisor, max_children: 4},
+        id: :oauth_fetch_tasks
+      ),
       Supervisor.child_spec(
         {Task.Supervisor, name: BucketLog.task_supervisor(), max_children: 4},
         id: :bucket_log_tasks

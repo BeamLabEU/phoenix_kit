@@ -251,6 +251,8 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
           redirect_host: host_and_port(address),
           redirect_path: address.path,
           loopback?: RedirectUri.loopback?(request.redirect_uri),
+          unverified?: snapshot["kind"] in ["cimd", "dcr"],
+          client_address: client_address(snapshot),
           email: user.email,
           sections: sections(Scopes.describe(selectable)),
           preselected: preselected,
@@ -280,6 +282,17 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
 
   defp host_and_port(%{host: host, port: nil}), do: host
   defp host_and_port(%{host: host, port: port}), do: "#{host}:#{port}"
+
+  # Where a metadata document client says it lives: the host of its `client_id`, shown beside
+  # its self-given name so a name that borrows another brand shows another address.
+  defp client_address(%{"kind" => "cimd", "client_id" => client_id}) when is_binary(client_id) do
+    case URI.parse(client_id) do
+      %URI{host: host} when is_binary(host) and host != "" -> Pages.client_name(host)
+      _ -> nil
+    end
+  end
+
+  defp client_address(_snapshot), do: nil
 
   defp limit_page(conn, id, user) do
     html =

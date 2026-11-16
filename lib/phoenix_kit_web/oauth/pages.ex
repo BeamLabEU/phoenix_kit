@@ -139,7 +139,9 @@ defmodule PhoenixKitWeb.OAuth.Pages do
   The consent screen. Assigns: `csrf_token`, `action`, `client_name`, `redirect_host` (the host,
   with the port when it is not the scheme's own), `redirect_path` (shown under it: on a host that
   serves pages of many people the path says whose),
-  `loopback?`, `email`, `sections` (the rights by module: `key`, `label`, `reads` and `writes`, lists of
+  `loopback?`, `unverified?` (the client named itself: a notice that the name is not checked),
+  `client_address` (the host of its metadata document, or `nil`), `email`, `sections` (the rights
+  by module: `key`, `label`, `reads` and `writes`, lists of
   `PhoenixKit.API.OAuth.Scopes.describe/1` entries), `preselected`,
   `days` (`{default, choices}`), `error` (`nil` or `:no_scopes`).
   """
@@ -153,6 +155,14 @@ defmodule PhoenixKitWeb.OAuth.Pages do
     <.shell title={gettext("Allow access")} lang={@lang} languages={@languages}>
       <h1 id="consent-title">{gettext("%{client} asks for access", client: @client_name)}</h1>
       <p>{gettext("on behalf of %{email}", email: @email)}</p>
+      <p :if={@unverified?} class="muted" id="consent-unverified">
+        {gettext(
+          "The name above is what the application calls itself. It has not been checked: allow access only if you started this connection from that application."
+        )}
+      </p>
+      <p :if={@client_address} class="muted" id="consent-client-address">
+        {gettext("The application is described at %{address}", address: @client_address)}
+      </p>
       <h2>{gettext("After you decide, your browser is sent to")}</h2>
       <p class="host" id="consent-host">{@redirect_host}</p>
       <p :if={@redirect_path not in ["", "/"]} class="host-path" id="consent-path">
@@ -411,6 +421,8 @@ defmodule PhoenixKitWeb.OAuth.Pages do
     |> Map.put_new(:redirect_path, "")
     |> Map.put_new(:lang, nil)
     |> Map.put_new(:languages, [])
+    |> Map.put_new(:unverified?, false)
+    |> Map.put_new(:client_address, nil)
     |> Map.put_new(:__changed__, nil)
   end
 

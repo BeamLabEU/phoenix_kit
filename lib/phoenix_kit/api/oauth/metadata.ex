@@ -15,11 +15,12 @@ defmodule PhoenixKit.API.OAuth.Metadata do
   Both are public (they are fetched before any credential exists) and are served only while
   OAuth is switched on (`PhoenixKit.API.Config.oauth_enabled?/0`). They name the MCP path and the
   Bearer scheme and **nothing else about the machine API**: no tool, no scope, no permission, no
-  module. `scopes_supported` is deliberately absent, so an anonymous visitor cannot enumerate
+  module. `registration_endpoint` is there only while Dynamic Client Registration is on. `scopes_supported` is deliberately absent, so an anonymous visitor cannot enumerate
   the modules of the install; a client asks for no scope, or any, and the person chooses on
   the consent screen. The `resource_name` is generic and never the admin label of the site.
   """
 
+  alias PhoenixKit.API.Config
   alias PhoenixKit.API.OAuth.Resource
   alias PhoenixKit.Utils.Routes
 
@@ -39,7 +40,7 @@ defmodule PhoenixKit.API.OAuth.Metadata do
   def authorization_server do
     issuer = Resource.issuer()
 
-    %{
+    registration(%{
       "issuer" => issuer,
       "authorization_endpoint" => issuer <> Routes.path("/oauth/authorize"),
       "token_endpoint" => issuer <> Routes.path("/oauth/token"),
@@ -51,6 +52,18 @@ defmodule PhoenixKit.API.OAuth.Metadata do
       "revocation_endpoint_auth_methods_supported" => ["none"],
       "client_id_metadata_document_supported" => false,
       "authorization_response_iss_parameter_supported" => true
-    }
+    })
+  end
+
+  # Dynamic Client Registration is advertised only while it is switched on.
+  defp registration(document) do
+    if Config.oauth_dcr_enabled?(),
+      do:
+        Map.put(
+          document,
+          "registration_endpoint",
+          Resource.issuer() <> Routes.path("/oauth/register")
+        ),
+      else: document
   end
 end

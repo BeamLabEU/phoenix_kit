@@ -3,20 +3,27 @@ defmodule PhoenixKit.API.OAuth.Authorize do
   The checks of an authorization request (`GET /oauth/authorize`, RFC 6749 section 4.1.1, with
   PKCE, RFC 7636, and a resource indicator, RFC 8707).
 
-  `validate/2` answers one of three things:
+  `validate/3` answers one of three things:
 
     * `{:ok, request}` - everything is in order; `request` carries the `client`, the confirmed
       `redirect_uri`, the `code_challenge`, the normalized `resource` (the install's own when the
       client sent none), the requested `scopes` (only those an enabled admin tool declares), and
       the `state`.
     * `{:page_error, reason}` - the request cannot be trusted with a redirect: no client, a
-      redirect URI the client did not register, a repeated or malformed parameter. The browser
-      gets an error page and **never a redirect** (an unvalidated `redirect_uri` is an open
-      redirect). The page is the same for every `reason`: it must not tell a missing client
-      from a foreign redirect URI. `reason` is for the log and the tests.
+      redirect URI the client did not register, a repeated or malformed parameter, a client
+      the policy refuses, a metadata document that could not be had. The browser gets an error
+      page and **never a redirect** (an unvalidated `redirect_uri` is an open redirect). The page
+      is the same for every `reason`: it must not tell a missing client from a foreign redirect
+      URI. Two reasons only are told apart, by status: `:rate_limited` (too many metadata fetches)
+      and `:busy` (too many run at once). `reason` is for the log and the tests.
     * `{:redirect_error, error}` - the client and the redirect URI are confirmed (the URI matches
       one the client registered, `PhoenixKit.API.OAuth.RedirectUri`), the rest is wrong:
       the error goes to the client in a redirect (`error`, `description`, `state`).
+
+  The client is `PhoenixKit.API.OAuth.Clients.resolve/2`: a stored one, or the one a metadata
+  document at its URL describes (fetched here, once the form of the URL, the policy and the limits
+  allow it; `opts[:ip]` is the address of the request, for the limits). The redirect URI is
+  compared with the list the client's row holds.
 
   Read in this order: the client, the redirect URI, then `response_type`, `request`,
   `request_uri`, the PKCE challenge and its method (`S256` only; `plain` is refused), `resource`,
@@ -57,13 +64,15 @@ defmodule PhoenixKit.API.OAuth.Authorize do
           state: String.t() | nil
         }
 
-  @spec validate(map(), String.t() | nil) ::
+  @spec validate(map(), String.t() | nil, keyword()) ::
           {:ok, request()}
           | {:page_error, atom()}
           | {:redirect_error, redirect_error()}
-  def validate(params, query_string) when is_map(params) do
+  def validate(params, query_string, opts \\ [])
+
+  def validate(params, query_string, opts) when is_map(params) do
     with :ok <- check_plain(params, query_string),
-         {:ok, client} <- client(params),
+         {:ok, client} <- client(params, opts),
          {:ok, redirect_uri} <- redirect_uri(params, client) do
       continue(params, client, redirect_uri)
     else
@@ -71,7 +80,7 @@ defmodule PhoenixKit.API.OAuth.Authorize do
     end
   end
 
-  def validate(_params, _query_string), do: {:page_error, :malformed}
+  def validate(_params, _query_string, _opts), do: {:page_error, :malformed}
 
   # --- what cannot be trusted with a redirect -------------------------------
 
@@ -107,16 +116,18 @@ defmodule PhoenixKit.API.OAuth.Authorize do
 
   defp repeated?(_query_string), do: false
 
-  defp client(%{"client_id" => client_id}) when is_binary(client_id) do
+  defp client(%{"client_id" => client_id}, opts) when is_binary(client_id) do
     with true <- byte_size(client_id) in 1..@max_client_id,
-         %Client{} = client <- Clients.get_by_client_id(client_id) do
+         {:ok, %Client{} = client} <- Clients.resolve(client_id, opts) do
       {:ok, client}
     else
+      {:error, reason} when reason in [:rate_limited, :busy] -> {:page_error, reason}
+      {:error, :not_allowed} -> {:page_error, :client_not_allowed}
       _ -> {:page_error, :unknown_client}
     end
   end
 
-  defp client(_params), do: {:page_error, :unknown_client}
+  defp client(_params, _opts), do: {:page_error, :unknown_client}
 
   defp redirect_uri(%{"redirect_uri" => uri}, %Client{redirect_uris: registered})
        when is_binary(uri) do

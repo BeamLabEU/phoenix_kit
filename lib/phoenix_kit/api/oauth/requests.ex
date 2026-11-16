@@ -160,6 +160,7 @@ defmodule PhoenixKit.API.OAuth.Requests do
   defp snapshot(%Client{} = client) do
     %{
       "client_id" => client.client_id,
+      "kind" => client.kind,
       "client_name" => client.client_name,
       "client_uri" => client.client_uri,
       "redirect_uris" => client.redirect_uris

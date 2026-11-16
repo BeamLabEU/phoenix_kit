@@ -23,7 +23,10 @@ defmodule PhoenixKit.API.OAuth.Prune do
        not "unknown". A refresh token ends with its grant, so a used refresh token is never
        removed before the grant is over (reuse of it is still told from a retry).
     6. **Registered clients** (`dcr`) with no grant, a day after they registered, and with no
-       authorization request still waiting.
+       authorization request still waiting; **metadata document clients** (`cimd`) with no
+       grant, a day after the cache of their document ran out, and with no request waiting (an
+       unauthenticated authorization request makes the server fetch and store one, so they
+       must not pile up). Pre-registered clients stay.
 
   What it never does: remove a grant that is still alive (or ended less than three days ago),
   a key with confirmations, or any key that is not the hidden key of a grant. A person's own keys are not its business.
@@ -130,7 +133,9 @@ defmodule PhoenixKit.API.OAuth.Prune do
     uuids =
       from(c in Client,
         as: :client,
-        where: c.kind == "dcr" and c.inserted_at < ^cutoff,
+        where:
+          (c.kind == "dcr" and c.inserted_at < ^cutoff) or
+            (c.kind == "cimd" and c.metadata_expires_at < ^cutoff),
         where: not exists(from(g in Grant, where: g.client_uuid == parent_as(:client).uuid)),
         where:
           not exists(

@@ -19,6 +19,14 @@ defmodule PhoenixKit.API.Config do
   | `api_oauth_token_per_min` | `60` (token and revocation requests per client network) |
   | `api_oauth_requests_ceiling` | `1000` (authorization requests waiting for consent, all clients) |
   | `api_oauth_grants_per_person` | `10` (live grants one person may hold) |
+  | `api_oauth_dcr_enabled` | `false` (Dynamic Client Registration, `POST /oauth/register`; only counts while OAuth is on) |
+  | `api_oauth_client_policy` | `"any"` (`"allow_list"`: only the hosts of `api_oauth_client_allow_hosts`) |
+  | `api_oauth_client_allow_hosts` | `""` (newline separated hosts) |
+  | `api_oauth_client_deny_hosts` | `""` (newline separated hosts) |
+  | `api_oauth_cimd_per_min` | `20` (client metadata fetches per client network) |
+  | `api_oauth_cimd_client_per_min` | `5` (client metadata fetches per client) |
+  | `api_oauth_register_per_hour` | `10` (registrations per client network) |
+  | `api_oauth_register_per_day` | `200` (registrations, whole install) |
   | `api_disabled_tools` | `""` (newline separated tool names) |
   | `api_disabled_modules` | `""` (newline separated module keys) |
   | `api_session_write_modules` | `""` (newline separated module keys) |
@@ -73,6 +81,56 @@ defmodule PhoenixKit.API.Config do
   """
   @spec oauth_enabled?() :: boolean()
   def oauth_enabled?, do: admin_enabled?() and flag("api_oauth_enabled")
+
+  @doc """
+  Whether Dynamic Client Registration (`POST /oauth/register`, RFC 7591) is switched on: the
+  `api_oauth_dcr_enabled` setting reads exactly `"true"` **and** OAuth itself is on. Off by
+  default; fails closed.
+  """
+  @spec oauth_dcr_enabled?() :: boolean()
+  def oauth_dcr_enabled?, do: oauth_enabled?() and flag("api_oauth_dcr_enabled")
+
+  @doc """
+  Which clients may use the server (`api_oauth_client_policy`): `:any` (the default, any https
+  client, its host shown to the person) or `:allow_list` (only the hosts of
+  `fetch_oauth_hosts(:allow)`). A value that is neither, or a setting that cannot be read, is
+  `:allow_list`: the stricter reading.
+  """
+  @spec oauth_client_policy() :: :any | :allow_list
+  def oauth_client_policy do
+    case Settings.get_setting_cached("api_oauth_client_policy", nil) do
+      value when value in [nil, "", "any"] -> :any
+      _other -> :allow_list
+    end
+  rescue
+    _ -> :allow_list
+  catch
+    :exit, _ -> :allow_list
+  end
+
+  @doc """
+  The hosts of the client allow-list (`:allow`, `api_oauth_client_allow_hosts`) or deny-list
+  (`:deny`, `api_oauth_client_deny_hosts`), as the person wrote them, or `:unreadable`.
+  """
+  @spec fetch_oauth_hosts(:allow | :deny) :: {:ok, [String.t()]} | :unreadable
+  def fetch_oauth_hosts(:allow), do: fetch_list("api_oauth_client_allow_hosts")
+  def fetch_oauth_hosts(:deny), do: fetch_list("api_oauth_client_deny_hosts")
+
+  @doc "Client metadata fetches per minute and client network (`api_oauth_cimd_per_min`, 20)."
+  @spec oauth_cimd_per_min() :: pos_integer()
+  def oauth_cimd_per_min, do: int("api_oauth_cimd_per_min", 20)
+
+  @doc "Client metadata fetches per minute and client (`api_oauth_cimd_client_per_min`, 5)."
+  @spec oauth_cimd_client_per_min() :: pos_integer()
+  def oauth_cimd_client_per_min, do: int("api_oauth_cimd_client_per_min", 5)
+
+  @doc "Registrations per hour and client network (`api_oauth_register_per_hour`, 10)."
+  @spec oauth_register_per_hour() :: pos_integer()
+  def oauth_register_per_hour, do: int("api_oauth_register_per_hour", 10)
+
+  @doc "Registrations per day, the whole install (`api_oauth_register_per_day`, 200)."
+  @spec oauth_register_per_day() :: pos_integer()
+  def oauth_register_per_day, do: int("api_oauth_register_per_day", 200)
 
   @oauth_access_ttl_default 3_600
   @oauth_access_ttl_range 300..86_400

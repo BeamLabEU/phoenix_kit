@@ -23,7 +23,9 @@ defmodule PhoenixKit.Modules.Storage.RemoteFetch do
       `timeout` (default 15 s).
 
   `download/2` returns `{:ok, %{path: temp_path, filename: name, url: final_url}}`;
-  the caller removes the temporary file. What the bytes ARE is decided later,
+  the caller removes the temporary file. With `return_headers: true` the map also has
+  `:headers`, the response headers of the final hop as `{name, value}` pairs, for a caller
+  that caches by `Cache-Control`. What the bytes ARE is decided later,
   by sniffing them (`Storage.store_from_url/2`), never from the response's
   `Content-Type`.
   """
@@ -67,8 +69,9 @@ defmodule PhoenixKit.Modules.Storage.RemoteFetch do
         {:redirect, _location} ->
           {:error, :too_many_redirects}
 
-        {:ok, path} ->
-          {:ok, %{path: path, filename: filename(uri), url: URI.to_string(uri)}}
+        {:ok, path, headers} ->
+          result = %{path: path, filename: filename(uri), url: URI.to_string(uri)}
+          {:ok, if(opts[:return_headers], do: Map.put(result, :headers, headers), else: result)}
 
         {:error, _} = error ->
           error
@@ -242,11 +245,13 @@ defmodule PhoenixKit.Modules.Storage.RemoteFetch do
     if state.io, do: File.close(state.io)
 
     case result do
-      {:ok, _path} -> :ok
-      _ -> if state.path, do: File.rm(state.path)
-    end
+      {:ok, path} ->
+        {:ok, path, state.headers}
 
-    result
+      other ->
+        if state.path, do: File.rm(state.path)
+        other
+    end
   end
 
   defp too_long?(headers, max) do

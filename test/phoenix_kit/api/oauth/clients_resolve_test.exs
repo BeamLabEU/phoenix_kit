@@ -1,0 +1,298 @@
+defmodule PhoenixKit.API.OAuth.ClientsResolveTest do
+  @moduledoc """
+  `Clients.resolve/2`: the client behind a `client_id` an authorization request names. A
+  registered or pre-registered one is a row; a URL is a metadata document, fetched (through a
+  stub of the HTTP layer; no socket is opened), checked against the policy, remembered for the time
+  the response allows and fetched again when that has run out. A refusal is never remembered.
+  """
+  use PhoenixKit.DataCase, async: false
+
+  import PhoenixKit.API.OAuthTestSupport, only: [client!: 1]
+  import PhoenixKit.Test.ApiHarness, only: [put_setting: 2, setup_api: 0, unique_ip: 0]
+
+  alias PhoenixKit.API.OAuth.Client
+  alias PhoenixKit.API.OAuth.Clients
+  alias PhoenixKit.API.OAuth.Limits
+  alias PhoenixKit.API.OAuthCimdStub, as: Stub
+
+  @claude Stub.claude_id()
+  @chatgpt Stub.chatgpt_id()
+
+  setup do
+    setup_api()
+    Stub.install!()
+    Stub.put(@claude, Stub.claude_document())
+    Stub.put(@chatgpt, Stub.chatgpt_document())
+
+    # The counters live as long as the node: start each test with these two clients unspent.
+    for client_id <- [@claude, @chatgpt], do: Limits.reset(:cimd_client, client_id)
+
+    %{ip: unique_ip()}
+  end
+
+  defp resolve(client_id, ip), do: Clients.resolve(client_id, ip: ip)
+
+  describe "an identifier that is not a URL" do
+    test "is looked up and never fetched", %{ip: ip} do
+      assert {:error, :unknown_client} = resolve("dcr_nobody", ip)
+      assert {:error, :unknown_client} = resolve("", ip)
+      assert {:error, :unknown_client} = resolve(nil, ip)
+      assert {:error, :unknown_client} = resolve(String.duplicate("x", 3000), ip)
+      assert Stub.calls() == []
+    end
+
+    test "a registered client is returned as it is", %{ip: ip} do
+      {:ok, dcr} =
+        Repo.insert(%Client{
+          kind: "dcr",
+          client_id: "dcr_known",
+          redirect_uris: ["https://a.example/cb"]
+        })
+
+      assert {:ok, %Client{uuid: uuid}} = resolve("dcr_known", ip)
+      assert uuid == dcr.uuid
+    end
+  end
+
+  describe "a pre-registered client" do
+    test "whose id happens to be a URL is not fetched", %{ip: ip} do
+      client = client!(%{client_id: "https://client.example/mine.json"})
+
+      assert {:ok, %Client{uuid: uuid}} = resolve(client.client_id, ip)
+      assert uuid == client.uuid
+      assert Stub.calls() == []
+    end
+  end
+
+  describe "a metadata document client" do
+    test "is fetched once, stored with what the document says, and cached", %{ip: ip} do
+      assert {:ok, %Client{} = client} = resolve(@claude, ip)
+
+      assert client.kind == "cimd"
+      assert client.client_id == @claude
+      assert client.client_name == "Claude"
+      assert client.client_uri == "https://claude.ai"
+      assert client.redirect_uris == ["https://claude.ai/api/mcp/auth_callback"]
+      assert %DateTime{} = client.metadata_fetched_at
+      assert DateTime.diff(client.metadata_expires_at, client.metadata_fetched_at) == 3600
+
+      assert {:ok, again} = resolve(@claude, ip)
+      assert again.uuid == client.uuid
+      assert length(Stub.calls(@claude)) == 1
+      assert Repo.aggregate(Client, :count) == 1
+    end
+
+    test "the ChatGPT document (private_key_jwt, jwks_uri) gives a usable public client", %{
+      ip: ip
+    } do
+      assert {:ok, client} = resolve(@chatgpt, ip)
+
+      assert client.kind == "cimd"
+      assert client.client_name == "ChatGPT"
+      assert client.redirect_uris == ["https://chatgpt.com/connector_platform_oauth_redirect"]
+    end
+
+    test "is fetched again when the time runs out, and the row follows the document", %{ip: ip} do
+      {:ok, first} = resolve(@claude, ip)
+      expire!(first)
+
+      Stub.put(
+        @claude,
+        Stub.claude_document()
+        |> Map.put("client_name", "Claude 2")
+        |> Map.put("redirect_uris", [
+          "https://claude.ai/api/mcp/auth_callback",
+          "https://claude.ai/two"
+        ])
+      )
+
+      assert {:ok, second} = resolve(@claude, ip)
+      assert second.uuid == first.uuid
+      assert second.client_name == "Claude 2"
+
+      assert second.redirect_uris == [
+               "https://claude.ai/api/mcp/auth_callback",
+               "https://claude.ai/two"
+             ]
+
+      assert DateTime.compare(second.metadata_expires_at, DateTime.utc_now()) == :gt
+      assert length(Stub.calls(@claude)) == 2
+      assert Repo.aggregate(Client, :count) == 1
+    end
+
+    test "when the document is gone while the old row is stale, the client is refused", %{ip: ip} do
+      {:ok, first} = resolve(@claude, ip)
+      expire!(first)
+      Stub.put(@claude, {:error, {:http_status, 404}})
+
+      assert {:error, :fetch_failed} = resolve(@claude, ip)
+      # The row stays, stale; it is not used.
+      assert Repo.get(Client, first.uuid).client_name == "Claude"
+    end
+
+    test "a document that is refused is not remembered: no row, and the next ask fetches again",
+         %{
+           ip: ip
+         } do
+      Stub.put(@claude, {:error, :blocked_host})
+      assert {:error, :fetch_failed} = resolve(@claude, ip)
+      assert {:error, :fetch_failed} = resolve(@claude, ip)
+
+      assert length(Stub.calls(@claude)) == 2
+      assert Repo.aggregate(Client, :count) == 0
+    end
+
+    test "documents with a secret or the wrong id are refused and not stored", %{ip: ip} do
+      Stub.put(@claude, Map.put(Stub.claude_document(), "client_secret", "s"))
+      assert {:error, :fetch_failed} = resolve(@claude, ip)
+
+      Stub.put(@claude, Map.put(Stub.claude_document(), "client_id", "https://evil.example/x"))
+      assert {:error, :fetch_failed} = resolve(@claude, ip)
+
+      assert Repo.aggregate(Client, :count) == 0
+    end
+
+    test "an identifier of the wrong form is refused before anything is fetched", %{ip: ip} do
+      assert {:error, :unknown_client} = resolve("http://claude.ai/oauth/x", ip)
+      assert {:error, :unknown_client} = resolve("https://claude.ai", ip)
+      assert {:error, :unknown_client} = resolve("https://claude.ai/a/../b", ip)
+      assert Stub.calls() == []
+    end
+
+    test "the cache time follows the response (a short max-age is held to five minutes)", %{
+      ip: ip
+    } do
+      Stub.put(@claude, Stub.claude_document(), [
+        {"content-type", "application/json"},
+        {"cache-control", "max-age=5"}
+      ])
+
+      assert {:ok, client} = resolve(@claude, ip)
+      assert DateTime.diff(client.metadata_expires_at, client.metadata_fetched_at) == 300
+    end
+  end
+
+  describe "the policy" do
+    test "a denied host is refused before the document is fetched", %{ip: ip} do
+      put_setting("api_oauth_client_deny_hosts", "claude.ai")
+
+      assert {:error, :not_allowed} = resolve(@claude, ip)
+      assert Stub.calls() == []
+      assert Repo.aggregate(Client, :count) == 0
+    end
+
+    test "under the allow-list, a document that names a host outside it is refused and not stored",
+         %{
+           ip: ip
+         } do
+      put_setting("api_oauth_client_policy", "allow_list")
+      put_setting("api_oauth_client_allow_hosts", "claude.ai")
+
+      Stub.put(
+        @claude,
+        Map.put(Stub.claude_document(), "redirect_uris", ["https://elsewhere.example/cb"])
+      )
+
+      assert {:error, :not_allowed} = resolve(@claude, ip)
+      assert length(Stub.calls(@claude)) == 1
+      assert Repo.aggregate(Client, :count) == 0
+    end
+
+    test "is judged again for a client that is already stored", %{ip: ip} do
+      assert {:ok, _client} = resolve(@claude, ip)
+
+      put_setting("api_oauth_client_deny_hosts", "claude.ai")
+      assert {:error, :not_allowed} = resolve(@claude, ip)
+      assert length(Stub.calls(@claude)) == 1
+    end
+
+    test "a registered client is judged by its redirect hosts", %{ip: ip} do
+      Repo.insert!(%Client{
+        kind: "dcr",
+        client_id: "dcr_a",
+        redirect_uris: ["https://evil.example/cb"]
+      })
+
+      assert {:ok, _client} = resolve("dcr_a", ip)
+
+      put_setting("api_oauth_client_deny_hosts", "evil.example")
+      assert {:error, :not_allowed} = resolve("dcr_a", ip)
+    end
+  end
+
+  describe "the limits" do
+    test "a client is fetched at most so many times a minute, whatever the network", %{ip: _ip} do
+      put_setting("api_oauth_cimd_client_per_min", 2)
+      Stub.put(@claude, {:error, {:http_status, 500}})
+
+      assert {:error, :fetch_failed} = resolve(@claude, unique_ip())
+      assert {:error, :fetch_failed} = resolve(@claude, unique_ip())
+      assert {:error, :rate_limited} = resolve(@claude, unique_ip())
+      assert length(Stub.calls(@claude)) == 2
+    end
+
+    test "a network may start so many fetches a minute, whatever the clients", %{ip: ip} do
+      put_setting("api_oauth_cimd_per_min", 2)
+
+      for n <- 1..2 do
+        url = "https://client.example/#{n}-#{System.unique_integer([:positive])}"
+        assert {:error, :fetch_failed} = resolve(url, ip)
+      end
+
+      assert {:error, :rate_limited} =
+               resolve("https://client.example/third-#{System.unique_integer([:positive])}", ip)
+
+      # A stored client costs nothing.
+      assert {:ok, _client} = resolve(@claude, unique_ip())
+      assert {:ok, _client} = resolve(@claude, ip)
+    end
+
+    test "no more than four fetches run at once", %{ip: _ip} do
+      test_pid = self()
+
+      blocking = fn _opts ->
+        send(test_pid, {:started, self()})
+
+        receive do
+          :go -> {:error, {:http_status, 500}}
+        end
+      end
+
+      urls =
+        for n <- 1..5,
+            do: "https://client.example/slow-#{n}-#{System.unique_integer([:positive])}"
+
+      for url <- urls, do: Stub.put(url, blocking)
+
+      running =
+        for url <- Enum.take(urls, 4) do
+          task = Task.async(fn -> resolve(url, unique_ip()) end)
+          assert_receive {:started, _pid}, 2_000
+          task
+        end
+
+      assert {:error, :busy} = resolve(Enum.at(urls, 4), unique_ip())
+      assert Stub.calls(Enum.at(urls, 4)) == []
+
+      Stub.put(Enum.at(urls, 4), {:error, {:http_status, 500}})
+      for pid <- started_pids(), do: send(pid, :go)
+      assert Enum.map(running, &Task.await/1) == List.duplicate({:error, :fetch_failed}, 4)
+
+      # A place is free again.
+      assert {:error, :fetch_failed} = resolve(Enum.at(urls, 4), unique_ip())
+    end
+  end
+
+  defp started_pids do
+    # The four messages were consumed by `assert_receive`; ask the tasks of the supervisor.
+    PhoenixKit.API.OAuth.FetchSupervisor |> Task.Supervisor.children()
+  end
+
+  defp expire!(%Client{} = client) do
+    past = DateTime.add(DateTime.utc_now(), -10, :second) |> DateTime.truncate(:second)
+
+    client
+    |> Ecto.Changeset.change(metadata_expires_at: past)
+    |> Repo.update!()
+  end
+end
