@@ -19247,7 +19247,7 @@ msgstr "Selle fail pole teada: PhoenixKiti paigaldusandmed puuduvad. Kompileerig
 #: lib/phoenix_kit_web/components/core/library_load_notice.ex:68
 #, elixir-autogen, elixir-format
 msgid "This page ran an outdated copy of phoenix_kit_modules.js, which does not name this file; the server's current copy does and has now been fetched. Reload the page."
-msgstr "See leht käivitas faili phoenix_kit_modules.js aegunud koopia, mis seda faili ei nimeta; serveri praegune koopia nimetab ja see on nüüd alla laaditud. Laadige leht uuesti."
+msgstr "See leht käivitas faili phoenix_kit_modules.js aegunud koopia, mis seda faili ei nimeta; serveri praegune koopia nimetab seda ja on nüüd alla laaditud. Laadige leht uuesti."
 
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:665
 #, elixir-autogen, elixir-format

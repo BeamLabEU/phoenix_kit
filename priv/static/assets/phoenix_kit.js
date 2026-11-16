@@ -126,6 +126,8 @@
   //     module import() is terminal for the document.
   //   - Final failures go to window.__pkLibFailures and a `pk:library-failed`
   //     event, which the admin-only LibraryLoadNotice shows.
+  //   - A library the install facts do not name is a "facts" failure, refined
+  //     to "stale" when the server's copy of the facts file names it.
   //
   // A script error has no HTTP status, so failures are "load" unless a
   // matching, enforced `securitypolicyviolation` makes them "csp" — and that
@@ -368,37 +370,45 @@
     return p;
   }
 
-  // The page's facts tag, and the library list of the server's copy of it,
-  // fetched past the cache once per page (null when unreadable).
+  // The page's undigested facts tag (a digested name changes with its content,
+  // so it cannot be outdated), and the library list of the server's copy of
+  // it, fetched past the cache once per page (null when unreadable).
   function pkFactsSrc() {
     var list = document.scripts || [];
     for (var i = 0; i < list.length; i++) {
       var src = (list[i] && list[i].src) || "";
-      if (/(^|\/)phoenix_kit_modules(-[0-9a-f]{32})?\.js$/.test(src.split(/[?#]/)[0])) return src;
+      if (/(^|\/)phoenix_kit_modules\.js$/.test(src.split(/[?#]/)[0])) return src;
     }
     return null;
   }
 
   var pkFreshFactsAt = {};
   function pkFreshFacts(src) {
-    return pkFreshFactsAt[src] = pkFreshFactsAt[src] ||
-      window.fetch(src, { cache: "reload", credentials: "same-origin" })
+    if (!pkFreshFactsAt[src]) {
+      pkFreshFactsAt[src] = window.fetch(src, { cache: "reload", credentials: "same-origin" })
         .then(function(r) { return r.ok ? r.text() : null; })
         .then(function(text) {
           var m = text && /^window\.PHOENIX_KIT_LIBS\s*=\s*(\{.*\});?\s*$/m.exec(text);
           return m ? JSON.parse(m[1]) : null;
         })
         .catch(function() { return null; });
+    }
+    return pkFreshFactsAt[src];
   }
 
-  // The server's copy names the file: the page ran an outdated (cached) copy.
-  // The build is fine; a reload cures it, the fetch having refreshed the cache.
+  // Reported as missing facts at once; turned into "stale" when the page ran
+  // a copy of the facts that lacks the file and the server's copy names it:
+  // an outdated (cached) copy, which a reload cures — the fetch having
+  // refreshed the cache.
   function pkFactsFail(name, key) {
-    var src = typeof window.fetch === "function" && pkFactsSrc();
-    if (!src) return pkLibFail(name, "lib/" + key, "facts");
+    var prev = pkLibFailures[name];
+    if (prev && prev.reason === "stale") return;
+    pkLibFail(name, "lib/" + key, "facts");
+    var ran = window.PHOENIX_KIT_LIBS;
+    var src = typeof window.fetch === "function" && ran && !(ran[key] && ran[key].file) && pkFactsSrc();
+    if (!src) return;
     pkFreshFacts(src).then(function(fresh) {
-      if (!pkLibUrls(key) && fresh && fresh[key] && fresh[key].file) pkLibFail(name, src, "stale");
-      else pkLibFail(name, "lib/" + key, "facts");
+      if (fresh && fresh[key] && fresh[key].file) pkLibFail(name, src, "stale");
     });
   }
 

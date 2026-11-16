@@ -47,6 +47,7 @@ function page(opts) {
     addEventListener: (n, fn) => ((docListeners[n] = docListeners[n] || []).push(fn))
   };
   if (opts.fetch) window.fetch = opts.fetch;
+  else delete window.fetch;
   function CustomEvent(type, init) { this.type = type; this.detail = init && init.detail; }
   const sessionStorage = {
     getItem: (k) => (k in storage ? storage[k] : null),
@@ -351,30 +352,40 @@ function fetchStub(respond) {
   return fn;
 }
 const okText = (text) => Promise.resolve({ ok: true, text: () => Promise.resolve(text) });
-const settle = () => new Promise((r) => setTimeout(r, 0));
+const settle = () => new Promise((r) => setImmediate(r));
 
 test("a library the page's facts lack but the server's current copy names is reported as an outdated copy", async () => {
   const fetch = fetchStub(() => okText(factsFile({ admin: { file: "admin-3.6.1-0a1b2c3d.js", cdn: null } })));
   const p = page({ facts: { fresco: FACTS.fresco }, docScripts: [{ src: "" }, { src: FACTS_SRC }], fetch });
   const err = await p.lib.loadVendored("PhoenixKit admin", "admin", { check: () => false }).catch((e) => e);
   assert.ok(err.pkNoFacts, "the caller is answered at once, as before");
-  assert.strictEqual(p.window.__pkLibFailures["PhoenixKit admin"], undefined, "nothing reported before the answer");
+  assert.strictEqual(p.window.__pkLibFailures["PhoenixKit admin"].reason, "facts",
+    "reported at once, so a fetch that never answers cannot swallow the report");
   await settle();
   assert.deepStrictEqual(fetch.calls, [{ url: FACTS_SRC, init: { cache: "reload", credentials: "same-origin" } }]);
-  assert.deepStrictEqual(p.events.map((e) => e.detail),
-    [{ name: "PhoenixKit admin", url: FACTS_SRC, reason: "stale", directive: null }]);
-  assert.match(p.errors[0], /outdated copy[\s\S]*Reload the page/);
+  assert.deepStrictEqual(p.events.map((e) => e.detail), [
+    { name: "PhoenixKit admin", url: "lib/admin", reason: "facts", directive: null },
+    { name: "PhoenixKit admin", url: FACTS_SRC, reason: "stale", directive: null }
+  ]);
+  assert.match(p.errors[1], /outdated copy[\s\S]*Reload the page/);
   assert.strictEqual(p.scripts.length, 0, "no library request");
+
+  // The admin stubs ask again every few seconds: the stale report stands, with no new fetch or announcement.
+  await assert.rejects(p.lib.loadVendored("PhoenixKit admin", "admin", { check: () => false }));
+  await settle();
+  assert.strictEqual(p.window.__pkLibFailures["PhoenixKit admin"].reason, "stale");
+  assert.strictEqual(fetch.calls.length, 1);
+  assert.strictEqual(p.events.length, 2);
 });
 
-test("the digested facts file is recognised too", async () => {
+test("a digested facts file cannot be outdated: nothing is fetched", async () => {
   const digested = "https://app.test/assets/vendor/phoenix_kit_modules-0123456789abcdef0123456789abcdef.js?vsn=d";
   const fetch = fetchStub(() => okText(factsFile(FACTS)));
-  const p = page({ docScripts: [{ src: digested }], fetch });
+  const p = page({ facts: {}, docScripts: [{ src: digested }], fetch });
   await assert.rejects(p.lib.loadVendored("Fresco", "fresco", { check: () => false }));
   await settle();
-  assert.strictEqual(fetch.calls[0].url, digested);
-  assert.strictEqual(p.window.__pkLibFailures.Fresco.reason, "stale");
+  assert.strictEqual(fetch.calls.length, 0);
+  assert.strictEqual(p.window.__pkLibFailures.Fresco.reason, "facts");
 });
 
 test("when the server's copy lacks the file too, or cannot be read, it stays a missing-facts failure", async () => {
@@ -386,34 +397,54 @@ test("when the server's copy lacks the file too, or cannot be read, it stays a m
     () => Promise.reject(new TypeError("Failed to fetch"))
   ];
   for (const respond of cases) {
-    const p = page({ docScripts: [{ src: FACTS_SRC }], fetch: fetchStub(respond) });
+    const fetch = fetchStub(respond);
+    const p = page({ facts: { sortable: FACTS.sortable }, docScripts: [{ src: FACTS_SRC }], fetch });
     await assert.rejects(p.lib.loadVendored("Fresco", "fresco", { check: () => false }));
     await settle();
+    assert.strictEqual(fetch.calls.length, 1);
     assert.deepStrictEqual(p.window.__pkLibFailures.Fresco, { url: "lib/fresco", reason: "facts", directive: null });
+    assert.strictEqual(p.events.length, 1);
   }
 });
 
-test("with no facts tag on the page nothing is fetched, and the failure is recorded at once", async () => {
+test("nothing is fetched without a facts tag, without fetch, or when the page ran no facts at all", async () => {
+  const setups = [
+    { facts: {}, docScripts: [{ src: "https://app.test/assets/js/app.js" }] },
+    { facts: {}, docScripts: [{ src: FACTS_SRC }], noFetch: true },
+    // the tag is there but its script never ran (blocked, failed): no copy to call outdated
+    { docScripts: [{ src: FACTS_SRC }] }
+  ];
+  for (const setup of setups) {
+    const fetch = fetchStub(() => okText(factsFile(FACTS)));
+    const p = page(Object.assign({ fetch: setup.noFetch ? undefined : fetch }, setup));
+    await assert.rejects(p.lib.loadVendored("Fresco", "fresco", { check: () => false }));
+    assert.strictEqual(p.window.__pkLibFailures.Fresco.reason, "facts");
+    await settle();
+    assert.strictEqual(fetch.calls.length, 0);
+    assert.strictEqual(p.window.__pkLibFailures.Fresco.reason, "facts");
+  }
+});
+
+test("facts that name the file but leave no library base are not called outdated", async () => {
   const fetch = fetchStub(() => okText(factsFile(FACTS)));
-  const p = page({ docScripts: [{ src: "https://app.test/assets/js/app.js" }], fetch });
+  const p = page({ facts: FACTS, docScripts: [{ src: FACTS_SRC }], fetch }); // no script src, no base
   await assert.rejects(p.lib.loadVendored("Fresco", "fresco", { check: () => false }));
-  assert.strictEqual(p.window.__pkLibFailures.Fresco.reason, "facts");
+  await settle();
   assert.strictEqual(fetch.calls.length, 0);
+  assert.strictEqual(p.window.__pkLibFailures.Fresco.reason, "facts");
 });
 
 test("several libraries missing from the facts share one re-fetch", async () => {
   const fetch = fetchStub(() => okText(factsFile(FACTS)));
-  const p = page({ docScripts: [{ src: FACTS_SRC }], fetch });
+  const p = page({ facts: {}, docScripts: [{ src: FACTS_SRC }], fetch });
   await Promise.all([
     assert.rejects(p.lib.loadVendored("Fresco", "fresco", { check: () => false })),
     assert.rejects(p.lib.loadVendored("SortableJS", "sortable", { check: () => false }))
   ]);
   await settle();
-  await assert.rejects(p.lib.loadVendored("Fresco", "fresco", { check: () => false }));
-  await settle();
   assert.strictEqual(fetch.calls.length, 1);
   assert.deepStrictEqual(Object.keys(p.window.__pkLibFailures).sort(), ["Fresco", "SortableJS"]);
-  assert.strictEqual(p.events.length, 2, "the repeat adds no second announcement");
+  assert.deepStrictEqual(Object.values(p.window.__pkLibFailures).map((f) => f.reason), ["stale", "stale"]);
 });
 
 test("the notice tells an outdated copy apart from missing facts", () => {
