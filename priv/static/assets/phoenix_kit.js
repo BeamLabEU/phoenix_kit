@@ -371,8 +371,8 @@
   }
 
   // The page's undigested facts tag (a digested name changes with its content,
-  // so it cannot be outdated), and the library list of the server's copy of
-  // it, fetched past the cache once per page (null when unreadable).
+  // so it cannot be outdated), and the text of the server's copy of it,
+  // fetched past the cache once per page (null when unreadable).
   function pkFactsSrc() {
     var list = document.scripts || [];
     for (var i = 0; i < list.length; i++) {
@@ -387,13 +387,29 @@
     if (!pkFreshFactsAt[src]) {
       pkFreshFactsAt[src] = window.fetch(src, { cache: "reload", credentials: "same-origin" })
         .then(function(r) { return r.ok ? r.text() : null; })
-        .then(function(text) {
-          var m = text && /^window\.PHOENIX_KIT_LIBS\s*=\s*(\{.*\});?\s*$/m.exec(text);
-          return m ? JSON.parse(m[1]) : null;
-        })
         .catch(function() { return null; });
     }
     return pkFreshFactsAt[src];
+  }
+
+  // Whether facts text gives `key` a file. Read loosely, as the doctor does: a
+  // host may run the file through its own minifier, which unquotes the keys
+  // and joins the statements on one line. Nothing in the object holds a brace
+  // in a string, so its end is found by counting them.
+  function pkFactsName(text, key) {
+    var at = text ? text.indexOf("PHOENIX_KIT_LIBS") : -1;
+    var start = at < 0 ? -1 : text.indexOf("{", at);
+    if (start < 0) return false;
+    var depth = 0, i = start;
+    for (; i < text.length; i++) {
+      var c = text.charAt(i);
+      if (c === "{") depth++;
+      else if (c === "}" && --depth === 0) break;
+    }
+    if (depth !== 0) return false;
+    var q = "[\"']?";
+    return new RegExp(q + "\\b" + key.replace(/\W/g, "\\$&") + q + "\\s*:\\s*\\{[^{}]*?" + q +
+      "\\bfile" + q + "\\s*:\\s*[\"'][^\"']+[\"']").test(text.slice(start, i + 1));
   }
 
   // Reported as missing facts at once; turned into "stale" when the page ran
@@ -404,12 +420,18 @@
     var prev = pkLibFailures[name];
     if (prev && prev.reason === "stale") return;
     pkLibFail(name, "lib/" + key, "facts");
+    // The page ran some copy of the facts: one naming libraries, or one from
+    // before PHOENIX_KIT_LIBS existed (2026-10), which still set
+    // PHOENIX_KIT_CONSENT_AVAILABLE — only the facts file writes that one
+    // (PHOENIX_KIT_PREFIX also comes from the globals component, so it
+    // proves nothing).
     var ran = window.PHOENIX_KIT_LIBS;
-    var src = typeof window.fetch === "function" && ran && !(ran[key] && ran[key].file) && pkFactsSrc();
+    var ranFacts = !!ran || typeof window.PHOENIX_KIT_CONSENT_AVAILABLE === "boolean";
+    var src = typeof window.fetch === "function" && ranFacts && !(ran && ran[key] && ran[key].file) && pkFactsSrc();
     if (!src) return;
     pkFreshFacts(src).then(function(fresh) {
       var now = pkLibFailures[name];
-      if (now && now.reason === "facts" && fresh && fresh[key] && fresh[key].file) pkLibFail(name, src, "stale");
+      if (now && now.reason === "facts" && pkFactsName(fresh, key)) pkLibFail(name, src, "stale");
     });
   }
 

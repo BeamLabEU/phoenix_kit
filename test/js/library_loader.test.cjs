@@ -377,6 +377,39 @@ test("a library the page's facts lack but the server's current copy names is rep
   assert.strictEqual(p.events.length, 2);
 });
 
+test("a cached copy from before the facts named libraries is reported as an outdated copy too", async () => {
+  // Facts files written before 2026-10 set PHOENIX_KIT_PREFIX and PHOENIX_KIT_CONSENT_AVAILABLE only.
+  const fetch = fetchStub(() => okText(factsFile(FACTS)));
+  const p = page({ docScripts: [{ src: FACTS_SRC }], fetch });
+  p.window.PHOENIX_KIT_CONSENT_AVAILABLE = false;
+  await assert.rejects(p.lib.loadVendored("Fresco", "fresco", { check: () => false }));
+  await settle();
+  assert.strictEqual(fetch.calls.length, 1);
+  assert.deepStrictEqual(p.window.__pkLibFailures.Fresco, { url: FACTS_SRC, reason: "stale", directive: null });
+});
+
+test("a server copy the host minified (keys unquoted, one line) is still read", async () => {
+  const minified = fs.readFileSync(
+    path.join(__dirname, "..", "fixtures", "phoenix_kit_modules.esbuild.min.js"), "utf8");
+  for (const [key, expected] of [["admin", "stale"], ["fresco", "stale"], ["nosuchlib", "facts"]]) {
+    const fetch = fetchStub(() => okText(minified));
+    const p = page({ facts: { sortable: FACTS.sortable }, docScripts: [{ src: FACTS_SRC }], fetch });
+    await assert.rejects(p.lib.loadVendored("Lib", key, { check: () => false }));
+    await settle();
+    assert.strictEqual(p.window.__pkLibFailures.Lib.reason, expected, key);
+  }
+});
+
+test("a prefix from the globals component alone is no sign the facts file ran", async () => {
+  const fetch = fetchStub(() => okText(factsFile(FACTS)));
+  const p = page({ docScripts: [{ src: FACTS_SRC }], fetch });
+  p.window.PHOENIX_KIT_PREFIX = "/";
+  await assert.rejects(p.lib.loadVendored("Fresco", "fresco", { check: () => false }));
+  await settle();
+  assert.strictEqual(fetch.calls.length, 0);
+  assert.strictEqual(p.window.__pkLibFailures.Fresco.reason, "facts");
+});
+
 test("a digested facts file cannot be outdated: nothing is fetched", async () => {
   const digested = "https://app.test/assets/vendor/phoenix_kit_modules-0123456789abcdef0123456789abcdef.js?vsn=d";
   const fetch = fetchStub(() => okText(factsFile(FACTS)));
