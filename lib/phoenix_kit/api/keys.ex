@@ -747,9 +747,9 @@ defmodule PhoenixKit.API.Keys do
          {:ok, key} <- find_key(prefix, presented_hash),
          :ok <- check_alive(key),
          :ok <- check_ip(key, ip),
-         {:ok, owner, scope} <- checked_owner(key) do
+         {:ok, actor} <- active_actor(key, ip) do
       touch_last_used(key, ip)
-      {:ok, build_actor(key, owner, ip, scope || scope_of(owner))}
+      {:ok, actor}
     else
       :error -> {:error, :invalid_token}
       {:error, _reason} = error -> error
@@ -796,6 +796,17 @@ defmodule PhoenixKit.API.Keys do
           {:ok, User.t()} | {:error, :owner_inactive | :personal_keys_not_allowed}
   def active_owner(%Key{} = key) do
     with {:ok, owner, _scope} <- checked_owner(key), do: {:ok, owner}
+  end
+
+  @doc """
+  The `Actor` of `key` held from `ip`, after the same owner check as `active_owner/1`; the owner's
+  scope is built once. Behind `verify/2` and `PhoenixKit.API.OAuth.Tokens.verify/2`.
+  """
+  @spec active_actor(Key.t(), String.t() | nil) ::
+          {:ok, Actor.t()} | {:error, :owner_inactive | :personal_keys_not_allowed}
+  def active_actor(%Key{} = key, ip) do
+    with {:ok, owner, scope} <- checked_owner(key),
+         do: {:ok, build_actor(key, owner, ip, scope || scope_of(owner))}
   end
 
   # The one owner check of a key: the owner is active and, for a personal key, holds one

@@ -163,14 +163,16 @@ defmodule PhoenixKit.API.OAuth.Grants do
   # Step of `PhoenixKit.API.OAuth.Prune`: removes a consent nobody finished, with its hidden key
   # (which has no history: no token was ever issued). Takes the revoke order, key then grant, and
   # looks again under the locks: a code exchanged a moment ago makes the grant `activated_at`,
-  # and a code whose life reaches past `cutoff` is not yet abandoned. Returns `:deleted` or `:kept`.
+  # a code whose life reaches past `cutoff` is not yet abandoned, and a grant with any token is
+  # kept. Returns `:deleted` or `:kept`.
   @spec delete_unactivated(String.t(), DateTime.t()) :: :deleted | :kept
   def delete_unactivated(grant_uuid, %DateTime{} = cutoff) do
     repo().transaction(fn ->
       with %Grant{key_uuid: key_uuid} <- get(grant_uuid),
            {:ok, key} <- Keys.lock_oauth_row(key_uuid),
            {:ok, %Grant{activated_at: nil}} <- lock_grant(grant_uuid),
-           false <- live_code?(grant_uuid, cutoff) do
+           false <- live_code?(grant_uuid, cutoff),
+           false <- has_tokens?(grant_uuid) do
         repo().delete_all(from(k in Key, where: k.uuid == ^key.uuid))
         {:deleted, key.prefix}
       else
@@ -186,6 +188,11 @@ defmodule PhoenixKit.API.OAuth.Grants do
         :kept
     end
   end
+
+  # A grant that has issued a token is not abandoned, whatever `activated_at` says: deleting it
+  # would take the tokens (and the key their history hangs on) with it.
+  defp has_tokens?(grant_uuid),
+    do: repo().exists?(from(t in Token, where: t.grant_uuid == ^grant_uuid))
 
   defp live_code?(grant_uuid, cutoff) do
     repo().exists?(

@@ -269,6 +269,21 @@ defmodule PhoenixKit.API.AuthTest do
       refute conn.halted
     end
 
+    test "the OAuth grant parameters are not credentials: ?code= stays a plain filter on REST", %{
+      token: token
+    } do
+      query = "?code=ABC&code_verifier=zzz&postal_code=1&q=pkoa"
+      conn = :post |> api_conn("/x" <> query, token: token) |> admin()
+
+      refute conn.halted
+      refute Auth.token_in_url?(conn)
+
+      for name <- ~w(code code_verifier postal_code state redirect_uri),
+          do: refute(Auth.credential_name?(name), name)
+
+      refute "code" in Auth.credential_params()
+    end
+
     test "credential_name?/1 is the one rule: the listed names and any name ending in _token" do
       for name <- Auth.credential_params(), do: assert(Auth.credential_name?(name), name)
 

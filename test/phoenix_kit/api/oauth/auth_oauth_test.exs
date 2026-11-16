@@ -155,13 +155,26 @@ defmodule PhoenixKit.API.OAuth.AuthTest do
       end
     end
 
-    test "a malformed header is a bad token, not a missing one" do
+    test "a malformed Bearer header is a bad token, not a missing one" do
+      for value <- ["Bearer", "abc", "Bearer a b"] do
+        conn =
+          :post
+          |> api_conn("/", headers: [{"authorization", value}])
+          |> Auth.call(Auth.init(audience: :admin, oauth: true))
+
+        assert conn.status == 401
+        assert challenge(conn) == ~s(Bearer error="invalid_token", ) <> metadata()
+      end
+    end
+
+    test "REST keeps today's answer for another scheme" do
       conn =
         :post
         |> api_conn("/", headers: [{"authorization", "Basic abc"}])
-        |> Auth.call(Auth.init(audience: :admin, oauth: true))
+        |> Auth.call(Auth.init(audience: :admin))
 
-      assert challenge(conn) == ~s(Bearer error="invalid_token", ) <> metadata()
+      assert conn.status == 401
+      assert challenge(conn) == ~s(Bearer error="invalid_token")
     end
 
     test "an expired token: error and resource_metadata", %{seed: seed} do
@@ -270,6 +283,42 @@ defmodule PhoenixKit.API.OAuth.AuthTest do
 
       conn = post_rpc(:admin, message("tools/list"), ip: ip)
       assert conn.status == 401
+    end
+
+    test "is not used up by another scheme: that is a request without credentials", %{} do
+      fail_limit(2)
+      ip = unique_ip()
+
+      for _ <- 1..6 do
+        conn =
+          post_rpc(:admin, message("tools/list"),
+            ip: ip,
+            extra_headers: [{"authorization", "Basic abc"}]
+          )
+
+        assert conn.status == 401
+        assert challenge(conn) == "Bearer " <> metadata()
+      end
+
+      assert :ok = RateLimit.check_preauth(ip)
+    end
+
+    test "is not used up by a grant made for another site_url: it ended, nobody guessed", %{
+      scope: scope
+    } do
+      other =
+        seed_grant!(scope, scopes: [@read], resource: "https://elsewhere.example/mcp/admin")
+
+      fail_limit(2)
+      ip = unique_ip()
+
+      for _ <- 1..6 do
+        conn = post_rpc(:admin, message("tools/list"), token: other.access, ip: ip)
+        assert conn.status == 401
+        assert challenge(conn) == ~s(Bearer error="invalid_token", ) <> metadata()
+      end
+
+      assert :ok = RateLimit.check_preauth(ip)
     end
 
     test "is charged by an unknown pkoa_ token, as before", %{} do

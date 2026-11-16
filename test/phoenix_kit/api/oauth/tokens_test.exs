@@ -257,9 +257,10 @@ defmodule PhoenixKit.API.OAuth.TokensTest do
       assert {:error, :expired} = Tokens.verify(seed.access, nil)
     end
 
-    test "a grant for another resource", %{scope: scope} do
+    test "a grant for another resource (the site_url changed since) is told apart from a guess",
+         %{scope: scope} do
       other = seed_grant!(scope, resource: "https://elsewhere.example/mcp/admin")
-      assert {:error, :invalid_token} = Tokens.verify(other.access, nil)
+      assert {:error, :resource_changed} = Tokens.verify(other.access, nil)
     end
 
     test "a grant whose key row no longer points back at it", %{seed: seed} do

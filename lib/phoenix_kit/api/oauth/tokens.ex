@@ -147,6 +147,7 @@ defmodule PhoenixKit.API.OAuth.Tokens do
              :invalid_token
              | :revoked
              | :expired
+             | :resource_changed
              | :owner_inactive
              | :personal_keys_not_allowed}
   def verify(token, ip) do
@@ -155,9 +156,9 @@ defmodule PhoenixKit.API.OAuth.Tokens do
          :ok <- check_token(row),
          :ok <- check_grant(grant, key),
          :ok <- check_key(key),
-         {:ok, owner} <- Keys.active_owner(key) do
+         {:ok, actor} <- Keys.active_actor(key, ip) do
       touch_last_used(grant)
-      {:ok, narrow(Keys.actor(key, owner, ip), grant)}
+      {:ok, narrow(actor, grant)}
     else
       :error -> {:error, :invalid_token}
       {:ok, :refresh, _hash} -> {:error, :invalid_token}
@@ -195,7 +196,7 @@ defmodule PhoenixKit.API.OAuth.Tokens do
       key.oauth_grant_uuid != grant.uuid -> {:error, :invalid_token}
       reached?(grant.revoked_at) -> {:error, :revoked}
       reached?(grant.expires_at) -> {:error, :expired}
-      not Resource.matches?(grant.resource) -> {:error, :invalid_token}
+      not Resource.matches?(grant.resource) -> {:error, :resource_changed}
       true -> :ok
     end
   end

@@ -342,7 +342,7 @@ defmodule PhoenixKit.API.Auth do
   end
 
   defp verify(conn, ip, oauth?) do
-    case bearer_token(conn) do
+    case bearer_token(conn, oauth?) do
       {:ok, token} -> verify_token(token, ip, oauth?)
       {:error, _reason} = error -> error
     end
@@ -361,29 +361,38 @@ defmodule PhoenixKit.API.Auth do
 
   # An OAuth token that ran out is the normal end of its hour, told apart from a guess because
   # its row was found: it is not charged to the failure bucket (`reject/4`).
+  #
+  # A grant made for another `site_url` (the setting was edited since) is the same: the client
+  # is not guessing, it is sent to authorize again, and the challenge names the new metadata.
   defp verify_oauth(token, ip) do
     case OAuthTokens.verify(token, ip) do
-      {:error, :expired} -> {:error, :oauth_expired}
+      {:error, reason} when reason in [:expired, :resource_changed] -> {:error, :oauth_expired}
       other -> other
     end
   end
 
   # No `Authorization` header is `:missing`, which is not the same as a bad one: a client
   # that has not been authorized yet sends none, and the challenge teaches it where to go.
-  defp bearer_token(conn) do
+  # Where OAuth is on, so is a scheme other than `Bearer` (a client probing with `Basic`): RFC
+  # 6750 section 3.1 asks for a challenge without an error code for it. REST keeps its answer.
+  defp bearer_token(conn, oauth?) do
     case get_req_header(conn, "authorization") do
       [] -> {:error, :missing}
-      [value] -> parse_bearer(value)
+      [value] -> value |> parse_bearer() |> other_scheme(oauth?)
       _repeated -> {:error, :invalid_token}
     end
   end
+
+  defp other_scheme({:error, :other_scheme}, true), do: {:error, :missing}
+  defp other_scheme({:error, :other_scheme}, false), do: {:error, :invalid_token}
+  defp other_scheme(result, _oauth?), do: result
 
   defp parse_bearer(value) do
     case value |> String.trim() |> String.split(~r/\s+/, parts: 2) do
       [scheme, token] ->
         if String.downcase(scheme) == "bearer",
           do: {:ok, String.trim(token)},
-          else: {:error, :invalid_token}
+          else: {:error, :other_scheme}
 
       _ ->
         {:error, :invalid_token}

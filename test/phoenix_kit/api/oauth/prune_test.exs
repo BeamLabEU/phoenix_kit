@@ -18,6 +18,7 @@ defmodule PhoenixKit.API.OAuth.PruneTest do
   alias PhoenixKit.API.OAuth.PruneWorker
   alias PhoenixKit.API.OAuth.Request
   alias PhoenixKit.API.OAuth.Token
+  alias PhoenixKit.API.OAuth.Tokens
 
   setup do
     register_fake_module!()
@@ -121,6 +122,16 @@ defmodule PhoenixKit.API.OAuth.PruneTest do
       assert Repo.get(Grant, grant.uuid)
       assert Repo.get(Key, key.uuid)
       assert Grants.delete_unactivated(UUIDv7.generate(), ago(3600)) == :kept
+    end
+
+    test "delete_unactivated/2 keeps a grant that already has a token", %{scope: scope} do
+      {grant, key, _code} = unfinished_grant!(scope, 3700)
+      {:ok, _token, _row} = Tokens.issue(grant, :access)
+
+      assert Grants.delete_unactivated(grant.uuid, ago(3600)) == :kept
+      assert Repo.get(Grant, grant.uuid)
+      assert Repo.get(Key, key.uuid)
+      assert Repo.exists?(from(t in Token, where: t.grant_uuid == ^grant.uuid))
     end
   end
 

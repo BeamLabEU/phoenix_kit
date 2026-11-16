@@ -9,6 +9,7 @@ defmodule PhoenixKit.API.OAuth.ResourceTest do
 
   alias PhoenixKit.API.MCP.Origin
   alias PhoenixKit.API.OAuth.Resource
+  alias PhoenixKit.Config
   alias PhoenixKit.Utils.Routes
 
   setup do
@@ -46,6 +47,57 @@ defmodule PhoenixKit.API.OAuth.ResourceTest do
       assert Resource.issuer() == "https://example.com"
       assert Resource.resource() == "https://example.com" <> Routes.path("/mcp/admin")
       assert Resource.matches?("https://EXAMPLE.com" <> Routes.path("/mcp/admin") <> "/")
+    end
+  end
+
+  describe "under another url_prefix" do
+    setup do
+      previous = Application.fetch_env(:phoenix_kit, :url_prefix)
+
+      on_exit(fn ->
+        case previous do
+          {:ok, value} -> Application.put_env(:phoenix_kit, :url_prefix, value)
+          :error -> Application.delete_env(:phoenix_kit, :url_prefix)
+        end
+
+        Config.clear_url_prefix_cache()
+      end)
+
+      put_setting("site_url", "https://example.com")
+      :ok
+    end
+
+    defp with_prefix(prefix) do
+      Application.put_env(:phoenix_kit, :url_prefix, prefix)
+      Config.clear_url_prefix_cache()
+    end
+
+    test "a root-mounted kit (an empty prefix or a slash): the path is /mcp/admin itself" do
+      for prefix <- ["", "/"] do
+        with_prefix(prefix)
+
+        assert Resource.path() == "/mcp/admin"
+        assert Resource.resource() == "https://example.com/mcp/admin"
+
+        assert Resource.metadata_url() ==
+                 "https://example.com/.well-known/oauth-protected-resource/mcp/admin"
+
+        assert Resource.metadata_path() == "/.well-known/oauth-protected-resource/mcp/admin"
+        assert Resource.issuer() == "https://example.com"
+      end
+    end
+
+    test "a nonstandard prefix goes between the host and /mcp/admin, and after the well-known" do
+      with_prefix("/kit")
+
+      assert Resource.path() == "/kit/mcp/admin"
+      assert Resource.resource() == "https://example.com/kit/mcp/admin"
+
+      assert Resource.metadata_url() ==
+               "https://example.com/.well-known/oauth-protected-resource/kit/mcp/admin"
+
+      assert Resource.matches?("https://example.com/kit/mcp/admin/")
+      refute Resource.matches?("https://example.com/mcp/admin")
     end
   end
 
