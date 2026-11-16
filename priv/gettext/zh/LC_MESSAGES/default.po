@@ -27758,8 +27758,8 @@ msgstr "必须提供客户端 ID（最多 2048 个字符，纯文本）。"
 
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:246
 #, elixir-autogen, elixir-format
-msgid "A redirect address must be https, or http to 127.0.0.1 or [::1], with no fragment and no wildcard."
-msgstr "重定向地址必须是 https，或指向 127.0.0.1 或 [::1] 的 http，且不含片段和通配符。"
+msgid "A redirect address must be https, or http to localhost, 127.0.0.1 or [::1], with no fragment and no wildcard."
+msgstr "重定向地址必须是 https，或指向 localhost、127.0.0.1 或 [::1] 的 http，且不含片段和通配符。"
 
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:251
 #, elixir-autogen, elixir-format
@@ -27908,8 +27908,8 @@ msgstr "允许的主机（每行一个）"
 
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:502
 #, elixir-autogen, elixir-format
-msgid "For example claude.ai. Judged on the host of the application's address and of each redirect address; an application added by hand below is always allowed."
-msgstr "例如 claude.ai。依据应用地址和每个重定向地址的主机判断；下方手动添加的应用始终被允许。"
+msgid "For example claude.ai. Judged on the host of the application's address and of each redirect address; an application added by hand below is always allowed. A host taken off the list stops new connections and refreshes at once, but an access token already issued works until it expires (the access token life above): to cut an application off now, remove it below."
+msgstr "例如 claude.ai。依据应用地址和每个重定向地址的主机判断；下方手动添加的应用始终被允许。从列表中移除的主机会立即无法建立新连接或刷新，但已签发的访问令牌在过期前仍然有效（见上方的访问令牌有效期）：要立即切断某个应用，请在下方将其移除。"
 
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:512
 #, elixir-autogen, elixir-format
@@ -27988,8 +27988,8 @@ msgstr "重定向地址（每行一个）"
 
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:699
 #, elixir-autogen, elixir-format
-msgid "Where the application receives the answer: https, or http to 127.0.0.1 or [::1]. Compared exactly (a loopback port may differ)."
-msgstr "应用接收响应的位置：https，或指向 127.0.0.1 或 [::1] 的 http。需完全匹配（回环地址的端口可以不同）。"
+msgid "Where the application receives the answer: https, or http to localhost, 127.0.0.1 or [::1]. Compared exactly (the port may differ only for 127.0.0.1 and [::1])."
+msgstr "应用接收响应的位置：https，或指向 localhost、127.0.0.1 或 [::1] 的 http。需完全匹配（仅 127.0.0.1 和 [::1] 的端口可以不同）。"
 
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:728
 #, elixir-autogen, elixir-format
@@ -28055,11 +28055,6 @@ msgstr "不带请求头添加服务器，然后在会话中运行 /mcp 并选择
 #, elixir-autogen, elixir-format
 msgid "On a plan that offers custom MCP servers, add the MCP server address above, choose OAuth as the authentication and follow the sign-in."
 msgstr "在提供自定义 MCP 服务器的套餐上，添加上面的 MCP 服务器地址，选择 OAuth 作为认证方式并完成登录。"
-
-#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:241
-#, elixir-autogen, elixir-format
-msgid "Add the server to the Codex configuration, then run the login command. The exact steps are the client's own and may change."
-msgstr "将服务器添加到 Codex 配置中，然后运行登录命令。具体步骤由客户端自身决定，可能会变化。"
 
 #: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:250
 #, elixir-autogen, elixir-format
@@ -28133,10 +28128,25 @@ msgstr "使用密钥，如上所述"
 
 #: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:322
 #, elixir-autogen, elixir-format
-msgid "OAuth is not promised: custom URL schemes are not supported"
-msgstr "不承诺支持 OAuth：不支持自定义 URL 方案"
+msgid "OAuth is not promised; use a key"
+msgstr "不承诺支持 OAuth；请使用密钥"
 
 #: lib/phoenix_kit_web/live/settings/api.ex:213
 #, elixir-autogen, elixir-format
 msgid "Sign-in (OAuth)"
 msgstr "登录（OAuth）"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:96
+#, elixir-autogen, elixir-format
+msgid "The settings could not be saved completely. The form shows what is stored now; some of your changes may have been saved."
+msgstr "设置未能完整保存。表单显示的是当前已保存的内容；你的部分更改可能已保存。"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:183
+#, elixir-autogen, elixir-format
+msgid "Only an Owner can remove an application that has connections."
+msgstr "只有 Owner 可以移除已有连接的应用。"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:640
+#, elixir-autogen, elixir-format
+msgid "Only the newest %{count} are shown."
+msgstr "仅显示最新的 %{count} 条。"

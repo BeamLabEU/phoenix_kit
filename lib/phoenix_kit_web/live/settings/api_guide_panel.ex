@@ -144,19 +144,11 @@ defmodule PhoenixKitWeb.Live.Settings.ApiGuidePanel do
       mcp_url: url,
       metadata_url: Keyword.fetch!(report.urls, :protected_resource_metadata),
       server_metadata_url: Keyword.fetch!(report.urls, :authorization_server_metadata),
-      claude_code_command: "claude mcp add --transport http #{name} #{shell_quote(url)}",
-      codex_config: "[mcp_servers.#{toml_key(name)}]\nurl = #{toml_string(url)}",
-      codex_login_command: "codex mcp login #{name}"
+      claude_code_command: "claude mcp add --transport http #{name} #{shell_quote(url)}"
     }
   end
 
   defp json(term), do: Jason.encode!(term, pretty: true)
-
-  # The server name is a slug (`ClientName.slug/1`): letters, digits and dashes.
-  defp toml_key(name),
-    do: if(Regex.match?(~r/\A[A-Za-z0-9_-]+\z/, name), do: name, else: toml_string(name))
-
-  defp toml_string(text), do: Jason.encode!(text)
 
   defp shell_quote(text), do: "'" <> String.replace(text, "'", "'\\''") <> "'"
 

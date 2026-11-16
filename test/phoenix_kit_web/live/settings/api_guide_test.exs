@@ -265,25 +265,19 @@ defmodule PhoenixKitWeb.Live.Settings.ApiGuideTest do
       refute section =~ ~r/\bpk_[0-9a-f]{8}_/
     end
 
-    test "Codex gets a configuration that decodes and a login command", %{conn: conn} do
-      {:ok, view, _html} = live(conn, @path)
-
-      assert text(view, "#guide-oauth-codex-config") ==
-               ~s([mcp_servers.acme-print-admin]\nurl = "#{base()}#{Routes.path("/mcp/admin")}")
-
-      assert text(view, "#guide-oauth-codex-login") == "codex mcp login acme-print-admin"
-    end
-
-    test "the matrix marks every client as not tried live, and Cursor and VS Code as no promise",
+    test "the matrix marks every client as not tried live, and Cursor, VS Code and Codex as no promise",
          %{conn: conn} do
       {:ok, view, _html} = live(conn, @path)
 
-      for client <- ~w(claude chatgpt claude-code codex) do
+      for client <- ~w(claude chatgpt claude-code inspector) do
         assert text(view, "#guide-oauth-matrix-#{client}") =~ "not yet tried live" or
                  text(view, "#guide-oauth-matrix-#{client}") =~ "Not yet tried live"
       end
 
       assert text(view, "#guide-oauth-matrix-cursor") =~ "not promised"
+      assert text(view, "#guide-oauth-matrix-cursor") =~ "Codex"
+      refute has_element?(view, "#guide-oauth-codex")
+      refute has_element?(view, "#guide-oauth-matrix-codex")
     end
 
     test "tells that a lost right ends the connection at the next request", %{conn: conn} do

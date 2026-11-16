@@ -15,10 +15,14 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
 
   Every event re-reads the person's rights (`PhoenixKit.API.Access.fresh_scope/1`, the `api`
   permission) and acts as that person: a right lost since the page was opened is refused and
-  nothing is written. The form is all or nothing and each changed setting is a permanent
-  `setting.changed` Activity entry (`PhoenixKit.API.OAuthConfig.save/2`); adding a client writes
-  `oauth.client_registered`, removing one ends every connection of it first
-  (`PhoenixKit.API.OAuth.Clients.delete/2`, one `oauth.grant_revoked` entry each).
+  nothing is written. The form is validated as a whole (one invalid field saves nothing) and each
+  changed setting is a permanent `setting.changed` Activity entry
+  (`PhoenixKit.API.OAuthConfig.save/2`); adding a client writes `oauth.client_registered`.
+  Removing a client ends every connection of it first (`PhoenixKit.API.OAuth.Clients.delete/2`,
+  one `oauth.grant_revoked` entry each, then `oauth.client_removed`), which is ending other
+  people's connections: an Owner may remove any client, anyone else only a client nobody is
+  connected through (the button is hidden, the event is refused, and the delete itself checks again
+  under the row lock).
 
   Only the fields of the form are read from the params, each as text; the client to remove is the
   uuid the server stored when its dialog opened, never a param of the confirming event.
@@ -46,6 +50,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
       |> assign(:scope, Map.get(assigns, :scope, socket.assigns[:scope]))
       |> assign(:impersonated, Map.get(assigns, :impersonated, socket.assigns[:impersonated]))
       |> assign_new(:message, fn -> nil end)
+      |> assign_new(:switch_nonce, fn -> 0 end)
       |> assign_new(:settings_params, fn -> OAuthConfig.current() end)
       |> assign_new(:settings_errors, fn -> [] end)
       |> assign_new(:client_params, fn -> blank_client() end)
@@ -56,11 +61,14 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
   end
 
   defp load(socket) do
+    clients = Clients.list()
+
     socket
     |> assign(:status, Status.report())
     |> assign(:oauth_setting, Settings.get_boolean_setting("api_oauth_enabled", false))
     |> assign(:dcr_setting, Settings.get_boolean_setting("api_oauth_dcr_enabled", false))
-    |> assign(:clients, Clients.list())
+    |> assign(:clients, clients)
+    |> assign(:clients_truncated, length(clients) >= Clients.list_limit())
     |> assign(:owner?, Scope.owner?(socket.assigns.scope))
   end
 
@@ -72,7 +80,10 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
   def handle_event("set_oauth", %{"state" => state}, socket) when state in ["on", "off"] do
     with_access(socket, fn socket ->
       if state == "on" and not Config.admin_enabled?(),
-        do: error(socket, gettext("Switch the admin API on first.")),
+        do:
+          socket
+          |> update(:switch_nonce, &(&1 + 1))
+          |> error(gettext("Switch the admin API on first.")),
         else: write_switch(socket, "api_oauth_enabled", state == "on")
     end)
   end
@@ -80,7 +91,8 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
   def handle_event("set_dcr", %{"state" => state}, socket) when state in ["on", "off"] do
     with_access(socket, fn socket ->
       if state == "on" and not Settings.get_boolean_setting("api_oauth_enabled", false),
-        do: error(socket, gettext("Switch OAuth on first.")),
+        do:
+          socket |> update(:switch_nonce, &(&1 + 1)) |> error(gettext("Switch OAuth on first.")),
         else: write_switch(socket, "api_oauth_dcr_enabled", state == "on")
     end)
   end
@@ -98,8 +110,12 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
 
         {:error, :save_failed} ->
           socket
-          |> assign(:settings_params, params)
-          |> assign(:settings_errors, [gettext("The settings could not be saved.")])
+          |> assign(:settings_params, OAuthConfig.current())
+          |> assign(:settings_errors, [
+            gettext(
+              "The settings could not be saved completely. The form shows what is stored now; some of your changes may have been saved."
+            )
+          ])
 
         {:error, fields} when is_list(fields) ->
           socket
@@ -118,24 +134,24 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
   end
 
   def handle_event("request_delete_client", %{"uuid" => uuid}, socket) do
-    with_access(
-      socket,
-      fn socket ->
-        case Enum.find(socket.assigns.clients, &(&1.client.uuid == uuid)) do
-          nil ->
-            error(socket, gettext("That client was not found."))
+    with_access(socket, fn socket ->
+      case Enum.find(socket.assigns.clients, &(&1.client.uuid == uuid)) do
+        nil ->
+          error(socket, gettext("That client was not found."))
 
-          %{client: client, grants: grants} ->
+        %{client: client, grants: grants} ->
+          if grants > 0 and not Scope.owner?(socket.assigns.fresh_scope) do
+            error(socket, owner_only_text())
+          else
             assign(socket, :delete_confirmation, %{
               show: true,
               uuid: client.uuid,
               name: client_name(client),
               grants: grants
             })
-        end
-      end,
-      clear_message: true
-    )
+          end
+      end
+    end)
   end
 
   def handle_event("cancel_delete_client", _params, socket) do
@@ -146,12 +162,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
     with_access(socket, fn socket ->
       uuid = Map.get(socket.assigns.delete_confirmation, :uuid)
       socket = assign(socket, :delete_confirmation, %{show: false})
-
-      case uuid && Clients.delete(uuid, actor_uuid: Scope.user_uuid(socket.assigns.fresh_scope)) do
-        {:ok, _client} -> info(socket, gettext("The client was removed."))
-        {:error, :not_found} -> error(socket, gettext("That client was not found."))
-        _other -> error(socket, gettext("The client could not be removed."))
-      end
+      if uuid, do: delete_client(socket, uuid), else: socket
     end)
   end
 
@@ -159,13 +170,34 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
     {:noreply, error(socket, gettext("That action is not available."))}
   end
 
+  # Ending the connections of OTHER people is an Owner's right (`Connections.revoke/3` in the
+  # `:all` view), so anyone else removes only a client nobody is connected through; the check is
+  # made again under the row lock (`only_idle`), so a connection made after the dialog opened is
+  # never ended by someone who may not end it.
+  defp delete_client(socket, uuid) do
+    fresh = socket.assigns.fresh_scope
+
+    case Clients.delete(uuid,
+           actor_uuid: Scope.user_uuid(fresh),
+           only_idle: not Scope.owner?(fresh)
+         ) do
+      {:ok, _client} -> info(socket, gettext("The client was removed."))
+      {:error, :not_found} -> error(socket, gettext("That client was not found."))
+      {:error, :has_connections} -> error(socket, owner_only_text())
+      _other -> error(socket, gettext("The client could not be removed."))
+    end
+  end
+
+  defp owner_only_text,
+    do: gettext("Only an Owner can remove an application that has connections.")
+
   # Every event that changes something goes through here: the person's rights are read again for
-  # THIS event, and the fresh scope is the one that acts. A refusal closes the dialog.
-  defp with_access(socket, fun, opts \\ []) do
+  # THIS event, and the fresh scope is the one that acts. The message of the previous event is
+  # dropped first, so a green "saved" never stays beside a new error. A refusal closes the dialog.
+  defp with_access(socket, fun) do
     case Access.fresh_scope(socket.assigns.scope) do
       {:ok, fresh} ->
-        socket = assign(socket, :fresh_scope, fresh)
-        socket = if opts[:clear_message], do: assign(socket, :message, nil), else: socket
+        socket = socket |> assign(:fresh_scope, fresh) |> assign(:message, nil)
         {:noreply, socket |> fun.() |> load()}
 
       :error ->
@@ -179,7 +211,12 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
   defp history(socket),
     do: [actor_uuid: Scope.user_uuid(socket.assigns.fresh_scope), source: "settings"]
 
+  # The nonce is part of the switch rows' ids: a click the server refuses changes no assign, so
+  # the browser would keep the toggle where the click left it; a new id makes it draw the stored
+  # state again.
   defp write_switch(socket, setting, on?) do
+    socket = update(socket, :switch_nonce, &(&1 + 1))
+
     case Settings.update_boolean_setting_with_module(setting, on?, "api", history(socket)) do
       {:ok, _setting} -> assign(socket, :message, nil)
       {:error, _changeset} -> error(socket, gettext("The switch could not be saved."))
@@ -244,7 +281,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
 
         {:redirect_uris, _error} ->
           gettext(
-            "A redirect address must be https, or http to 127.0.0.1 or [::1], with no fragment and no wildcard."
+            "A redirect address must be https, or http to localhost, 127.0.0.1 or [::1], with no fragment and no wildcard."
           )
 
         {_field, _error} ->
@@ -336,7 +373,10 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
           )}
         </:subtitle>
 
-        <div id="api-oauth-switch-row" class="flex items-start justify-between gap-4">
+        <div
+          id={"api-oauth-switch-row-#{@switch_nonce}"}
+          class="flex items-start justify-between gap-4"
+        >
           <div class="min-w-0">
             <h3 id="api-oauth-switch-title" class="font-medium">
               {gettext("OAuth for the MCP server")}
@@ -353,7 +393,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
             variant="toggle"
             class="toggle-lg"
             wrapper_class="shrink-0 flex-row-reverse"
-            label={if @status.oauth_enabled, do: gettext("Enabled"), else: gettext("Disabled")}
+            label={if @oauth_setting, do: gettext("Enabled"), else: gettext("Disabled")}
             aria-labelledby="api-oauth-switch-title"
             aria-describedby="api-oauth-switch-text"
             checked={@oauth_setting}
@@ -363,7 +403,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
           />
         </div>
 
-        <div id="api-oauth-dcr-row" class="flex items-start justify-between gap-4">
+        <div id={"api-oauth-dcr-row-#{@switch_nonce}"} class="flex items-start justify-between gap-4">
           <div class="min-w-0">
             <h3 id="api-oauth-dcr-title" class="font-medium">
               {gettext("Self-registration of applications")}
@@ -380,7 +420,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
             variant="toggle"
             class="toggle-lg"
             wrapper_class="shrink-0 flex-row-reverse"
-            label={if @status.dcr_enabled, do: gettext("Enabled"), else: gettext("Disabled")}
+            label={if @dcr_setting, do: gettext("Enabled"), else: gettext("Disabled")}
             aria-labelledby="api-oauth-dcr-title"
             aria-describedby="api-oauth-dcr-text"
             checked={@dcr_setting}
@@ -500,7 +540,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
               label={gettext("Allowed hosts (one per line)")}
               hint={
                 gettext(
-                  "For example claude.ai. Judged on the host of the application's address and of each redirect address; an application added by hand below is always allowed."
+                  "For example claude.ai. Judged on the host of the application's address and of each redirect address; an application added by hand below is always allowed. A host taken off the list stops new connections and refreshes at once, but an access token already issued works until it expires (the access token life above): to cut an application off now, remove it below."
                 )
               }
               value={@settings_params["allow_hosts"]}
@@ -626,7 +666,15 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
                 <.table_default_cell class="text-sm">{kind_label(row.client)}</.table_default_cell>
                 <.table_default_cell class="text-sm">{row.grants}</.table_default_cell>
                 <.table_default_cell>
+                  <span
+                    :if={row.grants > 0 and not @owner?}
+                    id={"api-oauth-client-owner-only-#{row.client.uuid}"}
+                    class="text-xs text-base-content/60"
+                  >
+                    {owner_only_text()}
+                  </span>
                   <.button
+                    :if={row.grants == 0 or @owner?}
                     id={"api-oauth-client-remove-#{row.client.uuid}"}
                     type="button"
                     variant="outline"
@@ -642,6 +690,14 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
             </.table_default_body>
           </.table_default>
         </div>
+
+        <p
+          :if={@clients_truncated}
+          id="api-oauth-clients-truncated"
+          class="text-sm text-base-content/70"
+        >
+          {gettext("Only the newest %{count} are shown.", count: Clients.list_limit())}
+        </p>
 
         <div :if={@clients == []} id="api-oauth-clients-empty">
           <.empty_state
@@ -697,7 +753,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
             label={gettext("Redirect addresses (one per line)")}
             hint={
               gettext(
-                "Where the application receives the answer: https, or http to 127.0.0.1 or [::1]. Compared exactly (a loopback port may differ)."
+                "Where the application receives the answer: https, or http to localhost, 127.0.0.1 or [::1]. Compared exactly (the port may differ only for 127.0.0.1 and [::1])."
               )
             }
             value={@client_params["redirect_uris"]}

@@ -68,10 +68,30 @@ defmodule PhoenixKit.API.OAuth.StatusTest do
     refute :allow_list_empty in Status.report().warnings
   end
 
-  test "a site address that is not https is a warning, an https one is not" do
-    report = Status.report()
+  describe "the site address" do
+    setup do
+      start_supervised!(
+        Supervisor.child_spec({PhoenixKit.Cache, name: :settings}, id: :settings_cache)
+      )
 
-    assert :origin_not_https in report.warnings ==
-             not String.starts_with?(report.issuer, "https://")
+      :persistent_term.erase({PhoenixKit.API.MCP.Origin, :fallback_warned})
+      :ok
+    end
+
+    test "an https one is not a warning" do
+      put_setting("site_url", "https://example.com")
+
+      report = Status.report()
+      assert report.issuer == "https://example.com"
+      refute :origin_not_https in report.warnings
+    end
+
+    test "an http one is, because web assistants refuse it" do
+      put_setting("site_url", "http://example.com")
+
+      report = Status.report()
+      assert report.issuer == "http://example.com"
+      assert :origin_not_https in report.warnings
+    end
   end
 end

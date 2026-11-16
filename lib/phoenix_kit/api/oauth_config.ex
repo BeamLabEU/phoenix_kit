@@ -25,9 +25,12 @@ defmodule PhoenixKit.API.OAuthConfig do
 
   The readers are the ones of `PhoenixKit.API.Config`: a stored value that does not parse reads as
   the default, and an access token life outside its range reads as the nearest end of it. The form
-  is all or nothing, like `PhoenixKit.API.FlowConfig`'s: one invalid field saves nothing, only the
-  values that changed are written, and each write is a permanent `setting.changed` Activity entry
-  (`Settings.update_setting_with_module/4`).
+  is all or nothing in its validation, like `PhoenixKit.API.FlowConfig`'s: one invalid field saves
+  nothing. Once every field is valid only the values that changed are written, each on its own (no
+  transaction) and each as a permanent `setting.changed` Activity entry
+  (`Settings.update_setting_with_module/4`); if a database error stops one of them,
+  `save/2` answers `{:error, :save_failed}` and the others may be saved, so a page shows
+  `current/0` again rather than what was typed.
 
   The allowed hosts are plain host names (`claude.ai`, an IP literal, `[::1]`): lower-cased,
   trimmed, without duplicates. They apply to clients that name or register themselves, never to

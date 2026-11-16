@@ -107,6 +107,14 @@ defmodule PhoenixKit.API.OAuth.ConnectionsTest do
     end
   end
 
+  describe "a grant made for another address of the site" do
+    test "is listed as wrong_resource, whatever its owner may do", ctx do
+      seed_grant!(ctx.scope, resource: "https://elsewhere.example/mcp/admin")
+
+      assert [%{status: :wrong_resource}] = Connections.list(ctx.scope, :own)
+    end
+  end
+
   describe "list/2 for an Owner" do
     test "lists everyone's connections with the person's e-mail", ctx do
       mine = seed_grant!(ctx.scope)

@@ -41,7 +41,7 @@ defmodule PhoenixKit.API.OAuth.Connections do
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
-  # A page lists them all; no install has more than this many connected applications.
+  # A page lists the newest of them; it says so when it got this many (`limit/0`).
   @limit 200
 
   @type view :: :own | :all
@@ -53,7 +53,11 @@ defmodule PhoenixKit.API.OAuth.Connections do
           status: status()
         }
 
-  @doc "The live connections `scope` may see in `view`, newest first."
+  @doc "How many connections `list/2` returns at most; a page shows a notice when it got this many."
+  @spec limit() :: pos_integer()
+  def limit, do: @limit
+
+  @doc "The live connections `scope` may see in `view`, newest first (at most `limit/0`)."
   @spec list(Scope.t() | nil, view()) :: [row()]
   def list(scope, view) when view in [:own, :all] do
     case visible(scope, view) do

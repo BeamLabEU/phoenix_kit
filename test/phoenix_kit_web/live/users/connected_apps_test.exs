@@ -73,6 +73,19 @@ defmodule PhoenixKitWeb.Live.Users.ConnectedAppsTest do
       refute has_element?(view, "#personal-api-keys-connected-apps-oauth-off")
     end
 
+    test "a connection made for another address of the site says so", %{conn: conn, scope: scope} do
+      seeded = seed_grant!(scope, resource: "https://elsewhere.example/mcp/admin")
+
+      {:ok, view, _html} = live(conn, @path)
+
+      assert has_element?(
+               view,
+               "#personal-api-keys-connected-apps-status-#{seeded.grant.uuid}[data-status=wrong_resource]"
+             )
+
+      assert render(view) =~ "Site address changed"
+    end
+
     test "does not show the connection of another person", %{conn: conn} do
       {_other, _role, other_scope} = oauth_holder(["media"])
       theirs = seed_grant!(other_scope)

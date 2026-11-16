@@ -235,17 +235,6 @@
         </p>
       </div>
 
-      <div id="guide-oauth-codex" class="space-y-1">
-        <h3 class="font-medium">Codex</h3>
-        <p class="text-sm text-base-content/70">
-          {gettext(
-            "Add the server to the Codex configuration, then run the login command. The exact steps are the client's own and may change."
-          )}
-        </p>
-        <pre class="bg-base-200 rounded-lg p-3 text-xs overflow-x-auto"><code id="guide-oauth-codex-config">{@guide.oauth.codex_config}</code></pre>
-        <pre class="bg-base-200 rounded-lg p-3 text-xs overflow-x-auto"><code id="guide-oauth-codex-login">{@guide.oauth.codex_login_command}</code></pre>
-      </div>
-
       <div id="guide-oauth-other" class="space-y-1">
         <h3 class="font-medium">{gettext("Other clients")}</h3>
         <p class="text-sm text-base-content/70">
@@ -311,15 +300,15 @@
                 <td>{gettext("Self-registration of applications")}</td>
                 <td>{gettext("Not yet tried live")}</td>
               </tr>
-              <tr id="guide-oauth-matrix-codex">
-                <td>Codex</td>
+              <tr id="guide-oauth-matrix-inspector">
+                <td>MCP Inspector</td>
                 <td>{gettext("Self-registration of applications")}</td>
                 <td>{gettext("Not yet tried live")}</td>
               </tr>
               <tr id="guide-oauth-matrix-cursor">
-                <td>Cursor, VS Code</td>
+                <td>Cursor, VS Code, Codex</td>
                 <td>{gettext("A key, as above")}</td>
-                <td>{gettext("OAuth is not promised: custom URL schemes are not supported")}</td>
+                <td>{gettext("OAuth is not promised; use a key")}</td>
               </tr>
             </tbody>
           </table>

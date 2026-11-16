@@ -13,6 +13,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanelTest do
   alias PhoenixKit.API.Keys.Key
   alias PhoenixKit.API.KeyTestSupport
   alias PhoenixKit.API.OAuth.Client
+  alias PhoenixKit.API.OAuth.Clients
   alias PhoenixKit.API.OAuth.Grant
   alias PhoenixKit.API.OAuth.Tokens
   alias PhoenixKit.API.OAuthConfig
@@ -63,6 +64,8 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanelTest do
     params = Map.merge(OAuthConfig.current(), overrides)
     view |> form("#api-oauth-settings-form", %{"oauth" => params}) |> render_submit()
   end
+
+  defp row_ids(html), do: Regex.scan(~r/id="(api-oauth-(?:switch|dcr)-row-\d+)"/, html)
 
   defp client_form(view, params) do
     view |> form("#api-oauth-client-form", %{"client" => params}) |> render_submit()
@@ -134,6 +137,26 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanelTest do
       view |> element("#api-oauth-switch") |> render_click()
       refute Config.oauth_enabled?()
       refute has_element?(view, "#api-oauth-switch[checked]")
+
+      assert Enum.count(changed_settings(admin), &(&1 == "api_oauth_enabled")) == 2
+    end
+
+    test "the label follows the stored switch, not the effective state", %{conn: conn} do
+      switch("api_admin_enabled", true)
+      {:ok, view, _html} = live(conn, @path)
+
+      view |> element("#api-oauth-switch") |> render_click()
+      assert render(view) =~ ~r/Enabled/
+      assert has_element?(view, "#api-oauth-switch[checked]")
+    end
+
+    test "a refused click makes the browser draw the stored state again", %{conn: conn} do
+      {:ok, view, _html} = live(conn, @path)
+      before = view |> element("#api-oauth-switches") |> render() |> row_ids()
+
+      assert fire(view, "set_oauth", %{"state" => "on"}) =~ "Switch the admin API on first."
+
+      refute view |> element("#api-oauth-switches") |> render() |> row_ids() == before
     end
 
     test "Dynamic Client Registration needs OAuth first", %{conn: conn} do
@@ -216,6 +239,17 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanelTest do
       assert changed_settings(admin) == []
     end
 
+    test "an error after a save does not leave the green banner behind", %{conn: conn} do
+      {:ok, view, _html} = live(conn, @path)
+
+      assert settings_form(view, %{"access_ttl_seconds" => "1800"}) =~ "The settings were saved."
+      assert has_element?(view, "#api-oauth-message")
+
+      settings_form(view, %{"access_ttl_seconds" => "90000"})
+      assert has_element?(view, "#api-oauth-settings-errors")
+      refute has_element?(view, "#api-oauth-message")
+    end
+
     test "hosts that are not plain host names are refused", %{conn: conn} do
       {:ok, view, _html} = live(conn, @path)
 
@@ -289,6 +323,40 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanelTest do
       assert Repo.get_by(Client, client_id: "b") == nil
     end
 
+    test "an error after an addition does not leave the green banner behind", %{conn: conn} do
+      {:ok, view, _html} = live(conn, @path)
+
+      assert client_form(view, %{
+               "client_id" => "fine",
+               "client_name" => "",
+               "redirect_uris" => "https://assistant.example/cb"
+             }) =~ "The client was added."
+
+      client_form(view, %{"client_id" => "bad", "client_name" => "", "redirect_uris" => ""})
+      assert has_element?(view, "#api-oauth-client-errors")
+      refute has_element?(view, "#api-oauth-message")
+    end
+
+    test "a localhost redirect is accepted, and the guidance says so", %{conn: conn} do
+      {:ok, view, html} = live(conn, @path)
+      assert html =~ "http to localhost, 127.0.0.1 or [::1]"
+
+      client_form(view, %{
+        "client_id" => "local-tool",
+        "client_name" => "",
+        "redirect_uris" => "http://localhost:8123/cb"
+      })
+
+      assert %Client{redirect_uris: ["http://localhost:8123/cb"]} =
+               Repo.get_by(Client, client_id: "local-tool")
+
+      assert client_form(view, %{
+               "client_id" => "ftp-tool",
+               "client_name" => "",
+               "redirect_uris" => "ftp://elsewhere.example/cb"
+             }) =~ "http to localhost, 127.0.0.1 or [::1]"
+    end
+
     test "a client ID with a NUL byte is a form error, not a crash", %{conn: conn} do
       {:ok, view, _html} = live(conn, @path)
 
@@ -305,13 +373,52 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanelTest do
     end
   end
 
-  describe "removing a client" do
-    setup %{conn: conn} do
+  describe "a long list of clients" do
+    test "says that only the newest are shown", %{conn: conn} do
+      {:ok, view, _html} = live(conn, @path)
+      refute has_element?(view, "#api-oauth-clients-truncated")
+
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      rows =
+        for n <- 1..Clients.list_limit() do
+          %{
+            uuid: UUIDv7.generate(),
+            client_id: "https://bulk.example/#{n}",
+            kind: "preregistered",
+            redirect_uris: [],
+            inserted_at: now,
+            updated_at: now
+          }
+        end
+
+      {_count, _} = Repo.insert_all(Client, rows)
+      {:ok, view, _html} = live(conn, @path)
+      assert has_element?(view, "#api-oauth-clients-truncated")
+    end
+  end
+
+  describe "the allowed hosts hint" do
+    test "says that an issued access token outlives its host's removal, and what to do", %{
+      conn: conn
+    } do
+      {:ok, view, _html} = live(conn, @path)
+
+      hint = view |> element("#api-oauth-settings-card") |> render()
+      assert hint =~ "access token already issued works until it expires"
+      assert hint =~ "remove it below"
+    end
+  end
+
+  describe "removing a client, as an Owner" do
+    setup do
       {user, _role, scope} = oauth_holder(["media"])
       client = client!(%{client_name: "Doomed"})
       seeded = seed_grant!(scope, client: client)
+      owner = KeyTestSupport.owner_user()
+      conn = log_in_user(Phoenix.ConnTest.build_conn(), owner)
       {:ok, view, _html} = live(conn, @path)
-      %{view: view, client: client, seeded: seeded, user: user}
+      %{view: view, client: client, seeded: seeded, user: user, owner: owner}
     end
 
     test "asks first, then ends every connection of the client and removes it", ctx do
@@ -325,6 +432,12 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanelTest do
       assert Repo.get(Grant, ctx.seeded.grant.uuid) == nil
       assert %DateTime{} = Repo.get!(Key, ctx.seeded.key.uuid).revoked_at
       assert {:error, _} = Tokens.verify(ctx.seeded.access, "203.0.113.9")
+
+      assert [entry] =
+               Activity.list(action: "oauth.client_removed", actor_uuid: ctx.owner.uuid).entries
+
+      assert entry.resource_uuid == ctx.client.uuid
+      assert entry.metadata["connections_ended"] == 1
     end
 
     test "the confirming event takes no uuid from its params", ctx do
@@ -346,6 +459,82 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanelTest do
                "That client was not found."
 
       refute has_element?(ctx.view, "#api-oauth-client-delete-confirm")
+    end
+
+    test "a confirm with no dialog open is ignored, with no message", ctx do
+      fire(ctx.view, "confirm_delete_client")
+      refute has_element?(ctx.view, "#api-oauth-message")
+      assert Repo.get(Client, ctx.client.uuid)
+    end
+
+    test "a person demoted from Owner to Admin before confirming ends nobody's connection",
+         ctx do
+      ctx.view |> element("#api-oauth-client-remove-#{ctx.client.uuid}") |> render_click()
+      {:ok, _} = Roles.remove_role(ctx.owner, "Owner", broadcast: false)
+      {:ok, _} = Roles.assign_role(ctx.owner, "Admin", nil, broadcast: false)
+
+      assert fire(ctx.view, "confirm_delete_client") =~
+               "Only an Owner can remove an application that has connections."
+
+      assert Repo.get(Client, ctx.client.uuid)
+      assert Repo.get!(Key, ctx.seeded.key.uuid).revoked_at == nil
+    end
+  end
+
+  describe "removing a client, as an Admin who is not an Owner" do
+    setup %{conn: conn} do
+      {_user, _role, scope} = oauth_holder(["media"])
+      busy = client!(%{client_name: "Busy"})
+      idle = client!(%{client_name: "Idle"})
+      seeded = seed_grant!(scope, client: busy)
+      {:ok, view, _html} = live(conn, @path)
+      %{view: view, busy: busy, idle: idle, seeded: seeded}
+    end
+
+    test "has no Remove button for a client somebody is connected through", ctx do
+      refute has_element?(ctx.view, "#api-oauth-client-remove-#{ctx.busy.uuid}")
+      assert has_element?(ctx.view, "#api-oauth-client-owner-only-#{ctx.busy.uuid}")
+      assert has_element?(ctx.view, "#api-oauth-client-remove-#{ctx.idle.uuid}")
+    end
+
+    test "a forged request for that client is refused and opens no dialog", ctx do
+      html = fire(ctx.view, "request_delete_client", %{"uuid" => ctx.busy.uuid})
+
+      assert html =~ "Only an Owner can remove an application that has connections."
+      refute has_element?(ctx.view, "#api-oauth-client-delete-confirm")
+      assert Repo.get(Client, ctx.busy.uuid)
+    end
+
+    test "a forged confirm cannot end another person's connection", ctx do
+      fire(ctx.view, "request_delete_client", %{"uuid" => ctx.busy.uuid})
+      fire(ctx.view, "confirm_delete_client")
+
+      assert Repo.get(Client, ctx.busy.uuid)
+      assert Repo.get(Grant, ctx.seeded.grant.uuid)
+      assert Repo.get!(Key, ctx.seeded.key.uuid).revoked_at == nil
+      assert {:ok, _} = Tokens.verify(ctx.seeded.access, "203.0.113.9")
+    end
+
+    test "a connection made after the dialog opened is not ended by the confirm", ctx do
+      ctx.view |> element("#api-oauth-client-remove-#{ctx.idle.uuid}") |> render_click()
+      {_user, _role, scope} = oauth_holder(["media"])
+      late = seed_grant!(scope, client: ctx.idle)
+
+      html = ctx.view |> element("#api-oauth-client-delete-confirm") |> render_click()
+
+      assert html =~ "Only an Owner can remove an application that has connections."
+      assert Repo.get(Client, ctx.idle.uuid)
+      assert Repo.get!(Key, late.key.uuid).revoked_at == nil
+    end
+
+    test "removes a client nobody is connected through, and the entry says who", ctx do
+      ctx.view |> element("#api-oauth-client-remove-#{ctx.idle.uuid}") |> render_click()
+      ctx.view |> element("#api-oauth-client-delete-confirm") |> render_click()
+
+      assert Repo.get(Client, ctx.idle.uuid) == nil
+      assert [entry] = Activity.list(action: "oauth.client_removed").entries
+      assert entry.resource_uuid == ctx.idle.uuid
+      assert entry.metadata["connections_ended"] == 0
     end
   end
 
@@ -417,6 +606,25 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanelTest do
       {:ok, view, _html} = live(conn, @path)
 
       assert has_element?(view, "[id^=api-oauth-connected-apps-no-permission-]")
+    end
+
+    test "an Owner downgraded to Admin during the session ends nobody's connection", ctx do
+      seeded = seed_grant!(ctx.holder_scope)
+      owner = KeyTestSupport.owner_user()
+      conn = log_in_user(Phoenix.ConnTest.build_conn(), owner)
+      {:ok, view, _html} = live(conn, @path)
+
+      {:ok, _} = Roles.remove_role(owner, "Owner", broadcast: false)
+      {:ok, _} = Roles.assign_role(owner, "Admin", nil, broadcast: false)
+
+      target = with_target(view, "#api-oauth-connected-apps")
+
+      assert render_hook(target, "request_revoke", %{"uuid" => seeded.grant.uuid}) =~
+               "not allowed"
+
+      refute has_element?(view, "#api-oauth-connected-apps-revoke-confirm")
+      assert render_hook(target, "confirm_revoke", %{}) =~ "not allowed"
+      assert Repo.get!(Grant, seeded.grant.uuid).revoked_at == nil
     end
 
     test "an Admin who holds api but is not an Owner does not see the list of everyone", %{

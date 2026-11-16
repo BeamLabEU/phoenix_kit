@@ -24,6 +24,12 @@ defmodule PhoenixKit.API.OAuth.ClientsAdminTest do
     test "lists clients newest first with their live grants", ctx do
       old = client!()
       new = client!()
+
+      # `inserted_at` has a resolution of a second: make the order a fact, not a race.
+      Repo.update_all(from(c in PhoenixKit.API.OAuth.Client, where: c.uuid == ^old.uuid),
+        set: [inserted_at: DateTime.add(DateTime.utc_now(), -3600) |> DateTime.truncate(:second)]
+      )
+
       seed_grant!(ctx.scope, client: new)
       seed_grant!(ctx.scope, client: new)
       ended = seed_grant!(ctx.scope, client: new)
@@ -96,6 +102,66 @@ defmodule PhoenixKit.API.OAuth.ClientsAdminTest do
                )
 
       assert Repo.aggregate(Entry, :count) == before
+    end
+  end
+
+  describe "delete/2" do
+    defp removed_entries(client) do
+      Repo.all(
+        from(e in Entry,
+          where: e.action == "oauth.client_removed" and e.resource_uuid == ^client.uuid
+        )
+      )
+    end
+
+    test "writes who removed the client and how many connections ended, even with none", ctx do
+      idle = client!()
+      busy = client!()
+      seed_grant!(ctx.scope, client: busy)
+      seed_grant!(ctx.scope, client: busy)
+
+      assert {:ok, _} = Clients.delete(idle.uuid, actor_uuid: ctx.user.uuid)
+      assert {:ok, _} = Clients.delete(busy.uuid, actor_uuid: ctx.user.uuid)
+
+      assert [idle_entry] = removed_entries(idle)
+      assert idle_entry.actor_uuid == ctx.user.uuid
+      assert idle_entry.permanent
+      assert idle_entry.metadata == %{"kind" => idle.kind, "connections_ended" => 0}
+
+      assert [busy_entry] = removed_entries(busy)
+      assert busy_entry.metadata["connections_ended"] == 2
+      refute inspect(busy_entry.metadata) =~ busy.client_id
+    end
+
+    test "writes nothing for a client that was not there, and nothing without an actor", ctx do
+      before = Repo.aggregate(Entry, :count)
+      assert {:error, :not_found} = Clients.delete(UUIDv7.generate(), actor_uuid: ctx.user.uuid)
+      assert Repo.aggregate(Entry, :count) == before
+
+      client = client!()
+      assert {:ok, _} = Clients.delete(client.uuid)
+      assert removed_entries(client) == []
+    end
+
+    test "only_idle: refuses a client with a live connection and ends nothing", ctx do
+      client = client!()
+      seeded = seed_grant!(ctx.scope, client: client)
+
+      assert {:error, :has_connections} =
+               Clients.delete(client.uuid, actor_uuid: ctx.user.uuid, only_idle: true)
+
+      assert Repo.get(PhoenixKit.API.OAuth.Client, client.uuid)
+      assert Repo.get!(PhoenixKit.API.Keys.Key, seeded.key.uuid).revoked_at == nil
+      assert removed_entries(client) == []
+    end
+
+    test "only_idle: removes a client whose grants all ended", ctx do
+      client = client!()
+      ended = seed_grant!(ctx.scope, client: client)
+      {:ok, _} = Grants.revoke(ended.grant)
+
+      assert {:ok, _} = Clients.delete(client.uuid, actor_uuid: ctx.user.uuid, only_idle: true)
+      assert Repo.get(PhoenixKit.API.OAuth.Client, client.uuid) == nil
     end
   end
 end

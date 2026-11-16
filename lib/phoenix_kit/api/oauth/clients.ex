@@ -30,6 +30,7 @@ defmodule PhoenixKit.API.OAuth.Clients do
   # and marks that are blank (Hangul fillers, Khmer inherent vowels, the combining grapheme joiner,
   # the Braille blank).
   @invisible ~r/[\p{C}\p{Zl}\p{Zp}\x{115F}\x{1160}\x{17B4}\x{17B5}\x{034F}\x{2800}\x{3164}\x{FFA0}]/u
+  @list_limit 200
 
   @doc """
   Registers a client an administrator named: `attrs` takes `client_id` (required, unique, at most
@@ -331,13 +332,20 @@ defmodule PhoenixKit.API.OAuth.Clients do
   leave the hidden keys of those grants behind, alive. So each grant goes through
   `PhoenixKit.API.OAuth.Grants.revoke/2` (the lock order key, grant, tokens; reason
   `"client_deleted"`; one `oauth.grant_revoked` entry each), and only then is the client deleted,
-  all in one transaction: if a grant cannot be ended, the client stays. `opts`: `:actor_uuid`, who
-  deletes, for the activity entries.
+  all in one transaction: if a grant cannot be ended, the client stays. `opts`:
 
-  Returns `{:ok, client}`, or `{:error, :not_found}` for a client that is not there.
+    * `:actor_uuid` - who deletes: every ended grant is an `oauth.grant_revoked` entry and the
+      removal itself is a permanent `oauth.client_removed` entry (the kind of the client and how
+      many live connections were ended; no name, no address), written once the client is gone.
+    * `:only_idle` - when `true` the client is removed only if it has no live connection, counted
+      under the same row lock the removal takes, so a connection made a moment ago is never ended
+      by someone who may not end other people's: `{:error, :has_connections}` otherwise.
+
+  Returns `{:ok, client}`, `{:error, :not_found}` for a client that is not there, or
+  `{:error, :has_connections}`.
   """
   @spec delete(Client.t() | String.t() | nil, keyword()) ::
-          {:ok, Client.t()} | {:error, :not_found | term()}
+          {:ok, Client.t()} | {:error, :not_found | :has_connections | term()}
   def delete(client_or_uuid, opts \\ [])
 
   def delete(%Client{uuid: uuid}, opts), do: delete(uuid, opts)
@@ -354,19 +362,58 @@ defmodule PhoenixKit.API.OAuth.Clients do
   defp remove(%Client{uuid: uuid}, opts) do
     revoke_opts = [reason: "client_deleted", actor_uuid: opts[:actor_uuid]]
 
-    repo().transaction(fn ->
-      # A consent that is making a grant of this client either commits first (its grant is then
-      # read and ended below) or waits here and fails on the foreign key once the client is gone:
-      # never a grant that outlives its client.
-      case repo().one(from(c in Client, where: c.uuid == ^uuid, lock: "FOR UPDATE")) do
-        %Client{} = locked ->
-          end_grants(locked, revoke_opts)
-          repo().delete(locked) |> unwrap()
+    result =
+      repo().transaction(fn ->
+        # A consent that is making a grant of this client either commits first (its grant is then
+        # read and ended below) or waits here and fails on the foreign key once the client is gone:
+        # never a grant that outlives its client.
+        case repo().one(from(c in Client, where: c.uuid == ^uuid, lock: "FOR UPDATE")) do
+          %Client{} = locked ->
+            live = live_grants(uuid)
 
-        nil ->
-          repo().rollback(:not_found)
-      end
-    end)
+            if opts[:only_idle] == true and live > 0, do: repo().rollback(:has_connections)
+
+            end_grants(locked, revoke_opts)
+            {repo().delete(locked) |> unwrap(), live}
+
+          nil ->
+            repo().rollback(:not_found)
+        end
+      end)
+
+    case result do
+      {:ok, {client, live}} ->
+        log_removed(client, live, opts[:actor_uuid])
+        {:ok, client}
+
+      {:error, _reason} = error ->
+        error
+    end
+  end
+
+  defp log_removed(%Client{} = client, live, actor_uuid) when is_binary(actor_uuid) do
+    PhoenixKit.Activity.log("api", "oauth.client_removed",
+      actor_uuid: actor_uuid,
+      resource_type: "oauth_client",
+      resource_uuid: client.uuid,
+      permanent: true,
+      metadata: %{"kind" => client.kind, "connections_ended" => live}
+    )
+  end
+
+  defp log_removed(_client, _live, _actor_uuid), do: :ok
+
+  defp live_grants(client_uuid) do
+    now = DateTime.truncate(DateTime.utc_now(), :second)
+
+    repo().aggregate(
+      from(g in Grant,
+        where:
+          g.client_uuid == ^client_uuid and not is_nil(g.activated_at) and is_nil(g.revoked_at) and
+            g.expires_at > ^now
+      ),
+      :count
+    )
   end
 
   defp end_grants(%Client{uuid: uuid}, revoke_opts) do
@@ -385,7 +432,7 @@ defmodule PhoenixKit.API.OAuth.Clients do
   defp unwrap({:error, changeset}), do: repo().rollback(changeset)
 
   @doc """
-  The clients for a page, newest first (at most 200), each with how many live grants it has:
+  The clients for a page, newest first (at most `list_limit/0`), each with how many live grants it has:
   `[%{client: client, grants: count}]`. A grant is live when it is activated, not revoked and not
   expired.
   """
@@ -402,10 +449,14 @@ defmodule PhoenixKit.API.OAuth.Clients do
       |> repo().all()
       |> Map.new()
 
-    from(c in Client, order_by: [desc: c.inserted_at, desc: c.uuid], limit: 200)
+    from(c in Client, order_by: [desc: c.inserted_at, desc: c.uuid], limit: @list_limit)
     |> repo().all()
     |> Enum.map(&%{client: &1, grants: Map.get(counts, &1.uuid, 0)})
   end
+
+  @doc "How many clients `list/0` returns at most; a page shows a notice when it got this many."
+  @spec list_limit() :: pos_integer()
+  def list_limit, do: @list_limit
 
   @doc "A client by its row uuid; `nil` for an unknown or malformed uuid."
   @spec get(term()) :: Client.t() | nil

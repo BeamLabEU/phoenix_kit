@@ -27812,8 +27812,8 @@ msgstr "ID клієнта обов'язковий (не більше 2048 сим
 
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:246
 #, elixir-autogen, elixir-format
-msgid "A redirect address must be https, or http to 127.0.0.1 or [::1], with no fragment and no wildcard."
-msgstr "Адреса повернення має бути https або http на 127.0.0.1 чи [::1], без фрагмента і без символів підстановки."
+msgid "A redirect address must be https, or http to localhost, 127.0.0.1 or [::1], with no fragment and no wildcard."
+msgstr "Адреса повернення має бути https або http на localhost, 127.0.0.1 чи [::1], без фрагмента і без символів підстановки."
 
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:251
 #, elixir-autogen, elixir-format
@@ -27962,8 +27962,8 @@ msgstr "Дозволені хости (по одному в рядку)"
 
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:502
 #, elixir-autogen, elixir-format
-msgid "For example claude.ai. Judged on the host of the application's address and of each redirect address; an application added by hand below is always allowed."
-msgstr "Наприклад, claude.ai. Перевіряється хост адреси застосунку та кожної адреси повернення; застосунок, доданий нижче вручну, дозволений завжди."
+msgid "For example claude.ai. Judged on the host of the application's address and of each redirect address; an application added by hand below is always allowed. A host taken off the list stops new connections and refreshes at once, but an access token already issued works until it expires (the access token life above): to cut an application off now, remove it below."
+msgstr "Наприклад, claude.ai. Перевіряється хост адреси застосунку та кожної адреси повернення; застосунок, доданий нижче вручну, дозволений завжди. Хост, прибраний зі списку, одразу перестає встановлювати нові підключення та оновлення, але вже виданий токен доступу працює до завершення строку дії (термін життя токена доступу вище): щоб негайно відключити застосунок, приберіть його нижче."
 
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:512
 #, elixir-autogen, elixir-format
@@ -28042,8 +28042,8 @@ msgstr "Адреси повернення (по одній у рядку)"
 
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:699
 #, elixir-autogen, elixir-format
-msgid "Where the application receives the answer: https, or http to 127.0.0.1 or [::1]. Compared exactly (a loopback port may differ)."
-msgstr "Куди застосунок отримує відповідь: https або http на 127.0.0.1 чи [::1]. Порівнюється точно (порт loopback може відрізнятися)."
+msgid "Where the application receives the answer: https, or http to localhost, 127.0.0.1 or [::1]. Compared exactly (the port may differ only for 127.0.0.1 and [::1])."
+msgstr "Куди застосунок отримує відповідь: https або http на localhost, 127.0.0.1 чи [::1]. Порівнюється точно (порт може відрізнятися лише в 127.0.0.1 та [::1])."
 
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:728
 #, elixir-autogen, elixir-format
@@ -28109,11 +28109,6 @@ msgstr "Додайте сервер без заголовка, потім вик
 #, elixir-autogen, elixir-format
 msgid "On a plan that offers custom MCP servers, add the MCP server address above, choose OAuth as the authentication and follow the sign-in."
 msgstr "На тарифі, де є користувацькі MCP-сервери, додайте адресу MCP-сервера вище, виберіть OAuth як спосіб автентифікації та пройдіть вхід."
-
-#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:241
-#, elixir-autogen, elixir-format
-msgid "Add the server to the Codex configuration, then run the login command. The exact steps are the client's own and may change."
-msgstr "Додайте сервер до конфігурації Codex, потім виконайте команду входу. Точні кроки визначає сам клієнт, і вони можуть змінитися."
 
 #: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:250
 #, elixir-autogen, elixir-format
@@ -28187,10 +28182,25 @@ msgstr "Ключ, як описано вище"
 
 #: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:322
 #, elixir-autogen, elixir-format
-msgid "OAuth is not promised: custom URL schemes are not supported"
-msgstr "OAuth не обіцяно: власні схеми URL не підтримуються"
+msgid "OAuth is not promised; use a key"
+msgstr "OAuth не обіцяно; використовуйте ключ"
 
 #: lib/phoenix_kit_web/live/settings/api.ex:213
 #, elixir-autogen, elixir-format
 msgid "Sign-in (OAuth)"
 msgstr "Вхід (OAuth)"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:96
+#, elixir-autogen, elixir-format
+msgid "The settings could not be saved completely. The form shows what is stored now; some of your changes may have been saved."
+msgstr "Налаштування збережено не повністю. Форма показує те, що збережено зараз; частина змін могла зберегтися."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:183
+#, elixir-autogen, elixir-format
+msgid "Only an Owner can remove an application that has connections."
+msgstr "Видалити застосунок, що має підключення, може лише Owner."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:640
+#, elixir-autogen, elixir-format
+msgid "Only the newest %{count} are shown."
+msgstr "Показано лише останні %{count}."

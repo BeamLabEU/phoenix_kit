@@ -27746,8 +27746,8 @@ msgstr "Kliendi ID on kohustuslik (kuni 2048 märki, lihttekst)."
 
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:246
 #, elixir-autogen, elixir-format
-msgid "A redirect address must be https, or http to 127.0.0.1 or [::1], with no fragment and no wildcard."
-msgstr "Ümbersuunamisaadress peab olema https või http aadressile 127.0.0.1 või [::1], ilma fragmendi ja metamärgita."
+msgid "A redirect address must be https, or http to localhost, 127.0.0.1 or [::1], with no fragment and no wildcard."
+msgstr "Ümbersuunamisaadress peab olema https või http aadressile localhost, 127.0.0.1 või [::1], ilma fragmendi ja metamärgita."
 
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:251
 #, elixir-autogen, elixir-format
@@ -27896,8 +27896,8 @@ msgstr "Lubatud hostid (üks rea kohta)"
 
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:502
 #, elixir-autogen, elixir-format
-msgid "For example claude.ai. Judged on the host of the application's address and of each redirect address; an application added by hand below is always allowed."
-msgstr "Näiteks claude.ai. Hinnatakse rakenduse aadressi ja iga ümbersuunamisaadressi hosti järgi; allpool käsitsi lisatud rakendus on alati lubatud."
+msgid "For example claude.ai. Judged on the host of the application's address and of each redirect address; an application added by hand below is always allowed. A host taken off the list stops new connections and refreshes at once, but an access token already issued works until it expires (the access token life above): to cut an application off now, remove it below."
+msgstr "Näiteks claude.ai. Hinnatakse rakenduse aadressi ja iga ümbersuunamisaadressi hosti järgi; allpool käsitsi lisatud rakendus on alati lubatud. Nimekirjast eemaldatud host ei saa kohe enam uusi ühendusi ega uuendusi teha, kuid juba välja antud juurdepääsutoken kehtib kuni aegumiseni (juurdepääsutokeni eluiga ülal): rakenduse kohe katkestamiseks eemalda see allpool."
 
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:512
 #, elixir-autogen, elixir-format
@@ -27976,8 +27976,8 @@ msgstr "Ümbersuunamisaadressid (üks rea kohta)"
 
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:699
 #, elixir-autogen, elixir-format
-msgid "Where the application receives the answer: https, or http to 127.0.0.1 or [::1]. Compared exactly (a loopback port may differ)."
-msgstr "Kuhu rakendus vastuse saab: https või http aadressile 127.0.0.1 või [::1]. Võrreldakse täpselt (loopback-port võib erineda)."
+msgid "Where the application receives the answer: https, or http to localhost, 127.0.0.1 or [::1]. Compared exactly (the port may differ only for 127.0.0.1 and [::1])."
+msgstr "Kuhu rakendus vastuse saab: https või http aadressile localhost, 127.0.0.1 või [::1]. Võrreldakse täpselt (port võib erineda ainult aadressidel 127.0.0.1 ja [::1])."
 
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:728
 #, elixir-autogen, elixir-format
@@ -28043,11 +28043,6 @@ msgstr "Lisa server ilma päiseta, seejärel käivita seansis /mcp ja vali auten
 #, elixir-autogen, elixir-format
 msgid "On a plan that offers custom MCP servers, add the MCP server address above, choose OAuth as the authentication and follow the sign-in."
 msgstr "Paketis, mis pakub kohandatud MCP servereid, lisa ülalolev MCP serveri aadress, vali autentimiseks OAuth ja järgi sisselogimist."
-
-#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:241
-#, elixir-autogen, elixir-format
-msgid "Add the server to the Codex configuration, then run the login command. The exact steps are the client's own and may change."
-msgstr "Lisa server Codexi seadistusse ja käivita seejärel sisselogimiskäsk. Täpsed sammud on kliendi enda omad ja võivad muutuda."
 
 #: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:250
 #, elixir-autogen, elixir-format
@@ -28121,10 +28116,25 @@ msgstr "Võti, nagu ülal"
 
 #: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:322
 #, elixir-autogen, elixir-format
-msgid "OAuth is not promised: custom URL schemes are not supported"
-msgstr "OAuth-i ei lubata: kohandatud URL-i skeeme ei toetata"
+msgid "OAuth is not promised; use a key"
+msgstr "OAuth-i ei lubata; kasuta võtit"
 
 #: lib/phoenix_kit_web/live/settings/api.ex:213
 #, elixir-autogen, elixir-format
 msgid "Sign-in (OAuth)"
 msgstr "Sisselogimine (OAuth)"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:96
+#, elixir-autogen, elixir-format
+msgid "The settings could not be saved completely. The form shows what is stored now; some of your changes may have been saved."
+msgstr "Seadeid ei õnnestunud täielikult salvestada. Vorm näitab praegu salvestatut; mõned muudatused võisid salvestuda."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:183
+#, elixir-autogen, elixir-format
+msgid "Only an Owner can remove an application that has connections."
+msgstr "Ühendustega rakenduse saab eemaldada ainult Owner."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:640
+#, elixir-autogen, elixir-format
+msgid "Only the newest %{count} are shown."
+msgstr "Näidatakse ainult uusimat %{count}."

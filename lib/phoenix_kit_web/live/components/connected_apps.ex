@@ -72,10 +72,15 @@ defmodule PhoenixKitWeb.Live.Components.ConnectedApps do
     |> assign(:rows, rows)
     |> assign(:scope_tools, scope_tools(rows))
     |> assign(:oauth_enabled, Config.oauth_enabled?())
+    |> assign(:truncated, length(rows) >= Connections.limit())
   end
 
   defp load(socket, _scope) do
-    socket |> assign(:rows, []) |> assign(:scope_tools, %{}) |> assign(:oauth_enabled, true)
+    socket
+    |> assign(:rows, [])
+    |> assign(:scope_tools, %{})
+    |> assign(:oauth_enabled, true)
+    |> assign(:truncated, false)
   end
 
   # Scope -> names of the tools it unlocks, for the hint on each badge.
@@ -122,27 +127,29 @@ defmodule PhoenixKitWeb.Live.Components.ConnectedApps do
       uuid = Map.get(socket.assigns.revoke_confirmation, :uuid)
       socket = assign(socket, :revoke_confirmation, %{show: false})
 
-      case uuid && Connections.revoke(socket.assigns.fresh_scope, uuid, socket.assigns.mode) do
-        {:ok, _grant} ->
-          info(
-            socket,
-            gettext("The connection was ended. The application stops working at once.")
-          )
-
-        {:error, :forbidden} ->
-          error(socket, gettext("You are not allowed to do that."))
-
-        {:error, :not_found} ->
-          not_found(socket)
-
-        _other ->
-          error(socket, gettext("The connection could not be ended."))
-      end
+      if uuid, do: revoke(socket, uuid), else: socket
     end)
   end
 
   def handle_event(_event, _params, socket) do
     {:noreply, error(socket, gettext("That action is not available."))}
+  end
+
+  # A confirm with no dialog open (a second click, a replayed event) does nothing at all.
+  defp revoke(socket, uuid) do
+    case Connections.revoke(socket.assigns.fresh_scope, uuid, socket.assigns.mode) do
+      {:ok, _grant} ->
+        info(socket, gettext("The connection was ended. The application stops working at once."))
+
+      {:error, :forbidden} ->
+        error(socket, gettext("You are not allowed to do that."))
+
+      {:error, :not_found} ->
+        not_found(socket)
+
+      _other ->
+        error(socket, gettext("The connection could not be ended."))
+    end
   end
 
   # Every event that opens a dialog or ends something goes through here: the context must be
@@ -161,7 +168,7 @@ defmodule PhoenixKitWeb.Live.Components.ConnectedApps do
          deny(socket, gettext("Connections cannot be changed while you act in another account."))}
 
       true ->
-        case Access.fresh_scope(scope, permissions(mode)) do
+        case fresh_scope(scope, mode) do
           {:ok, fresh} ->
             socket = assign(socket, :fresh_scope, fresh)
             socket = if opts[:clear_message], do: assign(socket, :message, nil), else: socket
@@ -174,8 +181,18 @@ defmodule PhoenixKitWeb.Live.Components.ConnectedApps do
     end
   end
 
-  defp permissions(:own), do: @own_permissions
-  defp permissions(:all), do: ["api"]
+  # The all-view is an Owner's: an Owner downgraded to Admin still holds `api`, so the role is
+  # asked of the fresh scope too, before a dialog for someone else's connection opens.
+  defp fresh_scope(scope, :own), do: Access.fresh_scope(scope, @own_permissions)
+
+  defp fresh_scope(scope, :all) do
+    with {:ok, fresh} <- Access.fresh_scope(scope, ["api"]),
+         true <- Scope.owner?(fresh) do
+      {:ok, fresh}
+    else
+      _ -> :error
+    end
+  end
 
   defp deny(socket, text),
     do: socket |> assign(:revoke_confirmation, %{show: false}) |> error(text)
@@ -359,6 +376,10 @@ defmodule PhoenixKitWeb.Live.Components.ConnectedApps do
               </.table_default_body>
             </.table_default>
           </div>
+
+          <p :if={@truncated} id={"#{@id}-truncated"} class="text-sm text-base-content/70">
+            {gettext("Only the newest %{count} are shown.", count: Connections.limit())}
+          </p>
 
           <div :if={@rows == []} id={"#{@id}-empty"}>
             <.empty_state

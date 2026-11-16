@@ -27745,8 +27745,8 @@ msgstr "El ID de cliente es obligatorio (como máximo 2048 caracteres, texto sim
 
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:246
 #, elixir-autogen, elixir-format
-msgid "A redirect address must be https, or http to 127.0.0.1 or [::1], with no fragment and no wildcard."
-msgstr "Una dirección de redirección debe ser https, o http a 127.0.0.1 o [::1], sin fragmento ni comodín."
+msgid "A redirect address must be https, or http to localhost, 127.0.0.1 or [::1], with no fragment and no wildcard."
+msgstr "Una dirección de redirección debe ser https, o http a localhost, 127.0.0.1 o [::1], sin fragmento ni comodín."
 
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:251
 #, elixir-autogen, elixir-format
@@ -27895,8 +27895,8 @@ msgstr "Hosts permitidos (uno por línea)"
 
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:502
 #, elixir-autogen, elixir-format
-msgid "For example claude.ai. Judged on the host of the application's address and of each redirect address; an application added by hand below is always allowed."
-msgstr "Por ejemplo claude.ai. Se juzga por el host de la dirección de la aplicación y de cada dirección de redirección; una aplicación añadida a mano abajo siempre está permitida."
+msgid "For example claude.ai. Judged on the host of the application's address and of each redirect address; an application added by hand below is always allowed. A host taken off the list stops new connections and refreshes at once, but an access token already issued works until it expires (the access token life above): to cut an application off now, remove it below."
+msgstr "Por ejemplo claude.ai. Se juzga por el host de la dirección de la aplicación y de cada dirección de redirección; una aplicación añadida a mano abajo siempre está permitida. Un host quitado de la lista deja de poder hacer conexiones nuevas y renovaciones de inmediato, pero un token de acceso ya emitido sigue funcionando hasta que caduca (la vida del token de acceso, arriba): para cortar una aplicación ya, quítela más abajo."
 
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:512
 #, elixir-autogen, elixir-format
@@ -27975,8 +27975,8 @@ msgstr "Direcciones de redirección (una por línea)"
 
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:699
 #, elixir-autogen, elixir-format
-msgid "Where the application receives the answer: https, or http to 127.0.0.1 or [::1]. Compared exactly (a loopback port may differ)."
-msgstr "Donde la aplicación recibe la respuesta: https, o http a 127.0.0.1 o [::1]. Se compara exactamente (un puerto de loopback puede diferir)."
+msgid "Where the application receives the answer: https, or http to localhost, 127.0.0.1 or [::1]. Compared exactly (the port may differ only for 127.0.0.1 and [::1])."
+msgstr "Donde la aplicación recibe la respuesta: https, o http a localhost, 127.0.0.1 o [::1]. Se compara exactamente (el puerto solo puede diferir en 127.0.0.1 y [::1])."
 
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:728
 #, elixir-autogen, elixir-format
@@ -28042,11 +28042,6 @@ msgstr "Añada el servidor sin cabecera, luego ejecute /mcp dentro de una sesió
 #, elixir-autogen, elixir-format
 msgid "On a plan that offers custom MCP servers, add the MCP server address above, choose OAuth as the authentication and follow the sign-in."
 msgstr "En un plan que ofrezca servidores MCP personalizados, añada la dirección del servidor MCP de arriba, elija OAuth como autenticación y siga el inicio de sesión."
-
-#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:241
-#, elixir-autogen, elixir-format
-msgid "Add the server to the Codex configuration, then run the login command. The exact steps are the client's own and may change."
-msgstr "Añada el servidor a la configuración de Codex y luego ejecute el comando de inicio de sesión. Los pasos exactos son los del propio cliente y pueden cambiar."
 
 #: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:250
 #, elixir-autogen, elixir-format
@@ -28120,10 +28115,25 @@ msgstr "Una clave, como arriba"
 
 #: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:322
 #, elixir-autogen, elixir-format
-msgid "OAuth is not promised: custom URL schemes are not supported"
-msgstr "No se promete OAuth: los esquemas de URL propios no se admiten"
+msgid "OAuth is not promised; use a key"
+msgstr "No se promete OAuth; use una clave"
 
 #: lib/phoenix_kit_web/live/settings/api.ex:213
 #, elixir-autogen, elixir-format
 msgid "Sign-in (OAuth)"
 msgstr "Inicio de sesión (OAuth)"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:96
+#, elixir-autogen, elixir-format
+msgid "The settings could not be saved completely. The form shows what is stored now; some of your changes may have been saved."
+msgstr "No se pudieron guardar los ajustes por completo. El formulario muestra lo que está guardado ahora; es posible que se hayan guardado algunos de sus cambios."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:183
+#, elixir-autogen, elixir-format
+msgid "Only an Owner can remove an application that has connections."
+msgstr "Solo un Owner puede quitar una aplicación que tiene conexiones."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:640
+#, elixir-autogen, elixir-format
+msgid "Only the newest %{count} are shown."
+msgstr "Solo se muestran los %{count} más recientes."
