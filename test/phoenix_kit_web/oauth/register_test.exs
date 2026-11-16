@@ -164,6 +164,8 @@ defmodule PhoenixKitWeb.OAuth.RegisterTest do
       client = Repo.get_by!(Client, client_id: body["client_id"])
       assert entry.resource_uuid == client.uuid
       assert entry.metadata["kind"] == "dcr"
+      # anyone can write this row without logging in: the pruning job has to be able to remove it
+      refute entry.permanent
       refute inspect(entry.metadata) =~ @redirect
     end
   end

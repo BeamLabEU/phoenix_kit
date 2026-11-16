@@ -116,7 +116,6 @@ defmodule PhoenixKit.API.OAuth.Registration do
     Activity.log("api", "oauth.client_registered",
       resource_type: "oauth_client",
       resource_uuid: client.uuid,
-      permanent: true,
       metadata: %{
         "kind" => "dcr",
         "redirect_hosts" => client.redirect_uris |> Enum.map(&RedirectUri.host/1) |> Enum.uniq()

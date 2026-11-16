@@ -97,8 +97,10 @@ defmodule PhoenixKit.API.Config do
   """
   @spec oauth_client_policy() :: :any | :allow_list
   def oauth_client_policy do
-    case Settings.get_setting_cached("api_oauth_client_policy", nil) do
-      value when value in [nil, "", "any"] -> :any
+    # `fetch_setting_cached/1` tells a store that cannot be read (`:error`) from a setting that is
+    # not there; `get_setting_cached/2` would answer its default for both.
+    case Settings.fetch_setting_cached("api_oauth_client_policy") do
+      {:ok, value} when value in [nil, "", "any"] -> :any
       _other -> :allow_list
     end
   rescue
