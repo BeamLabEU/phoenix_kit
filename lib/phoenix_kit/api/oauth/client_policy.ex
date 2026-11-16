@@ -7,11 +7,12 @@ defmodule PhoenixKit.API.OAuth.ClientPolicy do
     * Policy `allow_list`: only a client whose every host is in `api_oauth_client_allow_hosts`.
       The hosts of a client are the host of its `client_id` (when that is a URL, a metadata
       document) and the host of each of its redirect URIs.
-    * `api_oauth_client_deny_hosts` always applies: one host of the client in it refuses the
-      client, under either policy.
+    * `api_oauth_client_deny_hosts` applies under either policy: one host of the client in it
+      refuses the client.
 
-  Hosts are compared in lower case, whole (no wildcards); an entry written as a URL counts as
-  its host. A pre-registered client (the administrator typed it in) is exempt from both lists.
+  Hosts are compared in lower case and without a final dot, whole (no wildcards); an entry
+  written as a URL, or with a port, counts as its host. A pre-registered client (the
+  administrator typed it in) is exempt from both lists.
   A list that cannot be read refuses (fail closed), and so does a policy value nobody knows.
   """
 
@@ -64,14 +65,14 @@ defmodule PhoenixKit.API.OAuth.ClientPolicy do
 
   defp id_host(client_id) do
     case URI.parse(client_id) do
-      %URI{host: host} when is_binary(host) and host != "" -> [String.downcase(host)]
+      %URI{host: host} when is_binary(host) and host != "" -> [host_name(host)]
       _ -> []
     end
   end
 
   defp redirect_host(uri) do
     case RedirectUri.host(uri) do
-      host when is_binary(host) -> [host]
+      host when is_binary(host) -> [host_name(host)]
       nil -> []
     end
   end
@@ -89,11 +90,15 @@ defmodule PhoenixKit.API.OAuth.ClientPolicy do
 
     if String.contains?(entry, "://") do
       case URI.parse(entry) do
-        %URI{host: host} when is_binary(host) -> host
+        %URI{host: host} when is_binary(host) -> host_name(host)
         _ -> ""
       end
     else
-      entry
+      entry |> String.replace(~r/^([^:\[\]]+):\d+$/, "\\1") |> host_name()
     end
   end
+
+  # A host in lower case and without the final dot: `evil.example.` is the same name to the
+  # resolver as `evil.example`.
+  defp host_name(host), do: host |> String.downcase() |> String.trim_trailing(".")
 end

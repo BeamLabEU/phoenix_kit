@@ -39,6 +39,21 @@ defmodule PhoenixKit.API.OAuth.ClientPolicyTest do
       refute ClientPolicy.allowed?("dcr", "dcr_x", ["https://evil.example/cb"])
     end
 
+    test "a trailing dot (the same name to the resolver) does not get around an entry" do
+      put_setting("api_oauth_client_deny_hosts", "evil.example")
+
+      refute ClientPolicy.allowed?("dcr", "dcr_x", ["https://evil.example./cb"])
+      refute ClientPolicy.allowed?("cimd", "https://EVIL.example./c.json", @claude_uris)
+
+      put_setting("api_oauth_client_deny_hosts", "evil.example.")
+      refute ClientPolicy.allowed?("dcr", "dcr_x", ["https://evil.example/cb"])
+    end
+
+    test "an entry written with a port counts as its host" do
+      put_setting("api_oauth_client_deny_hosts", "evil.example:8443")
+      refute ClientPolicy.allowed?("dcr", "dcr_x", ["https://evil.example/cb"])
+    end
+
     test "holds under the allow-list policy too" do
       put_setting("api_oauth_client_policy", "allow_list")
       put_setting("api_oauth_client_allow_hosts", "claude.ai")

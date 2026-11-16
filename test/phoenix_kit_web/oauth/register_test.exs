@@ -125,6 +125,19 @@ defmodule PhoenixKitWeb.OAuth.RegisterTest do
       refute Map.has_key?(body, "client_uri")
     end
 
+    test "a name of combining marks is cut by code points as well, not by the column" do
+      # 160 graphemes of 4 code points: the column (character varying(160)) counts code points.
+      name = String.duplicate("a\u0301\u0302\u0303", 160)
+      assert String.length(name) == 160
+
+      body = register(valid(%{"client_name" => name})) |> error_of(201)
+
+      assert length(String.codepoints(body["client_name"])) <= 160
+      assert String.starts_with?(body["client_name"], "a\u0301")
+      assert [%Client{client_name: stored}] = Repo.all(from(c in Client, where: c.kind == "dcr"))
+      assert stored == body["client_name"]
+    end
+
     test "a registration without a name is fine" do
       body = register(%{"redirect_uris" => [@redirect]}) |> error_of(201)
       refute Map.has_key?(body, "client_name")

@@ -10,6 +10,8 @@ defmodule PhoenixKit.API.OAuth.Clients do
   an authorization request goes through `resolve/2`.
   """
 
+  require Logger
+
   import Ecto.Query, only: [from: 2]
 
   alias PhoenixKit.API.OAuth.Cimd
@@ -39,7 +41,7 @@ defmodule PhoenixKit.API.OAuth.Clients do
     %Client{kind: "preregistered"}
     |> Ecto.Changeset.cast(attrs, [:client_id, :client_name, :client_uri, :redirect_uris])
     |> Ecto.Changeset.validate_required([:client_id])
-    |> Ecto.Changeset.update_change(:client_name, &String.slice(&1, 0, @max_name_length))
+    |> Ecto.Changeset.update_change(:client_name, &cut_name/1)
     |> Ecto.Changeset.validate_length(:client_id, max: 2048)
     |> validate_storable([:client_id, :client_name, :client_uri])
     |> Ecto.Changeset.validate_change(:redirect_uris, fn :redirect_uris, uris ->
@@ -63,7 +65,8 @@ defmodule PhoenixKit.API.OAuth.Clients do
 
   @doc """
   A client's own name made safe to store and show: control, format and line-separator characters
-  removed, trimmed, cut to 160 characters. `nil` when what is left is empty or `name` is not text.
+  removed, trimmed, cut to 160 characters and to 160 code points (the size of the column). `nil`
+  when what is left is empty or `name` is not text.
   """
   @spec clean_name(term()) :: String.t() | nil
   def clean_name(name) when is_binary(name) do
@@ -71,13 +74,32 @@ defmodule PhoenixKit.API.OAuth.Clients do
       name
       |> String.replace(~r/[\p{C}\p{Zl}\p{Zp}]/u, "")
       |> String.trim()
-      |> String.slice(0, @max_name_length)
+      |> cut_name()
       |> String.trim()
 
     if cleaned == "", do: nil, else: cleaned
   end
 
   def clean_name(_name), do: nil
+
+  # At most 160 characters as a person counts them (graphemes) and as the column counts them
+  # (code points: a name of combining marks has far more code points than graphemes). Whole
+  # graphemes only, so a mark is never left without its letter.
+  defp cut_name(name) do
+    {_points, kept} =
+      name
+      |> String.graphemes()
+      |> Enum.take(@max_name_length)
+      |> Enum.reduce_while({0, []}, fn grapheme, {points, kept} ->
+        points = points + length(String.to_charlist(grapheme))
+
+        if points <= @max_name_length,
+          do: {:cont, {points, [grapheme | kept]}},
+          else: {:halt, {points, kept}}
+      end)
+
+    kept |> Enum.reverse() |> IO.iodata_to_binary()
+  end
 
   @doc """
   A client's home page URL if it is one an `https` link can be made of (a host, no userinfo, no
@@ -178,11 +200,29 @@ defmodule PhoenixKit.API.OAuth.Clients do
 
   defp fetch_document(client_id) do
     case Cimd.fetch(client_id) do
-      {:ok, document} -> {:ok, document}
-      {:error, :busy} -> {:error, :busy}
-      {:error, _reason} -> {:error, :fetch_failed}
+      {:ok, document} ->
+        {:ok, document}
+
+      {:error, :busy} ->
+        {:error, :busy}
+
+      {:error, reason} ->
+        # Why it failed, so an operator can tell a secret in the document from a blocked host
+        # from a body that is not JSON: the reason only, never the URL or what the server sent.
+        Logger.info("[OAuth] a client metadata document was refused: #{reason_label(reason)}")
+        {:error, :fetch_failed}
     end
   end
+
+  # The words of a reason (`{:fetch_failed, {:http_status, 404}}` is "fetch_failed http_status
+  # 404"): atoms and integers only, anything else is "?".
+  defp reason_label(reason) when is_atom(reason), do: Atom.to_string(reason)
+  defp reason_label(reason) when is_integer(reason), do: Integer.to_string(reason)
+
+  defp reason_label(reason) when is_tuple(reason),
+    do: reason |> Tuple.to_list() |> Enum.map_join(" ", &reason_label/1)
+
+  defp reason_label(_reason), do: "?"
 
   # One row per document URL, whoever asks first: the insert races are settled by the unique
   # `client_id` (the update applies to a metadata document row only), and the row is read back.

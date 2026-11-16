@@ -32,6 +32,36 @@ defmodule PhoenixKit.API.OAuth.ClientsResolveTest do
 
   defp resolve(client_id, ip), do: Clients.resolve(client_id, ip: ip)
 
+  describe "clean_name/1" do
+    test "cuts by graphemes and by code points, whichever is shorter" do
+      assert Clients.clean_name(String.duplicate("n", 300)) |> String.length() == 160
+
+      zalgo = String.duplicate("a\u0301\u0302\u0303", 160)
+      cut = Clients.clean_name(zalgo)
+      assert length(String.codepoints(cut)) <= 160
+      assert String.valid?(cut)
+    end
+
+    test "removes control characters and answers nil for what is left empty or not text" do
+      assert Clients.clean_name("  Ag\u0000ent\u202E ") == "Agent"
+      assert Clients.clean_name(" \u0000 ") == nil
+      assert Clients.clean_name(42) == nil
+    end
+
+    test "an administrator's name for a pre-registered client is cut the same way" do
+      zalgo = String.duplicate("a\u0301\u0302\u0303", 160)
+
+      assert {:ok, %Client{client_name: stored}} =
+               Clients.register_preregistered(%{
+                 client_id: "pre_zalgo",
+                 client_name: zalgo,
+                 redirect_uris: ["https://app.example/cb"]
+               })
+
+      assert length(String.codepoints(stored)) <= 160
+    end
+  end
+
   describe "an identifier that is not a URL" do
     test "is looked up and never fetched", %{ip: ip} do
       assert {:error, :unknown_client} = resolve("dcr_nobody", ip)
@@ -217,6 +247,81 @@ defmodule PhoenixKit.API.OAuth.ClientsResolveTest do
 
       put_setting("api_oauth_client_deny_hosts", "evil.example")
       assert {:error, :not_allowed} = resolve("dcr_a", ip)
+    end
+  end
+
+  describe "a document that cannot be had" do
+    setup do
+      Logger.put_module_level(Clients, :info)
+      on_exit(fn -> Logger.delete_module_level(Clients) end)
+    end
+
+    test "leaves a line with the reason, and neither the URL nor the body", %{ip: ip} do
+      cases = [
+        {fn -> Stub.put(@claude, {:error, :blocked_host}) end, "blocked_host"},
+        {fn -> Stub.put(@claude, {:error, {:http_status, 404}}) end, "http_status 404"},
+        {fn ->
+           Stub.put(@claude, Map.put(Stub.claude_document(), "client_secret", "s3cret-value"))
+         end, "client_secret_not_allowed"},
+        {fn -> Stub.put(@claude, {:body, "not json at all", [{"content-type", "text/html"}]}) end,
+         "not_json"}
+      ]
+
+      for {setup, reason} <- cases do
+        setup.()
+        Limits.reset(:cimd_client, @claude)
+
+        log =
+          ExUnit.CaptureLog.capture_log([level: :info], fn ->
+            assert {:error, :fetch_failed} = resolve(@claude, ip)
+          end)
+
+        assert log =~ reason
+        refute log =~ "claude.ai"
+        refute log =~ "s3cret-value"
+        refute log =~ "not json at all"
+      end
+    end
+  end
+
+  describe "two first requests for one new document" do
+    test "end with one row and the same client for both" do
+      test_pid = self()
+
+      Stub.put(@claude, fn _opts ->
+        send(test_pid, {:started, self()})
+
+        receive do
+          :go -> :ok
+        end
+
+        path = Path.join(System.tmp_dir!(), "pk_cimd_race_#{System.unique_integer([:positive])}")
+        File.write!(path, Stub.claude_body())
+
+        {:ok,
+         %{
+           path: path,
+           filename: "client.json",
+           url: @claude,
+           headers: [{"content-type", "application/json"}, {"cache-control", "max-age=600"}]
+         }}
+      end)
+
+      tasks = for _n <- 1..3, do: Task.async(fn -> resolve(@claude, unique_ip()) end)
+
+      pids =
+        for _n <- 1..3 do
+          assert_receive {:started, pid}, 2_000
+          pid
+        end
+
+      # All three downloads are in flight before any of them answers: all three go on to insert.
+      for pid <- pids, do: send(pid, :go)
+      results = Enum.map(tasks, &Task.await/1)
+
+      assert [{:ok, %Client{uuid: uuid}} | _] = results
+      assert Enum.all?(results, &match?({:ok, %Client{uuid: ^uuid}}, &1))
+      assert Repo.aggregate(Client, :count) == 1
     end
   end
 

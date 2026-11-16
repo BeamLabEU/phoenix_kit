@@ -130,31 +130,34 @@ defmodule PhoenixKit.API.OAuth.Prune do
   defp idle_clients(now, deleted \\ 0) do
     cutoff = DateTime.add(now, -@dcr_client_seconds, :second)
 
-    uuids =
-      from(c in Client,
-        as: :client,
-        where:
-          (c.kind == "dcr" and c.inserted_at < ^cutoff) or
-            (c.kind == "cimd" and c.metadata_expires_at < ^cutoff),
-        where: not exists(from(g in Grant, where: g.client_uuid == parent_as(:client).uuid)),
-        where:
-          not exists(
-            from(r in Request,
-              where:
-                r.client_uuid == parent_as(:client).uuid and is_nil(r.consumed_at) and
-                  r.expires_at >= ^now
-            )
-          ),
-        limit: @batch,
-        select: c.uuid
-      )
-      |> repo().all()
+    uuids = repo().all(from(c in idle_clients_query(now, cutoff), limit: @batch, select: c.uuid))
 
-    {removed, _} = repo().delete_all(from(c in Client, where: c.uuid in ^uuids))
+    # The conditions are part of the DELETE as well: a grant or a waiting request that appeared
+    # since the SELECT keeps its client.
+    {removed, _} =
+      repo().delete_all(from(c in idle_clients_query(now, cutoff), where: c.uuid in ^uuids))
 
     if length(uuids) == @batch and removed > 0,
       do: idle_clients(now, deleted + removed),
       else: deleted + removed
+  end
+
+  defp idle_clients_query(now, cutoff) do
+    from(c in Client,
+      as: :client,
+      where:
+        (c.kind == "dcr" and c.inserted_at < ^cutoff) or
+          (c.kind == "cimd" and c.metadata_expires_at < ^cutoff),
+      where: not exists(from(g in Grant, where: g.client_uuid == parent_as(:client).uuid)),
+      where:
+        not exists(
+          from(r in Request,
+            where:
+              r.client_uuid == parent_as(:client).uuid and is_nil(r.consumed_at) and
+                r.expires_at >= ^now
+          )
+        )
+    )
   end
 
   # `delete_all` takes no `limit`, so a batch is cut by uuid first; goes on while a batch is full.

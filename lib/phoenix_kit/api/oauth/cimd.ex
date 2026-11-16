@@ -250,31 +250,33 @@ defmodule PhoenixKit.API.OAuth.Cimd do
   end
 
   defp ttl(headers) do
-    headers
-    |> header("cache-control")
-    |> to_string()
-    |> String.split(",")
-    |> Enum.find_value(@ttl_default, &max_age/1)
+    directives =
+      headers
+      |> header("cache-control")
+      |> to_string()
+      |> String.split(",")
+      |> Enum.map(&(&1 |> String.trim() |> String.downcase()))
+
+    # `no-store` and `no-cache` win over any `max-age` beside them: the shortest time we allow
+    # ourselves to remember a document.
+    seconds =
+      if Enum.any?(directives, &(&1 in ["no-store", "no-cache"])),
+        do: 0,
+        else: Enum.find_value(directives, @ttl_default, &max_age/1)
+
+    seconds
     |> max(@ttl_min)
     |> min(@ttl_max)
   end
 
-  # `no-store` and `no-cache` leave the shortest time we allow ourselves to remember a document.
-  defp max_age(directive) do
-    case directive |> String.trim() |> String.downcase() do
-      "max-age=" <> seconds ->
-        case Integer.parse(seconds) do
-          {n, ""} when n >= 0 -> n
-          _ -> nil
-        end
-
-      other when other in ["no-store", "no-cache"] ->
-        0
-
-      _other ->
-        nil
+  defp max_age("max-age=" <> seconds) do
+    case Integer.parse(seconds) do
+      {n, ""} when n >= 0 -> n
+      _ -> nil
     end
   end
+
+  defp max_age(_directive), do: nil
 
   defp header(headers, name) when is_list(headers) do
     Enum.find_value(headers, fn

@@ -9,7 +9,8 @@ defmodule PhoenixKit.API.OAuthCimdStub do
   URL answers, `calls/1` lists what was asked of it (the URL and the options the code passed, so a
   test can check the limits the code asks for).
 
-  The fixtures are shaped like the live documents of the two clients that matter:
+  The fixtures are the live documents of the two clients that matter, saved as served on
+  2026-11-16 (`test/fixtures/oauth_cimd/*.json`, headers `public, max-age=300`):
   `claude_document/0` (`https://claude.ai/oauth/mcp-oauth-client-metadata`: auth method `none`,
   redirect `https://claude.ai/api/mcp/auth_callback`) and `chatgpt_document/0`
   (`https://chatgpt.com/oauth/client.json`: `private_key_jwt`, a `jwks_uri`, redirect
@@ -24,41 +25,20 @@ defmodule PhoenixKit.API.OAuthCimdStub do
   def claude_id, do: @claude_id
   def chatgpt_id, do: @chatgpt_id
 
-  def claude_document do
-    %{
-      "client_id" => @claude_id,
-      "client_name" => "Claude",
-      "client_uri" => "https://claude.ai",
-      "redirect_uris" => ["https://claude.ai/api/mcp/auth_callback"],
-      "grant_types" => [
-        "authorization_code",
-        "refresh_token",
-        "urn:ietf:params:oauth:grant-type:jwt-bearer"
-      ],
-      "response_types" => ["code"],
-      "token_endpoint_auth_method" => "none"
-    }
-  end
+  @fixtures Path.expand("../fixtures/oauth_cimd", __DIR__)
+  @external_resource Path.join(@fixtures, "claude.json")
+  @external_resource Path.join(@fixtures, "chatgpt.json")
+  @claude_body File.read!(Path.join(@fixtures, "claude.json"))
+  @chatgpt_body File.read!(Path.join(@fixtures, "chatgpt.json"))
 
-  def chatgpt_document do
-    %{
-      "client_id" => @chatgpt_id,
-      "client_name" => "ChatGPT",
-      "client_uri" => "https://chatgpt.com",
-      "logo_uri" => "https://chatgpt.com/logo.png",
-      "redirect_uris" => ["https://chatgpt.com/connector_platform_oauth_redirect"],
-      "grant_types" => [
-        "authorization_code",
-        "refresh_token",
-        "urn:ietf:params:oauth:grant-type:jwt-bearer"
-      ],
-      "response_types" => ["code"],
-      "token_endpoint_auth_method" => "private_key_jwt",
-      "token_endpoint_auth_methods_supported" => ["none", "private_key_jwt"],
-      "token_endpoint_auth_signing_alg" => "RS256",
-      "jwks_uri" => "https://chatgpt.com/oauth/jwks.json"
-    }
-  end
+  @doc "The body of the live document of Claude, byte for byte (`test/fixtures/oauth_cimd/claude.json`)."
+  def claude_body, do: @claude_body
+
+  @doc "The body of the live document of ChatGPT, byte for byte (`test/fixtures/oauth_cimd/chatgpt.json`)."
+  def chatgpt_body, do: @chatgpt_body
+
+  def claude_document, do: JSON.decode!(@claude_body)
+  def chatgpt_document, do: JSON.decode!(@chatgpt_body)
 
   @doc "Starts the stub under the test and makes the code use it."
   def install! do

@@ -54,7 +54,7 @@ defmodule PhoenixKit.API.OAuth.CimdTest do
 
   describe "parse/2" do
     test "the live Claude document" do
-      assert {:ok, doc} = Cimd.parse(@claude, JSON.encode!(Stub.claude_document()))
+      assert {:ok, doc} = Cimd.parse(@claude, Stub.claude_body())
 
       assert doc == %{
                client_name: "Claude",
@@ -64,9 +64,11 @@ defmodule PhoenixKit.API.OAuth.CimdTest do
     end
 
     test "the live ChatGPT document, private_key_jwt and jwks_uri included, is not refused" do
-      assert {:ok, doc} = Cimd.parse(@chatgpt, JSON.encode!(Stub.chatgpt_document()))
+      assert {:ok, doc} = Cimd.parse(@chatgpt, Stub.chatgpt_body())
 
       assert doc.client_name == "ChatGPT"
+      # The live document writes its home page with the slash.
+      assert doc.client_uri == "https://chatgpt.com/"
       assert doc.redirect_uris == ["https://chatgpt.com/connector_platform_oauth_redirect"]
       # Only what is used is kept: nothing of the key material or the logo.
       assert Map.keys(doc) |> Enum.sort() == [:client_name, :client_uri, :redirect_uris]
@@ -186,6 +188,15 @@ defmodule PhoenixKit.API.OAuth.CimdTest do
       refute opts[:allow_http]
     end
 
+    test "the two live documents, served with the headers they were saved with, are accepted" do
+      live = [{"content-type", "application/json"}, {"cache-control", "public, max-age=300"}]
+      Stub.put(@claude, {:body, Stub.claude_body(), live})
+      Stub.put(@chatgpt, {:body, Stub.chatgpt_body(), live})
+
+      assert {:ok, %{client_name: "Claude", ttl: 300}} = Cimd.fetch(@claude)
+      assert {:ok, %{client_name: "ChatGPT", ttl: 300}} = Cimd.fetch(@chatgpt)
+    end
+
     test "never fetches an identifier whose form is wrong" do
       assert {:error, :invalid_client_id} = Cimd.fetch("http://app.example/client.json")
       assert {:error, :invalid_client_id} = Cimd.fetch("https://app.example/../client.json")
@@ -268,6 +279,10 @@ defmodule PhoenixKit.API.OAuth.CimdTest do
             {"max-age=0", 300},
             {"no-store", 300},
             {"no-cache", 300},
+            {"max-age=600, no-store", 300},
+            {"no-store, max-age=600", 300},
+            {"public, max-age=600, no-cache", 300},
+            {"max-age=banana, no-store", 300},
             {"max-age=999999999", 86_400},
             {"max-age=banana", 3600},
             {nil, 3600}

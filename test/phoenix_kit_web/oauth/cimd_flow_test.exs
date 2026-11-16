@@ -14,9 +14,11 @@ defmodule PhoenixKitWeb.OAuth.CimdFlowTest do
   import PhoenixKit.Test.ApiHarness, only: [put_setting: 2, setup_api: 0]
 
   alias PhoenixKit.API.OAuth.Client
+  alias PhoenixKit.API.OAuth.Clients
   alias PhoenixKit.API.OAuth.Limits
   alias PhoenixKit.API.OAuth.Request
   alias PhoenixKit.API.OAuthCimdStub, as: Stub
+  alias PhoenixKit.Test.ApiHarness
   alias PhoenixKit.Test.Repo
 
   @claude Stub.claude_id()
@@ -48,6 +50,22 @@ defmodule PhoenixKitWeb.OAuth.CimdFlowTest do
       Repo.update_all(from(c in Client, where: c.kind == "cimd"),
         set: [metadata_expires_at: past]
       )
+  end
+
+  # The document now names another redirect and another name; the cache ran out, and a second
+  # authorization request (for the new redirect) made the server read it again.
+  defp change_document_and_refetch!(challenge) do
+    Stub.put(
+      @claude,
+      Stub.claude_document()
+      |> Map.put("redirect_uris", ["https://claude.ai/moved"])
+      |> Map.put("client_name", "Somebody else")
+    )
+
+    expire_cache!()
+    moved = %{client_id: @claude, redirect_uris: ["https://claude.ai/moved"]}
+    assert authorize(browser(), authorize_params(moved, challenge)).status == 302
+    assert length(Stub.calls(@claude)) == 2
   end
 
   defp page_error?(conn) do
@@ -107,6 +125,20 @@ defmodule PhoenixKitWeb.OAuth.CimdFlowTest do
       assert [] = Floki.find(html, "#consent-client-address")
     end
 
+    test "a request whose snapshot names no kind is shown as unverified, not as trusted", %{
+      user: user,
+      challenge: challenge
+    } do
+      id = browser() |> authorize(authorize_params(claude(), challenge)) |> consent_id()
+
+      request = Repo.one(Request)
+      snapshot = Map.delete(request.client_snapshot, "kind")
+      request |> Ecto.Changeset.change(client_snapshot: snapshot) |> Repo.update!()
+
+      html = consent(browser(user), id).resp_body |> Floki.parse_document!()
+      assert [_] = Floki.find(html, "#consent-unverified")
+    end
+
     test "the name on the page is the document's own text, escaped and cut", %{
       user: user,
       challenge: challenge
@@ -124,6 +156,19 @@ defmodule PhoenixKitWeb.OAuth.CimdFlowTest do
         page.resp_body |> Floki.parse_document!() |> Floki.find("#consent-title") |> Floki.text()
 
       refute String.length(title) > 160
+    end
+
+    test "a name of combining marks does not break the store: it is cut by code points", %{
+      challenge: challenge
+    } do
+      name = String.duplicate("a\u0301\u0302\u0303", 160)
+      Stub.put(@claude, Map.put(Stub.claude_document(), "client_name", name))
+
+      assert authorize(browser(), authorize_params(claude(), challenge)).status == 302
+
+      assert %Client{client_name: stored} = Repo.get_by(Client, client_id: @claude)
+      assert length(String.codepoints(stored)) <= 160
+      assert String.starts_with?(stored, "a\u0301")
     end
 
     test "the person allows, the client gets a code, and the token endpoint takes the URL id", %{
@@ -225,22 +270,60 @@ defmodule PhoenixKitWeb.OAuth.CimdFlowTest do
   end
 
   describe "a document that changes" do
-    test "between authorize and token changes nothing for that request", %{user: user} do
-      flow = code_for(user, claude(), [@read])
+    test "between authorize and token changes nothing for that request", %{
+      user: user,
+      challenge: challenge
+    } do
+      {verifier, challenge_a} = pkce()
+      params_a = authorize_params(claude(), challenge_a)
+      id_a = browser() |> authorize(params_a) |> consent_id()
 
-      # The document now names another redirect and another name; the cache ran out.
-      Stub.put(
-        @claude,
-        Stub.claude_document()
-        |> Map.put("redirect_uris", ["https://claude.ai/moved"])
-        |> Map.put("client_name", "Somebody else")
-      )
+      change_document_and_refetch!(challenge)
 
-      expire_cache!()
+      # The row is the new one now: a second request is the proof the document was read again.
+      assert %Client{redirect_uris: ["https://claude.ai/moved"], client_name: "Somebody else"} =
+               Repo.get_by(Client, client_id: @claude)
+
+      # Request A still holds the document it was made from: the person allows it ...
+      answer =
+        decide(browser(user), id_a, %{
+          "decision" => "allow",
+          "scopes" => [@read],
+          "days" => "30"
+        })
+
+      assert answer.status == 302
+      assert String.starts_with?(location(answer), @claude_redirect <> "?")
+      %{"code" => code} = location_params(answer)
+
+      # ... and the code is exchanged for the very redirect it was asked for.
+      flow = %{
+        code: code,
+        verifier: verifier,
+        client: claude(),
+        redirect_uri: params_a["redirect_uri"]
+      }
 
       conn = exchange_code(flow)
       assert conn.status == 200
       assert %{"access_token" => "pkoa_" <> _} = body(conn)
+    end
+
+    test "while the consent page is open it keeps the name and address it was made with", %{
+      user: user,
+      challenge: challenge
+    } do
+      {_verifier, challenge_a} = pkce()
+      id_a = browser() |> authorize(authorize_params(claude(), challenge_a)) |> consent_id()
+
+      change_document_and_refetch!(challenge)
+
+      page = consent(browser(user), id_a)
+      assert page.status == 200
+      html = Floki.parse_document!(page.resp_body)
+      assert Floki.find(html, "#consent-title") |> Floki.text() =~ "Claude"
+      refute page.resp_body =~ "Somebody else"
+      assert Floki.find(html, "#consent-host") |> Floki.text() |> String.trim() == "claude.ai"
     end
 
     test "after the cache runs out a new request is judged by the new document", %{
@@ -323,6 +406,69 @@ defmodule PhoenixKitWeb.OAuth.CimdFlowTest do
       assert conn.status == 429
       assert [_] = get_resp_header(conn, "retry-after")
       assert length(Stub.calls(@claude)) == 1
+    end
+
+    test "too many fetches from one network in a minute: 429 and retry-after 60", %{
+      challenge: challenge
+    } do
+      put_setting("api_oauth_cimd_per_min", 1)
+      ip = unique_ip()
+      first = "https://client.example/ip-#{System.unique_integer([:positive])}"
+      second = "https://client.example/ip-#{System.unique_integer([:positive])}"
+      Stub.put(first, {:error, {:http_status, 500}})
+
+      from_ip = fn id ->
+        conn = build_conn() |> ApiHarness.with_client_ip(ip)
+        params = %{client_id: id, redirect_uris: ["https://client.example/cb"]}
+        authorize(conn, authorize_params(params, challenge))
+      end
+
+      assert page_error?(from_ip.(first))
+
+      conn = from_ip.(second)
+      assert conn.status == 429
+      assert get_resp_header(conn, "retry-after") == ["60"]
+      assert Stub.calls(second) == []
+    end
+
+    test "four fetches already running: 503 and retry-after 5, nothing fetched", %{
+      challenge: challenge
+    } do
+      test_pid = self()
+
+      blocking = fn _opts ->
+        send(test_pid, {:started, self()})
+
+        receive do
+          :go -> {:error, {:http_status, 500}}
+        end
+      end
+
+      urls =
+        for n <- 1..5,
+            do: "https://client.example/busy-#{n}-#{System.unique_integer([:positive])}"
+
+      for url <- urls, do: Stub.put(url, blocking)
+
+      tasks =
+        for url <- Enum.take(urls, 4) do
+          task = Task.async(fn -> Clients.resolve(url, ip: unique_ip()) end)
+          assert_receive {:started, _pid}, 2_000
+          task
+        end
+
+      fifth = List.last(urls)
+      params = %{client_id: fifth, redirect_uris: ["https://client.example/cb"]}
+      conn = authorize(browser(), authorize_params(params, challenge))
+
+      assert conn.status == 503
+      assert get_resp_header(conn, "retry-after") == ["5"]
+      assert Stub.calls(fifth) == []
+
+      for pid <- Task.Supervisor.children(PhoenixKit.API.OAuth.FetchSupervisor),
+          do: send(pid, :go)
+
+      assert Enum.map(tasks, &Task.await/1) == List.duplicate({:error, :fetch_failed}, 4)
     end
 
     test "a stored client costs no fetch and no limit", %{challenge: challenge} do
