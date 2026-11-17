@@ -28404,8 +28404,8 @@ msgstr "Zmiana hasła kończy klucze osobiste i połączenia"
 
 #: lib/phoenix_kit_web/live/settings/api.html.heex:254
 #, elixir-autogen, elixir-format
-msgid "When a person's password is changed or reset, their personal keys and the applications connected with the OAuth sign-in end at once, and each has to be made or connected again. This includes a person who sets a password for the first time. Keys of services are not touched. It is off until you switch it on."
-msgstr "Gdy hasło osoby zostanie zmienione lub zresetowane, jej klucze osobiste i aplikacje połączone przez logowanie OAuth kończą się natychmiast, a każdy klucz trzeba utworzyć, a każdą aplikację połączyć ponownie. Dotyczy to także osoby, która ustawia hasło po raz pierwszy. Klucze usług nie są ruszane. Opcja jest wyłączona, dopóki jej nie włączysz."
+msgid "When a person's password is changed or reset, their personal keys and the applications connected with the OAuth sign-in end at once, and each has to be made or connected again. This includes a person who sets a password for the first time. Nothing else ends: a key made under Keys and service users stays, including one made in a person's own name and one of a service, so revoke such keys there. It is off until you switch it on."
+msgstr "Gdy hasło osoby zostaje zmienione lub zresetowane, jej klucze osobiste i aplikacje połączone przez logowanie OAuth wygasają natychmiast, a każdy klucz trzeba utworzyć, a każdą aplikację połączyć od nowa. Dotyczy to także osoby, która ustawia hasło po raz pierwszy. Nic więcej nie wygasa: klucz utworzony w sekcji „Klucze i użytkownicy usługowi” pozostaje, także utworzony na własne nazwisko osoby i klucz usługi, więc unieważnij takie klucze tam. Opcja jest wyłączona, dopóki jej nie włączysz."
 
 #: lib/phoenix_kit_web/live/settings/api.ex:717
 #, elixir-autogen, elixir-format
@@ -28429,8 +28429,8 @@ msgstr "Osoba dostaje jedną wiadomość e-mail, gdy aplikacja zostaje połączo
 
 #: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:296
 #, elixir-autogen, elixir-format
-msgid "With the setting A password change ends personal keys and connections switched on (the API settings, Personal API keys), a changed or reset password ends the person's personal keys and connections at once. Keys of services stay."
-msgstr "Gdy włączone jest ustawienie „Zmiana hasła kończy klucze osobiste i połączenia” (ustawienia API, Osobiste klucze API), zmienione lub zresetowane hasło natychmiast kończy klucze osobiste i połączenia osoby. Klucze usług pozostają."
+msgid "With the setting A password change ends personal keys and connections switched on (the API settings, Personal API keys), a changed or reset password ends the person's personal keys and connections at once. Keys made under Keys and service users stay, including one made in the person's own name; revoke them there."
+msgstr "Gdy włączone jest ustawienie „Zmiana hasła kończy klucze osobiste i połączenia” (ustawienia API, Osobiste klucze API), zmienione lub zresetowane hasło natychmiast kończy klucze osobiste i połączenia osoby. Klucze utworzone w sekcji „Klucze i użytkownicy usługowi” pozostają, także utworzony na własne nazwisko osoby; unieważnij je tam."
 
 #: lib/phoenix_kit_web/live/settings/api.html.heex:260
 #: lib/phoenix_kit_web/live/settings/api.ex:564

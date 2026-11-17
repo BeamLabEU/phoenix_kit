@@ -28332,8 +28332,8 @@ msgstr "Parooli muutmine lõpetab isiklikud võtmed ja ühendused"
 
 #: lib/phoenix_kit_web/live/settings/api.html.heex:254
 #, elixir-autogen, elixir-format
-msgid "When a person's password is changed or reset, their personal keys and the applications connected with the OAuth sign-in end at once, and each has to be made or connected again. This includes a person who sets a password for the first time. Keys of services are not touched. It is off until you switch it on."
-msgstr "Kui inimese parooli muudetakse või lähtestatakse, lõpevad kohe tema isiklikud võtmed ja OAuth-sisselogimisega ühendatud rakendused ning iga võti tuleb luua ja iga rakendus uuesti ühendada. See kehtib ka inimese kohta, kes määrab parooli esimest korda. Teenuste võtmeid see ei puuduta. See on välja lülitatud, kuni te selle sisse lülitate."
+msgid "When a person's password is changed or reset, their personal keys and the applications connected with the OAuth sign-in end at once, and each has to be made or connected again. This includes a person who sets a password for the first time. Nothing else ends: a key made under Keys and service users stays, including one made in a person's own name and one of a service, so revoke such keys there. It is off until you switch it on."
+msgstr "Kui inimese parooli muudetakse või lähtestatakse, lõpevad kohe tema isiklikud võtmed ja OAuth-sisselogimisega ühendatud rakendused ning iga võtme tuleb luua ja iga rakendus uuesti ühendada. See kehtib ka inimesele, kes määrab parooli esimest korda. Muu ei lõpe: jaotises „Võtmed ja teenusekasutajad“ loodud võti jääb alles, ka inimese enda nimel loodud ja teenuse oma, seega tühistage need seal. See on välja lülitatud, kuni selle sisse lülitate."
 
 #: lib/phoenix_kit_web/live/settings/api.ex:717
 #, elixir-autogen, elixir-format
@@ -28357,8 +28357,8 @@ msgstr "Inimene saab kirja, kui rakendus ühendatakse: nimi, mille rakendus enda
 
 #: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:296
 #, elixir-autogen, elixir-format
-msgid "With the setting A password change ends personal keys and connections switched on (the API settings, Personal API keys), a changed or reset password ends the person's personal keys and connections at once. Keys of services stay."
-msgstr "Kui seade „Parooli muutmine lõpetab isiklikud võtmed ja ühendused“ on sisse lülitatud (API seaded, Isiklikud API-võtmed), lõpetab muudetud või lähtestatud parool inimese isiklikud võtmed ja ühendused kohe. Teenuste võtmed jäävad."
+msgid "With the setting A password change ends personal keys and connections switched on (the API settings, Personal API keys), a changed or reset password ends the person's personal keys and connections at once. Keys made under Keys and service users stay, including one made in the person's own name; revoke them there."
+msgstr "Kui seade „Parooli muutmine lõpetab isiklikud võtmed ja ühendused“ on sisse lülitatud (API seaded, Isiklikud API-võtmed), lõpetab muudetud või lähtestatud parool inimese isiklikud võtmed ja ühendused kohe. Jaotises „Võtmed ja teenusekasutajad“ loodud võtmed jäävad alles, ka inimese enda nimel loodud; tühistage need seal."
 
 #: lib/phoenix_kit_web/live/settings/api.html.heex:260
 #: lib/phoenix_kit_web/live/settings/api.ex:564

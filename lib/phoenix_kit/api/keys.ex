@@ -1025,8 +1025,10 @@ defmodule PhoenixKit.API.Keys do
   Ends everything of one person that works with their password: every live personal key
   (`personal = true`, no `oauth_grant_uuid`, neither revoked nor expired; a key in the grace
   period of a rotation is ended at once) and every live OAuth grant (not revoked, not expired,
-  activated or not, waiting for approval or not) with its hidden key and tokens. Service keys
-  (not personal) are keys of integrations and stay.
+  activated or not, waiting for approval or not) with its hidden key and tokens. Every other key
+  stays: the keys made on Settings -> API under "Keys and service users" (`personal = false`) are not touched, whether a
+  service user owns them or the person made one in their own name (an administrator can). Those
+  are revoked by hand.
 
   It is the step of a password change, so it takes part in the caller's transaction (and opens
   one when there is none): it takes the personal-keys lock of the person first, as a new personal

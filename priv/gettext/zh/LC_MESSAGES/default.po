@@ -28344,8 +28344,8 @@ msgstr "更改密码会终止个人密钥和连接"
 
 #: lib/phoenix_kit_web/live/settings/api.html.heex:254
 #, elixir-autogen, elixir-format
-msgid "When a person's password is changed or reset, their personal keys and the applications connected with the OAuth sign-in end at once, and each has to be made or connected again. This includes a person who sets a password for the first time. Keys of services are not touched. It is off until you switch it on."
-msgstr "当某人的密码被更改或重置时，其个人密钥和通过 OAuth 登录连接的应用会立即终止，需要重新创建密钥、重新连接应用。这也包括首次设置密码的人。服务密钥不受影响。在您开启之前此功能为关闭状态。"
+msgid "When a person's password is changed or reset, their personal keys and the applications connected with the OAuth sign-in end at once, and each has to be made or connected again. This includes a person who sets a password for the first time. Nothing else ends: a key made under Keys and service users stays, including one made in a person's own name and one of a service, so revoke such keys there. It is off until you switch it on."
+msgstr "当某人的密码被更改或重置时，其个人密钥和通过 OAuth 登录连接的应用会立即失效，每个密钥都需重新创建，每个应用都需重新连接。首次设置密码的人也包括在内。其他内容不会失效：在“密钥与服务用户”下创建的密钥会保留，包括以本人名义创建的密钥和服务的密钥，请在那里撤销这些密钥。在您开启之前，此选项为关闭状态。"
 
 #: lib/phoenix_kit_web/live/settings/api.ex:717
 #, elixir-autogen, elixir-format
@@ -28369,8 +28369,8 @@ msgstr "应用被连接时，该用户会收到一封邮件：应用自称的名
 
 #: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:296
 #, elixir-autogen, elixir-format
-msgid "With the setting A password change ends personal keys and connections switched on (the API settings, Personal API keys), a changed or reset password ends the person's personal keys and connections at once. Keys of services stay."
-msgstr "开启“更改密码会终止个人密钥和连接”设置（API 设置，个人 API 密钥）后，更改或重置密码会立即终止该用户的个人密钥和连接。服务密钥保持不变。"
+msgid "With the setting A password change ends personal keys and connections switched on (the API settings, Personal API keys), a changed or reset password ends the person's personal keys and connections at once. Keys made under Keys and service users stay, including one made in the person's own name; revoke them there."
+msgstr "开启“更改密码会终止个人密钥和连接”设置（API 设置，个人 API 密钥）后，更改或重置密码会立即终止该用户的个人密钥和连接。在“密钥与服务用户”下创建的密钥会保留，包括以本人名义创建的密钥；请在那里撤销。"
 
 #: lib/phoenix_kit_web/live/settings/api.html.heex:260
 #: lib/phoenix_kit_web/live/settings/api.ex:564

@@ -28398,8 +28398,8 @@ msgstr "Зміна пароля завершує особисті ключі т�
 
 #: lib/phoenix_kit_web/live/settings/api.html.heex:254
 #, elixir-autogen, elixir-format
-msgid "When a person's password is changed or reset, their personal keys and the applications connected with the OAuth sign-in end at once, and each has to be made or connected again. This includes a person who sets a password for the first time. Keys of services are not touched. It is off until you switch it on."
-msgstr "Коли пароль людини змінюють або скидають, її особисті ключі й застосунки, підключені через вхід OAuth, одразу завершуються: ключ потрібно створити, а застосунок підключити заново. Це стосується й людини, яка задає пароль уперше. Ключі служб не зачіпаються. Доки ви не ввімкнете, функцію вимкнено."
+msgid "When a person's password is changed or reset, their personal keys and the applications connected with the OAuth sign-in end at once, and each has to be made or connected again. This includes a person who sets a password for the first time. Nothing else ends: a key made under Keys and service users stays, including one made in a person's own name and one of a service, so revoke such keys there. It is off until you switch it on."
+msgstr "Коли пароль людини змінюється або скидається, її особисті ключі та застосунки, підключені через вхід OAuth, одразу перестають діяти, і кожен ключ треба створити, а кожен застосунок підключити заново. Це стосується й людини, яка вперше задає пароль. Більше нічого не припиняється: ключ, створений у розділі «Ключі та службові користувачі», залишається, зокрема створений на ім'я самої людини та ключ служби, тому відкликайте такі ключі там. Доки ви не ввімкнете налаштування, воно вимкнене."
 
 #: lib/phoenix_kit_web/live/settings/api.ex:717
 #, elixir-autogen, elixir-format
@@ -28423,8 +28423,8 @@ msgstr "Людина отримує один лист, коли застосун
 
 #: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:296
 #, elixir-autogen, elixir-format
-msgid "With the setting A password change ends personal keys and connections switched on (the API settings, Personal API keys), a changed or reset password ends the person's personal keys and connections at once. Keys of services stay."
-msgstr "Якщо ввімкнено налаштування «Зміна пароля завершує особисті ключі та підключення» (налаштування API, Особисті API-ключі), змінений або скинутий пароль одразу завершує особисті ключі й підключення людини. Ключі служб залишаються."
+msgid "With the setting A password change ends personal keys and connections switched on (the API settings, Personal API keys), a changed or reset password ends the person's personal keys and connections at once. Keys made under Keys and service users stay, including one made in the person's own name; revoke them there."
+msgstr "Якщо ввімкнено налаштування «Зміна пароля завершує особисті ключі та підключення» (налаштування API, Особисті API-ключі), змінений або скинутий пароль одразу завершує особисті ключі й підключення людини. Ключі, створені в розділі «Ключі та службові користувачі», залишаються, зокрема створений на ім'я самої людини; відкликайте їх там."
 
 #: lib/phoenix_kit_web/live/settings/api.html.heex:260
 #: lib/phoenix_kit_web/live/settings/api.ex:564

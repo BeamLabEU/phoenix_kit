@@ -3,8 +3,10 @@ defmodule PhoenixKit.API.PasswordChangeRevokesTest do
   `api_password_change_revokes`: while it is on, a changed password ends the personal keys and the
   OAuth connections of the person, in the transaction of the change, on all four paths (the
   person's form, a reset, an administrator or the system, and the confirmation by an external
-  proof); a first password is a change like any other; the keys of services stay; a failure ends the change; the
-  keys' cache is cleared again after the commit.
+  proof); a first password is a change like any other; only personal keys and OAuth connections end:
+  a key made under Keys and service users stays, whoever owns it (a service user's, or the person's own, which
+  an administrator can make in their own name); a failure ends the change; the keys' cache is
+  cleared again after the commit.
   """
   use PhoenixKit.DataCase, async: false
 
@@ -54,11 +56,15 @@ defmodule PhoenixKit.API.PasswordChangeRevokesTest do
     {key, token}
   end
 
-  # What a person has: a personal key and its token, a connection, a service key.
+  # What a person has: a personal key and its token, a connection, a key made under Keys and service users in
+  # their own name (not personal) and a key of a service user they made (not theirs).
   defp holdings(user, scope) do
     {personal, token} = personal!(scope)
     seeded = seed_grant!(scope, [])
-    {service, service_token} = issue_key!(user, [read_scope()])
+    {own_key, own_token} = issue_key!(user, [read_scope()])
+    {service_role, _} = role_with(["media"])
+    service_user = service_user_with([service_role.name], scope)
+    {service, service_token} = create_key!(service_user, scope, %{name: "Robot"})
 
     %{
       personal: personal,
@@ -66,6 +72,8 @@ defmodule PhoenixKit.API.PasswordChangeRevokesTest do
       grant: seeded.grant,
       hidden: seeded.key,
       access: seeded.access,
+      own_key: own_key,
+      own_token: own_token,
       service: service,
       service_token: service_token
     }
@@ -83,6 +91,8 @@ defmodule PhoenixKit.API.PasswordChangeRevokesTest do
     refute alive?(held.grant)
     refute alive?(held.hidden)
     assert {:error, _} = Keys.verify(held.token, "127.0.0.1")
+    assert alive?(held.own_key)
+    assert {:ok, _} = Keys.verify(held.own_token, "127.0.0.1")
     assert alive?(held.service)
     assert {:ok, _} = Keys.verify(held.service_token, "127.0.0.1")
 
@@ -128,10 +138,11 @@ defmodule PhoenixKit.API.PasswordChangeRevokesTest do
       switch(true)
     end
 
-    test "ends the personal keys and the connections, and not the keys of services", %{
-      user: user,
-      scope: scope
-    } do
+    test "ends the personal keys and the connections, and not the keys made under Keys and service users",
+         %{
+           user: user,
+           scope: scope
+         } do
       held = holdings(user, scope)
       assert {:ok, _} = Keys.verify(held.token, "127.0.0.1")
 

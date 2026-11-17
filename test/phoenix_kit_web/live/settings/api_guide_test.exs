@@ -327,7 +327,12 @@ defmodule PhoenixKitWeb.Live.Settings.ApiGuideTest do
 
       assert has_element?(view, "#guide-oauth-mail", "one email")
       assert has_element?(view, "#guide-oauth-password", "personal keys and connections")
-      assert has_element?(view, "#guide-oauth-password", "Keys of services stay")
+
+      assert has_element?(
+               view,
+               "#guide-oauth-password",
+               "Keys made under Keys and service users stay"
+             )
     end
 
     test "tells how the language of the consent screen is chosen and that sign-in is not covered",
