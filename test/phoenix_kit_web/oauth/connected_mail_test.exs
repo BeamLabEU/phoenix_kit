@@ -77,7 +77,7 @@ defmodule PhoenixKitWeb.OAuth.ConnectedMailTest do
       email = await_mail()
       assert [{_name, address}] = email.to
       assert address == user.email
-      assert email.text_body =~ "Mail Agent"
+      assert email.text_body =~ ~s("Mail Agent")
       assert email.text_body =~ "app.example"
       assert email.text_body =~ "State: Works"
       refute email.text_body =~ "waiting"
@@ -111,6 +111,28 @@ defmodule PhoenixKitWeb.OAuth.ConnectedMailTest do
       email = await_mail()
       assert email.subject == "An application was connected to your account"
       refute email.subject =~ "Mail Agent"
+    end
+
+    test "shows the name in quotes, cut to 60 characters, beside the sentence that it is unchecked",
+         %{user: user} do
+      put_setting("api_oauth_client_allow_hosts", "app.example")
+      long = String.duplicate("a", 59) <> "BCDEFGH Security notice: call +1 555 0100 now"
+
+      app =
+        Repo.insert!(%Client{
+          kind: "dcr",
+          client_id: "dcr_mail_long_#{System.unique_integer([:positive])}",
+          client_name: long,
+          redirect_uris: ["https://app.example/cb"]
+        })
+
+      connect!(user, app)
+
+      email = await_mail()
+      assert email.text_body =~ ~s("#{String.duplicate("a", 59)}B…")
+      refute email.text_body =~ "Security notice"
+      refute email.text_body =~ "BCDEFGH"
+      assert email.text_body =~ "has not been checked"
     end
 
     test "writes a name with markup as text, never as markup", %{user: user} do

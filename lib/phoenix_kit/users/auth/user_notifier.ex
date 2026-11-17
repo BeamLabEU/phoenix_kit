@@ -40,6 +40,9 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
   alias PhoenixKit.Utils.TimeZone
   alias PhoenixKitWeb.Live.Settings.Api, as: SettingsApi
 
+  # How much of an application's own name the email about a new connection shows.
+  @app_name_limit 60
+
   # Every templated auth email resolves identically and differs only in its
   # name, its variables and its default copy — so the resolution and the send
   # live here once instead of five times.
@@ -442,7 +445,7 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
   Tells `user` an application was connected to their account through the OAuth sign-in
   (`PhoenixKit.API.OAuth.ConnectedMail` sends it once, when the connection is activated).
 
-  `attrs`: `name` (what the application called itself), `host` (where its answers go),
+  `attrs`: `name` (what the application called itself; the email shows it in quotes, cut to 60 characters), `host` (where its answers go),
   `rights` (one entry per module: `key`, `name`, `read?`, `write?`), `expires_at`, `at`, `ip`
   (or `nil`) and `waiting?` (the connection does nothing until an Owner approves it). There is
   no switch for this email: it is the account holder's way to learn of an application they did
@@ -459,7 +462,7 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
       RecipientLocale.in_locale(RecipientLocale.for_rendering(user), fn ->
         %{
           "user_email" => User.delivery_email(user),
-          "app_name" => (attrs[:name] in [nil, ""] && gettext("Unknown")) || attrs.name,
+          "app_name" => app_name_text(attrs[:name]),
           "app_host" => (attrs[:host] in [nil, ""] && gettext("Unknown")) || attrs.host,
           "rights" => rights_line(attrs.rights),
           "expires" => login_time(user, attrs.expires_at),
@@ -477,6 +480,19 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
       variables,
       &CoreTemplates.app_connected_defaults/0
     )
+  end
+
+  # The name is the application's own and unchecked: a long one is cut and the whole is quoted,
+  # so it reads as the application's words and not as a sentence of the site.
+  defp app_name_text(name) when name in [nil, ""], do: gettext("Unknown")
+
+  defp app_name_text(name) do
+    shown =
+      if String.length(name) > @app_name_limit,
+        do: String.slice(name, 0, @app_name_limit) <> "…",
+        else: name
+
+    ~s("#{shown}")
   end
 
   defp rights_line(rights) do
