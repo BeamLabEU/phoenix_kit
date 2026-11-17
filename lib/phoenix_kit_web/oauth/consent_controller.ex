@@ -171,7 +171,7 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
   defp client_allowed(conn, request) do
     if Consent.client_allowed?(request),
       do: :ok,
-      else: Responses.page(conn, 400, Pages.error(%{}))
+      else: page(conn, 400, &Pages.error/1)
   end
 
   # The signed-in person and their full scope, or the page that refuses them.
@@ -224,7 +224,7 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
           conn |> put_status(409) |> limit_page(id, user)
 
         {:error, :client_not_allowed} ->
-          Responses.page(conn, 400, Pages.error(%{}))
+          page(conn, 400, &Pages.error/1)
 
         {:error, reason} when reason in @no_right_reasons ->
           no_right(conn, if(reason == :impersonated, do: :impersonated, else: :no_right))
