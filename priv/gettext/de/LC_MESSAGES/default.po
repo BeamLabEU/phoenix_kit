@@ -27829,6 +27829,11 @@ msgstr "Nur aufgelistete Hosts dürfen sich verbinden und die Liste ist leer: Ke
 msgid "Any application (its address is shown to the person)"
 msgstr "Jede Anwendung (ihre Adresse wird der Person angezeigt)"
 
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:393
+#, elixir-autogen, elixir-format
+msgid "Listed applications at once, the others after approval"
+msgstr "Gelistete Anwendungen sofort, alle anderen nach Freigabe"
+
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:300
 #, elixir-autogen, elixir-format
 msgid "Only the hosts listed below"

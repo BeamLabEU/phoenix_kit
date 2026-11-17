@@ -37,7 +37,7 @@ defmodule PhoenixKit.API.OAuth.Status do
           admin_enabled: boolean(),
           oauth_enabled: boolean(),
           dcr_enabled: boolean(),
-          policy: :any | :allow_list,
+          policy: :any | :allow_list | :approval,
           issuer: String.t(),
           urls: [{url_id(), String.t()}],
           warnings: [warning()]

@@ -20,7 +20,7 @@ defmodule PhoenixKit.API.Config do
   | `api_oauth_requests_ceiling` | `1000` (authorization requests waiting for consent, all clients) |
   | `api_oauth_grants_per_person` | `10` (live grants one person may hold) |
   | `api_oauth_dcr_enabled` | `false` (Dynamic Client Registration, `POST /oauth/register`; only counts while OAuth is on) |
-  | `api_oauth_client_policy` | `"any"` (`"allow_list"`: only the hosts of `api_oauth_client_allow_hosts`) |
+  | `api_oauth_client_policy` | `"approval"` (`"any"`: every client at once; `"allow_list"`: only the hosts of `api_oauth_client_allow_hosts`) |
   | `api_oauth_client_allow_hosts` | `""` (newline separated hosts) |
   | `api_oauth_cimd_per_min` | `20` (client metadata fetches per client network) |
   | `api_oauth_cimd_client_per_min` | `5` (client metadata fetches per client) |
@@ -92,17 +92,19 @@ defmodule PhoenixKit.API.Config do
   def oauth_dcr_enabled?, do: oauth_enabled?() and flag("api_oauth_dcr_enabled")
 
   @doc """
-  Which clients may use the server (`api_oauth_client_policy`): `:any` (the default, any https
-  client, its host shown to the person) or `:allow_list` (only the hosts of
-  `fetch_oauth_allow_hosts/0`). A value that is neither, or a setting that cannot be read, is
-  `:allow_list`: the stricter reading.
+  Which clients may use the server (`api_oauth_client_policy`): `:approval` (the default, and
+  what a missing or empty setting reads as: the clients of `fetch_oauth_allow_hosts/0` connect at
+  once, every other one waits for an owner's approval), `:any` (any https client, its host shown
+  to the person) or `:allow_list` (only the hosts of `fetch_oauth_allow_hosts/0`). A value that is
+  none of these, or a setting that cannot be read, is `:allow_list`: the stricter reading.
   """
-  @spec oauth_client_policy() :: :any | :allow_list
+  @spec oauth_client_policy() :: :any | :allow_list | :approval
   def oauth_client_policy do
     # `fetch_setting_cached/1` tells a store that cannot be read (`:error`) from a setting that is
     # not there; `get_setting_cached/2` would answer its default for both.
     case Settings.fetch_setting_cached("api_oauth_client_policy") do
-      {:ok, value} when value in [nil, "", "any"] -> :any
+      {:ok, value} when value in [nil, "", "approval"] -> :approval
+      {:ok, "any"} -> :any
       _other -> :allow_list
     end
   rescue

@@ -44,7 +44,8 @@ defmodule PhoenixKit.API.OAuth.StatusTest do
 
     refute report.oauth_enabled
     refute report.dcr_enabled
-    assert report.policy == :any
+    assert report.policy == :approval
+    refute :allow_list_empty in report.warnings
     assert :admin_api_off in report.warnings
   end
 
@@ -66,6 +67,14 @@ defmodule PhoenixKit.API.OAuth.StatusTest do
 
     write_setting(fn -> Settings.update_setting("api_oauth_client_allow_hosts", "claude.ai") end)
     refute :allow_list_empty in Status.report().warnings
+  end
+
+  test "the policy `approval` with no hosts is no warning: every application waits for approval" do
+    write_setting(fn -> Settings.update_setting("api_oauth_client_policy", "approval") end)
+
+    report = Status.report()
+    assert report.policy == :approval
+    refute :allow_list_empty in report.warnings
   end
 
   describe "the site address" do

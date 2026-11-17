@@ -29,14 +29,18 @@ defmodule PhoenixKit.API.OAuthTestSupport do
     {user, role, KeyTestSupport.scope_of(user)}
   end
 
-  @doc "Switches the admin API and OAuth on (`api_admin_enabled`, `api_oauth_enabled`)."
+  @doc """
+  Switches the admin API and OAuth on (`api_admin_enabled`, `api_oauth_enabled`) and saves the
+  client policy as `any`: the install default is `approval`, under which a test client on an
+  example host would wait for an approval. A test of another policy writes its own.
+  """
   @spec enable_oauth!() :: :ok
   def enable_oauth! do
     for key <- ~w(api_admin_enabled api_oauth_enabled) do
       KeyTestSupport.write_setting(fn -> Settings.update_boolean_setting(key, true) end)
     end
 
-    :ok
+    KeyTestSupport.put_setting("api_oauth_client_policy", "any")
   end
 
   @doc "A pre-registered client with a unique `client_id`."

@@ -27829,6 +27829,11 @@ msgstr "Seuls les hôtes listés peuvent se connecter et la liste est vide : auc
 msgid "Any application (its address is shown to the person)"
 msgstr "N'importe quelle application (son adresse est montrée à la personne)"
 
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:393
+#, elixir-autogen, elixir-format
+msgid "Listed applications at once, the others after approval"
+msgstr "Les applications de la liste tout de suite, les autres après approbation"
+
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:300
 #, elixir-autogen, elixir-format
 msgid "Only the hosts listed below"

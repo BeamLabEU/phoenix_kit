@@ -27911,6 +27911,11 @@ msgstr "Połączyć mogą się tylko wymienione hosty, a lista jest pusta: żadn
 msgid "Any application (its address is shown to the person)"
 msgstr "Dowolna aplikacja (jej adres jest pokazywany osobie)"
 
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:393
+#, elixir-autogen, elixir-format
+msgid "Listed applications at once, the others after approval"
+msgstr "Aplikacje z listy od razu, pozostałe po zatwierdzeniu"
+
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:300
 #, elixir-autogen, elixir-format
 msgid "Only the hosts listed below"

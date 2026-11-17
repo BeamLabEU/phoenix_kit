@@ -51,6 +51,10 @@ defmodule PhoenixKit.Test.ApiHarness do
   is unregistered, and switched back on, when the test ends; the cache
   processes are stopped by ExUnit. A test that starts the registry itself
   must not: it is already running.
+
+  The client policy of OAuth is saved as `any` (the install default is
+  `approval`, under which a test client on an example host would wait for an
+  approval); a test of another policy writes its own.
   """
   @spec setup_api(keyword()) :: :ok
   def setup_api(opts \\ []) do
@@ -65,6 +69,7 @@ defmodule PhoenixKit.Test.ApiHarness do
 
     switch(:admin, Keyword.get(opts, :admin, true))
     switch(:public, Keyword.get(opts, :public, true))
+    put_setting("api_oauth_client_policy", "any")
   end
 
   @doc "Sets the `api_admin_enabled` / `api_public_enabled` switch."

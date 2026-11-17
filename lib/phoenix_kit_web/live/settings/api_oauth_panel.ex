@@ -390,6 +390,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
 
   defp policy_options do
     [
+      {gettext("Listed applications at once, the others after approval"), "approval"},
       {gettext("Any application (its address is shown to the person)"), "any"},
       {gettext("Only the hosts listed below"), "allow_list"}
     ]

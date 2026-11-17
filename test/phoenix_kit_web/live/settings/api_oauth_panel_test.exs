@@ -205,6 +205,27 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanelTest do
   end
 
   describe "the settings form" do
+    test "offers the three policies and shows the default one, approval, as chosen", %{
+      conn: conn
+    } do
+      {:ok, view, _html} = live(conn, @path)
+
+      assert has_element?(view, ~s(#api-oauth-client-policy option[value="approval"][selected]))
+      assert has_element?(view, ~s(#api-oauth-client-policy option[value="any"]))
+      assert has_element?(view, ~s(#api-oauth-client-policy option[value="allow_list"]))
+    end
+
+    test "saves the policy `approval` after another one was chosen", %{conn: conn} do
+      {:ok, view, _html} = live(conn, @path)
+
+      assert settings_form(view, %{"client_policy" => "any"}) =~ "The settings were saved."
+      assert Config.oauth_client_policy() == :any
+
+      assert settings_form(view, %{"client_policy" => "approval"}) =~ "The settings were saved."
+      assert Config.oauth_client_policy() == :approval
+      assert has_element?(view, ~s(#api-oauth-client-policy option[value="approval"][selected]))
+    end
+
     test "saves what changed, each with this admin as the actor", %{conn: conn, admin: admin} do
       {:ok, view, _html} = live(conn, @path)
 
