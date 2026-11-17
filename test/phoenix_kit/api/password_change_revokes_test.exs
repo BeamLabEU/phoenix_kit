@@ -3,7 +3,7 @@ defmodule PhoenixKit.API.PasswordChangeRevokesTest do
   `api_password_change_revokes`: while it is on, a changed password ends the personal keys and the
   OAuth connections of the person, in the transaction of the change, on all four paths (the
   person's form, a reset, an administrator or the system, and the confirmation by an external
-  proof); a first password does not; the keys of services stay; a failure ends the change; the
+  proof); a first password is a change like any other; the keys of services stay; a failure ends the change; the
   keys' cache is cleared again after the commit.
   """
   use PhoenixKit.DataCase, async: false
@@ -209,41 +209,52 @@ defmodule PhoenixKit.API.PasswordChangeRevokesTest do
 
     test "the keys' cache is cleared again after the commit", %{user: user, scope: scope} do
       held = holdings(user, scope)
-      prefixes = [held.personal.prefix, held.hidden.prefix]
 
-      # A process is never traced by itself: a helper receives the calls and passes them on.
-      test_pid = self()
-
-      tracer =
-        spawn_link(fn ->
-          forward = fn forward ->
-            receive do
-              {:trace, _pid, :call, {Cache, :invalidate, [prefix]}} ->
-                send(test_pid, {:invalidated, prefix})
-                forward.(forward)
-            end
-          end
-
-          forward.(forward)
+      calls =
+        invalidations(fn ->
+          assert {:ok, _} = Auth.update_user_password(user, @current, @attrs)
         end)
 
-      {:module, Cache} = Code.ensure_loaded(Cache)
-      assert :erlang.trace_pattern({Cache, :invalidate, 1}, true, [:local]) == 1
-      :erlang.trace(self(), true, [:call, {:tracer, tracer}])
+      assert_cleared_twice(calls, held)
+    end
+  end
 
-      try do
-        assert {:ok, _} = Auth.update_user_password(user, @current, @attrs)
-      after
-        :erlang.trace(self(), false, [:call])
-        :erlang.trace_pattern({Cache, :invalidate, 1}, false, [:local])
-      end
+  # Calls of `Cache.invalidate/1` made by `fun`, as the list of prefixes. A process is never traced
+  # by itself: a helper receives the calls and passes them on.
+  defp invalidations(fun) do
+    test_pid = self()
 
-      calls = invalidated()
+    tracer =
+      spawn_link(fn ->
+        forward = fn forward ->
+          receive do
+            {:trace, _pid, :call, {Cache, :invalidate, [prefix]}} ->
+              send(test_pid, {:invalidated, prefix})
+              forward.(forward)
+          end
+        end
 
-      for prefix <- prefixes do
-        # Once inside the transaction (by the revocation), once after it.
-        assert Enum.count(calls, &(&1 == prefix)) >= 2, "cache of #{prefix}"
-      end
+        forward.(forward)
+      end)
+
+    {:module, Cache} = Code.ensure_loaded(Cache)
+    assert :erlang.trace_pattern({Cache, :invalidate, 1}, true, [:local]) == 1
+    :erlang.trace(self(), true, [:call, {:tracer, tracer}])
+
+    try do
+      fun.()
+    after
+      :erlang.trace(self(), false, [:call])
+      :erlang.trace_pattern({Cache, :invalidate, 1}, false, [:local])
+    end
+
+    invalidated()
+  end
+
+  # Once inside the transaction (by the revocation), once after it.
+  defp assert_cleared_twice(calls, held) do
+    for prefix <- [held.personal.prefix, held.hidden.prefix] do
+      assert Enum.count(calls, &(&1 == prefix)) >= 2, "cache of #{prefix}"
     end
   end
 
@@ -296,6 +307,18 @@ defmodule PhoenixKit.API.PasswordChangeRevokesTest do
       assert entry_method(user) == "admin_reset"
     end
 
+    test "the entry of each key names the administrator", %{user: user, scope: scope} do
+      held = holdings(user, scope)
+      admin = owner_user()
+
+      assert {:ok, _} = Auth.admin_update_user_password(user, @attrs, %{admin_user: admin})
+
+      assert [entry] =
+               Activity.list(action: "api.key_revoked", resource_uuid: held.personal.uuid).entries
+
+      assert entry.actor_uuid == admin.uuid
+    end
+
     test "a change by the system, with no actor named", %{user: user, scope: scope} do
       held = holdings(user, scope)
 
@@ -315,6 +338,20 @@ defmodule PhoenixKit.API.PasswordChangeRevokesTest do
       assert entry_method(user) == "external_proof"
     end
 
+    for path <- [:reset, :admin, :system, :external_proof] do
+      test "the keys' cache is cleared again after the commit (#{path})", %{
+        user: user,
+        scope: scope
+      } do
+        held = holdings(user, scope)
+
+        calls =
+          invalidations(fn -> assert {:ok, _} = run_path(unquote(path), user) end)
+
+        assert_cleared_twice(calls, held)
+      end
+    end
+
     test "an already confirmed person is left as is", %{user: user, scope: scope} do
       held = holdings(user, scope)
 
@@ -322,6 +359,20 @@ defmodule PhoenixKit.API.PasswordChangeRevokesTest do
 
       assert_everything_alive(held)
     end
+  end
+
+  defp run_path(:reset, user), do: Auth.reset_user_password(user, @attrs)
+
+  defp run_path(:admin, user),
+    do: Auth.admin_update_user_password(user, @attrs, %{admin_user: owner_user()})
+
+  defp run_path(:system, user), do: Auth.admin_update_user_password(user, @attrs)
+
+  defp run_path(:external_proof, user) do
+    user
+    |> Ecto.Changeset.change(confirmed_at: nil)
+    |> Repo.update!()
+    |> Auth.confirm_user_from_external_proof()
   end
 
   defp entry_method(user) do
@@ -334,20 +385,13 @@ defmodule PhoenixKit.API.PasswordChangeRevokesTest do
       switch(true)
     end
 
-    # The column is NOT NULL, so a person who has no password of their own holds a random hash
-    # and counts as having one; the rule is for a person the caller names without a hash.
-    test "of a person with no hash ends nothing", %{user: user, scope: scope} do
-      held = holdings(user, scope)
-      unconfirmed = user |> Ecto.Changeset.change(confirmed_at: nil) |> Repo.update!()
-
-      assert {:ok, _} =
-               Auth.confirm_user_from_external_proof(%{unconfirmed | hashed_password: nil})
-
-      assert_everything_alive(held)
-      assert activity_count(user) == 0
-    end
-
-    test "a person with a random hash is a person with a password", %{user: user, scope: scope} do
+    # The column is NOT NULL: a person who signs in with a passkey, a magic link or a provider
+    # holds a random hash, so there is no way to tell their first password from a change. It
+    # ends their keys and connections like any other change, and the setting says so.
+    test "of a person with a random hash ends their keys and connections", %{
+      user: user,
+      scope: scope
+    } do
       held = holdings(user, scope)
       random = Bcrypt.hash_pwd_salt(Base.encode64(:crypto.strong_rand_bytes(32)))
 
@@ -356,6 +400,16 @@ defmodule PhoenixKit.API.PasswordChangeRevokesTest do
       )
 
       assert {:ok, _} = Auth.admin_update_user_password(Repo.get!(User, user.uuid), @attrs)
+
+      assert_everything_ended(held)
+    end
+
+    test "of a struct that carries no hash still ends them", %{user: user, scope: scope} do
+      held = holdings(user, scope)
+      unconfirmed = user |> Ecto.Changeset.change(confirmed_at: nil) |> Repo.update!()
+
+      assert {:ok, _} =
+               Auth.confirm_user_from_external_proof(%{unconfirmed | hashed_password: nil})
 
       assert_everything_ended(held)
     end
@@ -381,14 +435,18 @@ defmodule PhoenixKit.API.PasswordChangeRevokesTest do
       assert alive?(held.grant)
     end
 
-    test "of a connection raises and keeps the old password", %{user: user, scope: scope} do
+    test "of a connection gives back an error and keeps the old password", %{
+      user: user,
+      scope: scope
+    } do
       held = holdings(user, scope)
       before = hash_of(user)
       skip_updates!("phoenix_kit_api_oauth_grants", "uuid = '#{held.grant.uuid}'")
 
-      assert_raise Ecto.StaleEntryError, fn ->
-        Auth.update_user_password(user, @current, @attrs)
-      end
+      assert {:error, %Ecto.Changeset{errors: errors}} =
+               Auth.update_user_password(user, @current, @attrs)
+
+      assert Keyword.has_key?(errors, :password)
 
       assert hash_of(user) == before
       assert alive?(held.personal)

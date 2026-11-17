@@ -33,8 +33,9 @@ defmodule PhoenixKit.API.OAuth.ConnectedMail do
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.Auth.UserNotifier
 
-  # How `PhoenixKit.API.Keys.create_oauth_key/3` names the hidden key of a grant.
-  @name_prefix "OAuth: "
+  # The inline mode exists only in a build compiled with the test seams (`config :phoenix_kit,
+  # oauth_test_seams: true`), like the other OAuth seams.
+  @test_seams Application.compile_env(:phoenix_kit, :oauth_test_seams, false)
 
   @doc """
   Starts the delivery for `grant`, whose code was exchanged with `redirect_uri`, and returns
@@ -43,15 +44,15 @@ defmodule PhoenixKit.API.OAuth.ConnectedMail do
   The delivery is a task of `PhoenixKit.TaskSupervisor` (`{:ok, pid}`), or `:error` when none
   could be started. Without that supervisor (a bare test run) the task is linked to no one but
   keeps the callers of this process, so a sandboxed database and the test mailer find their
-  owner. `config :phoenix_kit, :oauth_connected_mail, :inline` runs the delivery in the calling
-  process instead (`:ok`): the suites of the exchange set it, so that no task outlives a test
-  that holds a database connection.
+  owner. In a build compiled with the test seams, `config :phoenix_kit, :oauth_connected_mail,
+  :inline` runs the delivery in the calling process instead (`:ok`): the suites of the exchange
+  set it, so that no task outlives a test that holds a database connection.
   """
   @spec start(Grant.t(), String.t()) :: :ok | {:ok, pid()} | :error
   def start(%Grant{} = grant, redirect_uri) when is_binary(redirect_uri) do
     run = fn -> safely(fn -> deliver(grant, redirect_uri) end) end
 
-    if Application.get_env(:phoenix_kit, :oauth_connected_mail) == :inline do
+    if inline?() do
       run.()
       :ok
     else
@@ -59,10 +60,13 @@ defmodule PhoenixKit.API.OAuth.ConnectedMail do
     end
   end
 
+  defp inline?,
+    do: @test_seams and Application.get_env(:phoenix_kit, :oauth_connected_mail) == :inline
+
   defp start_task(run) do
     started =
       case Process.whereis(PhoenixKit.TaskSupervisor) do
-        nil -> Task.start(with_callers(run))
+        nil -> Task.start(run)
         supervisor -> Task.Supervisor.start_child(supervisor, run)
       end
 
@@ -72,15 +76,6 @@ defmodule PhoenixKit.API.OAuth.ConnectedMail do
     end
   catch
     :exit, _reason -> :error
-  end
-
-  defp with_callers(fun) do
-    callers = [self() | Process.get(:"$callers", [])]
-
-    fn ->
-      Process.put(:"$callers", callers)
-      fun.()
-    end
   end
 
   @doc """
@@ -111,8 +106,8 @@ defmodule PhoenixKit.API.OAuth.ConnectedMail do
   # A key that does not carry it falls back to what the client calls itself now.
   defp app_name(%Grant{key_uuid: key_uuid, client_uuid: client_uuid}) do
     case Keys.get_key(key_uuid) do
-      %Key{name: @name_prefix <> name} when name != "" -> name
-      _other -> client_name(repo().get(Client, client_uuid))
+      %Key{} = key -> Keys.pinned_oauth_name(key) || client_name(repo().get(Client, client_uuid))
+      nil -> client_name(repo().get(Client, client_uuid))
     end
   end
 

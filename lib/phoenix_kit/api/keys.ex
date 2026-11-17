@@ -617,6 +617,13 @@ defmodule PhoenixKit.API.Keys do
     end
   end
 
+  @doc false
+  # The name the person saw on the consent screen, which `create_oauth_key/3` put after the
+  # prefix, or nil for a key that does not carry it.
+  @spec pinned_oauth_name(Key.t() | nil) :: String.t() | nil
+  def pinned_oauth_name(%Key{name: @oauth_name_prefix <> name}) when name != "", do: name
+  def pinned_oauth_name(_key), do: nil
+
   defp oauth_changeset(attrs, owner, grant_uuid) do
     # Cut by characters (the validation counts those) and by code points (the column does).
     name =
@@ -1083,12 +1090,22 @@ defmodule PhoenixKit.API.Keys do
     )
     |> repo().all()
     |> Enum.reduce_while({:ok, []}, fn {grant_uuid, prefix}, {:ok, prefixes} ->
-      case Grants.revoke(grant_uuid, reason: "password_changed", actor_uuid: actor_uuid) do
+      case end_grant(grant_uuid, actor_uuid) do
         {:ok, _grant} -> {:cont, {:ok, [prefix | prefixes]}}
+        # Removed since the list was read (an unfinished consent that was cleaned up): ended.
+        {:error, :not_found} -> {:cont, {:ok, prefixes}}
         {:error, _reason} = error -> {:halt, error}
       end
     end)
     |> reversed()
+  end
+
+  # A write that changed nothing (the grant was not ended) is a failure, not "already ended":
+  # the password change must not go through with a connection alive.
+  defp end_grant(grant_uuid, actor_uuid) do
+    Grants.revoke(grant_uuid, reason: "password_changed", actor_uuid: actor_uuid)
+  rescue
+    Ecto.StaleEntryError -> {:error, :not_ended}
   end
 
   defp reversed({:ok, prefixes}), do: {:ok, Enum.reverse(prefixes)}

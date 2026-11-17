@@ -19,7 +19,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiTranslationsTest do
   # `gettext_noop("API")` in admin_tabs.ex (which also holds hundreds of other
   # labels), and the permission label is data in `Permissions`.
   @extra_msgids ["API", "API keys"]
-  @locales ~w(de es et fr it pl ru uk)
+  @locales ~w(de es et fr it pl ru uk zh)
 
   @root Path.expand("../../../..", __DIR__)
 

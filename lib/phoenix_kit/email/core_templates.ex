@@ -28,6 +28,7 @@ defmodule PhoenixKit.Email.CoreTemplates do
 
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.Components.ProfileSettingsTabs
 
   @sample_email "jane.doe@example.com"
   @sample_token "preview-token"
@@ -215,7 +216,7 @@ defmodule PhoenixKit.Email.CoreTemplates do
             "time" => Calendar.strftime(DateTime.utc_now(), "%Y-%m-%d %H:%M UTC"),
             "ip_address" => "203.0.113.24",
             "state" => app_connected_state(false),
-            "connections_url" => Routes.url("/profile/settings/api-keys")
+            "connections_url" => app_connected_url()
           }
         end
       },
@@ -574,6 +575,13 @@ defmodule PhoenixKit.Email.CoreTemplates do
         """)
     }
   end
+
+  @doc """
+  The `{{connections_url}}` of the application-connected email: the page where the person sees
+  and disconnects what is connected (My API keys), in the current process's language.
+  """
+  @spec app_connected_url() :: String.t()
+  def app_connected_url, do: Routes.base_url() <> ProfileSettingsTabs.path("api-keys")
 
   @doc """
   The `{{state}}` of the application-connected email: a connection that waits for approval does

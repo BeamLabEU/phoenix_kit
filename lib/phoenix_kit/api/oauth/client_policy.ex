@@ -21,13 +21,13 @@ defmodule PhoenixKit.API.OAuth.ClientPolicy do
   The policy is judged again every time a client is used: when its authorization request is
   checked (`PhoenixKit.API.OAuth.Clients.resolve/2`), when the person answers the consent screen,
   and when a code or a refresh token is exchanged, so a client that stops being allowed can
-  neither be connected nor, under `allow_list`, keep a connection alive through refreshes (see the
-  next paragraph for `approval`). (An access token already
-  issued lives out its lifetime; the person or an administrator can end the grant.)
+  neither be connected nor, under `allow_list`, keep a connection alive through refreshes (under
+  `approval` it does, see the next paragraph). (An access token already issued lives out its
+  lifetime; the person or an administrator can end the grant.)
 
   Taking a host off the list or tightening the policy does not end what already works: a
   connection that was trusted or approved keeps its tokens, and under `approval` a refresh is not
-  blocked (it is under `allow_list`). To withdraw trust from an application, disconnect its
+  blocked (it is under `allow_list`), unless the list cannot be read: that refuses under both. To withdraw trust from an application, disconnect its
   connections (delete the client, or "Disconnect" on the connection).
   """
 

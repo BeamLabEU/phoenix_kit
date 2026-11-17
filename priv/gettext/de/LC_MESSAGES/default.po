@@ -28322,8 +28322,8 @@ msgstr "Eine Passwortänderung beendet persönliche Schlüssel und Verbindungen"
 
 #: lib/phoenix_kit_web/live/settings/api.html.heex:254
 #, elixir-autogen, elixir-format
-msgid "When a person's password is changed or reset, their personal keys and the applications connected with the OAuth sign-in end at once, and each has to be made or connected again. Keys of services are not touched, and neither is the first password of a person who had none. It is off until you switch it on."
-msgstr "Wenn das Passwort einer Person geändert oder zurückgesetzt wird, enden ihre persönlichen Schlüssel und die über die OAuth-Anmeldung verbundenen Anwendungen sofort; jeder Schlüssel muss neu erstellt und jede Anwendung neu verbunden werden. Schlüssel von Diensten bleiben unberührt, ebenso das erste Passwort einer Person, die keines hatte. Die Option ist aus, bis Sie sie einschalten."
+msgid "When a person's password is changed or reset, their personal keys and the applications connected with the OAuth sign-in end at once, and each has to be made or connected again. This includes a person who sets a password for the first time. Keys of services are not touched. It is off until you switch it on."
+msgstr "Wenn das Passwort einer Person geändert oder zurückgesetzt wird, enden ihre persönlichen Schlüssel und die über die OAuth-Anmeldung verbundenen Anwendungen sofort; jeder Schlüssel muss neu erstellt und jede Anwendung neu verbunden werden. Das gilt auch für eine Person, die erstmals ein Passwort festlegt. Schlüssel von Diensten bleiben unberührt. Die Option ist aus, bis Sie sie einschalten."
 
 #: lib/phoenix_kit_web/live/settings/api.ex:717
 #, elixir-autogen, elixir-format

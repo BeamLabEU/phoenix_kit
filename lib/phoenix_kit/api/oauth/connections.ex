@@ -50,9 +50,6 @@ defmodule PhoenixKit.API.OAuth.Connections do
   # A page lists the newest of them; it says so when it got this many (`limit/0`).
   @limit 200
 
-  # How `PhoenixKit.API.Keys.create_oauth_key/3` names a grant's hidden key.
-  @name_prefix "OAuth: "
-
   @type view :: :own | :all
   @type status ::
           :active | :awaiting_approval | :no_permission | :owner_inactive | :wrong_resource
@@ -203,8 +200,7 @@ defmodule PhoenixKit.API.OAuth.Connections do
   # (`"OAuth: <name>"`) when the consent was given. The client's row may carry another name now
   # (a metadata document is fetched again and can change), and a list that shows the new one would
   # not show what was agreed to.
-  defp pinned_name(%Key{name: @name_prefix <> name}) when name != "", do: name
-  defp pinned_name(_key), do: nil
+  defp pinned_name(key), do: Keys.pinned_oauth_name(key)
 
   # The owner's state is read once per person (it costs a permission check), from one of their
   # hidden keys: `Keys.active_owner/1` is the check a request makes.

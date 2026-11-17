@@ -28398,8 +28398,8 @@ msgstr "Зміна пароля завершує особисті ключі т�
 
 #: lib/phoenix_kit_web/live/settings/api.html.heex:254
 #, elixir-autogen, elixir-format
-msgid "When a person's password is changed or reset, their personal keys and the applications connected with the OAuth sign-in end at once, and each has to be made or connected again. Keys of services are not touched, and neither is the first password of a person who had none. It is off until you switch it on."
-msgstr "Коли пароль людини змінюють або скидають, її особисті ключі й застосунки, підключені через вхід OAuth, одразу завершуються: ключ потрібно створити, а застосунок підключити заново. Ключі служб не зачіпаються, як і перший пароль людини, у якої пароля не було. Доки ви не ввімкнете, функцію вимкнено."
+msgid "When a person's password is changed or reset, their personal keys and the applications connected with the OAuth sign-in end at once, and each has to be made or connected again. This includes a person who sets a password for the first time. Keys of services are not touched. It is off until you switch it on."
+msgstr "Коли пароль людини змінюють або скидають, її особисті ключі й застосунки, підключені через вхід OAuth, одразу завершуються: ключ потрібно створити, а застосунок підключити заново. Це стосується й людини, яка задає пароль уперше. Ключі служб не зачіпаються. Доки ви не ввімкнете, функцію вимкнено."
 
 #: lib/phoenix_kit_web/live/settings/api.ex:717
 #, elixir-autogen, elixir-format

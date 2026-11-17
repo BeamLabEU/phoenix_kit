@@ -28404,8 +28404,8 @@ msgstr "Zmiana hasła kończy klucze osobiste i połączenia"
 
 #: lib/phoenix_kit_web/live/settings/api.html.heex:254
 #, elixir-autogen, elixir-format
-msgid "When a person's password is changed or reset, their personal keys and the applications connected with the OAuth sign-in end at once, and each has to be made or connected again. Keys of services are not touched, and neither is the first password of a person who had none. It is off until you switch it on."
-msgstr "Gdy hasło osoby zostanie zmienione lub zresetowane, jej klucze osobiste i aplikacje połączone przez logowanie OAuth kończą się natychmiast, a każdy klucz trzeba utworzyć, a każdą aplikację połączyć ponownie. Klucze usług nie są ruszane, podobnie jak pierwsze hasło osoby, która go nie miała. Opcja jest wyłączona, dopóki jej nie włączysz."
+msgid "When a person's password is changed or reset, their personal keys and the applications connected with the OAuth sign-in end at once, and each has to be made or connected again. This includes a person who sets a password for the first time. Keys of services are not touched. It is off until you switch it on."
+msgstr "Gdy hasło osoby zostanie zmienione lub zresetowane, jej klucze osobiste i aplikacje połączone przez logowanie OAuth kończą się natychmiast, a każdy klucz trzeba utworzyć, a każdą aplikację połączyć ponownie. Dotyczy to także osoby, która ustawia hasło po raz pierwszy. Klucze usług nie są ruszane. Opcja jest wyłączona, dopóki jej nie włączysz."
 
 #: lib/phoenix_kit_web/live/settings/api.ex:717
 #, elixir-autogen, elixir-format

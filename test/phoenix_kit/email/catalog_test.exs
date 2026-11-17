@@ -347,7 +347,7 @@ defmodule PhoenixKit.Email.CatalogTest do
         assert english.subject not in [nil, ""]
         assert english.markdown not in [nil, ""]
 
-        for locale <- ~w(de es et fr it pl ru uk) do
+        for locale <- ~w(de es et fr it pl ru uk zh) do
           translated = Gettext.with_locale(PhoenixKitWeb.Gettext, locale, entry.defaults)
 
           assert translated.subject not in [nil, ""], "#{entry.name} subject in #{locale}"

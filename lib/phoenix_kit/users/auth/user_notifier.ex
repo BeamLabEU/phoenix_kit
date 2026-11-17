@@ -466,7 +466,7 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
           "time" => login_time(user, attrs.at),
           "ip_address" => (attrs[:ip] in [nil, ""] && gettext("Unknown")) || attrs.ip,
           "state" => CoreTemplates.app_connected_state(attrs.waiting?),
-          "connections_url" => Routes.url("/profile/settings/api-keys")
+          "connections_url" => CoreTemplates.app_connected_url()
         }
       end)
 

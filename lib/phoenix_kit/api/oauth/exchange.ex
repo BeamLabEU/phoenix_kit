@@ -21,8 +21,9 @@ defmodule PhoenixKit.API.OAuth.Exchange do
   one of the grant. On success the grant is activated, an access token and a refresh token are
   issued, and `oauth.grant_created` is written to the activity feed (with `oauth.grant_pending`
   when the grant waits for approval). After the commit the person is told of the connection by
-  email (`PhoenixKit.API.OAuth.ConnectedMail`), once, from a task of its own. Nothing about the person or the client is in the response:
-  only the tokens, their lifetime and the scope actually granted.
+  email (`PhoenixKit.API.OAuth.ConnectedMail`), once, from a task of its own. Nothing about the
+  person or the client is in the response: only the tokens, their lifetime and the scope actually
+  granted.
 
   ## Refresh token
 

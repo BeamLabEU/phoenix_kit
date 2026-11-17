@@ -1048,7 +1048,7 @@ defmodule PhoenixKit.Users.Auth do
   """
   def update_user_password(user, password, attrs, opts \\ []) do
     multi =
-      password_update_multi(user, fn current ->
+      password_update_multi(user, user.uuid, fn current ->
         current
         |> User.password_changeset(attrs)
         |> User.validate_current_password(password)
@@ -1175,7 +1175,8 @@ defmodule PhoenixKit.Users.Auth do
   defp target_label(_other), do: "an unrecognised target"
 
   defp do_admin_update_user_password(user, attrs, context) do
-    multi = password_update_multi(user, &User.password_changeset(&1, attrs))
+    actor = Map.get(context, :admin_user)
+    multi = password_update_multi(user, actor && actor.uuid, &User.password_changeset(&1, attrs))
 
     multi =
       Revocation.multi_delete_all(multi, :tokens, revoked_tokens_query(user))
@@ -1843,7 +1844,7 @@ defmodule PhoenixKit.Users.Auth do
     |> Ecto.Multi.run(:telegram_links, fn _repo, _ -> {:ok, Linking.drop_links(user.uuid)} end)
     # The rotation is a password change too: whatever the pre-registrant made with it goes.
     |> Ecto.Multi.run(:revoked_credentials, fn _repo, _ ->
-      revoke_credentials_on_password_change(user)
+      revoke_credentials_on_password_change(user, user.uuid)
     end)
     # Enqueued in this transaction — and in the OAuth callback's around it —
     # so a rollback takes the welcome email with the confirmation.
@@ -2071,7 +2072,7 @@ defmodule PhoenixKit.Users.Auth do
 
   """
   def reset_user_password(user, attrs) do
-    multi = password_update_multi(user, &User.password_changeset(&1, attrs))
+    multi = password_update_multi(user, user.uuid, &User.password_changeset(&1, attrs))
 
     multi
     |> Revocation.multi_delete_all(:tokens, revoked_tokens_query(user))
@@ -2104,7 +2105,7 @@ defmodule PhoenixKit.Users.Auth do
   # policy and hash locked through validation and the write, sharing conversion's
   # organization-row lock. Preserve provenance already supplied by its token
   # loader; a by-uuid read alone must not silently change the active role.
-  defp password_update_multi(user, changeset_fun) do
+  defp password_update_multi(user, actor_uuid, changeset_fun) do
     Ecto.Multi.new()
     |> Ecto.Multi.run(:credential_user, fn repo, _ ->
       current = repo.one!(from(u in User, where: u.uuid == ^user.uuid, lock: "FOR NO KEY UPDATE"))
@@ -2117,27 +2118,26 @@ defmodule PhoenixKit.Users.Auth do
     # validating step: a refused change must not log (and broadcast) a drop that never happened.
     |> Ecto.Multi.run(:telegram_links, fn _repo, _ -> {:ok, Linking.drop_links(user.uuid)} end)
     # With `api_password_change_revokes` on, the personal keys and OAuth connections of the person
-    # end in the same transaction: a failure here rolls the new password back. A person who had
-    # no password (a passkey, a magic link) is setting their first one: nothing of theirs was
-    # protected by an old one.
+    # end in the same transaction: a failure here rolls the new password back. A person who signs
+    # in without a password (a passkey, a magic link) holds a random hash, so a first password is
+    # a change like any other and ends them too.
     |> Ecto.Multi.run(:revoked_credentials, fn _repo, %{credential_user: current} ->
-      revoke_credentials_on_password_change(current)
+      revoke_credentials_on_password_change(current, actor_uuid)
     end)
   end
 
   @no_credentials %{keys: [], connections: []}
 
-  defp revoke_credentials_on_password_change(%User{hashed_password: nil}),
-    do: {:ok, @no_credentials}
-
-  defp revoke_credentials_on_password_change(%User{uuid: uuid}) do
+  defp revoke_credentials_on_password_change(%User{uuid: uuid}, actor_uuid) do
     if ApiConfig.password_change_revokes?(),
-      do: ApiKeys.revoke_all_for_password_change(uuid, nil),
+      do: ApiKeys.revoke_all_for_password_change(uuid, actor_uuid),
       else: {:ok, @no_credentials}
   end
 
   # After the commit, in every path: the revocations dropped the keys' cache entries inside the
   # transaction, and a request that read a key while it was open may have cached it again.
+  # "After the commit" is the outermost one: `confirm_user_from_external_proof/1` called from the
+  # OAuth callback runs inside the callback's transaction, so this runs before that one commits.
   defp after_credentials_revoked(%User{} = user, %{keys: keys, connections: connections}, how) do
     Enum.each(keys ++ connections, &ApiKeysCache.invalidate/1)
 
