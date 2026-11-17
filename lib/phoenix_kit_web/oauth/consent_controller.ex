@@ -310,6 +310,8 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
       else: Language.assigns(conn, nil)
   end
 
+  defp switcher(conn), do: Language.assigns(conn, nil)
+
   defp consent_path(id), do: Routes.path("/oauth/consent/" <> id)
   defp consent_url(conn, id), do: Language.url(conn, consent_path(id))
   defp revoke_url(conn, id), do: Language.url(conn, consent_path(id) <> "/revoke")

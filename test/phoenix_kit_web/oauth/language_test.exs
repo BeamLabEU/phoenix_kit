@@ -24,6 +24,7 @@ defmodule PhoenixKitWeb.OAuth.LanguageTest do
   alias PhoenixKit.Test.Repo
   alias PhoenixKit.Users.Auth
   alias PhoenixKitWeb.OAuth.Language
+  alias PhoenixKitWeb.OAuth.Responses
 
   @moduletag :capture_log
   @read "testkit.items:read"
@@ -578,6 +579,100 @@ defmodule PhoenixKitWeb.OAuth.LanguageTest do
       answer = authorize(browser(), authorize_params(client, challenge, %{"lang" => "ru"}))
       assert answer.status == 302
     end
+
+    test "the redirect to the consent page carries a chosen language, and only a chosen one", %{
+      user: user,
+      client: client,
+      challenge: challenge
+    } do
+      answer = authorize(browser(), authorize_params(client, challenge, %{"lang" => "ru"}))
+      assert location(answer) =~ ~r|/oauth/consent/[A-Za-z0-9_-]{43}\?lang=ru\z|
+
+      # The consent page it leads to is in that language.
+      id = consent_id(answer)
+      page = consent(with_header(browser(user), "et"), id, "lang=ru")
+      assert html_lang(page) == "ru"
+
+      # A language that came from the browser is resolved again by the next request.
+      answer = authorize(with_header(browser(), "ru"), authorize_params(client, challenge))
+      refute location(answer) =~ "lang="
+
+      # A value that is not an enabled language is not carried.
+      answer = authorize(browser(), authorize_params(client, challenge, %{"lang" => "de"}))
+      refute location(answer) =~ "lang="
+    end
+
+    test "the retry of a refused request keeps the language the person chose", %{
+      client: client,
+      challenge: challenge
+    } do
+      put_setting("api_oauth_authorize_per_min", "1")
+      ip = unique_ip()
+      params = authorize_params(client, challenge)
+
+      [_first, refused] =
+        for _ <- 1..2 do
+          browser()
+          |> with_header("ru")
+          |> Plug.Conn.put_req_header("x-forwarded-for", ip)
+          |> authorize(params)
+        end
+
+      assert refused.status == 429
+      assert html_lang(refused) == "ru"
+      assert [href] = doc(refused) |> Floki.attribute("#language-ru", "href")
+      assert URI.parse(href).query =~ "lang=ru"
+      assert URI.decode_query(URI.parse(href).query)["state"] == params["state"]
+
+      # The person follows that link once the minute is over: still in Russian.
+      retried = authorize(browser(), URI.decode_query(URI.parse(href).query))
+      assert retried.status == 302
+      assert location(retried) =~ ~r|\?lang=ru\z|
+    end
+
+    test "a hostile query stays escaped in the links of the refused page", %{
+      client: client,
+      challenge: challenge
+    } do
+      evil = ~s|a"><script>alert(1)</script>'&b=<i>|
+
+      params =
+        authorize_params(client, challenge, %{"client_id" => "no-such-client", "state" => evil})
+
+      page = authorize(browser(), params)
+      assert page.status == 400
+      refute page.resp_body =~ "<script>"
+      refute page.resp_body =~ "<i>"
+
+      for code <- ~w(et ru en-US) do
+        assert [href] = doc(page) |> Floki.attribute("#language-#{code}", "href")
+        assert %URI{path: path, query: query} = URI.parse(href)
+        assert path == path("/authorize")
+        decoded = URI.decode_query(query)
+        assert decoded["state"] == evil
+        assert decoded["lang"] == code
+      end
+    end
+
+    test "a query too long to repeat is left out of the links, the switcher stays", %{
+      client: client,
+      challenge: challenge
+    } do
+      params =
+        authorize_params(client, challenge, %{
+          "client_id" => "no-such-client",
+          "state" => String.duplicate("s", 3000)
+        })
+
+      page = authorize(browser(), params)
+      assert page.status == 400
+      refute page.resp_body =~ String.duplicate("s", 100)
+
+      for code <- ~w(et ru en-US) do
+        assert doc(page) |> Floki.attribute("#language-#{code}", "href") ==
+                 [path("/authorize") <> "?lang=" <> code]
+      end
+    end
   end
 
   describe "headers" do
@@ -596,6 +691,91 @@ defmodule PhoenixKitWeb.OAuth.LanguageTest do
         assert get_resp_header(page, "vary") |> Enum.join(",") =~ "Accept-Language"
         assert get_resp_header(page, "cache-control") == ["no-store"]
       end
+    end
+  end
+
+  describe "the Vary header" do
+    defp vary(conn),
+      do: conn |> Responses.secure() |> get_resp_header("vary")
+
+    defp with_vary(values) do
+      Enum.reduce(
+        values,
+        Plug.Test.conn(:get, "/"),
+        &Plug.Conn.prepend_resp_headers(&2, [{"vary", &1}])
+      )
+    end
+
+    test "Accept-Language is added to a response that has no Vary" do
+      assert vary(Plug.Test.conn(:get, "/")) == ["Accept-Language"]
+    end
+
+    test "a Vary the host already set is kept" do
+      assert [value] = vary(with_vary(["Cookie"]))
+      assert value == "Cookie, Accept-Language"
+
+      assert [value] = vary(with_vary(["Origin, Cookie"]))
+      assert value == "Origin, Cookie, Accept-Language"
+    end
+
+    test "an Accept-Language already named, in any case, is not repeated" do
+      assert vary(with_vary(["accept-language"])) == ["accept-language"]
+      assert vary(with_vary(["Cookie, ACCEPT-LANGUAGE"])) == ["Cookie, ACCEPT-LANGUAGE"]
+    end
+
+    test "a Vary of * already covers it" do
+      assert vary(with_vary(["*"])) == ["*"]
+    end
+
+    test "running twice does not repeat it" do
+      conn = Plug.Test.conn(:get, "/") |> Responses.secure() |> Responses.secure()
+      assert get_resp_header(conn, "vary") == ["Accept-Language"]
+    end
+  end
+
+  describe "the global locale" do
+    test "the Gettext locale of the library and the base language the modules read follow the choice",
+         %{user: user, client: client, challenge: challenge} do
+      id = request_id(client, challenge)
+
+      consent(browser(user), id, "lang=en-US")
+      assert Gettext.get_locale(PhoenixKitWeb.Gettext) == "en"
+      assert Gettext.get_locale() == "en"
+
+      consent(browser(user), id, "lang=ru")
+      assert Gettext.get_locale(PhoenixKitWeb.Gettext) == "ru"
+      assert Gettext.get_locale() == "ru"
+    end
+  end
+
+  describe "a person who acts as another" do
+    test "the saved language of the account acted as picks nothing, the browser's does", %{
+      user: user,
+      client: client,
+      challenge: challenge
+    } do
+      user = prefer(user, "ru")
+      id = request_id(client, challenge)
+      root = KeyTestSupport.owner_user()
+      root_token = Auth.generate_user_session_token(root)
+      token = Auth.generate_user_session_token(user)
+
+      impersonating = fn ->
+        browser()
+        |> init_test_session(%{
+          "user_token" => token,
+          "pk_session_accounts" => [root_token, token]
+        })
+      end
+
+      page = consent(with_header(impersonating.(), "en-US"), id)
+      assert page.status == 403
+      assert html_lang(page) == "en-US"
+
+      # The person's own choice on the page still counts.
+      page = consent(with_header(impersonating.(), "en-US"), id, "lang=et")
+      assert page.status == 403
+      assert html_lang(page) == "et"
     end
   end
 

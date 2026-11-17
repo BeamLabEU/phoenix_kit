@@ -16,14 +16,18 @@ defmodule PhoenixKitWeb.OAuth.Language do
     4. the install's default language.
 
   A dialect (`ru-RU`, `en-GB`) is mapped to the enabled language of its base, as the site's
-  locale plug does for a URL. Nothing a client sends is ever written into a page or a link: the
-  `lang` attribute, the switcher and the `?lang=` of the links the pages generate are always one
-  of the enabled codes, never the request's own text. The login page of the host is not covered:
-  it is the host's, and it keeps the site's language.
+  locale plug does for a URL. The value of `lang` (or of any header) is never written into a page
+  or a link: the `lang` attribute, the switcher's `?lang=` and the `?lang=` of the URLs the pages
+  generate are always one of the enabled codes. The one place that repeats the request's own text
+  is the switcher of the authorize endpoint's error page, whose links carry that request's query
+  (without its `lang`, and only when it is short) so that the same request can be tried again in
+  another language; the text is escaped by the template and the path is fixed. The login page of
+  the host is not covered: it is the host's, and it keeps the site's language.
 
-  Use as a plug of a controller: `plug PhoenixKitWeb.OAuth.Language` (the authorize endpoint,
-  where nobody is known) or `plug PhoenixKitWeb.OAuth.Language, person: true`. It sets the Gettext
-  locale of the request and remembers the choice for `assigns/3` and `url/2`.
+  Use as a plug of a controller: `plug PhoenixKitWeb.OAuth.Language, person: true` (the consent
+  routes), or call it when the first page is rendered (the authorize endpoint, where nobody is
+  known and the rate limit comes first). It sets the Gettext locale of the request and remembers
+  the choice for `assigns/3` and `url/2`.
 
   The language is kept across the round trips of the flow only through the URL: a `lang` chosen on
   a page is added to the links and form actions that page generates (`url/2`), and it is not
@@ -38,14 +42,13 @@ defmodule PhoenixKitWeb.OAuth.Language do
   alias PhoenixKit.Utils.RecipientLocale
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Users.Auth
+  alias PhoenixKitWeb.Users.MultiSession
 
   @private :phoenix_kit_oauth_language
   @max_header 1024
   @max_entries 16
   @max_query 2048
   @tag ~r/\A[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{1,8}){0,3}\z/
-
-  @type choice :: %{code: String.t(), explicit?: boolean(), enabled: [String.t()]}
 
   @impl Plug
   def init(opts), do: Keyword.get(opts, :person, false)
@@ -63,9 +66,9 @@ defmodule PhoenixKitWeb.OAuth.Language do
   @doc """
   The assigns every page takes for its language: `lang` (the `lang` attribute of the document) and
   `languages` (the switcher: `code`, `name`, `href`, `current?` of each enabled language, empty
-  when there is only one, or when there is no `path`). `path` is the page the switcher links to and `query` the raw query
-  string of the request when it is part of that page (the authorize endpoint), otherwise `nil`;
-  a `lang` in it is replaced.
+  when there is only one, or when there is no `path`). `path` is the page the switcher links to and
+  `query` the raw query string of the request when it is part of that page (the authorize
+  endpoint), otherwise `nil`; a `lang` in it is replaced, and a query over 2048 bytes is left out.
   """
   @spec assigns(Plug.Conn.t(), String.t() | nil, String.t() | nil) :: map()
   def assigns(conn, path, query \\ nil) do
@@ -112,9 +115,16 @@ defmodule PhoenixKitWeb.OAuth.Language do
     end
   end
 
+  # The saved language of the signed-in person. Not while they act as another account: what the
+  # session holds is then the other person's profile, and it must not decide what the person at
+  # the keyboard reads.
   defp from_person(conn, enabled) do
-    case conn.assigns[:phoenix_kit_current_user] |> RecipientLocale.preferred() do
-      locale when is_binary(locale) -> match(locale, enabled)
+    user = conn.assigns[:phoenix_kit_current_user]
+
+    with false <- MultiSession.impersonated?(get_session(conn)),
+         locale when is_binary(locale) <- RecipientLocale.preferred(user) do
+      match(locale, enabled)
+    else
       _ -> nil
     end
   end

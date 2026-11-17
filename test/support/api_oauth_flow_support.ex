@@ -97,7 +97,11 @@ defmodule PhoenixKit.API.OAuthFlowSupport do
   defp remember_browser(%{status: 302} = answer) do
     with value when is_binary(value) <- browser_value(answer),
          [location | _] <- Plug.Conn.get_resp_header(answer, "location"),
-         [_, id] <- Regex.run(~r|/oauth/consent/([A-Za-z0-9_-]{43})\z|, location) do
+         [_, id] <-
+           Regex.run(
+             ~r|/oauth/consent/([A-Za-z0-9_-]{43})(?:\?lang=[A-Za-z0-9_%-]+)?\z|,
+             location
+           ) do
       Process.put({:oauth_browser, id}, value)
     end
 
@@ -147,7 +151,12 @@ defmodule PhoenixKit.API.OAuthFlowSupport do
 
   @doc "The id of the consent page an authorize redirect leads to."
   def consent_id(conn) do
-    [_, id] = Regex.run(~r|/oauth/consent/([A-Za-z0-9_-]{43})\z|, location(conn))
+    [_, id] =
+      Regex.run(
+        ~r|/oauth/consent/([A-Za-z0-9_-]{43})(?:\?lang=[A-Za-z0-9_%-]+)?\z|,
+        location(conn)
+      )
+
     id
   end
 

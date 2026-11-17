@@ -141,9 +141,12 @@ defmodule PhoenixKit.API.OAuth.Requests do
   @spec browser?(term()) :: boolean()
   def browser?(value), do: is_binary(value) and Regex.match?(@token_pattern, value)
 
-  @doc "Whether `value` has the form of a consent token (not whether such a request exists)."
+  @doc """
+  Whether `value` has the form of a consent token (not whether such a request exists). A token
+  and a browser nonce are made the same way, so this is `browser?/1` under the name of its use.
+  """
   @spec token?(term()) :: boolean()
-  def token?(value), do: is_binary(value) and Regex.match?(@token_pattern, value)
+  def token?(value), do: browser?(value)
 
   @doc "How many requests wait for a consent now (not used, not expired)."
   @spec live_count() :: non_neg_integer()

@@ -20,7 +20,9 @@ defmodule PhoenixKitWeb.OAuth.AuthorizeController do
   The route is declared with `log: false`: the query holds `state` and the PKCE challenge.
 
   The error pages are in the language `PhoenixKitWeb.OAuth.Language` picks (the `lang` parameter,
-  then the `Accept-Language` header, then the site's default), with a switcher.
+  then the `Accept-Language` header, then the site's default), with a switcher; the language is
+  resolved only when a page is rendered or the redirect is built, never before the rate limit has
+  counted the request. A `lang` the person chose is passed on to the consent URL.
   """
   use PhoenixKitWeb, :controller
 
@@ -38,7 +40,6 @@ defmodule PhoenixKitWeb.OAuth.AuthorizeController do
   @seen_every_seconds 3600
 
   plug :secure_headers
-  plug Language
 
   defp secure_headers(conn, _opts), do: Responses.secure(conn)
 
@@ -93,7 +94,8 @@ defmodule PhoenixKitWeb.OAuth.AuthorizeController do
     case Requests.create(request.client, attrs) do
       {:ok, token, _row} ->
         touch(request.client)
-        redirect(conn, to: Routes.path("/oauth/consent/" <> token))
+        conn = localize(conn)
+        redirect(conn, to: Language.url(conn, Routes.path("/oauth/consent/" <> token)))
 
       {:error, :busy} ->
         conn
@@ -102,10 +104,13 @@ defmodule PhoenixKitWeb.OAuth.AuthorizeController do
     end
   end
 
+  defp localize(conn), do: Language.call(conn, Language.init([]))
+
   # The switcher of an error page links to the same request in another language (its own query,
   # with any `lang` replaced), so that a request refused for its rate or a busy table can be
   # tried again in the language the person chose.
   defp error_page(conn, status) do
+    conn = localize(conn)
     assigns = Language.assigns(conn, Routes.path("/oauth/authorize"), conn.query_string)
     Responses.page(conn, status, Pages.error(assigns))
   end
