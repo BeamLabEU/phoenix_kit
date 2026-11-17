@@ -8,7 +8,9 @@ defmodule PhoenixKit.API.OAuth.ClientPolicyTest do
 
   import PhoenixKit.Test.ApiHarness, only: [put_setting: 2, setup_api: 0]
 
+  alias PhoenixKit.API.Config
   alias PhoenixKit.API.OAuth.ClientPolicy
+  alias PhoenixKit.Settings
 
   @claude_id "https://claude.ai/oauth/mcp-oauth-client-metadata"
   @claude_uris ["https://claude.ai/api/mcp/auth_callback"]
@@ -41,12 +43,12 @@ defmodule PhoenixKit.API.OAuth.ClientPolicyTest do
     @describetag :capture_log
 
     test "a setting that is not there is `approval`" do
-      {:ok, _} = PhoenixKit.Settings.delete_setting("api_oauth_client_policy")
-      assert PhoenixKit.API.Config.oauth_client_policy() == :approval
+      {:ok, _} = Settings.delete_setting("api_oauth_client_policy")
+      assert Config.oauth_client_policy() == :approval
     end
 
     test "an empty list under it asks for approval for every client" do
-      {:ok, _} = PhoenixKit.Settings.delete_setting("api_oauth_client_policy")
+      {:ok, _} = Settings.delete_setting("api_oauth_client_policy")
 
       assert ClientPolicy.judge("cimd", @claude_id, @claude_uris) == :needs_approval
 

@@ -28329,3 +28329,23 @@ msgstr "Lorsque le mot de passe d'une personne est changé ou réinitialisé, se
 #, elixir-autogen, elixir-format
 msgid "The setting for a password change was saved."
 msgstr "Le réglage du changement de mot de passe a été enregistré."
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:280
+#, elixir-autogen, elixir-format
+msgid "Which applications connect at once: those of the hosts in the list of allowed hosts in the OAuth settings, and those added there by hand. Any other application (your own agents, Claude Code, an inspector) signs in and gets the consent screen like the rest, but runs nothing until an Owner who holds the API right approves it: Settings, API, the Sign-in (OAuth) tab, the Waiting for approval block (Approve or Reject). A connection nobody decides on ends after %{days} days. With an empty list every connection waits for approval."
+msgstr "Les applications qui se connectent aussitôt : celles des hôtes de la liste des hôtes autorisés dans les réglages OAuth, et celles qui y ont été ajoutées à la main. Toute autre application (vos propres agents, Claude Code, un inspecteur) se connecte et reçoit l'écran de consentement comme les autres, mais n'exécute rien tant qu'un propriétaire disposant du droit API ne l'a pas approuvée : Paramètres, API, onglet « Connexion (OAuth) », bloc « En attente d'approbation » (Approuver ou Refuser). Une connexion sur laquelle personne ne décide prend fin après %{days} jours. Avec une liste vide, chaque connexion attend une approbation."
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:286
+#, elixir-autogen, elixir-format
+msgid "An application that waits for approval sees the list of tools as usual, but every call answers approval_pending, with advice to tell an Owner, and does nothing. Once an Owner approves, the same connection works at its next call: nothing has to be connected again."
+msgstr "Une application qui attend l'approbation voit la liste des outils comme d'habitude, mais chaque appel répond approval_pending, avec le conseil de prévenir un propriétaire, et ne fait rien. Dès qu'un propriétaire l'approuve, la même connexion fonctionne dès l'appel suivant : rien n'est à reconnecter."
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:291
+#, elixir-autogen, elixir-format
+msgid "The person gets one email when an application is connected: the name the application gave itself, the address its answers go to, the rights, the time, the address of the consent and whether it works or waits for approval, with a link to disconnect it. There is no switch for this email."
+msgstr "La personne reçoit un email lorsqu'une application est connectée : le nom que l'application s'est donné, l'adresse à laquelle vont ses réponses, les droits, l'heure, l'adresse du consentement et si elle fonctionne ou attend l'approbation, avec un lien pour la déconnecter. Cet email n'a pas d'interrupteur."
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:296
+#, elixir-autogen, elixir-format
+msgid "With the setting A password change ends personal keys and connections switched on (the API settings, Personal API keys), a changed or reset password ends the person's personal keys and connections at once. Keys of services stay."
+msgstr "Lorsque le réglage « Un changement de mot de passe met fin aux clés personnelles et aux connexions » est activé (réglages de l'API, Clés d'API personnelles), un mot de passe changé ou réinitialisé met fin aussitôt aux clés personnelles et aux connexions de la personne. Les clés des services restent."

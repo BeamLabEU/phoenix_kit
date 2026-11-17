@@ -23,7 +23,12 @@ defmodule PhoenixKitWeb.Live.Settings.ApiGuidePanel do
   Built from `PhoenixKit.API.OAuth.Status` (the addresses are the ones the discovery
   documents publish) and shown whether or not OAuth is on, with a note and a link to the
   switch while it is off. The table of clients says plainly which connection was checked
-  against a live client and which only against the client's published documents.
+  against a live client and which only against the client's published documents. It also tells
+  who may approve an application that is not on the list of allowed hosts, what the waiting
+  application gets, the email about a new connection and the setting that ends personal keys and
+  connections when a password is changed; change that text together with the code it describes
+  (`PhoenixKit.API.OAuth.ClientPolicy`, `PhoenixKit.API.OAuth.Grants`,
+  `PhoenixKit.API.OAuth.ConnectedMail`, `PhoenixKit.API.Keys.revoke_all_for_password_change/2`).
 
   ## Where the numbers come from
 
@@ -42,6 +47,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiGuidePanel do
   alias PhoenixKit.API.FlowConfig
   alias PhoenixKit.API.MCP.Names
   alias PhoenixKit.API.MCP.Shape
+  alias PhoenixKit.API.OAuth.Grants
   alias PhoenixKit.API.OAuth.Status
   alias PhoenixKit.API.Paths
   alias PhoenixKit.API.Problem
@@ -144,6 +150,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiGuidePanel do
       mcp_url: url,
       metadata_url: Keyword.fetch!(report.urls, :protected_resource_metadata),
       server_metadata_url: Keyword.fetch!(report.urls, :authorization_server_metadata),
+      approval_days: Grants.approval_days(),
       claude_code_command: "claude mcp add --transport http #{name} #{shell_quote(url)}",
       matrix: oauth_matrix()
     }

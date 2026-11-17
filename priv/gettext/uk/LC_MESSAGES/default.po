@@ -28405,3 +28405,23 @@ msgstr "Коли пароль людини змінюють або скидаю�
 #, elixir-autogen, elixir-format
 msgid "The setting for a password change was saved."
 msgstr "Налаштування зміни пароля збережено."
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:280
+#, elixir-autogen, elixir-format
+msgid "Which applications connect at once: those of the hosts in the list of allowed hosts in the OAuth settings, and those added there by hand. Any other application (your own agents, Claude Code, an inspector) signs in and gets the consent screen like the rest, but runs nothing until an Owner who holds the API right approves it: Settings, API, the Sign-in (OAuth) tab, the Waiting for approval block (Approve or Reject). A connection nobody decides on ends after %{days} days. With an empty list every connection waits for approval."
+msgstr "Які застосунки підключаються одразу: застосунки хостів зі списку дозволених хостів у налаштуваннях OAuth і додані там вручну. Будь-який інший застосунок (ваші власні агенти, Claude Code, інспектор) входить і отримує екран згоди, як і решта, але нічого не виконує, доки його не схвалить Власник із правом на API: Налаштування, API, вкладка «Вхід (OAuth)», блок «Очікування схвалення» (Схвалити або Відхилити). Підключення, щодо якого ніхто не ухвалив рішення, завершується через %{days} дн. За порожнього списку кожне підключення чекає схвалення."
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:286
+#, elixir-autogen, elixir-format
+msgid "An application that waits for approval sees the list of tools as usual, but every call answers approval_pending, with advice to tell an Owner, and does nothing. Once an Owner approves, the same connection works at its next call: nothing has to be connected again."
+msgstr "Застосунок, що чекає схвалення, бачить список інструментів як завжди, але кожен виклик відповідає approval_pending із порадою повідомити Власника і нічого не виконує. Щойно Власник схвалює, те саме підключення працює під час наступного виклику: нічого не потрібно підключати заново."
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:291
+#, elixir-autogen, elixir-format
+msgid "The person gets one email when an application is connected: the name the application gave itself, the address its answers go to, the rights, the time, the address of the consent and whether it works or waits for approval, with a link to disconnect it. There is no switch for this email."
+msgstr "Людина отримує один лист, коли застосунок підключено: ім'я, яким застосунок назвав себе, адресу, на яку надходять його відповіді, права, час, адресу згоди та стан (працює чи чекає схвалення), з посиланням, щоб від'єднати застосунок. Вимикача в цього листа немає."
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:296
+#, elixir-autogen, elixir-format
+msgid "With the setting A password change ends personal keys and connections switched on (the API settings, Personal API keys), a changed or reset password ends the person's personal keys and connections at once. Keys of services stay."
+msgstr "Якщо ввімкнено налаштування «Зміна пароля завершує особисті ключі та підключення» (налаштування API, Особисті API-ключі), змінений або скинутий пароль одразу завершує особисті ключі й підключення людини. Ключі служб залишаються."
