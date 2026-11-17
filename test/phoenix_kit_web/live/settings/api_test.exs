@@ -19,6 +19,8 @@ defmodule PhoenixKitWeb.Live.Settings.ApiTest do
   alias PhoenixKit.API.Keys.Key
   alias PhoenixKit.API.KeyTestSupport
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.ActiveRole
+  alias PhoenixKit.Users.Auth, as: AuthCtx
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.Permissions
@@ -213,6 +215,34 @@ defmodule PhoenixKitWeb.Live.Settings.ApiTest do
 
       entries = Activity.list(action: "setting.changed", actor_uuid: admin.uuid).entries
       refute Enum.any?(entries, &(&1.metadata["key"] == "api_password_change_revokes"))
+    end
+
+    test "an Owner acting as Admin through the role switcher still sees the switch enabled" do
+      KeyTestSupport.write_setting(fn ->
+        Settings.update_boolean_setting("role_switcher_enabled", true)
+      end)
+
+      owner = KeyTestSupport.owner_user()
+      {:ok, _} = Roles.assign_role(owner, "Admin", nil, broadcast: false)
+      token = AuthCtx.generate_user_session_token(owner)
+      admin_role = Roles.get_role_by_name("Admin")
+      session_user = AuthCtx.get_user_by_session_token(token)
+
+      assert {:ok, _} = ActiveRole.switch(session_user, token, admin_role.uuid)
+
+      conn =
+        Phoenix.ConnTest.build_conn()
+        |> Phoenix.ConnTest.init_test_session(%{})
+        |> Plug.Conn.put_session(:user_token, token)
+        |> Plug.Conn.put_session(
+          :live_socket_id,
+          "phoenix_kit_sessions:#{Base.url_encode64(token)}"
+        )
+
+      {:ok, view, _html} = live(conn, @path)
+
+      refute has_element?(view, "#api-switch-password-owner-only")
+      refute has_element?(view, "#api-switch-password-row input[disabled]")
     end
 
     test "an Admin cannot switch the password setting OFF either", %{conn: conn} do

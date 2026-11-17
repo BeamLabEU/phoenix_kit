@@ -552,6 +552,15 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
 
   defp scope(socket), do: socket.assigns.api_scope
 
+  # Whether the person is an Owner now, read as the events read it (the scope captured at mount
+  # may be narrowed to one active role, and a role changed since is not in it).
+  defp owner_now?(socket) do
+    case fresh_scope(socket) do
+      {:ok, fresh} -> Scope.owner?(fresh)
+      :error -> false
+    end
+  end
+
   # A token that has not been dismissed is the only copy there is: nothing may
   # start another one (or reopen the form that would) until it is stored.
   defp token_pending?(socket), do: socket.assigns.new_token != nil
@@ -580,7 +589,7 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
     |> assign(:admin_enabled, Config.admin_enabled?())
     |> assign(:public_enabled, Config.public_enabled?())
     |> assign(:password_change_revokes, Config.password_change_revokes?())
-    |> assign(:owner?, Scope.owner?(scope))
+    |> assign(:owner?, owner_now?(socket))
     |> assign_api_modules()
     |> assign(:keys, keys)
     |> assign(:service_users, service_users)
