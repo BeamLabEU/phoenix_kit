@@ -161,41 +161,54 @@ defmodule PhoenixKitWeb.OAuth.Pages do
       </p>
       <form method="post" action={@action} id="consent-form">
         <input type="hidden" name="_csrf_token" value={@csrf_token} />
-        <h2>{gettext("What it may do")}</h2>
-        <section :for={section <- @sections} class="module" id={"consent-module-#{section.key}"}>
-          <h3>{section.label}</h3>
-          <div :if={section.reads != []} id={"consent-reads-#{section.key}"}>
-            <h4>{gettext("Reading")}</h4>
-            <.rights entries={section.reads} preselected={@preselected} />
-          </div>
-          <div :if={section.writes != []} id={"consent-writes-#{section.key}"}>
-            <h4>{gettext("Changing data")}</h4>
-            <.rights entries={section.writes} preselected={@preselected} />
-          </div>
-        </section>
-        <p class="muted">
-          {gettext("Reading is selected by default. Anything that changes data you turn on yourself.")}
+        <p :if={@sections == []} class="warn" id="consent-none">
+          {gettext("You hold none of the rights that can be given to this application.")}
         </p>
-        <p class="muted">
-          {gettext(
-            "Permissions are counted across all your roles, not only the one you are using now."
-          )}
-        </p>
-        <p class="muted" id="consent-reconnect">
-          {gettext(
-            "The application gets only what you tick here. If it needs other rights later, disconnect it under My API keys and connect it again."
-          )}
-        </p>
-        <h2>{gettext("How long")}</h2>
-        <p>
-          <select name="days" id="consent-days">
-            <option :for={d <- @day_choices} value={d} selected={d == @default_days}>
-              {ngettext("%{count} day", "%{count} days", d)}
-            </option>
-          </select>
-        </p>
+        <div :if={@sections != []} id="consent-choices">
+          <h2>{gettext("What it may do")}</h2>
+          <section :for={section <- @sections} class="module" id={"consent-module-#{section.key}"}>
+            <h3>{section.label}</h3>
+            <div :if={section.reads != []} id={"consent-reads-#{section.key}"}>
+              <h4>{gettext("Reading")}</h4>
+              <.rights entries={section.reads} preselected={@preselected} />
+            </div>
+            <div :if={section.writes != []} id={"consent-writes-#{section.key}"}>
+              <h4>{gettext("Changing data")}</h4>
+              <.rights entries={section.writes} preselected={@preselected} />
+            </div>
+          </section>
+          <p class="muted">
+            {gettext(
+              "Reading is selected by default. Anything that changes data you turn on yourself."
+            )}
+          </p>
+          <p class="muted">
+            {gettext(
+              "Permissions are counted across all your roles, not only the one you are using now."
+            )}
+          </p>
+          <p class="muted" id="consent-reconnect">
+            {gettext(
+              "The application gets only what you tick here. If it needs other rights later, disconnect it and connect it again."
+            )}
+          </p>
+          <h2>{gettext("How long")}</h2>
+          <p>
+            <select name="days" id="consent-days">
+              <option :for={d <- @day_choices} value={d} selected={d == @default_days}>
+                {ngettext("%{count} day", "%{count} days", d)}
+              </option>
+            </select>
+          </p>
+        </div>
         <div class="actions">
-          <button type="submit" name="decision" value="allow" id="consent-allow">
+          <button
+            :if={@sections != []}
+            type="submit"
+            name="decision"
+            value="allow"
+            id="consent-allow"
+          >
             {gettext("Allow")}
           </button>
           <button type="submit" name="decision" value="deny" class="deny" id="consent-deny">

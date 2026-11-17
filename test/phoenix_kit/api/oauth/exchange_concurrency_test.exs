@@ -4,7 +4,8 @@ defmodule PhoenixKit.API.OAuth.ExchangeConcurrencyTest do
   real commits, no sandbox. A code is redeemed by one caller (the others are replays that end the
   grant); a refresh token is rotated by one
   caller, and a burst of presentations of one used token is never more than one new pair
-  (the retry window) before the family is revoked.
+  (the retry window) before the family is revoked. A disconnect (`Grants.revoke/1`) that runs
+  against an exchange leaves no live token behind, whichever of them gets the locks first.
   """
   use ExUnit.Case, async: false
 
@@ -131,5 +132,42 @@ defmodule PhoenixKit.API.OAuth.ExchangeConcurrencyTest do
       )
 
     assert live_refresh == 1
+  end
+
+  defp live_tokens(grant) do
+    Repo.aggregate(
+      from(t in Token, where: t.grant_uuid == ^grant.uuid and is_nil(t.revoked_at)),
+      :count
+    )
+  end
+
+  test "a disconnect against the exchange of the code leaves no live token", ctx do
+    results =
+      concurrently(@callers, fn
+        1 -> {:revoke, Grants.revoke(ctx.grant)}
+        _ -> {:exchange, Exchange.token(ctx.params)}
+      end)
+
+    assert Enum.any?(results, &match?({:revoke, {:ok, _}}, &1)), inspect(results)
+    assert %Grant{revoked_at: %DateTime{}} = Repo.get!(Grant, ctx.grant.uuid)
+    assert live_tokens(ctx.grant) == 0
+  end
+
+  test "a disconnect against refreshes leaves no live token", ctx do
+    {:ok, %{"refresh_token" => refresh}} = Exchange.token(ctx.params)
+
+    request = %{
+      "grant_type" => "refresh_token",
+      "refresh_token" => refresh,
+      "client_id" => ctx.client.client_id
+    }
+
+    concurrently(@callers, fn
+      1 -> Grants.revoke(ctx.grant)
+      _ -> Exchange.token(request)
+    end)
+
+    assert %Grant{revoked_at: %DateTime{}} = Repo.get!(Grant, ctx.grant.uuid)
+    assert live_tokens(ctx.grant) == 0
   end
 end

@@ -30,10 +30,13 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
   Everything the answer needs comes from the stored request, never from the form: the form
   carries only the decision, the chosen scopes (cut down to what may be offered) and the lifetime.
   The request is used once: a second click, a replayed form or a request that ran out meet the
-  "start again" page. The protection against a form posted from another site is the host's
-  `:browser` pipeline (`protect_from_forgery`), which these routes sit in: a host whose browser
-  pipeline lacks it would let an attacker's consent id be answered from the victim's browser. A person at the ceiling of connections is not served: the page lists their
-  grants and the request stays unused while they disconnect one.
+  "start again" page. A consent id answered from the wrong browser is not found (the binding
+  above), and the cookie is `SameSite=Lax`, which a cross-site form post does not carry; the
+  host's `:browser` pipeline (`protect_from_forgery`), which these routes sit in, is the second
+  layer, and a host whose pipeline lacks it relies on the binding alone.
+
+  A person at the ceiling of connections is not served: the page lists their grants and the
+  request stays unused while they disconnect one.
   """
   use PhoenixKitWeb, :controller
 

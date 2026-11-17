@@ -27514,157 +27514,162 @@ msgstr "Це підключення зберігає облікові дані. 
 msgid "The verification could not load, so this form cannot be sent. Your browser or network is blocking challenges.cloudflare.com: allow it (a content blocker is the usual cause), then reload the page."
 msgstr "Перевірку не вдалося завантажити, тому надіслати цю форму неможливо. Ваш браузер або мережа блокує challenges.cloudflare.com: дозвольте цю адресу (зазвичай причина в блокувальнику вмісту) і перезавантажте сторінку."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:80
+#: lib/phoenix_kit_web/oauth/pages.ex:85
 #, elixir-autogen, elixir-format
 msgid "This connection cannot be started"
 msgstr "Це підключення неможливо розпочати"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:83
+#: lib/phoenix_kit_web/oauth/pages.ex:88
 #, elixir-autogen, elixir-format
 msgid "The link that brought you here is not valid. Go back to the application and start the connection again."
 msgstr "Посилання, за яким ви прийшли, недійсне. Поверніться до застосунку й розпочніть підключення знову."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:97
+#: lib/phoenix_kit_web/oauth/pages.ex:102
 #, elixir-autogen, elixir-format
 msgid "Start the connection again"
 msgstr "Розпочати підключення знову"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:100
+#: lib/phoenix_kit_web/oauth/pages.ex:105
 #, elixir-autogen, elixir-format
 msgid "This request has expired or was already used. Go back to the application and start the connection again."
 msgstr "Цей запит завершився або вже використаний. Поверніться до застосунку й розпочніть підключення знову."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:114
+#: lib/phoenix_kit_web/oauth/pages.ex:119
 #, elixir-autogen, elixir-format
 msgid "You cannot connect applications"
 msgstr "Ви не можете підключати застосунки"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:117
+#: lib/phoenix_kit_web/oauth/pages.ex:122
 #, elixir-autogen, elixir-format
 msgid "Applications cannot be connected while you are acting as another person."
 msgstr "Застосунки не можна підключати, поки ви дієте від імені іншої особи."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:120
+#: lib/phoenix_kit_web/oauth/pages.ex:125
 #, elixir-autogen, elixir-format
 msgid "You do not have the right to connect applications. Ask an administrator."
 msgstr "У вас немає права підключати застосунки. Зверніться до адміністратора."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:138
+#: lib/phoenix_kit_web/oauth/pages.ex:146
 #, elixir-autogen, elixir-format
 msgid "Allow access"
 msgstr "Дозволити доступ"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:139
+#: lib/phoenix_kit_web/oauth/pages.ex:147
 #, elixir-autogen, elixir-format
 msgid "%{client} asks for access"
 msgstr "%{client} запитує доступ"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:140
+#: lib/phoenix_kit_web/oauth/pages.ex:148
 #, elixir-autogen, elixir-format
 msgid "on behalf of %{email}"
 msgstr "від імені %{email}"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:141
+#: lib/phoenix_kit_web/oauth/pages.ex:149
 #, elixir-autogen, elixir-format
 msgid "After you decide, your browser is sent to"
 msgstr "Після вашого рішення браузер буде перенаправлено на"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:144
+#: lib/phoenix_kit_web/oauth/pages.ex:155
 #, elixir-autogen, elixir-format
 msgid "This address is on the computer you are using now. Allow it only if you started this connection yourself."
 msgstr "Ця адреса знаходиться на комп'ютері, яким ви користуєтеся зараз. Дозволяйте лише якщо ви самі розпочали це підключення."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:149
+#: lib/phoenix_kit_web/oauth/pages.ex:160
 #, elixir-autogen, elixir-format
 msgid "Choose at least one permission."
 msgstr "Виберіть принаймні один дозвіл."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:153
+#: lib/phoenix_kit_web/oauth/pages.ex:165
+#, elixir-autogen, elixir-format
+msgid "You hold none of the rights that can be given to this application."
+msgstr "У вас немає прав, які можна надати цьому застосунку."
+
+#: lib/phoenix_kit_web/oauth/pages.ex:168
 #, elixir-autogen, elixir-format
 msgid "What it may do"
 msgstr "Що воно зможе робити"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:168
+#: lib/phoenix_kit_web/oauth/pages.ex:172
 #, elixir-autogen, elixir-format
 msgid "Reading"
 msgstr "Читання"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:172
+#: lib/phoenix_kit_web/oauth/pages.ex:176
 #, elixir-autogen, elixir-format
 msgid "Changing data"
 msgstr "Зміна даних"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:320
+#: lib/phoenix_kit_web/oauth/pages.ex:331
 #, elixir-autogen, elixir-format
 msgid "What this includes"
 msgstr "Що сюди входить"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:334
+#: lib/phoenix_kit_web/oauth/pages.ex:345
 #, elixir-autogen, elixir-format
 msgid "Read: %{resource}"
 msgstr "Читання: %{resource}"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:337
+#: lib/phoenix_kit_web/oauth/pages.ex:348
 #, elixir-autogen, elixir-format
 msgid "Change: %{resource} (%{action})"
 msgstr "Зміна: %{resource} (%{action})"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:186
+#: lib/phoenix_kit_web/oauth/pages.ex:189
 #, elixir-autogen, elixir-format
-msgid "The application gets only what you tick here. If it needs other rights later, disconnect it under My API keys and connect it again."
-msgstr "Застосунок отримує лише те, що ви позначили тут. Якщо йому згодом знадобляться інші права, від'єднайте його в розділі «Мої API-ключі» й підключіть знову."
+msgid "The application gets only what you tick here. If it needs other rights later, disconnect it and connect it again."
+msgstr "Застосунок отримує лише те, що ви позначили тут. Якщо йому згодом знадобляться інші права, від'єднайте його й підключіть знову."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:284
+#: lib/phoenix_kit_web/oauth/pages.ex:294
 #, elixir-autogen, elixir-format
 msgid "It will stop working at once. To use it again you connect it again and allow access again."
 msgstr "Він одразу перестане працювати. Щоб користуватися ним знову, підключіть його заново й знову дозвольте доступ."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:292
+#: lib/phoenix_kit_web/oauth/pages.ex:303
 #, elixir-autogen, elixir-format
 msgid "Yes, disconnect"
 msgstr "Так, від'єднати"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:274
+#: lib/phoenix_kit_web/oauth/pages.ex:285
 #, elixir-autogen, elixir-format
 msgid "Disconnect this application?"
 msgstr "Від'єднати цей застосунок?"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:171
+#: lib/phoenix_kit_web/oauth/pages.ex:181
 #, elixir-autogen, elixir-format
 msgid "Reading is selected by default. Anything that changes data you turn on yourself."
 msgstr "За замовчуванням вибрано лише читання. Усе, що змінює дані, ви вмикаєте самі."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:174
+#: lib/phoenix_kit_web/oauth/pages.ex:184
 #, elixir-autogen, elixir-format
 msgid "Permissions are counted across all your roles, not only the one you are using now."
 msgstr "Права обчислюються за всіма вашими ролями, а не лише за тією, якою ви користуєтеся зараз."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:178
+#: lib/phoenix_kit_web/oauth/pages.ex:193
 #, elixir-autogen, elixir-format
 msgid "How long"
 msgstr "На який термін"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:188
+#: lib/phoenix_kit_web/oauth/pages.ex:210
 #, elixir-autogen, elixir-format
 msgid "Allow"
 msgstr "Дозволити"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:209
+#: lib/phoenix_kit_web/oauth/pages.ex:231
 #, elixir-autogen, elixir-format
 msgid "Too many connections"
 msgstr "Забагато підключень"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:212
+#: lib/phoenix_kit_web/oauth/pages.ex:234
 #, elixir-autogen, elixir-format
 msgid "You already have as many connected applications as are allowed. Disconnect one to connect another."
 msgstr "У вас уже підключено максимально дозволену кількість застосунків. Від'єднайте один, щоб підключити інший."
 
-#: lib/phoenix_kit_web/oauth/pages.ex:219
+#: lib/phoenix_kit_web/oauth/pages.ex:241
 #, elixir-autogen, elixir-format
 msgid "Application"
 msgstr "Застосунок"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:248
+#: lib/phoenix_kit_web/oauth/pages.ex:270
 #, elixir-autogen, elixir-format
 msgid "Back to the request"
 msgstr "Назад до запиту"

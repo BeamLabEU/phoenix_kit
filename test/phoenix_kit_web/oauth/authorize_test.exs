@@ -101,16 +101,26 @@ defmodule PhoenixKitWeb.OAuth.AuthorizeTest do
       assert [%Request{requested_scopes: ["testkit.items:read"]}] = Repo.all(Request)
     end
 
-    test "a scope that names only unknown values is invalid_scope, not 'none named'", %{
+    test "a scope that names only unknown values names nothing, and the person chooses", %{
       client: client,
       challenge: challenge
     } do
-      for scope <- ["openid", "openid profile", "nope.x:read  also.nope:write"] do
+      for scope <- ["openid", "openid profile", "offline_access", "nope.x:read  also.nope:write"] do
         conn = authorize(browser(), authorize_params(client, challenge, %{"scope" => scope}))
-        assert %{"error" => "invalid_scope"} = redirect_error(conn), scope
+        assert conn.status == 302, scope
+        assert location(conn) =~ "/oauth/consent/", scope
       end
 
-      assert Repo.all(Request) == []
+      requests = Repo.all(Request)
+      assert length(requests) == 4
+      assert Enum.all?(requests, &(&1.requested_scopes == []))
+    end
+
+    test "an empty resource is treated as omitted", %{client: client, challenge: challenge} do
+      params = authorize_params(client, challenge, %{"resource" => ""})
+      assert authorize(browser(), params).status == 302
+      assert [%Request{resource: stored}] = Repo.all(Request)
+      assert stored == Resource.resource()
     end
 
     test "an empty scope names nothing, and the person chooses on the screen", %{

@@ -242,7 +242,14 @@ defmodule PhoenixKitWeb.OAuth.FlowTest do
       params = authorize_params(client, challenge, %{"scope" => @write})
       id = browser() |> authorize(params) |> consent_id()
 
-      assert [] = Floki.find(consent_html(reader, id), ~s(input[name="scopes[]"]))
+      html = consent_html(reader, id)
+      assert [] = Floki.find(html, ~s(input[name="scopes[]"]))
+
+      # Nothing to allow: the screen says so and offers only to deny.
+      assert [_] = Floki.find(html, "#consent-none")
+      assert [] = Floki.find(html, "#consent-allow")
+      assert [] = Floki.find(html, "#consent-days")
+      assert [_] = Floki.find(html, "#consent-deny")
 
       # Nor does a forged answer get the reading scope the client never asked for.
       conn = decide(browser(reader), id, %{"decision" => "allow", "scopes" => [@read]})
@@ -433,6 +440,10 @@ defmodule PhoenixKitWeb.OAuth.FlowTest do
       same = refresh(client, tokens["refresh_token"], %{"scope" => @read})
       assert same.status == 200
       assert %{"scope" => @read} = body(same)
+    end
+
+    test "an empty resource is treated as omitted", %{client: client, tokens: tokens} do
+      assert refresh(client, tokens["refresh_token"], %{"resource" => ""}).status == 200
     end
 
     test "a foreign resource is invalid_target", %{client: client, tokens: tokens} do

@@ -388,6 +388,9 @@ defmodule PhoenixKit.API.OAuth.Exchange do
       match?({:ok, _owner}, Keys.active_owner(key))
   end
 
+  # An empty parameter is an omitted one (RFC 6749 section 3.2).
+  defp check_resource(%{"resource" => ""}, _grant), do: :ok
+
   defp check_resource(%{"resource" => resource}, %Grant{resource: granted}) do
     with {:ok, given} <- Resource.normalize(resource),
          {:ok, own} <- Resource.normalize(granted),

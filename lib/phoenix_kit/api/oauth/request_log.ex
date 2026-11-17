@@ -1,7 +1,7 @@
 defmodule PhoenixKit.API.OAuth.RequestLog do
   @moduledoc """
   Keeps the consent capability URL (`<prefix>/oauth/consent/<token>`) and the query of any
-  `/oauth/*` request out of the application log, whatever the host's endpoint looks like.
+  `/oauth/*` request out of the application log, for the stock endpoint loggers.
 
   The routes of the OAuth pages are declared `log: false`, but that only silences the router's own
   "Processing with ..." and "Parameters" lines. The path was still written by the request line of
@@ -15,6 +15,10 @@ defmodule PhoenixKit.API.OAuth.RequestLog do
   query string from any `/oauth/` path; in the second it replaces the token of a consent path. Every
   other event passes unchanged. The `[RequestTimer]` lines of the kit's own
   `PhoenixKitWeb.Plugs.RequestTimer` log `path/1`.
+
+  The filter is registered for every install, also while OAuth is off, and it is global to the
+  VM: a line of another application that has the same shape is rewritten as well. A request logger
+  that puts the path in metadata or in a report (not in a plain text message) is not covered.
 
   A token in a line of the log is of no use to a reader of the log alone anyway: a request is found
   only for the browser that started it (`PhoenixKit.API.OAuth.Requests`).

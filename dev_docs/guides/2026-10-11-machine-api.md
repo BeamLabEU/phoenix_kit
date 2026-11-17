@@ -319,7 +319,7 @@ claude mcp add --transport http <name>-admin 'https://<host>/mcp/admin' --header
 
 `--header` takes any number of values, so it comes after the URL. The line uses Claude Code's default `local` scope, which keeps the key out of the shared project file. Cursor takes `{"mcpServers": {"<name>-admin": {"url": "...", "headers": {"Authorization": "Bearer <your key>"}}}}` in `~/.cursor/mcp.json` (the user file), VS Code a `servers` entry in `.vscode/mcp.json` whose header is `Bearer ${input:<name>-admin-key}` with an `inputs` prompt of `"password": true`, so the key is asked for and not written down. `<name>` is the slug of the project title; `-admin` keeps it apart from the public server of the same site. Claude's desktop and web connectors cannot send a fixed Bearer header and are not covered. For the public server the site publishes the commands itself: see [Public discovery](#public-discovery) (`GET /mcp`).
 
-Clients that support only OAuth for remote servers are not supported yet. Put the key in the client's secret store, never in the URL: a URL with `?token=...` is refused.
+Clients that support only OAuth for remote servers work only while `api_oauth_enabled` is on (off by default; it counts only while the admin API is on): they then connect through the authorization code flow of `/oauth/authorize`. Put the key in the client's secret store, never in the URL: a URL with `?token=...` is refused.
 
 If a CDN or WAF in front of the site challenges bots, exempt `/api` and `/mcp`: an agent cannot pass an HTML challenge, and the API has its own rate limits.
 
@@ -344,7 +344,7 @@ Four things tell a person or an agent how to connect, without a key. All are gen
 
 **Cache headers.** `public, max-age=300` while the website gate is off; `private, no-store` while it is on (the answer then depends on the client address); every `404`/`405`/`406` carries plain `no-store`. `/llms.txt` keeps its one hour unless the gate is on and the section is present. No rate-limit unit is charged: these are not API calls.
 
-**Nothing here names the admin API, and only the canonical public paths.** The deprecated aliases are never advertised. The public documents never contain an admin path, tool name, scope, permission, `Bearer` or "approval". `OutputShape.for_tool/1` gives a public write tool a preview shape without approvals for that reason. The leak test (`PhoenixKitWeb.APIDiscoveryTest`) builds its banned list from the admin registry and scans every public body and header.
+**Nothing here names the admin API, and only the canonical public paths.** The deprecated aliases are never advertised. The public documents never contain an admin path, tool name, scope, permission, `Bearer` or "approval". The one exception is the OAuth protected-resource document (`/.well-known/oauth-protected-resource/mcp/admin`), which names `/mcp/admin` because an unauthenticated client must be told where to sign in. `OutputShape.for_tool/1` gives a public write tool a preview shape without approvals for that reason. The leak test (`PhoenixKitWeb.APIDiscoveryTest`) builds its banned list from the admin registry and scans every public body and header.
 
 **Translations.** The guide's headings and fixed sentences are gettext (`default.pot` and the nine `.po` files, added by hand); tool titles and descriptions, command lines and JSON stay as declared. `PhoenixKit.API.PublicDiscoveryTranslationsTest` fails when a msgid is missing from a catalogue.
 

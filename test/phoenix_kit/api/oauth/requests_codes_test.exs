@@ -55,7 +55,7 @@ defmodule PhoenixKit.API.OAuth.RequestsCodesTest do
       assert uuid == request.uuid
     end
 
-    test "fetch/1 accepts nothing but a canonical token", %{client: client} do
+    test "fetch/2 accepts nothing but a canonical token", %{client: client} do
       {:ok, token, _} = Requests.create(client, attrs())
 
       for bad <- [

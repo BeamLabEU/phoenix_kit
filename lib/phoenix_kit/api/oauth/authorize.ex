@@ -20,8 +20,9 @@ defmodule PhoenixKit.API.OAuth.Authorize do
 
   Read in this order: the client, the redirect URI, then `response_type`, `request`,
   `request_uri`, the PKCE challenge and its method (`S256` only; `plain` is refused), `resource`,
-  `scope` and `state`. `prompt` and `id_token_hint` are ignored. Unknown scopes are dropped; a `scope`
-  that names only unknown ones is `invalid_scope`.
+  `scope` and `state`. `prompt` and `id_token_hint` are ignored. Unknown scopes are dropped (a `scope`
+  that names only unknown ones names nothing: the person chooses on the consent screen); an empty
+  `resource` is treated as omitted.
 
   A parameter that is repeated (or written as a list or a map) makes the whole request a page
   error: which of two values is meant cannot be known, and one of them may be the client's own
@@ -192,18 +193,17 @@ defmodule PhoenixKit.API.OAuth.Authorize do
     end
   end
 
-  # No `scope`, or an empty one: the person chooses on the consent screen. Names that are all
-  # unknown to this server are `invalid_scope`; a mix keeps the known ones.
-  defp check_scope(%{"scope" => scope}) when is_binary(scope) do
-    case {Scopes.parse(scope), String.split(scope, " ", trim: true)} do
-      {[], [_ | _]} -> {:error, "invalid_scope", "None of the requested scopes is known."}
-      {scopes, _named} -> {:ok, scopes}
-    end
-  end
+  # No `scope`, an empty one, or one that names only values this server does not know: nothing
+  # is named, and the person chooses on the consent screen. Unknown names are dropped without a
+  # word: an error for them would tell an anonymous caller which scopes exist.
+  defp check_scope(%{"scope" => scope}) when is_binary(scope), do: {:ok, Scopes.parse(scope)}
 
   defp check_scope(_params), do: {:ok, []}
 
-  # No resource: the one this server protects. A resource that is not it is `invalid_target`.
+  # No resource, or an empty one (RFC 6749 sections 3.1 and 3.2: a parameter sent without a value
+  # is omitted): the one this server protects. A resource that is not it is `invalid_target`.
+  defp check_resource(%{"resource" => ""}), do: {:ok, Resource.resource()}
+
   defp check_resource(%{"resource" => resource}) do
     if Resource.matches?(resource),
       do: {:ok, Resource.resource()},

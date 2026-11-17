@@ -32,6 +32,11 @@ defmodule PhoenixKitWeb.OAuth.Responses do
   path of the flow, and it lives an hour. A browser already holding a nonce keeps it, so two
   requests started in two tabs do not undo each other.
 
+  The cookie cannot take the `__Host-` prefix, which needs `Path=/`. The accepted trade-off: a
+  well-formed nonce is taken from whatever the browser sends, so someone who can set cookies for
+  the site from a sibling subdomain could plant a nonce of their own and relay a consent URL
+  they started.
+
   ## Redirects to the client
 
   `to_client/3` appends parameters to the client's redirect URI (which is already confirmed

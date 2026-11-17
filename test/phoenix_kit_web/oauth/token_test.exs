@@ -65,6 +65,10 @@ defmodule PhoenixKitWeb.OAuth.TokenTest do
       assert error_of(conn) == "invalid_target"
     end
 
+    test "an empty resource parameter is treated as omitted", %{flow: flow} do
+      assert exchange_code(flow, %{"resource" => ""}).status == 200
+    end
+
     test "a client_secret and other unknown fields are ignored", %{flow: flow} do
       assert exchange_code(flow, %{"client_secret" => "x", "foo" => "bar"}).status == 200
     end
