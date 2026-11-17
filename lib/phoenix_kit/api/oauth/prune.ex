@@ -11,10 +11,11 @@ defmodule PhoenixKit.API.OAuth.Prune do
        lock, so a code exchanged a moment ago keeps its grant.
     2. **Grants that are over** - revoked, or past their `expires_at` - three days ago or more
        (the same grace as the tokens below), with their hidden key, tokens and codes. Without
-       this step every consent would leave a grant and a key row behind for good. The key's
-       confirmations go with it (the tables cascade); the activity entries
-       (`oauth.grant_revoked`, the key's `api.*` entries) stay, as they point at the key by
-       uuid only.
+       this step every consent would leave a grant and a key row behind for good. A grant whose
+       key has confirmations is **not** removed (the tables cascade: the approval history would
+       go with the key); it is removed in a later run, once `Confirm.Prune` has cleared them.
+       The activity entries (`oauth.grant_revoked`, the key's `api.*` entries) stay in any case,
+       as they point at the key by uuid only.
     3. **Requests** past their ten minutes.
     4. **Codes** past their minute.
     5. **Tokens** three days past their own end: an application that comes back after its
@@ -25,7 +26,7 @@ defmodule PhoenixKit.API.OAuth.Prune do
        authorization request still waiting.
 
   What it never does: remove a grant that is still alive (or ended less than three days ago),
-  or any key that is not the hidden key of a grant. A person's own keys are not its business.
+  a key with confirmations, or any key that is not the hidden key of a grant. A person's own keys are not its business.
 
   Every step works in batches of 500 rows and repeats until a batch comes back short, so a
   busy install is cleared in one run. Returns the counts per step.
@@ -33,6 +34,7 @@ defmodule PhoenixKit.API.OAuth.Prune do
 
   import Ecto.Query, only: [from: 2]
 
+  alias PhoenixKit.API.Confirm.Confirmation
   alias PhoenixKit.API.OAuth.Client
   alias PhoenixKit.API.OAuth.Code
   alias PhoenixKit.API.OAuth.Grant
@@ -94,14 +96,21 @@ defmodule PhoenixKit.API.OAuth.Prune do
       else: deleted + removed
   end
 
-  # The same loop for the grants that are over; a grant that stays (`:kept`: it was removed
-  # meanwhile) leaves the next batch's query.
+  # The same loop for the grants that are over. A grant whose key has confirmations is left out
+  # of the query itself, so rows that stay for a long time cannot crowd out the ones behind them;
+  # one that stays for another reason (`:kept`: it was removed meanwhile) leaves the next
+  # batch's query on its own.
   defp ended_grants(now, deleted \\ 0) do
     cutoff = token_cutoff(now)
 
     uuids =
       from(g in Grant,
+        as: :grant,
         where: (not is_nil(g.revoked_at) and g.revoked_at < ^cutoff) or g.expires_at < ^cutoff,
+        where:
+          not exists(
+            from(c in Confirmation, where: c.actor_key_uuid == parent_as(:grant).key_uuid)
+          ),
         order_by: [asc: g.inserted_at],
         limit: @batch,
         select: g.uuid

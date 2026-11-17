@@ -9,6 +9,7 @@ defmodule PhoenixKit.API.OAuth.PruneTest do
   import PhoenixKit.API.KeyTestSupport
   import PhoenixKit.API.OAuthTestSupport
 
+  alias PhoenixKit.API.Confirm.Confirmation
   alias PhoenixKit.API.Keys
   alias PhoenixKit.API.Keys.Key
   alias PhoenixKit.API.OAuth.Client
@@ -140,6 +141,19 @@ defmodule PhoenixKit.API.OAuth.PruneTest do
     defp set_grant(grant, fields),
       do: Repo.update_all(from(g in Grant, where: g.uuid == ^grant.uuid), set: fields)
 
+    defp confirmation!(key) do
+      Repo.insert!(%Confirmation{
+        kind: "token",
+        tool: "testkit.write_item",
+        input_hash:
+          String.pad_leading(Integer.to_string(System.unique_integer([:positive]), 16), 64, "0"),
+        fingerprint: String.duplicate("a", 64),
+        status: "used",
+        expires_at: ahead(3600),
+        actor_key_uuid: key.uuid
+      })
+    end
+
     test "go with their hidden key, tokens and codes, three days after they were revoked", %{
       scope: scope
     } do
@@ -192,6 +206,71 @@ defmodule PhoenixKit.API.OAuth.PruneTest do
       assert Repo.get(Key, seed.key.uuid)
     end
 
+    test "a grant whose key has confirmations stays: their history would go with the key", %{
+      scope: scope
+    } do
+      kept = seed_grant!(scope)
+      confirmation = confirmation!(kept.key)
+      set_grant(kept.grant, expires_at: ago(40 * 86_400))
+
+      plain = seed_grant!(scope)
+      set_grant(plain.grant, expires_at: ago(4 * 86_400))
+
+      assert %{ended: 1} = Prune.run()
+
+      assert Repo.get(Grant, kept.grant.uuid)
+      assert Repo.get(Key, kept.key.uuid)
+      assert Repo.get(Confirmation, confirmation.uuid)
+      assert Repo.get(Grant, plain.grant.uuid) == nil
+
+      # Once the confirmations are pruned (30 days after their end) the grant can go.
+      Repo.delete!(confirmation)
+      assert %{ended: 1} = Prune.run()
+      assert Repo.get(Grant, kept.grant.uuid) == nil
+      assert Repo.get(Key, kept.key.uuid) == nil
+    end
+
+    test "delete_ended/2 looks again under the lock: a key with confirmations stays", %{
+      scope: scope
+    } do
+      seed = seed_grant!(scope)
+      set_grant(seed.grant, expires_at: ago(4 * 86_400))
+      confirmation = confirmation!(seed.key)
+
+      assert Grants.delete_ended(seed.grant.uuid, ago(3 * 86_400)) == :kept
+      assert Repo.get(Key, seed.key.uuid)
+      assert Repo.get(Confirmation, confirmation.uuid)
+    end
+
+    test "delete_ended/2 never deletes a key that is not the hidden key of this grant", %{
+      scope: scope
+    } do
+      seed = seed_grant!(scope)
+      set_grant(seed.grant, expires_at: ago(4 * 86_400))
+
+      # The key loses its mark: it now looks like a person's own key the grant points at.
+      Repo.update_all(from(k in Key, where: k.uuid == ^seed.key.uuid),
+        set: [oauth_grant_uuid: nil]
+      )
+
+      assert Grants.delete_ended(seed.grant.uuid, ago(3 * 86_400)) == :kept
+      assert Repo.get(Key, seed.key.uuid)
+      assert Repo.get(Grant, seed.grant.uuid)
+    end
+
+    test "a cutoff in the future deletes nothing, neither of an ended nor of an unfinished grant",
+         %{scope: scope} do
+      live = seed_grant!(scope)
+      set_grant(live.grant, expires_at: ahead(3600))
+
+      assert Grants.delete_ended(live.grant.uuid, ahead(7200)) == :kept
+      assert Repo.get(Key, live.key.uuid)
+
+      {grant, key, _code} = unfinished_grant!(scope, 7200)
+      assert Grants.delete_unactivated(grant.uuid, ahead(7200)) == :kept
+      assert Repo.get(Key, key.uuid)
+    end
+
     test "a person's own key is never touched, however long it has been over", %{scope: scope} do
       attrs = %{name: "mine", scopes: [], expires_at: ahead(86_400)}
       {:ok, personal, _token} = Keys.create_personal_key(scope, attrs, impersonated: false)
@@ -222,41 +301,62 @@ defmodule PhoenixKit.API.OAuth.PruneTest do
       assert Repo.get(Grant, seed.grant.uuid) == nil
     end
 
+    defp bulk_ended_grant!(seed, inserted_at) do
+      grant_uuid = UUIDv7.generate()
+
+      {:ok, key} =
+        %Key{
+          user_uuid: seed.key.user_uuid,
+          name: "OAuth: bulk",
+          prefix: Base.encode16(:crypto.strong_rand_bytes(4), case: :lower),
+          secret_hash: :crypto.strong_rand_bytes(32),
+          personal: true,
+          oauth_grant_uuid: grant_uuid,
+          scopes: [],
+          expires_at: ago(7 * 86_400)
+        }
+        |> Repo.insert()
+
+      Repo.insert!(%Grant{
+        uuid: grant_uuid,
+        user_uuid: key.user_uuid,
+        client_uuid: seed.client.uuid,
+        key_uuid: key.uuid,
+        resource: "https://x.example/mcp/admin",
+        scopes: [],
+        expires_at: ago(7 * 86_400),
+        activated_at: inserted_at,
+        inserted_at: inserted_at
+      })
+
+      key
+    end
+
     test "a run clears more than one batch", %{scope: scope} do
       seed = seed_grant!(scope)
       now = DateTime.utc_now() |> DateTime.truncate(:second)
 
       # 520 more grants, each on its own hidden key row, all over for a week.
-      for _ <- 1..520 do
-        grant_uuid = UUIDv7.generate()
-
-        {:ok, key} =
-          %Key{
-            user_uuid: seed.key.user_uuid,
-            name: "OAuth: bulk",
-            prefix: Base.encode16(:crypto.strong_rand_bytes(4), case: :lower),
-            secret_hash: :crypto.strong_rand_bytes(32),
-            personal: true,
-            oauth_grant_uuid: grant_uuid,
-            scopes: [],
-            expires_at: ago(7 * 86_400)
-          }
-          |> Repo.insert()
-
-        Repo.insert!(%Grant{
-          uuid: grant_uuid,
-          user_uuid: key.user_uuid,
-          client_uuid: seed.client.uuid,
-          key_uuid: key.uuid,
-          resource: "https://x.example/mcp/admin",
-          scopes: [],
-          expires_at: ago(7 * 86_400),
-          inserted_at: now
-        })
-      end
+      for _ <- 1..520, do: bulk_ended_grant!(seed, now)
 
       assert %{ended: 520} = Prune.run()
       assert Repo.get(Grant, seed.grant.uuid)
+    end
+
+    test "grants that stay for good do not crowd the ones behind them out of a run", %{
+      scope: scope
+    } do
+      seed = seed_grant!(scope)
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      # A full batch of older grants whose keys have confirmations, then one that can go.
+      for _ <- 1..500, do: confirmation!(bulk_ended_grant!(seed, ago(30 * 86_400)))
+      last = bulk_ended_grant!(seed, now)
+
+      assert %{ended: 1} = Prune.run()
+      assert Repo.get(Key, last.uuid) == nil
+      # The 500 that stay and the live one of the seed.
+      assert Repo.aggregate(Grant, :count) == 501
     end
   end
 

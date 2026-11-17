@@ -56,6 +56,20 @@ defmodule PhoenixKit.API.OAuth.RedirectUriTest do
       end
     end
 
+    test "a port that no connection can use is refused" do
+      for uri <- [
+            "https://client.example:99999/cb",
+            "https://client.example:65536/cb",
+            "https://client.example:0/cb",
+            "https://client.example:/cb",
+            "http://127.0.0.1:/cb"
+          ] do
+        refute RedirectUri.valid?(uri), uri
+      end
+
+      assert RedirectUri.valid?("https://client.example:65535/cb")
+    end
+
     test "no host is no URI, and what is not text or too long is refused" do
       refute RedirectUri.valid?("https:///cb")
       refute RedirectUri.valid?(nil)

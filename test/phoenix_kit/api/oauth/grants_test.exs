@@ -61,6 +61,17 @@ defmodule PhoenixKit.API.OAuth.GrantsTest do
     assert key.name == "OAuth: " <> ctx.client.client_name
   end
 
+  test "a client name the table cannot hold is a refusal, not a database error", ctx do
+    for name <- ["a\0b", <<0xFF, 0xFE>>] do
+      assert {:error, :invalid_client_name} =
+               Grants.create(ctx.scope, ctx.client, attrs(%{client_name: name}),
+                 impersonated: false
+               )
+    end
+
+    assert Repo.aggregate(Grant, :count) == 0
+  end
+
   test "a client deleted since it was read is :client_gone, not a constraint error, and leaves nothing",
        ctx do
     Repo.delete!(ctx.client)

@@ -30,11 +30,13 @@ defmodule PhoenixKit.API.OAuth.Grants do
   import Ecto.Query, only: [from: 2]
 
   alias PhoenixKit.Activity
+  alias PhoenixKit.API.Confirm.Confirmation
   alias PhoenixKit.API.Keys
   alias PhoenixKit.API.Keys.Cache
   alias PhoenixKit.API.Keys.Key
   alias PhoenixKit.API.OAuth.Client
   alias PhoenixKit.API.OAuth.Grant
+  alias PhoenixKit.API.OAuth.Input
   alias PhoenixKit.API.OAuth.Resource
   alias PhoenixKit.API.OAuth.Token
   alias PhoenixKit.RepoHelper
@@ -48,25 +50,42 @@ defmodule PhoenixKit.API.OAuth.Grants do
   Makes a grant of `client` for the person behind `scope`, and its hidden key.
 
   `attrs` takes `scopes` (a list of scope names), `client_name` (the name the hidden key gets; the
-  client's own name by default), `expires_at` (required; at most
+  client's own name by default; text the table cannot hold - a NUL byte, bytes that are not
+  UTF-8 - is refused as `:invalid_client_name`), `expires_at` (required; at most
   `PhoenixKit.API.PersonalKeysConfig.latest_expiry/0`), `resource` (default
   `PhoenixKit.API.OAuth.Resource.resource/0`) and `created_ip`. `opts` is the one of
   `PhoenixKit.API.Keys.create_oauth_key/3`: `impersonated: true | false`, with no default.
 
   Returns `{:ok, grant, key}`, or the key's refusal (`:forbidden`, `:impersonated`,
-  `:invalid_scopes`, `:owner_inactive`, a changeset, ...), or `:client_gone` when the client was
+  `:invalid_scopes`, `:invalid_client_name`, `:owner_inactive`, a changeset, ...), or `:client_gone` when the client was
   deleted in the meantime (nothing is created).
   """
   @spec create(Scope.t() | nil, Client.t(), map(), keyword()) ::
           {:ok, Grant.t(), Key.t()} | {:error, Ecto.Changeset.t() | atom()}
-  def create(%Scope{user: %User{uuid: user_uuid}} = scope, %Client{} = client, attrs, opts)
+  def create(%Scope{user: %User{}} = scope, %Client{} = client, attrs, opts)
       when is_map(attrs) and is_list(opts) do
+    client_name = Map.get(attrs, :client_name) || client.client_name || client.client_id
+
+    if Input.valid?(client_name),
+      do: create_valid(scope, client, attrs, client_name, opts),
+      else: {:error, :invalid_client_name}
+  end
+
+  def create(_scope, _client, _attrs, opts) when is_list(opts), do: {:error, :forbidden}
+
+  defp create_valid(
+         %Scope{user: %User{uuid: user_uuid}} = scope,
+         client,
+         attrs,
+         client_name,
+         opts
+       ) do
     grant_uuid = UUIDv7.generate()
     expires_at = attrs |> Map.get(:expires_at) |> truncate()
 
     key_attrs = %{
       grant_uuid: grant_uuid,
-      client_name: Map.get(attrs, :client_name) || client.client_name || client.client_id,
+      client_name: client_name,
       scopes: Map.get(attrs, :scopes, []),
       expires_at: expires_at
     }
@@ -94,8 +113,6 @@ defmodule PhoenixKit.API.OAuth.Grants do
       {:error, _reason} = error -> error
     end
   end
-
-  def create(_scope, _client, _attrs, opts) when is_list(opts), do: {:error, :forbidden}
 
   # A client deleted since the consent screen was shown is an answer (`:client_gone`), not a
   # constraint error: the foreign key is the one place that sees the delete, whatever the
@@ -189,7 +206,8 @@ defmodule PhoenixKit.API.OAuth.Grants do
   @spec delete_unactivated(String.t(), DateTime.t()) :: :deleted | :kept
   def delete_unactivated(grant_uuid, %DateTime{} = cutoff) do
     repo().transaction(fn ->
-      with %Grant{key_uuid: key_uuid} <- get(grant_uuid),
+      with true <- past?(cutoff),
+           %Grant{key_uuid: key_uuid} <- get(grant_uuid),
            {:ok, key} <- Keys.lock_oauth_row(key_uuid),
            {:ok, %Grant{activated_at: nil}} <- lock_grant(grant_uuid),
            false <- live_code?(grant_uuid, cutoff),
@@ -213,17 +231,21 @@ defmodule PhoenixKit.API.OAuth.Grants do
   @doc false
   # Step of `PhoenixKit.API.OAuth.Prune`: removes a grant that is over (revoked, or past its
   # `expires_at`) before `cutoff` with its hidden key, and with it - by the tables' cascades -
-  # its tokens and codes and the confirmations of the key. The activity entries stay (they hold
-  # no foreign key). Takes the revoke order, key then grant, and looks again under the locks.
-  # Returns `:deleted` or `:kept`.
+  # its tokens and codes. A key that has confirmations is kept: they hang on the key with a
+  # cascade, and the approval history would go with it (`Confirm.Prune` removes them on its own
+  # schedule, after which the grant becomes deletable). The activity entries stay (they hold no
+  # foreign key). Takes the revoke order, key then grant, and looks again under the locks.
+  # `cutoff` must not be in the future. Returns `:deleted` or `:kept`.
   @spec delete_ended(String.t(), DateTime.t()) :: :deleted | :kept
   def delete_ended(grant_uuid, %DateTime{} = cutoff) do
     repo().transaction(fn ->
-      with %Grant{key_uuid: key_uuid} <- get(grant_uuid),
+      with true <- past?(cutoff),
+           %Grant{key_uuid: key_uuid} <- get(grant_uuid),
            {:ok, key} <- Keys.lock_oauth_row(key_uuid),
            {:ok, %Grant{} = grant} <- lock_grant(grant_uuid),
            true <- ended_before?(grant, cutoff),
-           true <- key.oauth_grant_uuid == grant.uuid do
+           true <- key.oauth_grant_uuid == grant.uuid,
+           false <- has_confirmations?(key.uuid) do
         repo().delete_all(from(k in Key, where: k.uuid == ^key.uuid))
         {:deleted, key.prefix}
       else
@@ -239,6 +261,11 @@ defmodule PhoenixKit.API.OAuth.Grants do
         :kept
     end
   end
+
+  defp past?(%DateTime{} = at), do: DateTime.compare(at, DateTime.utc_now()) != :gt
+
+  defp has_confirmations?(key_uuid),
+    do: repo().exists?(from(c in Confirmation, where: c.actor_key_uuid == ^key_uuid))
 
   defp ended_before?(%Grant{revoked_at: revoked_at, expires_at: expires_at}, cutoff) do
     Enum.any?([revoked_at, expires_at], &(&1 != nil and DateTime.compare(&1, cutoff) == :lt))

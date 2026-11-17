@@ -16,7 +16,7 @@ defmodule PhoenixKit.API.OAuth.RedirectUri do
   @doc """
   Whether `uri` may be registered: a string no longer than `max_length/0` that parses to an
   `https` URI, or an `http` one to a loopback host, with a host, no userinfo, no fragment, no
-  wildcard (`*`) and no control character.
+  wildcard (`*`) and no control character, and a port in 1..65535 when one is written.
   """
   @spec valid?(term()) :: boolean()
   def valid?(uri), do: match?({:ok, _parts}, parse(uri))
@@ -27,6 +27,7 @@ defmodule PhoenixKit.API.OAuth.RedirectUri do
            URI.new(uri),
          scheme when scheme in ["http", "https"] <- scheme && String.downcase(scheme),
          true <- is_binary(host) and host != "",
+         true <- usable_port?(uri, parsed),
          host = String.downcase(host),
          true <- scheme == "https" or loopback_host?(host) do
       {:ok,
@@ -43,6 +44,10 @@ defmodule PhoenixKit.API.OAuth.RedirectUri do
   end
 
   defp parse(_uri), do: :error
+
+  # No port (the scheme's own) or one in 1..65535; a bare `:` after the host is no port either.
+  defp usable_port?(uri, %URI{port: port}),
+    do: port in 1..65_535 and not Regex.match?(~r{//[^/?#]*:(?:[/?#]|$)}, uri)
 
   defp loopback_host?(host), do: host in ["127.0.0.1", "::1", "[::1]", "localhost"]
 end

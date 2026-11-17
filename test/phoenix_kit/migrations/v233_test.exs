@@ -62,6 +62,12 @@ defmodule PhoenixKit.Migrations.Postgres.V233Test do
     refute key_column?()
     assert marker() == "232"
 
+    # A second down, with the column already gone, runs through (the guard of the DO block).
+    run(V233.down_statements("public"))
+    assert tables() == []
+    refute key_column?()
+    assert marker() == "232"
+
     run(V233.up_statements("public"))
     assert tables() == Enum.sort(@tables)
     assert key_column?()
