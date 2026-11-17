@@ -42,13 +42,17 @@ defmodule PhoenixKit.API.OAuth.Exchange do
 
   import Ecto.Query, only: [from: 2]
 
+  require Logger
+
   alias PhoenixKit.Activity
   alias PhoenixKit.API.Keys
+  alias PhoenixKit.API.LogSafe
   alias PhoenixKit.API.OAuth.Client
   alias PhoenixKit.API.OAuth.Clients
   alias PhoenixKit.API.OAuth.Codes
   alias PhoenixKit.API.OAuth.Grant
   alias PhoenixKit.API.OAuth.Grants
+  alias PhoenixKit.API.OAuth.Input
   alias PhoenixKit.API.OAuth.Resource
   alias PhoenixKit.API.OAuth.Token
   alias PhoenixKit.API.OAuth.Tokens
@@ -66,7 +70,7 @@ defmodule PhoenixKit.API.OAuth.Exchange do
   @doc "Answers one token request (see the moduledoc)."
   @spec token(map()) :: result()
   def token(params) when is_map(params) do
-    if Enum.all?(params, fn {_name, value} -> is_binary(value) end) do
+    if well_formed?(params) do
       case Map.get(params, "grant_type") do
         "authorization_code" -> authorization_code(params)
         "refresh_token" -> refresh(params)
@@ -79,6 +83,10 @@ defmodule PhoenixKit.API.OAuth.Exchange do
   end
 
   def token(_params), do: invalid_request("The request has no parameters.")
+
+  # Single strings only, and text the database can hold (no NUL byte).
+  defp well_formed?(params),
+    do: Enum.all?(params, fn {_name, value} -> is_binary(value) end) and Input.valid?(params)
 
   # --- authorization code ------------------------------------------------------
 
@@ -107,7 +115,7 @@ defmodule PhoenixKit.API.OAuth.Exchange do
   # stay burnt and revoked. Only a failure to issue the tokens rolls the exchange back.
   defp exchange_code(grant_uuid, code, client, redirect_uri, verifier, params) do
     result =
-      Grants.locked(grant_uuid, fn grant, key ->
+      locked(grant_uuid, fn grant, key ->
         with {:ok, row} <- redeem(grant, code),
              :ok <- code_checks(row, grant, client, redirect_uri, verifier, params),
              :ok <- usable(grant, key),
@@ -119,7 +127,7 @@ defmodule PhoenixKit.API.OAuth.Exchange do
     case result do
       {:ok, {:ok, _response} = ok} -> ok
       {:ok, {:error, _error, _description} = error} -> error
-      {:error, _reason} -> invalid_grant("The grant is no longer valid.")
+      {:error, reason} -> locked_failure(reason, "The grant is no longer valid.")
     end
   end
 
@@ -204,7 +212,7 @@ defmodule PhoenixKit.API.OAuth.Exchange do
 
   defp rotate(%Token{grant_uuid: grant_uuid, uuid: row_uuid}, client, params) do
     result =
-      Grants.locked(grant_uuid, fn grant, key ->
+      locked(grant_uuid, fn grant, key ->
         # What the row says now, under the lock: a rival may have used it a moment ago.
         row = repo().get(Token, row_uuid)
 
@@ -219,9 +227,27 @@ defmodule PhoenixKit.API.OAuth.Exchange do
     case result do
       {:ok, {:ok, _response} = ok} -> ok
       {:ok, {:error, _error, _description} = error} -> error
-      {:error, _reason} -> invalid_grant("The refresh token is invalid.")
+      {:error, reason} -> locked_failure(reason, "The refresh token is invalid.")
     end
   end
+
+  # `Grants.locked/2`, with a database failure inside it (the transaction is rolled back, the code
+  # or the refresh token is not spent) answered as the server's, not as a raise: the client may try
+  # again. Only the kind of the exception is logged.
+  defp locked(grant_uuid, fun) do
+    Grants.locked(grant_uuid, fun)
+  rescue
+    error in [Postgrex.Error, DBConnection.ConnectionError, Ecto.ConstraintError] ->
+      Logger.error("OAuth token exchange failed: " <> LogSafe.exception_label(error))
+      {:error, :issue_failed}
+  end
+
+  # A pair that could not be written is the server's failure (the exchange is rolled back, so the
+  # client may present the same code or token again), not a verdict on the client's grant.
+  defp locked_failure(reason, _description) when reason in [:issue_failed, :activation_failed],
+    do: {:error, "server_error", "The tokens could not be issued. Try again."}
+
+  defp locked_failure(_reason, description), do: invalid_grant(description)
 
   defp own_grant(%Grant{client_uuid: client_uuid}, %Client{uuid: client_uuid}), do: :ok
 
@@ -317,11 +343,19 @@ defmodule PhoenixKit.API.OAuth.Exchange do
 
   @doc """
   Ends the grant a presented token (access or refresh) belongs to: its tokens, the grant and
-  its hidden key. A client that names itself (`client_id`) must be the grant's own. Always
-  `:ok`: whether the token was known, already revoked, or never existed is not told.
+  its hidden key. A client that names itself (`client_id`) must be the grant's own. `:ok` whether
+  the token was known, already revoked, or never existed (that is not told); `{:error,
+  :invalid_request}` only for parameters that are not single strings the database can hold (a NUL
+  byte), which are never looked up.
   """
-  @spec revoke(map()) :: :ok
-  def revoke(%{"token" => presented} = params) when is_binary(presented) do
+  @spec revoke(map()) :: :ok | {:error, :invalid_request}
+  def revoke(params) when is_map(params) do
+    if well_formed?(params), do: end_grant_of(params), else: {:error, :invalid_request}
+  end
+
+  def revoke(_params), do: {:error, :invalid_request}
+
+  defp end_grant_of(%{"token" => presented} = params) when is_binary(presented) do
     with {:ok, kind, hash} <- Tokens.parse(presented),
          %Token{grant_uuid: grant_uuid} <-
            repo().one(
@@ -335,7 +369,7 @@ defmodule PhoenixKit.API.OAuth.Exchange do
     :ok
   end
 
-  def revoke(_params), do: :ok
+  defp end_grant_of(_params), do: :ok
 
   defp own_client?(%{"client_id" => client_id}, %Grant{client_uuid: client_uuid}) do
     match?(%Client{uuid: ^client_uuid}, Clients.get_by_client_id(client_id))

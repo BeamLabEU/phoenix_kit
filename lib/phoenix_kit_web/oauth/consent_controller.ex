@@ -21,6 +21,12 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
 
   Anyone else sees a page and gets no code.
 
+  The request belongs to the browser that made the authorization request
+  (`PhoenixKit.API.OAuth.Requests`): the page, the answer and the disconnect form find it only
+  from that browser, so a consent URL relayed to a signed-in person elsewhere ("open this link to
+  continue") shows "start again" and grants nothing. The sign-in does not drop the binding: it
+  rides a cookie, not the session, which the sign-in clears.
+
   Everything the answer needs comes from the stored request, never from the form: the form
   carries only the decision, the chosen scopes (cut down to what may be offered) and the lifetime.
   The request is used once: a second click, a replayed form or a request that ran out meet the
@@ -42,6 +48,7 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.Live.Settings.Api
   alias PhoenixKitWeb.OAuth.Pages
   alias PhoenixKitWeb.OAuth.Responses
   alias PhoenixKitWeb.Users.MultiSession
@@ -83,18 +90,48 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
     end
   end
 
-  @doc "Disconnects one grant of the person, then returns to the request."
+  @doc """
+  Disconnects one grant of the person, then returns to the request. The first answer to a
+  disconnect form is a question (`Pages.confirm_disconnect/1`); the grant ends only when the
+  form that question holds comes back with `confirm=yes`.
+  """
   def revoke(conn, %{"id" => id} = params) do
     with :ok <- enabled(conn),
          {:ok, _request} <- fetch(conn, id),
          {:ok, user, _scope} <- person(conn) do
-      with grant_uuid when is_binary(grant_uuid) <- params["grant"],
-           %{user_uuid: owner} = grant <- Grants.get(grant_uuid),
-           true <- owner == user.uuid do
-        Grants.revoke(grant, actor_uuid: user.uuid)
+      case params["confirm"] do
+        "yes" -> disconnect(conn, id, user, params["grant"])
+        _ -> ask_disconnect(conn, id, user, params["grant"])
       end
+    end
+  end
 
-      redirect(conn, to: Routes.path("/oauth/consent/" <> id))
+  defp disconnect(conn, id, user, grant_uuid) do
+    with grant_uuid when is_binary(grant_uuid) <- grant_uuid,
+         %{user_uuid: owner} = grant <- Grants.get(grant_uuid),
+         true <- owner == user.uuid do
+      Grants.revoke(grant, actor_uuid: user.uuid)
+    end
+
+    redirect(conn, to: Routes.path("/oauth/consent/" <> id))
+  end
+
+  # Only a live connection of the person is asked about; any other value goes back to the request.
+  defp ask_disconnect(conn, id, user, grant_uuid) do
+    case Enum.find(Grants.list_live(user.uuid), &(&1.uuid == grant_uuid)) do
+      nil ->
+        redirect(conn, to: Routes.path("/oauth/consent/" <> id))
+
+      grant ->
+        html =
+          Pages.confirm_disconnect(%{
+            csrf_token: CSRFProtection.get_csrf_token(),
+            action: Routes.path("/oauth/consent/" <> id <> "/revoke"),
+            back: Routes.path("/oauth/consent/" <> id),
+            grant: grant
+          })
+
+        Responses.page(conn, 200, html)
     end
   end
 
@@ -104,8 +141,10 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
     if Config.oauth_enabled?(), do: :ok, else: Responses.page(conn, 404, Pages.error(%{}))
   end
 
+  # The request is found only for the browser that started it (its cookie, see `Requests`): the
+  # same URL in another browser is a request that is gone.
   defp fetch(conn, id) do
-    case Requests.fetch(id) do
+    case Requests.fetch(id, Responses.browser_nonce(conn)) do
       {:ok, request} -> {:ok, request}
       :error -> start_again(conn)
     end
@@ -151,7 +190,7 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
         {:ok, code, _grant} ->
           Responses.to_client(conn, request.redirect_uri, code: code, state: request.state)
 
-        {:error, :request_gone} ->
+        {:error, reason} when reason in [:request_gone, :client_gone] ->
           start_again(conn)
 
         {:error, :no_scopes} ->
@@ -188,16 +227,18 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
   defp consent_page(conn, id, %Request{} = request, user, _scope, error) do
     %{selectable: selectable, preselected: preselected} = Consent.options(user, request)
     snapshot = request.client_snapshot || %{}
+    address = RedirectUri.address(request.redirect_uri) || %{host: nil, port: nil, path: ""}
 
     html =
       Pages.consent(%{
         csrf_token: CSRFProtection.get_csrf_token(),
         action: Routes.path("/oauth/consent/" <> id),
         client_name: Pages.client_label(snapshot["client_name"], snapshot["client_id"]),
-        redirect_host: RedirectUri.host(request.redirect_uri),
+        redirect_host: host_and_port(address),
+        redirect_path: address.path,
         loopback?: RedirectUri.loopback?(request.redirect_uri),
         email: user.email,
-        entries: Scopes.describe(selectable),
+        sections: sections(Scopes.describe(selectable)),
         preselected: preselected,
         days: Consent.days(),
         error: error
@@ -205,6 +246,25 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
 
     Responses.page(conn, conn.status || 200, html)
   end
+
+  # The rights by module, each module with its reading rights and its changing ones.
+  defp sections(entries) do
+    entries
+    |> Enum.chunk_by(& &1.module_key)
+    |> Enum.map(fn [first | _] = module_entries ->
+      {reads, writes} = Enum.split_with(module_entries, & &1.read?)
+
+      %{
+        key: first.module_key,
+        label: Api.module_label(%{key: first.module_key, name: first.module_name}),
+        reads: reads,
+        writes: writes
+      }
+    end)
+  end
+
+  defp host_and_port(%{host: host, port: nil}), do: host
+  defp host_and_port(%{host: host, port: port}), do: "#{host}:#{port}"
 
   defp limit_page(conn, id, user) do
     html =

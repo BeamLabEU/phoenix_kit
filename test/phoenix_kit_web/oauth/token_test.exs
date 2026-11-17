@@ -11,6 +11,7 @@ defmodule PhoenixKitWeb.OAuth.TokenTest do
   import PhoenixKit.Test.ApiHarness, only: [put_setting: 2, setup_api: 0]
 
   alias PhoenixKit.API.OAuth.Code
+  alias PhoenixKit.API.OAuth.Exchange
   alias PhoenixKit.API.OAuth.Grant
   alias PhoenixKit.API.OAuth.Resource
   alias PhoenixKit.API.OAuth.Token
@@ -192,6 +193,27 @@ defmodule PhoenixKitWeb.OAuth.TokenTest do
       assert error_of(conn) == "invalid_request"
     end
 
+    test "a parameter written as a list or a map is refused, whatever it is", %{flow: flow} do
+      base = URI.encode_query(Map.delete(exchange_params(flow), "code"))
+
+      for extra <- ["code[]=a", "code[]=a&code[]=b", "code[x]=a", "scope[]=a", "foo[bar][]=1"] do
+        conn = token(base <> "&" <> extra)
+        assert conn.status == 400, extra
+        assert error_of(conn) == "invalid_request", extra
+      end
+    end
+
+    test "every value that reaches the exchange is a single string" do
+      assert {:error, "invalid_request", _} =
+               Exchange.token(%{
+                 "grant_type" => "authorization_code",
+                 "code" => ["a"]
+               })
+
+      assert {:error, "invalid_request", _} =
+               Exchange.token(%{"grant_type" => "refresh_token", "x" => %{}})
+    end
+
     test "a parameter in the URL is not read", %{flow: flow} do
       params = exchange_params(flow)
       url_only = Map.drop(params, ["code"])
@@ -237,6 +259,59 @@ defmodule PhoenixKitWeb.OAuth.TokenTest do
         )
 
       assert conn.status in [404, 405]
+    end
+  end
+
+  describe "when the pair of tokens cannot be written" do
+    # A trigger that refuses every insert into the token table stands for any database failure.
+    defp break_token_inserts! do
+      Repo.query!("""
+      CREATE FUNCTION pk_oauth_test_refuse() RETURNS trigger AS $$
+      BEGIN RAISE EXCEPTION 'refused by the test'; END $$ LANGUAGE plpgsql
+      """)
+
+      Repo.query!("""
+      CREATE TRIGGER pk_oauth_test_refuse BEFORE INSERT ON phoenix_kit_api_oauth_tokens
+      FOR EACH ROW EXECUTE FUNCTION pk_oauth_test_refuse()
+      """)
+    end
+
+    defp repair_token_inserts! do
+      Repo.query!("DROP TRIGGER pk_oauth_test_refuse ON phoenix_kit_api_oauth_tokens")
+      Repo.query!("DROP FUNCTION pk_oauth_test_refuse()")
+    end
+
+    test "a code exchange is server_error (500), not invalid_grant, and the code is not spent",
+         %{flow: flow} do
+      break_token_inserts!()
+      conn = exchange_code(flow)
+      repair_token_inserts!()
+
+      assert conn.status == 500
+      assert error_of(conn) == "server_error"
+      assert get_resp_header(conn, "cache-control") == ["no-store"]
+      assert [%Grant{activated_at: nil, revoked_at: nil}] = Repo.all(Grant)
+      assert Repo.all(Token) == []
+
+      # Nothing was burnt: the very same code still buys the pair.
+      assert exchange_code(flow).status == 200
+    end
+
+    test "a refresh is server_error, and the refresh token is not spent", %{
+      flow: flow,
+      client: client
+    } do
+      %{"refresh_token" => refresh_token} = flow |> exchange_code() |> body()
+
+      break_token_inserts!()
+      conn = refresh(client, refresh_token)
+      repair_token_inserts!()
+
+      assert conn.status == 500
+      assert error_of(conn) == "server_error"
+      assert [%Grant{revoked_at: nil}] = Repo.all(Grant)
+
+      assert refresh(client, refresh_token).status == 200
     end
   end
 

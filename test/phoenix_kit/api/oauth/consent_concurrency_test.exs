@@ -69,7 +69,8 @@ defmodule PhoenixKit.API.OAuth.ConsentConcurrencyTest do
       Requests.create(client, %{
         redirect_uri: hd(client.redirect_uris),
         code_challenge: elem(pkce(), 1),
-        resource: Resource.resource()
+        resource: Resource.resource(),
+        browser: Requests.new_browser()
       })
 
     request

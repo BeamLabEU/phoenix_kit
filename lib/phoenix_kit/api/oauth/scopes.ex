@@ -13,16 +13,23 @@ defmodule PhoenixKit.API.OAuth.Scopes do
   """
 
   alias PhoenixKit.API.Registry
+  alias PhoenixKit.ModuleRegistry
 
   @max_requested 64
   @token ~r/\A[\x21\x23-\x5B\x5D-\x7E]{1,200}\z/
 
+  @type detail :: %{name: String.t(), title: String.t(), description: String.t()}
+
   @type entry :: %{
           scope: String.t(),
           group: String.t(),
+          resource: String.t(),
           action: String.t(),
           read?: boolean(),
-          tools: [String.t()]
+          module_key: String.t(),
+          module_name: String.t(),
+          tools: [String.t()],
+          details: [detail()]
         }
 
   @doc "Every scope the enabled admin tools declare, sorted."
@@ -58,31 +65,58 @@ defmodule PhoenixKit.API.OAuth.Scopes do
   def read?(scope) when is_binary(scope), do: String.ends_with?(scope, ":read")
 
   @doc """
-  What the consent screen shows for `scopes`: one entry per scope, the group (`module.resource`),
-  the action, whether it only reads, and the names of the tools it unlocks. Sorted by group, reads
-  first.
+  What the consent screen shows for `scopes`: one entry per scope, in the words of the tool
+  registry. An entry has the scope, its group (`module.resource`), the `resource` (the part of
+  the group after the module), the action, whether it only reads, the module that owns it
+  (`module_key`, and `module_name`, the name the module gives itself) and the tools it unlocks:
+  their names (`tools`) and, sorted by title, their `details` (name, title, description) as the
+  module wrote them for a person. A scope is placed under the module whose key starts its group,
+  or else under the module of its first tool. Sorted by module name, then group, reads first.
   """
   @spec describe([String.t()]) :: [entry()]
   def describe(scopes) when is_list(scopes) do
     tools =
       Registry.all_tools()
       |> Enum.filter(&(&1.audience == :admin and &1.scope in scopes))
-      |> Enum.group_by(& &1.scope, & &1.name)
+      |> Enum.group_by(& &1.scope)
+
+    modules = Map.new(ModuleRegistry.api_modules(), &{&1.module, &1})
 
     scopes
     |> Enum.uniq()
-    |> Enum.map(fn scope ->
-      {group, action} = split(scope)
+    |> Enum.map(&entry(&1, Map.get(tools, &1, []), modules))
+    |> Enum.sort_by(&{&1.module_name, &1.module_key, &1.group, not &1.read?, &1.action})
+  end
 
-      %{
-        scope: scope,
-        group: group,
-        action: action,
-        read?: read?(scope),
-        tools: tools |> Map.get(scope, []) |> Enum.sort()
-      }
-    end)
-    |> Enum.sort_by(&{&1.group, not &1.read?, &1.action})
+  defp entry(scope, tools, modules) do
+    {group, action} = split(scope)
+    {module_key, resource} = split_group(group)
+    owners = tools |> Enum.sort_by(& &1.name) |> Enum.map(&Map.get(modules, &1.module))
+
+    owner =
+      Enum.find(owners, &(&1 && &1.key == module_key)) || Enum.find(owners, & &1)
+
+    %{
+      scope: scope,
+      group: group,
+      resource: resource,
+      action: action,
+      read?: read?(scope),
+      module_key: if(owner, do: owner.key, else: module_key),
+      module_name: if(owner, do: owner.name, else: module_key),
+      tools: tools |> Enum.map(& &1.name) |> Enum.sort(),
+      details: tools |> Enum.map(&detail/1) |> Enum.sort_by(&{&1.title, &1.name})
+    }
+  end
+
+  defp detail(tool),
+    do: %{name: tool.name, title: tool.title || tool.name, description: tool.description || ""}
+
+  defp split_group(group) do
+    case String.split(group, ".", parts: 2) do
+      [module_key, resource] -> {module_key, resource}
+      [module_key] -> {module_key, ""}
+    end
   end
 
   defp split(scope) do

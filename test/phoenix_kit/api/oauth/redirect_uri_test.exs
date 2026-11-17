@@ -118,4 +118,20 @@ defmodule PhoenixKit.API.OAuth.RedirectUriTest do
     assert RedirectUri.address("https://client.example").path == ""
     assert RedirectUri.address("nope") == nil
   end
+
+  test "address/1 writes an IPv6 host in brackets, so the port cannot be read into the address" do
+    assert RedirectUri.address("http://[::1]:8080/cb") == %{
+             host: "[::1]",
+             port: 8080,
+             path: "/cb"
+           }
+
+    assert RedirectUri.address("https://[2001:db8::1]:8443/x").host == "[2001:db8::1]"
+
+    assert RedirectUri.address("https://[2001:db8::1]/x") == %{
+             host: "[2001:db8::1]",
+             port: nil,
+             path: "/x"
+           }
+  end
 end

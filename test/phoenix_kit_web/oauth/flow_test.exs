@@ -171,21 +171,26 @@ defmodule PhoenixKitWeb.OAuth.FlowTest do
       assert redirected_to(conn, 302) =~ "/users/log-in"
     end
 
-    test "the request lives on the server: a second browser reaches it, and finds it gone once it ran out",
+    test "the request lives on the server for the browser that made it, and is gone once it ran out",
          %{user: user, client: client} do
       {_verifier, challenge} = pkce()
       id = browser() |> authorize(authorize_params(client, challenge)) |> consent_id()
 
       # The first browser has no session: it is sent to the sign-in with the way back in ITS
-      # session. A magic link then opens in another browser, which has a session of its own and
-      # no way back, only the consent URL.
+      # session, and comes back with the cookie that binds the request to it.
       first = consent(browser(), id)
       assert redirected_to(first, 302) =~ "/users/log-in"
       assert get_session(first, :user_return_to) == path("/consent/" <> id)
 
       assert consent(browser(user), id).status == 200
 
-      # Past the lifetime of the request (the letter took too long) the other browser meets the
+      # Another browser (a magic link opened elsewhere) holds no such cookie: start again.
+      other = consent_unbound(browser(user), id)
+      assert other.status == 400
+      assert [_] = other.resp_body |> Floki.parse_document!() |> Floki.find("h1")
+      assert [] = other.resp_body |> Floki.parse_document!() |> Floki.find("#consent-form")
+
+      # Past the lifetime of the request (the letter took too long) the browser meets the
       # start-again page, and nothing was granted.
       Repo.update_all(PhoenixKit.API.OAuth.Request,
         set: [expires_at: DateTime.add(DateTime.utc_now(), -5, :second)]

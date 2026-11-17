@@ -20,15 +20,18 @@ defmodule PhoenixKit.API.OAuth.Authorize do
 
   Read in this order: the client, the redirect URI, then `response_type`, `request`,
   `request_uri`, the PKCE challenge and its method (`S256` only; `plain` is refused), `resource`,
-  `scope` and `state`. `prompt` and `id_token_hint` are ignored. Unknown scopes are dropped.
+  `scope` and `state`. `prompt` and `id_token_hint` are ignored. Unknown scopes are dropped; a `scope`
+  that names only unknown ones is `invalid_scope`.
 
   A parameter that is repeated (or written as a list or a map) makes the whole request a page
   error: which of two values is meant cannot be known, and one of them may be the client's own
-  redirect.
+  redirect. So does text the database cannot hold, a NUL byte in any parameter
+  (`PhoenixKit.API.OAuth.Input`).
   """
 
   alias PhoenixKit.API.OAuth.Client
   alias PhoenixKit.API.OAuth.Clients
+  alias PhoenixKit.API.OAuth.Input
   alias PhoenixKit.API.OAuth.RedirectUri
   alias PhoenixKit.API.OAuth.Resource
   alias PhoenixKit.API.OAuth.Scopes
@@ -71,10 +74,14 @@ defmodule PhoenixKit.API.OAuth.Authorize do
 
   # --- what cannot be trusted with a redirect -------------------------------
 
-  # Every value must be a string and no name may appear twice (nor be written `a[]=`).
+  # Every value must be a string the database can hold (no NUL byte) and no name may appear twice
+  # (nor be written `a[]=`).
   defp check_plain(params, query_string) do
     cond do
       not Enum.all?(params, fn {_name, value} -> is_binary(value) end) ->
+        {:page_error, :malformed}
+
+      not Input.valid?(params) ->
         {:page_error, :malformed}
 
       repeated?(query_string) ->
@@ -128,14 +135,15 @@ defmodule PhoenixKit.API.OAuth.Authorize do
          :ok <- check_response_type(params),
          :ok <- check_unsupported(params),
          {:ok, challenge} <- check_challenge(params),
-         {:ok, resource} <- check_resource(params) do
+         {:ok, resource} <- check_resource(params),
+         {:ok, scopes} <- check_scope(params) do
       {:ok,
        %{
          client: client,
          redirect_uri: redirect_uri,
          code_challenge: challenge,
          resource: resource,
-         scopes: Scopes.parse(params["scope"]),
+         scopes: scopes,
          state: state
        }}
     else
@@ -183,6 +191,17 @@ defmodule PhoenixKit.API.OAuth.Authorize do
         {:ok, challenge}
     end
   end
+
+  # No `scope`, or an empty one: the person chooses on the consent screen. Names that are all
+  # unknown to this server are `invalid_scope`; a mix keeps the known ones.
+  defp check_scope(%{"scope" => scope}) when is_binary(scope) do
+    case {Scopes.parse(scope), String.split(scope, " ", trim: true)} do
+      {[], [_ | _]} -> {:error, "invalid_scope", "None of the requested scopes is known."}
+      {scopes, _named} -> {:ok, scopes}
+    end
+  end
+
+  defp check_scope(_params), do: {:ok, []}
 
   # No resource: the one this server protects. A resource that is not it is `invalid_target`.
   defp check_resource(%{"resource" => resource}) do

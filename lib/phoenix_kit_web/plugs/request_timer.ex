@@ -11,11 +11,14 @@ defmodule PhoenixKitWeb.Plugs.RequestTimer do
   import Plug.Conn
   require Logger
 
+  alias PhoenixKit.API.OAuth.RequestLog
+
   def init(opts), do: opts
 
   def call(conn, _opts) do
     start_time = System.monotonic_time(:microsecond)
-    path = conn.request_path
+    # The path as it may be logged: a consent capability URL has its token hidden.
+    path = RequestLog.path(conn)
 
     Logger.debug("[RequestTimer] START #{conn.method} #{path}")
 

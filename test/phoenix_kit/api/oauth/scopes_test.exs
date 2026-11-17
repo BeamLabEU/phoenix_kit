@@ -43,4 +43,27 @@ defmodule PhoenixKit.API.OAuth.ScopesTest do
     assert entry.read?
     assert is_list(entry.tools) and entry.tools != []
   end
+
+  test "describe/1 names the module and gives each tool's title and description" do
+    [entry] = Scopes.describe([read_scope()])
+
+    assert entry.module_key == "apikeytest"
+    assert entry.module_name == "API key test module"
+    assert entry.resource == "things"
+
+    assert [%{name: "apikeytest.list_things", title: "List_things", description: description}] =
+             entry.details
+
+    assert description =~ "list_things"
+  end
+
+  test "describe/1 sorts by module and group, a group's reading before its changes" do
+    entries = Scopes.describe(all_scopes())
+
+    assert Enum.map(entries, &{&1.module_key, &1.group, &1.action}) == [
+             {"apikeytest", "apikeytest.jobs", "run"},
+             {"apikeytest", "apikeytest.things", "read"},
+             {"apikeytest", "apikeytest.things", "write"}
+           ]
+  end
 end

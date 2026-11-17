@@ -4,6 +4,7 @@ defmodule PhoenixKit.Supervisor do
   """
   use Supervisor
 
+  alias PhoenixKit.API.OAuth.RequestLog
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Storage.BucketLog
 
@@ -19,6 +20,8 @@ defmodule PhoenixKit.Supervisor do
 
   @impl true
   def init(_init_arg) do
+    # A primary Logger filter, so the host's endpoint needs no option for it.
+    RequestLog.install()
     update_mode = Application.get_env(:phoenix_kit, :update_mode, false)
     children = build_children(update_mode)
     Supervisor.init(children, strategy: :one_for_one)

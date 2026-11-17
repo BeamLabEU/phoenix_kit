@@ -120,6 +120,10 @@ defmodule PhoenixKitWeb.OAuth.MetadataTest do
       assert fetch("/.well-known/openid-configuration").status == 404
     end
 
+    test "does not promise client ID metadata documents: this server does not read them yet" do
+      assert body(fetch(@as_path))["client_id_metadata_document_supported"] == false
+    end
+
     test "the endpoints it names are routed, with no locale segment" do
       doc = body(fetch(@as_path))
       refute doc["authorization_endpoint"] =~ ~r{/(en|et|ru)/}

@@ -24,11 +24,14 @@ defmodule PhoenixKit.API.OAuth.RequestsCodesTest do
     %{scope: scope, client: client!()}
   end
 
+  @browser Requests.new_browser()
+
   defp attrs,
     do: %{
       redirect_uri: "https://client.example/callback",
       code_challenge: "c",
-      resource: "https://x.example/mcp/admin"
+      resource: "https://x.example/mcp/admin",
+      browser: @browser
     }
 
   describe "requests" do
@@ -39,14 +42,16 @@ defmodule PhoenixKit.API.OAuth.RequestsCodesTest do
 
       assert byte_size(Base.url_decode64!(token, padding: false)) == 32
 
-      assert request.request_token_hash ==
-               :crypto.hash(:sha256, Base.url_decode64!(token, padding: false))
+      # The stored hash is keyed by the browser's nonce (not the plain hash of the token).
+      secret = Base.url_decode64!(token, padding: false)
+      assert request.request_token_hash == :crypto.mac(:hmac, :sha256, @browser, secret)
+      refute request.request_token_hash == :crypto.hash(:sha256, secret)
 
       refute request.request_token_hash == token
       assert request.client_snapshot["client_id"] == client.client_id
       assert DateTime.diff(request.expires_at, DateTime.utc_now()) in 595..600
 
-      assert {:ok, %Request{uuid: uuid}} = Requests.fetch(token)
+      assert {:ok, %Request{uuid: uuid}} = Requests.fetch(token, @browser)
       assert uuid == request.uuid
     end
 
@@ -63,15 +68,36 @@ defmodule PhoenixKit.API.OAuth.RequestsCodesTest do
             token <> "A",
             String.upcase(token) <> "x"
           ] do
-        assert Requests.fetch(bad) == :error
+        assert Requests.fetch(bad, @browser) == :error
       end
+    end
+
+    test "fetch/2 finds a request only for the browser that made it", %{client: client} do
+      {:ok, token, _} = Requests.create(client, attrs())
+
+      assert {:ok, _} = Requests.fetch(token, @browser)
+
+      # Another browser, none, and a value that is no nonce: nothing, whatever the token says.
+      for other <- [Requests.new_browser(), nil, "", "short", 5] do
+        assert Requests.fetch(token, other) == :error
+      end
+    end
+
+    test "create/2 refuses a request with no browser nonce", %{client: client} do
+      assert_raise KeyError, fn -> Requests.create(client, Map.delete(attrs(), :browser)) end
+
+      assert_raise ArgumentError, fn ->
+        Requests.create(client, Map.put(attrs(), :browser, "not a nonce"))
+      end
+
+      assert Requests.live_count() == 0
     end
 
     test "a request is used once", %{client: client} do
       {:ok, token, request} = Requests.create(client, attrs())
       assert Requests.consume(request) == :ok
       assert Requests.consume(request) == :error
-      assert Requests.fetch(token) == :error
+      assert Requests.fetch(token, @browser) == :error
     end
 
     test "a request that ran out cannot be fetched or consumed", %{client: client} do
@@ -79,7 +105,7 @@ defmodule PhoenixKit.API.OAuth.RequestsCodesTest do
       past = DateTime.add(DateTime.utc_now(), -1, :second)
       Repo.update_all(Request, set: [expires_at: past])
 
-      assert Requests.fetch(token) == :error
+      assert Requests.fetch(token, @browser) == :error
       assert Requests.consume(request) == :error
       assert Requests.live_count() == 0
     end

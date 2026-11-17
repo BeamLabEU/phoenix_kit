@@ -27499,9 +27499,49 @@ msgstr ""
 msgid "What it may do"
 msgstr ""
 
-#: lib/phoenix_kit_web/oauth/pages.ex:164
+#: lib/phoenix_kit_web/oauth/pages.ex:168
 #, elixir-autogen, elixir-format
-msgid "read"
+msgid "Reading"
+msgstr ""
+
+#: lib/phoenix_kit_web/oauth/pages.ex:172
+#, elixir-autogen, elixir-format
+msgid "Changing data"
+msgstr ""
+
+#: lib/phoenix_kit_web/oauth/pages.ex:320
+#, elixir-autogen, elixir-format
+msgid "What this includes"
+msgstr ""
+
+#: lib/phoenix_kit_web/oauth/pages.ex:334
+#, elixir-autogen, elixir-format
+msgid "Read: %{resource}"
+msgstr ""
+
+#: lib/phoenix_kit_web/oauth/pages.ex:337
+#, elixir-autogen, elixir-format
+msgid "Change: %{resource} (%{action})"
+msgstr ""
+
+#: lib/phoenix_kit_web/oauth/pages.ex:186
+#, elixir-autogen, elixir-format
+msgid "The application gets only what you tick here. If it needs other rights later, disconnect it under My API keys and connect it again."
+msgstr ""
+
+#: lib/phoenix_kit_web/oauth/pages.ex:284
+#, elixir-autogen, elixir-format
+msgid "It will stop working at once. To use it again you connect it again and allow access again."
+msgstr ""
+
+#: lib/phoenix_kit_web/oauth/pages.ex:292
+#, elixir-autogen, elixir-format
+msgid "Yes, disconnect"
+msgstr ""
+
+#: lib/phoenix_kit_web/oauth/pages.ex:274
+#, elixir-autogen, elixir-format
+msgid "Disconnect this application?"
 msgstr ""
 
 #: lib/phoenix_kit_web/oauth/pages.ex:171

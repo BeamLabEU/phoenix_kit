@@ -15,7 +15,12 @@ defmodule PhoenixKitWeb.OAuth.PagesTranslationsTest do
     "How long",
     "Allow",
     "Too many connections",
-    "Back to the request"
+    "Back to the request",
+    "Reading",
+    "Changing data",
+    "What this includes",
+    "Yes, disconnect",
+    "The application gets only what you tick here. If it needs other rights later, disconnect it under My API keys and connect it again."
   ]
 
   defp translate(locale, msgid),

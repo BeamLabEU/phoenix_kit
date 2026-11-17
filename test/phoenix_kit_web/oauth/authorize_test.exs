@@ -15,6 +15,7 @@ defmodule PhoenixKitWeb.OAuth.AuthorizeTest do
   import PhoenixKit.Test.ApiHarness, only: [put_setting: 2, setup_api: 0, switch: 2]
 
   alias PhoenixKit.API.OAuth.Request
+  alias PhoenixKit.API.OAuth.RequestLog
   alias PhoenixKit.API.OAuth.Resource
   alias PhoenixKit.Test.Repo
   alias PhoenixKit.Utils.Routes
@@ -44,9 +45,13 @@ defmodule PhoenixKitWeb.OAuth.AuthorizeTest do
       id = consent_id(conn)
       assert [%Request{} = request] = Repo.all(Request)
       refute id =~ request.uuid
-      # Only the hash of the token is stored.
+      # Only a hash of the token is stored, keyed by the nonce of the browser that asked: the
+      # cookie that browser holds.
+      nonce = browser_value(conn)
+      assert is_binary(nonce)
+
       assert request.request_token_hash ==
-               :crypto.hash(:sha256, Base.url_decode64!(id, padding: false))
+               :crypto.mac(:hmac, :sha256, nonce, Base.url_decode64!(id, padding: false))
 
       assert request.resource == Resource.resource()
       assert request.client_snapshot["client_id"] == client.client_id
@@ -94,6 +99,31 @@ defmodule PhoenixKitWeb.OAuth.AuthorizeTest do
 
       authorize(browser(), params)
       assert [%Request{requested_scopes: ["testkit.items:read"]}] = Repo.all(Request)
+    end
+
+    test "a scope that names only unknown values is invalid_scope, not 'none named'", %{
+      client: client,
+      challenge: challenge
+    } do
+      for scope <- ["openid", "openid profile", "nope.x:read  also.nope:write"] do
+        conn = authorize(browser(), authorize_params(client, challenge, %{"scope" => scope}))
+        assert %{"error" => "invalid_scope"} = redirect_error(conn), scope
+      end
+
+      assert Repo.all(Request) == []
+    end
+
+    test "an empty scope names nothing, and the person chooses on the screen", %{
+      client: client,
+      challenge: challenge
+    } do
+      for scope <- ["", "   "] do
+        conn = authorize(browser(), authorize_params(client, challenge, %{"scope" => scope}))
+        assert conn.status == 302, inspect(scope)
+        assert location(conn) =~ "/oauth/consent/"
+      end
+
+      assert [%Request{requested_scopes: []}, %Request{requested_scopes: []}] = Repo.all(Request)
     end
 
     test "prompt and id_token_hint are ignored", %{client: client, challenge: challenge} do
@@ -359,6 +389,45 @@ defmodule PhoenixKitWeb.OAuth.AuthorizeTest do
       assert Enum.any?(route_lines, &(&1 =~ "CONTROLMARK"))
       refute Enum.any?(route_lines, &(&1 =~ "OAuth"))
       refute Enum.any?(route_lines, &(&1 =~ "SECRETSTATE0123" or &1 =~ challenge))
+    end
+
+    test "the consent token is in no line of the log: not the router's, not the endpoint's request line",
+         %{client: client, challenge: challenge} do
+      # The kit registers the filter when `PhoenixKit.Supervisor` starts; the test endpoint has no
+      # `log:` option on its `Plug.Telemetry`, so what is hidden here is hidden by the filter.
+      RequestLog.install()
+      previous = Logger.level()
+      Logger.configure(level: :debug)
+      on_exit(fn -> Logger.configure(level: previous) end)
+
+      {user, _role} = holder(["dashboard"])
+      params = authorize_params(client, challenge)
+
+      {id, log} =
+        with_log([level: :debug], fn ->
+          id = authorize(browser(), params) |> consent_id()
+          consent(browser(), id)
+          consent(browser(user), id)
+
+          decide(browser(user), id, %{
+            "decision" => "allow",
+            "scopes" => ["testkit.items:read"],
+            "days" => "30"
+          })
+
+          id
+        end)
+
+      # The control: the endpoint writes its request line for the authorize path (at :info), so a
+      # consent line that is missing its token is missing it because it was filtered, not because
+      # nothing is captured.
+      assert log =~ "[info] GET " <> Routes.path("/oauth/authorize")
+      assert log =~ "[info] GET " <> Routes.path("/oauth/consent/[FILTERED]")
+      refute log =~ id
+      refute log =~ ~r|GET /[^ ]*oauth/consent/[A-Za-z0-9_-]{43}|
+
+      # The timer line of the kit shows the page, not the token.
+      assert log =~ "[RequestTimer] END GET " <> Routes.path("/oauth/consent/[FILTERED]")
     end
   end
 end

@@ -18,6 +18,20 @@ defmodule PhoenixKitWeb.OAuth.Responses do
   host has to list the redirect origins of its clients in `form-action` (or leave the directive
   out) for the flow to complete.
 
+  ## The browser binding
+
+  `bind_browser/1` gives the browser that starts an authorization request a random nonce in a
+  cookie of its own (`browser_cookie/0`), and `browser_nonce/1` reads it back on the consent
+  routes; `PhoenixKit.API.OAuth.Requests` keys the stored request by it. It is a cookie and not a
+  session entry because signing in renews the session and **clears** it
+  (`PhoenixKitWeb.Users.Auth.log_in_user/3`), and the person lands on the consent page right
+  after the sign-in; the cookie is `HttpOnly`, `SameSite=Lax` (it travels with the top-level
+  redirect back from a sign-in at another site, never with a cross-site form post) and `Secure`
+  when the canonical origin (`PhoenixKit.API.OAuth.Resource.issuer/0`) is https, not when the
+  request looks so (a proxy that ends TLS may hand over a plain `http` connection), limited to the
+  path of the flow, and it lives an hour. A browser already holding a nonce keeps it, so two
+  requests started in two tabs do not undo each other.
+
   ## Redirects to the client
 
   `to_client/3` appends parameters to the client's redirect URI (which is already confirmed
@@ -28,7 +42,45 @@ defmodule PhoenixKitWeb.OAuth.Responses do
 
   import Plug.Conn
 
+  alias PhoenixKit.API.OAuth.Requests
   alias PhoenixKit.API.OAuth.Resource
+  alias PhoenixKit.Utils.Routes
+
+  @browser_cookie "pk_oauth_browser"
+  @browser_max_age 3600
+
+  @doc "The name of the cookie that binds a request to its browser."
+  @spec browser_cookie() :: String.t()
+  def browser_cookie, do: @browser_cookie
+
+  @doc """
+  The nonce of the browser behind `conn` (its cookie, when it is a well-formed nonce), or `nil`.
+  """
+  @spec browser_nonce(Plug.Conn.t()) :: String.t() | nil
+  def browser_nonce(%Plug.Conn{} = conn) do
+    value = conn |> fetch_cookies() |> Map.get(:req_cookies, %{}) |> Map.get(@browser_cookie)
+    if Requests.browser?(value), do: value
+  end
+
+  @doc """
+  Makes sure the browser has a nonce and refreshes its cookie. Returns `{conn, nonce}`: the
+  nonce the browser already holds, or a new one.
+  """
+  @spec bind_browser(Plug.Conn.t()) :: {Plug.Conn.t(), String.t()}
+  def bind_browser(%Plug.Conn{} = conn) do
+    nonce = browser_nonce(conn) || Requests.new_browser()
+
+    conn =
+      put_resp_cookie(conn, @browser_cookie, nonce,
+        http_only: true,
+        same_site: "Lax",
+        secure: String.starts_with?(Resource.issuer(), "https://"),
+        max_age: @browser_max_age,
+        path: Routes.path("/oauth")
+      )
+
+    {conn, nonce}
+  end
 
   @doc "Headers of a page the person decides on (see the moduledoc)."
   @spec secure(Plug.Conn.t()) :: Plug.Conn.t()

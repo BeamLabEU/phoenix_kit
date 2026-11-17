@@ -80,7 +80,8 @@ defmodule PhoenixKit.API.OAuth.Consent do
   application) and `:ip`.
 
   Returns `{:ok, code, grant}`, or `{:error, reason}`: `:request_gone` (used or run out),
-  `:no_scopes`, `:grant_limit` (the person already has as many live grants as the ceiling
+  `:client_gone` (the client was deleted meanwhile), `:no_scopes`,
+  `:grant_limit` (the person already has as many live grants as the ceiling
   allows), and the refusals of `PhoenixKit.API.Keys.create_oauth_key/3` (`:forbidden`,
   `:impersonated`, `:owner_inactive`, `:owner_not_allowed`, ...).
   """

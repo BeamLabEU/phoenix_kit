@@ -27530,10 +27530,50 @@ msgstr "请至少选择一项权限。"
 msgid "What it may do"
 msgstr "它可以做什么"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:164
+#: lib/phoenix_kit_web/oauth/pages.ex:168
 #, elixir-autogen, elixir-format
-msgid "read"
+msgid "Reading"
 msgstr "读取"
+
+#: lib/phoenix_kit_web/oauth/pages.ex:172
+#, elixir-autogen, elixir-format
+msgid "Changing data"
+msgstr "更改数据"
+
+#: lib/phoenix_kit_web/oauth/pages.ex:320
+#, elixir-autogen, elixir-format
+msgid "What this includes"
+msgstr "包含的内容"
+
+#: lib/phoenix_kit_web/oauth/pages.ex:334
+#, elixir-autogen, elixir-format
+msgid "Read: %{resource}"
+msgstr "读取：%{resource}"
+
+#: lib/phoenix_kit_web/oauth/pages.ex:337
+#, elixir-autogen, elixir-format
+msgid "Change: %{resource} (%{action})"
+msgstr "更改：%{resource}（%{action}）"
+
+#: lib/phoenix_kit_web/oauth/pages.ex:186
+#, elixir-autogen, elixir-format
+msgid "The application gets only what you tick here. If it needs other rights later, disconnect it under My API keys and connect it again."
+msgstr "应用只会获得您在此勾选的权限。如果它以后需要其他权限，请在“我的 API 密钥”中断开它，然后重新连接。"
+
+#: lib/phoenix_kit_web/oauth/pages.ex:284
+#, elixir-autogen, elixir-format
+msgid "It will stop working at once. To use it again you connect it again and allow access again."
+msgstr "它将立即停止工作。若要再次使用，请重新连接并再次允许访问。"
+
+#: lib/phoenix_kit_web/oauth/pages.ex:292
+#, elixir-autogen, elixir-format
+msgid "Yes, disconnect"
+msgstr "是，断开连接"
+
+#: lib/phoenix_kit_web/oauth/pages.ex:274
+#, elixir-autogen, elixir-format
+msgid "Disconnect this application?"
+msgstr "断开此应用？"
 
 #: lib/phoenix_kit_web/oauth/pages.ex:171
 #, elixir-autogen, elixir-format
