@@ -40,7 +40,8 @@ defmodule PhoenixKit.API.OAuth.ExchangeConcurrencyTest do
         client,
         %{
           scopes: [KeyTestSupport.read_scope()],
-          expires_at: DateTime.add(DateTime.utc_now(), 86_400, :second)
+          expires_at: DateTime.add(DateTime.utc_now(), 86_400, :second),
+          approved?: true
         },
         impersonated: false
       )

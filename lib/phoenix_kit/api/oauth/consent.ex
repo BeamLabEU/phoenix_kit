@@ -19,6 +19,11 @@ defmodule PhoenixKit.API.OAuth.Consent do
   so a person who is turned away at the ceiling can revoke a grant and carry on with the same
   request. The grant is not active yet: it becomes so when the code is exchanged.
 
+  The client is judged once more here (`PhoenixKit.API.OAuth.ClientPolicy.judge/3`), on the
+  snapshot of the request, which is what the person was shown. `:refused` is `:client_not_allowed`;
+  `:trusted` makes an approved grant and `:needs_approval` one that waits for an owner: it is
+  issued its code and tokens as any other, but nothing runs on it until it is approved.
+
   ## Denying
 
   `deny/1` only uses the request up.
@@ -65,12 +70,20 @@ defmodule PhoenixKit.API.OAuth.Consent do
   request waited.
   """
   @spec client_allowed?(Request.t()) :: boolean()
-  def client_allowed?(%Request{client_snapshot: %{} = snapshot}) do
+  def client_allowed?(request), do: judge(request) != :refused
+
+  @doc """
+  What the client policy says of the client the request was made for
+  (`PhoenixKit.API.OAuth.ClientPolicy.judge/3`), judged on the request's snapshot. A request
+  with no usable snapshot is `:refused`.
+  """
+  @spec judge(Request.t()) :: ClientPolicy.verdict()
+  def judge(%Request{client_snapshot: %{} = snapshot}) do
     uris = if is_list(snapshot["redirect_uris"]), do: snapshot["redirect_uris"], else: []
-    ClientPolicy.allowed?(kind(snapshot["kind"]), snapshot["client_id"] || "", uris)
+    ClientPolicy.judge(kind(snapshot["kind"]), snapshot["client_id"] || "", uris)
   end
 
-  def client_allowed?(_request), do: false
+  def judge(_request), do: :refused
 
   # A snapshot that names no known kind is judged like a registered client, never as the
   # administrator's own (which no policy judges).
@@ -113,20 +126,23 @@ defmodule PhoenixKit.API.OAuth.Consent do
     %{selectable: selectable} = options(user, request)
     scopes = opts |> Keyword.get(:scopes, []) |> Enum.filter(&(&1 in selectable)) |> Enum.uniq()
 
+    verdict = judge(request)
+
     cond do
-      not client_allowed?(request) ->
+      verdict == :refused ->
         {:error, :client_not_allowed}
 
       scopes == [] ->
         {:error, :no_scopes}
 
       true ->
-        grant(scope, request, client, scopes, opts)
+        grant(scope, request, client, scopes, verdict == :trusted, opts)
     end
   end
 
-  defp grant(scope, request, client, scopes, opts) do
+  defp grant(scope, request, client, scopes, approved?, opts) do
     attrs = %{
+      approved?: approved?,
       scopes: scopes,
       expires_at: expiry(Keyword.get(opts, :days)),
       resource: request.resource,

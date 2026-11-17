@@ -66,7 +66,8 @@ defmodule PhoenixKit.API.OAuthTestSupport do
   @doc """
   A grant of a new client for the person behind `scope`, with an access token and a refresh
   token. `opts`: `:scopes` (default the fake module's read scope), `:expires_at` (default ten
-  days), `:client`, `:resource`, `:access_expires_at`.
+  days), `:client`, `:resource`, `:access_expires_at`, `:approved?` (default `true`: a grant that
+  works; `false` makes one that waits for approval).
 
   Returns `%{grant, key, client, access, refresh, access_row, refresh_row}`.
   """
@@ -78,7 +79,8 @@ defmodule PhoenixKit.API.OAuthTestSupport do
       %{
         scopes: Keyword.get(opts, :scopes, [KeyTestSupport.read_scope()]),
         expires_at:
-          Keyword.get(opts, :expires_at, DateTime.add(DateTime.utc_now(), 10 * 86_400, :second))
+          Keyword.get(opts, :expires_at, DateTime.add(DateTime.utc_now(), 10 * 86_400, :second)),
+        approved?: Keyword.get(opts, :approved?, true)
       }
       |> maybe_put(:resource, Keyword.get(opts, :resource))
 

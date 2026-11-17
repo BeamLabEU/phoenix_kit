@@ -649,7 +649,8 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanelTest do
 
       attrs = %{
         scopes: [KeyTestSupport.read_scope()],
-        expires_at: DateTime.add(DateTime.utc_now(), 86_400)
+        expires_at: DateTime.add(DateTime.utc_now(), 86_400),
+        approved?: true
       }
 
       {:ok, grant, _key} = Grants.create(scope, pending, attrs, impersonated: false)

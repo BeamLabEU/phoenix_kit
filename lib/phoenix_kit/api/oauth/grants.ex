@@ -25,6 +25,14 @@ defmodule PhoenixKit.API.OAuth.Grants do
 
   The refresh and the verification of a token re-read the grant, so a token inserted after the
   revoking statement is dead the moment it is used.
+
+  ## Waiting for approval
+
+  A grant works only once it is approved: `approved_at` is `nil` while it waits
+  (`awaiting?/1`). `create/4` does not read the client policy itself; the caller says whether the
+  grant is born approved (a trusted client) or waiting (`approved?: true | false` in `attrs`, no
+  default: a caller that forgot to decide gets `{:error, :approval_undecided}`, never a working
+  grant).
   """
 
   import Ecto.Query, only: [from: 2]
@@ -49,7 +57,8 @@ defmodule PhoenixKit.API.OAuth.Grants do
   @doc """
   Makes a grant of `client` for the person behind `scope`, and its hidden key.
 
-  `attrs` takes `scopes` (a list of scope names), `client_name` (the name the hidden key gets; the
+  `attrs` takes `approved?` (**required**, `true` or `false`: whether the grant works at once or
+  waits for an owner's approval), `scopes` (a list of scope names), `client_name` (the name the hidden key gets; the
   client's own name by default; text the table cannot hold - a NUL byte, bytes that are not
   UTF-8 - is refused as `:invalid_client_name`), `expires_at` (required; at most
   `PhoenixKit.API.PersonalKeysConfig.latest_expiry/0`), `resource` (default
@@ -61,7 +70,8 @@ defmodule PhoenixKit.API.OAuth.Grants do
   advisory lock (the one the personal keys use), so two consents that run together cannot both
   pass it. A person at the ceiling gets `{:error, :grant_limit}` and nothing is created.
 
-  Returns `{:ok, grant, key}`, or the key's refusal (`:forbidden`, `:impersonated`,
+  Returns `{:ok, grant, key}`, or `{:error, :approval_undecided}` when `approved?` is missing or
+  not a boolean, or the key's refusal (`:forbidden`, `:impersonated`,
   `:invalid_scopes`, `:invalid_client_name`, `:owner_inactive`, a changeset, ...), or `:client_gone` when the client was
   deleted in the meantime (nothing is created).
   """
@@ -71,12 +81,21 @@ defmodule PhoenixKit.API.OAuth.Grants do
       when is_map(attrs) and is_list(opts) do
     client_name = Map.get(attrs, :client_name) || client.client_name || client.client_id
 
-    if Input.valid?(client_name),
-      do: create_valid(scope, client, attrs, client_name, opts),
-      else: {:error, :invalid_client_name}
+    with {:ok, approved?} <- decision(attrs) do
+      if Input.valid?(client_name),
+        do: create_valid(scope, client, Map.put(attrs, :approved?, approved?), client_name, opts),
+        else: {:error, :invalid_client_name}
+    end
   end
 
   def create(_scope, _client, _attrs, opts) when is_list(opts), do: {:error, :forbidden}
+
+  defp decision(attrs) do
+    case Map.fetch(attrs, :approved?) do
+      {:ok, approved?} when is_boolean(approved?) -> {:ok, approved?}
+      _missing_or_not_a_boolean -> {:error, :approval_undecided}
+    end
+  end
 
   defp create_valid(
          %Scope{user: %User{uuid: user_uuid}} = scope,
@@ -108,6 +127,7 @@ defmodule PhoenixKit.API.OAuth.Grants do
                resource: Map.get(attrs, :resource) || Resource.resource(),
                scopes: key.scopes,
                expires_at: key.expires_at,
+               approved_at: if(attrs.approved?, do: now()),
                created_ip: attrs |> Map.get(:created_ip) |> ip_column()
              }) do
         {grant, key}
@@ -270,6 +290,15 @@ defmodule PhoenixKit.API.OAuth.Grants do
       end
     end)
   end
+
+  @doc """
+  Whether the grant waits for approval: it has no `approved_at`. A missing grant (a key whose
+  grant cannot be found) and anything that is not a grant wait too: no decision is never
+  "working".
+  """
+  @spec awaiting?(Grant.t() | nil) :: boolean()
+  def awaiting?(%Grant{approved_at: %DateTime{}}), do: false
+  def awaiting?(_no_approval), do: true
 
   @doc """
   Whether the grant can still be used: not revoked and not expired, and for this install's
@@ -441,6 +470,8 @@ defmodule PhoenixKit.API.OAuth.Grants do
 
   defp truncate(%DateTime{} = at), do: DateTime.truncate(at, :second)
   defp truncate(other), do: other
+
+  defp now, do: DateTime.truncate(DateTime.utc_now(), :second)
 
   defp repo, do: RepoHelper.repo()
 end

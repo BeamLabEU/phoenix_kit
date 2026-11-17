@@ -24,9 +24,63 @@ defmodule PhoenixKit.API.OAuth.GrantsTest do
 
   defp attrs(extra \\ %{}) do
     Map.merge(
-      %{scopes: [read_scope()], expires_at: DateTime.add(DateTime.utc_now(), 86_400, :second)},
+      %{
+        scopes: [read_scope()],
+        expires_at: DateTime.add(DateTime.utc_now(), 86_400, :second),
+        approved?: true
+      },
       extra
     )
+  end
+
+  describe "the decision on approval" do
+    test "approved? true makes an approved grant, stamped now", ctx do
+      assert {:ok, grant, _key} =
+               Grants.create(ctx.scope, ctx.client, attrs(%{approved?: true}),
+                 impersonated: false
+               )
+
+      assert %DateTime{} = grant.approved_at
+      assert abs(DateTime.diff(DateTime.utc_now(), grant.approved_at)) < 5
+      refute Grants.awaiting?(grant)
+      assert Repo.get!(Grant, grant.uuid).approved_at == grant.approved_at
+    end
+
+    test "approved? false makes a grant that waits", ctx do
+      assert {:ok, grant, _key} =
+               Grants.create(ctx.scope, ctx.client, attrs(%{approved?: false}),
+                 impersonated: false
+               )
+
+      assert grant.approved_at == nil
+      assert Grants.awaiting?(grant)
+      assert Repo.get!(Grant, grant.uuid).approved_at == nil
+    end
+
+    test "no decision, or one that is not a boolean, is refused and creates nothing", ctx do
+      before_grants = Repo.aggregate(Grant, :count)
+      before_keys = Repo.aggregate(Key, :count)
+
+      for bad <- [
+            attrs() |> Map.delete(:approved?),
+            attrs(%{approved?: nil}),
+            attrs(%{approved?: "true"})
+          ] do
+        assert {:error, :approval_undecided} =
+                 Grants.create(ctx.scope, ctx.client, bad, impersonated: false)
+      end
+
+      assert Repo.aggregate(Grant, :count) == before_grants
+      assert Repo.aggregate(Key, :count) == before_keys
+    end
+
+    test "a grant written with no approval at all reads as waiting, and so does no grant", ctx do
+      {:ok, grant, _key} = Grants.create(ctx.scope, ctx.client, attrs(), impersonated: false)
+      assert Grants.awaiting?(%{grant | approved_at: nil})
+
+      assert Grants.awaiting?(nil)
+      assert Grants.awaiting?(:something_else)
+    end
   end
 
   test "makes the grant and its key, pointing at each other, with one expiry", ctx do
