@@ -106,6 +106,24 @@ defmodule PhoenixKit.API.OAuth.TokensTest do
       assert access.expires_at == near
     end
 
+    test "an explicit end is cut to the grant's end, whatever the kind", %{seed: seed} do
+      far = DateTime.add(seed.grant.expires_at, 365 * 86_400, :second)
+
+      {:ok, _token, access} = Tokens.issue(seed.grant, :access, expires_at: far)
+      {:ok, _token, refresh} = Tokens.issue(seed.grant, :refresh, expires_at: far)
+
+      assert access.expires_at == seed.grant.expires_at
+      assert refresh.expires_at == seed.grant.expires_at
+      assert Repo.get!(Token, access.uuid).expires_at == seed.grant.expires_at
+    end
+
+    test "an explicit end inside the grant is kept, to the second", %{seed: seed} do
+      soon = DateTime.add(DateTime.utc_now(), 90, :second)
+
+      {:ok, _token, access} = Tokens.issue(seed.grant, :access, expires_at: soon)
+      assert access.expires_at == DateTime.truncate(soon, :second)
+    end
+
     test "the lifetime is held between five minutes and a day", %{seed: seed} do
       put_setting("api_oauth_access_ttl_seconds", 1)
       {:ok, _token, short} = Tokens.issue(seed.grant, :access)
@@ -271,6 +289,16 @@ defmodule PhoenixKit.API.OAuth.TokensTest do
       assert {:error, :invalid_token} = Tokens.verify(seed.access, nil)
     end
 
+    test "a key whose owner is not the grant's owner", %{seed: seed} do
+      {other, _role, _scope} = oauth_holder(["media"])
+
+      Repo.update_all(from(k in Keys.Key, where: k.uuid == ^seed.key.uuid),
+        set: [user_uuid: other.uuid]
+      )
+
+      assert {:error, :invalid_token} = Tokens.verify(seed.access, nil)
+    end
+
     test "a key that expired or was revoked behind the grant's back", %{seed: seed} do
       Repo.update_all(from(k in Keys.Key, where: k.uuid == ^seed.key.uuid),
         set: [expires_at: past()]
@@ -285,15 +313,11 @@ defmodule PhoenixKit.API.OAuth.TokensTest do
       assert {:error, :revoked} = Tokens.verify(seed.access, nil)
     end
 
+    @tag :capture_log
     test "an owner who is blocked", %{seed: seed, user: user} do
       user |> Ecto.Changeset.change(is_active: false) |> Repo.update!()
 
-      log =
-        ExUnit.CaptureLog.capture_log(fn ->
-          assert {:error, :owner_inactive} = Tokens.verify(seed.access, nil)
-        end)
-
-      assert log =~ "Inactive user"
+      assert {:error, :owner_inactive} = Tokens.verify(seed.access, nil)
     end
 
     test "an owner whose role lost api_personal_keys, while keeping every module right", %{

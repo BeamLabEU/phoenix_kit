@@ -7,6 +7,9 @@ defmodule PhoenixKit.Migrations.Postgres.V233Test do
   """
   use PhoenixKit.DataCase, async: false
 
+  import PhoenixKit.API.OAuthTestSupport, only: [oauth_holder: 1, seed_grant!: 1]
+
+  alias PhoenixKit.API.Keys
   alias PhoenixKit.API.KeyTestSupport
   alias PhoenixKit.Migrations.ExpectedSchema
   alias PhoenixKit.Migrations.Postgres.V233
@@ -66,6 +69,48 @@ defmodule PhoenixKit.Migrations.Postgres.V233Test do
 
     run(V233.up_statements("public"))
     assert tables() == Enum.sort(@tables)
+  end
+
+  test "rolling back removes the hidden keys of the grants and leaves every other key" do
+    KeyTestSupport.register_fake_module!()
+    KeyTestSupport.start_key_cache!()
+    {user, _role, scope} = oauth_holder(["media"])
+
+    seed = seed_grant!(scope)
+    expires_at = DateTime.add(DateTime.utc_now(), 86_400, :second)
+
+    {:ok, personal, _token} =
+      Keys.create_personal_key(scope, %{name: "mine", scopes: [], expires_at: expires_at},
+        impersonated: false
+      )
+
+    # Before the roll back the hidden key is there, marked.
+    assert [[1]] =
+             query("SELECT count(*) FROM phoenix_kit_api_keys WHERE oauth_grant_uuid IS NOT NULL")
+
+    run(V233.down_statements("public"))
+
+    # Without the column nothing could tell it from a person's own key: it must be gone, or it
+    # would turn up in "My API keys" and count against the person's limit.
+    assert [[0]] =
+             query("SELECT count(*) FROM phoenix_kit_api_keys WHERE uuid = $1", [
+               Ecto.UUID.dump!(seed.key.uuid)
+             ])
+
+    assert [[personal_name]] =
+             query("SELECT name FROM phoenix_kit_api_keys WHERE user_uuid = $1", [
+               Ecto.UUID.dump!(user.uuid)
+             ])
+
+    assert personal_name == personal.name
+    assert tables() == []
+
+    # And the way forward again starts clean: no grants, no hidden keys.
+    run(V233.up_statements("public"))
+    assert [[0]] = query("SELECT count(*) FROM phoenix_kit_api_oauth_grants")
+
+    assert [[0]] =
+             query("SELECT count(*) FROM phoenix_kit_api_keys WHERE oauth_grant_uuid IS NOT NULL")
   end
 
   describe "the constraints" do

@@ -6,6 +6,7 @@ defmodule PhoenixKit.API.OAuth.GrantsTest do
   """
   use PhoenixKit.DataCase, async: false
 
+  import Ecto.Query, only: [from: 2]
   import PhoenixKit.API.KeyTestSupport
   import PhoenixKit.API.OAuthTestSupport
 
@@ -44,6 +45,31 @@ defmodule PhoenixKit.API.OAuth.GrantsTest do
     assert grant.activated_at == nil and grant.revoked_at == nil
     assert key.expires_at == grant.expires_at
     assert key.name == "OAuth: " <> ctx.client.client_name
+  end
+
+  test "the key is named after the client name the caller passes, or the client's own", ctx do
+    assert {:ok, _grant, key} =
+             Grants.create(ctx.scope, ctx.client, attrs(%{client_name: "Seen at consent"}),
+               impersonated: false
+             )
+
+    assert key.name == "OAuth: Seen at consent"
+
+    assert {:ok, _grant, key} =
+             Grants.create(ctx.scope, ctx.client, attrs(%{client_name: nil}), impersonated: false)
+
+    assert key.name == "OAuth: " <> ctx.client.client_name
+  end
+
+  test "a client deleted since it was read is :client_gone, not a constraint error, and leaves nothing",
+       ctx do
+    Repo.delete!(ctx.client)
+
+    assert Grants.create(ctx.scope, ctx.client, attrs(), impersonated: false) ==
+             {:error, :client_gone}
+
+    assert Repo.all(Grant) == []
+    assert Repo.all(from(k in Key, where: not is_nil(k.oauth_grant_uuid))) == []
   end
 
   test "an address longer than its column is cut, not a database error", ctx do

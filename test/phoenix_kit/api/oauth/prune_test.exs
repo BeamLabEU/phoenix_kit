@@ -1,14 +1,15 @@
 defmodule PhoenixKit.API.OAuth.PruneTest do
   @moduledoc """
-  The daily clean-up of the OAuth tables: what goes, and above all what must stay (an
-  activated grant and its key, a used refresh token before its grant is over, a client with an
-  authorization in progress).
+  The daily clean-up of the OAuth tables: what goes, and above all what must stay (a live
+  grant and its key, a grant that ended only a moment ago, a used refresh token before its grant
+  is over, a client with an authorization in progress).
   """
   use PhoenixKit.DataCase, async: false
 
   import PhoenixKit.API.KeyTestSupport
   import PhoenixKit.API.OAuthTestSupport
 
+  alias PhoenixKit.API.Keys
   alias PhoenixKit.API.Keys.Key
   alias PhoenixKit.API.OAuth.Client
   alias PhoenixKit.API.OAuth.Code
@@ -101,13 +102,13 @@ defmodule PhoenixKit.API.OAuth.PruneTest do
       assert Repo.get(Grant, grant.uuid)
     end
 
-    test "an activated grant and its key are never removed, ended or not", %{scope: scope} do
+    test "an activated grant and its key are not taken for an abandoned consent", %{scope: scope} do
       seed = seed_grant!(scope)
       age(seed.grant, 7200)
       insert_code!(seed.grant, ago(7200))
       {:ok, _} = Grants.revoke(seed.grant)
 
-      assert %{grants: 0} = Prune.run()
+      assert %{grants: 0, ended: 0} = Prune.run()
       assert Repo.get(Grant, seed.grant.uuid)
       assert Repo.get(Key, seed.key.uuid).revoked_at
     end
@@ -132,6 +133,130 @@ defmodule PhoenixKit.API.OAuth.PruneTest do
       assert Repo.get(Grant, grant.uuid)
       assert Repo.get(Key, key.uuid)
       assert Repo.exists?(from(t in Token, where: t.grant_uuid == ^grant.uuid))
+    end
+  end
+
+  describe "grants that ended" do
+    defp set_grant(grant, fields),
+      do: Repo.update_all(from(g in Grant, where: g.uuid == ^grant.uuid), set: fields)
+
+    test "go with their hidden key, tokens and codes, three days after they were revoked", %{
+      scope: scope
+    } do
+      seed = seed_grant!(scope)
+      code = insert_code!(seed.grant, ago(5))
+      {:ok, _} = Grants.revoke(seed.grant)
+      set_grant(seed.grant, revoked_at: ago(4 * 86_400))
+
+      assert %{ended: 1} = Prune.run()
+
+      assert Repo.get(Grant, seed.grant.uuid) == nil
+      assert Repo.get(Key, seed.key.uuid) == nil
+      assert Repo.get(Code, code.uuid) == nil
+      assert Repo.get(Token, seed.access_row.uuid) == nil
+      assert Repo.get(Token, seed.refresh_row.uuid) == nil
+    end
+
+    test "go three days after they ran out, revoked or not", %{scope: scope} do
+      seed = seed_grant!(scope)
+      set_grant(seed.grant, expires_at: ago(4 * 86_400))
+
+      assert %{ended: 1} = Prune.run()
+      assert Repo.get(Grant, seed.grant.uuid) == nil
+      assert Repo.get(Key, seed.key.uuid) == nil
+    end
+
+    test "stay while their end is younger than the three days", %{scope: scope} do
+      revoked = seed_grant!(scope)
+      {:ok, _} = Grants.revoke(revoked.grant)
+      set_grant(revoked.grant, revoked_at: ago(2 * 86_400))
+
+      expired = seed_grant!(scope)
+      set_grant(expired.grant, expires_at: ago(86_400))
+
+      assert %{ended: 0} = Prune.run()
+
+      for seed <- [revoked, expired] do
+        assert Repo.get(Grant, seed.grant.uuid)
+        assert Repo.get(Key, seed.key.uuid)
+        assert Repo.get(Token, seed.access_row.uuid)
+      end
+    end
+
+    test "a grant that is alive stays, however old", %{scope: scope} do
+      seed = seed_grant!(scope)
+      age(seed.grant, 400 * 86_400)
+
+      assert %{grants: 0, ended: 0} = Prune.run()
+      assert Repo.get(Grant, seed.grant.uuid)
+      assert Repo.get(Key, seed.key.uuid)
+    end
+
+    test "a person's own key is never touched, however long it has been over", %{scope: scope} do
+      attrs = %{name: "mine", scopes: [], expires_at: ahead(86_400)}
+      {:ok, personal, _token} = Keys.create_personal_key(scope, attrs, impersonated: false)
+
+      Repo.update_all(from(k in Key, where: k.uuid == ^personal.uuid),
+        set: [revoked_at: ago(400 * 86_400), expires_at: ago(399 * 86_400)]
+      )
+
+      assert %{ended: 0} = Prune.run()
+      assert Repo.get(Key, personal.uuid)
+    end
+
+    test "delete_ended/2 looks again under the lock: a grant that is not over stays", %{
+      scope: scope
+    } do
+      seed = seed_grant!(scope)
+
+      assert Grants.delete_ended(seed.grant.uuid, ago(3 * 86_400)) == :kept
+      assert Grants.delete_ended(UUIDv7.generate(), ago(3 * 86_400)) == :kept
+      assert Repo.get(Grant, seed.grant.uuid)
+      assert Repo.get(Key, seed.key.uuid)
+
+      set_grant(seed.grant, expires_at: ago(86_400))
+      assert Grants.delete_ended(seed.grant.uuid, ago(3 * 86_400)) == :kept
+
+      set_grant(seed.grant, expires_at: ago(4 * 86_400))
+      assert Grants.delete_ended(seed.grant.uuid, ago(3 * 86_400)) == :deleted
+      assert Repo.get(Grant, seed.grant.uuid) == nil
+    end
+
+    test "a run clears more than one batch", %{scope: scope} do
+      seed = seed_grant!(scope)
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      # 520 more grants, each on its own hidden key row, all over for a week.
+      for _ <- 1..520 do
+        grant_uuid = UUIDv7.generate()
+
+        {:ok, key} =
+          %Key{
+            user_uuid: seed.key.user_uuid,
+            name: "OAuth: bulk",
+            prefix: Base.encode16(:crypto.strong_rand_bytes(4), case: :lower),
+            secret_hash: :crypto.strong_rand_bytes(32),
+            personal: true,
+            oauth_grant_uuid: grant_uuid,
+            scopes: [],
+            expires_at: ago(7 * 86_400)
+          }
+          |> Repo.insert()
+
+        Repo.insert!(%Grant{
+          uuid: grant_uuid,
+          user_uuid: key.user_uuid,
+          client_uuid: seed.client.uuid,
+          key_uuid: key.uuid,
+          resource: "https://x.example/mcp/admin",
+          scopes: [],
+          expires_at: ago(7 * 86_400),
+          inserted_at: now
+        })
+      end
+
+      assert %{ended: 520} = Prune.run()
+      assert Repo.get(Grant, seed.grant.uuid)
     end
   end
 
@@ -295,7 +420,19 @@ defmodule PhoenixKit.API.OAuth.PruneTest do
     end
   end
 
-  test "the worker runs it" do
+  test "the worker runs it", %{scope: scope} do
+    {grant, key, _code} = unfinished_grant!(scope, 3700)
+    ended = seed_grant!(scope)
+    {:ok, _} = Grants.revoke(ended.grant)
+
+    Repo.update_all(from(g in Grant, where: g.uuid == ^ended.grant.uuid),
+      set: [revoked_at: ago(4 * 86_400)]
+    )
+
     assert :ok = PruneWorker.perform(%Oban.Job{})
+
+    assert Repo.get(Grant, grant.uuid) == nil
+    assert Repo.get(Key, key.uuid) == nil
+    assert Repo.get(Grant, ended.grant.uuid) == nil
   end
 end

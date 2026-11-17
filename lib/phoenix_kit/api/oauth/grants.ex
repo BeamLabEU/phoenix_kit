@@ -47,13 +47,15 @@ defmodule PhoenixKit.API.OAuth.Grants do
   @doc """
   Makes a grant of `client` for the person behind `scope`, and its hidden key.
 
-  `attrs` takes `scopes` (a list of scope names), `expires_at` (required; at most
+  `attrs` takes `scopes` (a list of scope names), `client_name` (the name the hidden key gets; the
+  client's own name by default), `expires_at` (required; at most
   `PhoenixKit.API.PersonalKeysConfig.latest_expiry/0`), `resource` (default
   `PhoenixKit.API.OAuth.Resource.resource/0`) and `created_ip`. `opts` is the one of
   `PhoenixKit.API.Keys.create_oauth_key/3`: `impersonated: true | false`, with no default.
 
   Returns `{:ok, grant, key}`, or the key's refusal (`:forbidden`, `:impersonated`,
-  `:invalid_scopes`, `:owner_inactive`, a changeset, ...).
+  `:invalid_scopes`, `:owner_inactive`, a changeset, ...), or `:client_gone` when the client was
+  deleted in the meantime (nothing is created).
   """
   @spec create(Scope.t() | nil, Client.t(), map(), keyword()) ::
           {:ok, Grant.t(), Key.t()} | {:error, Ecto.Changeset.t() | atom()}
@@ -64,7 +66,7 @@ defmodule PhoenixKit.API.OAuth.Grants do
 
     key_attrs = %{
       grant_uuid: grant_uuid,
-      client_name: client.client_name || client.client_id,
+      client_name: Map.get(attrs, :client_name) || client.client_name || client.client_id,
       scopes: Map.get(attrs, :scopes, []),
       expires_at: expires_at
     }
@@ -72,7 +74,7 @@ defmodule PhoenixKit.API.OAuth.Grants do
     repo().transaction(fn ->
       with {:ok, key} <- Keys.create_oauth_key(scope, key_attrs, opts),
            {:ok, grant} <-
-             repo().insert(%Grant{
+             insert(%Grant{
                uuid: grant_uuid,
                user_uuid: user_uuid,
                client_uuid: client.uuid,
@@ -94,6 +96,25 @@ defmodule PhoenixKit.API.OAuth.Grants do
   end
 
   def create(_scope, _client, _attrs, opts) when is_list(opts), do: {:error, :forbidden}
+
+  # A client deleted since the consent screen was shown is an answer (`:client_gone`), not a
+  # constraint error: the foreign key is the one place that sees the delete, whatever the
+  # earlier read of the client said.
+  defp insert(%Grant{} = grant) do
+    grant
+    |> Ecto.Changeset.change()
+    |> Ecto.Changeset.foreign_key_constraint(:client_uuid)
+    |> repo().insert()
+    |> case do
+      {:ok, grant} ->
+        {:ok, grant}
+
+      {:error, %Ecto.Changeset{errors: errors} = changeset} ->
+        if Keyword.has_key?(errors, :client_uuid),
+          do: {:error, :client_gone},
+          else: {:error, changeset}
+    end
+  end
 
   # The column is `varchar(45)` (the longest IPv6 text); a longer value must not abort the
   # consent's transaction with a database error.
@@ -187,6 +208,40 @@ defmodule PhoenixKit.API.OAuth.Grants do
       _ ->
         :kept
     end
+  end
+
+  @doc false
+  # Step of `PhoenixKit.API.OAuth.Prune`: removes a grant that is over (revoked, or past its
+  # `expires_at`) before `cutoff` with its hidden key, and with it - by the tables' cascades -
+  # its tokens and codes and the confirmations of the key. The activity entries stay (they hold
+  # no foreign key). Takes the revoke order, key then grant, and looks again under the locks.
+  # Returns `:deleted` or `:kept`.
+  @spec delete_ended(String.t(), DateTime.t()) :: :deleted | :kept
+  def delete_ended(grant_uuid, %DateTime{} = cutoff) do
+    repo().transaction(fn ->
+      with %Grant{key_uuid: key_uuid} <- get(grant_uuid),
+           {:ok, key} <- Keys.lock_oauth_row(key_uuid),
+           {:ok, %Grant{} = grant} <- lock_grant(grant_uuid),
+           true <- ended_before?(grant, cutoff),
+           true <- key.oauth_grant_uuid == grant.uuid do
+        repo().delete_all(from(k in Key, where: k.uuid == ^key.uuid))
+        {:deleted, key.prefix}
+      else
+        _ -> :kept
+      end
+    end)
+    |> case do
+      {:ok, {:deleted, prefix}} ->
+        Cache.invalidate(prefix)
+        :deleted
+
+      _ ->
+        :kept
+    end
+  end
+
+  defp ended_before?(%Grant{revoked_at: revoked_at, expires_at: expires_at}, cutoff) do
+    Enum.any?([revoked_at, expires_at], &(&1 != nil and DateTime.compare(&1, cutoff) == :lt))
   end
 
   # A grant that has issued a token is not abandoned, whatever `activated_at` says: deleting it

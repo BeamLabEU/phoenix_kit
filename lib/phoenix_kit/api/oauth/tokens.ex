@@ -107,7 +107,8 @@ defmodule PhoenixKit.API.OAuth.Tokens do
   Issues a token of `kind` for `grant` and returns it once: `{:ok, token, row}`.
 
   Options: `:expires_at` (default: an access token lives `Config.oauth_access_ttl_seconds/0`, a
-  refresh token as long as the grant; neither outlives the grant), `:family` (the rotation
+  refresh token as long as the grant; a given time is cut to the grant's end too, so no token
+  outlives its grant), `:family` (the rotation
   chain; a new one by default) and `:parent_uuid` (the refresh token this one replaced).
   """
   @spec issue(Grant.t(), kind(), keyword()) :: {:ok, String.t(), Token.t()} | {:error, term()}
@@ -120,13 +121,19 @@ defmodule PhoenixKit.API.OAuth.Tokens do
       grant_uuid: grant.uuid,
       family: Keyword.get_lazy(opts, :family, &UUIDv7.generate/0),
       parent_uuid: Keyword.get(opts, :parent_uuid),
-      expires_at:
-        opts |> Keyword.get_lazy(:expires_at, fn -> default_expiry(kind, grant) end) |> truncate()
+      expires_at: grant |> expiry(kind, opts) |> truncate()
     }
 
     case repo().insert(row) do
       {:ok, row} -> {:ok, token, row}
       {:error, _changeset} = error -> error
+    end
+  end
+
+  defp expiry(%Grant{expires_at: grant_end} = grant, kind, opts) do
+    case Keyword.fetch(opts, :expires_at) do
+      {:ok, %DateTime{} = given} -> Enum.min([given, grant_end], DateTime)
+      _ -> default_expiry(kind, grant)
     end
   end
 
@@ -191,9 +198,13 @@ defmodule PhoenixKit.API.OAuth.Tokens do
     end
   end
 
+  # `activated_at` is not read here: the code exchange activates a grant before it issues the first
+  # token. The key and the grant must name each other and the same person: the rights come from
+  # the key's owner, the consent was recorded for the grant's.
   defp check_grant(%Grant{} = grant, %Key{} = key) do
     cond do
       key.oauth_grant_uuid != grant.uuid -> {:error, :invalid_token}
+      key.user_uuid != grant.user_uuid -> {:error, :invalid_token}
       reached?(grant.revoked_at) -> {:error, :revoked}
       reached?(grant.expires_at) -> {:error, :expired}
       not Resource.matches?(grant.resource) -> {:error, :resource_changed}

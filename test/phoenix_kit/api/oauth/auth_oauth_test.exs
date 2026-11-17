@@ -50,6 +50,25 @@ defmodule PhoenixKit.API.OAuth.AuthTest do
       assert key_uuid == seed.key.uuid
     end
 
+    test "a tool outside the grant's scopes is refused, and the token is not rejected", %{
+      seed: seed
+    } do
+      enable_oauth!()
+
+      conn =
+        post_rpc(:admin, call_message("testkit.write_item", %{"name" => "x"}), token: seed.access)
+
+      # An MCP tool error is an answer of the protocol (HTTP 200, `isError`), with the problem in
+      # it; the token itself was fine, so no challenge and nothing charged to the failure bucket.
+      assert conn.status == 200
+      assert challenge(conn) == nil
+      assert %{"isError" => true, "content" => content} = result(conn)
+
+      assert Enum.any?(content, fn %{"text" => text} ->
+               text =~ "forbidden" and text =~ "testkit.items:write"
+             end)
+    end
+
     test "calls a tool its grant allows", %{seed: seed} do
       enable_oauth!()
       conn = post_rpc(:admin, call_message("testkit.read_items", %{}), token: seed.access)
@@ -118,8 +137,9 @@ defmodule PhoenixKit.API.OAuth.AuthTest do
       switch(:public, true)
       conn = post_rpc(:public, message("tools/list"), token: seed.access)
       # The public audience has no keys: it answers anonymously, and no challenge.
-      assert conn.status in [200, 404]
+      assert conn.status == 200
       assert challenge(conn) == nil
+      refute match?(%{kind: :key}, conn.assigns[:phoenix_kit_api_actor])
     end
 
     test "a pk_ key still works on the admin MCP endpoint" do
@@ -198,7 +218,12 @@ defmodule PhoenixKit.API.OAuth.AuthTest do
       assert String.ends_with?(Resource.metadata_url(), Resource.path())
     end
 
-    test "a 403 for a missing scope has its own challenge", %{seed: seed} do
+    # No endpoint that takes an OAuth token answers an HTTP 403 of its own (a tool's refusal is a
+    # tool result, see "a tool outside the grant's scopes"); this pins the challenge of the
+    # `Problem` clause that any endpoint taking one will use.
+    test "Problem.send/4 of a missing scope on an OAuth request has its own challenge", %{
+      seed: seed
+    } do
       conn =
         :post
         |> api_conn("/x", token: seed.access)

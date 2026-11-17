@@ -9,18 +9,23 @@ defmodule PhoenixKit.API.OAuth.Prune do
        authorization code ran out at least an hour ago (and which is itself an hour old), with
        its hidden key, which has no history. The check is made again under the key then grant
        lock, so a code exchanged a moment ago keeps its grant.
-    2. **Requests** past their ten minutes.
-    3. **Codes** past their minute.
-    4. **Tokens** three days past their own end: an application that comes back after its
+    2. **Grants that are over** - revoked, or past their `expires_at` - three days ago or more
+       (the same grace as the tokens below), with their hidden key, tokens and codes. Without
+       this step every consent would leave a grant and a key row behind for good. The key's
+       confirmations go with it (the tables cascade); the activity entries
+       (`oauth.grant_revoked`, the key's `api.*` entries) stay, as they point at the key by
+       uuid only.
+    3. **Requests** past their ten minutes.
+    4. **Codes** past their minute.
+    5. **Tokens** three days past their own end: an application that comes back after its
        access token ran out is still told "expired" (not charged to the failure bucket) and
        not "unknown". A refresh token ends with its grant, so a used refresh token is never
        removed before the grant is over (reuse of it is still told from a retry).
-    5. **Registered clients** (`dcr`) with no grant, a day after they registered, and with no
+    6. **Registered clients** (`dcr`) with no grant, a day after they registered, and with no
        authorization request still waiting.
 
-  What it never does: remove a grant that was activated, or the hidden key of one. Those keys
-  have history (confirmations and activity point at them); an ended grant keeps its key row,
-  revoked or expired.
+  What it never does: remove a grant that is still alive (or ended less than three days ago),
+  or any key that is not the hidden key of a grant. A person's own keys are not its business.
 
   Every step works in batches of 500 rows and repeats until a batch comes back short, so a
   busy install is cleared in one run. Returns the counts per step.
@@ -41,13 +46,17 @@ defmodule PhoenixKit.API.OAuth.Prune do
   @dcr_client_seconds 86_400
   @token_grace_seconds 3 * 86_400
 
-  @doc "Runs every step at `now`; returns `%{grants: n, requests: n, codes: n, tokens: n, clients: n}`."
+  @doc """
+  Runs every step at `now`; returns
+  `%{grants: n, ended: n, requests: n, codes: n, tokens: n, clients: n}`.
+  """
   @spec run(DateTime.t()) :: %{atom() => non_neg_integer()}
   def run(now \\ DateTime.utc_now()) do
     now = DateTime.truncate(now, :second)
 
     %{
       grants: abandoned_grants(now),
+      ended: ended_grants(now),
       requests: delete_all_batches(from(r in Request, where: r.expires_at < ^now)),
       codes: delete_all_batches(from(c in Code, where: c.expires_at < ^now)),
       tokens: delete_all_batches(from(t in Token, where: t.expires_at < ^token_cutoff(now))),
@@ -82,6 +91,27 @@ defmodule PhoenixKit.API.OAuth.Prune do
 
     if length(uuids) == @batch and removed > 0,
       do: abandoned_grants(now, deleted + removed),
+      else: deleted + removed
+  end
+
+  # The same loop for the grants that are over; a grant that stays (`:kept`: it was removed
+  # meanwhile) leaves the next batch's query.
+  defp ended_grants(now, deleted \\ 0) do
+    cutoff = token_cutoff(now)
+
+    uuids =
+      from(g in Grant,
+        where: (not is_nil(g.revoked_at) and g.revoked_at < ^cutoff) or g.expires_at < ^cutoff,
+        order_by: [asc: g.inserted_at],
+        limit: @batch,
+        select: g.uuid
+      )
+      |> repo().all()
+
+    removed = Enum.count(uuids, &(Grants.delete_ended(&1, cutoff) == :deleted))
+
+    if length(uuids) == @batch and removed > 0,
+      do: ended_grants(now, deleted + removed),
       else: deleted + removed
   end
 

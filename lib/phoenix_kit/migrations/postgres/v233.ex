@@ -41,8 +41,12 @@ defmodule PhoenixKit.Migrations.Postgres.V233 do
 
   ## Down
 
-  Drops the column, the index and the five tables: every grant and token is gone, and
-  every connected application has to be authorized again.
+  Deletes the hidden key of every grant (`oauth_grant_uuid IS NOT NULL`), then drops the column,
+  the index and the five tables: every grant and token is gone, and every connected application
+  has to be authorized again. The hidden keys must go first: once the column is dropped nothing
+  tells such a row from a person's own key, and it would turn up in their key list, count against
+  their limit and still be a live key row. Deleting them takes with it, by the cascades, the
+  confirmations of those keys; the activity entries stay (they hold no foreign key).
   """
   use Ecto.Migration
 
@@ -172,6 +176,19 @@ defmodule PhoenixKit.Migrations.Postgres.V233 do
 
     [
       "SET lock_timeout = '5000ms'",
+      # Guarded: a re-run after the column went must not fail on it.
+      """
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_schema = '#{prefix}' AND table_name = 'phoenix_kit_api_keys'
+            AND column_name = 'oauth_grant_uuid'
+        ) THEN
+          DELETE FROM #{p}phoenix_kit_api_keys WHERE oauth_grant_uuid IS NOT NULL;
+        END IF;
+      END $$
+      """,
       "DROP INDEX IF EXISTS #{p}phoenix_kit_api_keys_oauth_grant_uuid_index",
       "ALTER TABLE #{p}phoenix_kit_api_keys DROP COLUMN IF EXISTS oauth_grant_uuid",
       "DROP TABLE IF EXISTS #{p}phoenix_kit_api_oauth_tokens",
