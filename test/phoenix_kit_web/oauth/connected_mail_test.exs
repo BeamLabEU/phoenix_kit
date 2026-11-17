@@ -135,6 +135,24 @@ defmodule PhoenixKitWeb.OAuth.ConnectedMailTest do
       assert email.text_body =~ "has not been checked"
     end
 
+    test "drops quote characters from the name so it cannot close its own quotes", %{user: user} do
+      put_setting("api_oauth_client_allow_hosts", "app.example")
+
+      app =
+        Repo.insert!(%Client{
+          kind: "dcr",
+          client_id: "dcr_mail_quotes_#{System.unique_integer([:positive])}",
+          client_name: ~s(Agent" Call +1 555 0100 “now” „x“ «y»),
+          redirect_uris: ["https://app.example/cb"]
+        })
+
+      connect!(user, app)
+
+      email = await_mail()
+      assert email.text_body =~ ~s("Agent Call +1 555 0100 now x y")
+      refute email.text_body =~ ~r/[“”„«»]/u
+    end
+
     test "writes a name with markup as text, never as markup", %{user: user} do
       put_setting("api_oauth_client_allow_hosts", "app.example")
 

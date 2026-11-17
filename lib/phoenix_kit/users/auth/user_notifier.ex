@@ -445,7 +445,8 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
   Tells `user` an application was connected to their account through the OAuth sign-in
   (`PhoenixKit.API.OAuth.ConnectedMail` sends it once, when the connection is activated).
 
-  `attrs`: `name` (what the application called itself; the email shows it in quotes, cut to 60 characters), `host` (where its answers go),
+  `attrs`: `name` (what the application called itself; the email shows it in quotes, cut to 60
+  characters, quote characters inside it dropped), `host` (where its answers go),
   `rights` (one entry per module: `key`, `name`, `read?`, `write?`), `expires_at`, `at`, `ip`
   (or `nil`) and `waiting?` (the connection does nothing until an Owner approves it). There is
   no switch for this email: it is the account holder's way to learn of an application they did
@@ -484,9 +485,18 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
 
   # The name is the application's own and unchecked: a long one is cut and the whole is quoted,
   # so it reads as the application's words and not as a sentence of the site.
-  defp app_name_text(name) when name in [nil, ""], do: gettext("Unknown")
+  # Quote characters inside it are dropped first, so the name cannot close the quotes and go on
+  # as the site's own words.
+  defp app_name_text(name) when is_binary(name) do
+    case name |> String.replace(~r/["“”„«»]/u, "") |> String.trim() do
+      "" -> gettext("Unknown")
+      clean -> quoted(clean)
+    end
+  end
 
-  defp app_name_text(name) do
+  defp app_name_text(_name), do: gettext("Unknown")
+
+  defp quoted(name) do
     shown =
       if String.length(name) > @app_name_limit,
         do: String.slice(name, 0, @app_name_limit) <> "…",
