@@ -20,7 +20,8 @@ defmodule PhoenixKit.API.OAuth.Cimd do
   `private_key_jwt`...) is **ignored, not refused**: the live ChatGPT document carries them, and
   the client is treated as public (`none` and PKCE) either way. What is refused is a shared secret:
   a `client_secret` or `client_secret_expires_at` property, or a `token_endpoint_auth_method` that
-  starts with `client_secret_` (the draft forbids methods on a secret the server would have to keep).
+  starts with `client_secret_` (the draft forbids methods on a secret the server would have to keep),
+  or one that is neither text nor absent (a list could hide a secret method, and no client sends one).
 
   ## The fetch
 
@@ -28,7 +29,8 @@ defmodule PhoenixKit.API.OAuth.Cimd do
   address the name resolves to must be public, the connection goes to the address that was checked
   (so a name that resolves to a private address, or changes its answer after the check, reaches
   nothing), **no redirect is followed**, 64 KB at most whatever the server claims, 5 seconds in
-  all, and the response must say it is JSON. The download runs in a task of
+  all, over HTTP/1 only and asking for `application/json`, and the response must say it is JSON.
+  The download runs in a task of
   `PhoenixKit.API.OAuth.FetchSupervisor`, at most `concurrency/0` at a time (`api_oauth_cimd_concurrency`,
   four unless an administrator set another number; `{:error, :busy}` beyond that).
   The temporary file is read and removed by the download task itself.
@@ -80,6 +82,14 @@ defmodule PhoenixKit.API.OAuth.Cimd do
   @spec concurrency() :: pos_integer()
   def concurrency, do: min(Config.oauth_cimd_concurrency(), @max_concurrency)
 
+  @doc """
+  Whether `concurrency/0` downloads already run, so that one more would be refused as `:busy`.
+  `PhoenixKit.API.OAuth.Clients.resolve/2` asks before it counts a fetch against the limits, so a
+  refusal for lack of a place costs the asker nothing of its allowance.
+  """
+  @spec busy?() :: boolean()
+  def busy?, do: not is_nil(Process.whereis(@supervisor)) and running() >= concurrency()
+
   @doc "The most downloads `PhoenixKit.API.OAuth.FetchSupervisor` ever admits, whatever the setting says."
   @spec max_concurrency() :: pos_integer()
   def max_concurrency, do: @max_concurrency
@@ -93,7 +103,8 @@ defmodule PhoenixKit.API.OAuth.Cimd do
   def validate_client_id(_client_id), do: {:error, :invalid_client_id}
 
   defp valid_form?(url) when byte_size(url) in 1..@max_client_id do
-    with false <- Regex.match?(~r/[\x00-\x20\x7F\\]/, url),
+    with true <- String.valid?(url),
+         false <- Regex.match?(~r/[\x00-\x20\x7F\\]/, url),
          {:ok, %URI{} = uri} <- URI.new(url) do
       uri.scheme == "https" and is_binary(uri.host) and uri.host != "" and
         is_nil(uri.userinfo) and is_nil(uri.fragment) and uri.port == 443 and
@@ -145,6 +156,7 @@ defmodule PhoenixKit.API.OAuth.Cimd do
              :invalid_document
              | :client_id_mismatch
              | :client_secret_not_allowed
+             | :invalid_auth_method
              | :invalid_redirect_uris}
   def parse(client_id, body) when is_binary(client_id) and is_binary(body) do
     with {:ok, document} <- decode(body),
@@ -174,16 +186,22 @@ defmodule PhoenixKit.API.OAuth.Cimd do
 
   defp no_secret(document) do
     if Map.has_key?(document, "client_secret") or
-         Map.has_key?(document, "client_secret_expires_at") or
-         secret_method?(document["token_endpoint_auth_method"]),
+         Map.has_key?(document, "client_secret_expires_at"),
        do: {:error, :client_secret_not_allowed},
-       else: :ok
+       else: auth_method(document["token_endpoint_auth_method"])
   end
 
-  defp secret_method?(method) when is_binary(method),
-    do: method |> String.downcase() |> String.starts_with?("client_secret_")
+  # The method is text or absent. A list or a number is not a method this server can judge, and a
+  # list that names a shared-secret one must not pass for that reason.
+  defp auth_method(nil), do: :ok
 
-  defp secret_method?(_method), do: false
+  defp auth_method(method) when is_binary(method) do
+    if method |> String.downcase() |> String.starts_with?("client_secret_"),
+      do: {:error, :client_secret_not_allowed},
+      else: :ok
+  end
+
+  defp auth_method(_method), do: {:error, :invalid_auth_method}
 
   defp redirect_uris(%{"redirect_uris" => [_ | _] = uris})
        when length(uris) <= @max_redirect_uris do
@@ -222,7 +240,14 @@ defmodule PhoenixKit.API.OAuth.Cimd do
   end
 
   defp download_and_read(url) do
-    opts = [max_bytes: @max_bytes, timeout: @timeout, max_redirects: 0, return_headers: true]
+    opts = [
+      max_bytes: @max_bytes,
+      timeout: @timeout,
+      max_redirects: 0,
+      return_headers: true,
+      accept: "application/json",
+      protocols: [:http1]
+    ]
 
     case downloader().download(url, opts) do
       {:ok, %{path: path} = result} -> read(path, Map.get(result, :headers, []))

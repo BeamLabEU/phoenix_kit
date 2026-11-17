@@ -19,6 +19,12 @@ defmodule PhoenixKit.API.OAuth.Registration do
   guessed from the previous one. A client that never receives a grant is removed a day later
   (`PhoenixKit.API.OAuth.Prune`). The registration is written to the activity feed as
   `oauth.client_registered`, with the hosts of its redirects and nothing else of the request.
+
+  The limits are per client network and for the whole install (`api_oauth_register_per_hour`,
+  `api_oauth_register_per_day`, counted per node): the install-wide one is shared by everybody, so
+  many networks together can use up a day's registrations and a genuine client then waits for the
+  window to end. Registration is off by default for this reason among others; and a client
+  registered while it was on keeps working after it is switched off.
   """
 
   alias PhoenixKit.Activity

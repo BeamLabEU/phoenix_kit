@@ -88,6 +88,19 @@ defmodule PhoenixKit.API.OAuth.ClientsResolveTest do
       assert Clients.clean_name(42) == nil
     end
 
+    test "blanks and invisible fillers cannot pad a name or make it look like another" do
+      # ideographic space, Braille blank, Hangul fillers (U+115F, U+1160, U+3164, U+FFA0), Khmer
+      # inherent vowels, combining grapheme joiner, no-break and en spaces, Mongolian separator
+      assert Clients.clean_name("Claude\u3000x\u2800") == "Claude x"
+      assert Clients.clean_name("\u3164Claude\u3164") == "Claude"
+      assert Clients.clean_name("Cl\u115F\u1160au\uFFA0de") == "Claude"
+      assert Clients.clean_name("Cl\u17B4\u17B5au\u034Fde") == "Claude"
+      assert Clients.clean_name("Claude\u00A0\u2002\u2003  Code") == "Claude Code"
+      assert Clients.clean_name("Claude\u180E") == "Claude"
+      assert Clients.clean_name("\u3000\u2800\u3164") == nil
+      assert Clients.clean_name(String.duplicate("\u3000", 150) <> "x") == "x"
+    end
+
     test "an administrator's name for a pre-registered client is cut the same way" do
       zalgo = String.duplicate("a\u0301\u0302\u0303", 160)
 
@@ -153,7 +166,13 @@ defmodule PhoenixKit.API.OAuth.ClientsResolveTest do
     end
 
     test "a client is never looked up, or resolved, by such an id", %{ip: ip} do
-      for id <- ["a\0b", <<0xFF>>, "https://claude.ai/\0", "dcr_\0"] do
+      for id <- [
+            "a\0b",
+            <<0xFF>>,
+            "https://claude.ai/\0",
+            "https://claude.ai/" <> <<0xFF>>,
+            "dcr_\0"
+          ] do
         assert Clients.get_by_client_id(id) == nil
         assert {:error, :unknown_client} = resolve(id, ip)
       end
@@ -488,6 +507,56 @@ defmodule PhoenixKit.API.OAuth.ClientsResolveTest do
 
       # A place is free again.
       assert {:error, :fetch_failed} = resolve(Enum.at(urls, 4), unique_ip())
+    end
+  end
+
+  describe "a busy answer" do
+    test "spends nothing of the network's or the client's allowance", %{ip: ip} do
+      put_setting("api_oauth_cimd_concurrency", 1)
+      put_setting("api_oauth_cimd_per_min", 1)
+      put_setting("api_oauth_cimd_client_per_min", 1)
+      test_pid = self()
+
+      blocking = fn _opts ->
+        send(test_pid, {:started, self()})
+
+        receive do
+          :go -> {:error, {:http_status, 500}}
+        end
+      end
+
+      slow = "https://client.example/slow-#{System.unique_integer([:positive])}"
+      Stub.put(slow, blocking)
+      task = Task.async(fn -> resolve(slow, unique_ip()) end)
+      assert_receive {:started, _pid}, 2_000
+
+      # Busy twice over: the answer is told, and the allowance of this network and of this client
+      # (one a minute each) is still whole afterwards.
+      assert {:error, :busy} = resolve(@claude, ip)
+      assert {:error, :busy} = resolve(@claude, ip)
+      assert Stub.calls(@claude) == []
+
+      for pid <- started_pids(), do: send(pid, :go)
+      assert Task.await(task) == {:error, :fetch_failed}
+
+      assert {:ok, %Client{}} = resolve(@claude, ip)
+    end
+  end
+
+  describe "a registered client when registration is switched off" do
+    test "keeps working: the switch ends new registrations, not the ones made", %{ip: ip} do
+      client =
+        Repo.insert!(%Client{
+          kind: "dcr",
+          client_id: "dcr_kept_#{System.unique_integer([:positive])}",
+          redirect_uris: ["https://app.example/cb"]
+        })
+
+      put_setting("api_oauth_dcr_enabled", "true")
+      assert {:ok, %Client{}} = resolve(client.client_id, ip)
+
+      put_setting("api_oauth_dcr_enabled", "false")
+      assert {:ok, %Client{}} = resolve(client.client_id, ip)
     end
   end
 

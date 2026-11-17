@@ -85,7 +85,8 @@ defmodule PhoenixKit.API.Config do
   @doc """
   Whether Dynamic Client Registration (`POST /oauth/register`, RFC 7591) is switched on: the
   `api_oauth_dcr_enabled` setting reads exactly `"true"` **and** OAuth itself is on. Off by
-  default; fails closed.
+  default; fails closed. The switch governs new registrations only: a client registered while it
+  was on keeps working after it is turned off (it can be deleted).
   """
   @spec oauth_dcr_enabled?() :: boolean()
   def oauth_dcr_enabled?, do: oauth_enabled?() and flag("api_oauth_dcr_enabled")

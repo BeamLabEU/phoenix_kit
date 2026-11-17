@@ -113,14 +113,77 @@ defmodule PhoenixKit.API.OAuth.CimdTest do
       end
     end
 
+    test "an authentication method that is not text is refused, a list of secret methods too" do
+      for method <- [["client_secret_basic"], ["none"], [], 5, true, %{"a" => 1}] do
+        body =
+          Stub.claude_document()
+          |> Map.put("token_endpoint_auth_method", method)
+          |> JSON.encode!()
+
+        assert {:error, :invalid_auth_method} = Cimd.parse(@claude, body), inspect(method)
+      end
+    end
+
     test "other authentication methods are not a reason to refuse: they are ignored" do
-      for method <- ["none", "private_key_jwt", "tls_client_auth", "whatever", 5, nil] do
+      for method <- ["none", "private_key_jwt", "tls_client_auth", "whatever", nil] do
         body =
           Stub.claude_document()
           |> Map.put("token_endpoint_auth_method", method)
           |> JSON.encode!()
 
         assert {:ok, _doc} = Cimd.parse(@claude, body), inspect(method)
+      end
+    end
+
+    test "a NUL byte or bytes that are not UTF-8 never reach a row: each field is cleaned or refused" do
+      nul = "\u0000"
+      doc = fn extra -> Stub.claude_document() |> Map.merge(extra) |> JSON.encode!() end
+
+      # Cleaned: the name loses the byte, the home page is left out, what the server ignores is ignored.
+      assert {:ok, %{client_name: "ab"}} =
+               Cimd.parse(@claude, doc.(%{"client_name" => "a#{nul}b"}))
+
+      assert {:ok, %{client_name: nil}} = Cimd.parse(@claude, doc.(%{"client_name" => nul}))
+
+      assert {:ok, %{client_uri: nil}} =
+               Cimd.parse(@claude, doc.(%{"client_uri" => "https://claude.ai/#{nul}"}))
+
+      assert {:ok, _} =
+               Cimd.parse(@claude, doc.(%{"scope" => "a#{nul}b", "jwks" => %{nul => [nul]}}))
+
+      # Refused: a redirect URI, the identifier, the method, a body that is not text.
+      for uris <- [
+            ["https://claude.ai/cb#{nul}"],
+            ["https://claude#{nul}.ai/cb"],
+            ["https://claude.ai/cb?x=#{nul}"],
+            ["https://claude.ai/ok", "https://claude.ai/cb#{nul}"]
+          ] do
+        assert {:error, :invalid_redirect_uris} =
+                 Cimd.parse(@claude, doc.(%{"redirect_uris" => uris})),
+               inspect(uris)
+      end
+
+      assert {:error, :client_id_mismatch} =
+               Cimd.parse(@claude, doc.(%{"client_id" => @claude <> nul}))
+
+      assert {:error, :client_secret_not_allowed} =
+               Cimd.parse(
+                 @claude,
+                 doc.(%{"token_endpoint_auth_method" => "client_secret_basic#{nul}"})
+               )
+
+      assert {:error, :invalid_document} = Cimd.parse(@claude, <<0xFF, 0xFE, "{}">>)
+
+      assert {:error, :invalid_document} =
+               Cimd.parse(@claude, Stub.claude_body() <> <<0xC3, 0x28>>)
+
+      assert {:error, :invalid_document} =
+               Cimd.parse(@claude, "{\"client_id\":\"" <> <<0>> <> "\"}")
+    end
+
+    test "an identifier with a NUL byte or bytes that are not UTF-8 has not the form of a document URL" do
+      for id <- [@claude <> "\0", "https://claude.ai/\0x", "https://claude.ai/" <> <<0xFF>>] do
+        assert {:error, :invalid_client_id} = Cimd.validate_client_id(id), inspect(id)
       end
     end
 
@@ -199,6 +262,16 @@ defmodule PhoenixKit.API.OAuth.CimdTest do
       assert opts[:max_redirects] == 0
       assert opts[:return_headers] == true
       refute opts[:allow_http]
+    end
+
+    test "asks for JSON, and over HTTP/1 only: the stranger's server gets no HTTP/2 to speak" do
+      Stub.put(@claude, Stub.claude_document())
+
+      assert {:ok, _doc} = Cimd.fetch(@claude)
+
+      assert [{@claude, opts}] = Stub.calls()
+      assert opts[:accept] == "application/json"
+      assert opts[:protocols] == [:http1]
     end
 
     test "the two live documents, served with the headers they were saved with, are accepted" do

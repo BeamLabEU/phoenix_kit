@@ -27511,12 +27511,12 @@ msgstr "%{client} 请求访问"
 msgid "on behalf of %{email}"
 msgstr "代表 %{email}"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:143
+#: lib/phoenix_kit_web/oauth/pages.ex:152
 #, elixir-autogen, elixir-format
-msgid "The name above is what the application calls itself. It has not been checked: allow access only if you started this connection from that application."
-msgstr "上方的名称是应用程序的自称，并未经过核实。只有在您自己从该应用程序发起此连接时才允许访问。"
+msgid "Anyone can publish a description of an application under any name, and the name above has not been checked. Allow access only if you started this connection from that application."
+msgstr "任何人都可以用任意名称发布某个应用程序的说明，上方的名称并未经过核实。只有在您自己从该应用程序发起此连接时才允许访问。"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:148
+#: lib/phoenix_kit_web/oauth/pages.ex:157
 #, elixir-autogen, elixir-format
 msgid "The application is described at %{address}"
 msgstr "该应用程序的说明位于 %{address}"

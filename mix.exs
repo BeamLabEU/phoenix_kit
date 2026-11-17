@@ -458,8 +458,9 @@ defmodule PhoenixKit.MixProject do
       {:saxy, "~> 1.5"},
       {:finch, "~> 0.18"},
       # Direct HTTP for Storage.RemoteFetch: it must connect to the address it
-      # checked (Mint's :hostname), which a pooled client cannot promise.
-      {:mint, "~> 1.6"},
+      # checked (Mint's :hostname), which a pooled client cannot promise. 1.11 limits the
+      # header list and the frame buffer of a response, which a stranger's server controls.
+      {:mint, "~> 1.11"},
 
       # HTTP client for payment providers
       {:req, "~> 0.5"},

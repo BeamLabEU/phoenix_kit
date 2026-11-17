@@ -22,6 +22,12 @@ defmodule PhoenixKit.Modules.Storage.RemoteFetchHeadersTest do
       |> send_resp(200, ~s({"a":1}))
     end
 
+    get "/echo" do
+      accept = conn |> get_req_header("accept") |> Enum.join(",")
+      protocol = conn |> get_http_protocol() |> to_string()
+      send_resp(conn, 200, accept <> "|" <> protocol)
+    end
+
     match(_, do: send_resp(conn, 404, ""))
   end
 
@@ -54,5 +60,30 @@ defmodule PhoenixKit.Modules.Storage.RemoteFetchHeadersTest do
     on_exit(fn -> File.rm(path) end)
 
     refute Map.has_key?(result, :headers)
+  end
+
+  describe "what the caller may ask of the request" do
+    defp body_of(url, opts) do
+      assert {:ok, %{path: path}} = RemoteFetch.download(url, opts)
+      on_exit(fn -> File.rm(path) end)
+      File.read!(path)
+    end
+
+    test "by default it accepts anything", %{url: url, local: local} do
+      echo = String.replace(url, "/doc", "/echo")
+      assert body_of(echo, local) =~ ~r{^\*/\*\|HTTP/1\.1$}
+    end
+
+    test "accept: sets the Accept header", %{url: url, local: local} do
+      echo = String.replace(url, "/doc", "/echo")
+      assert body_of(echo, [accept: "application/json"] ++ local) =~ ~r{^application/json\|}
+    end
+
+    test "protocols: is handed to the connection (HTTP/2 with prior knowledge, then HTTP/1 only)",
+         %{url: url, local: local} do
+      echo = String.replace(url, "/doc", "/echo")
+      assert body_of(echo, [protocols: [:http2]] ++ local) =~ ~r/\|HTTP\/2$/
+      assert body_of(echo, [protocols: [:http1]] ++ local) =~ ~r/\|HTTP\/1\.1$/
+    end
   end
 end

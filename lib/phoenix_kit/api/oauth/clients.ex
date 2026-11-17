@@ -26,6 +26,10 @@ defmodule PhoenixKit.API.OAuth.Clients do
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
   @max_name_length 160
+  # What shows nothing on screen: control, format, line and paragraph separators, and the letters
+  # and marks that are blank (Hangul fillers, Khmer inherent vowels, the combining grapheme joiner,
+  # the Braille blank).
+  @invisible ~r/[\p{C}\p{Zl}\p{Zp}\x{115F}\x{1160}\x{17B4}\x{17B5}\x{034F}\x{2800}\x{3164}\x{FFA0}]/u
 
   @doc """
   Registers a client an administrator named: `attrs` takes `client_id` (required, unique, at most
@@ -67,8 +71,10 @@ defmodule PhoenixKit.API.OAuth.Clients do
 
   @doc """
   A client's own name made safe to store and show: control, format and line-separator characters
-  removed, trimmed, cut to 160 characters and to 160 code points (the size of the column). `nil`
-  when what is left is empty or `name` is not valid text.
+  and the invisible fillers (the Hangul fillers, the Braille blank, the Khmer inherent vowels, the
+  combining grapheme joiner) removed, any run of spaces (also the ideographic and the no-break
+  one) made one space, trimmed, cut to 160 characters and to 160 code points (the size of the
+  column). `nil` when what is left is empty or `name` is not valid text.
   """
   @spec clean_name(term()) :: String.t() | nil
   def clean_name(name) when is_binary(name) do
@@ -80,7 +86,8 @@ defmodule PhoenixKit.API.OAuth.Clients do
   defp clean_valid_name(name) do
     cleaned =
       name
-      |> String.replace(~r/[\p{C}\p{Zl}\p{Zp}]/u, "")
+      |> String.replace(@invisible, "")
+      |> String.replace(~r/\p{Zs}+/u, " ")
       |> String.trim()
       |> cut_name(@max_name_length)
       |> String.trim()
@@ -131,7 +138,9 @@ defmodule PhoenixKit.API.OAuth.Clients do
   The client an authorization request names by `client_id`, or why there is none.
 
     * a stored client that is not a metadata document client (pre-registered, registered) is
-      returned as it is;
+      returned as it is: the switch of Dynamic Client Registration (`api_oauth_dcr_enabled`)
+      governs new registrations only, a client registered while it was on keeps working (the
+      client policy still judges it; deleting the client ends it);
     * a `client_id` that is the URL of a metadata document is served from the table while what was
       fetched is fresh (`metadata_expires_at`), and otherwise fetched again: the form of the URL is
       judged first, then the host policy, then the fetch limits (per network and per client), then
@@ -199,6 +208,7 @@ defmodule PhoenixKit.API.OAuth.Clients do
   defp fetch(client_id, opts) do
     with :ok <- not_own_host(client_id),
          :ok <- host_allowed(client_id, []),
+         :ok <- not_busy(),
          :ok <- within_limits(client_id, opts[:ip]),
          {:ok, document} <- fetch_document(client_id),
          :ok <- host_allowed(client_id, document.redirect_uris) do
@@ -208,6 +218,9 @@ defmodule PhoenixKit.API.OAuth.Clients do
 
   defp not_own_host(client_id),
     do: if(Cimd.own_host?(client_id), do: {:error, :unknown_client}, else: :ok)
+
+  # Asked before the limits are counted: no place to fetch in is not the asker's doing.
+  defp not_busy, do: if(Cimd.busy?(), do: {:error, :busy}, else: :ok)
 
   defp host_allowed(client_id, redirect_uris) do
     if ClientPolicy.allowed?("cimd", client_id, redirect_uris),

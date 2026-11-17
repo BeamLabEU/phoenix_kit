@@ -28,6 +28,11 @@ defmodule PhoenixKit.Modules.Storage.RemoteFetch do
   that caches by `Cache-Control`. What the bytes ARE is decided later,
   by sniffing them (`Storage.store_from_url/2`), never from the response's
   `Content-Type`.
+
+  Two options let a caller narrow what it asks for, both off by default: `accept:` (the
+  `Accept` header, `*/*` unless given) and `protocols:` (Mint's list of protocols for the
+  connection, `[:http1, :http2]` unless given; a caller that fetches from a stranger's server and
+  needs nothing from HTTP/2 passes `[:http1]`).
   """
 
   alias PhoenixKit.Utils.PublicAddress
@@ -60,7 +65,7 @@ defmodule PhoenixKit.Modules.Storage.RemoteFetch do
   defp fetch(url, opts, redirects_left, deadline, previous_scheme) do
     with {:ok, uri} <- validate(url, opts, previous_scheme),
          {:ok, ip} <- resolve(uri.host, opts),
-         {:ok, conn} <- connect(uri, ip, deadline) do
+         {:ok, conn} <- connect(uri, ip, opts, deadline) do
       case request(conn, uri, opts, deadline) do
         {:redirect, location} when redirects_left > 0 ->
           next = uri |> URI.merge(location) |> URI.to_string()
@@ -103,14 +108,14 @@ defmodule PhoenixKit.Modules.Storage.RemoteFetch do
     end
   end
 
-  defp connect(uri, ip, deadline) do
+  defp connect(uri, ip, opts, deadline) do
     scheme = if uri.scheme == "https", do: :https, else: :http
 
-    case Mint.HTTP.connect(scheme, ip, uri.port,
-           hostname: uri.host,
-           mode: :passive,
-           transport_opts: [timeout: remaining(deadline)]
-         ) do
+    connect_opts =
+      [hostname: uri.host, mode: :passive, transport_opts: [timeout: remaining(deadline)]] ++
+        Keyword.take(opts, [:protocols])
+
+    case Mint.HTTP.connect(scheme, ip, uri.port, connect_opts) do
       {:ok, conn} -> {:ok, conn}
       {:error, error} -> {:error, {:connect_failed, error}}
     end
@@ -124,7 +129,7 @@ defmodule PhoenixKit.Modules.Storage.RemoteFetch do
         {p, q} -> if(p in [nil, ""], do: "/", else: p) <> "?" <> q
       end
 
-    headers = [{"user-agent", "PhoenixKit"}, {"accept", "*/*"}]
+    headers = [{"user-agent", "PhoenixKit"}, {"accept", Keyword.get(opts, :accept, "*/*")}]
 
     case Mint.HTTP.request(conn, "GET", path, headers, nil) do
       {:ok, conn, ref} ->

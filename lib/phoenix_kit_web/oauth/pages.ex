@@ -157,7 +157,7 @@ defmodule PhoenixKitWeb.OAuth.Pages do
       <p>{gettext("on behalf of %{email}", email: @email)}</p>
       <p :if={@unverified?} class="muted" id="consent-unverified">
         {gettext(
-          "The name above is what the application calls itself. It has not been checked: allow access only if you started this connection from that application."
+          "Anyone can publish a description of an application under any name, and the name above has not been checked. Allow access only if you started this connection from that application."
         )}
       </p>
       <p :if={@client_address} class="muted" id="consent-client-address">

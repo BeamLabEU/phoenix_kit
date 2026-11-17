@@ -152,6 +152,60 @@ defmodule PhoenixKitWeb.OAuth.MalformedInputTest do
       assert conn.status == 201
     end
 
+    test "a NUL byte in any redirect URI, whichever part or place in the list, is invalid_redirect_uri" do
+      for uris <- [
+            ["https://app.example/cb\0"],
+            ["https://app\0.example/cb"],
+            ["https://app.example/\0cb"],
+            ["https://app.example/cb?x=\0"],
+            ["http://localhost:3000/\0"],
+            ["https://app.example/ok", "https://app.example/cb\0"],
+            "https://app.example/cb\0",
+            ["\0"]
+          ] do
+        conn = register(%{"redirect_uris" => uris})
+        assert conn.status == 400, inspect(uris)
+        assert body(conn)["error"] == "invalid_redirect_uri", inspect(uris)
+      end
+
+      assert Repo.all(Client) |> Enum.filter(&(&1.kind == "dcr")) == []
+    end
+
+    test "a body that is not UTF-8 is a refusal, not a server error" do
+      raw = ~s({"redirect_uris":["https://app.example/cb) <> <<0xFF>> <> ~s("]})
+
+      assert register(raw).status == 400
+      assert Repo.all(Client) |> Enum.filter(&(&1.kind == "dcr")) == []
+    end
+
+    test "a NUL byte in the name or the home page is cleaned or left out, never stored" do
+      for {name, uri, expected} <- [
+            {"\0", "https://app.example/", nil},
+            {"A\0\0B", "https://app\0.example/", "AB"},
+            {"\u2800\u3164A\u3000B", "https://app.example/?q=\0", "A B"}
+          ] do
+        conn =
+          register(%{
+            "redirect_uris" => ["https://app.example/cb"],
+            "client_name" => name,
+            "client_uri" => uri
+          })
+
+        assert conn.status == 201
+        assert body(conn)["client_name"] == expected
+      end
+
+      stored = Repo.all(Client) |> Enum.filter(&(&1.kind == "dcr"))
+      assert length(stored) == 3
+
+      assert Enum.all?(
+               stored,
+               &(is_nil(&1.client_uri) or not String.contains?(&1.client_uri, "\0"))
+             )
+
+      assert Enum.all?(stored, &(is_nil(&1.client_name) or String.printable?(&1.client_name)))
+    end
+
     test "a NUL byte as text where text is wanted is invalid_client_metadata" do
       conn = register(%{"redirect_uris" => ["https://app.example/cb"], "client_name" => 5})
       assert conn.status == 400
