@@ -28291,3 +28291,48 @@ msgstr "无法批准该连接。"
 #, elixir-autogen, elixir-format
 msgid "The connection could not be rejected."
 msgstr "无法拒绝该连接。"
+
+#: lib/phoenix_kit/email/core_templates.ex:202
+#, elixir-autogen, elixir-format
+msgid "Application connected"
+msgstr "应用已连接"
+
+#: lib/phoenix_kit/email/core_templates.ex:204
+#, elixir-autogen, elixir-format
+msgid "Sent once when an application is connected to an account through the OAuth sign-in."
+msgstr "当应用通过 OAuth 登录连接到账户时发送一次。"
+
+#: lib/phoenix_kit/email/core_templates.ex:552
+#, elixir-autogen, elixir-format
+msgid "An application was connected to your account"
+msgstr "您的账户连接了一个应用"
+
+#: lib/phoenix_kit/email/core_templates.ex:554
+#, elixir-autogen, elixir-format
+msgid "Hi {{user_email}},\n\nAn application was connected to your account:\n\n- The application says its name is: {{app_name}}\n- Its answers are sent to: {{app_host}}\n- Rights: {{rights}}\n- Valid until: {{expires}}\n- Time: {{time}}\n- From the address: {{ip_address}}\n- State: {{state}}\n\nThe name is the application's own and has not been checked. If you connected it, no action is needed.\n\nIf you did not, disconnect the application and then change your password:\n\n[Disconnect the application]({{connections_url}})\n\nIf the button doesn't work, open this link: [{{connections_url}}]({{connections_url}})\n"
+msgstr "您好 {{user_email}}，\n\n您的账户连接了一个应用：\n\n- 应用自称：{{app_name}}\n- 其响应发送至：{{app_host}}\n- 权限：{{rights}}\n- 有效期至：{{expires}}\n- 时间：{{time}}\n- 来自地址：{{ip_address}}\n- 状态：{{state}}\n\n名称由应用自行提供，未经核实。如果是您连接的，无需任何操作。\n\n如果不是，请断开该应用，然后更改密码：\n\n[断开该应用]({{connections_url}})\n\n如果按钮无法使用，请打开此链接：[{{connections_url}}]({{connections_url}})\n"
+
+#: lib/phoenix_kit/email/core_templates.ex:584
+#, elixir-autogen, elixir-format
+msgid "Waiting for approval by the owner of the system: it does nothing until then"
+msgstr "等待系统所有者批准：在此之前不会执行任何操作"
+
+#: lib/phoenix_kit/email/core_templates.ex:586
+#, elixir-autogen, elixir-format
+msgid "Works"
+msgstr "正常工作"
+
+#: lib/phoenix_kit/email/core_templates.ex:594
+#, elixir-autogen, elixir-format
+msgid "%{module} (reading and changing)"
+msgstr "%{module}（读取和修改）"
+
+#: lib/phoenix_kit/email/core_templates.ex:597
+#, elixir-autogen, elixir-format
+msgid "%{module} (changing)"
+msgstr "%{module}（修改）"
+
+#: lib/phoenix_kit/email/core_templates.ex:600
+#, elixir-autogen, elixir-format
+msgid "%{module} (reading)"
+msgstr "%{module}（读取）"

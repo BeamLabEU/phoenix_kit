@@ -29,7 +29,7 @@ defmodule PhoenixKit.Email.CatalogTest do
   @translated_names ~w(register reset_password update_email magic_link magic_link_registration
                        organization_manager_invitation organization_link_invitation
                        organization_invitation new_login_alert
-                       failed_login_alert passkey_added passkey_removed welcome)
+                       failed_login_alert passkey_added passkey_removed app_connected welcome)
   @core_names @translated_names ++ ["notification"]
 
   defmodule EnabledEmailModule do
@@ -383,7 +383,7 @@ defmodule PhoenixKit.Email.CatalogTest do
   describe "preview/3 of core's emails" do
     for name <- ~w(register reset_password update_email magic_link magic_link_registration
                    organization_invitation new_login_alert failed_login_alert passkey_added
-                   passkey_removed welcome) do
+                   passkey_removed app_connected welcome) do
       test "#{name}: every placeholder has a sample, and all three versions render" do
         entry = Catalog.get(unquote(name))
 
@@ -671,6 +671,17 @@ defmodule PhoenixKit.Email.CatalogTest do
         end,
         "passkey_removed" => fn ->
           UserNotifier.deliver_passkey_removed(u, %{name: "Phone", by_owner?: true})
+        end,
+        "app_connected" => fn ->
+          UserNotifier.deliver_app_connected(u, %{
+            name: "Agent",
+            host: "agent.example.test",
+            rights: [%{key: "entities", name: "Entities", read?: true, write?: false}],
+            expires_at: DateTime.add(at, 86_400, :second),
+            at: at,
+            ip: nil,
+            waiting?: false
+          })
         end,
         "welcome" => fn -> UserNotifier.deliver_welcome(u) end,
         "notification" => fn ->

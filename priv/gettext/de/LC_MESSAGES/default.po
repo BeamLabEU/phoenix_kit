@@ -28269,3 +28269,48 @@ msgstr "Die Verbindung konnte nicht genehmigt werden."
 #, elixir-autogen, elixir-format
 msgid "The connection could not be rejected."
 msgstr "Die Verbindung konnte nicht abgelehnt werden."
+
+#: lib/phoenix_kit/email/core_templates.ex:202
+#, elixir-autogen, elixir-format
+msgid "Application connected"
+msgstr "Anwendung verbunden"
+
+#: lib/phoenix_kit/email/core_templates.ex:204
+#, elixir-autogen, elixir-format
+msgid "Sent once when an application is connected to an account through the OAuth sign-in."
+msgstr "Wird einmal gesendet, wenn eine Anwendung über die OAuth-Anmeldung mit einem Konto verbunden wird."
+
+#: lib/phoenix_kit/email/core_templates.ex:552
+#, elixir-autogen, elixir-format
+msgid "An application was connected to your account"
+msgstr "Ihrem Konto wurde eine Anwendung verbunden"
+
+#: lib/phoenix_kit/email/core_templates.ex:554
+#, elixir-autogen, elixir-format
+msgid "Hi {{user_email}},\n\nAn application was connected to your account:\n\n- The application says its name is: {{app_name}}\n- Its answers are sent to: {{app_host}}\n- Rights: {{rights}}\n- Valid until: {{expires}}\n- Time: {{time}}\n- From the address: {{ip_address}}\n- State: {{state}}\n\nThe name is the application's own and has not been checked. If you connected it, no action is needed.\n\nIf you did not, disconnect the application and then change your password:\n\n[Disconnect the application]({{connections_url}})\n\nIf the button doesn't work, open this link: [{{connections_url}}]({{connections_url}})\n"
+msgstr "Hallo {{user_email}},\n\nIhrem Konto wurde eine Anwendung verbunden:\n\n- Die Anwendung nennt sich: {{app_name}}\n- Ihre Antworten gehen an: {{app_host}}\n- Rechte: {{rights}}\n- Gültig bis: {{expires}}\n- Zeit: {{time}}\n- Von der Adresse: {{ip_address}}\n- Status: {{state}}\n\nDer Name stammt von der Anwendung selbst und wurde nicht geprüft. Wenn Sie sie verbunden haben, müssen Sie nichts tun.\n\nFalls nicht, trennen Sie die Anwendung und ändern Sie dann Ihr Passwort:\n\n[Anwendung trennen]({{connections_url}})\n\nFalls die Schaltfläche nicht funktioniert, öffnen Sie diesen Link: [{{connections_url}}]({{connections_url}})\n"
+
+#: lib/phoenix_kit/email/core_templates.ex:584
+#, elixir-autogen, elixir-format
+msgid "Waiting for approval by the owner of the system: it does nothing until then"
+msgstr "Wartet auf die Genehmigung durch den Systemeigentümer: bis dahin tut sie nichts"
+
+#: lib/phoenix_kit/email/core_templates.ex:586
+#, elixir-autogen, elixir-format
+msgid "Works"
+msgstr "Funktioniert"
+
+#: lib/phoenix_kit/email/core_templates.ex:594
+#, elixir-autogen, elixir-format
+msgid "%{module} (reading and changing)"
+msgstr "%{module} (Lesen und Ändern)"
+
+#: lib/phoenix_kit/email/core_templates.ex:597
+#, elixir-autogen, elixir-format
+msgid "%{module} (changing)"
+msgstr "%{module} (Ändern)"
+
+#: lib/phoenix_kit/email/core_templates.ex:600
+#, elixir-autogen, elixir-format
+msgid "%{module} (reading)"
+msgstr "%{module} (Lesen)"

@@ -28365,3 +28365,48 @@ msgstr "Не удалось одобрить подключение."
 #, elixir-autogen, elixir-format
 msgid "The connection could not be rejected."
 msgstr "Не удалось отклонить подключение."
+
+#: lib/phoenix_kit/email/core_templates.ex:202
+#, elixir-autogen, elixir-format
+msgid "Application connected"
+msgstr "Приложение подключено"
+
+#: lib/phoenix_kit/email/core_templates.ex:204
+#, elixir-autogen, elixir-format
+msgid "Sent once when an application is connected to an account through the OAuth sign-in."
+msgstr "Отправляется один раз, когда приложение подключается к учётной записи через вход OAuth."
+
+#: lib/phoenix_kit/email/core_templates.ex:552
+#, elixir-autogen, elixir-format
+msgid "An application was connected to your account"
+msgstr "К вашей учётной записи подключено приложение"
+
+#: lib/phoenix_kit/email/core_templates.ex:554
+#, elixir-autogen, elixir-format
+msgid "Hi {{user_email}},\n\nAn application was connected to your account:\n\n- The application says its name is: {{app_name}}\n- Its answers are sent to: {{app_host}}\n- Rights: {{rights}}\n- Valid until: {{expires}}\n- Time: {{time}}\n- From the address: {{ip_address}}\n- State: {{state}}\n\nThe name is the application's own and has not been checked. If you connected it, no action is needed.\n\nIf you did not, disconnect the application and then change your password:\n\n[Disconnect the application]({{connections_url}})\n\nIf the button doesn't work, open this link: [{{connections_url}}]({{connections_url}})\n"
+msgstr "Здравствуйте, {{user_email}}!\n\nК вашей учётной записи подключено приложение:\n\n- Приложение назвало себя: {{app_name}}\n- Его ответы уходят на: {{app_host}}\n- Права: {{rights}}\n- Действует до: {{expires}}\n- Время: {{time}}\n- С адреса: {{ip_address}}\n- Состояние: {{state}}\n\nИмя назвало само приложение, оно не проверено. Если подключили вы, ничего делать не нужно.\n\nЕсли нет, отключите приложение и затем смените пароль:\n\n[Отключить приложение]({{connections_url}})\n\nЕсли кнопка не работает, откройте ссылку: [{{connections_url}}]({{connections_url}})\n"
+
+#: lib/phoenix_kit/email/core_templates.ex:584
+#, elixir-autogen, elixir-format
+msgid "Waiting for approval by the owner of the system: it does nothing until then"
+msgstr "Ждёт одобрения владельца системы: до этого ничего не выполняет"
+
+#: lib/phoenix_kit/email/core_templates.ex:586
+#, elixir-autogen, elixir-format
+msgid "Works"
+msgstr "Работает"
+
+#: lib/phoenix_kit/email/core_templates.ex:594
+#, elixir-autogen, elixir-format
+msgid "%{module} (reading and changing)"
+msgstr "%{module} (чтение и изменение)"
+
+#: lib/phoenix_kit/email/core_templates.ex:597
+#, elixir-autogen, elixir-format
+msgid "%{module} (changing)"
+msgstr "%{module} (изменение)"
+
+#: lib/phoenix_kit/email/core_templates.ex:600
+#, elixir-autogen, elixir-format
+msgid "%{module} (reading)"
+msgstr "%{module} (чтение)"

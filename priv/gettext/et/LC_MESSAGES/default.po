@@ -28279,3 +28279,48 @@ msgstr "Ühendust ei saanud heaks kiita."
 #, elixir-autogen, elixir-format
 msgid "The connection could not be rejected."
 msgstr "Ühendust ei saanud tagasi lükata."
+
+#: lib/phoenix_kit/email/core_templates.ex:202
+#, elixir-autogen, elixir-format
+msgid "Application connected"
+msgstr "Rakendus ühendatud"
+
+#: lib/phoenix_kit/email/core_templates.ex:204
+#, elixir-autogen, elixir-format
+msgid "Sent once when an application is connected to an account through the OAuth sign-in."
+msgstr "Saadetakse üks kord, kui rakendus ühendatakse kontoga OAuth-sisselogimise kaudu."
+
+#: lib/phoenix_kit/email/core_templates.ex:552
+#, elixir-autogen, elixir-format
+msgid "An application was connected to your account"
+msgstr "Teie kontoga ühendati rakendus"
+
+#: lib/phoenix_kit/email/core_templates.ex:554
+#, elixir-autogen, elixir-format
+msgid "Hi {{user_email}},\n\nAn application was connected to your account:\n\n- The application says its name is: {{app_name}}\n- Its answers are sent to: {{app_host}}\n- Rights: {{rights}}\n- Valid until: {{expires}}\n- Time: {{time}}\n- From the address: {{ip_address}}\n- State: {{state}}\n\nThe name is the application's own and has not been checked. If you connected it, no action is needed.\n\nIf you did not, disconnect the application and then change your password:\n\n[Disconnect the application]({{connections_url}})\n\nIf the button doesn't work, open this link: [{{connections_url}}]({{connections_url}})\n"
+msgstr "Tere, {{user_email}},\n\nteie kontoga ühendati rakendus:\n\n- Rakendus nimetab end: {{app_name}}\n- Selle vastused saadetakse: {{app_host}}\n- Õigused: {{rights}}\n- Kehtib kuni: {{expires}}\n- Aeg: {{time}}\n- Aadressilt: {{ip_address}}\n- Olek: {{state}}\n\nNime andis rakendus ise ja seda pole kontrollitud. Kui ühendasite selle ise, ei pea te midagi tegema.\n\nKui mitte, ühendage rakendus lahti ja muutke seejärel oma parooli:\n\n[Ühenda rakendus lahti]({{connections_url}})\n\nKui nupp ei tööta, avage see link: [{{connections_url}}]({{connections_url}})\n"
+
+#: lib/phoenix_kit/email/core_templates.ex:584
+#, elixir-autogen, elixir-format
+msgid "Waiting for approval by the owner of the system: it does nothing until then"
+msgstr "Ootab süsteemi omaniku heakskiitu: seni ei tee see midagi"
+
+#: lib/phoenix_kit/email/core_templates.ex:586
+#, elixir-autogen, elixir-format
+msgid "Works"
+msgstr "Töötab"
+
+#: lib/phoenix_kit/email/core_templates.ex:594
+#, elixir-autogen, elixir-format
+msgid "%{module} (reading and changing)"
+msgstr "%{module} (lugemine ja muutmine)"
+
+#: lib/phoenix_kit/email/core_templates.ex:597
+#, elixir-autogen, elixir-format
+msgid "%{module} (changing)"
+msgstr "%{module} (muutmine)"
+
+#: lib/phoenix_kit/email/core_templates.ex:600
+#, elixir-autogen, elixir-format
+msgid "%{module} (reading)"
+msgstr "%{module} (lugemine)"

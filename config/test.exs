@@ -60,6 +60,11 @@ config :phoenix_kit, PhoenixKit.Mailer, adapter: Swoosh.Adapters.Test
 # Disable Swoosh API client as it is only required for production adapters
 config :swoosh, :api_client, false
 
+# The email that tells a person an application was connected is sent from a task in a real
+# run; here it runs in the process that exchanged the code, so that no task outlives a test
+# that holds a sandboxed database connection. The tests of the delivery itself switch it off.
+config :phoenix_kit, :oauth_connected_mail, :inline
+
 # Configure Hammer rate limiting for tests
 # Use test-friendly limits that match test expectations
 config :hammer,

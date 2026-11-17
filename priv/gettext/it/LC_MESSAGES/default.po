@@ -28269,3 +28269,48 @@ msgstr "Non è stato possibile approvare la connessione."
 #, elixir-autogen, elixir-format
 msgid "The connection could not be rejected."
 msgstr "Non è stato possibile rifiutare la connessione."
+
+#: lib/phoenix_kit/email/core_templates.ex:202
+#, elixir-autogen, elixir-format
+msgid "Application connected"
+msgstr "Applicazione connessa"
+
+#: lib/phoenix_kit/email/core_templates.ex:204
+#, elixir-autogen, elixir-format
+msgid "Sent once when an application is connected to an account through the OAuth sign-in."
+msgstr "Inviata una sola volta quando un'applicazione viene collegata a un account tramite l'accesso OAuth."
+
+#: lib/phoenix_kit/email/core_templates.ex:552
+#, elixir-autogen, elixir-format
+msgid "An application was connected to your account"
+msgstr "Un'applicazione è stata collegata al tuo account"
+
+#: lib/phoenix_kit/email/core_templates.ex:554
+#, elixir-autogen, elixir-format
+msgid "Hi {{user_email}},\n\nAn application was connected to your account:\n\n- The application says its name is: {{app_name}}\n- Its answers are sent to: {{app_host}}\n- Rights: {{rights}}\n- Valid until: {{expires}}\n- Time: {{time}}\n- From the address: {{ip_address}}\n- State: {{state}}\n\nThe name is the application's own and has not been checked. If you connected it, no action is needed.\n\nIf you did not, disconnect the application and then change your password:\n\n[Disconnect the application]({{connections_url}})\n\nIf the button doesn't work, open this link: [{{connections_url}}]({{connections_url}})\n"
+msgstr "Ciao {{user_email}},\n\nUn'applicazione è stata collegata al tuo account:\n\n- L'applicazione dichiara di chiamarsi: {{app_name}}\n- Le sue risposte vengono inviate a: {{app_host}}\n- Permessi: {{rights}}\n- Valida fino al: {{expires}}\n- Ora: {{time}}\n- Dall'indirizzo: {{ip_address}}\n- Stato: {{state}}\n\nIl nome è stato indicato dall'applicazione stessa e non è stato verificato. Se l'hai collegata tu, non devi fare nulla.\n\nSe non sei stato tu, scollega l'applicazione e poi cambia la password:\n\n[Scollega l'applicazione]({{connections_url}})\n\nSe il pulsante non funziona, apri questo link: [{{connections_url}}]({{connections_url}})\n"
+
+#: lib/phoenix_kit/email/core_templates.ex:584
+#, elixir-autogen, elixir-format
+msgid "Waiting for approval by the owner of the system: it does nothing until then"
+msgstr "In attesa dell'approvazione del proprietario del sistema: fino ad allora non fa nulla"
+
+#: lib/phoenix_kit/email/core_templates.ex:586
+#, elixir-autogen, elixir-format
+msgid "Works"
+msgstr "Funziona"
+
+#: lib/phoenix_kit/email/core_templates.ex:594
+#, elixir-autogen, elixir-format
+msgid "%{module} (reading and changing)"
+msgstr "%{module} (lettura e modifica)"
+
+#: lib/phoenix_kit/email/core_templates.ex:597
+#, elixir-autogen, elixir-format
+msgid "%{module} (changing)"
+msgstr "%{module} (modifica)"
+
+#: lib/phoenix_kit/email/core_templates.ex:600
+#, elixir-autogen, elixir-format
+msgid "%{module} (reading)"
+msgstr "%{module} (lettura)"
