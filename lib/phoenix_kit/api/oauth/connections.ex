@@ -25,7 +25,9 @@ defmodule PhoenixKit.API.OAuth.Connections do
 
   ## Status
 
-  `:active` while the grant's owner may use it. The effective rights of a request are the grant's
+  `:active` while the grant's owner may use it, `:awaiting_approval` while it has not been approved
+  (`PhoenixKit.API.OAuth.Grants.awaiting?/1`: nothing runs on it, and the owner's own rights are
+  not what holds it). The effective rights of a request are the grant's
   scopes narrowed to what the owner holds right now, so a grant is **not removed** when the owner
   loses `api_personal_keys` (or `api`, or is blocked): it stays listed, marked `:no_permission` or
   `:owner_inactive`, and works again if the right comes back. `:wrong_resource` is a grant made for
@@ -52,7 +54,8 @@ defmodule PhoenixKit.API.OAuth.Connections do
   @name_prefix "OAuth: "
 
   @type view :: :own | :all
-  @type status :: :active | :no_permission | :owner_inactive | :wrong_resource
+  @type status ::
+          :active | :awaiting_approval | :no_permission | :owner_inactive | :wrong_resource
   @type row :: %{
           grant: Grant.t(),
           client: Client.t(),
@@ -71,6 +74,46 @@ defmodule PhoenixKit.API.OAuth.Connections do
     case visible(scope, view) do
       nil -> []
       query -> query |> from(order_by: [desc: :inserted_at, desc: :uuid], limit: @limit) |> rows()
+    end
+  end
+
+  @doc """
+  The connections that wait for an owner's decision (`PhoenixKit.API.OAuth.Grants.pending_query/0`:
+  activated, not approved, not ended, at most `PhoenixKit.API.OAuth.Grants.approval_days/0` days
+  old), newest first (at most `limit/0`), for an Owner who holds `api` alone: `[]` for anyone else.
+  """
+  @spec list_pending(Scope.t() | nil) :: [row()]
+  def list_pending(scope) do
+    if owner?(scope) do
+      Grants.pending_query()
+      |> from(order_by: [desc: :inserted_at, desc: :uuid], limit: @limit)
+      |> rows()
+    else
+      []
+    end
+  end
+
+  @doc """
+  Rejects the waiting connection `grant_uuid` as the person behind `scope` (an Owner who holds
+  `api`): it ends as a revoked grant, with the reason `approval_rejected` on its tokens, and one
+  `oauth.grant_revoked` entry. The grant must be one `list_pending/1` shows.
+
+  Returns `{:ok, grant}`, `{:error, :forbidden}` (not an Owner with `api`) or
+  `{:error, :not_found}` (not waiting any more, or not a uuid).
+  """
+  @spec reject(Scope.t() | nil, term()) ::
+          {:ok, Grant.t()} | {:error, :forbidden | :not_found | term()}
+  def reject(scope, grant_uuid) do
+    with true <- owner?(scope) || {:error, :forbidden},
+         true <- (is_binary(grant_uuid) and UUIDUtils.valid?(grant_uuid)) || {:error, :not_found},
+         %Grant{} = grant <-
+           repo().one(
+             from([grant: g] in Grants.pending_query(), where: g.uuid == ^grant_uuid, select: g)
+           ) do
+      Grants.revoke(grant, actor_uuid: Scope.user_uuid(scope), reason: "approval_rejected")
+    else
+      {:error, reason} -> {:error, reason}
+      _not_waiting -> {:error, :not_found}
     end
   end
 
@@ -113,7 +156,11 @@ defmodule PhoenixKit.API.OAuth.Connections do
   defp visible(scope, :all), do: if(owner?(scope), do: live_query(base()))
   defp visible(_scope, _view), do: nil
 
-  defp owner?(scope), do: Scope.owner?(scope) and Scope.can?(scope, "api")
+  @doc false
+  # The all-view, the waiting list and the decisions on a waiting connection are an Owner's who
+  # holds `api`.
+  @spec owner?(Scope.t() | nil) :: boolean()
+  def owner?(scope), do: Scope.owner?(scope) and Scope.can?(scope, "api")
 
   defp base, do: from(g in Grant, as: :grant)
 
@@ -181,6 +228,7 @@ defmodule PhoenixKit.API.OAuth.Connections do
       not Resource.matches?(grant.resource) -> :wrong_resource
       owner_state == :no_permission -> :no_permission
       owner_state == :owner_inactive -> :owner_inactive
+      Grants.awaiting?(grant) -> :awaiting_approval
       true -> :active
     end
   end

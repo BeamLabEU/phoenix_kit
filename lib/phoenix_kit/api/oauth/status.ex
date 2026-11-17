@@ -19,11 +19,13 @@ defmodule PhoenixKit.API.OAuth.Status do
   """
 
   alias PhoenixKit.API.Config
+  alias PhoenixKit.API.OAuth.Grants
   alias PhoenixKit.API.OAuth.Metadata
   alias PhoenixKit.API.OAuth.Resource
   alias PhoenixKit.Utils.Routes
 
-  @type warning :: :admin_api_off | :origin_not_https | :allow_list_empty
+  @type warning ::
+          :admin_api_off | :origin_not_https | :allow_list_empty | :approvals_waiting
   @type url_id ::
           :resource
           | :protected_resource_metadata
@@ -38,6 +40,7 @@ defmodule PhoenixKit.API.OAuth.Status do
           oauth_enabled: boolean(),
           dcr_enabled: boolean(),
           policy: :any | :allow_list | :approval,
+          waiting: non_neg_integer(),
           issuer: String.t(),
           urls: [{url_id(), String.t()}],
           warnings: [warning()]
@@ -50,15 +53,17 @@ defmodule PhoenixKit.API.OAuth.Status do
     oauth? = Config.oauth_enabled?()
     policy = Config.oauth_client_policy()
     issuer = Resource.issuer()
+    waiting = waiting()
 
     %{
       admin_enabled: admin?,
       oauth_enabled: oauth?,
       dcr_enabled: Config.oauth_dcr_enabled?(),
       policy: policy,
+      waiting: waiting,
       issuer: issuer,
       urls: urls(issuer),
-      warnings: warnings(admin?, issuer, policy)
+      warnings: warnings(admin?, issuer, policy, waiting)
     }
   end
 
@@ -79,15 +84,26 @@ defmodule PhoenixKit.API.OAuth.Status do
     ]
   end
 
-  defp warnings(admin?, issuer, policy) do
+  defp warnings(admin?, issuer, policy, waiting) do
     Enum.reject(
       [
         if(admin?, do: nil, else: :admin_api_off),
         if(String.starts_with?(issuer, "https://"), do: nil, else: :origin_not_https),
-        if(policy == :allow_list and allow_list_empty?(), do: :allow_list_empty)
+        if(policy == :allow_list and allow_list_empty?(), do: :allow_list_empty),
+        if(waiting > 0, do: :approvals_waiting)
       ],
       &is_nil/1
     )
+  end
+
+  # A report is information: a database that cannot be read shows no waiting connection rather
+  # than failing the page.
+  defp waiting do
+    Grants.count_pending()
+  rescue
+    _error -> 0
+  catch
+    :exit, _reason -> 0
   end
 
   defp allow_list_empty? do

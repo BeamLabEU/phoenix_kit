@@ -9,20 +9,26 @@ defmodule PhoenixKit.API.OAuth.Prune do
        authorization code ran out at least an hour ago (and which is itself an hour old), with
        its hidden key, which has no history. The check is made again under the key then grant
        lock, so a code exchanged a moment ago keeps its grant.
-    2. **Grants that are over** - revoked, or past their `expires_at` - three days ago or more
+    2. **Connections nobody approved** - a grant that still waits for approval (`approved_at` is
+       `nil`) seven days after it was made
+       (`PhoenixKit.API.OAuth.Grants.approval_days/0`) is ended through
+       `PhoenixKit.API.OAuth.Grants.revoke/2` with the reason `approval_timeout` (its tokens, its
+       hidden key and one `oauth.grant_revoked` entry). An approved grant is never touched.
+       The revoked grant is removed by the next step once its grace is over.
+    3. **Grants that are over** - revoked, or past their `expires_at` - three days ago or more
        (the same grace as the tokens below), with their hidden key, tokens and codes. Without
        this step every consent would leave a grant and a key row behind for good. A grant whose
        key has confirmations is **not** removed (the tables cascade: the approval history would
        go with the key); it is removed in a later run, once `Confirm.Prune` has cleared them.
        The activity entries (`oauth.grant_revoked`, the key's `api.*` entries) stay in any case,
        as they point at the key by uuid only.
-    3. **Requests** past their ten minutes.
-    4. **Codes** past their minute.
-    5. **Tokens** three days past their own end: an application that comes back after its
+    4. **Requests** past their ten minutes.
+    5. **Codes** past their minute.
+    6. **Tokens** three days past their own end: an application that comes back after its
        access token ran out is still told "expired" (not charged to the failure bucket) and
        not "unknown". A refresh token ends with its grant, so a used refresh token is never
        removed before the grant is over (reuse of it is still told from a retry).
-    6. **Registered clients** (`dcr`) with no grant, a day after they registered, and with no
+    7. **Registered clients** (`dcr`) with no grant, a day after they registered, and with no
        authorization request still waiting; **metadata document clients** (`cimd`) with no
        grant, a day after the cache of their document ran out, and with no request waiting (an
        unauthenticated authorization request makes the server fetch and store one, so they
@@ -53,7 +59,7 @@ defmodule PhoenixKit.API.OAuth.Prune do
 
   @doc """
   Runs every step at `now`; returns
-  `%{grants: n, ended: n, requests: n, codes: n, tokens: n, clients: n}`.
+  `%{grants: n, unapproved: n, ended: n, requests: n, codes: n, tokens: n, clients: n}`.
   """
   @spec run(DateTime.t()) :: %{atom() => non_neg_integer()}
   def run(now \\ DateTime.utc_now()) do
@@ -61,6 +67,7 @@ defmodule PhoenixKit.API.OAuth.Prune do
 
     %{
       grants: abandoned_grants(now),
+      unapproved: unapproved_grants(now),
       ended: ended_grants(now),
       requests: delete_all_batches(from(r in Request, where: r.expires_at < ^now)),
       codes: delete_all_batches(from(c in Code, where: c.expires_at < ^now)),
@@ -97,6 +104,29 @@ defmodule PhoenixKit.API.OAuth.Prune do
     if length(uuids) == @batch and removed > 0,
       do: abandoned_grants(now, deleted + removed),
       else: deleted + removed
+  end
+
+  # A waiting grant is ended through the one path that ends grants. One that could not be ended
+  # (`{:error, _}`) is not counted and, still waiting, would come back in the next batch: the
+  # loop stops when a batch ended nothing.
+  defp unapproved_grants(now, ended \\ 0) do
+    cutoff = DateTime.add(now, -Grants.approval_days() * 86_400, :second)
+
+    uuids =
+      from(g in Grant,
+        where: is_nil(g.approved_at) and is_nil(g.revoked_at) and g.expires_at > ^now,
+        where: g.inserted_at < ^cutoff,
+        order_by: [asc: g.inserted_at],
+        limit: @batch,
+        select: g.uuid
+      )
+      |> repo().all()
+
+    done = Enum.count(uuids, &match?({:ok, _}, Grants.revoke(&1, reason: "approval_timeout")))
+
+    if length(uuids) == @batch and done > 0,
+      do: unapproved_grants(now, ended + done),
+      else: ended + done
   end
 
   # The same loop for the grants that are over. A grant whose key has confirmations is left out

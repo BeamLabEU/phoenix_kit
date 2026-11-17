@@ -33,6 +33,11 @@ defmodule PhoenixKit.API.OAuth.Grants do
   grant is born approved (a trusted client) or waiting (`approved?: true | false` in `attrs`, no
   default: a caller that forgot to decide gets `{:error, :approval_undecided}`, never a working
   grant).
+
+  `approve/2` is the owner's decision that lets a waiting grant work: one atomic update, so a
+  grant that was ended, expired or approved a moment ago is never approved by a late click.
+  A grant that is not approved within `approval_days/0` days is ended by
+  `PhoenixKit.API.OAuth.Prune` (reason `approval_timeout`).
   """
 
   import Ecto.Query, only: [from: 2]
@@ -43,8 +48,10 @@ defmodule PhoenixKit.API.OAuth.Grants do
   alias PhoenixKit.API.Keys.Cache
   alias PhoenixKit.API.Keys.Key
   alias PhoenixKit.API.OAuth.Client
+  alias PhoenixKit.API.OAuth.Connections
   alias PhoenixKit.API.OAuth.Grant
   alias PhoenixKit.API.OAuth.Input
+  alias PhoenixKit.API.OAuth.RedirectUri
   alias PhoenixKit.API.OAuth.Resource
   alias PhoenixKit.API.OAuth.Token
   alias PhoenixKit.RepoHelper
@@ -53,6 +60,7 @@ defmodule PhoenixKit.API.OAuth.Grants do
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
   @default_reason "grant_revoked"
+  @approval_days 7
 
   @doc """
   Makes a grant of `client` for the person behind `scope`, and its hidden key.
@@ -299,6 +307,99 @@ defmodule PhoenixKit.API.OAuth.Grants do
   @spec awaiting?(Grant.t() | nil) :: boolean()
   def awaiting?(%Grant{approved_at: %DateTime{}}), do: false
   def awaiting?(_no_approval), do: true
+
+  @doc "How many days a connection may wait for its approval before it is ended."
+  @spec approval_days() :: pos_integer()
+  def approval_days, do: @approval_days
+
+  @doc """
+  The grants an owner may decide on now, as a query with the grant as its named binding `:grant`:
+  activated (the code was exchanged), not approved, not revoked, not expired and made at most
+  `approval_days/0` days ago. `approve/2`, the list of the waiting connections
+  (`PhoenixKit.API.OAuth.Connections.list_pending/1`) and the count of the status report all
+  mean exactly this.
+  """
+  @spec pending_query() :: Ecto.Query.t()
+  def pending_query do
+    now = now()
+
+    from(g in Grant,
+      as: :grant,
+      where: is_nil(g.approved_at) and not is_nil(g.activated_at) and is_nil(g.revoked_at),
+      where: g.expires_at > ^now and g.inserted_at > ^window_start(now)
+    )
+  end
+
+  @doc "How many connections wait for an owner's decision (`pending_query/0`)."
+  @spec count_pending() :: non_neg_integer()
+  def count_pending, do: pending_query() |> repo().aggregate(:count)
+
+  @doc """
+  Approves the waiting grant `grant_uuid` as the person behind `scope`, who must be an Owner who
+  holds `api` (the rights of the scope are the caller's to read fresh: a page hands in
+  `PhoenixKit.API.Access.fresh_scope/1`). One `UPDATE` with every condition of
+  `pending_query/0`, so it locks only that grant's row and a grant ended or approved meanwhile is
+  not touched. Writes `oauth.grant_approved` (who, the client, the hosts of its redirect
+  addresses, whose grant; no token).
+
+  Returns `{:ok, grant}`, `{:error, :forbidden}` (not an Owner with `api`),
+  `{:error, :not_found}` (not a uuid) or `{:error, :not_pending}` (unknown, someone's that is not
+  waiting any more, not activated, ended, expired, or older than `approval_days/0` days).
+  """
+  @spec approve(Scope.t() | nil, term()) ::
+          {:ok, Grant.t()} | {:error, :forbidden | :not_found | :not_pending}
+  def approve(scope, grant_uuid) do
+    cond do
+      not Connections.owner?(scope) ->
+        {:error, :forbidden}
+
+      not (is_binary(grant_uuid) and UUIDUtils.valid?(grant_uuid)) ->
+        {:error, :not_found}
+
+      true ->
+        approve_pending(scope, grant_uuid)
+    end
+  end
+
+  defp approve_pending(scope, grant_uuid) do
+    query = from([grant: g] in pending_query(), where: g.uuid == ^grant_uuid, select: g)
+
+    case repo().update_all(query, set: [approved_at: now()]) do
+      {1, [%Grant{} = grant]} ->
+        log_approved(grant, Scope.user_uuid(scope))
+        {:ok, grant}
+
+      {0, _none} ->
+        {:error, :not_pending}
+    end
+  end
+
+  # Hosts, not addresses: the redirect URI of a client is never written to the feed.
+  defp log_approved(%Grant{} = grant, actor_uuid) do
+    Activity.log("api", "oauth.grant_approved",
+      actor_uuid: actor_uuid,
+      resource_type: "oauth_grant",
+      resource_uuid: grant.uuid,
+      permanent: true,
+      metadata: %{
+        "client_uuid" => grant.client_uuid,
+        "owner_uuid" => grant.user_uuid,
+        "hosts" => client_hosts(grant.client_uuid)
+      }
+    )
+  end
+
+  defp client_hosts(client_uuid) do
+    case repo().get(Client, client_uuid) do
+      %Client{redirect_uris: uris} ->
+        uris |> Enum.map(&RedirectUri.host/1) |> Enum.reject(&is_nil/1) |> Enum.uniq()
+
+      nil ->
+        []
+    end
+  end
+
+  defp window_start(now), do: DateTime.add(now, -@approval_days * 86_400, :second)
 
   @doc """
   Whether the grant can still be used: not revoked and not expired, and for this install's

@@ -19,8 +19,9 @@ defmodule PhoenixKit.API.OAuth.Exchange do
   the presented client, the `redirect_uri` must be the very string of the authorization request, the
   `code_verifier` must hash (S256) to the stored challenge, and `resource`, when sent, must be the
   one of the grant. On success the grant is activated, an access token and a refresh token are
-  issued, and `oauth.grant_created` is written to the activity feed. Nothing about the person
-  or the client is in the response: only the tokens, their lifetime and the scope actually granted.
+  issued, and `oauth.grant_created` is written to the activity feed (with `oauth.grant_pending`
+  when the grant waits for approval). Nothing about the person or the client is in the response:
+  only the tokens, their lifetime and the scope actually granted.
 
   ## Refresh token
 
@@ -185,6 +186,10 @@ defmodule PhoenixKit.API.OAuth.Exchange do
     with {:ok, access, access_row} <- Tokens.issue(grant, :access, family: family),
          {:ok, refresh, _row} <- Tokens.issue(grant, :refresh, family: family) do
       log(grant, "oauth.grant_created", %{"client_uuid" => grant.client_uuid})
+
+      if Grants.awaiting?(grant),
+        do: log(grant, "oauth.grant_pending", %{"client_uuid" => grant.client_uuid})
+
       response(grant, access, access_row, refresh)
     else
       _ -> repo().rollback(:issue_failed)
