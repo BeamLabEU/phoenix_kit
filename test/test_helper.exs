@@ -159,10 +159,13 @@ end
 {:ok, _pid} = PhoenixKit.ModuleRegistry.start_link([])
 {:ok, _pid} = PhoenixKit.Users.RateLimiter.Backend.start_link([])
 
-# The downloads of client metadata documents run here (`PhoenixKit.API.OAuth.Cimd`), at most four
-# at a time; `PhoenixKit.Supervisor` starts it in an application.
+# The downloads of client metadata documents run here (`PhoenixKit.API.OAuth.Cimd`), as many at a
+# time as its setting says (four by default); `PhoenixKit.Supervisor` starts it in an application.
 {:ok, _pid} =
-  Task.Supervisor.start_link(name: PhoenixKit.API.OAuth.FetchSupervisor, max_children: 4)
+  Task.Supervisor.start_link(
+    name: PhoenixKit.API.OAuth.FetchSupervisor,
+    max_children: PhoenixKit.API.OAuth.Cimd.max_concurrency()
+  )
 
 # Start the LV endpoint once for the whole test run. `PhoenixKitWeb.ConnCase`
 # previously did this per-test via `start_supervised`, but that ties the

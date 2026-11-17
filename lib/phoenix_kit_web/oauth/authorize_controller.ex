@@ -11,8 +11,12 @@ defmodule PhoenixKitWeb.OAuth.AuthorizeController do
   A request that cannot be trusted with a redirect (no such client, a redirect URI the client
   did not register, a repeated parameter) gets an error page, the same whatever was wrong,
   and never a redirect. Once the redirect URI is confirmed, errors go to the client with `state`
-  and `iss`; the redirect with `access_denied` comes only after a person pressed "Deny" on the
-  consent screen.
+  and `iss` - but only for a pre-registered client, one an administrator added. A client that
+  named itself (a metadata document, a dynamic registration) may list any `https` address as its
+  redirect, and this endpoint runs before any sign-in or consent screen, so a redirect to it
+  would let anybody bounce a visitor to an address of their choosing from this site's domain:
+  for such a client the error is shown on our own page, and the redirect with `access_denied`
+  comes only after a person pressed "Deny" on the consent screen.
 
   Counted before anything is read: one request of the client's network against
   `api_oauth_authorize_per_min` (`429` and a page); a full table of waiting requests answers

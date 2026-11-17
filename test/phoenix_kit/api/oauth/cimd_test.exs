@@ -7,6 +7,7 @@ defmodule PhoenixKit.API.OAuth.CimdTest do
   use ExUnit.Case, async: false
 
   alias PhoenixKit.API.OAuth.Cimd
+  alias PhoenixKit.API.OAuth.Resource
   alias PhoenixKit.API.OAuthCimdStub, as: Stub
 
   @claude Stub.claude_id()
@@ -49,6 +50,18 @@ defmodule PhoenixKit.API.OAuth.CimdTest do
 
     test "a query string is not refused (the draft discourages it)" do
       assert :ok = Cimd.validate_client_id("https://app.example/client.json?v=2")
+    end
+  end
+
+  describe "own_host?/1" do
+    test "an address on the authorization server's own host is told, case and trailing dot aside" do
+      own = URI.parse(Resource.issuer()).host
+
+      assert Cimd.own_host?("https://#{own}/oauth/client.json")
+      assert Cimd.own_host?("https://#{String.upcase(own)}./x/client.json")
+      refute Cimd.own_host?("https://not-#{own}/client.json")
+      refute Cimd.own_host?("https://sub.#{own}/client.json")
+      refute Cimd.own_host?(nil)
     end
   end
 

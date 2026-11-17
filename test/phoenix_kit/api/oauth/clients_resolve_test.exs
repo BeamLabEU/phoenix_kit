@@ -10,6 +10,7 @@ defmodule PhoenixKit.API.OAuth.ClientsResolveTest do
   import PhoenixKit.API.OAuthTestSupport, only: [client!: 1]
   import PhoenixKit.Test.ApiHarness, only: [put_setting: 2, setup_api: 0, unique_ip: 0]
 
+  alias PhoenixKit.API.OAuth.Cimd
   alias PhoenixKit.API.OAuth.Client
   alias PhoenixKit.API.OAuth.Clients
   alias PhoenixKit.API.OAuth.Limits
@@ -31,6 +32,45 @@ defmodule PhoenixKit.API.OAuth.ClientsResolveTest do
   end
 
   defp resolve(client_id, ip), do: Clients.resolve(client_id, ip: ip)
+
+  describe "a document on the authorization server's own host" do
+    # A path on the site's own domain (a shared pages host, a person's page) must not be able to
+    # name a client: nothing is fetched, the request meets the ordinary "no such client".
+    test "is no client, and nothing is fetched or counted", %{ip: ip} do
+      put_setting("site_url", "https://pages.example.com")
+      own = "https://pages.example.com/someone/client.json"
+      Stub.put(own, Stub.claude_document() |> Map.put("client_id", own))
+
+      for id <- [own, "https://PAGES.example.com./x/client.json"] do
+        assert resolve(id, ip) == {:error, :unknown_client}
+      end
+
+      assert Stub.calls(own) == []
+      assert Repo.all(Client) == []
+    end
+
+    test "a stored document of that host that ran out is not fetched again", %{ip: ip} do
+      put_setting("site_url", "https://pages.example.com")
+      own = "https://pages.example.com/old/client.json"
+      Stub.put(own, Stub.claude_document() |> Map.put("client_id", own))
+
+      Repo.insert!(%Client{
+        kind: "cimd",
+        client_id: own,
+        redirect_uris: ["https://claude.ai/api/mcp/auth_callback"],
+        metadata_expires_at:
+          DateTime.utc_now() |> DateTime.add(-60, :second) |> DateTime.truncate(:second)
+      })
+
+      assert resolve(own, ip) == {:error, :unknown_client}
+      assert Stub.calls(own) == []
+    end
+
+    test "another host of the same domain is another host", %{ip: ip} do
+      put_setting("site_url", "https://pages.example.com")
+      assert {:ok, %Client{}} = resolve(@claude, ip)
+    end
+  end
 
   describe "clean_name/1" do
     test "cuts by graphemes and by code points, whichever is shorter" do
@@ -448,6 +488,57 @@ defmodule PhoenixKit.API.OAuth.ClientsResolveTest do
 
       # A place is free again.
       assert {:error, :fetch_failed} = resolve(Enum.at(urls, 4), unique_ip())
+    end
+  end
+
+  describe "the number of downloads at once is a setting" do
+    test "a smaller number closes the places sooner, a larger one opens more" do
+      test_pid = self()
+
+      blocking = fn _opts ->
+        send(test_pid, {:started, self()})
+
+        receive do
+          :go -> {:error, {:http_status, 500}}
+        end
+      end
+
+      url = fn n -> "https://client.example/pool-#{n}-#{System.unique_integer([:positive])}" end
+      urls = for n <- 1..7, do: url.(n)
+      for u <- urls, do: Stub.put(u, blocking)
+
+      put_setting("api_oauth_cimd_concurrency", 2)
+
+      two =
+        for u <- Enum.take(urls, 2) do
+          task = Task.async(fn -> resolve(u, unique_ip()) end)
+          assert_receive {:started, _pid}, 2_000
+          task
+        end
+
+      assert {:error, :busy} = resolve(Enum.at(urls, 2), unique_ip())
+      assert Stub.calls(Enum.at(urls, 2)) == []
+
+      put_setting("api_oauth_cimd_concurrency", 6)
+
+      more =
+        for u <- Enum.slice(urls, 2, 4) do
+          task = Task.async(fn -> resolve(u, unique_ip()) end)
+          assert_receive {:started, _pid}, 2_000
+          task
+        end
+
+      assert {:error, :busy} = resolve(Enum.at(urls, 6), unique_ip())
+
+      for pid <- started_pids(), do: send(pid, :go)
+      assert Enum.map(two ++ more, &Task.await/1) == List.duplicate({:error, :fetch_failed}, 6)
+    end
+
+    test "a stored number above what the supervisor admits is held to it" do
+      put_setting("api_oauth_cimd_concurrency", 500)
+      assert Cimd.concurrency() == 64
+      put_setting("api_oauth_cimd_concurrency", 3)
+      assert Cimd.concurrency() == 3
     end
   end
 

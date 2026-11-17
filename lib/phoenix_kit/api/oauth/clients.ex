@@ -194,14 +194,20 @@ defmodule PhoenixKit.API.OAuth.Clients do
   def allowed?(%Client{} = client),
     do: ClientPolicy.allowed?(client.kind, client.client_id, client.redirect_uris)
 
+  # A document on the authorization server's own host is no client, whether it is new or its row
+  # has run out: nothing is counted and nothing is fetched.
   defp fetch(client_id, opts) do
-    with :ok <- host_allowed(client_id, []),
+    with :ok <- not_own_host(client_id),
+         :ok <- host_allowed(client_id, []),
          :ok <- within_limits(client_id, opts[:ip]),
          {:ok, document} <- fetch_document(client_id),
          :ok <- host_allowed(client_id, document.redirect_uris) do
       store(client_id, document)
     end
   end
+
+  defp not_own_host(client_id),
+    do: if(Cimd.own_host?(client_id), do: {:error, :unknown_client}, else: :ok)
 
   defp host_allowed(client_id, redirect_uris) do
     if ClientPolicy.allowed?("cimd", client_id, redirect_uris),

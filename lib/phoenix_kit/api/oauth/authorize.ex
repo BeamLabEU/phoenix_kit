@@ -18,7 +18,13 @@ defmodule PhoenixKit.API.OAuth.Authorize do
       and `:busy` (too many run at once). `reason` is for the log and the tests.
     * `{:redirect_error, error}` - the client and the redirect URI are confirmed (the URI matches
       one the client registered, `PhoenixKit.API.OAuth.RedirectUri`), the rest is wrong:
-      the error goes to the client in a redirect (`error`, `description`, `state`).
+      the error goes to the client in a redirect (`error`, `description`, `state`). Only for a
+      **pre-registered** client, one an administrator added. A client that named itself (a
+      metadata document, a dynamic registration) is not verified, and this request is made before
+      any sign-in or consent screen, so a redirect to an address that client listed would be an
+      open redirector on this site's domain: such a request that is wrong in the rest is a
+      `{:page_error, :unverified_client_error}`, an error page of ours. The client hears of a
+      refusal only when a person denies it on the consent screen.
 
   The client is `PhoenixKit.API.OAuth.Clients.resolve/2`: a stored one, or the one a metadata
   document at its URL describes (fetched here, once the form of the URL, the policy and the limits
@@ -160,10 +166,17 @@ defmodule PhoenixKit.API.OAuth.Authorize do
        }}
     else
       {:error, error, description} ->
-        {:redirect_error,
-         %{redirect_uri: redirect_uri, error: error, description: description, state: state}}
+        refuse(client, redirect_uri, error, description, state)
     end
   end
+
+  defp refuse(%Client{kind: "preregistered"}, redirect_uri, error, description, state) do
+    {:redirect_error,
+     %{redirect_uri: redirect_uri, error: error, description: description, state: state}}
+  end
+
+  defp refuse(%Client{}, _redirect_uri, _error, _description, _state),
+    do: {:page_error, :unverified_client_error}
 
   # An over-long state is refused, and is not echoed back.
   defp state(%{"state" => state}) when is_binary(state) and byte_size(state) <= @max_state,

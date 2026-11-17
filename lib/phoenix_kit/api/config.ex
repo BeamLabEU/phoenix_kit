@@ -24,6 +24,7 @@ defmodule PhoenixKit.API.Config do
   | `api_oauth_client_allow_hosts` | `""` (newline separated hosts) |
   | `api_oauth_cimd_per_min` | `20` (client metadata fetches per client network) |
   | `api_oauth_cimd_client_per_min` | `5` (client metadata fetches per client) |
+  | `api_oauth_cimd_concurrency` | `4` (client metadata downloads that run at once) |
   | `api_oauth_register_per_hour` | `10` (registrations per client network) |
   | `api_oauth_register_per_day` | `200` (registrations, whole install) |
   | `api_disabled_tools` | `""` (newline separated tool names) |
@@ -123,6 +124,10 @@ defmodule PhoenixKit.API.Config do
   @doc "Client metadata fetches per minute and client (`api_oauth_cimd_client_per_min`, 5)."
   @spec oauth_cimd_client_per_min() :: pos_integer()
   def oauth_cimd_client_per_min, do: int("api_oauth_cimd_client_per_min", 5)
+
+  @doc "Client metadata downloads that run at once (`api_oauth_cimd_concurrency`, 4)."
+  @spec oauth_cimd_concurrency() :: pos_integer()
+  def oauth_cimd_concurrency, do: int("api_oauth_cimd_concurrency", 4)
 
   @doc "Registrations per hour and client network (`api_oauth_register_per_hour`, 10)."
   @spec oauth_register_per_hour() :: pos_integer()

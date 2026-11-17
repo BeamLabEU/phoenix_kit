@@ -255,9 +255,8 @@ defmodule PhoenixKitWeb.OAuth.CimdFlowTest do
       assert authorize(browser(), params).status == 302
     end
 
-    test "an error after the redirect is confirmed goes to that redirect with state and iss", %{
-      challenge: challenge
-    } do
+    test "an error after the redirect is confirmed is our own page, never a redirect (the client is unverified)",
+         %{challenge: challenge} do
       params =
         authorize_params(claude(), challenge, %{
           "code_challenge_method" => "plain",
@@ -265,9 +264,10 @@ defmodule PhoenixKitWeb.OAuth.CimdFlowTest do
         })
 
       conn = authorize(browser(), params)
-      assert conn.status == 302
-      assert String.starts_with?(location(conn), @claude_redirect <> "?")
-      assert %{"error" => "invalid_request", "state" => "abc", "iss" => _} = location_params(conn)
+      assert conn.status == 400
+      assert get_resp_header(conn, "location") == []
+      refute conn.resp_body =~ "claude.ai"
+      assert Repo.all(Request) == []
     end
   end
 
