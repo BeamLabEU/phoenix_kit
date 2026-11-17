@@ -25,6 +25,13 @@ defmodule PhoenixKit.Migrations.Postgres.V234 do
   First ends every connection that still waits (`approved_at IS NULL`, not revoked): its tokens,
   its hidden key and the grant get `revoked_at`, the tokens the reason `migration_rollback`;
   otherwise the rollback would make the waiting connections work. Then drops the column.
+
+  ## Rolling back the code only
+
+  Older code on a database that has V234 ignores `approved_at`, so every connection that waits
+  would start working with its person's rights. Before deploying code older than V234 on a
+  database that has it, end the waiting connections first (the `down` SQL, `down_statements/1`,
+  does it, and the column can stay).
   """
   use Ecto.Migration
 
