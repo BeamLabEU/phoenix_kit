@@ -36,7 +36,7 @@ defmodule PhoenixKit.API.ConfigUnreadableTest do
       end
     end
 
-    def get_by(_schema, key: "api_password_change_revokes") do
+    def get_by(_schema, key: "api_pw_change_revokes") do
       case Process.get(:revokes_read) do
         :exit -> exit(:database_unavailable)
         {:value, value} -> %PhoenixKit.Settings.Setting{value: value}
@@ -158,9 +158,9 @@ defmodule PhoenixKit.API.ConfigUnreadableTest do
     test "that cannot be read is off, and says so once in the log" do
       log = capture_log(fn -> refute Config.password_change_revokes?() end)
 
-      assert log =~ "api_password_change_revokes could not be read"
+      assert log =~ "api_pw_change_revokes could not be read"
       assert log =~ "a password change ends no key or connection"
-      assert length(Regex.scan(~r/api_password_change_revokes could not be read/, log)) == 1
+      assert length(Regex.scan(~r/api_pw_change_revokes could not be read/, log)) == 1
       refute log =~ "database unavailable"
     end
 
@@ -169,7 +169,7 @@ defmodule PhoenixKit.API.ConfigUnreadableTest do
 
       log = capture_log(fn -> refute Config.password_change_revokes?() end)
 
-      assert log =~ "api_password_change_revokes could not be read"
+      assert log =~ "api_pw_change_revokes could not be read"
     end
 
     test "that is readable says nothing, on or off" do

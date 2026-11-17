@@ -22,7 +22,7 @@ defmodule PhoenixKit.API.Config do
   | `api_oauth_dcr_enabled` | `false` (Dynamic Client Registration, `POST /oauth/register`; only counts while OAuth is on) |
   | `api_oauth_client_policy` | `"approval"` (`"any"`: every client at once; `"allow_list"`: only the hosts of `api_oauth_client_allow_hosts`) |
   | `api_oauth_client_allow_hosts` | `""` (newline separated hosts) |
-  | `api_password_change_revokes` | `false` (a password change ends the person's personal keys and OAuth connections) |
+  | `api_pw_change_revokes` | `false` (a password change ends the person's personal keys and OAuth connections) |
   | `api_oauth_cimd_per_min` | `20` (client metadata fetches per client network) |
   | `api_oauth_cimd_client_per_min` | `5` (client metadata fetches per client) |
   | `api_oauth_cimd_concurrency` | `4` (client metadata downloads that run at once) |
@@ -119,14 +119,14 @@ defmodule PhoenixKit.API.Config do
 
   @doc """
   Whether changing a person's password ends their personal API keys and OAuth connections
-  (`api_password_change_revokes`). Off by default. A setting that cannot be read is off too: it
+  (`api_pw_change_revokes`). Off by default. A setting that cannot be read is off too: it
   does NOT fail closed like the switches that close the API, since "off" here means the password
   changes and no key or connection ends. Such a read writes one warning to the log, so the gap
   is visible.
   """
   @spec password_change_revokes?() :: boolean()
   def password_change_revokes? do
-    case Settings.fetch_setting_cached("api_password_change_revokes") do
+    case Settings.fetch_setting_cached("api_pw_change_revokes") do
       {:ok, "true"} -> true
       {:ok, _other} -> false
       :error -> unreadable_revokes("the store could not be read")
@@ -139,7 +139,7 @@ defmodule PhoenixKit.API.Config do
 
   defp unreadable_revokes(why) do
     Logger.warning(
-      "[PhoenixKit.API] api_password_change_revokes could not be read (#{why}): " <>
+      "[PhoenixKit.API] api_pw_change_revokes could not be read (#{why}): " <>
         "a password change ends no key or connection until it can"
     )
 

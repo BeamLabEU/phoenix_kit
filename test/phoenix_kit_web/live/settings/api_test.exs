@@ -193,7 +193,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiTest do
       assert has_element?(view, "#api-switch-password-row input[checked]")
 
       entries = Activity.list(action: "setting.changed", actor_uuid: owner.uuid).entries
-      assert Enum.any?(entries, &(&1.metadata["key"] == "api_password_change_revokes"))
+      assert Enum.any?(entries, &(&1.metadata["key"] == "api_pw_change_revokes"))
 
       render_click(switch)
       refute Config.password_change_revokes?()
@@ -214,7 +214,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiTest do
       refute Config.password_change_revokes?()
 
       entries = Activity.list(action: "setting.changed", actor_uuid: admin.uuid).entries
-      refute Enum.any?(entries, &(&1.metadata["key"] == "api_password_change_revokes"))
+      refute Enum.any?(entries, &(&1.metadata["key"] == "api_pw_change_revokes"))
     end
 
     test "an Owner acting as Admin through the role switcher still sees the switch enabled" do
@@ -247,7 +247,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiTest do
 
     test "an Admin cannot switch the password setting OFF either", %{conn: conn} do
       KeyTestSupport.write_setting(fn ->
-        Settings.update_boolean_setting("api_password_change_revokes", true)
+        Settings.update_boolean_setting("api_pw_change_revokes", true)
       end)
 
       {:ok, view, _html} = live(conn, @path)

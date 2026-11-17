@@ -142,7 +142,7 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
   @switches %{
     "admin" => "api_admin_enabled",
     "public" => "api_public_enabled",
-    "password" => "api_password_change_revokes"
+    "password" => "api_pw_change_revokes"
   }
 
   # Limits form field -> {setting, key in `Config.rate_limits/0`}.

@@ -2117,7 +2117,7 @@ defmodule PhoenixKit.Users.Auth do
     # recovery, so it ends there too, in the transaction that ends the sessions. After the
     # validating step: a refused change must not log (and broadcast) a drop that never happened.
     |> Ecto.Multi.run(:telegram_links, fn _repo, _ -> {:ok, Linking.drop_links(user.uuid)} end)
-    # With `api_password_change_revokes` on, the personal keys and OAuth connections of the person
+    # With `api_pw_change_revokes` on, the personal keys and OAuth connections of the person
     # end in the same transaction: a failure here rolls the new password back. A person who signs
     # in without a password (a passkey, a magic link) holds a random hash, so a first password is
     # a change like any other and ends them too.

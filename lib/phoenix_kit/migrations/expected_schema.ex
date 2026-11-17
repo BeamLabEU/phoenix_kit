@@ -722,7 +722,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   @schema_token "__SCHEMA__"
   @name_marker_exempt "__PK_NAME_EXEMPT__"
   @name_marker_always "__PK_NAME_ALWAYS__"
-  @chain_hash "e599064360f36f0d1b52117d7d1e188c6d3f432bb8c6e07c2a442e1f3d8c28ad"
+  @chain_hash "cea58ab557775236b65b23d4cc7392226da0b1581dd9dd8ae2e88c62246062ac"
 
   def objects(prefix) do
     prefix = normalize_prefix!(prefix)

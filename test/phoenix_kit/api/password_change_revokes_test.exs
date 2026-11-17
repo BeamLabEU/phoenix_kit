@@ -1,6 +1,6 @@
 defmodule PhoenixKit.API.PasswordChangeRevokesTest do
   @moduledoc """
-  `api_password_change_revokes`: while it is on, a changed password ends the personal keys and the
+  `api_pw_change_revokes`: while it is on, a changed password ends the personal keys and the
   OAuth connections of the person, in the transaction of the change, on all four paths (the
   person's form, a reset, an administrator or the system, and the confirmation by an external
   proof); a first password is a change like any other; only personal keys and OAuth connections end:
@@ -38,7 +38,7 @@ defmodule PhoenixKit.API.PasswordChangeRevokesTest do
   end
 
   defp switch(value) do
-    write_setting(fn -> Settings.update_boolean_setting("api_password_change_revokes", value) end)
+    write_setting(fn -> Settings.update_boolean_setting("api_pw_change_revokes", value) end)
   end
 
   defp personal!(scope, extra \\ %{}) do
