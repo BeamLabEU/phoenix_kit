@@ -1,6 +1,8 @@
 defmodule PhoenixKit.API.ConfigUnreadableTest do
   use ExUnit.Case, async: false
 
+  import ExUnit.CaptureLog
+
   alias PhoenixKit.API.Config
   alias PhoenixKit.API.Executor
   alias PhoenixKit.API.Registry
@@ -31,6 +33,14 @@ defmodule PhoenixKit.API.ConfigUnreadableTest do
         :raise -> raise DBConnection.ConnectionError, message: "database unavailable"
         {:value, value} -> %PhoenixKit.Settings.Setting{value: value}
         _ -> nil
+      end
+    end
+
+    def get_by(_schema, key: "api_password_change_revokes") do
+      case Process.get(:revokes_read) do
+        :exit -> exit(:database_unavailable)
+        {:value, value} -> %PhoenixKit.Settings.Setting{value: value}
+        _ -> raise DBConnection.ConnectionError, message: "database unavailable"
       end
     end
 
@@ -142,5 +152,33 @@ defmodule PhoenixKit.API.ConfigUnreadableTest do
 
     assert Config.fetch_disabled_modules() == {:ok, []}
     assert {:ok, _tool} = Registry.find("system.get_identity", :admin)
+  end
+
+  describe "the password setting" do
+    test "that cannot be read is off, and says so once in the log" do
+      log = capture_log(fn -> refute Config.password_change_revokes?() end)
+
+      assert log =~ "api_password_change_revokes could not be read"
+      assert log =~ "a password change ends no key or connection"
+      assert length(Regex.scan(~r/api_password_change_revokes could not be read/, log)) == 1
+      refute log =~ "database unavailable"
+    end
+
+    test "whose read exits is off and says so too" do
+      Process.put(:revokes_read, :exit)
+
+      log = capture_log(fn -> refute Config.password_change_revokes?() end)
+
+      assert log =~ "api_password_change_revokes could not be read"
+    end
+
+    test "that is readable says nothing, on or off" do
+      Process.put(:revokes_read, {:value, "true"})
+      assert capture_log(fn -> assert Config.password_change_revokes?() end) == ""
+
+      PhoenixKit.Cache.clear(:settings)
+      Process.put(:revokes_read, {:value, "false"})
+      assert capture_log(fn -> refute Config.password_change_revokes?() end) == ""
+    end
   end
 end

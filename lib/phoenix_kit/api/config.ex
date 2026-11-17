@@ -44,6 +44,9 @@ defmodule PhoenixKit.API.Config do
   `encode_list/1` when writing one and `parse_list/1` when reading one.
   """
 
+  require Logger
+
+  alias PhoenixKit.API.LogSafe
   alias PhoenixKit.Settings
 
   @type rate_limits :: %{
@@ -116,11 +119,32 @@ defmodule PhoenixKit.API.Config do
 
   @doc """
   Whether changing a person's password ends their personal API keys and OAuth connections
-  (`api_password_change_revokes`). Off by default; fails closed like the other switches: a
-  setting that cannot be read is off.
+  (`api_password_change_revokes`). Off by default. A setting that cannot be read is off too: it
+  does NOT fail closed like the switches that close the API, since "off" here means the password
+  changes and no key or connection ends. Such a read writes one warning to the log, so the gap
+  is visible.
   """
   @spec password_change_revokes?() :: boolean()
-  def password_change_revokes?, do: flag("api_password_change_revokes")
+  def password_change_revokes? do
+    case Settings.fetch_setting_cached("api_password_change_revokes") do
+      {:ok, "true"} -> true
+      {:ok, _other} -> false
+      :error -> unreadable_revokes("the store could not be read")
+    end
+  rescue
+    error -> unreadable_revokes(LogSafe.exception_label(error))
+  catch
+    :exit, _reason -> unreadable_revokes("the read exited")
+  end
+
+  defp unreadable_revokes(why) do
+    Logger.warning(
+      "[PhoenixKit.API] api_password_change_revokes could not be read (#{why}): " <>
+        "a password change ends no key or connection until it can"
+    )
+
+    false
+  end
 
   @doc """
   The hosts of the client allow-list (`api_oauth_client_allow_hosts`), as the person wrote them,
