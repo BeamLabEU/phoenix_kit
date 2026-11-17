@@ -36,6 +36,10 @@ defmodule PhoenixKitWeb.Live.Components.ConnectedApps do
   opened, never a param of the confirming event. A person who lost the right in the meantime sees
   an error and an empty list (what a page opened now would show), and nothing is ended.
 
+  A connection that has not been approved yet (an application outside the list of trusted ones)
+  is listed as "Waiting for approval", with the hint that the owner of the system approves it;
+  "Disconnect" works on it like on any other.
+
   A grant is not removed when its owner loses the right: it is listed as "No permission" and does
   not work (every request reads the owner's rights again) until the right comes back.
   """
@@ -252,9 +256,11 @@ defmodule PhoenixKitWeb.Live.Components.ConnectedApps do
   defp date(datetime, user), do: UtilsDate.format_date_with_user_timezone(datetime, user)
 
   defp badge_name(:active), do: "active"
+  defp badge_name(:awaiting_approval), do: "pending_approval"
   defp badge_name(_status), do: "suspended"
 
   defp status_label(:active), do: gettext("Active")
+  defp status_label(:awaiting_approval), do: gettext("Waiting for approval")
   defp status_label(:no_permission), do: gettext("No permission")
   defp status_label(:owner_inactive), do: gettext("Account inactive")
   defp status_label(:wrong_resource), do: gettext("Site address changed")
@@ -368,6 +374,15 @@ defmodule PhoenixKitWeb.Live.Components.ConnectedApps do
                         label={status_label(row.status)}
                       />
                     </span>
+                    <div
+                      :if={row.status == :awaiting_approval}
+                      id={"#{@id}-awaiting-#{row.grant.uuid}"}
+                      class="text-xs text-base-content/60 mt-0.5 max-w-xs"
+                    >
+                      {gettext(
+                        "This connection does not work yet. The owner of the system approves it in Settings, API."
+                      )}
+                    </div>
                     <div
                       :if={row.status == :no_permission}
                       id={"#{@id}-no-permission-#{row.grant.uuid}"}

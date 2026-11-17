@@ -13,8 +13,11 @@ defmodule PhoenixKitWeb.OAuth.ApprovalFlowTest do
   import PhoenixKit.API.OAuthTestSupport, only: [client!: 0, enable_oauth!: 0, pkce: 0]
   import PhoenixKit.Test.ApiHarness, only: [put_setting: 2, setup_api: 0]
 
+  alias PhoenixKit.Activity
+  alias PhoenixKit.API.KeyTestSupport
   alias PhoenixKit.API.OAuth.Client
   alias PhoenixKit.API.OAuth.Grant
+  alias PhoenixKit.API.OAuth.Grants
   alias PhoenixKit.Test.Repo
 
   @read "testkit.items:read"
@@ -206,6 +209,112 @@ defmodule PhoenixKitWeb.OAuth.ApprovalFlowTest do
 
       assert answer.status == 400
       assert Repo.all(Grant) == []
+    end
+  end
+
+  describe "the screens" do
+    defp page(conn), do: conn.resp_body |> Floki.parse_document!()
+
+    test "the consent screen of a client outside the list warns that the owner must approve",
+         %{user: user, app: app} do
+      {_verifier, challenge} = pkce()
+      id = browser() |> authorize(authorize_params(app, challenge)) |> consent_id()
+
+      html = user |> browser() |> consent(id) |> page()
+
+      assert [warning] = Floki.find(html, "#consent-needs-approval")
+      assert Floki.text(warning) =~ "approves it"
+      assert [_form] = Floki.find(html, "#consent-form")
+    end
+
+    test "the consent screen of a client that works at once has no such paragraph", %{
+      user: user,
+      app: app
+    } do
+      put_setting("api_oauth_client_allow_hosts", "app.example")
+      {_verifier, challenge} = pkce()
+      id = browser() |> authorize(authorize_params(app, challenge)) |> consent_id()
+
+      assert user |> browser() |> consent(id) |> page() |> Floki.find("#consent-needs-approval") ==
+               []
+    end
+
+    test "the page of the ceiling marks the connection that waits, and not the approved one", %{
+      user: user,
+      app: app
+    } do
+      put_setting("api_oauth_grants_per_person", "2")
+      connect!(user, app)
+      connect!(user, client!())
+      assert Repo.aggregate(Grant, :count) == 2
+
+      {_verifier, challenge} = pkce()
+      id = browser() |> authorize(authorize_params(app, challenge)) |> consent_id()
+      html = user |> browser() |> consent(id) |> page()
+
+      assert [_table] = Floki.find(html, "#grants-table")
+      waiting = Repo.get_by!(Grant, client_uuid: app.uuid)
+      working = Repo.get_by!(Grant, client_uuid: Repo.get_by!(Client, kind: "preregistered").uuid)
+
+      assert [_mark] = Floki.find(html, "#grant-waiting-#{waiting.uuid}")
+      assert Floki.find(html, "#grant-waiting-#{working.uuid}") == []
+    end
+  end
+
+  describe "the whole way of an application outside the list" do
+    test "consent with the warning, tokens, a list of tools, a refused call, the approval, a read",
+         %{user: user, app: app} do
+      # The screen warns before the person decides.
+      {verifier, challenge} = pkce()
+      id = browser() |> authorize(authorize_params(app, challenge)) |> consent_id()
+
+      assert [_] =
+               user |> browser() |> consent(id) |> page() |> Floki.find("#consent-needs-approval")
+
+      # The person allows reading and writing; the code and the tokens are as for any client.
+      answer =
+        decide(browser(user), id, %{
+          "decision" => "allow",
+          "scopes" => [@read, @write],
+          "days" => "30"
+        })
+
+      assert answer.status == 302
+      %{"code" => code} = location_params(answer)
+
+      flow = %{code: code, verifier: verifier, client: app, redirect_uri: hd(app.redirect_uris)}
+      exchange = exchange_code(flow)
+      assert exchange.status == 200
+      %{"access_token" => access} = body(exchange)
+
+      waiting = grant!()
+      assert waiting.approved_at == nil
+      assert [pending] = Activity.list(action: "oauth.grant_pending").entries
+      assert pending.resource_uuid == waiting.uuid
+
+      # The application starts its session and sees the tools.
+      assert mcp_initialize(access).status == 200
+      listed = tools_list(access)
+      assert listed.status == 200
+      assert tool_names(listed) != []
+
+      # A call is refused, whatever it asks, and nothing ran.
+      write = tools_call(access, "testkit.write_item", %{"name" => "x"})
+      assert tool_error(write) =~ "[approval_pending]"
+      assert tool_error(tools_call(access, "testkit.read_items")) =~ "approval_pending"
+      refute_received {:write_item, _}
+      refute_received {:read_items, _, _}
+
+      # An Owner approves it, and the very same access token runs a read.
+      owner = KeyTestSupport.scope_of(KeyTestSupport.owner_user())
+      assert {:ok, %Grant{approved_at: %DateTime{}}} = Grants.approve(owner, waiting.uuid)
+      assert [approved] = Activity.list(action: "oauth.grant_approved").entries
+      assert approved.resource_uuid == waiting.uuid
+
+      read = tools_call(access, "testkit.read_items")
+      assert read.status == 200
+      refute body(read)["result"]["isError"]
+      assert_received {:read_items, _, _}
     end
   end
 end

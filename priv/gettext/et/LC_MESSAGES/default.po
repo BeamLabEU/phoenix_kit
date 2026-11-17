@@ -27921,8 +27921,8 @@ msgstr "Lubatud hostid (üks rea kohta)"
 
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:502
 #, elixir-autogen, elixir-format
-msgid "For example claude.ai. Judged on the host of the application's address and of each redirect address; an application added by hand below is always allowed. A host taken off the list stops new connections and refreshes at once, but an access token already issued works until it expires (the access token life above): to cut an application off now, remove it below."
-msgstr "Näiteks claude.ai. Hinnatakse rakenduse aadressi ja iga ümbersuunamisaadressi hosti järgi; allpool käsitsi lisatud rakendus on alati lubatud. Nimekirjast eemaldatud host ei saa kohe enam uusi ühendusi ega uuendusi teha, kuid juba välja antud juurdepääsutoken kehtib kuni aegumiseni (juurdepääsutokeni eluiga ülal): rakenduse kohe katkestamiseks eemalda see allpool."
+msgid "For example claude.ai. Judged on the host of the application's address and of each redirect address; an application added by hand below is always allowed. A listed application connects at once; any other one only after an Owner approves it (or not at all, under the list-only setting). A host taken off the list does not end the connections that already work: under the list-only setting they stop at the next refresh, and an access token already issued works until it expires (the access token life above). To cut an application off now, remove it below."
+msgstr "Näiteks claude.ai. Kontrollitakse rakenduse aadressi ja iga suunamisaadressi hosti; allpool käsitsi lisatud rakendus on alati lubatud. Nimekirjas olev rakendus ühendub kohe, mis tahes muu alles pärast Omaniku heakskiitu (või üldse mitte, kui valitud on ainult nimekirja seade). Nimekirjast eemaldatud host ei katkesta juba töötavaid ühendusi: ainult nimekirja seade korral lõpevad need järgmisel uuendamisel ja juba välja antud juurdepääsutõend kehtib kuni aegumiseni (juurdepääsutõendi eluiga ülal). Rakenduse kohe katkestamiseks eemalda see allpool."
 
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:512
 #, elixir-autogen, elixir-format
@@ -28178,3 +28178,104 @@ msgstr "Kuni tegutsete teises kontos, ei saa siin midagi muuta."
 #, elixir-autogen, elixir-format
 msgid "The client ID is the address of a metadata document. An application that names itself by a metadata document is known when it is used: do not add it by hand."
 msgstr "Kliendi ID on metaandmete dokumendi aadress. Rakendus, mis nimetab end metaandmete dokumendi kaudu, saab teatavaks esimesel kasutamisel: ära lisa seda käsitsi."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:3
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:316
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:40
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:263
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:17
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:398
+#: lib/phoenix_kit_web/oauth/pages.ex:282
+#, elixir-autogen, elixir-format
+msgid "Waiting for approval"
+msgstr "Heakskiidu ootel"
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:383
+#, elixir-autogen, elixir-format
+msgid "This connection does not work yet. The owner of the system approves it in Settings, API."
+msgstr "See ühendus ei tööta veel. Süsteemi omanik kiidab selle heaks jaotises Seaded, API."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:398
+#, elixir-autogen, elixir-format
+msgid "Some connections are waiting for an Owner's approval and run nothing until it is given: see Waiting for approval below."
+msgstr "Mõned ühendused ootavad Omaniku heakskiitu ega tee midagi enne, kui see on antud: vaata allpool jaotist Heakskiidu ootel."
+
+#: lib/phoenix_kit_web/oauth/pages.ex:168
+#, elixir-autogen, elixir-format
+msgid "This application is not on the list of trusted applications. After you allow access, the connection will not work until the owner of the system approves it (Settings, API)."
+msgstr "See rakendus ei ole usaldusväärsete rakenduste nimekirjas. Pärast juurdepääsu lubamist ei tööta ühendus enne, kui süsteemi omanik selle heaks kiidab (Seaded, API)."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:323
+#, elixir-autogen, elixir-format
+msgid "Applications that are not on the list of trusted ones. A person signed in and allowed them access, but nothing runs on the connection until an Owner approves it. A connection nobody decides on ends after %{days} days."
+msgstr "Rakendused, mis ei ole usaldusväärsete nimekirjas. Inimene logis sisse ja lubas neile juurdepääsu, kuid ühendus ei tee midagi enne, kui Omanik selle heaks kiidab. Ühendus, mille kohta keegi otsust ei tee, lõpeb %{days} päeva pärast."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:332
+#, elixir-autogen, elixir-format
+msgid "Connections waiting: %{count}"
+msgstr "Ootel ühendusi: %{count}"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:358
+#, elixir-autogen, elixir-format
+msgid "The name is the application's own and has not been checked."
+msgstr "Nime andis rakendus ise ja seda ei ole kontrollitud."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:417
+#, elixir-autogen, elixir-format
+msgid "Approve %{name}"
+msgstr "Kiida heaks %{name}"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:429
+#, elixir-autogen, elixir-format
+msgid "Reject %{name}"
+msgstr "Lükka tagasi %{name}"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:451
+#, elixir-autogen, elixir-format
+msgid "No connection is waiting for approval."
+msgstr "Heakskiitu ootavaid ühendusi ei ole."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:465
+#, elixir-autogen, elixir-format
+msgid "Reject this application?"
+msgstr "Lükka see rakendus tagasi?"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:469
+#, elixir-autogen, elixir-format
+msgid "Approve this application?"
+msgstr "Kiida see rakendus heaks?"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:484
+#, elixir-autogen, elixir-format
+msgid "The connection ends at once and the application has to ask for access again. This cannot be undone."
+msgstr "Ühendus lõpeb kohe ja rakendus peab uuesti juurdepääsu küsima. Seda ei saa tagasi võtta."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:493
+#, elixir-autogen, elixir-format
+msgid "From now on the application acts with the rights of this person, limited to the rights it was given. Approve it only if you know the application and trust the address its answers go to."
+msgstr "Edaspidi tegutseb rakendus selle inimese õigustega, piirdudes talle antud õigustega. Kiida see heaks ainult siis, kui tunned rakendust ja usaldad aadressi, kuhu selle vastused lähevad."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:183
+#, elixir-autogen, elixir-format
+msgid "The connection was approved. The application works now, with no need to connect again."
+msgstr "Ühendus kiideti heaks. Rakendus töötab nüüd, uuesti ühendamine pole vaja."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:202
+#, elixir-autogen, elixir-format
+msgid "The connection was rejected. The application stops at once."
+msgstr "Ühendus lükati tagasi. Rakendus peatub kohe."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:257
+#, elixir-autogen, elixir-format
+msgid "That connection is not waiting for approval any more."
+msgstr "See ühendus ei oota enam heakskiitu."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:194
+#, elixir-autogen, elixir-format
+msgid "The connection could not be approved."
+msgstr "Ühendust ei saanud heaks kiita."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:211
+#, elixir-autogen, elixir-format
+msgid "The connection could not be rejected."
+msgstr "Ühendust ei saanud tagasi lükata."

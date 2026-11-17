@@ -27987,8 +27987,8 @@ msgstr "Дозволені хости (по одному в рядку)"
 
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:502
 #, elixir-autogen, elixir-format
-msgid "For example claude.ai. Judged on the host of the application's address and of each redirect address; an application added by hand below is always allowed. A host taken off the list stops new connections and refreshes at once, but an access token already issued works until it expires (the access token life above): to cut an application off now, remove it below."
-msgstr "Наприклад, claude.ai. Перевіряється хост адреси застосунку та кожної адреси повернення; застосунок, доданий нижче вручну, дозволений завжди. Хост, прибраний зі списку, одразу перестає встановлювати нові підключення та оновлення, але вже виданий токен доступу працює до завершення строку дії (термін життя токена доступу вище): щоб негайно відключити застосунок, приберіть його нижче."
+msgid "For example claude.ai. Judged on the host of the application's address and of each redirect address; an application added by hand below is always allowed. A listed application connects at once; any other one only after an Owner approves it (or not at all, under the list-only setting). A host taken off the list does not end the connections that already work: under the list-only setting they stop at the next refresh, and an access token already issued works until it expires (the access token life above). To cut an application off now, remove it below."
+msgstr "Наприклад, claude.ai. Перевіряється хост адреси застосунку та кожної адреси повернення; застосунок, доданий нижче вручну, дозволено завжди. Застосунок зі списку підключається одразу, будь-який інший — лише після схвалення власником (або взагалі не підключається за налаштування «лише перелічені хости»). Хост, прибраний зі списку, не перериває підключення, що вже працюють: за налаштування «лише перелічені хости» вони зупиняться під час найближчого оновлення, а вже виданий токен доступу працює до завершення терміну (термін життя токена доступу вище). Щоб негайно відключити застосунок, видаліть його нижче."
 
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:512
 #, elixir-autogen, elixir-format
@@ -28244,3 +28244,104 @@ msgstr "Поки ви працюєте в іншому обліковому за
 #, elixir-autogen, elixir-format
 msgid "The client ID is the address of a metadata document. An application that names itself by a metadata document is known when it is used: do not add it by hand."
 msgstr "Ідентифікатор клієнта — це адреса документа метаданих. Застосунок, який представляється документом метаданих, стає відомим під час використання: не додавайте його вручну."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:3
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:316
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:40
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:263
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:17
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:398
+#: lib/phoenix_kit_web/oauth/pages.ex:282
+#, elixir-autogen, elixir-format
+msgid "Waiting for approval"
+msgstr "Очікування схвалення"
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:383
+#, elixir-autogen, elixir-format
+msgid "This connection does not work yet. The owner of the system approves it in Settings, API."
+msgstr "Це підключення поки не працює. Власник системи схвалює його в Налаштування, API."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:398
+#, elixir-autogen, elixir-format
+msgid "Some connections are waiting for an Owner's approval and run nothing until it is given: see Waiting for approval below."
+msgstr "Деякі підключення чекають на схвалення Власника й нічого не виконують, доки його не буде надано: див. нижче «Очікування схвалення»."
+
+#: lib/phoenix_kit_web/oauth/pages.ex:168
+#, elixir-autogen, elixir-format
+msgid "This application is not on the list of trusted applications. After you allow access, the connection will not work until the owner of the system approves it (Settings, API)."
+msgstr "Цей застосунок не входить до списку довірених. Після того як ви дозволите доступ, підключення не працюватиме, доки його не схвалить власник системи (Налаштування, API)."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:323
+#, elixir-autogen, elixir-format
+msgid "Applications that are not on the list of trusted ones. A person signed in and allowed them access, but nothing runs on the connection until an Owner approves it. A connection nobody decides on ends after %{days} days."
+msgstr "Застосунки, яких немає в списку довірених. Людина увійшла й дозволила їм доступ, але підключення нічого не виконує, доки його не схвалить Власник. Підключення, щодо якого ніхто не ухвалив рішення, завершується через %{days} дн."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:332
+#, elixir-autogen, elixir-format
+msgid "Connections waiting: %{count}"
+msgstr "Підключень в очікуванні: %{count}"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:358
+#, elixir-autogen, elixir-format
+msgid "The name is the application's own and has not been checked."
+msgstr "Назву повідомив сам застосунок, її не перевірено."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:417
+#, elixir-autogen, elixir-format
+msgid "Approve %{name}"
+msgstr "Схвалити %{name}"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:429
+#, elixir-autogen, elixir-format
+msgid "Reject %{name}"
+msgstr "Відхилити %{name}"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:451
+#, elixir-autogen, elixir-format
+msgid "No connection is waiting for approval."
+msgstr "Жодне підключення не очікує схвалення."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:465
+#, elixir-autogen, elixir-format
+msgid "Reject this application?"
+msgstr "Відхилити цей застосунок?"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:469
+#, elixir-autogen, elixir-format
+msgid "Approve this application?"
+msgstr "Схвалити цей застосунок?"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:484
+#, elixir-autogen, elixir-format
+msgid "The connection ends at once and the application has to ask for access again. This cannot be undone."
+msgstr "Підключення завершиться одразу, і застосунку доведеться знову запросити доступ. Цю дію не можна скасувати."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:493
+#, elixir-autogen, elixir-format
+msgid "From now on the application acts with the rights of this person, limited to the rights it was given. Approve it only if you know the application and trust the address its answers go to."
+msgstr "Відтепер застосунок діє з правами цієї людини в межах наданих йому прав. Схвалюйте його, лише якщо ви знаєте застосунок і довіряєте адресі, на яку йдуть його відповіді."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:183
+#, elixir-autogen, elixir-format
+msgid "The connection was approved. The application works now, with no need to connect again."
+msgstr "Підключення схвалено. Застосунок працює, підключатися знову не потрібно."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:202
+#, elixir-autogen, elixir-format
+msgid "The connection was rejected. The application stops at once."
+msgstr "Підключення відхилено. Застосунок одразу припиняє роботу."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:257
+#, elixir-autogen, elixir-format
+msgid "That connection is not waiting for approval any more."
+msgstr "Це підключення більше не очікує схвалення."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:194
+#, elixir-autogen, elixir-format
+msgid "The connection could not be approved."
+msgstr "Не вдалося схвалити підключення."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:211
+#, elixir-autogen, elixir-format
+msgid "The connection could not be rejected."
+msgstr "Не вдалося відхилити підключення."

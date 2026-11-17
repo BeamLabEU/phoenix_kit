@@ -129,6 +129,15 @@ defmodule PhoenixKit.API.OAuth.ApprovalTest do
     end
   end
 
+  describe "the ceiling of connections" do
+    test "counts a connection that waits for approval", ctx do
+      waiting!(ctx.scope)
+      seed_grant!(ctx.scope)
+
+      assert Grants.count_live(ctx.user.uuid) == 2
+    end
+  end
+
   describe "Connections.list_pending/1" do
     test "shows the waiting connections of everyone to an Owner, newest first", ctx do
       first = waiting!(ctx.scope)

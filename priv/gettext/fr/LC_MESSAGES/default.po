@@ -27911,8 +27911,8 @@ msgstr "Hôtes autorisés (un par ligne)"
 
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:502
 #, elixir-autogen, elixir-format
-msgid "For example claude.ai. Judged on the host of the application's address and of each redirect address; an application added by hand below is always allowed. A host taken off the list stops new connections and refreshes at once, but an access token already issued works until it expires (the access token life above): to cut an application off now, remove it below."
-msgstr "Par exemple claude.ai. Jugé sur l'hôte de l'adresse de l'application et de chaque adresse de redirection ; une application ajoutée à la main ci-dessous est toujours autorisée. Un hôte retiré de la liste ne peut plus établir de nouvelles connexions ni de renouvellements dès cet instant, mais un jeton d'accès déjà émis fonctionne jusqu'à son expiration (la durée de vie du jeton d'accès, ci-dessus) : pour couper une application tout de suite, supprimez-la ci-dessous."
+msgid "For example claude.ai. Judged on the host of the application's address and of each redirect address; an application added by hand below is always allowed. A listed application connects at once; any other one only after an Owner approves it (or not at all, under the list-only setting). A host taken off the list does not end the connections that already work: under the list-only setting they stop at the next refresh, and an access token already issued works until it expires (the access token life above). To cut an application off now, remove it below."
+msgstr "Par exemple claude.ai. L'hôte de l'adresse de l'application et de chaque adresse de redirection est évalué ; une application ajoutée à la main plus bas est toujours autorisée. Une application de la liste se connecte aussitôt ; toute autre seulement après l'approbation d'un Owner (ou pas du tout, avec le réglage liste seule). Un hôte retiré de la liste ne met pas fin aux connexions qui fonctionnent déjà : avec le réglage liste seule, elles s'arrêtent au prochain renouvellement, et un jeton d'accès déjà émis fonctionne jusqu'à son expiration (durée de vie du jeton d'accès ci-dessus). Pour couper une application tout de suite, supprimez-la plus bas."
 
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:512
 #, elixir-autogen, elixir-format
@@ -28168,3 +28168,104 @@ msgstr "Tant que vous agissez dans un autre compte, rien ne peut être modifié 
 #, elixir-autogen, elixir-format
 msgid "The client ID is the address of a metadata document. An application that names itself by a metadata document is known when it is used: do not add it by hand."
 msgstr "L'ID client est l'adresse d'un document de métadonnées. Une application qui se désigne par un document de métadonnées est connue lorsqu'elle est utilisée : ne l'ajoutez pas à la main."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:3
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:316
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:40
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:263
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:17
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:398
+#: lib/phoenix_kit_web/oauth/pages.ex:282
+#, elixir-autogen, elixir-format
+msgid "Waiting for approval"
+msgstr "En attente d'approbation"
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:383
+#, elixir-autogen, elixir-format
+msgid "This connection does not work yet. The owner of the system approves it in Settings, API."
+msgstr "Cette connexion ne fonctionne pas encore. Le propriétaire du système l'approuve dans Paramètres, API."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:398
+#, elixir-autogen, elixir-format
+msgid "Some connections are waiting for an Owner's approval and run nothing until it is given: see Waiting for approval below."
+msgstr "Certaines connexions attendent l'approbation d'un Owner et n'exécutent rien tant qu'elle n'est pas donnée : voir En attente d'approbation ci-dessous."
+
+#: lib/phoenix_kit_web/oauth/pages.ex:168
+#, elixir-autogen, elixir-format
+msgid "This application is not on the list of trusted applications. After you allow access, the connection will not work until the owner of the system approves it (Settings, API)."
+msgstr "Cette application ne figure pas dans la liste des applications de confiance. Après avoir autorisé l'accès, la connexion ne fonctionnera pas tant que le propriétaire du système ne l'aura pas approuvée (Paramètres, API)."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:323
+#, elixir-autogen, elixir-format
+msgid "Applications that are not on the list of trusted ones. A person signed in and allowed them access, but nothing runs on the connection until an Owner approves it. A connection nobody decides on ends after %{days} days."
+msgstr "Applications qui ne figurent pas dans la liste de confiance. Une personne s'est connectée et leur a autorisé l'accès, mais la connexion n'exécute rien tant qu'un Owner ne l'approuve pas. Une connexion sur laquelle personne ne décide prend fin après %{days} jours."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:332
+#, elixir-autogen, elixir-format
+msgid "Connections waiting: %{count}"
+msgstr "Connexions en attente : %{count}"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:358
+#, elixir-autogen, elixir-format
+msgid "The name is the application's own and has not been checked."
+msgstr "Le nom est celui de l'application elle-même et n'a pas été vérifié."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:417
+#, elixir-autogen, elixir-format
+msgid "Approve %{name}"
+msgstr "Approuver %{name}"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:429
+#, elixir-autogen, elixir-format
+msgid "Reject %{name}"
+msgstr "Rejeter %{name}"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:451
+#, elixir-autogen, elixir-format
+msgid "No connection is waiting for approval."
+msgstr "Aucune connexion n'attend d'approbation."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:465
+#, elixir-autogen, elixir-format
+msgid "Reject this application?"
+msgstr "Rejeter cette application ?"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:469
+#, elixir-autogen, elixir-format
+msgid "Approve this application?"
+msgstr "Approuver cette application ?"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:484
+#, elixir-autogen, elixir-format
+msgid "The connection ends at once and the application has to ask for access again. This cannot be undone."
+msgstr "La connexion prend fin aussitôt et l'application doit redemander l'accès. Cette action est irréversible."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:493
+#, elixir-autogen, elixir-format
+msgid "From now on the application acts with the rights of this person, limited to the rights it was given. Approve it only if you know the application and trust the address its answers go to."
+msgstr "Désormais, l'application agit avec les droits de cette personne, limités aux droits qui lui ont été donnés. Ne l'approuvez que si vous connaissez l'application et faites confiance à l'adresse où vont ses réponses."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:183
+#, elixir-autogen, elixir-format
+msgid "The connection was approved. The application works now, with no need to connect again."
+msgstr "La connexion a été approuvée. L'application fonctionne maintenant, sans avoir à se reconnecter."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:202
+#, elixir-autogen, elixir-format
+msgid "The connection was rejected. The application stops at once."
+msgstr "La connexion a été rejetée. L'application s'arrête aussitôt."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:257
+#, elixir-autogen, elixir-format
+msgid "That connection is not waiting for approval any more."
+msgstr "Cette connexion n'attend plus d'approbation."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:194
+#, elixir-autogen, elixir-format
+msgid "The connection could not be approved."
+msgstr "La connexion n'a pas pu être approuvée."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:211
+#, elixir-autogen, elixir-format
+msgid "The connection could not be rejected."
+msgstr "La connexion n'a pas pu être rejetée."

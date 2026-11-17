@@ -89,6 +89,44 @@ defmodule PhoenixKitWeb.Live.Users.ConnectedAppsTest do
       refute html =~ "Somebody else"
     end
 
+    test "a connection that waits for approval says so, with the hint, and can be disconnected",
+         %{conn: conn, scope: scope} do
+      waiting = seed_grant!(scope, client: client!(%{client_name: "Agent"}), approved?: false)
+      working = seed_grant!(scope, client: client!(%{client_name: "Claude"}))
+
+      {:ok, view, _html} = live(conn, @path)
+
+      assert has_element?(
+               view,
+               "#personal-api-keys-connected-apps-status-#{waiting.grant.uuid}[data-status=awaiting_approval]",
+               "Waiting for approval"
+             )
+
+      assert has_element?(
+               view,
+               "#personal-api-keys-connected-apps-awaiting-#{waiting.grant.uuid}",
+               "owner of the system approves it"
+             )
+
+      assert has_element?(
+               view,
+               "#personal-api-keys-connected-apps-status-#{working.grant.uuid}[data-status=active]"
+             )
+
+      refute has_element?(
+               view,
+               "#personal-api-keys-connected-apps-awaiting-#{working.grant.uuid}"
+             )
+
+      view
+      |> element("#personal-api-keys-connected-apps-revoke-#{waiting.grant.uuid}")
+      |> render_click()
+
+      view |> element("#personal-api-keys-connected-apps-revoke-confirm") |> render_click()
+
+      assert %DateTime{} = Repo.get!(Grant, waiting.grant.uuid).revoked_at
+    end
+
     test "the Disconnect button names its application for a screen reader", %{
       conn: conn,
       scope: scope

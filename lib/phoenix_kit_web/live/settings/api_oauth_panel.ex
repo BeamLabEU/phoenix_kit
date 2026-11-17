@@ -14,10 +14,11 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
   borrowed session would otherwise switch OAuth or end people's connections as the account it
   borrowed).
 
-  The list of every connection below the clients and the clients' own count of connections show
-  the same grants: removing a client refreshes the list (a `refresh` assign that changes), and
-  ending a connection in the list refreshes this panel (`notify`, see
-  `PhoenixKitWeb.Live.Components.ConnectedApps`).
+  The list of every connection below the clients, the block "Waiting for approval" above them
+  (`PhoenixKitWeb.Live.Components.PendingApprovals`) and the clients' own count of connections
+  show the same grants: removing a client refreshes the lists (a `refresh` assign that changes),
+  and ending a connection in the list or deciding on a waiting one refreshes this panel and the
+  other list (`notify`, see `PhoenixKitWeb.Live.Components.ConnectedApps`).
 
   ## Rights are checked on the server
 
@@ -50,6 +51,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKitWeb.Live.Components.ConnectedApps
+  alias PhoenixKitWeb.Live.Components.PendingApprovals
 
   @max_redirects 10
 
@@ -63,6 +65,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
       |> assign_new(:message, fn -> nil end)
       |> assign_new(:switch_nonce, fn -> 0 end)
       |> assign_new(:connections_nonce, fn -> 0 end)
+      |> refresh_lists(assigns)
       |> assign_new(:settings_params, fn -> OAuthConfig.current() end)
       |> assign_new(:settings_errors, fn -> [] end)
       |> assign_new(:client_params, fn -> blank_client() end)
@@ -71,6 +74,13 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
 
     {:ok, load(socket, Access.fresh_scope(socket.assigns.scope))}
   end
+
+  # A component that showed the same grants asked for a new read (`notify`): the lists below read
+  # again too.
+  defp refresh_lists(socket, %{refresh: _any}),
+    do: update(socket, :connections_nonce, &(&1 + 1))
+
+  defp refresh_lists(socket, _assigns), do: socket
 
   # `fresh` is the result of `Access.fresh_scope/1`, read for this render: whether the person is an
   # Owner (the list of every connection, the Remove button of a client with connections) is never
@@ -382,6 +392,12 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
         "The site address is not https. Web assistants refuse to connect to it: set the site address in the general settings."
       )
 
+  defp warning_text(:approvals_waiting),
+    do:
+      gettext(
+        "Some connections are waiting for an Owner's approval and run nothing until it is given: see Waiting for approval below."
+      )
+
   defp warning_text(:allow_list_empty),
     do:
       gettext(
@@ -608,7 +624,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
               label={gettext("Allowed hosts (one per line)")}
               hint={
                 gettext(
-                  "For example claude.ai. Judged on the host of the application's address and of each redirect address; an application added by hand below is always allowed. A host taken off the list stops new connections and refreshes at once, but an access token already issued works until it expires (the access token life above): to cut an application off now, remove it below."
+                  "For example claude.ai. Judged on the host of the application's address and of each redirect address; an application added by hand below is always allowed. A listed application connects at once; any other one only after an Owner approves it (or not at all, under the list-only setting). A host taken off the list does not end the connections that already work: under the list-only setting they stop at the next refresh, and an access token already issued works until it expires (the access token life above). To cut an application off now, remove it below."
                 )
               }
               value={@settings_params["allow_hosts"]}
@@ -702,6 +718,17 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
           </div>
         </form>
       </.form_section>
+
+      <%!-- Connections that wait for an Owner's decision --%>
+      <.live_component
+        :if={@owner?}
+        module={PendingApprovals}
+        id="api-oauth-pending-approvals"
+        scope={@scope}
+        impersonated={@impersonated}
+        refresh={@connections_nonce}
+        notify={{__MODULE__, @id}}
+      />
 
       <%!-- Clients --%>
       <.form_section

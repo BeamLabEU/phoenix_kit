@@ -27920,8 +27920,8 @@ msgstr "Hosts permitidos (uno por línea)"
 
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:502
 #, elixir-autogen, elixir-format
-msgid "For example claude.ai. Judged on the host of the application's address and of each redirect address; an application added by hand below is always allowed. A host taken off the list stops new connections and refreshes at once, but an access token already issued works until it expires (the access token life above): to cut an application off now, remove it below."
-msgstr "Por ejemplo claude.ai. Se juzga por el host de la dirección de la aplicación y de cada dirección de redirección; una aplicación añadida a mano abajo siempre está permitida. Un host quitado de la lista deja de poder hacer conexiones nuevas y renovaciones de inmediato, pero un token de acceso ya emitido sigue funcionando hasta que caduca (la vida del token de acceso, arriba): para cortar una aplicación ya, quítela más abajo."
+msgid "For example claude.ai. Judged on the host of the application's address and of each redirect address; an application added by hand below is always allowed. A listed application connects at once; any other one only after an Owner approves it (or not at all, under the list-only setting). A host taken off the list does not end the connections that already work: under the list-only setting they stop at the next refresh, and an access token already issued works until it expires (the access token life above). To cut an application off now, remove it below."
+msgstr "Por ejemplo, claude.ai. Se juzga el host de la dirección de la aplicación y de cada dirección de redirección; una aplicación añadida a mano más abajo siempre está permitida. Una aplicación de la lista se conecta de inmediato; cualquier otra solo después de que un Owner la apruebe (o no se conecta, con el ajuste solo de la lista). Un host quitado de la lista no termina las conexiones que ya funcionan: con el ajuste solo de la lista se detienen en la siguiente renovación, y un token de acceso ya emitido funciona hasta que caduca (la vida del token de acceso, arriba). Para cortar una aplicación ahora, elimínela más abajo."
 
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:512
 #, elixir-autogen, elixir-format
@@ -28177,3 +28177,104 @@ msgstr "Mientras actúa en otra cuenta, aquí no se puede cambiar nada."
 #, elixir-autogen, elixir-format
 msgid "The client ID is the address of a metadata document. An application that names itself by a metadata document is known when it is used: do not add it by hand."
 msgstr "El ID de cliente es la dirección de un documento de metadatos. Una aplicación que se identifica mediante un documento de metadatos se conoce cuando se usa: no la añada a mano."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:3
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:316
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:40
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:263
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:17
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:398
+#: lib/phoenix_kit_web/oauth/pages.ex:282
+#, elixir-autogen, elixir-format
+msgid "Waiting for approval"
+msgstr "Pendiente de aprobación"
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:383
+#, elixir-autogen, elixir-format
+msgid "This connection does not work yet. The owner of the system approves it in Settings, API."
+msgstr "Esta conexión aún no funciona. El propietario del sistema la aprueba en Ajustes, API."
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:398
+#, elixir-autogen, elixir-format
+msgid "Some connections are waiting for an Owner's approval and run nothing until it is given: see Waiting for approval below."
+msgstr "Algunas conexiones esperan la aprobación de un Owner y no ejecutan nada hasta que se conceda: véase Pendiente de aprobación más abajo."
+
+#: lib/phoenix_kit_web/oauth/pages.ex:168
+#, elixir-autogen, elixir-format
+msgid "This application is not on the list of trusted applications. After you allow access, the connection will not work until the owner of the system approves it (Settings, API)."
+msgstr "Esta aplicación no figura en la lista de aplicaciones de confianza. Tras permitir el acceso, la conexión no funcionará hasta que el propietario del sistema la apruebe (Ajustes, API)."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:323
+#, elixir-autogen, elixir-format
+msgid "Applications that are not on the list of trusted ones. A person signed in and allowed them access, but nothing runs on the connection until an Owner approves it. A connection nobody decides on ends after %{days} days."
+msgstr "Aplicaciones que no figuran en la lista de confianza. Una persona inició sesión y les permitió el acceso, pero la conexión no ejecuta nada hasta que un Owner la apruebe. Una conexión sobre la que nadie decide termina a los %{days} días."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:332
+#, elixir-autogen, elixir-format
+msgid "Connections waiting: %{count}"
+msgstr "Conexiones en espera: %{count}"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:358
+#, elixir-autogen, elixir-format
+msgid "The name is the application's own and has not been checked."
+msgstr "El nombre lo da la propia aplicación y no se ha comprobado."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:417
+#, elixir-autogen, elixir-format
+msgid "Approve %{name}"
+msgstr "Aprobar %{name}"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:429
+#, elixir-autogen, elixir-format
+msgid "Reject %{name}"
+msgstr "Rechazar %{name}"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:451
+#, elixir-autogen, elixir-format
+msgid "No connection is waiting for approval."
+msgstr "Ninguna conexión espera aprobación."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:465
+#, elixir-autogen, elixir-format
+msgid "Reject this application?"
+msgstr "¿Rechazar esta aplicación?"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:469
+#, elixir-autogen, elixir-format
+msgid "Approve this application?"
+msgstr "¿Aprobar esta aplicación?"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:484
+#, elixir-autogen, elixir-format
+msgid "The connection ends at once and the application has to ask for access again. This cannot be undone."
+msgstr "La conexión termina de inmediato y la aplicación tendrá que pedir acceso de nuevo. Esta acción no se puede deshacer."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:493
+#, elixir-autogen, elixir-format
+msgid "From now on the application acts with the rights of this person, limited to the rights it was given. Approve it only if you know the application and trust the address its answers go to."
+msgstr "A partir de ahora la aplicación actúa con los derechos de esta persona, limitada a los derechos que se le dieron. Apruébela solo si conoce la aplicación y confía en la dirección a la que van sus respuestas."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:183
+#, elixir-autogen, elixir-format
+msgid "The connection was approved. The application works now, with no need to connect again."
+msgstr "La conexión fue aprobada. La aplicación funciona ahora, sin necesidad de volver a conectarse."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:202
+#, elixir-autogen, elixir-format
+msgid "The connection was rejected. The application stops at once."
+msgstr "La conexión fue rechazada. La aplicación se detiene de inmediato."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:257
+#, elixir-autogen, elixir-format
+msgid "That connection is not waiting for approval any more."
+msgstr "Esta conexión ya no espera aprobación."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:194
+#, elixir-autogen, elixir-format
+msgid "The connection could not be approved."
+msgstr "No se pudo aprobar la conexión."
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:211
+#, elixir-autogen, elixir-format
+msgid "The connection could not be rejected."
+msgstr "No se pudo rechazar la conexión."
