@@ -14,6 +14,10 @@ defmodule PhoenixKitWeb.OAuth.Pages do
     * `limit/1` - the person already holds as many connections as the ceiling allows, with the
       list to revoke from.
 
+  Every page takes the optional assigns `lang` (the `lang` attribute of the document) and `languages`
+  (the entries of the language switcher, shown when there are two or more), both from
+  `PhoenixKitWeb.OAuth.Language.assigns/3`.
+
   Every value shown is escaped by HEEx. The client's name is the client's own text: it is cut to
   80 characters and stripped of control and format characters, and the host the browser will be
   sent to is shown next to it, large.
@@ -51,6 +55,9 @@ defmodule PhoenixKitWeb.OAuth.Pages do
   button.deny,button.secondary,a.button{background:#e5e5e5;color:#222}
   a.button{font:inherit;padding:.6rem 1rem;border-radius:.4rem;text-decoration:none}
   .error{color:#a33}
+  .languages{display:flex;flex-wrap:wrap;gap:.25rem 1rem;margin-top:1.5rem;font-size:.9rem}
+  .languages a{color:inherit}
+  .languages a[aria-current]{font-weight:700;text-decoration:none}
   table{border-collapse:collapse;width:100%}
   td,th{border-bottom:1px solid #eee;padding:.4rem;text-align:left;vertical-align:middle}
   @media (prefers-color-scheme:dark){body{background:#111;color:#eee}main{background:#1a1a1a;border-color:#333}.warn{background:#332a10}.muted,.scopes small,.module h4{color:#aaa}select{background:#1c1c1c;color:inherit;border-color:#444}button{background:#eee;color:#111}button.deny,button.secondary,a.button{background:#333;color:#eee}td,th{border-color:#333}.write{color:#e96}}
@@ -82,7 +89,7 @@ defmodule PhoenixKitWeb.OAuth.Pages do
     assigns = assign_defaults(assigns)
 
     render(~H"""
-    <.shell title={gettext("This connection cannot be started")}>
+    <.shell title={gettext("This connection cannot be started")} lang={@lang} languages={@languages}>
       <h1>{gettext("This connection cannot be started")}</h1>
       <p>
         {gettext(
@@ -99,7 +106,7 @@ defmodule PhoenixKitWeb.OAuth.Pages do
     assigns = assign_defaults(assigns)
 
     render(~H"""
-    <.shell title={gettext("Start the connection again")}>
+    <.shell title={gettext("Start the connection again")} lang={@lang} languages={@languages}>
       <h1>{gettext("Start the connection again")}</h1>
       <p>
         {gettext(
@@ -116,7 +123,7 @@ defmodule PhoenixKitWeb.OAuth.Pages do
     assigns = assign_defaults(assigns)
 
     render(~H"""
-    <.shell title={gettext("You cannot connect applications")}>
+    <.shell title={gettext("You cannot connect applications")} lang={@lang} languages={@languages}>
       <h1>{gettext("You cannot connect applications")}</h1>
       <p :if={@reason == :impersonated}>
         {gettext("Applications cannot be connected while you are acting as another person.")}
@@ -143,7 +150,7 @@ defmodule PhoenixKitWeb.OAuth.Pages do
     assigns = assign(assigns, default_days: default_days, day_choices: day_choices)
 
     render(~H"""
-    <.shell title={gettext("Allow access")}>
+    <.shell title={gettext("Allow access")} lang={@lang} languages={@languages}>
       <h1 id="consent-title">{gettext("%{client} asks for access", client: @client_name)}</h1>
       <p>{gettext("on behalf of %{email}", email: @email)}</p>
       <h2>{gettext("After you decide, your browser is sent to")}</h2>
@@ -230,7 +237,7 @@ defmodule PhoenixKitWeb.OAuth.Pages do
     assigns = assign_defaults(assigns)
 
     render(~H"""
-    <.shell title={gettext("Too many connections")}>
+    <.shell title={gettext("Too many connections")} lang={@lang} languages={@languages}>
       <h1>{gettext("Too many connections")}</h1>
       <p>
         {gettext(
@@ -284,7 +291,7 @@ defmodule PhoenixKitWeb.OAuth.Pages do
     assigns = assign_defaults(assigns)
 
     render(~H"""
-    <.shell title={gettext("Disconnect this application?")}>
+    <.shell title={gettext("Disconnect this application?")} lang={@lang} languages={@languages}>
       <h1>{gettext("Disconnect this application?")}</h1>
       <p class="host" id="disconnect-confirm-application">
         {client_label(
@@ -350,6 +357,8 @@ defmodule PhoenixKitWeb.OAuth.Pages do
     do: gettext("Change: %{resource} (%{action})", resource: resource, action: action)
 
   attr :title, :string, required: true
+  attr :lang, :string, default: nil
+  attr :languages, :list, default: []
   slot :inner_block, required: true
 
   defp shell(assigns) do
@@ -357,7 +366,7 @@ defmodule PhoenixKitWeb.OAuth.Pages do
 
     ~H"""
     <!DOCTYPE html>
-    <html lang={Gettext.get_locale(PhoenixKitWeb.Gettext)}>
+    <html lang={@lang || Gettext.get_locale(PhoenixKitWeb.Gettext)}>
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -369,7 +378,26 @@ defmodule PhoenixKitWeb.OAuth.Pages do
         </style>
       </head>
       <body>
-        <main>{render_slot(@inner_block)}</main>
+        <main>
+          {render_slot(@inner_block)}
+          <nav
+            :if={length(@languages) > 1}
+            id="language-switcher"
+            class="languages"
+            aria-label={gettext("Language")}
+          >
+            <a
+              :for={language <- @languages}
+              id={"language-#{language.code}"}
+              href={language.href}
+              lang={language.code}
+              hreflang={language.code}
+              aria-current={if(language.current?, do: "true")}
+            >
+              {language.name}
+            </a>
+          </nav>
+        </main>
       </body>
     </html>
     """
@@ -381,6 +409,8 @@ defmodule PhoenixKitWeb.OAuth.Pages do
     |> Map.put_new(:reason, nil)
     |> Map.put_new(:error, nil)
     |> Map.put_new(:redirect_path, "")
+    |> Map.put_new(:lang, nil)
+    |> Map.put_new(:languages, [])
     |> Map.put_new(:__changed__, nil)
   end
 

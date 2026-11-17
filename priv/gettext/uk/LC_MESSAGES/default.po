@@ -8911,6 +8911,7 @@ msgstr "Якщо ваш обліковий запис належить до кі
 #: lib/phoenix_kit_web/components/account_menu.ex:114
 #: lib/phoenix_kit_web/components/core/file_details_fields.ex:61
 #: lib/phoenix_kit_web/live/settings/email_preview.html.heex:48
+#: lib/phoenix_kit_web/oauth/pages.ex:387
 #, elixir-autogen, elixir-format
 msgid "Language"
 msgstr "Мова"

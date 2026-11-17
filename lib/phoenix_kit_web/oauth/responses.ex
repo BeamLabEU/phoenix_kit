@@ -6,8 +6,9 @@ defmodule PhoenixKitWeb.OAuth.Responses do
   ## Headers of a decision page
 
   `secure/1` puts `Cache-Control: no-store`, `Referrer-Policy: no-referrer` (the URL of a
-  consent page is a capability), `X-Frame-Options: DENY` and a `frame-ancestors 'none'` directive
-  in the `Content-Security-Policy`. The host's policy is **kept**: only its own `frame-ancestors`
+  consent page is a capability), `X-Frame-Options: DENY`, `Vary: Accept-Language` (the language of
+  the page follows that header, `PhoenixKitWeb.OAuth.Language`) and a `frame-ancestors 'none'`
+  directive in the `Content-Security-Policy`. The host's policy is **kept**: only its own `frame-ancestors`
   directive is replaced (every `Content-Security-Policy` header the response already has is
   rewritten that way), and a response with no policy gets one that carries just that directive.
   Overwriting the header would take `default-src` and `script-src` away from the page.
@@ -95,7 +96,22 @@ defmodule PhoenixKitWeb.OAuth.Responses do
     |> put_resp_header("referrer-policy", "no-referrer")
     |> put_resp_header("x-frame-options", "DENY")
     |> put_resp_header("x-robots-tag", "noindex, nofollow")
+    |> vary_accept_language()
     |> frame_ancestors_none()
+  end
+
+  # The language of the page depends on the header (`PhoenixKitWeb.OAuth.Language`); a `Vary` the
+  # host has already set is kept.
+  defp vary_accept_language(conn) do
+    varies =
+      conn
+      |> get_resp_header("vary")
+      |> Enum.flat_map(&String.split(&1, ",", trim: true))
+      |> Enum.map(&String.trim/1)
+
+    if Enum.any?(varies, &(&1 == "*" or String.downcase(&1) == "accept-language")),
+      do: conn,
+      else: put_resp_header(conn, "vary", Enum.join(varies ++ ["Accept-Language"], ", "))
   end
 
   # Replaces the `frame-ancestors` directive of each policy the host has already set, or adds a

@@ -22,6 +22,16 @@ defmodule PhoenixKit.API.OAuth.RequestLogTest do
       end
     end
 
+    test "hides the token of a consent path that carries a language, and drops the query" do
+      assert RequestLog.redact("/oauth/consent/" <> @token <> "?lang=ru") ==
+               "/oauth/consent/[FILTERED]?[FILTERED]"
+
+      line = ["GET", ?\s, "/oauth/consent/" <> @token <> "?lang=ru"]
+
+      assert %{msg: {:string, ["GET", ?\s, redacted]}} = RequestLog.filter(event(line), [])
+      refute redacted =~ @token
+    end
+
     test "hides it in the disconnect form's path and keeps the rest of the path" do
       line = ["POST", ?\s, "/oauth/consent/" <> @token <> "/revoke"]
 

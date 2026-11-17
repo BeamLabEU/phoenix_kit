@@ -21,7 +21,8 @@ defmodule PhoenixKitWeb.OAuth.PagesTranslationsTest do
     "What this includes",
     "Yes, disconnect",
     "The application gets only what you tick here. If it needs other rights later, disconnect it and connect it again.",
-    "You hold none of the rights that can be given to this application."
+    "You hold none of the rights that can be given to this application.",
+    "Language"
   ]
 
   defp translate(locale, msgid),

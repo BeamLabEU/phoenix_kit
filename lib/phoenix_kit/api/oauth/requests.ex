@@ -141,6 +141,10 @@ defmodule PhoenixKit.API.OAuth.Requests do
   @spec browser?(term()) :: boolean()
   def browser?(value), do: is_binary(value) and Regex.match?(@token_pattern, value)
 
+  @doc "Whether `value` has the form of a consent token (not whether such a request exists)."
+  @spec token?(term()) :: boolean()
+  def token?(value), do: is_binary(value) and Regex.match?(@token_pattern, value)
+
   @doc "How many requests wait for a consent now (not used, not expired)."
   @spec live_count() :: non_neg_integer()
   def live_count do

@@ -39,7 +39,8 @@ defmodule PhoenixKitWeb.OAuth.BrowserBindingTest do
 
   defp allow_form, do: %{"decision" => "allow", "scopes" => [@read], "days" => "30"}
 
-  defp start_again_page, do: IO.iodata_to_binary(Pages.start_again(%{}))
+  # The page in the site's default language (en-US in the test install), as the controller shows it.
+  defp start_again_page, do: IO.iodata_to_binary(Pages.start_again(%{lang: "en-US"}))
 
   describe "the cookie" do
     test "is a random nonce, HttpOnly, Lax, limited to the flow's path, valid for an hour", %{

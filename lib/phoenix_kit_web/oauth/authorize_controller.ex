@@ -18,6 +18,9 @@ defmodule PhoenixKitWeb.OAuth.AuthorizeController do
   `api_oauth_authorize_per_min` (`429` and a page); a full table of waiting requests answers
   `503` and a page. Switched off (`api_oauth_enabled`) the endpoint does not exist (`404`).
   The route is declared with `log: false`: the query holds `state` and the PKCE challenge.
+
+  The error pages are in the language `PhoenixKitWeb.OAuth.Language` picks (the `lang` parameter,
+  then the `Accept-Language` header, then the site's default), with a switcher.
   """
   use PhoenixKitWeb, :controller
 
@@ -28,12 +31,14 @@ defmodule PhoenixKitWeb.OAuth.AuthorizeController do
   alias PhoenixKit.RepoHelper
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.OAuth.Language
   alias PhoenixKitWeb.OAuth.Pages
   alias PhoenixKitWeb.OAuth.Responses
 
   @seen_every_seconds 3600
 
   plug :secure_headers
+  plug Language
 
   defp secure_headers(conn, _opts), do: Responses.secure(conn)
 
@@ -97,7 +102,13 @@ defmodule PhoenixKitWeb.OAuth.AuthorizeController do
     end
   end
 
-  defp error_page(conn, status), do: Responses.page(conn, status, Pages.error(%{}))
+  # The switcher of an error page links to the same request in another language (its own query,
+  # with any `lang` replaced), so that a request refused for its rate or a busy table can be
+  # tried again in the language the person chose.
+  defp error_page(conn, status) do
+    assigns = Language.assigns(conn, Routes.path("/oauth/authorize"), conn.query_string)
+    Responses.page(conn, status, Pages.error(assigns))
+  end
 
   # The client was seen now (a registered client nobody uses can be removed by its age, so an
   # hour's precision is plenty and a busy client does not cost a write per request). A failed

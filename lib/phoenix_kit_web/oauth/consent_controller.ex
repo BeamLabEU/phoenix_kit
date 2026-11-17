@@ -35,6 +35,11 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
   host's `:browser` pipeline (`protect_from_forgery`), which these routes sit in, is the second
   layer, and a host whose pipeline lacks it relies on the binding alone.
 
+  The pages are in the language `PhoenixKitWeb.OAuth.Language` chooses: the `lang` query parameter,
+  the person's `preferred_locale`, the `Accept-Language` header, the site's default, each only when
+  the install has that language enabled. A `lang` the person chose on the switcher rides the form
+  actions and links of the page, so the language survives the answer.
+
   A person at the ceiling of connections is not served: the page lists their grants and the
   request stays unused while they disconnect one.
   """
@@ -52,12 +57,14 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Live.Settings.Api
+  alias PhoenixKitWeb.OAuth.Language
   alias PhoenixKitWeb.OAuth.Pages
   alias PhoenixKitWeb.OAuth.Responses
   alias PhoenixKitWeb.Users.MultiSession
   alias Plug.CSRFProtection
 
   plug :secure_headers
+  plug Language, person: true
 
   defp secure_headers(conn, _opts), do: Responses.secure(conn)
 
@@ -116,23 +123,26 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
       Grants.revoke(grant, actor_uuid: user.uuid)
     end
 
-    redirect(conn, to: Routes.path("/oauth/consent/" <> id))
+    redirect(conn, to: consent_url(conn, id))
   end
 
   # Only a live connection of the person is asked about; any other value goes back to the request.
   defp ask_disconnect(conn, id, user, grant_uuid) do
     case Enum.find(Grants.list_live(user.uuid), &(&1.uuid == grant_uuid)) do
       nil ->
-        redirect(conn, to: Routes.path("/oauth/consent/" <> id))
+        redirect(conn, to: consent_url(conn, id))
 
       grant ->
+        # No switcher: this page answers a POST, and a language link is a GET.
         html =
-          Pages.confirm_disconnect(%{
-            csrf_token: CSRFProtection.get_csrf_token(),
-            action: Routes.path("/oauth/consent/" <> id <> "/revoke"),
-            back: Routes.path("/oauth/consent/" <> id),
-            grant: grant
-          })
+          Pages.confirm_disconnect(
+            Map.merge(Language.assigns(conn, nil), %{
+              csrf_token: CSRFProtection.get_csrf_token(),
+              action: revoke_url(conn, id),
+              back: consent_url(conn, id),
+              grant: grant
+            })
+          )
 
         Responses.page(conn, 200, html)
     end
@@ -141,7 +151,7 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
   # --- steps ---------------------------------------------------------------------------
 
   defp enabled(conn) do
-    if Config.oauth_enabled?(), do: :ok, else: Responses.page(conn, 404, Pages.error(%{}))
+    if Config.oauth_enabled?(), do: :ok, else: page(conn, 404, &Pages.error/1)
   end
 
   # The request is found only for the browser that started it (its cookie, see `Requests`): the
@@ -159,7 +169,7 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
 
     cond do
       is_nil(user) ->
-        Responses.page(conn, 401, Pages.no_right(%{reason: :anonymous}))
+        page(conn, 401, &Pages.no_right/1, %{reason: :anonymous})
 
       MultiSession.impersonated?(get_session(conn)) ->
         no_right(conn, :impersonated)
@@ -206,7 +216,7 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
           no_right(conn, if(reason == :impersonated, do: :impersonated, else: :no_right))
 
         {:error, _other} ->
-          Responses.page(conn, 400, Pages.error(%{}))
+          page(conn, 400, &Pages.error/1)
       end
     end
   end
@@ -233,19 +243,21 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
     address = RedirectUri.address(request.redirect_uri) || %{host: nil, port: nil, path: ""}
 
     html =
-      Pages.consent(%{
-        csrf_token: CSRFProtection.get_csrf_token(),
-        action: Routes.path("/oauth/consent/" <> id),
-        client_name: Pages.client_label(snapshot["client_name"], snapshot["client_id"]),
-        redirect_host: host_and_port(address),
-        redirect_path: address.path,
-        loopback?: RedirectUri.loopback?(request.redirect_uri),
-        email: user.email,
-        sections: sections(Scopes.describe(selectable)),
-        preselected: preselected,
-        days: Consent.days(),
-        error: error
-      })
+      Pages.consent(
+        Map.merge(switcher(conn), %{
+          csrf_token: CSRFProtection.get_csrf_token(),
+          action: consent_url(conn, id),
+          client_name: Pages.client_label(snapshot["client_name"], snapshot["client_id"]),
+          redirect_host: host_and_port(address),
+          redirect_path: address.path,
+          loopback?: RedirectUri.loopback?(request.redirect_uri),
+          email: user.email,
+          sections: sections(Scopes.describe(selectable)),
+          preselected: preselected,
+          days: Consent.days(),
+          error: error
+        })
+      )
 
     Responses.page(conn, conn.status || 200, html)
   end
@@ -271,20 +283,36 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
 
   defp limit_page(conn, id, user) do
     html =
-      Pages.limit(%{
-        csrf_token: CSRFProtection.get_csrf_token(),
-        action: Routes.path("/oauth/consent/" <> id <> "/revoke"),
-        back: Routes.path("/oauth/consent/" <> id),
-        grants: Grants.list_live(user.uuid)
-      })
+      Pages.limit(
+        Map.merge(switcher(conn), %{
+          csrf_token: CSRFProtection.get_csrf_token(),
+          action: revoke_url(conn, id),
+          back: consent_url(conn, id),
+          grants: Grants.list_live(user.uuid)
+        })
+      )
 
     Responses.page(conn, conn.status || 200, html)
   end
 
-  defp no_right(conn, reason),
-    do: Responses.page(conn, 403, Pages.no_right(%{reason: reason}))
+  defp no_right(conn, reason), do: page(conn, 403, &Pages.no_right/1, %{reason: reason})
 
-  defp start_again(conn), do: Responses.page(conn, 400, Pages.start_again(%{}))
+  defp start_again(conn), do: page(conn, 400, &Pages.start_again/1)
+
+  defp page(conn, status, render, assigns \\ %{}),
+    do: Responses.page(conn, status, render.(Map.merge(switcher(conn), assigns)))
+
+  # The language of the page and its switcher, which links to the consent page of this request
+  # (a GET), whatever route the person is on; no links for an id that is not a token.
+  defp switcher(%{path_params: %{"id" => id}} = conn) do
+    if Requests.token?(id),
+      do: Language.assigns(conn, consent_path(id)),
+      else: Language.assigns(conn, nil)
+  end
+
+  defp consent_path(id), do: Routes.path("/oauth/consent/" <> id)
+  defp consent_url(conn, id), do: Language.url(conn, consent_path(id))
+  defp revoke_url(conn, id), do: Language.url(conn, consent_path(id) <> "/revoke")
 
   defp snapshot_uris(%Request{client_snapshot: %{"redirect_uris" => uris}}) when is_list(uris),
     do: uris

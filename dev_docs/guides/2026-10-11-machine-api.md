@@ -321,6 +321,8 @@ claude mcp add --transport http <name>-admin 'https://<host>/mcp/admin' --header
 
 Clients that support only OAuth for remote servers work only while `api_oauth_enabled` is on (off by default; it counts only while the admin API is on): they then connect through the authorization code flow of `/oauth/authorize`. Put the key in the client's secret store, never in the URL: a URL with `?token=...` is refused.
 
+The pages of that flow (the consent screen, the page of a person at the connection limit, the error pages) carry no locale in their URL, so each request picks its language: the `lang` query parameter (the switcher on the page sets it), then the signed-in person's saved language (consent pages only), then the browser's `Accept-Language`, then the site's default language, each only when the site has that language enabled. The sign-in page a person passes before the consent screen is the site's own and stays in the site's language.
+
 If a CDN or WAF in front of the site challenges bots, exempt `/api` and `/mcp`: an agent cannot pass an HTML challenge, and the API has its own rate limits.
 
 ## OpenAPI

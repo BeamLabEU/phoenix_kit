@@ -46,26 +46,41 @@ defmodule PhoenixKit.API.OAuthFlowSupport do
     answer
   end
 
-  @doc "GET the consent page `id`, from the browser that started it."
-  def consent(conn, id), do: consent_unbound(bound(conn, id), id)
+  @doc """
+  GET the consent page `id`, from the browser that started it. `query` is a raw query string
+  (`"lang=ru"`), added to the URL.
+  """
+  def consent(conn, id, query \\ ""), do: consent_unbound(bound(conn, id), id, query)
 
   @doc "GET the consent page `id`, with the browser's own cookies only (another browser)."
-  def consent_unbound(conn, id),
-    do: ConnTest.dispatch(conn, @endpoint, :get, path("/consent/" <> id), nil)
+  def consent_unbound(conn, id, query \\ ""),
+    do: ConnTest.dispatch(conn, @endpoint, :get, path("/consent/" <> id) <> query(query), nil)
 
   @doc "POST the answer to the consent page `id`, from the browser that started it."
-  def decide(conn, id, params), do: decide_unbound(bound(conn, id), id, params)
+  def decide(conn, id, params, query \\ ""),
+    do: decide_unbound(bound(conn, id), id, params, query)
 
   @doc "POST the answer to the consent page `id`, with the browser's own cookies only."
-  def decide_unbound(conn, id, params),
-    do: ConnTest.dispatch(conn, @endpoint, :post, path("/consent/" <> id), params)
+  def decide_unbound(conn, id, params, query \\ ""),
+    do: ConnTest.dispatch(conn, @endpoint, :post, path("/consent/" <> id) <> query(query), params)
 
   @doc "POST the revoke form of the consent page `id`, from the browser that started it."
-  def disconnect(conn, id, params), do: disconnect_unbound(bound(conn, id), id, params)
+  def disconnect(conn, id, params, query \\ ""),
+    do: disconnect_unbound(bound(conn, id), id, params, query)
 
   @doc "POST the revoke form of the consent page `id`, with the browser's own cookies only."
-  def disconnect_unbound(conn, id, params),
-    do: ConnTest.dispatch(conn, @endpoint, :post, path("/consent/" <> id <> "/revoke"), params)
+  def disconnect_unbound(conn, id, params, query \\ ""),
+    do:
+      ConnTest.dispatch(
+        conn,
+        @endpoint,
+        :post,
+        path("/consent/" <> id <> "/revoke") <> query(query),
+        params
+      )
+
+  defp query(""), do: ""
+  defp query(query), do: "?" <> query
 
   @doc "The name of the cookie that binds a request to its browser."
   def browser_cookie, do: Responses.browser_cookie()
