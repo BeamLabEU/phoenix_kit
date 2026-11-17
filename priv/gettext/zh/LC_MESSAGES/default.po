@@ -28116,6 +28116,11 @@ msgstr "连接拥有其用户当前持有的权限。从角色中收回个人 AP
 msgid "A connection keeps the rights that were ticked when it was made. For other rights, the person disconnects the application (under My API keys) and connects it again, choosing the new rights on the consent screen."
 msgstr "连接保留创建时勾选的权限。如需其他权限，用户需断开应用（在“我的 API 密钥”中）并重新连接，在同意界面选择新的权限。"
 
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:281
+#, elixir-autogen, elixir-format
+msgid "The consent screen and its error pages are shown in the language given by the lang address parameter (the language switcher on the page sets it), else the person's saved language, else the browser's, else the site's default, each only if the site has that language enabled. The sign-in page the person passes before the consent screen is the site's own and stays in the site's language."
+msgstr "同意页面及其错误页面使用以下语言显示：地址参数 lang 指定的语言（页面上的语言切换器会设置它），否则使用此人保存的语言，否则使用浏览器的语言，否则使用网站的默认语言；每一项都只在网站启用了该语言时才会采用。此人在同意页面之前经过的登录页面属于网站本身，仍使用网站的语言。"
+
 #: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:288
 #, elixir-autogen, elixir-format
 msgid "Which clients were checked"

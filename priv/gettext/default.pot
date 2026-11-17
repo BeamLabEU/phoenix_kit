@@ -28085,6 +28085,11 @@ msgstr ""
 msgid "A connection keeps the rights that were ticked when it was made. For other rights, the person disconnects the application (under My API keys) and connects it again, choosing the new rights on the consent screen."
 msgstr ""
 
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:281
+#, elixir-autogen, elixir-format
+msgid "The consent screen and its error pages are shown in the language given by the lang address parameter (the language switcher on the page sets it), else the person's saved language, else the browser's, else the site's default, each only if the site has that language enabled. The sign-in page the person passes before the consent screen is the site's own and stays in the site's language."
+msgstr ""
+
 #: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:288
 #, elixir-autogen, elixir-format
 msgid "Which clients were checked"

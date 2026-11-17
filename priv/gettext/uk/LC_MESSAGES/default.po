@@ -28170,6 +28170,11 @@ msgstr "У підключення ті права, які має його вла
 msgid "A connection keeps the rights that were ticked when it was made. For other rights, the person disconnects the application (under My API keys) and connects it again, choosing the new rights on the consent screen."
 msgstr "Підключення зберігає ті права, які були позначені під час його створення. Щоб отримати інші права, людина від'єднує застосунок (у розділі «Мої API-ключі») і підключає його заново, обравши нові права на екрані згоди."
 
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:281
+#, elixir-autogen, elixir-format
+msgid "The consent screen and its error pages are shown in the language given by the lang address parameter (the language switcher on the page sets it), else the person's saved language, else the browser's, else the site's default, each only if the site has that language enabled. The sign-in page the person passes before the consent screen is the site's own and stays in the site's language."
+msgstr "Екран згоди та його сторінки помилок показуються мовою, заданою параметром lang в адресі (його виставляє перемикач мови на сторінці), інакше збереженою мовою людини, інакше мовою браузера, інакше мовою сайту за замовчуванням — щоразу лише якщо на сайті цю мову ввімкнено. Сторінка входу, через яку людина проходить перед екраном згоди, належить сайту й залишається мовою сайту."
+
 #: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:288
 #, elixir-autogen, elixir-format
 msgid "Which clients were checked"

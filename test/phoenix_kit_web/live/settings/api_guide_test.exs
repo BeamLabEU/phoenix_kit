@@ -303,6 +303,15 @@ defmodule PhoenixKitWeb.Live.Settings.ApiGuideTest do
       assert has_element?(view, "#guide-oauth-reconnect", "disconnects the application")
       assert has_element?(view, "#guide-oauth-reconnect", "connects it again")
     end
+
+    test "tells how the language of the consent screen is chosen and that sign-in is not covered",
+         %{conn: conn} do
+      {:ok, view, _html} = live(conn, @path)
+
+      assert has_element?(view, "#guide-oauth-language", "language")
+      assert has_element?(view, "#guide-oauth-language", "switcher")
+      assert has_element?(view, "#guide-oauth-language", "sign-in page")
+    end
   end
 
   describe "tools" do
