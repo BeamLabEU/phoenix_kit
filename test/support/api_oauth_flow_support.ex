@@ -249,6 +249,25 @@ defmodule PhoenixKit.API.OAuthFlowSupport do
     |> ConnTest.dispatch(@endpoint, :post, Routes.path("/mcp/admin"), payload)
   end
 
+  @doc "A JSON-RPC `tools/call` of `name` with `arguments` to the admin MCP endpoint with `access_token`."
+  def tools_call(access_token, name, arguments \\ %{}) do
+    payload =
+      JSON.encode!(%{
+        "jsonrpc" => "2.0",
+        "id" => 1,
+        "method" => "tools/call",
+        "params" => %{"name" => name, "arguments" => arguments}
+      })
+
+    ConnTest.build_conn()
+    |> ApiHarness.with_client_ip()
+    |> ApiHarness.bearer(access_token)
+    |> put_req_header("content-type", "application/json")
+    |> put_req_header("accept", "application/json")
+    |> put_req_header("mcp-protocol-version", "2025-06-18")
+    |> ConnTest.dispatch(@endpoint, :post, Routes.path("/mcp/admin"), payload)
+  end
+
   @doc "The names of the tools in a `tools_list/1` answer."
   def tool_names(conn),
     do: conn |> body() |> get_in(["result", "tools"]) |> Enum.map(& &1["name"])

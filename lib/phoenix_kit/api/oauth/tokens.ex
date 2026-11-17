@@ -48,6 +48,7 @@ defmodule PhoenixKit.API.OAuth.Tokens do
   alias PhoenixKit.API.Keys.Cache
   alias PhoenixKit.API.Keys.Key
   alias PhoenixKit.API.OAuth.Grant
+  alias PhoenixKit.API.OAuth.Grants
   alias PhoenixKit.API.OAuth.Resource
   alias PhoenixKit.API.OAuth.Token
   alias PhoenixKit.RepoHelper
@@ -147,6 +148,10 @@ defmodule PhoenixKit.API.OAuth.Tokens do
   @doc """
   Verifies an access token presented from `ip` and returns the `PhoenixKit.API.Actor` of its
   grant's key, or the reason it is refused. Never raises on bad input.
+
+  The actor of a grant that no owner has approved yet carries `awaiting_approval: true`
+  (`PhoenixKit.API.OAuth.Grants.awaiting?/1`): the token itself is good, and what the actor may
+  not do is decided by the executor.
   """
   @spec verify(term(), String.t() | nil) ::
           {:ok, Actor.t()}
@@ -219,9 +224,16 @@ defmodule PhoenixKit.API.OAuth.Tokens do
     end
   end
 
-  # The key already carries the grant's scopes; the filter keeps the grant the one authority.
-  defp narrow(%Actor{scopes: scopes} = actor, %Grant{scopes: granted}),
-    do: %{actor | scopes: Enum.filter(scopes, &(&1 in granted))}
+  # The key already carries the grant's scopes; the filter keeps the grant the one authority. The
+  # grant in hand also says whether it still waits for approval (`Grants.awaiting?/1`): the
+  # executor refuses every call of such an actor.
+  defp narrow(%Actor{scopes: scopes} = actor, %Grant{scopes: granted} = grant) do
+    %{
+      actor
+      | scopes: Enum.filter(scopes, &(&1 in granted)),
+        awaiting_approval: Grants.awaiting?(grant)
+    }
+  end
 
   # At most once a minute per grant (the window of `Keys.Cache.touch_last_used?/1`); a failed
   # write must not fail the request.

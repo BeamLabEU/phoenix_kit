@@ -28,6 +28,8 @@ defmodule PhoenixKit.API.MCP.Shape do
     forbidden:
       "The key lacks the scope in context.required_scope, or its owner lacks the permission; ask an administrator.",
     ip_not_allowed: "Call from an address the key allows.",
+    approval_pending:
+      "This connection is waiting for approval by an Owner of this site (Settings -> API, tab \"Sign-in (OAuth)\", block \"Waiting for approval\"). Tell the person; calls work right after the approval, there is no need to connect again.",
     origin_not_allowed:
       "Call from a client that sends no Origin header, or ask an administrator to allow the origin.",
     token_in_url:
@@ -168,7 +170,8 @@ defmodule PhoenixKit.API.MCP.Shape do
   @doc "The `instructions` of the `initialize` answer."
   @spec instructions(Tool.audience()) :: String.t()
   def instructions(:admin) do
-    "Call system_get_identity first: it lists the scopes this key holds right now and the tools they unlock. " <>
+    "If calls answer approval_pending, the connection is not approved yet: see the advice in that answer. " <>
+      "Call system_get_identity first: it lists the scopes this key holds right now and the tools they unlock. " <>
       "A failed call of a tool comes back as a result with isError set (an unknown tool name is a JSON-RPC error, -32602); the code in square brackets is stable and " <>
       "the second text item is the full problem document. A write call from a key that needs approval " <>
       "(other than a dry run) is not run, dangerous or not: it comes back as a normal result with executed false, status pending_approval and an " <>
