@@ -307,7 +307,10 @@ defmodule PhoenixKitWeb.OAuth.ApprovalFlowTest do
 
       # An Owner approves it, and the very same access token runs a read.
       owner = KeyTestSupport.scope_of(KeyTestSupport.owner_user())
-      assert {:ok, %Grant{approved_at: %DateTime{}}} = Grants.approve(owner, waiting.uuid)
+
+      assert {:ok, %Grant{approved_at: %DateTime{}}} =
+               Grants.approve(owner, waiting.uuid, impersonated: false)
+
       assert [approved] = Activity.list(action: "oauth.grant_approved").entries
       assert approved.resource_uuid == waiting.uuid
 

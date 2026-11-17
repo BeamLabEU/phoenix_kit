@@ -81,7 +81,8 @@ defmodule PhoenixKitWeb.Live.Settings.PendingApprovalsTest do
       {:ok, _} =
         Grants.approve(
           KeyTestSupport.scope_of(KeyTestSupport.owner_user()),
-          ctx.seeded.grant.uuid
+          ctx.seeded.grant.uuid,
+          impersonated: false
         )
 
       view = owner_view(ctx)

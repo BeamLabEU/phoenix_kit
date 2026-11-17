@@ -34,7 +34,7 @@ defmodule PhoenixKit.API.OAuth.Grants do
   default: a caller that forgot to decide gets `{:error, :approval_undecided}`, never a working
   grant).
 
-  `approve/2` is the owner's decision that lets a waiting grant work: one atomic update, so a
+  `approve/3` is the owner's decision that lets a waiting grant work: one atomic update, so a
   grant that was ended, expired or approved a moment ago is never approved by a late click.
   A grant that is not approved within `approval_days/0` days is ended by
   `PhoenixKit.API.OAuth.Prune` (reason `approval_timeout`).
@@ -315,7 +315,7 @@ defmodule PhoenixKit.API.OAuth.Grants do
   @doc """
   The grants an owner may decide on now, as a query with the grant as its named binding `:grant`:
   activated (the code was exchanged), not approved, not revoked, not expired and made at most
-  `approval_days/0` days ago. `approve/2`, the list of the waiting connections
+  `approval_days/0` days ago. `approve/3`, the list of the waiting connections
   (`PhoenixKit.API.OAuth.Connections.list_pending/1`) and the count of the status report all
   mean exactly this.
   """
@@ -337,29 +337,52 @@ defmodule PhoenixKit.API.OAuth.Grants do
   @doc """
   Approves the waiting grant `grant_uuid` as the person behind `scope`, who must be an Owner who
   holds `api` (the rights of the scope are the caller's to read fresh: a page hands in
-  `PhoenixKit.API.Access.fresh_scope/1`). One `UPDATE` with every condition of
-  `pending_query/0`, so it locks only that grant's row and a grant ended or approved meanwhile is
-  not touched. Writes `oauth.grant_approved` (who, the client, the hosts of its redirect
-  addresses, whose grant; no token).
+  `PhoenixKit.API.Access.fresh_scope/1`, which carries no mark of a borrowed session). `opts`
+  must say `impersonated: true | false` (no default), what the page reads from the session
+  (`PhoenixKitWeb.Users.MultiSession.impersonated?/1`): a missing or non-boolean value is
+  `{:error, :impersonation_unknown}` and `true` is `{:error, :impersonated}`, before anything
+  else is looked at, as for `PhoenixKit.API.Keys.create_key/4`. One `UPDATE` with every
+  condition of `pending_query/0`, so it locks only that grant's row and a grant ended or
+  approved meanwhile is not touched. Writes `oauth.grant_approved` (who, the client, the hosts
+  of its redirect addresses, whose grant; no token).
 
   Returns `{:ok, grant}`, `{:error, :forbidden}` (not an Owner with `api`),
   `{:error, :not_found}` (not a uuid) or `{:error, :not_pending}` (unknown, someone's that is not
   waiting any more, not activated, ended, expired, or older than `approval_days/0` days).
   """
-  @spec approve(Scope.t() | nil, term()) ::
-          {:ok, Grant.t()} | {:error, :forbidden | :not_found | :not_pending}
-  def approve(scope, grant_uuid) do
-    cond do
-      not Connections.owner?(scope) ->
-        {:error, :forbidden}
+  @spec approve(Scope.t() | nil, term(), keyword()) ::
+          {:ok, Grant.t()}
+          | {:error,
+             :forbidden | :not_found | :not_pending | :impersonated | :impersonation_unknown}
+  def approve(scope, grant_uuid, opts) do
+    with :ok <- check_not_impersonated(opts) do
+      cond do
+        not Connections.owner?(scope) ->
+          {:error, :forbidden}
 
-      not (is_binary(grant_uuid) and UUIDUtils.valid?(grant_uuid)) ->
-        {:error, :not_found}
+        not (is_binary(grant_uuid) and UUIDUtils.valid?(grant_uuid)) ->
+          {:error, :not_found}
 
-      true ->
-        approve_pending(scope, grant_uuid)
+        true ->
+          approve_pending(scope, grant_uuid)
+      end
     end
   end
+
+  @doc false
+  # The refusal of a decision made in a borrowed session, shared with
+  # `PhoenixKit.API.OAuth.Connections.reject/3`: the option is required, `true` and a missing or
+  # non-boolean value are both refused.
+  @spec check_not_impersonated(term()) :: :ok | {:error, :impersonated | :impersonation_unknown}
+  def check_not_impersonated(opts) when is_list(opts) do
+    case List.keyfind(opts, :impersonated, 0) do
+      {:impersonated, false} -> :ok
+      {:impersonated, true} -> {:error, :impersonated}
+      _missing_or_not_boolean -> {:error, :impersonation_unknown}
+    end
+  end
+
+  def check_not_impersonated(_opts), do: {:error, :impersonation_unknown}
 
   defp approve_pending(scope, grant_uuid) do
     query = from([grant: g] in pending_query(), where: g.uuid == ^grant_uuid, select: g)

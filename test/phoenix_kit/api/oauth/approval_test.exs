@@ -40,12 +40,33 @@ defmodule PhoenixKit.API.OAuth.ApprovalTest do
     Repo.all(from(e in Entry, where: e.action == ^action and e.resource_uuid == ^grant_uuid))
   end
 
-  describe "Grants.approve/2" do
+  describe "Grants.approve/3" do
+    test "refuses a borrowed session, and an option that does not say, before anything else",
+         ctx do
+      seeded = waiting!(ctx.scope)
+      uuid = seeded.grant.uuid
+
+      assert {:error, :impersonated} = Grants.approve(ctx.owner, uuid, impersonated: true)
+      assert {:error, :impersonation_unknown} = Grants.approve(ctx.owner, uuid, [])
+      assert {:error, :impersonation_unknown} = Grants.approve(ctx.owner, uuid, impersonated: nil)
+
+      assert {:error, :impersonation_unknown} =
+               Grants.approve(ctx.owner, uuid, impersonated: "no")
+
+      assert {:error, :impersonation_unknown} = Grants.approve(ctx.owner, uuid, :nope)
+      assert {:error, :impersonated} = Grants.approve(nil, "nope", impersonated: true)
+
+      assert Grants.awaiting?(grant(seeded))
+      assert entries("oauth.grant_approved", uuid) == []
+    end
+
     test "approves a waiting connection once, and writes who decided", ctx do
       seeded = waiting!(ctx.scope)
       uuid = seeded.grant.uuid
 
-      assert {:ok, %Grant{approved_at: %DateTime{}}} = Grants.approve(ctx.owner, uuid)
+      assert {:ok, %Grant{approved_at: %DateTime{}}} =
+               Grants.approve(ctx.owner, uuid, impersonated: false)
+
       assert %DateTime{} = grant(seeded).approved_at
       refute Grants.awaiting?(grant(seeded))
 
@@ -60,7 +81,7 @@ defmodule PhoenixKit.API.OAuth.ApprovalTest do
       for secret <- secrets, do: refute(text =~ secret)
       refute text =~ "https://client.example/callback"
 
-      assert {:error, :not_pending} = Grants.approve(ctx.owner, uuid)
+      assert {:error, :not_pending} = Grants.approve(ctx.owner, uuid, impersonated: false)
       assert [_one] = entries("oauth.grant_approved", uuid)
     end
 
@@ -69,9 +90,9 @@ defmodule PhoenixKit.API.OAuth.ApprovalTest do
       uuid = seeded.grant.uuid
       {admin, _role} = user_with(["media"])
 
-      assert {:error, :forbidden} = Grants.approve(ctx.scope, uuid)
-      assert {:error, :forbidden} = Grants.approve(scope_of(admin), uuid)
-      assert {:error, :forbidden} = Grants.approve(nil, uuid)
+      assert {:error, :forbidden} = Grants.approve(ctx.scope, uuid, impersonated: false)
+      assert {:error, :forbidden} = Grants.approve(scope_of(admin), uuid, impersonated: false)
+      assert {:error, :forbidden} = Grants.approve(nil, uuid, impersonated: false)
       assert Grants.awaiting?(grant(seeded))
       assert entries("oauth.grant_approved", uuid) == []
     end
@@ -79,10 +100,15 @@ defmodule PhoenixKit.API.OAuth.ApprovalTest do
     test "an unknown, malformed or someone else's uuid approves nothing", ctx do
       seeded = waiting!(ctx.scope)
 
-      assert {:error, :not_pending} = Grants.approve(ctx.owner, Ecto.UUID.generate())
-      assert {:error, :not_found} = Grants.approve(ctx.owner, "nope")
-      assert {:error, :not_found} = Grants.approve(ctx.owner, nil)
-      assert {:error, :not_pending} = Grants.approve(ctx.owner, seeded.key.uuid)
+      assert {:error, :not_pending} =
+               Grants.approve(ctx.owner, Ecto.UUID.generate(), impersonated: false)
+
+      assert {:error, :not_found} = Grants.approve(ctx.owner, "nope", impersonated: false)
+      assert {:error, :not_found} = Grants.approve(ctx.owner, nil, impersonated: false)
+
+      assert {:error, :not_pending} =
+               Grants.approve(ctx.owner, seeded.key.uuid, impersonated: false)
+
       assert Grants.awaiting?(grant(seeded))
     end
 
@@ -107,7 +133,9 @@ defmodule PhoenixKit.API.OAuth.ApprovalTest do
       age!(old, Grants.approval_days() * 86_400 + 60)
 
       for seeded <- [inactive, revoked, expired, old] do
-        assert {:error, :not_pending} = Grants.approve(ctx.owner, seeded.grant.uuid)
+        assert {:error, :not_pending} =
+                 Grants.approve(ctx.owner, seeded.grant.uuid, impersonated: false)
+
         assert Grants.awaiting?(grant(seeded))
       end
     end
@@ -116,13 +144,15 @@ defmodule PhoenixKit.API.OAuth.ApprovalTest do
       seeded = waiting!(ctx.scope)
       {:ok, _} = Connections.revoke(ctx.scope, seeded.grant.uuid, :own)
 
-      assert {:error, :not_pending} = Grants.approve(ctx.owner, seeded.grant.uuid)
+      assert {:error, :not_pending} =
+               Grants.approve(ctx.owner, seeded.grant.uuid, impersonated: false)
+
       assert grant(seeded).approved_at == nil
     end
 
     test "a revoke that arrives after the approval ends the approved connection", ctx do
       seeded = waiting!(ctx.scope)
-      {:ok, _} = Grants.approve(ctx.owner, seeded.grant.uuid)
+      {:ok, _} = Grants.approve(ctx.owner, seeded.grant.uuid, impersonated: false)
 
       assert {:ok, %Grant{revoked_at: %DateTime{}}} =
                Connections.revoke(ctx.scope, seeded.grant.uuid, :own)
@@ -181,12 +211,29 @@ defmodule PhoenixKit.API.OAuth.ApprovalTest do
     end
   end
 
-  describe "Connections.reject/2" do
+  describe "Connections.reject/3" do
+    test "refuses a borrowed session, and an option that does not say, before anything else",
+         ctx do
+      seeded = waiting!(ctx.scope)
+      uuid = seeded.grant.uuid
+
+      assert {:error, :impersonated} = Connections.reject(ctx.owner, uuid, impersonated: true)
+      assert {:error, :impersonation_unknown} = Connections.reject(ctx.owner, uuid, [])
+
+      assert {:error, :impersonation_unknown} =
+               Connections.reject(ctx.owner, uuid, impersonated: 1)
+
+      assert {:error, :impersonation_unknown} = Connections.reject(ctx.owner, uuid, :nope)
+
+      assert grant(seeded).revoked_at == nil
+      assert entries("oauth.grant_revoked", uuid) == []
+    end
+
     test "ends the connection: its grant, its key and its tokens, with the reason", ctx do
       seeded = waiting!(ctx.scope)
 
       assert {:ok, %Grant{revoked_at: %DateTime{}}} =
-               Connections.reject(ctx.owner, seeded.grant.uuid)
+               Connections.reject(ctx.owner, seeded.grant.uuid, impersonated: false)
 
       assert %DateTime{} = grant(seeded).revoked_at
       assert %Key{revoked_at: %DateTime{}} = Repo.get!(Key, seeded.key.uuid)
@@ -207,11 +254,20 @@ defmodule PhoenixKit.API.OAuth.ApprovalTest do
       seeded = waiting!(ctx.scope)
       approved = seed_grant!(ctx.scope)
 
-      assert {:error, :forbidden} = Connections.reject(ctx.scope, seeded.grant.uuid)
-      assert {:error, :forbidden} = Connections.reject(nil, seeded.grant.uuid)
-      assert {:error, :not_found} = Connections.reject(ctx.owner, approved.grant.uuid)
-      assert {:error, :not_found} = Connections.reject(ctx.owner, "nope")
-      assert {:error, :not_found} = Connections.reject(ctx.owner, Ecto.UUID.generate())
+      assert {:error, :forbidden} =
+               Connections.reject(ctx.scope, seeded.grant.uuid, impersonated: false)
+
+      assert {:error, :forbidden} =
+               Connections.reject(nil, seeded.grant.uuid, impersonated: false)
+
+      assert {:error, :not_found} =
+               Connections.reject(ctx.owner, approved.grant.uuid, impersonated: false)
+
+      assert {:error, :not_found} = Connections.reject(ctx.owner, "nope", impersonated: false)
+
+      assert {:error, :not_found} =
+               Connections.reject(ctx.owner, Ecto.UUID.generate(), impersonated: false)
+
       assert grant(seeded).revoked_at == nil
       assert grant(approved).revoked_at == nil
     end
@@ -231,7 +287,7 @@ defmodule PhoenixKit.API.OAuth.ApprovalTest do
 
     test "becomes active when the Owner approves it", ctx do
       seeded = waiting!(ctx.scope)
-      {:ok, _} = Grants.approve(ctx.owner, seeded.grant.uuid)
+      {:ok, _} = Grants.approve(ctx.owner, seeded.grant.uuid, impersonated: false)
 
       assert [%{status: :active}] = Connections.list(ctx.scope, :own)
     end

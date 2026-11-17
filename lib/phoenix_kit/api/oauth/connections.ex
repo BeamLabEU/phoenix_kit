@@ -93,15 +93,20 @@ defmodule PhoenixKit.API.OAuth.Connections do
   @doc """
   Rejects the waiting connection `grant_uuid` as the person behind `scope` (an Owner who holds
   `api`): it ends as a revoked grant, with the reason `approval_rejected` on its tokens, and one
-  `oauth.grant_revoked` entry. The grant must be one `list_pending/1` shows.
+  `oauth.grant_revoked` entry. The grant must be one `list_pending/1` shows. `opts` must say
+  `impersonated: true | false` (no default), as for `PhoenixKit.API.OAuth.Grants.approve/3`: a
+  missing or non-boolean value is `{:error, :impersonation_unknown}`, `true` is
+  `{:error, :impersonated}`.
 
   Returns `{:ok, grant}`, `{:error, :forbidden}` (not an Owner with `api`) or
   `{:error, :not_found}` (not waiting any more, or not a uuid).
   """
-  @spec reject(Scope.t() | nil, term()) ::
-          {:ok, Grant.t()} | {:error, :forbidden | :not_found | term()}
-  def reject(scope, grant_uuid) do
-    with true <- owner?(scope) || {:error, :forbidden},
+  @spec reject(Scope.t() | nil, term(), keyword()) ::
+          {:ok, Grant.t()}
+          | {:error, :forbidden | :not_found | :impersonated | :impersonation_unknown | term()}
+  def reject(scope, grant_uuid, opts) do
+    with :ok <- Grants.check_not_impersonated(opts),
+         true <- owner?(scope) || {:error, :forbidden},
          true <- (is_binary(grant_uuid) and UUIDUtils.valid?(grant_uuid)) || {:error, :not_found},
          %Grant{} = grant <-
            repo().one(

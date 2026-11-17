@@ -3,8 +3,8 @@ defmodule PhoenixKitWeb.Live.Components.PendingApprovals do
   "Waiting for approval": the connections of applications that are not on the list of trusted
   ones (`PhoenixKit.API.OAuth.ClientPolicy`), which a person let in at the consent screen and
   which run nothing until an Owner approves them
-  (`PhoenixKit.API.OAuth.Grants.approve/2`) or rejects them
-  (`PhoenixKit.API.OAuth.Connections.reject/2`). A LiveComponent on the OAuth tab of Settings ->
+  (`PhoenixKit.API.OAuth.Grants.approve/3`) or rejects them
+  (`PhoenixKit.API.OAuth.Connections.reject/3`). A LiveComponent on the OAuth tab of Settings ->
   API, for an Owner; it is not part of `PhoenixKitWeb.Live.Components.ConnectedApps`, which lists
   every live connection.
 
@@ -173,7 +173,9 @@ defmodule PhoenixKitWeb.Live.Components.PendingApprovals do
 
   # A confirm with no dialog open (a second click, a replayed event) does nothing at all.
   defp decide(socket, :approve, uuid) do
-    case Grants.approve(socket.assigns.fresh_scope, uuid) do
+    case Grants.approve(socket.assigns.fresh_scope, uuid,
+           impersonated: socket.assigns.impersonated
+         ) do
       {:ok, _grant} ->
         notify(socket)
 
@@ -196,7 +198,9 @@ defmodule PhoenixKitWeb.Live.Components.PendingApprovals do
   end
 
   defp decide(socket, :reject, uuid) do
-    case Connections.reject(socket.assigns.fresh_scope, uuid) do
+    case Connections.reject(socket.assigns.fresh_scope, uuid,
+           impersonated: socket.assigns.impersonated
+         ) do
       {:ok, _grant} ->
         notify(socket)
         info(socket, gettext("The connection was rejected. The application stops at once."))
