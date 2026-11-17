@@ -73,6 +73,21 @@ defmodule PhoenixKitWeb.Live.Users.ConnectedAppsTest do
       refute has_element?(view, "#personal-api-keys-connected-apps-oauth-off")
     end
 
+    test "shows the name the person agreed to, even when the client's document changed it", %{
+      conn: conn,
+      scope: scope
+    } do
+      client = client!(%{client_name: "Claude"})
+      seeded = seed_grant!(scope, client: client)
+      client |> Ecto.Changeset.change(client_name: "Somebody else") |> Repo.update!()
+
+      {:ok, view, html} = live(conn, @path)
+
+      assert has_element?(view, row_id(seeded))
+      assert html =~ "Claude"
+      refute html =~ "Somebody else"
+    end
+
     test "a connection made for another address of the site says so", %{conn: conn, scope: scope} do
       seeded = seed_grant!(scope, resource: "https://elsewhere.example/mcp/admin")
 

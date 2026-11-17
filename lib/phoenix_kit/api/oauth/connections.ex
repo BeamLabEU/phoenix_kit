@@ -19,6 +19,10 @@ defmodule PhoenixKit.API.OAuth.Connections do
   key, the grant and every token, in the lock order of that module) with the person as the actor
   of the `oauth.grant_revoked` entry.
 
+  Each row carries `name`: the client's name **as it was when the person consented** (what the
+  hidden key of the grant was named after), `nil` for a key whose name is not in that form, in
+  which case the page falls back to the client's current name.
+
   ## Status
 
   `:active` while the grant's owner may use it. The effective rights of a request are the grant's
@@ -44,11 +48,15 @@ defmodule PhoenixKit.API.OAuth.Connections do
   # A page lists the newest of them; it says so when it got this many (`limit/0`).
   @limit 200
 
+  # How `PhoenixKit.API.Keys.create_oauth_key/3` names a grant's hidden key.
+  @name_prefix "OAuth: "
+
   @type view :: :own | :all
   @type status :: :active | :no_permission | :owner_inactive | :wrong_resource
   @type row :: %{
           grant: Grant.t(),
           client: Client.t(),
+          name: String.t() | nil,
           owner: User.t(),
           status: status()
         }
@@ -133,10 +141,23 @@ defmodule PhoenixKit.API.OAuth.Connections do
 
     states = owner_states(records)
 
-    Enum.map(records, fn {grant, client, _key, owner} ->
-      %{grant: grant, client: client, owner: owner, status: status(grant, states[owner.uuid])}
+    Enum.map(records, fn {grant, client, key, owner} ->
+      %{
+        grant: grant,
+        client: client,
+        name: pinned_name(key),
+        owner: owner,
+        status: status(grant, states[owner.uuid])
+      }
     end)
   end
+
+  # The name the person saw on the consent screen: the hidden key of the grant was named after it
+  # (`"OAuth: <name>"`) when the consent was given. The client's row may carry another name now
+  # (a metadata document is fetched again and can change), and a list that shows the new one would
+  # not show what was agreed to.
+  defp pinned_name(%Key{name: @name_prefix <> name}) when name != "", do: name
+  defp pinned_name(_key), do: nil
 
   # The owner's state is read once per person (it costs a permission check), from one of their
   # hidden keys: `Keys.active_owner/1` is the check a request makes.

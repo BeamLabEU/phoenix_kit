@@ -657,6 +657,15 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
                 value={@settings_params["cimd_client_per_min"]}
               />
               <.input
+                id="api-oauth-cimd-concurrency"
+                name="oauth[cimd_concurrency]"
+                type="text"
+                inputmode="numeric"
+                wrap_label
+                label={gettext("Metadata document downloads at the same time, in all")}
+                value={@settings_params["cimd_concurrency"]}
+              />
+              <.input
                 id="api-oauth-register-per-hour"
                 name="oauth[register_per_hour]"
                 type="text"

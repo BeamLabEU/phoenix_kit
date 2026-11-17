@@ -284,6 +284,13 @@ defmodule PhoenixKitWeb.Live.Settings.ApiGuideTest do
       {:ok, view, _html} = live(conn, @path)
       assert has_element?(view, "#guide-oauth-rights", "stop at the next request")
     end
+
+    test "tells that other rights mean disconnecting and connecting again", %{conn: conn} do
+      {:ok, view, _html} = live(conn, @path)
+
+      assert has_element?(view, "#guide-oauth-reconnect", "disconnects the application")
+      assert has_element?(view, "#guide-oauth-reconnect", "connects it again")
+    end
   end
 
   describe "tools" do

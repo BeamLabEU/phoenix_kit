@@ -27586,7 +27586,7 @@ msgstr "它将立即停止工作。若要再次使用，请重新连接并再次
 msgid "Yes, disconnect"
 msgstr "是，断开连接"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:292
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:425 lib/phoenix_kit_web/oauth/pages.ex:292
 #, elixir-autogen, elixir-format
 msgid "Disconnect this application?"
 msgstr "断开此应用？"
@@ -27695,11 +27695,6 @@ msgstr "没有已连接的应用。"
 #, elixir-autogen, elixir-format
 msgid "Add the server's address in the application, then sign in and allow access."
 msgstr "在应用中添加服务器地址，登录并允许访问。"
-
-#: lib/phoenix_kit_web/live/components/connected_apps.ex:382
-#, elixir-autogen, elixir-format
-msgid "Disconnect this application?"
-msgstr "断开此应用？"
 
 #: lib/phoenix_kit_web/live/components/connected_apps.ex:394
 #, elixir-autogen, elixir-format
@@ -27941,6 +27936,11 @@ msgstr "每个地址每分钟的元数据文档下载次数"
 msgid "Metadata document downloads per minute, per application"
 msgstr "每个应用每分钟的元数据文档下载次数"
 
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:665
+#, elixir-autogen, elixir-format
+msgid "Metadata document downloads at the same time, in all"
+msgstr "同时下载元数据文档的数量，总计"
+
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:566
 #, elixir-autogen, elixir-format
 msgid "Registrations per hour, per address"
@@ -28085,6 +28085,11 @@ msgstr "应用的名称和它返回的地址、它可以做什么（默认选中
 #, elixir-autogen, elixir-format
 msgid "A connection has the rights its person holds now. Take the right to personal API keys away from a role and its connections stop at the next request; give it back and they work again."
 msgstr "连接拥有其用户当前持有的权限。从角色中收回个人 API 密钥权限后，其连接会在下一次请求时停止；恢复权限后它们会重新生效。"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:276
+#, elixir-autogen, elixir-format
+msgid "A connection keeps the rights that were ticked when it was made. For other rights, the person disconnects the application (under My API keys) and connects it again, choosing the new rights on the consent screen."
+msgstr "连接保留创建时勾选的权限。如需其他权限，用户需断开应用（在“我的 API 密钥”中）并重新连接，在同意界面选择新的权限。"
 
 #: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:288
 #, elixir-autogen, elixir-format

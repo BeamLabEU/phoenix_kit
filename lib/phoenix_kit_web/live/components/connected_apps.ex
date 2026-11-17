@@ -125,7 +125,7 @@ defmodule PhoenixKitWeb.Live.Components.ConnectedApps do
             assign(socket, :revoke_confirmation, %{
               show: true,
               uuid: row.grant.uuid,
-              name: app_name(row.client),
+              name: app_name(row),
               person: person(socket, row)
             })
         end
@@ -220,8 +220,12 @@ defmodule PhoenixKitWeb.Live.Components.ConnectedApps do
 
   # ── Template helpers ───────────────────────────────────────────────
 
-  defp app_name(%{client_name: name}) when is_binary(name) and name != "", do: name
-  defp app_name(%{client_id: client_id}), do: client_id
+  # The name the person agreed to (pinned in the grant's key), else the client's own now.
+  defp app_name(%{name: name}) when is_binary(name) and name != "", do: name
+  defp app_name(%{client: client}), do: client_name(client)
+
+  defp client_name(%{client_name: name}) when is_binary(name) and name != "", do: name
+  defp client_name(%{client_id: client_id}), do: client_id
 
   defp hosts(client) do
     client.redirect_uris |> Enum.map(&RedirectUri.host/1) |> Enum.reject(&is_nil/1) |> Enum.uniq()
@@ -311,7 +315,7 @@ defmodule PhoenixKitWeb.Live.Components.ConnectedApps do
               <.table_default_body>
                 <.table_default_row :for={row <- @rows} id={"#{@id}-grant-#{row.grant.uuid}"}>
                   <.table_default_cell>
-                    <div class="font-medium">{app_name(row.client)}</div>
+                    <div class="font-medium">{app_name(row)}</div>
                     <div class="font-mono text-xs text-base-content/60">
                       {Enum.join(hosts(row.client), ", ")}
                     </div>

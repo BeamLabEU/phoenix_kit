@@ -14,6 +14,7 @@ defmodule PhoenixKit.API.OAuthConfig do
   | `api_oauth_requests_ceiling` | `1000` | 1 to 1000000 |
   | `api_oauth_cimd_per_min` | `20` | 1 to 1000 |
   | `api_oauth_cimd_client_per_min` | `5` | 1 to 1000 |
+  | `api_oauth_cimd_concurrency` | `4` | 1 to 64 |
   | `api_oauth_register_per_hour` | `10` | 1 to 10000 |
   | `api_oauth_register_per_day` | `200` | 1 to 100000 |
   | `api_oauth_client_policy` | `any` | `any` or `allow_list` |
@@ -89,6 +90,13 @@ defmodule PhoenixKit.API.OAuthConfig do
       min: 1,
       max: 1000,
       reader: :oauth_cimd_client_per_min
+    },
+    %{
+      field: "cimd_concurrency",
+      setting: "api_oauth_cimd_concurrency",
+      min: 1,
+      max: 64,
+      reader: :oauth_cimd_concurrency
     },
     %{
       field: "register_per_hour",

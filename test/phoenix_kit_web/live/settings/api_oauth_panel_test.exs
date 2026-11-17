@@ -211,6 +211,18 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanelTest do
                ])
     end
 
+    test "the number of metadata document downloads at once is a field, saved like the others", %{
+      conn: conn
+    } do
+      {:ok, view, _html} = live(conn, @path)
+      assert has_element?(view, ~s(#api-oauth-cimd-concurrency[value="4"]))
+
+      html = settings_form(view, %{"cimd_concurrency" => "7"})
+
+      assert html =~ "The settings were saved."
+      assert Config.oauth_cimd_concurrency() == 7
+    end
+
     test "a value outside its ceiling saves nothing and says so", %{conn: conn, admin: admin} do
       {:ok, view, _html} = live(conn, @path)
 

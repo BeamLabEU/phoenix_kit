@@ -48,6 +48,17 @@ defmodule PhoenixKit.API.OAuth.ConnectionsTest do
       assert one.status == :active
     end
 
+    test "carries the name of the client as the person saw it, not the one it has now", ctx do
+      client = client!(%{client_name: "Claude"})
+      seed_grant!(ctx.scope, client: client)
+
+      # The client's document says something else a day later.
+      client |> Ecto.Changeset.change(client_name: "Somebody else") |> Repo.update!()
+
+      assert [%{name: "Claude", client: %{client_name: "Somebody else"}}] =
+               Connections.list(ctx.scope, :own)
+    end
+
     test "leaves out the connections of other people", ctx do
       seed_grant!(ctx.scope)
       {_other, _role, other_scope} = oauth_holder(["media"])

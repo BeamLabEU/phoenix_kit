@@ -27660,7 +27660,7 @@ msgstr "Оно сразу перестанет работать. Чтобы по
 msgid "Yes, disconnect"
 msgstr "Да, отключить"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:292
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:425 lib/phoenix_kit_web/oauth/pages.ex:292
 #, elixir-autogen, elixir-format
 msgid "Disconnect this application?"
 msgstr "Отключить это приложение?"
@@ -27769,11 +27769,6 @@ msgstr "Ни одно приложение не подключено."
 #, elixir-autogen, elixir-format
 msgid "Add the server's address in the application, then sign in and allow access."
 msgstr "Добавьте адрес сервера в приложении, войдите и разрешите доступ."
-
-#: lib/phoenix_kit_web/live/components/connected_apps.ex:382
-#, elixir-autogen, elixir-format
-msgid "Disconnect this application?"
-msgstr "Отключить это приложение?"
 
 #: lib/phoenix_kit_web/live/components/connected_apps.ex:394
 #, elixir-autogen, elixir-format
@@ -28015,6 +28010,11 @@ msgstr "Загрузок документа метаданных в минуту
 msgid "Metadata document downloads per minute, per application"
 msgstr "Загрузок документа метаданных в минуту, для одного приложения"
 
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:665
+#, elixir-autogen, elixir-format
+msgid "Metadata document downloads at the same time, in all"
+msgstr "Одновременных загрузок документов метаданных, всего"
+
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:566
 #, elixir-autogen, elixir-format
 msgid "Registrations per hour, per address"
@@ -28159,6 +28159,11 @@ msgstr "Название приложения и адрес, на который
 #, elixir-autogen, elixir-format
 msgid "A connection has the rights its person holds now. Take the right to personal API keys away from a role and its connections stop at the next request; give it back and they work again."
 msgstr "У подключения те права, которые у его владельца сейчас. Если отнять у роли право на личные API-ключи, её подключения остановятся при следующем запросе; верните право, и они снова заработают."
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:276
+#, elixir-autogen, elixir-format
+msgid "A connection keeps the rights that were ticked when it was made. For other rights, the person disconnects the application (under My API keys) and connects it again, choosing the new rights on the consent screen."
+msgstr "Подключение сохраняет те права, которые были отмечены при его создании. Чтобы получить другие права, человек отключает приложение (в разделе «Мои API-ключи») и подключает его заново, выбрав новые права на экране согласия."
 
 #: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:288
 #, elixir-autogen, elixir-format
