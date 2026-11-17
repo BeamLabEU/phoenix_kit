@@ -13,6 +13,7 @@ defmodule PhoenixKit.Migrations.Postgres.V233Test do
   alias PhoenixKit.API.KeyTestSupport
   alias PhoenixKit.Migrations.ExpectedSchema
   alias PhoenixKit.Migrations.Postgres.V233
+  alias PhoenixKit.Migrations.Postgres.V234
   alias PhoenixKit.Migrations.Repair.Differ
   alias PhoenixKit.Migrations.Repair.Probe
   alias PhoenixKit.Test.Repo
@@ -57,6 +58,8 @@ defmodule PhoenixKit.Migrations.Postgres.V233Test do
   end
 
   test "rolls back, forward, and again without change" do
+    # V234 adds a column to the grants table: it goes first and comes back last.
+    run(V234.down_statements("public"))
     run(V233.down_statements("public"))
     assert tables() == []
     refute key_column?()
@@ -75,6 +78,7 @@ defmodule PhoenixKit.Migrations.Postgres.V233Test do
 
     run(V233.up_statements("public"))
     assert tables() == Enum.sort(@tables)
+    run(V234.up_statements("public"))
   end
 
   test "rolling back removes the hidden keys of the grants and leaves every other key" do
@@ -94,6 +98,7 @@ defmodule PhoenixKit.Migrations.Postgres.V233Test do
     assert [[1]] =
              query("SELECT count(*) FROM phoenix_kit_api_keys WHERE oauth_grant_uuid IS NOT NULL")
 
+    run(V234.down_statements("public"))
     run(V233.down_statements("public"))
 
     # Without the column nothing could tell it from a person's own key: it must be gone, or it
@@ -113,6 +118,7 @@ defmodule PhoenixKit.Migrations.Postgres.V233Test do
 
     # And the way forward again starts clean: no grants, no hidden keys.
     run(V233.up_statements("public"))
+    run(V234.up_statements("public"))
     assert [[0]] = query("SELECT count(*) FROM phoenix_kit_api_oauth_grants")
 
     assert [[0]] =

@@ -7,7 +7,13 @@ defmodule PhoenixKit.Migrations.Postgres do
 
   ## Migration Versions
 
-  ### V233 - OAuth for the MCP endpoint ⚡ LATEST
+  ### V234 - Approval of an OAuth connection ⚡ LATEST
+
+  `phoenix_kit_api_oauth_grants.approved_at` (nullable): a connection waits for an owner's approval while it is
+  `NULL`. The connections that exist are counted as approved in the same step; `down` first ends the ones that
+  still wait, so a rollback never makes them work.
+
+  ### V233 - OAuth for the MCP endpoint
 
   Five tables, `phoenix_kit_api_oauth_{clients,requests,grants,codes,tokens}`: the applications that may ask for
   access, a validated authorization request waiting for consent, a consent (one hidden API key each), authorization
@@ -1094,7 +1100,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   alias PhoenixKit.Migrations.Repair.Environment
 
   @initial_version 135
-  @current_version 233
+  @current_version 234
 
   # Core 3.0 no longer creates or changes any module's table (plan
   # `dev_docs/plans/2026-10-25-module-table-ownership.md`, step 8): V135..V225

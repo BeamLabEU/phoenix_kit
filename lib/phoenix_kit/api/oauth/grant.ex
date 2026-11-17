@@ -10,6 +10,9 @@ defmodule PhoenixKit.API.OAuth.Grant do
     * `resource` - the one resource the tokens of this grant are for.
     * `activated_at` - set when the authorization code was exchanged; a consent nobody
       finished stays `nil`.
+    * `approved_at` - when the connection was approved (made at once for a trusted client, or
+      by an owner afterwards). **`nil` means it waits for approval**: nothing the grant's
+      tokens carry may run (`PhoenixKit.API.OAuth.Grants.awaiting?/1`).
     * `revoked_at`, `last_used_at`, `created_ip`.
 
   The effective rights of a request are the grant's scopes narrowed to what its owner may do
@@ -32,6 +35,7 @@ defmodule PhoenixKit.API.OAuth.Grant do
     field :scopes, {:array, :string}, default: []
     field :expires_at, :utc_datetime
     field :activated_at, :utc_datetime
+    field :approved_at, :utc_datetime
     field :revoked_at, :utc_datetime
     field :last_used_at, :utc_datetime
     field :created_ip, :string
