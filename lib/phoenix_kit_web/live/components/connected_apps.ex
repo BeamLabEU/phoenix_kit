@@ -21,7 +21,12 @@ defmodule PhoenixKitWeb.Live.Components.ConnectedApps do
   component without a usable `scope` or boolean `impersonated` shows nothing and refuses every
   event.
 
-  ## Rights are checked on every event
+  ## Rights are checked on every render and every event
+
+  The list is read with a scope built from the database each time the component is updated, not
+  with the scope captured at mount: a person who lost the right sees no rows, and an Owner who is
+  none any more does not keep seeing everybody's connections (the `:all` view needs the Owner
+  role of that fresh scope).
 
   Ending a connection first re-reads the person's rights from the database
   (`PhoenixKit.API.Access.fresh_scope/2`: `api_personal_keys` or `api` for the own view, `api` for
@@ -59,8 +64,7 @@ defmodule PhoenixKitWeb.Live.Components.ConnectedApps do
       |> assign_new(:message, fn -> nil end)
       |> assign_new(:revoke_confirmation, fn -> %{show: false} end)
 
-    socket = assign(socket, :usable, usable?(socket.assigns))
-    {:ok, load(socket, socket.assigns.scope)}
+    {:ok, socket |> assign(:usable, usable?(socket.assigns)) |> load_fresh()}
   end
 
   defp usable?(%{scope: %Scope{user: %User{}}, impersonated: impersonated, mode: mode})
@@ -69,7 +73,18 @@ defmodule PhoenixKitWeb.Live.Components.ConnectedApps do
 
   defp usable?(_assigns), do: false
 
-  # Lists with `scope`: the session's on mount and update, the fresh one after an event.
+  # Every render reads the person's rights again (as an event does): a list is never made from the
+  # scope captured at mount, so a person who lost the right, or an Owner who is none any more, is
+  # shown what a page opened now would show.
+  defp load_fresh(%{assigns: %{usable: true, scope: scope, mode: mode}} = socket) do
+    case fresh_scope(scope, mode) do
+      {:ok, fresh} -> load(socket, fresh)
+      :error -> socket |> assign(:oauth_enabled, Config.oauth_enabled?()) |> no_rows()
+    end
+  end
+
+  defp load_fresh(socket), do: load(socket, nil)
+
   defp load(%{assigns: %{usable: true, mode: mode}} = socket, scope) do
     rows = Connections.list(scope, mode)
 
@@ -241,7 +256,7 @@ defmodule PhoenixKitWeb.Live.Components.ConnectedApps do
 
   defp status_label(:active), do: gettext("Active")
   defp status_label(:no_permission), do: gettext("No permission")
-  defp status_label(:owner_inactive), do: gettext("Owner inactive")
+  defp status_label(:owner_inactive), do: gettext("Account inactive")
   defp status_label(:wrong_resource), do: gettext("Site address changed")
 
   defp message_role(:error), do: "alert"
@@ -386,6 +401,7 @@ defmodule PhoenixKitWeb.Live.Components.ConnectedApps do
                       type="button"
                       variant="outline"
                       size="xs"
+                      aria-label={gettext("Disconnect %{name}", name: app_name(row))}
                       phx-click="request_revoke"
                       phx-value-uuid={row.grant.uuid}
                       phx-target={@myself}

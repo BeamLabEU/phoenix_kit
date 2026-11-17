@@ -27591,6 +27591,31 @@ msgstr "是，断开连接"
 msgid "Disconnect this application?"
 msgstr "断开此应用？"
 
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.ex:161
+#, elixir-autogen, elixir-format
+msgid "Document and return address read"
+msgstr "已读取文档和返回地址"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.ex:168
+#, elixir-autogen, elixir-format
+msgid "Document read"
+msgstr "已读取文档"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.ex:168
+#, elixir-autogen, elixir-format
+msgid "Depends on the plan"
+msgstr "取决于套餐"
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:404
+#, elixir-autogen, elixir-format
+msgid "Disconnect %{name}"
+msgstr "断开连接 %{name}"
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:259
+#, elixir-autogen, elixir-format
+msgid "Account inactive"
+msgstr "账户未激活"
+
 #: lib/phoenix_kit_web/oauth/pages.ex:188
 #, elixir-autogen, elixir-format
 msgid "Reading is selected by default. Anything that changes data you turn on yourself."
@@ -28110,16 +28135,6 @@ msgstr "连接方式"
 #, elixir-autogen, elixir-format
 msgid "Checked"
 msgstr "检查情况"
-
-#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:302
-#, elixir-autogen, elixir-format
-msgid "Document and return address read; not yet tried live"
-msgstr "已读取文档和返回地址；尚未实际试用"
-
-#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:307
-#, elixir-autogen, elixir-format
-msgid "Document read; not yet tried live; depends on the plan"
-msgstr "已读取文档；尚未实际试用；取决于套餐"
 
 #: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:312
 #, elixir-autogen, elixir-format

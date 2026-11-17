@@ -57,6 +57,23 @@ defmodule PhoenixKit.API.OAuth.ClientsAdminTest do
 
       assert Enum.find(Clients.list(), &(&1.client.uuid == client.uuid)).grants == 0
     end
+
+    test "counts a consent just approved whose code is not yet exchanged, as the removal does",
+         ctx do
+      client = client!()
+      attrs = %{scopes: [read_scope()], expires_at: DateTime.add(DateTime.utc_now(), 86_400)}
+      {:ok, grant, _key} = Grants.create(ctx.scope, client, attrs, impersonated: false)
+      {:ok, _code, row} = Codes.issue(grant, %{redirect_uri: "https://x/cb", code_challenge: "c"})
+
+      assert Enum.find(Clients.list(), &(&1.client.uuid == client.uuid)).grants == 1
+
+      # Once the code ran out nobody can finish the consent: it is no connection any more.
+      Repo.update_all(from(c in PhoenixKit.API.OAuth.Code, where: c.uuid == ^row.uuid),
+        set: [expires_at: DateTime.add(DateTime.utc_now(), -60) |> DateTime.truncate(:second)]
+      )
+
+      assert Enum.find(Clients.list(), &(&1.client.uuid == client.uuid)).grants == 0
+    end
   end
 
   describe "register_preregistered/2" do

@@ -144,9 +144,56 @@ defmodule PhoenixKitWeb.Live.Settings.ApiGuidePanel do
       mcp_url: url,
       metadata_url: Keyword.fetch!(report.urls, :protected_resource_metadata),
       server_metadata_url: Keyword.fetch!(report.urls, :authorization_server_metadata),
-      claude_code_command: "claude mcp add --transport http #{name} #{shell_quote(url)}"
+      claude_code_command: "claude mcp add --transport http #{name} #{shell_quote(url)}",
+      matrix: oauth_matrix()
     }
   end
+
+  # The table "Which clients were checked". What is known of each client is here and nowhere else
+  # (the template only prints it); `status` is the one fact that changes when a client is first
+  # tried against a live installation, and `status_text/1` is the only place that words it.
+  defp oauth_matrix do
+    [
+      %{
+        id: "claude",
+        name: "Claude",
+        connects_by: gettext("Metadata document"),
+        known: [gettext("Document and return address read")],
+        status: :not_tried
+      },
+      %{
+        id: "chatgpt",
+        name: "ChatGPT",
+        connects_by: gettext("Metadata document"),
+        known: [gettext("Document read"), gettext("Depends on the plan")],
+        status: :not_tried
+      },
+      %{
+        id: "claude-code",
+        name: "Claude Code",
+        connects_by: gettext("Self-registration of applications"),
+        known: [],
+        status: :not_tried
+      },
+      %{
+        id: "inspector",
+        name: "MCP Inspector",
+        connects_by: gettext("Self-registration of applications"),
+        known: [],
+        status: :not_tried
+      },
+      %{
+        id: "cursor",
+        name: "Cursor, VS Code, Codex",
+        connects_by: gettext("A key, as above"),
+        known: [],
+        status: :not_promised
+      }
+    ]
+  end
+
+  defp status_text(:not_tried), do: gettext("Not yet tried live")
+  defp status_text(:not_promised), do: gettext("OAuth is not promised; use a key")
 
   defp json(term), do: Jason.encode!(term, pretty: true)
 

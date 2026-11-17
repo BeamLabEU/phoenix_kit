@@ -23,8 +23,10 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
 
   Every event re-reads the person's rights (`PhoenixKit.API.Access.fresh_scope/1`, the `api`
   permission) and acts as that person: a right lost since the page was opened is refused and
-  nothing is written. The form is validated as a whole (one invalid field saves nothing) and each
-  changed setting is a permanent `setting.changed` Activity entry
+  nothing is written. The same read decides, at every render, whether the person is an Owner (the
+  list of every connection, the Remove button of a client that has connections), so a role taken
+  away since the page was opened stops showing what only an Owner may see. The form is validated
+  as a whole (one invalid field saves nothing) and each changed setting is a permanent `setting.changed` Activity entry
   (`PhoenixKit.API.OAuthConfig.save/2`); adding a client writes `oauth.client_registered`.
   Removing a client ends every connection of it first (`PhoenixKit.API.OAuth.Clients.delete/2`,
   one `oauth.grant_revoked` entry each, then `oauth.client_removed`), which is ending other
@@ -67,10 +69,13 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
       |> assign_new(:client_errors, fn -> [] end)
       |> assign_new(:delete_confirmation, fn -> %{show: false} end)
 
-    {:ok, load(socket)}
+    {:ok, load(socket, Access.fresh_scope(socket.assigns.scope))}
   end
 
-  defp load(socket) do
+  # `fresh` is the result of `Access.fresh_scope/1`, read for this render: whether the person is an
+  # Owner (the list of every connection, the Remove button of a client with connections) is never
+  # taken from the scope captured at mount.
+  defp load(socket, fresh) do
     clients = Clients.list()
 
     socket
@@ -79,8 +84,11 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
     |> assign(:dcr_setting, Settings.get_boolean_setting("api_oauth_dcr_enabled", false))
     |> assign(:clients, clients)
     |> assign(:clients_truncated, length(clients) >= Clients.list_limit())
-    |> assign(:owner?, Scope.owner?(socket.assigns.scope))
+    |> assign(:owner?, owner?(fresh))
   end
+
+  defp owner?({:ok, fresh}), do: Scope.owner?(fresh)
+  defp owner?(:error), do: false
 
   defp blank_client, do: %{"client_id" => "", "client_name" => "", "redirect_uris" => ""}
 
@@ -222,7 +230,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
     case Access.fresh_scope(socket.assigns.scope) do
       {:ok, fresh} ->
         socket = socket |> assign(:fresh_scope, fresh) |> assign(:message, nil)
-        {:noreply, socket |> fun.() |> load()}
+        {:noreply, socket |> fun.() |> load({:ok, fresh})}
 
       :error ->
         {:noreply,
@@ -752,6 +760,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
                     type="button"
                     variant="outline"
                     size="xs"
+                    aria-label={gettext("Remove %{name}", name: client_name(row.client))}
                     phx-click="request_delete_client"
                     phx-value-uuid={row.client.uuid}
                     phx-target={@myself}

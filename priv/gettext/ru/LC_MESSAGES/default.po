@@ -27665,6 +27665,31 @@ msgstr "Да, отключить"
 msgid "Disconnect this application?"
 msgstr "Отключить это приложение?"
 
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.ex:161
+#, elixir-autogen, elixir-format
+msgid "Document and return address read"
+msgstr "Документ и адрес возврата прочитаны"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.ex:168
+#, elixir-autogen, elixir-format
+msgid "Document read"
+msgstr "Документ прочитан"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.ex:168
+#, elixir-autogen, elixir-format
+msgid "Depends on the plan"
+msgstr "Зависит от тарифа"
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:404
+#, elixir-autogen, elixir-format
+msgid "Disconnect %{name}"
+msgstr "Отключить %{name}"
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:259
+#, elixir-autogen, elixir-format
+msgid "Account inactive"
+msgstr "Учётная запись неактивна"
+
 #: lib/phoenix_kit_web/oauth/pages.ex:188
 #, elixir-autogen, elixir-format
 msgid "Reading is selected by default. Anything that changes data you turn on yourself."
@@ -28184,16 +28209,6 @@ msgstr "Подключается через"
 #, elixir-autogen, elixir-format
 msgid "Checked"
 msgstr "Проверено"
-
-#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:302
-#, elixir-autogen, elixir-format
-msgid "Document and return address read; not yet tried live"
-msgstr "Документ и адрес возврата прочитаны; вживую ещё не проверялось"
-
-#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:307
-#, elixir-autogen, elixir-format
-msgid "Document read; not yet tried live; depends on the plan"
-msgstr "Документ прочитан; вживую ещё не проверялось; зависит от тарифа"
 
 #: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:312
 #, elixir-autogen, elixir-format

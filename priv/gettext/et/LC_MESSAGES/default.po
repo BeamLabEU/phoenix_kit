@@ -27579,6 +27579,31 @@ msgstr "Jah, ühenda lahti"
 msgid "Disconnect this application?"
 msgstr "Kas ühendada see rakendus lahti?"
 
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.ex:161
+#, elixir-autogen, elixir-format
+msgid "Document and return address read"
+msgstr "Dokument ja naasmisaadress loetud"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.ex:168
+#, elixir-autogen, elixir-format
+msgid "Document read"
+msgstr "Dokument loetud"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.ex:168
+#, elixir-autogen, elixir-format
+msgid "Depends on the plan"
+msgstr "Sõltub paketist"
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:404
+#, elixir-autogen, elixir-format
+msgid "Disconnect %{name}"
+msgstr "Ühenda %{name} lahti"
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:259
+#, elixir-autogen, elixir-format
+msgid "Account inactive"
+msgstr "Konto pole aktiivne"
+
 #: lib/phoenix_kit_web/oauth/pages.ex:188
 #, elixir-autogen, elixir-format
 msgid "Reading is selected by default. Anything that changes data you turn on yourself."
@@ -28099,16 +28124,6 @@ msgstr "Ühendub"
 msgid "Checked"
 msgstr "Kontrollitud"
 
-#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:302
-#, elixir-autogen, elixir-format
-msgid "Document and return address read; not yet tried live"
-msgstr "Dokument ja naasmisaadress loetud; pole veel päriselt proovitud"
-
-#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:307
-#, elixir-autogen, elixir-format
-msgid "Document read; not yet tried live; depends on the plan"
-msgstr "Dokument loetud; pole veel päriselt proovitud; sõltub paketist"
-
 #: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:312
 #, elixir-autogen, elixir-format
 msgid "Not yet tried live"
@@ -28152,4 +28167,4 @@ msgstr "Kuni tegutsete teises kontos, ei saa siin midagi muuta."
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:280
 #, elixir-autogen, elixir-format
 msgid "The client ID is the address of a metadata document. An application that names itself by a metadata document is known when it is used: do not add it by hand."
-msgstr "Kliendi ID on metaandmete dokumendi aadress. Rakendus, mis nimetab end metaandmete dokumendi kaudu, saab teatavaks esimesel kasutamisel: ärge lisage seda käsitsi."
+msgstr "Kliendi ID on metaandmete dokumendi aadress. Rakendus, mis nimetab end metaandmete dokumendi kaudu, saab teatavaks esimesel kasutamisel: ära lisa seda käsitsi."

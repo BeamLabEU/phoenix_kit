@@ -9,6 +9,7 @@ defmodule PhoenixKitWeb.Live.Users.ConnectedAppsTest do
 
   import PhoenixKit.API.OAuthTestSupport
 
+  alias PhoenixKit.API.Keys
   alias PhoenixKit.API.Keys.Key
   alias PhoenixKit.API.KeyTestSupport
   alias PhoenixKit.API.OAuth.Grant
@@ -86,6 +87,51 @@ defmodule PhoenixKitWeb.Live.Users.ConnectedAppsTest do
       assert has_element?(view, row_id(seeded))
       assert html =~ "Claude"
       refute html =~ "Somebody else"
+    end
+
+    test "the Disconnect button names its application for a screen reader", %{
+      conn: conn,
+      scope: scope
+    } do
+      first = seed_grant!(scope, client: client!(%{client_name: "Claude"}))
+      second = seed_grant!(scope, client: client!(%{client_name: "ChatGPT"}))
+
+      {:ok, view, _html} = live(conn, @path)
+
+      assert has_element?(
+               view,
+               ~s(#personal-api-keys-connected-apps-revoke-#{first.grant.uuid}[aria-label="Disconnect Claude"])
+             )
+
+      assert has_element?(
+               view,
+               ~s(#personal-api-keys-connected-apps-revoke-#{second.grant.uuid}[aria-label="Disconnect ChatGPT"])
+             )
+    end
+
+    test "the hidden key of a connection is not in the table of the person's keys", %{
+      conn: conn,
+      scope: scope
+    } do
+      seeded = seed_grant!(scope)
+
+      {:ok, own, _token} =
+        Keys.create_personal_key(
+          scope,
+          %{
+            name: "Own key",
+            scopes: [KeyTestSupport.read_scope()],
+            expires_at: DateTime.add(DateTime.utc_now(), 30 * 86_400)
+          },
+          impersonated: false
+        )
+
+      {:ok, view, _html} = live(conn, @path)
+
+      assert has_element?(view, "#personal-api-keys-key-#{own.uuid}")
+      refute has_element?(view, "#personal-api-keys-key-#{seeded.key.uuid}")
+      assert has_element?(view, "#personal-api-keys-table", own.prefix)
+      refute view |> element("#personal-api-keys-table") |> render() =~ seeded.key.prefix
     end
 
     test "a connection made for another address of the site says so", %{conn: conn, scope: scope} do

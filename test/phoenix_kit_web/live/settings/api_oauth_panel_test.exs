@@ -14,7 +14,9 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanelTest do
   alias PhoenixKit.API.KeyTestSupport
   alias PhoenixKit.API.OAuth.Client
   alias PhoenixKit.API.OAuth.Clients
+  alias PhoenixKit.API.OAuth.Codes
   alias PhoenixKit.API.OAuth.Grant
+  alias PhoenixKit.API.OAuth.Grants
   alias PhoenixKit.API.OAuth.Tokens
   alias PhoenixKit.API.OAuthConfig
   alias PhoenixKit.Settings
@@ -23,6 +25,8 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanelTest do
   alias PhoenixKit.Users.RolePermission
   alias PhoenixKit.Users.Roles
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.Live.Components.ConnectedApps
+  alias PhoenixKitWeb.Live.Settings.ApiOauthPanel
 
   @path Routes.path("/admin/settings/api?tab=oauth")
   @panel "#api-oauth"
@@ -53,6 +57,19 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanelTest do
       )
 
     :ok
+  end
+
+  # The Owner role taken away without a PubSub message: the page still holds the scope of its mount.
+  defp demote_owner!(owner) do
+    {:ok, _} = Roles.remove_role(owner, "Owner", broadcast: false)
+    {:ok, _} = Roles.assign_role(owner, "Admin", nil, broadcast: false)
+    :ok
+  end
+
+  # What the parent does when it re-renders a component: `update/2` again, with no event.
+  defp refresh!(view, module, id) do
+    Phoenix.LiveView.send_update(view.pid, module, id: id, refresh: true)
+    render(view)
   end
 
   defp changed_settings(admin) do
@@ -499,6 +516,13 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanelTest do
       assert has_element?(ctx.view, "#api-oauth-client-remove-#{ctx.client.uuid}")
     end
 
+    test "the Remove button names its application for a screen reader", ctx do
+      assert has_element?(
+               ctx.view,
+               ~s(#api-oauth-client-remove-#{ctx.client.uuid}[aria-label="Remove Doomed"])
+             )
+    end
+
     test "the confirming event takes no uuid from its params", ctx do
       other = client!()
       ctx.view |> element("#api-oauth-client-remove-#{ctx.client.uuid}") |> render_click()
@@ -594,6 +618,31 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanelTest do
       assert [entry] = Activity.list(action: "oauth.client_removed").entries
       assert entry.resource_uuid == ctx.idle.uuid
       assert entry.metadata["connections_ended"] == 0
+    end
+  end
+
+  describe "a consent approved but not yet exchanged, for an Admin who is not an Owner" do
+    test "counts as a connection: no Remove button, the note says who may", %{conn: conn} do
+      {_user, _role, scope} = oauth_holder(["media"])
+      pending = client!(%{client_name: "Pending"})
+
+      attrs = %{
+        scopes: [KeyTestSupport.read_scope()],
+        expires_at: DateTime.add(DateTime.utc_now(), 86_400)
+      }
+
+      {:ok, grant, _key} = Grants.create(scope, pending, attrs, impersonated: false)
+
+      {:ok, _code, _row} =
+        Codes.issue(grant, %{redirect_uri: "https://x/cb", code_challenge: "c"})
+
+      assert grant.activated_at == nil
+
+      {:ok, view, _html} = live(conn, @path)
+
+      assert has_element?(view, "#api-oauth-client-grants-#{pending.uuid}", "1")
+      refute has_element?(view, "#api-oauth-client-remove-#{pending.uuid}")
+      assert has_element?(view, "#api-oauth-client-owner-only-#{pending.uuid}")
     end
   end
 
@@ -732,7 +781,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanelTest do
       assert has_element?(
                view,
                "#api-oauth-connected-apps-grant-#{seeded.grant.uuid}",
-               "Owner inactive"
+               "Account inactive"
              )
     end
 
@@ -753,6 +802,43 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanelTest do
       refute has_element?(view, "#api-oauth-connected-apps-revoke-confirm")
       assert render_hook(target, "confirm_revoke", %{}) =~ "not allowed"
       assert Repo.get!(Grant, seeded.grant.uuid).revoked_at == nil
+    end
+
+    test "an Owner downgraded during the session sees nobody's connections after the next refresh",
+         ctx do
+      seeded = seed_grant!(ctx.holder_scope)
+      owner = KeyTestSupport.owner_user()
+      conn = log_in_user(Phoenix.ConnTest.build_conn(), owner)
+      {:ok, view, _html} = live(conn, @path)
+
+      row = "#api-oauth-connected-apps-grant-#{seeded.grant.uuid}"
+      remove = "#api-oauth-client-remove-#{seeded.client.uuid}"
+      assert has_element?(view, row)
+      assert has_element?(view, remove)
+
+      demote_owner!(owner)
+      refresh!(view, ApiOauthPanel, "api-oauth")
+
+      refute has_element?(view, "#api-oauth-connected-apps")
+      refute has_element?(view, row)
+      refute has_element?(view, remove)
+      assert has_element?(view, "#api-oauth-client-owner-only-#{seeded.client.uuid}")
+    end
+
+    test "the list of everyone reads the person's rights again each time it is refreshed", ctx do
+      seeded = seed_grant!(ctx.holder_scope)
+      owner = KeyTestSupport.owner_user()
+      conn = log_in_user(Phoenix.ConnTest.build_conn(), owner)
+      {:ok, view, _html} = live(conn, @path)
+
+      row = "#api-oauth-connected-apps-grant-#{seeded.grant.uuid}"
+      assert has_element?(view, row)
+
+      demote_owner!(owner)
+      # Only the list is refreshed: the panel around it still believes in the Owner.
+      refresh!(view, ConnectedApps, "api-oauth-connected-apps")
+
+      refute has_element?(view, row)
     end
 
     test "an Admin who holds api but is not an Owner does not see the list of everyone", %{

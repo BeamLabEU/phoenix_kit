@@ -290,30 +290,14 @@
               </tr>
             </thead>
             <tbody>
-              <tr id="guide-oauth-matrix-claude">
-                <td>Claude</td>
-                <td>{gettext("Metadata document")}</td>
-                <td>{gettext("Document and return address read; not yet tried live")}</td>
-              </tr>
-              <tr id="guide-oauth-matrix-chatgpt">
-                <td>ChatGPT</td>
-                <td>{gettext("Metadata document")}</td>
-                <td>{gettext("Document read; not yet tried live; depends on the plan")}</td>
-              </tr>
-              <tr id="guide-oauth-matrix-claude-code">
-                <td>Claude Code</td>
-                <td>{gettext("Self-registration of applications")}</td>
-                <td>{gettext("Not yet tried live")}</td>
-              </tr>
-              <tr id="guide-oauth-matrix-inspector">
-                <td>MCP Inspector</td>
-                <td>{gettext("Self-registration of applications")}</td>
-                <td>{gettext("Not yet tried live")}</td>
-              </tr>
-              <tr id="guide-oauth-matrix-cursor">
-                <td>Cursor, VS Code, Codex</td>
-                <td>{gettext("A key, as above")}</td>
-                <td>{gettext("OAuth is not promised; use a key")}</td>
+              <tr :for={row <- @guide.oauth.matrix} id={"guide-oauth-matrix-#{row.id}"}>
+                <td>{row.name}</td>
+                <td>{row.connects_by}</td>
+                <td>
+                  <span :for={fact <- row.known ++ [status_text(row.status)]} class="block">
+                    {fact}
+                  </span>
+                </td>
               </tr>
             </tbody>
           </table>

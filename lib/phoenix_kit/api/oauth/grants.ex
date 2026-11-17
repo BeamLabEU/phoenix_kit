@@ -178,6 +178,18 @@ defmodule PhoenixKit.API.OAuth.Grants do
     |> repo().aggregate(:count)
   end
 
+  @doc """
+  `%{client_uuid => count}` of the live grants (in the sense of `count_live/1`) of every client
+  that has one, whoever owns them: what `count_live_for_client/1` counts, for a page of clients.
+  """
+  @spec count_live_by_client() :: %{String.t() => pos_integer()}
+  def count_live_by_client do
+    from(g in Grant, as: :grant, group_by: g.client_uuid, select: {g.client_uuid, count(g.uuid)})
+    |> live()
+    |> repo().all()
+    |> Map.new()
+  end
+
   defp live_query(user_uuid) do
     from(g in Grant, as: :grant, where: g.user_uuid == ^user_uuid) |> live()
   end

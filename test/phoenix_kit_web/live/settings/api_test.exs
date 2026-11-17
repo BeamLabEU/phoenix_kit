@@ -10,6 +10,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiTest do
   use PhoenixKitWeb.ConnCase, async: false
 
   import ExUnit.CaptureLog
+  import PhoenixKit.API.OAuthTestSupport, only: [oauth_holder: 1, seed_grant!: 1]
 
   alias Phoenix.LiveView.Channel
   alias PhoenixKit.Activity
@@ -442,6 +443,23 @@ defmodule PhoenixKitWeb.Live.Settings.ApiTest do
 
       assert has_element?(view, "#api-key-#{mine.uuid}")
       assert has_element?(view, "#api-key-#{theirs.uuid}")
+    end
+
+    test "the hidden key of an OAuth connection is in nobody's table, the Owner's included", %{
+      conn: conn,
+      admin: admin
+    } do
+      {_holder, _role, holder_scope} = oauth_holder(["media"])
+      hidden = seed_grant!(holder_scope)
+      {visible, _} = make_key!(admin, %{"name" => "Visible"})
+
+      for conn <- [conn, log_in_user(Phoenix.ConnTest.build_conn(), KeyTestSupport.owner_user())] do
+        {:ok, view, html} = live(conn, @path)
+
+        assert has_element?(view, "#api-key-#{visible.uuid}")
+        refute has_element?(view, "#api-key-#{hidden.key.uuid}")
+        refute html =~ hidden.key.prefix
+      end
     end
 
     test "a key shows its prefix but never its token or hash", %{conn: conn, admin: admin} do

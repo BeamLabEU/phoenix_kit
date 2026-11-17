@@ -425,21 +425,13 @@ defmodule PhoenixKit.API.OAuth.Clients do
 
   @doc """
   The clients for a page, newest first (at most `list_limit/0`), each with how many live grants it has:
-  `[%{client: client, grants: count}]`. A grant is live when it is activated, not revoked and not
-  expired.
+  `[%{client: client, grants: count}]`. A grant is live as `Grants.count_live_for_client/1` counts it
+  (activated, or a consent whose authorization code is still alive; not revoked, not expired), so the
+  number is the one an idle-only removal acts on.
   """
   @spec list() :: [%{client: Client.t(), grants: non_neg_integer()}]
   def list do
-    now = DateTime.truncate(DateTime.utc_now(), :second)
-
-    counts =
-      from(g in Grant,
-        where: not is_nil(g.activated_at) and is_nil(g.revoked_at) and g.expires_at > ^now,
-        group_by: g.client_uuid,
-        select: {g.client_uuid, count(g.uuid)}
-      )
-      |> repo().all()
-      |> Map.new()
+    counts = Grants.count_live_by_client()
 
     from(c in Client, order_by: [desc: c.inserted_at, desc: c.uuid], limit: @list_limit)
     |> repo().all()

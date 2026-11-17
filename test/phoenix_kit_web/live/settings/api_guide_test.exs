@@ -270,14 +270,26 @@ defmodule PhoenixKitWeb.Live.Settings.ApiGuideTest do
       {:ok, view, _html} = live(conn, @path)
 
       for client <- ~w(claude chatgpt claude-code inspector) do
-        assert text(view, "#guide-oauth-matrix-#{client}") =~ "not yet tried live" or
-                 text(view, "#guide-oauth-matrix-#{client}") =~ "Not yet tried live"
+        assert text(view, "#guide-oauth-matrix-#{client}") =~ "Not yet tried live"
       end
+
+      assert text(view, "#guide-oauth-matrix-claude") =~ "Document and return address read"
+      assert text(view, "#guide-oauth-matrix-chatgpt") =~ "Depends on the plan"
 
       assert text(view, "#guide-oauth-matrix-cursor") =~ "not promised"
       assert text(view, "#guide-oauth-matrix-cursor") =~ "Codex"
       refute has_element?(view, "#guide-oauth-codex")
       refute has_element?(view, "#guide-oauth-matrix-codex")
+    end
+
+    test "the status of the live checks is worded in one place" do
+      root = Path.expand("../../../..", __DIR__)
+
+      sources =
+        for file <- ~w(api_guide_panel.ex api_guide_panel.html.heex),
+            do: File.read!(Path.join([root, "lib/phoenix_kit_web/live/settings", file]))
+
+      assert sources |> Enum.join("\n") |> String.split("tried live") |> length() == 2
     end
 
     test "tells that a lost right ends the connection at the next request", %{conn: conn} do
