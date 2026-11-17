@@ -254,6 +254,13 @@
                 "When a person's password is changed or reset, their personal keys and the applications connected with the OAuth sign-in end at once, and each has to be made or connected again. This includes a person who sets a password for the first time. Keys of services are not touched. It is off until you switch it on."
               )}
             </p>
+            <p
+              :if={not @owner?}
+              id="api-switch-password-owner-only"
+              class="text-sm text-base-content/70"
+            >
+              {gettext("Only an Owner can change this.")}
+            </p>
           </div>
           <.checkbox
             id="api-switch-password"
@@ -265,6 +272,7 @@
             aria-labelledby="api-switch-password-title"
             aria-describedby="api-switch-password-text"
             checked={@password_change_revokes}
+            disabled={not @owner?}
             phx-click="toggle_switch"
             phx-value-switch="password"
           />

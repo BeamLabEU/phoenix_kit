@@ -28349,3 +28349,10 @@ msgstr "Die Person erhält eine E-Mail, wenn eine Anwendung verbunden wird: den 
 #, elixir-autogen, elixir-format
 msgid "With the setting A password change ends personal keys and connections switched on (the API settings, Personal API keys), a changed or reset password ends the person's personal keys and connections at once. Keys of services stay."
 msgstr "Ist die Einstellung „Eine Passwortänderung beendet persönliche Schlüssel und Verbindungen“ eingeschaltet (API-Einstellungen, Persönliche API-Schlüssel), beendet ein geändertes oder zurückgesetztes Passwort die persönlichen Schlüssel und Verbindungen der Person sofort. Schlüssel von Diensten bleiben bestehen."
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex:260
+#: lib/phoenix_kit_web/live/settings/api.ex:564
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:196
+#, elixir-autogen, elixir-format
+msgid "Only an Owner can change this."
+msgstr "Nur ein Owner kann das ändern."

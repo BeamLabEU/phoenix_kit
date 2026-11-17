@@ -176,25 +176,55 @@ defmodule PhoenixKitWeb.Live.Settings.ApiTest do
       assert Enum.any?(entries, &(&1.metadata["key"] == "api_admin_enabled"))
     end
 
-    test "the password switch starts off and ends keys on a password change only when on", %{
-      conn: conn,
-      admin: admin
-    } do
+    test "the password switch starts off and ends keys on a password change only when on", %{} do
+      owner = KeyTestSupport.owner_user()
+      conn = log_in_user(Phoenix.ConnTest.build_conn(), owner)
       {:ok, view, _html} = live(conn, @path)
       switch = element(view, ~s(#api-switch-password-row input[phx-click="toggle_switch"]))
 
       refute Config.password_change_revokes?()
       refute has_element?(view, "#api-switch-password-row input[checked]")
+      refute has_element?(view, "#api-switch-password-owner-only")
 
       render_click(switch)
       assert Config.password_change_revokes?()
       assert has_element?(view, "#api-switch-password-row input[checked]")
 
-      entries = Activity.list(action: "setting.changed", actor_uuid: admin.uuid).entries
+      entries = Activity.list(action: "setting.changed", actor_uuid: owner.uuid).entries
       assert Enum.any?(entries, &(&1.metadata["key"] == "api_password_change_revokes"))
 
       render_click(switch)
       refute Config.password_change_revokes?()
+    end
+
+    test "an Admin who holds api sees the password switch disabled and cannot change it", %{
+      conn: conn,
+      admin: admin
+    } do
+      {:ok, view, _html} = live(conn, @path)
+
+      assert has_element?(view, "#api-switch-password-owner-only")
+      assert has_element?(view, "#api-switch-password-row input[disabled]")
+
+      html = render_click(view, "toggle_switch", %{"switch" => "password"})
+
+      assert html =~ "Only an Owner can change this."
+      refute Config.password_change_revokes?()
+
+      entries = Activity.list(action: "setting.changed", actor_uuid: admin.uuid).entries
+      refute Enum.any?(entries, &(&1.metadata["key"] == "api_password_change_revokes"))
+    end
+
+    test "an Admin cannot switch the password setting OFF either", %{conn: conn} do
+      KeyTestSupport.write_setting(fn ->
+        Settings.update_boolean_setting("api_password_change_revokes", true)
+      end)
+
+      {:ok, view, _html} = live(conn, @path)
+      html = render_click(view, "toggle_switch", %{"switch" => "password"})
+
+      assert html =~ "Only an Owner can change this."
+      assert Config.password_change_revokes?()
     end
 
     test "an unknown switch name is refused and writes no setting", %{conn: conn} do

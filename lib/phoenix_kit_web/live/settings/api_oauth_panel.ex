@@ -126,7 +126,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
   end
 
   def handle_event("save_settings", %{"oauth" => params}, socket) when is_map(params) do
-    with_access(socket, fn socket ->
+    with_owner(socket, fn socket ->
       params = normalize_settings(params)
 
       case OAuthConfig.save(params, history(socket)) do
@@ -158,7 +158,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
   end
 
   def handle_event("add_client", %{"client" => params}, socket) when is_map(params) do
-    with_access(socket, fn socket -> add_client(socket, normalize_client(params)) end)
+    with_owner(socket, fn socket -> add_client(socket, normalize_client(params)) end)
   end
 
   def handle_event("request_delete_client", %{"uuid" => uuid}, socket) do
@@ -248,6 +248,17 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
          |> assign(:delete_confirmation, %{show: false})
          |> error(gettext("You are not allowed to do that."))}
     end
+  end
+
+  # What decides who is trusted without approval (the policy, the allowed hosts, a client added
+  # by hand) is an Owner's call, like the approval itself: `with_access/2` and then the Owner
+  # role of the fresh scope, so a role taken away since the page was opened is refused too.
+  defp with_owner(socket, fun) do
+    with_access(socket, fn socket ->
+      if Scope.owner?(socket.assigns.fresh_scope),
+        do: fun.(socket),
+        else: error(socket, gettext("Only an Owner can change this."))
+    end)
   end
 
   defp borrowed_text,
@@ -711,8 +722,15 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
             </div>
           </details>
 
-          <div class="flex justify-end">
-            <.button type="submit" id="api-oauth-settings-submit">
+          <div class="flex items-center justify-end gap-3">
+            <p
+              :if={not @owner?}
+              id="api-oauth-settings-owner-only"
+              class="text-sm text-base-content/70"
+            >
+              {gettext("Only an Owner can change this.")}
+            </p>
+            <.button type="submit" id="api-oauth-settings-submit" disabled={not @owner?}>
               {gettext("Save the settings")}
             </.button>
           </div>
@@ -868,8 +886,17 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
             }
             value={@client_params["redirect_uris"]}
           />
-          <div class="flex justify-end">
-            <.button type="submit" id="api-oauth-client-submit">{gettext("Add")}</.button>
+          <div class="flex items-center justify-end gap-3">
+            <p
+              :if={not @owner?}
+              id="api-oauth-client-owner-only"
+              class="text-sm text-base-content/70"
+            >
+              {gettext("Only an Owner can change this.")}
+            </p>
+            <.button type="submit" id="api-oauth-client-submit" disabled={not @owner?}>
+              {gettext("Add")}
+            </.button>
           </div>
         </form>
       </.form_section>
