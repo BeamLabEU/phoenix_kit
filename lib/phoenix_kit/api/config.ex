@@ -22,6 +22,7 @@ defmodule PhoenixKit.API.Config do
   | `api_oauth_dcr_enabled` | `false` (Dynamic Client Registration, `POST /oauth/register`; only counts while OAuth is on) |
   | `api_oauth_client_policy` | `"approval"` (`"any"`: every client at once; `"allow_list"`: only the hosts of `api_oauth_client_allow_hosts`) |
   | `api_oauth_client_allow_hosts` | `""` (newline separated hosts) |
+  | `api_password_change_revokes` | `false` (a password change ends the person's personal keys and OAuth connections) |
   | `api_oauth_cimd_per_min` | `20` (client metadata fetches per client network) |
   | `api_oauth_cimd_client_per_min` | `5` (client metadata fetches per client) |
   | `api_oauth_cimd_concurrency` | `4` (client metadata downloads that run at once) |
@@ -112,6 +113,14 @@ defmodule PhoenixKit.API.Config do
   catch
     :exit, _ -> :allow_list
   end
+
+  @doc """
+  Whether changing a person's password ends their personal API keys and OAuth connections
+  (`api_password_change_revokes`). Off by default; fails closed like the other switches: a
+  setting that cannot be read is off.
+  """
+  @spec password_change_revokes?() :: boolean()
+  def password_change_revokes?, do: flag("api_password_change_revokes")
 
   @doc """
   The hosts of the client allow-list (`api_oauth_client_allow_hosts`), as the person wrote them,

@@ -138,7 +138,11 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
   alias PhoenixKitWeb.Users.MultiSession
 
   # The two switches: the name used in the page, the setting it writes.
-  @switches %{"admin" => "api_admin_enabled", "public" => "api_public_enabled"}
+  @switches %{
+    "admin" => "api_admin_enabled",
+    "public" => "api_public_enabled",
+    "password" => "api_password_change_revokes"
+  }
 
   # Limits form field -> {setting, key in `Config.rate_limits/0`}.
   @limit_fields [
@@ -559,6 +563,7 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
     socket
     |> assign(:admin_enabled, Config.admin_enabled?())
     |> assign(:public_enabled, Config.public_enabled?())
+    |> assign(:password_change_revokes, Config.password_change_revokes?())
     |> assign_api_modules()
     |> assign(:keys, keys)
     |> assign(:service_users, service_users)
@@ -705,9 +710,11 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
 
   defp switch_on?("admin"), do: Config.admin_enabled?()
   defp switch_on?("public"), do: Config.public_enabled?()
+  defp switch_on?("password"), do: Config.password_change_revokes?()
 
   defp switch_text("admin"), do: gettext("The admin API setting was saved.")
   defp switch_text("public"), do: gettext("The public API setting was saved.")
+  defp switch_text("password"), do: gettext("The setting for a password change was saved.")
 
   # The names shown in the Owner column. A key's owner is the person who created
   # it, or a service user; an Owner also sees keys of other people, which cost

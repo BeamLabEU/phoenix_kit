@@ -71,6 +71,9 @@ defmodule PhoenixKit.Users.Auth do
   # This module will be populated by mix phx.gen.auth
 
   alias PhoenixKit.Admin.Events
+  alias PhoenixKit.API.Config, as: ApiConfig
+  alias PhoenixKit.API.Keys, as: ApiKeys
+  alias PhoenixKit.API.Keys.Cache, as: ApiKeysCache
   alias PhoenixKit.Integrations.Telegram.Linking
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.Libraries
@@ -1057,7 +1060,9 @@ defmodule PhoenixKit.Users.Auth do
     )
     |> Revocation.transaction()
     |> case do
-      {:ok, %{user: user, tokens: {_count, _revoked}}} ->
+      {:ok, %{user: user, tokens: {_count, _revoked}, revoked_credentials: revoked}} ->
+        after_credentials_revoked(user, revoked, %{actor_uuid: user.uuid, method: "password_form"})
+
         PhoenixKit.Activity.log(%{
           action: "user.password_changed",
           module: "users",
@@ -1072,6 +1077,9 @@ defmodule PhoenixKit.Users.Auth do
 
       {:error, :user, changeset, _} ->
         {:error, changeset}
+
+      {:error, :revoked_credentials, _reason, _} ->
+        {:error, credentials_not_revoked(user)}
     end
   end
 
@@ -1201,8 +1209,13 @@ defmodule PhoenixKit.Users.Auth do
     multi
     |> Revocation.transaction()
     |> case do
-      {:ok, %{user: user, tokens: {_count, _revoked}}} ->
+      {:ok, %{user: user, tokens: {_count, _revoked}, revoked_credentials: revoked}} ->
         admin_user = Map.get(context, :admin_user)
+
+        after_credentials_revoked(user, revoked, %{
+          actor_uuid: admin_user && admin_user.uuid,
+          method: "admin_reset"
+        })
 
         PhoenixKit.Activity.log(%{
           action: "user.password_changed",
@@ -1219,6 +1232,9 @@ defmodule PhoenixKit.Users.Auth do
 
       {:error, :user, changeset, _} ->
         {:error, changeset}
+
+      {:error, :revoked_credentials, _reason, _} ->
+        {:error, credentials_not_revoked(user)}
     end
   end
 
@@ -1825,17 +1841,29 @@ defmodule PhoenixKit.Users.Auth do
     |> Revocation.multi_delete_all(:tokens, revoked_tokens_query(user))
     # The pre-registrant keeps nothing, a chat linked to the site bot included.
     |> Ecto.Multi.run(:telegram_links, fn _repo, _ -> {:ok, Linking.drop_links(user.uuid)} end)
+    # The rotation is a password change too: whatever the pre-registrant made with it goes.
+    |> Ecto.Multi.run(:revoked_credentials, fn _repo, _ ->
+      revoke_credentials_on_password_change(user)
+    end)
     # Enqueued in this transaction — and in the OAuth callback's around it —
     # so a rollback takes the welcome email with the confirmation.
     |> WelcomeEmail.multi()
     |> Revocation.transaction()
     |> case do
-      {:ok, %{user: confirmed_user, tokens: {_count, _revoked}}} ->
+      {:ok, %{user: confirmed_user, tokens: {_count, _revoked}, revoked_credentials: revoked}} ->
+        after_credentials_revoked(confirmed_user, revoked, %{
+          actor_uuid: confirmed_user.uuid,
+          method: "external_proof"
+        })
+
         Events.broadcast_user_confirmed(confirmed_user)
         {:ok, confirmed_user}
 
       {:error, :user, changeset, _} ->
         {:error, changeset}
+
+      {:error, :revoked_credentials, _reason, _} ->
+        {:error, credentials_not_revoked(user)}
     end
   end
 
@@ -2049,7 +2077,9 @@ defmodule PhoenixKit.Users.Auth do
     |> Revocation.multi_delete_all(:tokens, revoked_tokens_query(user))
     |> Revocation.transaction()
     |> case do
-      {:ok, %{user: user, tokens: {_count, _revoked}}} ->
+      {:ok, %{user: user, tokens: {_count, _revoked}, revoked_credentials: revoked}} ->
+        after_credentials_revoked(user, revoked, %{actor_uuid: user.uuid, method: "reset_token"})
+
         PhoenixKit.Activity.log(%{
           action: "user.password_reset",
           module: "users",
@@ -2064,6 +2094,9 @@ defmodule PhoenixKit.Users.Auth do
 
       {:error, :user, changeset, _} ->
         {:error, changeset}
+
+      {:error, :revoked_credentials, _reason, _} ->
+        {:error, credentials_not_revoked(user)}
     end
   end
 
@@ -2083,6 +2116,62 @@ defmodule PhoenixKit.Users.Auth do
     # recovery, so it ends there too, in the transaction that ends the sessions. After the
     # validating step: a refused change must not log (and broadcast) a drop that never happened.
     |> Ecto.Multi.run(:telegram_links, fn _repo, _ -> {:ok, Linking.drop_links(user.uuid)} end)
+    # With `api_password_change_revokes` on, the personal keys and OAuth connections of the person
+    # end in the same transaction: a failure here rolls the new password back. A person who had
+    # no password (a passkey, a magic link) is setting their first one: nothing of theirs was
+    # protected by an old one.
+    |> Ecto.Multi.run(:revoked_credentials, fn _repo, %{credential_user: current} ->
+      revoke_credentials_on_password_change(current)
+    end)
+  end
+
+  @no_credentials %{keys: [], connections: []}
+
+  defp revoke_credentials_on_password_change(%User{hashed_password: nil}),
+    do: {:ok, @no_credentials}
+
+  defp revoke_credentials_on_password_change(%User{uuid: uuid}) do
+    if ApiConfig.password_change_revokes?(),
+      do: ApiKeys.revoke_all_for_password_change(uuid, nil),
+      else: {:ok, @no_credentials}
+  end
+
+  # After the commit, in every path: the revocations dropped the keys' cache entries inside the
+  # transaction, and a request that read a key while it was open may have cached it again.
+  defp after_credentials_revoked(%User{} = user, %{keys: keys, connections: connections}, how) do
+    Enum.each(keys ++ connections, &ApiKeysCache.invalidate/1)
+
+    if keys != [] or connections != [] do
+      PhoenixKit.Activity.log("api", "api.revoked_on_password_change",
+        actor_uuid: how.actor_uuid,
+        resource_type: "user",
+        resource_uuid: user.uuid,
+        target_uuid: user.uuid,
+        permanent: true,
+        metadata: %{
+          "keys" => length(keys),
+          "connections" => length(connections),
+          "method" => how.method
+        }
+      )
+    end
+
+    :ok
+  end
+
+  # The person's own change (or an admin's) found the revocation impossible: the password stays
+  # as it was and the form says so.
+  defp credentials_not_revoked(%User{} = user) do
+    user
+    |> Ecto.Changeset.change()
+    |> Ecto.Changeset.add_error(
+      :password,
+      dgettext_noop(
+        "errors",
+        "The API keys and connections of this account could not be ended, so the password was not changed. Please try again."
+      )
+    )
+    |> Map.put(:action, :update)
   end
 
   # Session-only fields originate with the caller's token loader. Return them

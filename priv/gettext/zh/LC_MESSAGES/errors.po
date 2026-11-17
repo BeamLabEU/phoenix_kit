@@ -184,3 +184,8 @@ msgstr "此邮箱域名无法接收邮件。请检查地址。"
 #, elixir-autogen, elixir-format
 msgid "Too many registration attempts. Please try again later."
 msgstr "注册尝试次数过多。请稍后再试。"
+
+#: lib/phoenix_kit/users/auth.ex:2171
+#, elixir-autogen, elixir-format
+msgid "The API keys and connections of this account could not be ended, so the password was not changed. Please try again."
+msgstr "无法终止此账户的 API 密钥和连接，因此密码未更改。请重试。"

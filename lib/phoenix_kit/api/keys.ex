@@ -131,6 +131,7 @@ defmodule PhoenixKit.API.Keys do
   alias PhoenixKit.API.Keys.Key
   alias PhoenixKit.API.Keys.Token
   alias PhoenixKit.API.OAuth.Clients
+  alias PhoenixKit.API.OAuth.Grant
   alias PhoenixKit.API.OAuth.Grants
   alias PhoenixKit.API.PersonalKeysConfig
   alias PhoenixKit.API.Registry, as: ToolRegistry
@@ -1012,6 +1013,86 @@ defmodule PhoenixKit.API.Keys do
       do: {:ok, key},
       else: key |> Ecto.Changeset.change(revoked_at: at) |> repo().update()
   end
+
+  @doc """
+  Ends everything of one person that works with their password: every live personal key
+  (`personal = true`, no `oauth_grant_uuid`, neither revoked nor expired; a key in the grace
+  period of a rotation is ended at once) and every live OAuth grant (not revoked, not expired,
+  activated or not, waiting for approval or not) with its hidden key and tokens. Service keys
+  (not personal) are keys of integrations and stay.
+
+  It is the step of a password change, so it takes part in the caller's transaction (and opens
+  one when there is none): it takes the personal-keys lock of the person first, as a new personal
+  key does (after the person's row, which the caller holds), then ends each key
+  with `revoke/2` and each grant with `PhoenixKit.API.OAuth.Grants.revoke/2`. Nothing authorizes
+  here: the password change is the authority. `actor_uuid` is for the entries of the feed only
+  (`nil` for a change with no actor to name).
+
+  Returns `{:ok, %{keys: prefixes, connections: prefixes}}`, the key prefixes of what was ended,
+  or `{:error, reason}`, which rolls the caller's transaction back. Both end the key's cache
+  entry inside the transaction; the caller invalidates the prefixes again after its commit
+  (`PhoenixKit.API.Keys.Cache.invalidate/1`), because a request that read the key while the
+  transaction was open may have cached it again.
+  """
+  @spec revoke_all_for_password_change(String.t(), String.t() | nil) ::
+          {:ok, %{keys: [String.t()], connections: [String.t()]}} | {:error, term()}
+  def revoke_all_for_password_change(owner_uuid, actor_uuid)
+      when is_binary(owner_uuid) and (is_binary(actor_uuid) or is_nil(actor_uuid)) do
+    repo().transaction(fn ->
+      lock_personal_keys(owner_uuid)
+
+      with {:ok, keys} <- revoke_live_personal_keys(owner_uuid, actor_uuid),
+           {:ok, connections} <- revoke_live_grants(owner_uuid, actor_uuid) do
+        %{keys: keys, connections: connections}
+      else
+        {:error, reason} -> repo().rollback(reason)
+      end
+    end)
+  end
+
+  defp revoke_live_personal_keys(owner_uuid, actor_uuid) do
+    now = DateTime.utc_now()
+
+    from(k in Key,
+      where:
+        k.user_uuid == ^owner_uuid and k.personal == true and is_nil(k.oauth_grant_uuid) and
+          (is_nil(k.revoked_at) or k.revoked_at > ^now) and
+          (is_nil(k.expires_at) or k.expires_at > ^now),
+      order_by: k.uuid,
+      lock: "FOR UPDATE"
+    )
+    |> repo().all()
+    |> Enum.reduce_while({:ok, []}, fn key, {:ok, prefixes} ->
+      case revoke(key, actor_uuid) do
+        {:ok, revoked} -> {:cont, {:ok, [revoked.prefix | prefixes]}}
+        {:error, _reason} = error -> {:halt, error}
+      end
+    end)
+    |> reversed()
+  end
+
+  defp revoke_live_grants(owner_uuid, actor_uuid) do
+    now = DateTime.utc_now()
+
+    from(g in Grant,
+      join: k in Key,
+      on: k.uuid == g.key_uuid,
+      where: g.user_uuid == ^owner_uuid and is_nil(g.revoked_at) and g.expires_at > ^now,
+      order_by: g.uuid,
+      select: {g.uuid, k.prefix}
+    )
+    |> repo().all()
+    |> Enum.reduce_while({:ok, []}, fn {grant_uuid, prefix}, {:ok, prefixes} ->
+      case Grants.revoke(grant_uuid, reason: "password_changed", actor_uuid: actor_uuid) do
+        {:ok, _grant} -> {:cont, {:ok, [prefix | prefixes]}}
+        {:error, _reason} = error -> {:halt, error}
+      end
+    end)
+    |> reversed()
+  end
+
+  defp reversed({:ok, prefixes}), do: {:ok, Enum.reverse(prefixes)}
+  defp reversed({:error, _reason} = error), do: error
 
   # The hidden key of a grant is not a key a person manages: it is never rotated and its scopes
   # are the grant's.

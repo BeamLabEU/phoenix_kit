@@ -176,6 +176,27 @@ defmodule PhoenixKitWeb.Live.Settings.ApiTest do
       assert Enum.any?(entries, &(&1.metadata["key"] == "api_admin_enabled"))
     end
 
+    test "the password switch starts off and ends keys on a password change only when on", %{
+      conn: conn,
+      admin: admin
+    } do
+      {:ok, view, _html} = live(conn, @path)
+      switch = element(view, ~s(#api-switch-password-row input[phx-click="toggle_switch"]))
+
+      refute Config.password_change_revokes?()
+      refute has_element?(view, "#api-switch-password-row input[checked]")
+
+      render_click(switch)
+      assert Config.password_change_revokes?()
+      assert has_element?(view, "#api-switch-password-row input[checked]")
+
+      entries = Activity.list(action: "setting.changed", actor_uuid: admin.uuid).entries
+      assert Enum.any?(entries, &(&1.metadata["key"] == "api_password_change_revokes"))
+
+      render_click(switch)
+      refute Config.password_change_revokes?()
+    end
+
     test "an unknown switch name is refused and writes no setting", %{conn: conn} do
       {:ok, view, _html} = live(conn, @path)
 

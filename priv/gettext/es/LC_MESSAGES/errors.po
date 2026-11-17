@@ -203,3 +203,8 @@ msgstr "Este dominio de correo no puede recibir correo. Compruebe la dirección.
 #, elixir-autogen, elixir-format
 msgid "Too many registration attempts. Please try again later."
 msgstr "Demasiados intentos de registro. Inténtelo de nuevo más tarde."
+
+#: lib/phoenix_kit/users/auth.ex:2171
+#, elixir-autogen, elixir-format
+msgid "The API keys and connections of this account could not be ended, so the password was not changed. Please try again."
+msgstr "No se pudieron terminar las claves de API y las conexiones de esta cuenta, por lo que no se cambió la contraseña. Inténtelo de nuevo."

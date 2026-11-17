@@ -28336,3 +28336,18 @@ msgstr "%{module}（修改）"
 #, elixir-autogen, elixir-format
 msgid "%{module} (reading)"
 msgstr "%{module}（读取）"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex:250
+#, elixir-autogen, elixir-format
+msgid "A password change ends personal keys and connections"
+msgstr "更改密码会终止个人密钥和连接"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex:254
+#, elixir-autogen, elixir-format
+msgid "When a person's password is changed or reset, their personal keys and the applications connected with the OAuth sign-in end at once, and each has to be made or connected again. Keys of services are not touched, and neither is the first password of a person who had none. It is off until you switch it on."
+msgstr "当某人的密码被更改或重置时，其个人密钥和通过 OAuth 登录连接的应用会立即终止，需要重新创建密钥、重新连接应用。服务密钥不受影响，没有密码的人首次设置密码也不受影响。在您开启之前此功能为关闭状态。"
+
+#: lib/phoenix_kit_web/live/settings/api.ex:717
+#, elixir-autogen, elixir-format
+msgid "The setting for a password change was saved."
+msgstr "更改密码的设置已保存。"
