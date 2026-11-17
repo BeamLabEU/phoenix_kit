@@ -30,8 +30,9 @@ defmodule PhoenixKit.Migrations.Postgres.V234 do
 
   Older code on a database that has V234 ignores `approved_at`, so every connection that waits
   would start working with its person's rights. Before deploying code older than V234 on a
-  database that has it, end the waiting connections first (the `down` SQL, `down_statements/1`,
-  does it, and the column can stay).
+  database that has it, end the waiting connections first. The normal way is to roll V234 back
+  (`down_statements/1`): that ends the waiting connections and drops the column. To keep the
+  column, run only the `DO` block of that SQL, which ends the waiting connections.
   """
   use Ecto.Migration
 
