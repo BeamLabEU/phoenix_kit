@@ -17,6 +17,8 @@ defmodule PhoenixKit.API.ApprovalsDecideTest do
   alias PhoenixKit.API.Keys
   alias PhoenixKit.API.Keys.Key
   alias PhoenixKit.API.KeyTestSupport
+  alias PhoenixKit.API.OAuth.Grant
+  alias PhoenixKit.API.OAuthTestSupport
   alias PhoenixKit.PubSub.Manager, as: PubSub
   alias PhoenixKit.Test.ApiFlowStore
   alias PhoenixKit.Test.ApiFlowTools
@@ -291,6 +293,27 @@ defmodule PhoenixKit.API.ApprovalsDecideTest do
       assert {:ok, done} = Approvals.approve(row.uuid, scope)
 
       assert done.status == "failed"
+      assert error_code(row) == "unauthorized"
+      assert_nothing_written(row)
+    end
+
+    test "a connection that waits for approval: failed with unauthorized, nothing written", %{
+      owner_scope: scope
+    } do
+      {_holder, _role, holder_scope} =
+        OAuthTestSupport.oauth_holder(["settings", "dashboard"])
+
+      seeded = OAuthTestSupport.seed_grant!(holder_scope, scopes: scopes())
+      {:ok, actor} = Confirm.live_actor(seeded.key.uuid)
+      row = pending!(%{actor: actor})
+
+      # Back to waiting, as a code-only rollback followed by a roll-forward could leave it.
+      {1, _} =
+        Repo.update_all(from(g in Grant, where: g.uuid == ^seeded.grant.uuid),
+          set: [approved_at: nil]
+        )
+
+      assert {:ok, %{status: "failed"}} = Approvals.approve(row.uuid, scope)
       assert error_code(row) == "unauthorized"
       assert_nothing_written(row)
     end
