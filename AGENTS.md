@@ -244,6 +244,7 @@ Public pages load `phoenix_kit.js` only; the code of the admin and user-dashboar
 
 Pointers; each module's `@doc` is the reference.
 
+- **Per-viewer admin menu badges** — `config :phoenix_kit, :scope_badges, MyApp.MenuBadges` (`PhoenixKit.Dashboard.ScopeBadges` behaviour, `badges(scope)` → `%{tab_id => %Badge{} | nil}`), called once per sidebar render after the gates; `ScopeBadges.changed(user_uuid)` redraws that account's open admin pages over its scope topic (handled and halted in `Auth`'s scope-refresh hook).
 - **`PhoenixKit.Cache.remember(cache, key, fun, until: …)`** — get-or-compute with a wall-clock expiry (`{:end_of_day, "Europe/Tallinn"}`); errors are returned, never stored; no single-flight lock, so `fun` must be side-effect free.
 - **`PhoenixKitWeb.Plugs.ProbeBlock`** — plug it in the host endpoint before `Plug.Static` to answer scanner probes (`/.env`, `wp-login.php`, `*.php`) with a bare 404; `/.well-known/` always passes; `extra:` / `except:` adjust it.
 - **Sitemap** — `config :phoenix_kit, sitemap: [extra_sources: [...]]` adds sources without restating the defaults (`sources:` replaces them). A route with `metadata: %{sitemap: false}` stays out of the sitemap — both router discovery and a static entry resolving to it. `mix phoenix_kit.doctor` warns when robots.txt (a static file or a routed one) has no `Sitemap:` line.

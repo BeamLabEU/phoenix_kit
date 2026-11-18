@@ -13,7 +13,7 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
 
   alias PhoenixKit.API.Approvals
   alias PhoenixKit.API.LogSafe
-  alias PhoenixKit.Dashboard.{Badge, Group, Tab}
+  alias PhoenixKit.Dashboard.{Badge, Group, ScopeBadges, Tab}
   alias PhoenixKit.ModuleRegistry
   alias PhoenixKit.Modules.Storage.Libraries
   alias PhoenixKit.Settings
@@ -297,17 +297,21 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
   Puts the numbers that depend on who is looking onto the tabs that carry one.
 
   The registry holds one `Tab` per id for everybody, so a count that differs per viewer
-  cannot live in it: the sidebar calls this on the tabs it is about to draw. Today that is
+  cannot live in it: the sidebar calls this on the tabs it is about to draw. Core's own is
   the Approvals entry, which shows how many pending approvals `scope` may decide; the
-  badge hides itself at zero. A failed count leaves the tab without a badge rather than
-  taking the menu down.
+  badge hides itself at zero. Then the host application's counts are added, from the
+  module named by `config :phoenix_kit, :scope_badges` (`PhoenixKit.Dashboard.ScopeBadges`),
+  called once; a badge it gives for a tab replaces the one the tab had. A failed count
+  leaves the tab without that badge rather than taking the menu down.
   """
   @spec with_scope_badges([Tab.t()], Scope.t() | nil) :: [Tab.t()]
   def with_scope_badges(tabs, scope) do
-    Enum.map(tabs, fn
+    tabs
+    |> Enum.map(fn
       %Tab{id: :admin_approvals} = tab -> %{tab | badge: approvals_badge(scope)}
       tab -> tab
     end)
+    |> ScopeBadges.put_badges(scope)
   end
 
   defp approvals_badge(scope) do

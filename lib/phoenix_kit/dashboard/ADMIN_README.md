@@ -255,6 +255,38 @@ PhoenixKit.Dashboard.register_admin_tabs(:my_app, [
 
 **Performance note**: Dynamic children functions run on every sidebar render (each navigation). Keep them fast — use cached data, avoid expensive queries.
 
+## Per-Viewer Badges
+
+A badge on a `Tab` is the same for everybody. For a number that differs per person
+(their unread orders, their open requests), name a module that computes them for the
+person looking at the menu:
+
+```elixir
+# config/config.exs
+config :phoenix_kit, :scope_badges, MyApp.MenuBadges
+
+defmodule MyApp.MenuBadges do
+  @behaviour PhoenixKit.Dashboard.ScopeBadges
+  alias PhoenixKit.Dashboard.Badge
+
+  @impl true
+  def badges(scope) do
+    counts = MyApp.ReadStates.unread_counts(PhoenixKit.Users.Auth.Scope.user_uuid(scope))
+    %{admin_orders: Badge.count(counts.orders, max: 99), admin_rfqs: Badge.count(counts.rfqs)}
+  end
+end
+```
+
+- Keys are tab ids (yours from `:admin_dashboard_tabs`, a module's, or core's); the value
+  replaces the tab's badge, `nil` removes it.
+- Called **once per sidebar render**, after the permission gates: count everything in one
+  query. A raise, exit or bad answer is logged and the menu keeps the tabs' own badges.
+- **Live updates:** call `PhoenixKit.Dashboard.ScopeBadges.changed(user_uuid)` where the
+  count changes. Every open admin page signed in as that account redraws its menu. The
+  page subscribes by itself (the account's scope topic) and never sees the message.
+
+Full contract: `PhoenixKit.Dashboard.ScopeBadges` moduledoc.
+
 ## Permission System
 
 Admin tabs integrate with PhoenixKit's module-level permissions (`PhoenixKit.Users.Permissions`):

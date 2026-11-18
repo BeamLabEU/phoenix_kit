@@ -49,6 +49,23 @@ defmodule PhoenixKit.Users.ScopeNotifier do
   def broadcast_active_role_changed(_), do: :ok
 
   @doc """
+  Broadcasts that the per-viewer menu badges of the user changed
+  (`PhoenixKit.Dashboard.ScopeBadges.changed/1`). Open pages redraw their
+  menu; the scope itself is not re-read.
+  """
+  @spec broadcast_badges_changed(binary()) :: :ok
+  def broadcast_badges_changed(user_uuid) when is_binary(user_uuid) do
+    # Called from the host's write paths: a PubSub that is not running must not
+    # fail the write that changed the count.
+    _ = Manager.broadcast(topic(user_uuid), {:phoenix_kit_scope_badges_changed, user_uuid})
+    :ok
+  rescue
+    _ -> :ok
+  catch
+    :exit, _ -> :ok
+  end
+
+  @doc """
   Subscribes the current process to scope refresh notifications for the user.
   """
   @spec subscribe(User.t() | binary()) :: :ok | {:error, term()}

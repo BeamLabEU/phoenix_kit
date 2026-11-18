@@ -1860,7 +1860,44 @@ defmodule PhoenixKitWeb.Users.Auth do
        ),
        do: refresh_scope(user_uuid, :active_role_changed, socket)
 
+  # The host's per-viewer menu counts changed (`PhoenixKit.Dashboard.ScopeBadges`).
+  # Core's own message on core's own topic, so it is always halted: a page's
+  # `handle_info/2` was never written to expect it. The redraw is queued behind
+  # whatever is already in the mailbox, so a burst of changes draws once.
+  defp handle_scope_refresh({:phoenix_kit_scope_badges_changed, user_uuid}, socket) do
+    if Scope.user_uuid(socket.assigns[:phoenix_kit_current_scope]) == user_uuid and
+         socket.assigns[:phoenix_kit_scope_badges_redraw_queued?] != true do
+      send(self(), :phoenix_kit_scope_badges_redraw)
+      {:halt, Phoenix.Component.assign(socket, :phoenix_kit_scope_badges_redraw_queued?, true)}
+    else
+      {:halt, socket}
+    end
+  end
+
+  defp handle_scope_refresh(:phoenix_kit_scope_badges_redraw, socket) do
+    socket =
+      socket
+      |> Phoenix.Component.assign(:phoenix_kit_scope_badges_redraw_queued?, false)
+      |> redraw_scope_dependents()
+
+    {:halt, socket}
+  end
+
   defp handle_scope_refresh(_msg, socket), do: {:cont, socket}
+
+  # The menu is a function component inside the page's `app_layout` call, so it
+  # is drawn again only when an assign that call reads changes, and every call
+  # reads the scope. Assigning the same scope back is a no-op for LiveView, so
+  # it is marked changed by passing through `nil`: LiveView then re-renders what
+  # reads the scope as a whole (the layout, and the menu with it) and diffs the
+  # rest field by field, finding nothing changed.
+  defp redraw_scope_dependents(socket) do
+    scope = socket.assigns[:phoenix_kit_current_scope]
+
+    socket
+    |> Phoenix.Component.assign(:phoenix_kit_current_scope, nil)
+    |> Phoenix.Component.assign(:phoenix_kit_current_scope, scope)
+  end
 
   defp refresh_scope(user_uuid, reason, socket) do
     current_scope = socket.assigns[:phoenix_kit_current_scope]

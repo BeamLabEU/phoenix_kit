@@ -1,3 +1,19 @@
+## Unreleased
+
+### Added
+
+- **A host application can put its own per-person numbers on admin menu entries.**
+  `config :phoenix_kit, :scope_badges, MyApp.MenuBadges` names a module implementing
+  `PhoenixKit.Dashboard.ScopeBadges`: its `badges(scope)` returns
+  `%{tab_id => %PhoenixKit.Dashboard.Badge{} | nil}` for the person viewing the menu, and
+  the sidebar puts each onto the matching tab (the host's own `:admin_dashboard_tabs`
+  ids, a module's or core's). It is called once per sidebar render, after the
+  permission gates; a raise, exit or answer of the wrong shape is logged (the exception's
+  module only) and leaves the tabs' own badges. `ScopeBadges.changed(user_uuid)` redraws
+  the menu of every open admin page signed in as that account, with no reload: the
+  message travels on the account's existing scope topic and is halted before the page's
+  own `handle_info/2`, and a burst of changes is drawn once per page.
+
 ## 3.6.1 - 2026-11-16
 
 ### Changed
