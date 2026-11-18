@@ -370,10 +370,15 @@ defmodule PhoenixKit.MixProject do
       # `invert_two_finger_pan`, the per-user "Invert two-finger pan" switch.
       # Older fresco does not declare the attributes, so the host's compile
       # warns and the viewer keeps the old column.
-      {:fresco, "~> 0.16.0"},
-      # 0.3.11 is the first tessera that admits fresco 0.16 (0.3.10 was the
-      # first to admit 0.15, 0.3.9 0.14): with an older one locked,
-      # `mix deps.update phoenix_kit` cannot resolve fresco 0.15 at all, and
+      #
+      # 0.17 is where a canvas keeps a copy of its element as the server
+      # rendered it, which etcher 0.28's offline mode rebuilds a page from when
+      # there is no connection (`phoenix_kit_boards` boards work offline). On
+      # 0.16 the rebuild has nothing to start from and the page stays a spinner.
+      {:fresco, "~> 0.17.0"},
+      # 0.3.12 is the first tessera that admits fresco 0.17 (0.3.11 was the
+      # first to admit 0.16, 0.3.10 0.15, 0.3.9 0.14): with an older one locked,
+      # `mix deps.update phoenix_kit` cannot resolve the new fresco at all, and
       # the failure names neither library. The same holds for etcher: 0.23 is
       # the first that admits fresco 0.15 (it also brings a scaling and
       # turning selection frame), so the etcher floor moves with fresco's.
@@ -393,8 +398,14 @@ defmodule PhoenixKit.MixProject do
       # 0.26 is the floor because the viewer offers `:measure`, the laser
       # measure (a Bosch meter's readings written onto the picture as
       # labels). An older etcher ignores the name and the button is missing.
-      {:tessera, "~> 0.3.11"},
-      {:etcher, "~> 0.26.0"},
+      #
+      # 0.28 is the floor because it is the first etcher that admits fresco
+      # 0.17, and it brings offline mode (`offline` / `offline_sw` on
+      # `Etcher.layer`), which `phoenix_kit_boards` uses so a board opens and
+      # saves with no connection. It also has 0.27's placing loupe: hold a
+      # dragged point still and a magnified view shows where it will land.
+      {:tessera, "~> 0.3.12"},
+      {:etcher, "~> 0.28.0"},
 
       # QR device-handoff login ("scan to sign in" on the login page).
       #
