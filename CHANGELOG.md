@@ -14,6 +14,16 @@
   message travels on the account's existing scope topic and is halted before the page's
   own `handle_info/2`, and a burst of changes is drawn once per page.
 
+### Fixed
+
+- **The sitemap's boot-time scheduling check no longer crashes on every start.** The module's
+  `children/0` task called `SchedulerWorker.ensure_scheduled/0` right away, but the installer puts
+  `PhoenixKit.Supervisor` before Oban in the host's children, so the task raised
+  `No Oban instance named Oban is running` on each boot and the recovery of a broken
+  regeneration chain never ran. The task now calls `ensure_scheduled_on_boot/1`, which waits until
+  the Oban instance is registered (up to 60 s) and then runs the check; on a node where Oban
+  never comes up it logs and returns `:oban_unavailable`.
+
 ## 3.6.1 - 2026-11-16
 
 ### Changed

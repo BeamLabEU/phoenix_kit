@@ -195,6 +195,65 @@ defmodule PhoenixKit.Modules.Sitemap.SchedulerWorker do
     end
   end
 
+  @doc """
+  Boot-time entry point for `ensure_scheduled/0`, started by the module's
+  `children/0`.
+
+  The installer places `PhoenixKit.Supervisor` — which starts module children
+  — BEFORE Oban in the host's supervision tree, so when this runs the Oban
+  instance is usually not registered yet and `ensure_scheduled/0` raised
+  `No Oban instance named Oban is running` on every boot: the recovery never
+  happened. This waits until the instance is registered, then ensures the
+  chain; if Oban never comes up within `:timeout` (a node without Oban), it
+  logs and returns `:oban_unavailable` instead of crashing.
+
+  Options: `:oban` — instance name (default `Oban`, the one `ensure_scheduled/0`
+  uses); `:timeout` and `:interval` in milliseconds (defaults 60 s and 250 ms).
+  """
+  @spec ensure_scheduled_on_boot(keyword()) ::
+          {:ok, Oban.Job.t()}
+          | {:error, term()}
+          | :disabled
+          | :already_scheduled
+          | :oban_unavailable
+  def ensure_scheduled_on_boot(opts \\ []) do
+    oban = Keyword.get(opts, :oban, Oban)
+    timeout = Keyword.get(opts, :timeout, :timer.seconds(60))
+    interval = Keyword.get(opts, :interval, 250)
+
+    if await_oban(oban, timeout, interval) do
+      ensure_scheduled()
+    else
+      Logger.info(
+        "SitemapSchedulerWorker: Oban instance #{inspect(oban)} is not running, " <>
+          "skipping the boot-time scheduling check"
+      )
+
+      :oban_unavailable
+    end
+  end
+
+  @doc false
+  # Polls until the named Oban instance is registered. Public for tests.
+  @spec await_oban(Oban.name(), non_neg_integer(), pos_integer()) :: boolean()
+  def await_oban(oban, timeout, interval) do
+    do_await_oban(oban, System.monotonic_time(:millisecond) + timeout, interval)
+  end
+
+  defp do_await_oban(oban, deadline, interval) do
+    cond do
+      Oban.whereis(oban) != nil ->
+        true
+
+      System.monotonic_time(:millisecond) >= deadline ->
+        false
+
+      true ->
+        Process.sleep(interval)
+        do_await_oban(oban, deadline, interval)
+    end
+  end
+
   # Future: Per-module event-driven regeneration pattern:
   # When a specific source's content changes (e.g., new product, new post),
   # call regenerate_module_now/1 to regenerate only that source's sitemap
