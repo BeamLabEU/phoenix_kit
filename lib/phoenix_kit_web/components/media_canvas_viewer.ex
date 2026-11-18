@@ -481,11 +481,11 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       # Nor a file of a managed library, whatever the host said (`Libraries.managed?/1`).
       {true, %{} = file, _} ->
         if annotation_file_writable?(file, socket.assigns),
-          do: {:noreply, sync_annotations(socket, file, new_annotations)},
+          do: saved_reply(sync_annotations(socket, file, new_annotations)),
           else: {:noreply, socket}
 
       {true, nil, %{} = board} ->
-        {:noreply, sync_annotations(socket, board, new_annotations)}
+        saved_reply(sync_annotations(socket, board, new_annotations))
 
       _ ->
         {:noreply, socket}
@@ -1392,6 +1392,15 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
 
   # `subject` is the file map OR a normalized board — `target_of/1` tells
   # them apart; the file-only side effects live in `after_shapes_changed/2`.
+  # A save some of which could not be written says so in the reply. Etcher's
+  # offline mode keeps the list on the device until a reply says it is
+  # stored, and reads any reply but `saved: false` as "stored".
+  defp saved_reply(socket) do
+    if socket.assigns[:save_failed?],
+      do: {:reply, %{saved: false}, assign(socket, :save_failed?, false)},
+      else: {:noreply, socket}
+  end
+
   defp sync_annotations(socket, subject, new_annotations) do
     {target_type, target_uuid} = target_of(subject)
     file_uuid = if target_type == "file", do: target_uuid
@@ -1404,23 +1413,23 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
     new_in_batch =
       Enum.reject(new_annotations, fn a -> Map.has_key?(current_by_uuid, a["uuid"]) end)
 
-    wrote? =
-      Enum.reduce(new_annotations, false, fn a, wrote? ->
+    {wrote?, failed?} =
+      Enum.reduce(new_annotations, {false, false}, fn a, {wrote?, failed?} ->
         current = Map.get(current_by_uuid, a["uuid"])
 
         case persist_one(socket, a, current, {target_type, target_uuid}) do
           :skip ->
-            wrote?
+            {wrote?, failed?}
 
           {:ok, _} ->
-            true
+            {true, failed?}
 
           {:error, reason} ->
             Logger.warning(
               "[MediaCanvasViewer] annotation persist failed kind=#{inspect(a["kind"])} uuid=#{inspect(a["uuid"])}: #{inspect(reason)}"
             )
 
-            wrote?
+            {wrote?, true}
         end
       end)
 
@@ -1430,19 +1439,24 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
         Map.has_key?(new_by_uuid, to_string(a.uuid))
       end)
 
-    Enum.each(to_delete, fn a ->
-      uuid = to_string(a.uuid)
+    failed? =
+      Enum.reduce(to_delete, failed?, fn a, failed? ->
+        uuid = to_string(a.uuid)
 
-      case Storage.EtcherAdapter.delete(uuid) do
-        :ok ->
-          :ok
+        case Storage.EtcherAdapter.delete(uuid) do
+          :ok ->
+            failed?
 
-        {:error, reason} ->
-          Logger.warning(
-            "[MediaCanvasViewer] annotation delete failed uuid=#{inspect(uuid)}: #{inspect(reason)}"
-          )
-      end
-    end)
+          {:error, reason} ->
+            Logger.warning(
+              "[MediaCanvasViewer] annotation delete failed uuid=#{inspect(uuid)}: #{inspect(reason)}"
+            )
+
+            true
+        end
+      end)
+
+    socket = assign(socket, :save_failed?, failed?)
 
     if wrote? or to_delete != [] do
       after_shapes_changed(socket, file_uuid)
@@ -1762,6 +1776,16 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       do: [:measure],
       else: []
   end
+
+  @doc false
+  # The Etcher `offline` key of the file on screen: set only for someone who
+  # may annotate it, with `PhoenixKit.Offline` on. One per file, so each file
+  # keeps its own copy on the device.
+  def offline_key(assigns, %{file_uuid: uuid}) when is_binary(uuid) do
+    if assigns[:can_annotate] == true and PhoenixKit.Offline.enabled?(), do: "file:" <> uuid
+  end
+
+  def offline_key(_assigns, _file), do: nil
 
   # The board's markup: the same Fresco canvas + Etcher layer the image
   # branch renders, over an empty scene, with the connector tool left ON

@@ -20,7 +20,28 @@ defmodule PhoenixKitWeb.AssetsController do
   Available assets:
   - phoenix_kit_daisyui5.css - DaisyUI 5 styles
   - phoenix_kit_consent.js  - Legal consent banner (from phoenix_kit_legal package)
+  - etcher-offline-sw.js    - Etcher's offline service worker, while
+    `PhoenixKit.Offline.enabled?/0`
   """
+  # Etcher's offline service worker (`PhoenixKit.Offline`). `no-cache`: the
+  # browser checks a worker for a new version on every navigation, and a
+  # cached copy would pin an old one. `service-worker-allowed`: registered for
+  # the whole site from this URL; it still answers only for the pages and
+  # files a viewer asked it to keep. 404 while offline annotating is off.
+  def serve(conn, %{"file" => "etcher-offline-sw.js"}) do
+    if PhoenixKit.Offline.enabled?() and function_exported?(Etcher, :offline_worker, 0) do
+      conn
+      |> put_resp_content_type("text/javascript")
+      |> put_resp_header("cache-control", "no-cache")
+      |> put_resp_header("service-worker-allowed", "/")
+      |> send_resp(200, Etcher.offline_worker())
+    else
+      conn
+      |> put_resp_content_type("text/plain")
+      |> send_resp(404, "Asset not found")
+    end
+  end
+
   def serve(conn, %{"file" => file}) do
     case Map.get(@valid_assets, file) do
       {content_type, app, filename} ->
