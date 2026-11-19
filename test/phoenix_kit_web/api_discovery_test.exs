@@ -970,6 +970,21 @@ defmodule PhoenixKitWeb.APIDiscoveryTest do
              }
     end
 
+    test "the authorization server document names no banned term with registration switched on",
+         %{conn: conn} do
+      put_setting("api_oauth_dcr_enabled", "true")
+
+      response = fetch(conn, "/.well-known/oauth-authorization-server", ip: unique_ip())
+
+      assert response.status == 200
+      assert %{"registration_endpoint" => _} = JSON.decode!(response.resp_body)
+
+      for regex <- banned() do
+        refute Regex.match?(regex, text_of(response)),
+               "the document names #{inspect(Regex.source(regex))}"
+      end
+    end
+
     test "no generated public document says \"approval\" in any form (compound identifiers too)",
          %{conn: conn} do
       for {label, response} <- public_responses(conn) do

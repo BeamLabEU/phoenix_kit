@@ -27511,7 +27511,17 @@ msgstr "%{client} 请求访问"
 msgid "on behalf of %{email}"
 msgstr "代表 %{email}"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:156
+#: lib/phoenix_kit_web/oauth/pages.ex:152
+#, elixir-autogen, elixir-format
+msgid "Anyone can publish a description of an application under any name, and the name above has not been checked. Allow access only if you started this connection from that application."
+msgstr "任何人都可以用任意名称发布某个应用程序的说明，上方的名称并未经过核实。只有在您自己从该应用程序发起此连接时才允许访问。"
+
+#: lib/phoenix_kit_web/oauth/pages.ex:157
+#, elixir-autogen, elixir-format
+msgid "The application is described at %{address}"
+msgstr "该应用程序的说明位于 %{address}"
+
+#: lib/phoenix_kit_web/oauth/pages.ex:149
 #, elixir-autogen, elixir-format
 msgid "After you decide, your browser is sent to"
 msgstr "您做出决定后，浏览器将被转到"

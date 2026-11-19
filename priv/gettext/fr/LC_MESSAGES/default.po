@@ -27489,7 +27489,17 @@ msgstr "%{client} demande l'accès"
 msgid "on behalf of %{email}"
 msgstr "au nom de %{email}"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:156
+#: lib/phoenix_kit_web/oauth/pages.ex:152
+#, elixir-autogen, elixir-format
+msgid "Anyone can publish a description of an application under any name, and the name above has not been checked. Allow access only if you started this connection from that application."
+msgstr "N'importe qui peut publier la description d'une application sous le nom de son choix, et le nom ci-dessus n'a pas été vérifié. N'autorisez l'accès que si vous avez vous-même lancé cette connexion depuis cette application."
+
+#: lib/phoenix_kit_web/oauth/pages.ex:157
+#, elixir-autogen, elixir-format
+msgid "The application is described at %{address}"
+msgstr "L'application est décrite à l'adresse %{address}"
+
+#: lib/phoenix_kit_web/oauth/pages.ex:149
 #, elixir-autogen, elixir-format
 msgid "After you decide, your browser is sent to"
 msgstr "Après votre décision, votre navigateur sera redirigé vers"

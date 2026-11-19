@@ -11,12 +11,18 @@ defmodule PhoenixKitWeb.OAuth.AuthorizeController do
   A request that cannot be trusted with a redirect (no such client, a redirect URI the client
   did not register, a repeated parameter) gets an error page, the same whatever was wrong,
   and never a redirect. Once the redirect URI is confirmed, errors go to the client with `state`
-  and `iss`; the redirect with `access_denied` comes only after a person pressed "Deny" on the
-  consent screen.
+  and `iss` - but only for a pre-registered client, one an administrator added. A client that
+  named itself (a metadata document, a dynamic registration) may list any `https` address as its
+  redirect, and this endpoint runs before any sign-in or consent screen, so a redirect to it
+  would let anybody bounce a visitor to an address of their choosing from this site's domain:
+  for such a client the error is shown on our own page, and the redirect with `access_denied`
+  comes only after a person pressed "Deny" on the consent screen.
 
   Counted before anything is read: one request of the client's network against
   `api_oauth_authorize_per_min` (`429` and a page); a full table of waiting requests answers
-  `503` and a page. Switched off (`api_oauth_enabled`) the endpoint does not exist (`404`).
+  `503` and a page. A client named by the URL of a metadata document is fetched here when it is
+  not known yet (`PhoenixKit.API.OAuth.Clients.resolve/2`): too many fetches of the network or of
+  that client answer `429`, too many running at once `503`. Switched off (`api_oauth_enabled`) the endpoint does not exist (`404`).
   The route is declared with `log: false`: the query holds `state` and the PKCE challenge.
 
   The error pages are in the language `PhoenixKitWeb.OAuth.Language` picks (the `lang` parameter,
@@ -48,7 +54,7 @@ defmodule PhoenixKitWeb.OAuth.AuthorizeController do
     with :ok <- enabled(conn),
          :ok <- within_limit(conn) do
       conn.query_params
-      |> Authorize.validate(conn.query_string)
+      |> Authorize.validate(conn.query_string, ip: IpAddress.client_address(conn))
       |> answer(conn)
     end
   end
@@ -67,6 +73,18 @@ defmodule PhoenixKitWeb.OAuth.AuthorizeController do
         |> put_resp_header("retry-after", Integer.to_string(retry_after))
         |> error_page(429)
     end
+  end
+
+  defp answer({:page_error, :rate_limited}, conn) do
+    conn
+    |> put_resp_header("retry-after", "60")
+    |> error_page(429)
+  end
+
+  defp answer({:page_error, :busy}, conn) do
+    conn
+    |> put_resp_header("retry-after", "5")
+    |> error_page(503)
   end
 
   defp answer({:page_error, _reason}, conn), do: error_page(conn, 400)

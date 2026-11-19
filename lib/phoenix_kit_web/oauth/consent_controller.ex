@@ -33,7 +33,9 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
   "start again" page. A consent id answered from the wrong browser is not found (the binding
   above), and the cookie is `SameSite=Lax`, which a cross-site form post does not carry; the
   host's `:browser` pipeline (`protect_from_forgery`), which these routes sit in, is the second
-  layer, and a host whose pipeline lacks it relies on the binding alone.
+  layer, and a host whose pipeline lacks it relies on the binding alone. A client the policy
+  (`PhoenixKit.API.OAuth.ClientPolicy`) no longer allows gets the error page instead of the
+  screen, and no code; a "no" is always taken.
 
   The pages are in the language `PhoenixKitWeb.OAuth.Language` chooses: the `lang` query parameter,
   the person's `preferred_locale`, the `Accept-Language` header, the site's default, each only when
@@ -80,6 +82,7 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
   def show(conn, %{"id" => id}) do
     with :ok <- enabled(conn),
          {:ok, request} <- fetch(conn, id),
+         :ok <- client_allowed(conn, request),
          {:ok, user, scope} <- person(conn) do
       if Grants.count_live(user.uuid) >= Config.oauth_grants_per_person(),
         do: limit_page(conn, id, user),
@@ -163,6 +166,14 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
     end
   end
 
+  # The client policy may have changed in the minutes the request waited: the screen is not shown
+  # for a client that is no longer allowed (the answer is refused by `Consent.allow/4`).
+  defp client_allowed(conn, request) do
+    if Consent.client_allowed?(request),
+      do: :ok,
+      else: page(conn, 400, &Pages.error/1)
+  end
+
   # The signed-in person and their full scope, or the page that refuses them.
   defp person(conn) do
     user = conn.assigns[:phoenix_kit_current_user]
@@ -212,6 +223,9 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
         {:error, :grant_limit} ->
           conn |> put_status(409) |> limit_page(id, user)
 
+        {:error, :client_not_allowed} ->
+          page(conn, 400, &Pages.error/1)
+
         {:error, reason} when reason in @no_right_reasons ->
           no_right(conn, if(reason == :impersonated, do: :impersonated, else: :no_right))
 
@@ -251,6 +265,8 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
           redirect_host: host_and_port(address),
           redirect_path: address.path,
           loopback?: RedirectUri.loopback?(request.redirect_uri),
+          unverified?: snapshot["kind"] != "preregistered",
+          client_address: client_address(snapshot),
           email: user.email,
           sections: sections(Scopes.describe(selectable)),
           preselected: preselected,
@@ -280,6 +296,17 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
 
   defp host_and_port(%{host: host, port: nil}), do: host
   defp host_and_port(%{host: host, port: port}), do: "#{host}:#{port}"
+
+  # Where a metadata document client says it lives: the host of its `client_id`, shown beside
+  # its self-given name so a name that borrows another brand shows another address.
+  defp client_address(%{"kind" => "cimd", "client_id" => client_id}) when is_binary(client_id) do
+    case URI.parse(client_id) do
+      %URI{host: host} when is_binary(host) and host != "" -> Pages.client_name(host)
+      _ -> nil
+    end
+  end
+
+  defp client_address(_snapshot), do: nil
 
   defp limit_page(conn, id, user) do
     html =

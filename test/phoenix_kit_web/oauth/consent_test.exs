@@ -15,6 +15,7 @@ defmodule PhoenixKitWeb.OAuth.ConsentTest do
   import PhoenixKit.Test.ApiHarness, only: [put_setting: 2, setup_api: 0, with_client_ip: 1]
 
   alias PhoenixKit.API.KeyTestSupport
+  alias PhoenixKit.API.OAuth.Client
   alias PhoenixKit.API.OAuth.Code
   alias PhoenixKit.API.OAuth.Grant
   alias PhoenixKit.API.OAuth.Grants
@@ -58,6 +59,24 @@ defmodule PhoenixKitWeb.OAuth.ConsentTest do
 
       assert state == params["state"]
       assert iss == Resource.issuer()
+      assert Repo.all(Grant) == []
+    end
+
+    test "the client of a registration hears access_denied too, and only after the person said no",
+         %{user: user, challenge: challenge} do
+      client =
+        Repo.insert!(%Client{
+          kind: "dcr",
+          client_id: "dcr_deny_#{System.unique_integer([:positive])}",
+          redirect_uris: ["https://app.example/cb"]
+        })
+
+      id = browser() |> authorize(authorize_params(client, challenge)) |> consent_id()
+      answer = decide(browser(user), id, %{"decision" => "deny"})
+
+      assert answer.status == 302
+      assert location(answer) =~ "https://app.example/cb?"
+      assert %{"error" => "access_denied"} = location_params(answer)
       assert Repo.all(Grant) == []
     end
   end

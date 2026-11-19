@@ -62,8 +62,9 @@ defmodule PhoenixKit.API.OAuth.ClientsTest do
       assert Repo.all(Client) == []
     end
 
-    test "a client_id or name a database cannot hold is an error, not a raised query" do
-      for field <- [:client_id, :client_uri, :client_name] do
+    test "a client_id or home page a database cannot hold is an error, not a raised query" do
+      # A name is not here: `Clients.clean_name/1` strips what it cannot keep (clients_resolve_test).
+      for field <- [:client_id, :client_uri] do
         for bad <- ["a\0b", <<0xFF, ?a>>] do
           assert {:error, changeset} = Clients.register_preregistered(attrs(%{field => bad}))
           assert Map.has_key?(errors(changeset), field), "#{field} #{inspect(bad)}"

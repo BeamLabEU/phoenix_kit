@@ -27480,7 +27480,17 @@ msgstr ""
 msgid "on behalf of %{email}"
 msgstr ""
 
-#: lib/phoenix_kit_web/oauth/pages.ex:156
+#: lib/phoenix_kit_web/oauth/pages.ex:152
+#, elixir-autogen, elixir-format
+msgid "Anyone can publish a description of an application under any name, and the name above has not been checked. Allow access only if you started this connection from that application."
+msgstr ""
+
+#: lib/phoenix_kit_web/oauth/pages.ex:157
+#, elixir-autogen, elixir-format
+msgid "The application is described at %{address}"
+msgstr ""
+
+#: lib/phoenix_kit_web/oauth/pages.ex:149
 #, elixir-autogen, elixir-format
 msgid "After you decide, your browser is sent to"
 msgstr ""

@@ -111,7 +111,7 @@ defmodule PhoenixKitWeb.OAuth.MetadataTest do
       assert doc["authorization_response_iss_parameter_supported"] == true
     end
 
-    test "has no scopes_supported, no registration endpoint yet and is not an OpenID provider" do
+    test "has no scopes_supported, no registration endpoint by default and is not an OpenID provider" do
       doc = body(fetch(@as_path))
       refute Map.has_key?(doc, "scopes_supported")
       refute Map.has_key?(doc, "registration_endpoint")
@@ -120,8 +120,20 @@ defmodule PhoenixKitWeb.OAuth.MetadataTest do
       assert fetch("/.well-known/openid-configuration").status == 404
     end
 
-    test "does not promise client ID metadata documents: this server does not read them yet" do
-      assert body(fetch(@as_path))["client_id_metadata_document_supported"] == false
+    test "names the registration endpoint only while Dynamic Client Registration is on" do
+      put_setting("api_oauth_dcr_enabled", "true")
+      doc = body(fetch(@as_path))
+      assert doc["registration_endpoint"] == Resource.issuer() <> Routes.path("/oauth/register")
+
+      path = URI.parse(doc["registration_endpoint"]).path
+      assert %{} = Phoenix.Router.route_info(PhoenixKitWeb.Router, "POST", path, "localhost")
+
+      put_setting("api_oauth_dcr_enabled", "false")
+      refute Map.has_key?(body(fetch(@as_path)), "registration_endpoint")
+    end
+
+    test "still advertises client ID metadata documents" do
+      assert body(fetch(@as_path))["client_id_metadata_document_supported"] == true
     end
 
     test "the endpoints it names are routed, with no locale segment" do

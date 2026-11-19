@@ -309,8 +309,9 @@ defmodule PhoenixKitWeb.Integration do
   #     long query as the return path.)
   #   * `/oauth/consent/:id`: the same, plus `:phoenix_kit_require_authenticated`, which lets in
   #     any signed-in person and runs the account gate. The only place the flow needs a login.
-  #   * `POST /oauth/token`, `POST /oauth/revoke`: the API's empty pipeline (no session, no CSRF).
-  #     `PhoenixKit.API.BodyGuard` reads their form body in the endpoint.
+  #   * `POST /oauth/token`, `POST /oauth/revoke`, `POST /oauth/register`: the API's empty pipeline
+  #     (no session, no CSRF). `PhoenixKit.API.BodyGuard` reads their body in the endpoint (a form,
+  #     for the registration JSON).
   #
   # Every controller route is `log: false`: the parameters hold codes, verifiers, refresh tokens,
   # `state` and the PKCE challenge, and the consent path is a capability URL.
@@ -343,6 +344,7 @@ defmodule PhoenixKitWeb.Integration do
 
         post "/oauth/token", OAuth.TokenController, :create, log: false
         post "/oauth/revoke", OAuth.TokenController, :revoke, log: false
+        post "/oauth/register", OAuth.RegisterController, :create, log: false
       end
 
       unquote(oauth_metadata_routes(url_prefix))

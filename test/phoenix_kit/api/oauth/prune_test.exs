@@ -497,6 +497,44 @@ defmodule PhoenixKit.API.OAuth.PruneTest do
       assert Repo.get(Client, with_grant.uuid)
     end
 
+    defp cimd_client!(expired_seconds_ago) do
+      client = client!(%{client_name: "document"})
+
+      Repo.update_all(from(c in Client, where: c.uuid == ^client.uuid),
+        set: [
+          kind: "cimd",
+          inserted_at: ago(expired_seconds_ago + 3600),
+          metadata_expires_at: ago(expired_seconds_ago)
+        ]
+      )
+
+      client
+    end
+
+    test "metadata document clients with no grant go a day after their cache ran out", %{} do
+      old = cimd_client!(90_000)
+      recent = cimd_client!(3600)
+      cached = cimd_client!(-3600)
+
+      assert %{clients: 1} = Prune.run()
+      assert Repo.get(Client, old.uuid) == nil
+      assert Repo.get(Client, recent.uuid)
+      assert Repo.get(Client, cached.uuid)
+    end
+
+    test "metadata document clients with a grant, or a request waiting, stay", %{scope: scope} do
+      waiting = cimd_client!(90_000)
+      insert_request!(waiting, ahead(300))
+
+      with_grant = cimd_client!(90_000)
+      attrs = %{scopes: [read_scope()], expires_at: ahead(86_400)}
+      {:ok, _grant, _key} = Grants.create(scope, with_grant, attrs, impersonated: false)
+
+      assert %{clients: 0} = Prune.run()
+      assert Repo.get(Client, waiting.uuid)
+      assert Repo.get(Client, with_grant.uuid)
+    end
+
     test "pre-registered clients are never removed", %{} do
       client = client!()
 

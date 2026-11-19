@@ -147,6 +147,19 @@ defmodule PhoenixKitWeb.OAuth.Responses do
     Enum.join(kept ++ ["frame-ancestors 'none'"], "; ")
   end
 
+  @doc """
+  Sends `body` as JSON with `status`, `Cache-Control: no-store` and `Pragma: no-cache`
+  (the answers of the machine endpoints, RFC 6749 section 5.1).
+  """
+  @spec json(Plug.Conn.t(), pos_integer(), map()) :: Plug.Conn.t()
+  def json(conn, status, body) do
+    conn
+    |> put_resp_header("cache-control", "no-store")
+    |> put_resp_header("pragma", "no-cache")
+    |> put_resp_content_type("application/json")
+    |> send_resp(status, JSON.encode!(body))
+  end
+
   @doc "Sends `html` (iodata) with `status`."
   @spec page(Plug.Conn.t(), pos_integer(), iodata()) :: Plug.Conn.t()
   def page(conn, status, html) do

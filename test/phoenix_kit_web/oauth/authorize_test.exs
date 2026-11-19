@@ -14,9 +14,12 @@ defmodule PhoenixKitWeb.OAuth.AuthorizeTest do
 
   import PhoenixKit.Test.ApiHarness, only: [put_setting: 2, setup_api: 0, switch: 2]
 
+  alias PhoenixKit.API.OAuth.Client
+  alias PhoenixKit.API.OAuth.Limits
   alias PhoenixKit.API.OAuth.Request
   alias PhoenixKit.API.OAuth.RequestLog
   alias PhoenixKit.API.OAuth.Resource
+  alias PhoenixKit.API.OAuthCimdStub, as: Stub
   alias PhoenixKit.Test.Repo
   alias PhoenixKit.Utils.Routes
 
@@ -311,6 +314,76 @@ defmodule PhoenixKitWeb.OAuth.AuthorizeTest do
       conn = authorize(browser(), params)
       assert location(conn) =~ ~r{\Ahttps://client.example/cb\?tenant=7&}
       assert location_params(conn)["tenant"] == "7"
+    end
+  end
+
+  describe "a client that named itself is never sent a redirect before the person consented" do
+    # This request comes before any sign-in or consent screen: an `https` address listed by an
+    # unverified client (a registered one, a metadata document) must not be reachable through a
+    # redirect from this site. The page is ours, and nothing is stored.
+    @wrong %{
+      "response_type" => "token",
+      "code_challenge_method" => "plain",
+      "code_challenge" => "short",
+      "resource" => "https://elsewhere.example/mcp/admin",
+      "request" => "eyJ",
+      "request_uri" => "https://x.example/r"
+    }
+
+    defp dcr_client! do
+      Repo.insert!(%Client{
+        kind: "dcr",
+        client_id: "dcr_open_redirect_#{System.unique_integer([:positive])}",
+        redirect_uris: ["https://victim-lure.example/phish"]
+      })
+    end
+
+    test "a dynamically registered client gets our error page for every kind of error", %{
+      challenge: challenge
+    } do
+      client = dcr_client!()
+
+      for {name, value} <- @wrong do
+        conn = authorize(browser(), authorize_params(client, challenge, %{name => value}))
+
+        assert conn.status == 400, name
+        assert get_resp_header(conn, "location") == [], name
+        refute conn.resp_body =~ "victim-lure.example", name
+      end
+
+      assert Repo.all(Request) == []
+    end
+
+    test "a client named by a metadata document gets our error page too", %{
+      challenge: challenge
+    } do
+      Stub.install!()
+      claude = Stub.claude_id()
+      Stub.put(claude, Stub.claude_document())
+      Limits.reset(:cimd_client, claude)
+
+      client = %{client_id: claude, redirect_uris: ["https://claude.ai/api/mcp/auth_callback"]}
+      conn = authorize(browser(), authorize_params(client, challenge, %{"response_type" => "x"}))
+
+      assert conn.status == 400
+      assert get_resp_header(conn, "location") == []
+      assert Repo.all(Request) == []
+    end
+
+    test "the same client's valid request still goes to the consent URL", %{challenge: challenge} do
+      client = dcr_client!()
+      conn = authorize(browser(), authorize_params(client, challenge))
+      assert conn.status == 302
+      assert location(conn) =~ ~r|/oauth/consent/[A-Za-z0-9_-]{43}\z|
+    end
+
+    test "a pre-registered client keeps the redirect (the administrator's own choice)", %{
+      client: client,
+      challenge: challenge
+    } do
+      conn = authorize(browser(), authorize_params(client, challenge, %{"response_type" => "x"}))
+      assert conn.status == 302
+      assert location(conn) =~ hd(client.redirect_uris)
     end
   end
 

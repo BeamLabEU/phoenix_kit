@@ -128,6 +128,16 @@ defmodule PhoenixKit.API.OAuthFlowSupport do
   @doc "POST `/oauth/revoke` with a form body of `params`."
   def revoke(params, opts \\ []), do: form_post("/revoke", params, opts)
 
+  @doc "POST `/oauth/register` with a JSON body of `params` (a map, or a string sent as it is)."
+  def register(params, opts \\ []) do
+    body = if is_binary(params), do: params, else: JSON.encode!(params)
+
+    ConnTest.build_conn()
+    |> ApiHarness.with_client_ip(Keyword.get_lazy(opts, :ip, &ApiHarness.unique_ip/0))
+    |> put_req_header("content-type", "application/json")
+    |> ConnTest.dispatch(@endpoint, :post, path("/register"), body)
+  end
+
   defp form_post(rest, params, opts) do
     body = if is_binary(params), do: params, else: URI.encode_query(params)
 

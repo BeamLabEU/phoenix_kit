@@ -130,6 +130,7 @@ defmodule PhoenixKit.API.Keys do
   alias PhoenixKit.API.Keys.CIDR
   alias PhoenixKit.API.Keys.Key
   alias PhoenixKit.API.Keys.Token
+  alias PhoenixKit.API.OAuth.Clients
   alias PhoenixKit.API.OAuth.Grants
   alias PhoenixKit.API.PersonalKeysConfig
   alias PhoenixKit.API.Registry, as: ToolRegistry
@@ -611,9 +612,11 @@ defmodule PhoenixKit.API.Keys do
   end
 
   defp oauth_changeset(attrs, owner, grant_uuid) do
+    # Cut by characters (the validation counts those) and by code points (the column does).
     name =
-      (@oauth_name_prefix <> to_string(Map.get(attrs, :client_name) || ""))
-      |> String.slice(0, @max_name_length)
+      (@oauth_name_prefix <>
+         (attrs |> Map.get(:client_name) |> Clients.clean_name() |> to_string()))
+      |> Clients.cut_name(@max_name_length)
 
     %{name: name, scopes: Map.get(attrs, :scopes, []), expires_at: Map.get(attrs, :expires_at)}
     |> base_changeset()

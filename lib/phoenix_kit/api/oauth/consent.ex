@@ -27,6 +27,8 @@ defmodule PhoenixKit.API.OAuth.Consent do
   alias PhoenixKit.API.Config
   alias PhoenixKit.API.Keys
   alias PhoenixKit.API.OAuth.Client
+  alias PhoenixKit.API.OAuth.ClientPolicy
+  alias PhoenixKit.API.OAuth.Clients
   alias PhoenixKit.API.OAuth.Codes
   alias PhoenixKit.API.OAuth.Grants
   alias PhoenixKit.API.OAuth.Request
@@ -56,6 +58,25 @@ defmodule PhoenixKit.API.OAuth.Consent do
     %{selectable: selectable, preselected: Enum.filter(selectable, &Scopes.read?/1)}
   end
 
+  @doc """
+  Whether the client the request was made for may still be used under the client policy
+  (`PhoenixKit.API.OAuth.ClientPolicy`): judged on what was pinned in the request (its kind, id
+  and redirect URIs), as it is shown to the person. The policy may have changed in the minutes the
+  request waited.
+  """
+  @spec client_allowed?(Request.t()) :: boolean()
+  def client_allowed?(%Request{client_snapshot: %{} = snapshot}) do
+    uris = if is_list(snapshot["redirect_uris"]), do: snapshot["redirect_uris"], else: []
+    ClientPolicy.allowed?(kind(snapshot["kind"]), snapshot["client_id"] || "", uris)
+  end
+
+  def client_allowed?(_request), do: false
+
+  # A snapshot that names no known kind is judged like a registered client, never as the
+  # administrator's own (which no policy judges).
+  defp kind(kind) when kind in ["cimd", "dcr", "preregistered"], do: kind
+  defp kind(_kind), do: "dcr"
+
   @doc "How long a grant may last: `{default_days, [day choices up to the personal key ceiling]}`."
   @spec days() :: {pos_integer(), [pos_integer()]}
   def days do
@@ -80,7 +101,8 @@ defmodule PhoenixKit.API.OAuth.Consent do
   application) and `:ip`.
 
   Returns `{:ok, code, grant}`, or `{:error, reason}`: `:request_gone` (used or run out),
-  `:client_gone` (the client was deleted meanwhile), `:no_scopes`,
+  `:client_gone` (the client was deleted meanwhile),
+  `:client_not_allowed` (the client policy no longer lets the client in), `:no_scopes`,
   `:grant_limit` (the person already has as many live grants as the ceiling
   allows), and the refusals of `PhoenixKit.API.Keys.create_oauth_key/3` (`:forbidden`,
   `:impersonated`, `:owner_inactive`, `:owner_not_allowed`, ...).
@@ -91,27 +113,45 @@ defmodule PhoenixKit.API.OAuth.Consent do
     %{selectable: selectable} = options(user, request)
     scopes = opts |> Keyword.get(:scopes, []) |> Enum.filter(&(&1 in selectable)) |> Enum.uniq()
 
-    if scopes == [] do
-      {:error, :no_scopes}
-    else
-      attrs = %{
-        scopes: scopes,
-        expires_at: expiry(Keyword.get(opts, :days)),
-        resource: request.resource,
-        created_ip: Keyword.get(opts, :ip)
-      }
+    cond do
+      not client_allowed?(request) ->
+        {:error, :client_not_allowed}
 
-      grant_opts = [
-        impersonated: Keyword.get(opts, :impersonated),
-        ceiling: Config.oauth_grants_per_person()
-      ]
+      scopes == [] ->
+        {:error, :no_scopes}
 
-      case repo().transaction(fn -> make(scope, request, client, attrs, grant_opts) end) do
-        {:ok, {code, grant}} -> {:ok, code, grant}
-        {:error, _reason} = error -> error
-      end
+      true ->
+        grant(scope, request, client, scopes, opts)
     end
   end
+
+  defp grant(scope, request, client, scopes, opts) do
+    attrs = %{
+      scopes: scopes,
+      expires_at: expiry(Keyword.get(opts, :days)),
+      resource: request.resource,
+      created_ip: Keyword.get(opts, :ip),
+      client_name: pinned_name(request)
+    }
+
+    grant_opts = [
+      impersonated: Keyword.get(opts, :impersonated),
+      ceiling: Config.oauth_grants_per_person()
+    ]
+
+    case repo().transaction(fn -> make(scope, request, client, attrs, grant_opts) end) do
+      {:ok, {code, grant}} -> {:ok, code, grant}
+      {:error, _reason} = error -> error
+    end
+  end
+
+  # The name the person saw on the screen, from the snapshot pinned in the request, not from the
+  # client's row, which a newer document may have changed since: the hidden key of the grant is
+  # named after what was agreed to.
+  defp pinned_name(%Request{client_snapshot: %{} = snapshot}),
+    do: Clients.clean_name(snapshot["client_name"]) || snapshot["client_id"]
+
+  defp pinned_name(_request), do: nil
 
   defp make(scope, request, client, attrs, grant_opts) do
     with :ok <- use_up(request),

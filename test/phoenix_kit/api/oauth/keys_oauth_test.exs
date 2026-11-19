@@ -75,6 +75,20 @@ defmodule PhoenixKit.API.KeysOAuthTest do
       assert String.starts_with?(key.name, "OAuth: xxx")
     end
 
+    test "cuts a name of combining marks by code points too, the size of the column", %{
+      scope: scope
+    } do
+      # 80 graphemes, 160 code points: "OAuth: " and the name together would be 167 code points.
+      name = String.duplicate("a\u0301", 80)
+      attrs = grant_attrs(%{client_name: name})
+
+      assert {:ok, key} = Keys.create_oauth_key(scope, attrs, impersonated: false)
+      assert key.name |> String.to_charlist() |> length() <= 160
+      assert String.length(key.name) <= 100
+      assert String.starts_with?(key.name, "OAuth: a\u0301")
+      assert String.valid?(key.name)
+    end
+
     test "writes no api.key_created entry", %{scope: scope} do
       assert {:ok, key} = Keys.create_oauth_key(scope, grant_attrs(), impersonated: false)
       assert entries("api.key_created", key.uuid) == []
