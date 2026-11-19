@@ -14,6 +14,76 @@
   message travels on the account's existing scope topic and is halted before the page's
   own `handle_info/2`, and a burst of changes is drawn once per page.
 
+- **MCP clients can connect to `POST /mcp/admin` by signing in (OAuth 2.1), instead of pasting
+  an API key** (#1039–#1043, migrations V233 and V234). Off by default: `api_oauth_enabled`, which
+  also needs `api_admin_enabled`. Settings → API → Sign-in (OAuth) holds the switches, the token
+  lifetime, the client policy and its trusted hosts, the limits, the metadata URLs, a status card
+  and the client list. The admin guide (Settings → API → Guide) explains how to connect an app.
+  - **The flow.** `GET /oauth/authorize` takes PKCE S256 only, an exact `redirect_uri` (RFC 8252
+    loopback ports), `resource` (RFC 8707) and scopes. `/oauth/consent/:id` needs a sign-in, is
+    bound to the browser that started it, and refuses impersonated sessions, service users and
+    managed organizations. It shows the rights per module (reading preselected, writing never).
+    `POST /oauth/token` serves `authorization_code` and rotating `refresh_token`; a reused code or
+    refresh token ends the connection. Also `POST /oauth/revoke`, RFC 9728 protected-resource and
+    RFC 8414 authorization-server metadata, and `iss` on every redirect (RFC 9207).
+  - **Rights.** Each connection owns one hidden personal key, never listed, counted or usable as a
+    `pk_` token. An access token's rights are the scopes granted ∩ the person's rights at the time
+    of each call; removing a right, the grant or the account stops the token on the next call.
+  - **Clients.** Three kinds: pre-registered by an administrator, Client ID Metadata Documents
+    (an `https` `client_id`, fetched through `Storage.RemoteFetch`: public addresses only, no
+    redirects, size and time limits), and Dynamic Client Registration (`POST /oauth/register`,
+    off by default: `api_oauth_dcr_enabled`).
+  - **Client policy `approval` (the default).** A client whose hosts are all trusted, or a
+    pre-registered one, connects at once. Any other connection waits for an Owner (Settings → API
+    → Sign-in, "Waiting for approval"): it gets tokens and the tool list, but every call is refused
+    with `approval_pending`. A connection that waits more than 7 days ends. The other policies are
+    `any` and `allow_list`. The trust settings are Owner-only.
+  - **"Connected apps"** under My API keys lists a person's connections and disconnects them. The
+    person gets one mail (`app_connected`) when a connection is made.
+  - **`api_pw_change_revokes`** (off by default): a password change or reset also ends the
+    person's personal keys and OAuth connections, in the same transaction.
+  - **Limits against unauthenticated load:** waiting sign-ins per install
+    (`api_oauth_requests_ceiling`) and per network (`api_oauth_requests_per_network`, default 20);
+    metadata-document clients without a connection stored in a day
+    (`api_oauth_cimd_clients_ceiling`, default 1000); downloads and registrations per minute,
+    hour and day. A connection keeps the redirect address it was issued for, and the Owner sees
+    that address when deciding.
+  - The daily `OAuth.PruneWorker` (a new cron entry; `mix phoenix_kit.update` adds it) removes
+    expired requests, codes and tokens, ended grants, and idle registered clients. `/oauth` is now
+    a reserved path segment, and an `admin_path` of `/oauth` is refused. The OAuth endpoints keep
+    their tokens out of the request log (`OAuth.RequestLog`, a global Logger filter).
+- **A people picker for every module** (`PhoenixKitWeb.Components.PeoplePicker`, #1046). It
+  searches people through a `PeoplePicker.Source`, shows chips with faces and caller-supplied
+  tags, the viewer's Recent picks and "Add me", and confirms inline when the source asks first. The
+  default `UserSource` offers active, confirmed accounts, never service users, and shows no email.
+  A module passes its own source for teams, departments or staff records.
+- **Every notification says which setting sent it** (#1046), with a link to that line:
+  `Render.reason/3`, shown in the inbox, as `{{reason}}` / `{{settings_url}}` in the
+  `notification` email, and as a last line on Telegram. A notification type can declare an
+  `example` per line, and a channel the person has not connected yet can offer a Connect link
+  (`Channel.connect_path/0`, optional).
+- **A notification can carry a quoted message** (#1046): an activity's metadata
+  `"quote" => %{"text", "author_uuid", "author_name"}` is shown as its own block (sanitized
+  markdown in the inbox, plain and escaped in email, a paragraph on Telegram). Mentions use it to
+  quote the comment.
+- **Offline annotating in the media viewer, opt-in** (#1047): `config :phoenix_kit,
+  offline_annotations: true`. A file annotated once online opens, draws and measures with no
+  connection, keeps the edits on the device and sends them when the connection is back, merged
+  shape by shape. A shape with a comment thread is never deleted by an offline device. Core serves
+  Etcher's service worker at `/assets/etcher-offline-sw.js`. Signing out does not yet clear the
+  device's copies, so don't turn it on for shared computers.
+
+### Changed
+
+- **Notification settings save each switch as it is flipped** (#1046). The page has no Save
+  button. A channel switch no longer flips back when the page redraws. Switches under a master
+  that is off are disabled and keep their stored values.
+- **An avatar without a picture shows two letters from the name shown**, not from the email
+  (#1046).
+- **Opening a row menu closes any other open row menu** (#1046).
+- **Dependencies:** fresco `~> 0.17.0`, etcher `~> 0.29.0`, tessera `~> 0.3.12`, leaf admits
+  `~> 0.13.0` (#1045); mint `~> 1.11` (#1041).
+
 ### Fixed
 
 - **The sitemap's boot-time scheduling check no longer crashes on hosts with scheduled
