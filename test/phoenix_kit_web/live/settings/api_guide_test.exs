@@ -241,6 +241,18 @@ defmodule PhoenixKitWeb.Live.Settings.ApiGuideTest do
                Routes.path("/admin/settings/api?tab=oauth")
     end
 
+    test "the sign-in address is the resource the documents publish, not the base URL",
+         %{conn: conn} do
+      # A site_url with a path: the snippets of a key are built on it, a token only on its origin.
+      KeyTestSupport.put_setting("site_url", "https://guide.example/shop")
+      {:ok, view, _html} = live(conn, @path)
+      resource = PhoenixKit.API.OAuth.Resource.resource()
+
+      assert resource == "https://guide.example" <> Routes.path("/mcp/admin")
+      assert text(view, "#guide-oauth-url") == resource
+      assert text(view, "#guide-oauth-claude-code-command") =~ "'#{resource}'"
+    end
+
     test "says OAuth is off while it is, and not once it is on", %{conn: conn} do
       {:ok, view, _html} = live(conn, @path)
       assert has_element?(view, "#guide-oauth-off")

@@ -21,7 +21,8 @@ defmodule PhoenixKitWeb.Live.Settings.ApiGuidePanel do
   ## The OAuth section
 
   Built from `PhoenixKit.API.OAuth.Status` (the addresses are the ones the discovery
-  documents publish) and shown whether or not OAuth is on, with a note and a link to the
+  documents publish, the MCP address included: the resource a token is made for, which can differ
+  from the base URL below) and shown whether or not OAuth is on, with a note and a link to the
   switch while it is off. The table of clients says plainly which connection was checked
   against a live client and which only against the client's published documents. It also tells
   who may approve an application that is not on the list of allowed hosts, what the waiting
@@ -85,7 +86,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiGuidePanel do
       claude_code_command: claude_code_command(name, mcp),
       cursor_config: cursor_config(name, mcp),
       vscode_config: vscode_config(name, mcp),
-      oauth: oauth(name, mcp),
+      oauth: oauth(name),
       tool_groups: tool_groups(),
       confirm_ttl_seconds: FlowConfig.confirm_ttl_seconds(),
       confirm_batch_over: FlowConfig.confirm_batch_over(),
@@ -139,9 +140,13 @@ defmodule PhoenixKitWeb.Live.Settings.ApiGuidePanel do
     })
   end
 
-  # No key and no header: the client finds the sign-in from the 401 answer of the server.
-  defp oauth(name, url) do
+  # No key and no header: the client finds the sign-in from the 401 answer of the server. The
+  # address is the resource the discovery documents publish (the canonical origin), not the base
+  # URL of the snippets above: a token is accepted only for that resource, so a client that
+  # connects through another address of the site is refused after the sign-in.
+  defp oauth(name) do
     report = Status.report()
+    url = Keyword.fetch!(report.urls, :resource)
 
     %{
       enabled: report.oauth_enabled,
