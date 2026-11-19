@@ -527,6 +527,65 @@ defmodule PhoenixKit.API.OAuth.Grants do
     end
   end
 
+  @doc false
+  # Step of `PhoenixKit.API.OAuth.Clients.delete/3`, inside its transaction and after every grant
+  # of the client went through `revoke/2` (which holds the key and grant locks to the end of the
+  # transaction, so no confirmation can be added to these keys meanwhile): deletes the hidden key
+  # of every ended grant of `client_uuid`, and with it, by the tables' cascades, the grant, its
+  # tokens and its codes. Without it the client's removal would take the grants and leave their
+  # keys behind for good: the prune walks grants. A key with confirmations is kept, as in
+  # `delete_ended/2`; once the client is gone it is an orphan that `delete_orphan_keys/1` removes
+  # after `Confirm.Prune` has cleared them. Returns the prefixes of the deleted keys, for the key
+  # cache once the transaction commits.
+  @spec delete_keys_of_ended_client_grants(String.t()) :: [String.t()]
+  def delete_keys_of_ended_client_grants(client_uuid) do
+    {_count, prefixes} =
+      repo().delete_all(
+        from(k in Key,
+          as: :key,
+          join: g in Grant,
+          on: g.key_uuid == k.uuid and k.oauth_grant_uuid == g.uuid,
+          where: g.client_uuid == ^client_uuid and not is_nil(g.revoked_at),
+          where:
+            not exists(from(c in Confirmation, where: c.actor_key_uuid == parent_as(:key).uuid)),
+          select: k.prefix
+        )
+      )
+
+    prefixes
+  end
+
+  @doc false
+  # Step of `PhoenixKit.API.OAuth.Prune`: deletes, in batches of `batch`, the hidden keys whose
+  # grant is gone (the client was removed while the key had confirmations, see
+  # `delete_keys_of_ended_client_grants/1`), revoked and with no confirmation left. A key that
+  # is not revoked, or is not a hidden key (`oauth_grant_uuid` is `nil`: a person's own), is
+  # never touched. Returns how many were deleted.
+  @spec delete_orphan_keys(pos_integer()) :: non_neg_integer()
+  def delete_orphan_keys(batch) when is_integer(batch) and batch > 0 do
+    query =
+      from(k in Key,
+        as: :key,
+        where: not is_nil(k.oauth_grant_uuid) and not is_nil(k.revoked_at),
+        where: not exists(from(g in Grant, where: g.uuid == parent_as(:key).oauth_grant_uuid)),
+        where:
+          not exists(from(c in Confirmation, where: c.actor_key_uuid == parent_as(:key).uuid))
+      )
+
+    uuids = repo().all(from(k in query, select: k.uuid, limit: ^batch))
+
+    # The conditions are part of the DELETE as well: a confirmation added since the SELECT keeps
+    # its key.
+    {count, prefixes} =
+      repo().delete_all(from(k in query, where: k.uuid in ^uuids, select: k.prefix))
+
+    Enum.each(prefixes, &Cache.invalidate/1)
+
+    if length(uuids) == batch and count > 0,
+      do: count + delete_orphan_keys(batch),
+      else: count
+  end
+
   defp past?(%DateTime{} = at), do: DateTime.compare(at, DateTime.utc_now()) != :gt
 
   defp has_confirmations?(key_uuid),

@@ -15,6 +15,7 @@ defmodule PhoenixKit.API.OAuth.Clients do
   import Ecto.Query, only: [from: 2]
 
   alias PhoenixKit.API.Config
+  alias PhoenixKit.API.Keys.Cache
   alias PhoenixKit.API.OAuth.Cimd
   alias PhoenixKit.API.OAuth.Client
   alias PhoenixKit.API.OAuth.ClientPolicy
@@ -374,8 +375,10 @@ defmodule PhoenixKit.API.OAuth.Clients do
   The tables would take the grants and their tokens with the client (`ON DELETE CASCADE`) and
   leave the hidden keys of those grants behind, alive. So each grant goes through
   `PhoenixKit.API.OAuth.Grants.revoke/2` (the lock order key, grant, tokens; reason
-  `"client_deleted"`; one `oauth.grant_revoked` entry each), and only then is the client deleted,
-  all in one transaction: if a grant cannot be ended, the client stays.
+  `"client_deleted"`; one `oauth.grant_revoked` entry each), then the hidden keys of the client's
+  ended grants are deleted (a key with confirmations stays, revoked, until they are pruned:
+  `PhoenixKit.API.OAuth.Prune` removes it then), and only then is the client deleted, all in one
+  transaction: if a grant cannot be ended, the client stays.
 
   Ending other people's connections is never the default. A client that has a live connection,
   counted under the same row lock the removal takes (`Grants.count_live_for_client/1`: an
@@ -436,7 +439,8 @@ defmodule PhoenixKit.API.OAuth.Clients do
             if not end_connections? and live > 0, do: repo().rollback(:has_connections)
 
             end_grants(locked, revoke_opts)
-            {repo().delete(locked) |> unwrap(), live}
+            prefixes = Grants.delete_keys_of_ended_client_grants(uuid)
+            {repo().delete(locked) |> unwrap(), live, prefixes}
 
           nil ->
             repo().rollback(:not_found)
@@ -444,7 +448,8 @@ defmodule PhoenixKit.API.OAuth.Clients do
       end)
 
     case result do
-      {:ok, {client, live}} ->
+      {:ok, {client, live, prefixes}} ->
+        Enum.each(prefixes, &Cache.invalidate/1)
         log_removed(client, live, actor_uuid)
         {:ok, client}
 

@@ -2,8 +2,8 @@ defmodule PhoenixKit.API.OAuth.ClientsDeleteTest do
   @moduledoc """
   `Clients.delete/3`: a client is never removed while a grant of it is alive. The database would
   take the grants and their tokens with the client (`ON DELETE CASCADE`) and leave their hidden
-  keys behind, still valid; so every grant is ended first, through `Grants.revoke/2`, in the same
-  transaction.
+  keys behind, still valid; so every grant is ended first, through `Grants.revoke/2`, and its
+  hidden key deleted, in the same transaction.
   """
   use PhoenixKit.DataCase, async: false
 
@@ -38,8 +38,9 @@ defmodule PhoenixKit.API.OAuth.ClientsDeleteTest do
     assert Repo.get(Client, ctx.client.uuid) == nil
     assert Repo.all(from(g in Grant, where: g.client_uuid == ^ctx.client.uuid)) == []
 
+    # The hidden keys go too: nothing else would ever remove them once their grants are gone.
     for seeded <- [first, second] do
-      assert %Key{revoked_at: %DateTime{}} = key_state(seeded.key)
+      assert Repo.get(Key, seeded.key.uuid) == nil
       assert Repo.all(from(t in Token, where: t.grant_uuid == ^seeded.grant.uuid)) == []
     end
 

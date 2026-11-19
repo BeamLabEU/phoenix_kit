@@ -241,7 +241,7 @@ defmodule PhoenixKit.API.OAuth.ClientsAdminTest do
       assert Repo.get!(PhoenixKit.API.Keys.Key, seeded.key.uuid).revoked_at == nil
 
       assert {:ok, _} = Clients.delete(:system, client.uuid, end_connections: true)
-      assert Repo.get!(PhoenixKit.API.Keys.Key, seeded.key.uuid).revoked_at
+      assert Repo.get(PhoenixKit.API.Keys.Key, seeded.key.uuid) == nil
     end
 
     # A forged call: an option cannot make a person who is not an Owner end other people's

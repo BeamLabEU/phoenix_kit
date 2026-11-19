@@ -34,6 +34,10 @@ defmodule PhoenixKit.API.OAuth.Prune do
        unauthenticated authorization request makes the server fetch and store one, so they
        must not pile up). Pre-registered clients stay.
 
+    8. **Hidden keys left without their grant** - the removal of a client deletes the hidden
+       keys of its grants, except one with confirmations, whose grant goes with the client; once
+       `Confirm.Prune` has cleared them the key, revoked, is removed here.
+
   What it never does: remove a grant that is still alive (or ended less than three days ago),
   a key with confirmations, or any key that is not the hidden key of a grant. A person's own keys are not its business.
 
@@ -59,7 +63,8 @@ defmodule PhoenixKit.API.OAuth.Prune do
 
   @doc """
   Runs every step at `now`; returns
-  `%{grants: n, unapproved: n, ended: n, requests: n, codes: n, tokens: n, clients: n}`.
+  `%{grants: n, unapproved: n, ended: n, requests: n, codes: n, tokens: n, clients: n,
+  orphan_keys: n}`.
   """
   @spec run(DateTime.t()) :: %{atom() => non_neg_integer()}
   def run(now \\ DateTime.utc_now()) do
@@ -72,7 +77,8 @@ defmodule PhoenixKit.API.OAuth.Prune do
       requests: delete_all_batches(from(r in Request, where: r.expires_at < ^now)),
       codes: delete_all_batches(from(c in Code, where: c.expires_at < ^now)),
       tokens: delete_all_batches(from(t in Token, where: t.expires_at < ^token_cutoff(now))),
-      clients: idle_clients(now)
+      clients: idle_clients(now),
+      orphan_keys: Grants.delete_orphan_keys(@batch)
     }
   end
 

@@ -596,7 +596,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanelTest do
 
       assert Repo.get(Client, ctx.client.uuid) == nil
       assert Repo.get(Grant, ctx.seeded.grant.uuid) == nil
-      assert %DateTime{} = Repo.get!(Key, ctx.seeded.key.uuid).revoked_at
+      assert Repo.get(Key, ctx.seeded.key.uuid) == nil
       assert {:error, _} = Tokens.verify(ctx.seeded.access, "203.0.113.9")
 
       assert [entry] =

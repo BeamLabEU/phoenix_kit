@@ -13,6 +13,7 @@ defmodule PhoenixKit.API.OAuth.PruneTest do
   alias PhoenixKit.API.Keys
   alias PhoenixKit.API.Keys.Key
   alias PhoenixKit.API.OAuth.Client
+  alias PhoenixKit.API.OAuth.Clients
   alias PhoenixKit.API.OAuth.Code
   alias PhoenixKit.API.OAuth.Grant
   alias PhoenixKit.API.OAuth.Grants
@@ -228,6 +229,42 @@ defmodule PhoenixKit.API.OAuth.PruneTest do
       assert %{ended: 1} = Prune.run()
       assert Repo.get(Grant, kept.grant.uuid) == nil
       assert Repo.get(Key, kept.key.uuid) == nil
+    end
+
+    test "a removed client's key with confirmations stays until they are pruned, then goes", %{
+      scope: scope
+    } do
+      client = client!()
+      kept = seed_grant!(scope, client: client)
+      confirmation = confirmation!(kept.key)
+      plain = seed_grant!(scope, client: client)
+      other = seed_grant!(scope)
+      {:ok, _} = Grants.revoke(other.grant)
+
+      assert {:ok, _} = Clients.delete(:system, client, end_connections: true)
+
+      # The key without history went with the client, the other stays, revoked, without its grant.
+      assert Repo.get(Key, plain.key.uuid) == nil
+      assert %Key{revoked_at: %DateTime{}} = Repo.get(Key, kept.key.uuid)
+      assert Repo.get(Grant, kept.grant.uuid) == nil
+
+      assert %{orphan_keys: 0} = Prune.run()
+      assert Repo.get(Key, kept.key.uuid)
+
+      Repo.delete!(confirmation)
+      assert %{orphan_keys: 1} = Prune.run()
+      assert Repo.get(Key, kept.key.uuid) == nil
+
+      # A key whose grant is still there is the business of the steps above, not of this one.
+      assert Repo.get(Key, other.key.uuid)
+    end
+
+    test "a key that is not revoked, or not a hidden key, is never an orphan", %{scope: scope} do
+      seed = seed_grant!(scope)
+      Repo.delete_all(from(g in Grant, where: g.uuid == ^seed.grant.uuid))
+
+      assert %{orphan_keys: 0} = Prune.run()
+      assert %Key{revoked_at: nil} = Repo.get(Key, seed.key.uuid)
     end
 
     test "delete_ended/2 looks again under the lock: a key with confirmations stays", %{
