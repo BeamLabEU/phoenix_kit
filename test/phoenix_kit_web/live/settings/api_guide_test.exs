@@ -9,6 +9,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiGuideTest do
 
   alias PhoenixKit.API.KeyTestSupport
   alias PhoenixKit.API.MCP.Shape
+  alias PhoenixKit.API.OAuth.Resource
   alias PhoenixKit.API.Problem
   alias PhoenixKit.ModuleRegistry
   alias PhoenixKit.Test.ApiFlowHarness
@@ -246,7 +247,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiGuideTest do
       # A site_url with a path: the snippets of a key are built on it, a token only on its origin.
       KeyTestSupport.put_setting("site_url", "https://guide.example/shop")
       {:ok, view, _html} = live(conn, @path)
-      resource = PhoenixKit.API.OAuth.Resource.resource()
+      resource = Resource.resource()
 
       assert resource == "https://guide.example" <> Routes.path("/mcp/admin")
       assert text(view, "#guide-oauth-url") == resource

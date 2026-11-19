@@ -10,11 +10,13 @@ defmodule PhoenixKit.API.OAuth.ClientsResolveTest do
   import PhoenixKit.API.OAuthTestSupport, only: [client!: 1]
   import PhoenixKit.Test.ApiHarness, only: [put_setting: 2, setup_api: 0, unique_ip: 0]
 
+  alias PhoenixKit.API.KeyTestSupport
   alias PhoenixKit.API.OAuth.Cimd
   alias PhoenixKit.API.OAuth.Client
   alias PhoenixKit.API.OAuth.Clients
   alias PhoenixKit.API.OAuth.Limits
   alias PhoenixKit.API.OAuthCimdStub, as: Stub
+  alias PhoenixKit.API.OAuthTestSupport
 
   @claude Stub.claude_id()
   @chatgpt Stub.chatgpt_id()
@@ -567,9 +569,9 @@ defmodule PhoenixKit.API.OAuth.ClientsResolveTest do
       put_setting("api_oauth_cimd_clients_ceiling", 1)
 
       used = unused_cimd!("https://flood.example/used")
-      PhoenixKit.API.KeyTestSupport.register_fake_module!()
-      {_user, _role, scope} = PhoenixKit.API.OAuthTestSupport.oauth_holder(["media"])
-      PhoenixKit.API.OAuthTestSupport.seed_grant!(scope, client: used)
+      KeyTestSupport.register_fake_module!()
+      {_user, _role, scope} = OAuthTestSupport.oauth_holder(["media"])
+      OAuthTestSupport.seed_grant!(scope, client: used)
 
       old = unused_cimd!("https://flood.example/old")
       day_ago = DateTime.utc_now() |> DateTime.add(-86_401, :second) |> DateTime.truncate(:second)

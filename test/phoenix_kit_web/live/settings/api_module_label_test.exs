@@ -7,8 +7,8 @@ defmodule PhoenixKitWeb.Live.Settings.ApiModuleLabelTest do
   """
   use ExUnit.Case, async: false
 
-  alias PhoenixKit.ModuleRegistry
   alias PhoenixKit.API.ModuleLabel
+  alias PhoenixKit.ModuleRegistry
 
   defmodule LabelledModule do
     @moduledoc false
