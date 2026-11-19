@@ -408,7 +408,14 @@ defmodule PhoenixKit.MixProject do
       # saves with no connection. It also has 0.27's placing loupe: hold a
       # dragged point still and a magnified view shows where it will land.
       {:tessera, "~> 0.3.12"},
-      {:etcher, "~> 0.28.0"},
+      #
+      # 0.29 is the floor because the media viewer starts offline on the
+      # markup its first render already holds (Etcher's in-place start, which
+      # starts Tessera's zoom layer with it), and passes `offline_protect`, so a
+      # shape with a comment thread is never deleted by a device that was
+      # offline. An older Etcher warns about the attribute at compile time and
+      # the viewer stays a spinner offline.
+      {:etcher, "~> 0.29.0"},
 
       # QR device-handoff login ("scan to sign in" on the login page).
       #
