@@ -175,17 +175,17 @@ msgstr "必须包含 @ 符号且不含空格"
 msgid "must start with a letter and contain only letters, numbers, and underscores"
 msgstr "必须以字母开头，且只能包含字母、数字和下划线"
 
-#: lib/phoenix_kit/users/auth.ex:493
+#: lib/phoenix_kit/users/auth.ex:496
 #, elixir-autogen, elixir-format
 msgid "This email domain cannot receive mail. Please check the address."
 msgstr "此邮箱域名无法接收邮件。请检查地址。"
 
-#: lib/phoenix_kit/users/auth.ex:504
+#: lib/phoenix_kit/users/auth.ex:507
 #, elixir-autogen, elixir-format
 msgid "Too many registration attempts. Please try again later."
 msgstr "注册尝试次数过多。请稍后再试。"
 
-#: lib/phoenix_kit/users/auth.ex:2171
+#: lib/phoenix_kit/users/auth.ex:2169
 #, elixir-autogen, elixir-format
 msgid "The API keys and connections of this account could not be ended, so the password was not changed. Please try again."
 msgstr "无法终止此账户的 API 密钥和连接，因此密码未更改。请重试。"
