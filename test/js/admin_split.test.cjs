@@ -200,9 +200,9 @@ test("a size budget keeps the public file public", () => {
   // and main's Turnstile hook with its phoenix_kit:set_input listener (3.9 KB, the public auth forms). The
   // budget went 256 -> 272 KiB (the recorder), -> 280 (headroom for the next public hook from main), -> 288
   // (main's passkey hooks), -> 292 (the loader telling an outdated cached copy of the install facts from
-  // missing ones: no hook, ~2 KB in the loader every page already runs), -> 296 (PkFitHeight, ~4.9 KB with its
+  // missing ones: no hook, ~2 KB in the loader every page already runs), -> 296 (PkFitHeight, ~5.6 KB with its
   // notes: a generic overlay primitive like PkDialog, for any page a host puts a menu or list over; main plus it
-  // is 302 377 B, so 296 KiB = 303 104 B leaves ~0.7 KB). What it is for has not changed: an
+  // is 302 981 B, so 296 KiB = 303 104 B leaves ~0.1 KB). What it is for has not changed: an
   // admin hook that lands in the public file by mistake pushes it over (AvatarCrop alone is 13 158 B). A
   // coarse backstop only: a small admin hook would still fit in the margin, and it is the name checks above
   // that catch one put in the wrong file (or one that neither list names: the inventory test compares every

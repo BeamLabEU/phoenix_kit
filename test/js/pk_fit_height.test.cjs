@@ -46,10 +46,15 @@ function page(o) {
     getAttribute: (n) => (n in p.o.attrs ? p.o.attrs[n] : null),
     getClientRects: () => (p.o.hidden ? [] : [{}]),
     getBoundingClientRect: () => ({ top: p.o.hidden ? 0 : p.o.top }),
-    contains: (n) => n === el || n === p.child,
+    nodeType: 1,
+    // Like the real one: only a Node will do.
+    contains: (n) => {
+      if (!n || typeof n.nodeType !== "number") throw new TypeError("parameter 1 is not of type 'Node'");
+      return n === el || n === p.child;
+    },
   };
   p.el = el;
-  p.child = { tag: "child" };
+  p.child = { tag: "child", nodeType: 1 };
   p.scroller = scroller;
 
   const window = {
@@ -210,8 +215,44 @@ test("listens for scroll in the capture phase, and ignores the element's own scr
   p.fire("scroll", { target: p.el });
   p.fire("scroll", { target: p.child });
   assert.strictEqual(p.frames.length, 0);
-  p.fire("scroll", { target: {} });
+  p.fire("scroll", { target: { nodeType: 1 } });
   assert.strictEqual(p.frames.length, 1);
+});
+
+test("a scroll whose target is the window or the document is the page's scroll, not an error", () => {
+  const p = page();
+  p.mount();
+  p.o.scrollerBottom = 300;
+  // window.dispatchEvent(new Event("scroll")): the target is the window.
+  p.fire("scroll", { target: p.window });
+  assert.strictEqual(p.frames.length, 1);
+  p.flush();
+  assert.strictEqual(p.max(), "192px");
+  // A document scroll (nodeType 9).
+  p.fire("scroll", { target: { nodeType: 9 } });
+  assert.strictEqual(p.frames.length, 1);
+  // An event with no target at all.
+  p.flush();
+  p.fire("scroll", {});
+  assert.strictEqual(p.frames.length, 1);
+});
+
+test("reads the geometry before it clears the inline value, so it lays the page out once", () => {
+  const p = page();
+  p.mount();
+  const order = [];
+  const rect = p.el.getBoundingClientRect;
+  p.el.getBoundingClientRect = () => { order.push("top"); return rect(); };
+  const set = Object.getOwnPropertyDescriptor(p.el, "style");
+  let value = p.el.style.maxHeight;
+  Object.defineProperty(p.el.style, "maxHeight", {
+    get: () => value,
+    set: (v) => { order.push(v === "" ? "clear" : "set"); value = v; },
+    configurable: true,
+  });
+  assert.ok(set);
+  p.cx._measure();
+  assert.deepStrictEqual(order, ["top", "clear", "set"]);
 });
 
 test("an overlay mounted hidden is not measured, then is when it appears", () => {

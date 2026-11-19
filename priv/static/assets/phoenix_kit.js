@@ -3496,7 +3496,9 @@
   // Re-measuring from the observers and scroll is deferred to the next frame:
   // setting `max-height` inside a ResizeObserver callback resizes what that
   // observer watches and the browser reports "ResizeObserver loop completed
-  // with undelivered notifications".
+  // with undelivered notifications". The price: the first frame after a
+  // hidden overlay is shown is painted before its height is limited. And a
+  // ceiling that is not in pixels (a percentage) is not read as a cap.
   window.PhoenixKitHooks.PkFitHeight = {
     mounted() {
       const self = this;
@@ -3509,8 +3511,13 @@
         });
       };
       // A scroll inside the element itself (its own list) changes nothing.
+      // The target of a scroll can be the document or the window (a
+      // synthetic `window.dispatchEvent(new Event("scroll"))`), which are not
+      // elements and which `contains` refuses: those are the page's scroll.
       this._onScroll = function(event) {
-        if (event.target !== self.el && !(self.el.contains && self.el.contains(event.target))) self._fit();
+        const t = event.target;
+        if (t && t.nodeType === 1 && self.el.contains(t)) return;
+        self._fit();
       };
       this._boundary = this._scroller();
       window.addEventListener("resize", this._fit);
@@ -3547,14 +3554,17 @@
       if (el.getClientRects().length === 0) return;
       const margin = parseInt(el.getAttribute("data-fit-margin"), 10);
       const min = parseInt(el.getAttribute("data-fit-min"), 10);
-      // The element's own ceiling, read with ours out of the way.
-      el.style.maxHeight = "";
-      const own = window.getComputedStyle(el).maxHeight;
-      const cap = /px$/.test(own) ? parseFloat(own) : Infinity;
+      // The geometry first, while the overlay is as it is: clearing the
+      // inline value below puts it at full height and the next read would
+      // lay the page out with that.
       const bottom = this._boundary
         ? Math.min(this._boundary.getBoundingClientRect().bottom, window.innerHeight)
         : window.innerHeight;
       const room = bottom - el.getBoundingClientRect().top - (isNaN(margin) ? 8 : margin);
+      // The element's own ceiling, read with ours out of the way.
+      el.style.maxHeight = "";
+      const own = window.getComputedStyle(el).maxHeight;
+      const cap = /px$/.test(own) ? parseFloat(own) : Infinity;
       const fit = Math.max(isNaN(min) ? 160 : min, Math.floor(room));
       el.style.maxHeight = Math.min(cap, fit) + "px";
     }
