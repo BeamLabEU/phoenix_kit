@@ -110,7 +110,12 @@ defmodule PhoenixKit.API.MCP do
   @impl Plug
   def call(conn, opts) do
     audience = Keyword.fetch!(opts, :audience)
-    auth = Keyword.put(opts, :before_auth, {Origin, :check})
+    # Only the admin endpoint takes OAuth access tokens (`Auth` checks the switch itself).
+    auth =
+      opts
+      |> Keyword.put(:before_auth, {Origin, :check})
+      |> Keyword.put(:oauth, audience == :admin)
+
     conn = Auth.call(conn, Auth.init(auth))
 
     if conn.halted, do: conn, else: route(conn, audience)

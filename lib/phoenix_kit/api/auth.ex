@@ -29,6 +29,24 @@ defmodule PhoenixKit.API.Auth do
        the state of the IP's failure bucket). For the public audience it
        assigns an anonymous actor.
 
+  ## OAuth access tokens
+
+  `audience: :admin, oauth: true` (given by `PhoenixKit.API.MCP` for its admin endpoint and by
+  nobody else) also takes `Authorization: Bearer pkoa_...` tokens
+  (`PhoenixKit.API.OAuth.Tokens.verify/2`), when `PhoenixKit.API.Config.oauth_enabled?/0` is on.
+  Everywhere else (REST, the public audience, an install with OAuth off) a `pkoa_` token is
+  `401` like any token nobody can verify, and the plug behaves exactly as before.
+
+  With OAuth on, the `401` carries the challenge of RFC 9728: `Bearer
+  resource_metadata="<url>"` for a request with no `Authorization` header at all, `Bearer
+  error="invalid_token", resource_metadata="<url>"` for a bad one, and a `403` for a missing
+  scope `Bearer error="insufficient_scope", resource_metadata="<url>"`
+  (`PhoenixKit.API.Problem` reads the `:phoenix_kit_api_oauth_challenge` private of the conn).
+  A request with no credentials and a `pkoa_` token that ran out are the ordinary steps of
+  the OAuth cycle: they are answered `401` with the challenge **without** a peek at the
+  failure bucket and without being charged to it. An unknown `pkoa_` token, a revoked one and
+  every other failure are charged as before.
+
 
   An optional `:before_auth` hook, `{module, function}`, is called with the
   conn after step 3 and before step 4. The MCP transport uses it to refuse a
@@ -68,6 +86,8 @@ defmodule PhoenixKit.API.Auth do
   alias PhoenixKit.API.Config
   alias PhoenixKit.API.Keys
   alias PhoenixKit.API.LogSafe
+  alias PhoenixKit.API.OAuth.Resource
+  alias PhoenixKit.API.OAuth.Tokens, as: OAuthTokens
   alias PhoenixKit.API.Problem
   alias PhoenixKit.API.RateLimit
   alias PhoenixKit.Utils.IpAddress
@@ -105,6 +125,7 @@ defmodule PhoenixKit.API.Auth do
   def credential_name?(_name), do: false
 
   @audiences [:admin, :public]
+  @credential_prefixes ["pk_", "pkoa_", "pkor_"]
 
   @impl Plug
   def init(opts) do
@@ -117,6 +138,7 @@ defmodule PhoenixKit.API.Auth do
 
     [audience: audience]
     |> put_option(opts, :before_auth, &before_auth!/1)
+    |> put_option(opts, :oauth, &oauth!/1)
   end
 
   defp put_option(init, opts, key, validate) do
@@ -132,6 +154,13 @@ defmodule PhoenixKit.API.Auth do
   defp before_auth!(other) do
     raise ArgumentError,
           "PhoenixKit.API.Auth :before_auth must be {module, function}, got: #{inspect(other)}"
+  end
+
+  defp oauth!(value) when is_boolean(value), do: value
+
+  defp oauth!(other) do
+    raise ArgumentError,
+          "PhoenixKit.API.Auth :oauth must be true or false, got: #{inspect(other)}"
   end
 
   @impl Plug
@@ -150,7 +179,7 @@ defmodule PhoenixKit.API.Auth do
     if token_in_url?(conn) do
       token_in_url(conn, audience)
     else
-      conn |> run_before_auth(opts) |> admit(audience)
+      conn |> run_before_auth(opts) |> admit(audience, oauth?(audience, opts))
     end
   end
 
@@ -158,7 +187,8 @@ defmodule PhoenixKit.API.Auth do
   Whether the query string carries a credential: a parameter whose name is a
   credential (`credential_name?/1`: `api_key`, `authorization`, `token`, `secret`,
   anything ending in `_token` and so on; any case, with or without a `[]` suffix),
-  or any parameter whose value starts with `pk_` (any case, after trimming spaces).
+  or any parameter whose value starts with `pk_`, `pkoa_` or `pkor_` (any case, after
+  trimming spaces).
 
   Names and values are compared after percent-decoding, so `%61pi_key=...`
   is caught too.
@@ -175,12 +205,13 @@ defmodule PhoenixKit.API.Auth do
   defp param_credential?(name),
     do: name |> String.split("[", parts: 2) |> hd() |> credential_name?()
 
-  # Any value that starts with `pk_` is refused, whatever its parameter name
-  # and on both audiences: a key may sit under a name nobody listed, and the
-  # public audience has no business with a `pk_` value either. A search for a
-  # `pk_`-prefixed word in the query string is refused too; that is intended.
-  defp credential_value?(value),
-    do: value |> String.trim() |> String.downcase() |> String.starts_with?("pk_")
+  # Any value that starts with `pk_` (a key) or `pkoa_` / `pkor_` (an OAuth access or refresh
+  # token) is refused, whatever its parameter name and on both audiences: a credential may sit
+  # under a name nobody listed, and the public audience has no business with one either. A
+  # search for such a prefixed word in the query string is refused too; that is intended.
+  defp credential_value?(value) do
+    value |> String.trim() |> String.downcase() |> String.starts_with?(@credential_prefixes)
+  end
 
   defp api_enabled?(:admin), do: Config.admin_enabled?()
   defp api_enabled?(:public), do: Config.public_enabled?()
@@ -215,9 +246,15 @@ defmodule PhoenixKit.API.Auth do
     Problem.send(conn, :internal_error, "The request could not be checked.", %{})
   end
 
-  defp admit(%Plug.Conn{halted: true} = conn, _audience), do: conn
-  defp admit(conn, :admin), do: authenticate(conn)
-  defp admit(conn, :public), do: assign(conn, :phoenix_kit_api_actor, anonymous(conn))
+  defp admit(%Plug.Conn{halted: true} = conn, _audience, _oauth?), do: conn
+  defp admit(conn, :admin, oauth?), do: authenticate(conn, oauth?)
+  defp admit(conn, :public, _oauth?), do: assign(conn, :phoenix_kit_api_actor, anonymous(conn))
+
+  # OAuth tokens are taken only where the caller said so (`oauth: true`, the admin MCP
+  # endpoint alone) **and** the switch is on, read on every request. Everywhere else a
+  # `pkoa_` token is a token nobody can verify.
+  defp oauth?(:admin, opts), do: Keyword.get(opts, :oauth, false) and Config.oauth_enabled?()
+  defp oauth?(_audience, _opts), do: false
 
   @doc """
   Whether the website password gate hides the API of `audience` from the
@@ -282,14 +319,15 @@ defmodule PhoenixKit.API.Auth do
 
   # --- admin: bearer key ----------------------------------------------------
 
-  defp authenticate(conn) do
+  defp authenticate(conn, oauth?) do
     ip = client_ip(conn)
+    conn = if oauth?, do: put_oauth_challenge(conn, false), else: conn
 
     # The key is verified first, always: a valid key is never refused for its
     # IP's failures. The failure bucket is consulted only after a rejection.
-    case verify(conn, ip) do
+    case verify(conn, ip, oauth?) do
       {:ok, %Actor{} = actor} -> assign(conn, :phoenix_kit_api_actor, %{actor | ip: ip})
-      {:error, reason} -> reject(conn, ip, reason)
+      {:error, reason} -> reject(conn, ip, reason, oauth?)
     end
   rescue
     error ->
@@ -303,29 +341,58 @@ defmodule PhoenixKit.API.Auth do
       Problem.send(conn, :internal_error, "The request could not be authenticated.", %{})
   end
 
-  defp verify(conn, ip) do
-    with {:ok, token} <- bearer_token(conn),
-         prefix when is_binary(prefix) <- Keys.token_prefix(token) do
-      Keys.verify(token, ip)
-    else
+  defp verify(conn, ip, oauth?) do
+    case bearer_token(conn, oauth?) do
+      {:ok, token} -> verify_token(token, ip, oauth?)
       {:error, _reason} = error -> error
-      nil -> {:error, :invalid_token}
     end
   end
 
-  defp bearer_token(conn) do
-    case get_req_header(conn, "authorization") do
-      [value] -> parse_bearer(value)
-      _missing_or_repeated -> {:error, :invalid_token}
+  # `pkoa_` is an OAuth access token: verified as one where OAuth is on, a token nobody can
+  # verify everywhere else (REST, a switched-off install). `pk_` is a key, as always.
+  defp verify_token(token, ip, oauth?) do
+    cond do
+      OAuthTokens.access_token?(token) and oauth? -> verify_oauth(token, ip)
+      OAuthTokens.access_token?(token) -> {:error, :invalid_token}
+      Keys.token_prefix(token) != nil -> Keys.verify(token, ip)
+      true -> {:error, :invalid_token}
     end
   end
+
+  # An OAuth token that ran out is the normal end of its hour, told apart from a guess because
+  # its row was found: it is not charged to the failure bucket (`reject/4`).
+  #
+  # A grant made for another `site_url` (the setting was edited since) is the same: the client
+  # is not guessing, it is sent to authorize again, and the challenge names the new metadata.
+  defp verify_oauth(token, ip) do
+    case OAuthTokens.verify(token, ip) do
+      {:error, reason} when reason in [:expired, :resource_changed] -> {:error, :oauth_expired}
+      other -> other
+    end
+  end
+
+  # No `Authorization` header is `:missing`, which is not the same as a bad one: a client
+  # that has not been authorized yet sends none, and the challenge teaches it where to go.
+  # Where OAuth is on, so is a scheme other than `Bearer` (a client probing with `Basic`): RFC
+  # 6750 section 3.1 asks for a challenge without an error code for it. REST keeps its answer.
+  defp bearer_token(conn, oauth?) do
+    case get_req_header(conn, "authorization") do
+      [] -> {:error, :missing}
+      [value] -> value |> parse_bearer() |> other_scheme(oauth?)
+      _repeated -> {:error, :invalid_token}
+    end
+  end
+
+  defp other_scheme({:error, :other_scheme}, true), do: {:error, :missing}
+  defp other_scheme({:error, :other_scheme}, false), do: {:error, :invalid_token}
+  defp other_scheme(result, _oauth?), do: result
 
   defp parse_bearer(value) do
     case value |> String.trim() |> String.split(~r/\s+/, parts: 2) do
       [scheme, token] ->
         if String.downcase(scheme) == "bearer",
           do: {:ok, String.trim(token)},
-          else: {:error, :invalid_token}
+          else: {:error, :other_scheme}
 
       _ ->
         {:error, :invalid_token}
@@ -335,7 +402,21 @@ defmodule PhoenixKit.API.Auth do
   # A rejected key. An IP whose failure bucket is used up is answered 429 and
   # not charged again; any other IP is charged and answered 401 (403 for a key
   # used from an address it does not allow).
-  defp reject(conn, ip, reason) do
+  #
+  # With OAuth on, the two ordinary steps of the OAuth cycle are answered 401 with the
+  # challenge, **not peeked and not charged**: a request with no credentials, and a token
+  # that ran out. Clients behind a shared address (a provider's egress) would otherwise use
+  # the bucket up with nothing but correct behaviour and be answered 429 instead of
+  # being told where to authorize. Everything else is charged as before.
+  defp reject(conn, ip, reason, oauth?) do
+    if oauth? and reason in [:missing, :oauth_expired] do
+      rejected(put_oauth_challenge(conn, reason == :missing), reason)
+    else
+      charge(conn, ip, reason)
+    end
+  end
+
+  defp charge(conn, ip, reason) do
     case RateLimit.check_preauth(ip) do
       {:error, retry_after} ->
         Problem.send(conn, :rate_limited, "Too many failed authentication attempts.", %{
@@ -346,6 +427,15 @@ defmodule PhoenixKit.API.Auth do
         :ok = RateLimit.record_auth_failure(ip)
         rejected(conn, reason)
     end
+  end
+
+  # `missing`: the request carried no credentials, so the challenge has no `error`
+  # (RFC 6750 section 3.1).
+  defp put_oauth_challenge(conn, missing?) do
+    put_private(conn, :phoenix_kit_api_oauth_challenge, %{
+      resource_metadata: Resource.metadata_url(),
+      missing: missing?
+    })
   end
 
   defp rejected(conn, :ip_not_allowed),

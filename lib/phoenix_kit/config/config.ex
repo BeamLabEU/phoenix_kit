@@ -515,7 +515,7 @@ defmodule PhoenixKit.Config do
   # trees under one path and whichever is declared first would silently win,
   # which surfaces as "half my admin pages 404" rather than as a config error.
   @admin_path_collisions ~w(users profile dashboard api mcp webhooks assets static
-                            files images fonts js css sitemap)
+                            files images fonts js css sitemap oauth)
 
   @doc """
   The top-level URL segment for the admin area — `"/admin"` unless configured.

@@ -7,7 +7,14 @@ defmodule PhoenixKit.Migrations.Postgres do
 
   ## Migration Versions
 
-  ### V232 - Stacks of files ⚡ LATEST
+  ### V233 - OAuth for the MCP endpoint ⚡ LATEST
+
+  Five tables, `phoenix_kit_api_oauth_{clients,requests,grants,codes,tokens}`: the applications that may ask for
+  access, a validated authorization request waiting for consent, a consent (one hidden API key each), authorization
+  codes and access/refresh tokens (SHA-256 only), and `phoenix_kit_api_keys.oauth_grant_uuid` (nullable, with a
+  unique partial index) marking a grant's hidden key. Additive, no backfill.
+
+  ### V232 - Stacks of files
 
   `phoenix_kit_file_stacks` (library, optional title and description, who made it) and two nullable
   columns on `phoenix_kit_files`, `stack_uuid` (`ON DELETE SET NULL`) and `stack_position`, with an index
@@ -1087,7 +1094,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   alias PhoenixKit.Migrations.Repair.Environment
 
   @initial_version 135
-  @current_version 232
+  @current_version 233
 
   # Core 3.0 no longer creates or changes any module's table (plan
   # `dev_docs/plans/2026-10-25-module-table-ownership.md`, step 8): V135..V225

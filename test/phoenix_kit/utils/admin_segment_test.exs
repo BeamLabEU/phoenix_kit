@@ -179,7 +179,7 @@ defmodule PhoenixKit.Utils.AdminSegmentTest do
     end
 
     test "refuses a segment core already owns" do
-      for taken <- ~w(/users /profile /api /mcp /assets) do
+      for taken <- ~w(/users /profile /api /mcp /oauth /assets) do
         assert_raise ArgumentError, ~r/already declares/, fn ->
           with_segment(taken, &Config.get_admin_path/0)
         end

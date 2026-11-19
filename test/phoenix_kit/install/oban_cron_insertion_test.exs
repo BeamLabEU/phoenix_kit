@@ -1087,7 +1087,8 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
       ~S|{"20 4 * * *", PhoenixKit.Modules.Storage.Workers.BucketLogPruneWorker}|,
       ~S|{"35 4 * * *", PhoenixKit.API.Idempotency.PruneWorker}|,
       ~S|{"*/5 * * * *", PhoenixKit.API.Confirm.ExpiryWorker}|,
-      ~S|{"40 4 * * *", PhoenixKit.API.Confirm.PruneWorker}|
+      ~S|{"40 4 * * *", PhoenixKit.API.Confirm.PruneWorker}|,
+      ~S|{"50 4 * * *", PhoenixKit.API.OAuth.PruneWorker}|
     ]
 
     @digest_lines [
@@ -1278,6 +1279,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
     ~S|{"35 4 * * *", PhoenixKit.API.Idempotency.PruneWorker}|,
     ~S|{"*/5 * * * *", PhoenixKit.API.Confirm.ExpiryWorker}|,
     ~S|{"40 4 * * *", PhoenixKit.API.Confirm.PruneWorker}|,
+    ~S|{"50 4 * * *", PhoenixKit.API.OAuth.PruneWorker}|,
     ~S|{"0 * * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "hourly"}}|,
     ~S|{"0 */12 * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "12h"}}|,
     ~S|{"0 6 * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "daily"}}|,
