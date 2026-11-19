@@ -33,6 +33,7 @@ defmodule PhoenixKit.API.OAuthConfigTest do
       assert current["cimd_per_min"] == "20"
       assert current["cimd_client_per_min"] == "5"
       assert current["cimd_concurrency"] == "4"
+      assert current["cimd_clients_ceiling"] == "1000"
       assert current["register_per_hour"] == "10"
       assert current["register_per_day"] == "200"
       assert current["client_policy"] == "approval"
@@ -62,6 +63,17 @@ defmodule PhoenixKit.API.OAuthConfigTest do
 
       assert {:error, ["cimd_concurrency"]} =
                OAuthConfig.validate(params(%{"cimd_concurrency" => "65"}))
+    end
+
+    test "the new metadata document clients of a day stay between 1 and 1000000" do
+      assert {:ok, _} = OAuthConfig.validate(params(%{"cimd_clients_ceiling" => "1"}))
+      assert {:ok, _} = OAuthConfig.validate(params(%{"cimd_clients_ceiling" => "1000000"}))
+
+      assert {:error, ["cimd_clients_ceiling"]} =
+               OAuthConfig.validate(params(%{"cimd_clients_ceiling" => "0"}))
+
+      assert {:error, ["cimd_clients_ceiling"]} =
+               OAuthConfig.validate(params(%{"cimd_clients_ceiling" => "1000001"}))
     end
 
     test "the access token life stays between 5 minutes and 24 hours" do

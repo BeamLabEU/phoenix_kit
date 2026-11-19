@@ -543,6 +543,52 @@ defmodule PhoenixKit.API.OAuth.ClientsResolveTest do
     end
   end
 
+  describe "the ceiling of new metadata document clients" do
+    # Many networks can each name new documents: the table is bounded for the whole install by
+    # the rows of the last day that nobody connected through.
+    test "a new document is busy at the ceiling, before anything is counted or fetched",
+         %{ip: ip} do
+      put_setting("api_oauth_cimd_clients_ceiling", 1)
+      put_setting("api_oauth_cimd_per_min", 1)
+      unused_cimd!("https://flood.example/1")
+
+      assert resolve(@claude, ip) == {:error, :busy}
+      assert Stub.calls(@claude) == []
+      refute Clients.get_by_client_id(@claude)
+
+      # Nothing of the network's allowance (one a minute) was spent.
+      put_setting("api_oauth_cimd_clients_ceiling", 2)
+      assert {:ok, %Client{}} = resolve(@claude, ip)
+    end
+
+    test "a client somebody connected through, and one older than a day, are not counted",
+         %{ip: ip} do
+      put_setting("api_oauth_cimd_clients_ceiling", 1)
+
+      used = unused_cimd!("https://flood.example/used")
+      PhoenixKit.API.KeyTestSupport.register_fake_module!()
+      {_user, _role, scope} = PhoenixKit.API.OAuthTestSupport.oauth_holder(["media"])
+      PhoenixKit.API.OAuthTestSupport.seed_grant!(scope, client: used)
+
+      old = unused_cimd!("https://flood.example/old")
+      day_ago = DateTime.utc_now() |> DateTime.add(-86_401, :second) |> DateTime.truncate(:second)
+      old |> Ecto.Changeset.change(inserted_at: day_ago) |> Repo.update!()
+
+      assert Clients.new_cimd_count() == 0
+      assert {:ok, %Client{}} = resolve(@claude, ip)
+      assert Clients.new_cimd_count() == 1
+    end
+
+    test "a stored document that ran out is fetched again at the ceiling", %{ip: ip} do
+      assert {:ok, %Client{} = client} = resolve(@claude, ip)
+      expire!(client)
+      put_setting("api_oauth_cimd_clients_ceiling", 1)
+
+      assert {:ok, %Client{}} = resolve(@claude, ip)
+      assert length(Stub.calls(@claude)) == 2
+    end
+  end
+
   describe "a registered client when registration is switched off" do
     test "keeps working: the switch ends new registrations, not the ones made", %{ip: ip} do
       client =
@@ -614,6 +660,16 @@ defmodule PhoenixKit.API.OAuth.ClientsResolveTest do
   defp started_pids do
     # The four messages were consumed by `assert_receive`; ask the tasks of the supervisor.
     PhoenixKit.API.OAuth.FetchSupervisor |> Task.Supervisor.children()
+  end
+
+  defp unused_cimd!(client_id) do
+    Repo.insert!(%Client{
+      kind: "cimd",
+      client_id: client_id,
+      redirect_uris: ["https://flood.example/cb"],
+      metadata_expires_at:
+        DateTime.utc_now() |> DateTime.add(600, :second) |> DateTime.truncate(:second)
+    })
   end
 
   defp expire!(%Client{} = client) do

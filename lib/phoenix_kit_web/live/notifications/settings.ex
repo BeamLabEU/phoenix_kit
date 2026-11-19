@@ -517,7 +517,8 @@ defmodule PhoenixKitWeb.Live.Notifications.Settings do
 
   attr :disabled, :boolean,
     default: false,
-    doc: "under a master that is off: not posted (with its hidden \"false\"), the stored value stands"
+    doc:
+      "under a master that is off: not posted (with its hidden \"false\"), the stored value stands"
 
   defp channel_cell(assigns) do
     ~H"""

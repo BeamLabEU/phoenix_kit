@@ -218,7 +218,8 @@ defmodule PhoenixKit.Notifications.Render do
   def settings_link(recipient, key, locale) do
     if matrix_reader?(recipient),
       do: Routes.path("/admin/notifications/settings", locale: locale) <> "#notif-" <> key,
-      else: Routes.path("/profile/settings/notifications", locale: locale) <> "#notification-settings"
+      else:
+        Routes.path("/profile/settings/notifications", locale: locale) <> "#notification-settings"
   end
 
   # My Settings is a personal admin view: anyone who reaches the admin area

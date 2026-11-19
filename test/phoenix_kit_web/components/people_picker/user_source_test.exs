@@ -20,7 +20,8 @@ defmodule PhoenixKitWeb.Components.PeoplePicker.UserSourceTest do
         password: "ValidPassword123!"
       })
 
-    {:ok, user} = Auth.update_user_profile(user, %{"first_name" => first, "last_name" => "Pick#{tag}"})
+    {:ok, user} =
+      Auth.update_user_profile(user, %{"first_name" => first, "last_name" => "Pick#{tag}"})
 
     if Keyword.get(opts, :confirmed, true) do
       user

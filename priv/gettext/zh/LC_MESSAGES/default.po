@@ -27970,6 +27970,11 @@ msgstr "每个应用每分钟的元数据文档下载次数"
 msgid "Metadata document downloads at the same time, in all"
 msgstr "同时下载元数据文档的数量，总计"
 
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex
+#, elixir-autogen, elixir-format
+msgid "New applications named by a metadata document per day, in all"
+msgstr "每天通过元数据文档识别的新应用总数"
+
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:566
 #, elixir-autogen, elixir-format
 msgid "Registrations per hour, per address"

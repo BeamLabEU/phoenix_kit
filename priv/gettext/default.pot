@@ -27939,6 +27939,11 @@ msgstr ""
 msgid "Metadata document downloads at the same time, in all"
 msgstr ""
 
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex
+#, elixir-autogen, elixir-format
+msgid "New applications named by a metadata document per day, in all"
+msgstr ""
+
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:566
 #, elixir-autogen, elixir-format
 msgid "Registrations per hour, per address"

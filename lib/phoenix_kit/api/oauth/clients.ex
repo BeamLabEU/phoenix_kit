@@ -14,6 +14,7 @@ defmodule PhoenixKit.API.OAuth.Clients do
 
   import Ecto.Query, only: [from: 2]
 
+  alias PhoenixKit.API.Config
   alias PhoenixKit.API.OAuth.Cimd
   alias PhoenixKit.API.OAuth.Client
   alias PhoenixKit.API.OAuth.ClientPolicy
@@ -183,7 +184,8 @@ defmodule PhoenixKit.API.OAuth.Clients do
   every time. `opts`: `:ip`, the address the request came from, for the fetch limit.
 
   Errors: `:unknown_client`, `:not_allowed`, `:rate_limited`, `:busy` (too many fetches run
-  already), `:fetch_failed`.
+  already, or a new document while the install holds as many new unused metadata document
+  clients as `api_oauth_cimd_clients_ceiling` allows), `:fetch_failed`.
   """
   @spec resolve(term(), keyword()) ::
           {:ok, Client.t()}
@@ -207,12 +209,12 @@ defmodule PhoenixKit.API.OAuth.Clients do
   end
 
   defp cached_or_fetch(%Client{} = row, opts) do
-    if fresh?(row), do: allowed(row), else: fetch(row.client_id, opts)
+    if fresh?(row), do: allowed(row), else: fetch(row.client_id, opts, false)
   end
 
   defp fetch_new(client_id, opts) do
     case Cimd.validate_client_id(client_id) do
-      :ok -> fetch(client_id, opts)
+      :ok -> fetch(client_id, opts, true)
       {:error, :invalid_client_id} -> {:error, :unknown_client}
     end
   end
@@ -235,10 +237,11 @@ defmodule PhoenixKit.API.OAuth.Clients do
 
   # A document on the authorization server's own host is no client, whether it is new or its row
   # has run out: nothing is counted and nothing is fetched.
-  defp fetch(client_id, opts) do
+  defp fetch(client_id, opts, new?) do
     with :ok <- not_own_host(client_id),
          :ok <- host_allowed(client_id, []),
          :ok <- not_busy(),
+         :ok <- room_for_new(new?),
          :ok <- within_limits(client_id, opts[:ip]),
          {:ok, document} <- fetch_document(client_id),
          :ok <- host_allowed(client_id, document.redirect_uris) do
@@ -251,6 +254,35 @@ defmodule PhoenixKit.API.OAuth.Clients do
 
   # Asked before the limits are counted: no place to fetch in is not the asker's doing.
   defp not_busy, do: if(Cimd.busy?(), do: {:error, :busy}, else: :ok)
+
+  # The per-network limits do not bound the table: many networks can each name new documents. So
+  # a document URL the table does not know yet is fetched only while fewer clients of that kind
+  # than `PhoenixKit.API.Config.oauth_cimd_clients_ceiling/0` were stored in the last day with
+  # nobody connected through them (the ones the prune would remove), and is otherwise `:busy`,
+  # before anything is counted or fetched. A row already known is fetched again whatever the
+  # count: it adds nothing. The count is not taken under a lock, so fetches that run together
+  # (at most `api_oauth_cimd_concurrency` of them) can pass it by that many.
+  defp room_for_new(false), do: :ok
+
+  defp room_for_new(true) do
+    if new_cimd_count() >= Config.oauth_cimd_clients_ceiling(), do: {:error, :busy}, else: :ok
+  end
+
+  @doc """
+  How many clients named by a metadata document were stored in the last 24 hours and have no
+  grant: what `api_oauth_cimd_clients_ceiling` bounds.
+  """
+  @spec new_cimd_count() :: non_neg_integer()
+  def new_cimd_count do
+    since = DateTime.add(DateTime.truncate(DateTime.utc_now(), :second), -86_400, :second)
+
+    from(c in Client,
+      as: :client,
+      where: c.kind == "cimd" and c.inserted_at > ^since,
+      where: not exists(from(g in Grant, where: g.client_uuid == parent_as(:client).uuid))
+    )
+    |> repo().aggregate(:count)
+  end
 
   defp host_allowed(client_id, redirect_uris) do
     if ClientPolicy.allowed?("cimd", client_id, redirect_uris),
@@ -424,16 +456,38 @@ defmodule PhoenixKit.API.OAuth.Clients do
   defp unwrap({:error, changeset}), do: repo().rollback(changeset)
 
   @doc """
-  The clients for a page, newest first (at most `list_limit/0`), each with how many live grants it has:
+  The clients for a page (at most `list_limit/0`), each with how many live grants it has:
   `[%{client: client, grants: count}]`. A grant is live as `Grants.count_live_for_client/1` counts it
   (activated, or a consent whose authorization code is still alive; not revoked, not expired), so the
   number is the one an idle-only removal acts on.
+
+  The clients an administrator added come first, then the ones somebody is connected through
+  (a grant not ended), then the rest, newest first in each group: the clients that name
+  themselves are many and anyone can make more, and they must not push the ones in use off the
+  page.
   """
   @spec list() :: [%{client: Client.t(), grants: non_neg_integer()}]
   def list do
     counts = Grants.count_live_by_client()
+    now = DateTime.truncate(DateTime.utc_now(), :second)
 
-    from(c in Client, order_by: [desc: c.inserted_at, desc: c.uuid], limit: @list_limit)
+    from(c in Client,
+      as: :client,
+      order_by: [
+        desc: c.kind == "preregistered",
+        desc:
+          exists(
+            from(g in Grant,
+              where:
+                g.client_uuid == parent_as(:client).uuid and is_nil(g.revoked_at) and
+                  g.expires_at > ^now
+            )
+          ),
+        desc: c.inserted_at,
+        desc: c.uuid
+      ],
+      limit: @list_limit
+    )
     |> repo().all()
     |> Enum.map(&%{client: &1, grants: Map.get(counts, &1.uuid, 0)})
   end

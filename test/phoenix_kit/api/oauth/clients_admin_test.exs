@@ -47,6 +47,39 @@ defmodule PhoenixKit.API.OAuth.ClientsAdminTest do
                Enum.find_index(rows, &(&1.client.uuid == old.uuid))
     end
 
+    test "added and connected clients come before newer ones nobody uses", ctx do
+      connected = client!()
+      added = client!()
+
+      Repo.update_all(
+        from(c in PhoenixKit.API.OAuth.Client, where: c.uuid in ^[connected.uuid, added.uuid]),
+        set: [inserted_at: DateTime.add(DateTime.utc_now(), -7200) |> DateTime.truncate(:second)]
+      )
+
+      Repo.update_all(
+        from(c in PhoenixKit.API.OAuth.Client, where: c.uuid == ^connected.uuid),
+        set: [kind: "cimd"]
+      )
+
+      seed_grant!(ctx.scope, client: connected)
+
+      # A flood of newer clients that name themselves, none of them in use.
+      flood =
+        for n <- 1..3 do
+          Repo.insert!(%PhoenixKit.API.OAuth.Client{
+            kind: "cimd",
+            client_id: "https://flood.example/#{System.unique_integer([:positive])}/#{n}",
+            redirect_uris: ["https://flood.example/cb"]
+          })
+        end
+
+      order = Enum.map(Clients.list(), & &1.client.uuid)
+      index = fn uuid -> Enum.find_index(order, &(&1 == uuid)) end
+
+      assert index.(added.uuid) < index.(connected.uuid)
+      for row <- flood, do: assert(index.(connected.uuid) < index.(row.uuid))
+    end
+
     test "a grant nobody activated is not counted", ctx do
       client = client!()
       open = seed_grant!(ctx.scope, client: client)

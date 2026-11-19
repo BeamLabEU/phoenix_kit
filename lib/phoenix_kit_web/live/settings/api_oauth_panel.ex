@@ -702,6 +702,15 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
                 value={@settings_params["cimd_concurrency"]}
               />
               <.input
+                id="api-oauth-cimd-clients-ceiling"
+                name="oauth[cimd_clients_ceiling]"
+                type="text"
+                inputmode="numeric"
+                wrap_label
+                label={gettext("New applications named by a metadata document per day, in all")}
+                value={@settings_params["cimd_clients_ceiling"]}
+              />
+              <.input
                 id="api-oauth-register-per-hour"
                 name="oauth[register_per_hour]"
                 type="text"
