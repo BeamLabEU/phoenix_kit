@@ -3490,7 +3490,7 @@
 
       this._onDown = function(e) {
         const grip = e.target.closest ? e.target.closest("[data-pk-resize]") : null;
-        if (!grip || !el.contains(grip) || e.button > 0 || !self._wide()) return;
+        if (self._drag || !grip || !el.contains(grip) || e.button > 0 || !self._wide()) return;
         e.preventDefault();
         const rect = el.getBoundingClientRect();
         self._drag = {
@@ -3501,6 +3501,7 @@
           h: rect.height,
           id: e.pointerId,
           grip: grip,
+          previousUserSelect: document.documentElement.style.userSelect,
           moved: false
         };
         try { grip.setPointerCapture(e.pointerId); } catch (_e) {}
@@ -3556,7 +3557,7 @@
     updated() { this._apply(); },
     destroyed() {
       window.removeEventListener("resize", this._onWindowResize);
-      document.documentElement.style.userSelect = "";
+      this._end();
     },
     // Ends a drag. A press that never moved past the threshold changes and
     // keeps nothing; otherwise the size kept is the one on screen.
@@ -3565,7 +3566,7 @@
       if (!d) return;
       this._drag = null;
       try { d.grip.releasePointerCapture(d.id); } catch (_e) {}
-      document.documentElement.style.userSelect = "";
+      document.documentElement.style.userSelect = d.previousUserSelect;
       if (!d.moved) return;
       this._size = this._bounded(this._size);
       this._write();
@@ -3584,8 +3585,8 @@
       if (!size) return size;
       const l = this._limits();
       return {
-        w: size.w ? this._clamp(size.w, l.minW, l.maxW) : size.w,
-        h: size.h ? this._clamp(size.h, l.minH, l.maxH) : size.h
+        w: size.w !== undefined ? this._clamp(size.w, l.minW, l.maxW) : size.w,
+        h: size.h !== undefined ? this._clamp(size.h, l.minH, l.maxH) : size.h
       };
     },
     _wide() { return window.innerWidth >= 640; },
@@ -3616,7 +3617,7 @@
         }
       } catch (_e) {}
     },
-    _clamp(value, min, max) { return Math.max(min, Math.min(value, Math.max(min, max))); },
+    _clamp(value, min, max) { return Math.max(1, Math.min(max, Math.max(min, value))); },
     // The kept size as inline styles, clamped to the minimum and to the
     // viewport as it is now; with nothing kept (or on a narrow screen) the
     // styles this hook owns are taken away and the component's own apply.

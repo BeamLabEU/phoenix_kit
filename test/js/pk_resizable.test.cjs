@@ -322,3 +322,22 @@ test("destroyed() takes away the window listener and the selection lock", () => 
   assert.strictEqual(p.winListeners.resize, undefined);
   assert.strictEqual(p.root.userSelect, "");
 });
+
+test("a drag to exactly zero keeps the minimum and a short viewport wins over that minimum", () => {
+  const p = page({ height: 200 });
+  p.mount();
+  p.drag("se", [600, 400], [300, 200]);
+  assert.deepStrictEqual(p.kept(), { w: 320, h: 168 });
+});
+
+test("a second press leaves the first drag active and release restores the host selection style", () => {
+  const p = page();
+  p.root.userSelect = "text";
+  p.mount();
+  p.down("e", 900, 300);
+  p.down("s", 100, 400, { pointerId: 2 });
+  p.move(950, 300);
+  p.up();
+  assert.deepStrictEqual(p.kept(), { w: 700 });
+  assert.strictEqual(p.root.userSelect, "text");
+});
