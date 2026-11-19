@@ -48,7 +48,7 @@ msgstr "系统信息"
 
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:143
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:158
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:443
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:447
 #: lib/phoenix_kit/users/permissions.ex:746
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:108
 #: lib/phoenix_kit_web/live/settings/users.ex:52
@@ -122,7 +122,7 @@ msgstr "添加用户"
 msgid "Create new account"
 msgstr "创建新账户"
 
-#: lib/phoenix_kit/notifications/channels/email.ex:35
+#: lib/phoenix_kit/notifications/channels/email.ex:39
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:200
 #: lib/phoenix_kit_web/live/components/library_settings.ex:2600
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:233
@@ -197,7 +197,7 @@ msgstr "已注册账户"
 
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:275
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:280
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1768
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1771
 #: lib/phoenix_kit_web/live/users/sessions.html.heex:18
 #, elixir-autogen
 msgid "Active Sessions"
@@ -507,7 +507,7 @@ msgstr "账户信息"
 #: lib/modules/storage/web/renditions_component.ex:558
 #: lib/modules/storage/web/renditions_component.ex:773
 #: lib/modules/storage/web/settings.html.heex:157
-#: lib/phoenix_kit_web/components/media_gallery.html.heex:66
+#: lib/phoenix_kit_web/components/media_gallery.html.heex:69
 #: lib/phoenix_kit_web/live/components/library_activity.ex:476
 #: lib/phoenix_kit_web/live/components/library_settings.ex:1283
 #: lib/phoenix_kit_web/live/components/library_settings.ex:1369
@@ -539,7 +539,7 @@ msgstr "账户信息"
 msgid "Actions"
 msgstr "操作"
 
-#: lib/phoenix_kit_web/components/media_gallery.html.heex:104
+#: lib/phoenix_kit_web/components/media_gallery.html.heex:107
 #: lib/phoenix_kit_web/live/components/library_settings.ex:2613
 #: lib/phoenix_kit_web/live/components/organization_people.ex:341
 #: lib/phoenix_kit_web/live/components/person_organizations.ex:331
@@ -673,6 +673,7 @@ msgstr "项目符号列表"
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:628
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:932
 #: lib/phoenix_kit_web/components/media_browser/removal_modal.ex:118
+#: lib/phoenix_kit_web/components/people_picker.ex:464
 #: lib/phoenix_kit_web/components/tree_picker.ex:262
 #: lib/phoenix_kit_web/live/components/avatar_editor.ex:433
 #: lib/phoenix_kit_web/live/components/library_activity.ex:291
@@ -697,7 +698,7 @@ msgstr "项目符号列表"
 #: lib/phoenix_kit_web/live/components/user_settings.ex:1440
 #: lib/phoenix_kit_web/live/components/user_settings.ex:1687
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:170
-#: lib/phoenix_kit_web/live/notifications/settings.ex:440
+#: lib/phoenix_kit_web/live/notifications/settings.ex:527
 #: lib/phoenix_kit_web/live/settings/api.html.heex:923
 #: lib/phoenix_kit_web/live/settings/api.html.heex:1096
 #: lib/phoenix_kit_web/live/settings/api.html.heex:1149
@@ -1786,7 +1787,7 @@ msgstr "全部拒绝"
 msgid "Remove"
 msgstr "移除"
 
-#: lib/phoenix_kit_web/components/media_gallery.html.heex:76
+#: lib/phoenix_kit_web/components/media_gallery.html.heex:79
 #, elixir-autogen, elixir-format
 msgid "Remove from selection"
 msgstr "从所选项中移除"
@@ -1897,7 +1898,7 @@ msgstr "SWIFT/BIC"
 #: lib/phoenix_kit_web/live/components/passkeys.ex:287
 #: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:437
 #: lib/phoenix_kit_web/live/components/user_settings.ex:1653
-#: lib/phoenix_kit_web/live/notifications/settings.ex:442
+#: lib/phoenix_kit_web/live/notifications/settings.ex:529
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:256
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:306
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:356
@@ -1937,6 +1938,7 @@ msgstr "保存偏好设置"
 #: lib/phoenix_kit_web/components/core/save_button.ex:64
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:792
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:378
+#: lib/phoenix_kit_web/live/notifications/settings.ex:278
 #: lib/phoenix_kit_web/live/settings/integration_form.ex:735
 #, elixir-autogen, elixir-format
 msgid "Saved"
@@ -1972,7 +1974,7 @@ msgstr "选择此角色可以访问的板块和模块。您只能授予您自己
 #: lib/modules/storage/web/libraries_component.ex:624
 #: lib/modules/storage/web/library_page.html.heex:5
 #: lib/modules/storage/web/settings.html.heex:5
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:395
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:399
 #: lib/phoenix_kit/users/permissions.ex:748
 #: lib/phoenix_kit_web/components/admin_nav.ex:270
 #: lib/phoenix_kit_web/components/layouts/root.html.heex:94
@@ -2180,7 +2182,7 @@ msgstr "类型"
 msgid "Unconfirmed"
 msgstr "未确认"
 
-#: lib/phoenix_kit/email/core_templates.ex:556
+#: lib/phoenix_kit/email/core_templates.ex:562
 #: lib/phoenix_kit/users/auth/user_notifier.ex:301
 #: lib/phoenix_kit/users/auth/user_notifier.ex:394
 #: lib/phoenix_kit_web/comments_gettext_manifest.ex:64
@@ -3758,7 +3760,7 @@ msgstr "API 密钥"
 msgid "Accept"
 msgstr "接受"
 
-#: lib/phoenix_kit/notifications/types.ex:231
+#: lib/phoenix_kit/notifications/types.ex:262
 #: lib/phoenix_kit/users/table_columns.ex:314
 #: lib/phoenix_kit_web/components/profile_settings_tabs.ex:349
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:249
@@ -4316,9 +4318,9 @@ msgstr "健康状态"
 msgid "Integration deleted"
 msgstr "集成已删除"
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:486
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:490
 #: lib/phoenix_kit_web/components/profile_settings_tabs.ex:353
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1901
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1904
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:10
 #: lib/phoenix_kit_web/live/settings/integrations.ex:37
 #: lib/phoenix_kit_web/live/users/permissions_matrix.html.heex:86
@@ -4698,7 +4700,6 @@ msgid "Not tested"
 msgstr "未测试"
 
 #: lib/phoenix_kit_web/live/components/user_settings.ex:730
-#: lib/phoenix_kit_web/live/notifications/settings.ex:66
 #, elixir-autogen, elixir-format
 msgid "Notification preferences saved."
 msgstr "通知偏好设置已保存。"
@@ -4734,7 +4735,7 @@ msgstr "OpenRouter"
 msgid "Org"
 msgstr "组织"
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:434
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:438
 #: lib/phoenix_kit_web/live/settings/organization.ex:46
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:62
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:230
@@ -4843,8 +4844,7 @@ msgstr "保存存储桶"
 msgid "Save Tax Settings"
 msgstr "保存税务设置"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1743
-#: lib/phoenix_kit_web/live/notifications/settings.ex:351
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1746
 #, elixir-autogen, elixir-format
 msgid "Save preferences"
 msgstr "保存偏好设置"
@@ -5463,8 +5463,8 @@ msgstr "可用"
 msgid "Body Saved"
 msgstr "正文已保存"
 
-#: lib/phoenix_kit/notifications/types.ex:272
-#: lib/phoenix_kit/notifications/types.ex:295
+#: lib/phoenix_kit/notifications/types.ex:304
+#: lib/phoenix_kit/notifications/types.ex:328
 #: lib/phoenix_kit/users/auth.ex:3671
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:997
 #: lib/phoenix_kit_web/live/modules.ex:200
@@ -5520,7 +5520,7 @@ msgstr "仅标头"
 msgid "Jobs"
 msgstr "任务"
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:509
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:513
 #: lib/phoenix_kit/users/permissions.ex:753
 #: lib/phoenix_kit_web/live/modules/languages.ex:53
 #, elixir-autogen, elixir-format
@@ -5548,7 +5548,7 @@ msgstr "消息"
 msgid "Module Management"
 msgstr "模块管理"
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:334
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:338
 #: lib/phoenix_kit/users/permissions.ex:749
 #: lib/phoenix_kit_web/live/modules.html.heex:5
 #: lib/phoenix_kit_web/live/settings/api.html.heex:87
@@ -5619,7 +5619,7 @@ msgstr "需要"
 #: lib/modules/storage/web/settings.ex:81
 #: lib/modules/storage/web/settings.html.heex:4
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:266
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:518
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:522
 #: lib/phoenix_kit/users/permissions.ex:747
 #: lib/phoenix_kit_web/components/profile_settings_tabs.ex:355
 #: lib/phoenix_kit_web/live/users/media.ex:65
@@ -5660,7 +5660,7 @@ msgstr "永不过期"
 #: lib/phoenix_kit_web/components/core/date_input.ex:572
 #: lib/phoenix_kit_web/components/core/date_nav.ex:124
 #: lib/phoenix_kit_web/components/core/time_display.ex:225
-#: lib/phoenix_kit_web/live/notifications/inbox.ex:195
+#: lib/phoenix_kit_web/live/notifications/inbox.ex:213
 #, elixir-autogen, elixir-format
 msgid "Today"
 msgstr "今天"
@@ -5873,7 +5873,7 @@ msgstr "实体"
 
 #: lib/modules/sitemap/web/settings.html.heex:135
 #: lib/modules/sitemap/web/settings.html.heex:315
-#: lib/phoenix_kit/notifications/types.ex:256
+#: lib/phoenix_kit/notifications/types.ex:288
 #: lib/phoenix_kit/users/auth.ex:3669
 #: lib/phoenix_kit_web/live/modules.ex:212
 #, elixir-autogen
@@ -6064,7 +6064,7 @@ msgid "48 hours"
 msgstr "48 小时"
 
 #: lib/modules/sitemap/web/settings.html.heex:605
-#: lib/phoenix_kit_web/live/notifications/settings.ex:452
+#: lib/phoenix_kit_web/live/notifications/settings.ex:539
 #, elixir-autogen
 msgid "Weekly"
 msgstr "每周"
@@ -6267,7 +6267,7 @@ msgstr "创建文件夹失败"
 #: lib/phoenix_kit_web/components/media_browser.ex:3512
 #: lib/phoenix_kit_web/components/media_browser.ex:5932
 #: lib/phoenix_kit_web/components/media_browser.ex:6479
-#: lib/phoenix_kit_web/components/media_gallery.ex:615
+#: lib/phoenix_kit_web/components/media_gallery.ex:657
 #, elixir-autogen, elixir-format
 msgid "Failed to move file"
 msgstr "移动文件失败"
@@ -6729,6 +6729,8 @@ msgstr "移除 GIF"
 
 #: lib/phoenix_kit_web/comments_gettext_manifest.ex:45
 #: lib/phoenix_kit_web/components/annotation_composer.ex:511
+#: lib/phoenix_kit_web/components/people_picker.ex:642
+#: lib/phoenix_kit_web/components/people_picker.ex:643
 #: lib/phoenix_kit_web/live/components/organization_people.ex:316
 #, elixir-autogen, elixir-format
 msgid "Remove %{name}"
@@ -7015,7 +7017,6 @@ msgstr "正在重定向…"
 #: lib/phoenix_kit_web/components/core/save_button.ex:56
 #: lib/phoenix_kit_web/live/components/library_settings.ex:1827
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:729
-#: lib/phoenix_kit_web/live/notifications/settings.ex:350
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:297
 #, elixir-autogen, elixir-format
 msgid "Saving…"
@@ -7120,8 +7121,8 @@ msgstr "未找到媒体文件"
 
 #: lib/phoenix_kit_web/components/core/preview_card.ex:105
 #: lib/phoenix_kit_web/components/core/preview_card.ex:157
-#: lib/phoenix_kit_web/components/media_gallery.html.heex:55
-#: lib/phoenix_kit_web/components/media_gallery.html.heex:56
+#: lib/phoenix_kit_web/components/media_gallery.html.heex:58
+#: lib/phoenix_kit_web/components/media_gallery.html.heex:59
 #: lib/phoenix_kit_web/live/settings/email_sending.html.heex:218
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:383
 #, elixir-autogen, elixir-format
@@ -7204,7 +7205,7 @@ msgstr "升序——点击切换为降序"
 msgid "Descending — click for ascending"
 msgstr "降序——点击切换为升序"
 
-#: lib/phoenix_kit_web/components/media_gallery.html.heex:42
+#: lib/phoenix_kit_web/components/media_gallery.html.heex:45
 #, elixir-autogen, elixir-format
 msgid "Featured"
 msgstr "精选"
@@ -7646,6 +7647,7 @@ msgstr "尚未记录任何动态"
 msgid "No metadata"
 msgstr "无元数据"
 
+#: lib/phoenix_kit_web/components/people_picker/user_source.ex:23
 #: lib/phoenix_kit_web/components/profile_settings_tabs.ex:348
 #: lib/phoenix_kit_web/live/activity/show.html.heex:52
 #: lib/phoenix_kit_web/live/components/organization_managers.ex:598
@@ -7687,7 +7689,7 @@ msgstr "值"
 msgid "View details"
 msgstr "查看详情"
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:425
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:429
 #: lib/phoenix_kit_web/live/settings/authorization.ex:61
 #, elixir-autogen, elixir-format
 msgid "Authorization"
@@ -7919,7 +7921,7 @@ msgstr "用户关系"
 msgid "User connections module for PhoenixKit — follows, mutual connections, and blocking"
 msgstr "PhoenixKit 的用户关系模块——关注、互相关注和屏蔽"
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:415
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:419
 #: lib/phoenix_kit_web/live/components/library_preferences.ex:66
 #: lib/phoenix_kit_web/live/components/library_preferences.ex:244
 #: lib/phoenix_kit_web/live/settings.ex:67
@@ -8436,7 +8438,7 @@ msgstr "正在应用…"
 
 #: lib/phoenix_kit_web/components/core/pagination.ex:540
 #: lib/phoenix_kit_web/components/media_browser/stacks_view.html.heex:109
-#: lib/phoenix_kit_web/live/notifications/inbox.ex:367
+#: lib/phoenix_kit_web/live/notifications/inbox.ex:410
 #, elixir-autogen, elixir-format
 msgid "Load more"
 msgstr "加载更多"
@@ -8622,6 +8624,7 @@ msgstr "音频"
 
 #: lib/phoenix_kit_web/components/core/admin_page_header.ex:141
 #: lib/phoenix_kit_web/components/core/admin_page_header.ex:142
+#: lib/phoenix_kit_web/components/people_picker.ex:543
 #, elixir-autogen, elixir-format
 msgid "Back"
 msgstr "返回"
@@ -8649,6 +8652,7 @@ msgstr "无法编辑允许范围之外的文件夹"
 
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:248
 #: lib/phoenix_kit_web/components/tree_picker.ex:253
+#: lib/phoenix_kit_web/live/notifications/inbox.ex:358
 #, elixir-autogen, elixir-format
 msgid "Change"
 msgstr "更改"
@@ -8710,7 +8714,7 @@ msgstr "描述此文件夹的用途…"
 msgid "Description..."
 msgstr "描述…"
 
-#: lib/phoenix_kit_web/live/notifications/inbox.ex:264
+#: lib/phoenix_kit_web/live/notifications/inbox.ex:282
 #, elixir-autogen, elixir-format
 msgid "Dismissed"
 msgstr "已忽略"
@@ -9048,7 +9052,7 @@ msgstr "通过 ElevenLabs 实现文字转语音和语音生成"
 msgid "The free tier includes a monthly character quota; paid plans raise the quota and unlock commercial use and additional voices."
 msgstr "免费套餐包含每月字符配额；付费套餐可提高配额，并解锁商业用途和更多语音。"
 
-#: lib/phoenix_kit_web/live/notifications/inbox.ex:246
+#: lib/phoenix_kit_web/live/notifications/inbox.ex:264
 #, elixir-autogen, elixir-format
 msgid "Unread"
 msgstr "未读"
@@ -9982,7 +9986,7 @@ msgstr "xAI 需要已充值的账户，API 才会返回补全结果"
 msgid "Active now"
 msgstr "当前活跃"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1779
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1782
 #, elixir-autogen, elixir-format
 msgid "Devices currently signed in to your account. If you don't recognize one, sign it out."
 msgstr "当前已登录您账户的设备。如果您不认识某台设备，请将其退出登录。"
@@ -9997,17 +10001,17 @@ msgstr "您的账户在 %{details} 有新的登录。"
 msgid "New sign-in to your account."
 msgstr "您的账户有新的登录。"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1823
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1826
 #, elixir-autogen, elixir-format
 msgid "Sign out"
 msgstr "退出登录"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1834
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1837
 #, elixir-autogen, elixir-format
 msgid "Sign out of all other sessions?"
 msgstr "退出所有其他会话？"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1837
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1840
 #, elixir-autogen, elixir-format
 msgid "Sign out other sessions"
 msgstr "退出其他会话"
@@ -10027,7 +10031,7 @@ msgstr "已退出该会话。"
 msgid "That session is no longer active."
 msgstr "该会话已不再活跃。"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1796
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1799
 #, elixir-autogen, elixir-format
 msgid "This device"
 msgstr "此设备"
@@ -10263,13 +10267,13 @@ msgstr "登录后路径"
 msgid "After-registration path"
 msgstr "注册后路径"
 
-#: lib/phoenix_kit_web/live/notifications/settings.ex:280
-#: lib/phoenix_kit_web/live/notifications/settings.ex:367
+#: lib/phoenix_kit_web/live/notifications/settings.ex:332
+#: lib/phoenix_kit_web/live/notifications/settings.ex:416
 #, elixir-autogen, elixir-format
 msgid "Aggregation"
 msgstr "汇总"
 
-#: lib/phoenix_kit_web/live/notifications/settings.ex:106
+#: lib/phoenix_kit_web/live/notifications/settings.ex:119
 #, elixir-autogen, elixir-format
 msgid "Aggregation updated."
 msgstr "汇总已更新。"
@@ -10309,7 +10313,7 @@ msgstr "自动（根据端口）"
 msgid "Auto follows the port: 465 means implicit TLS, anything else STARTTLS (required when a login is set). Choose explicitly for a relay that ignores that convention."
 msgstr "“自动”根据端口判断：465 表示隐式 TLS，其他端口使用 STARTTLS（设置登录名时必须）。如果中继不遵循此约定，请明确选择。"
 
-#: lib/phoenix_kit_web/live/notifications/settings.ex:420
+#: lib/phoenix_kit_web/live/notifications/settings.ex:507
 #, elixir-autogen, elixir-format
 msgid "Batch high-volume types into periodic summaries — set a cadence per delivery mode."
 msgstr "将高频类型批量合并为定期摘要，并为每种送达方式设置频率。"
@@ -10356,7 +10360,7 @@ msgstr "证书验证"
 msgid "Check it by default (users can still untick it)"
 msgstr "默认勾选（用户仍可取消勾选）"
 
-#: lib/phoenix_kit_web/live/notifications/settings.ex:233
+#: lib/phoenix_kit_web/live/notifications/settings.ex:261
 #, elixir-autogen, elixir-format
 msgid "Choose which notifications you receive, and where"
 msgstr "选择您接收哪些通知以及接收渠道"
@@ -10452,11 +10456,6 @@ msgstr "无法旋转图片。"
 msgid "Could not save"
 msgstr "无法保存"
 
-#: lib/phoenix_kit_web/live/notifications/settings.ex:69
-#, elixir-autogen, elixir-format
-msgid "Could not save notification preferences."
-msgstr "无法保存通知偏好设置。"
-
 #: lib/phoenix_kit_web/live/settings/email_sending.ex:147
 #, elixir-autogen, elixir-format
 msgid "Could not save sender identity"
@@ -10477,7 +10476,7 @@ msgstr "无法发送测试邮件：发送集成缺少必填字段：%{fields}"
 msgid "Could not set default send profile"
 msgstr "无法设置默认发送配置"
 
-#: lib/phoenix_kit_web/live/notifications/settings.ex:109
+#: lib/phoenix_kit_web/live/notifications/settings.ex:122
 #, elixir-autogen, elixir-format
 msgid "Could not update aggregation."
 msgstr "无法更新汇总。"
@@ -10522,7 +10521,7 @@ msgstr "凭据有效，但无权调用 GetSendQuota，未验证发送能力"
 msgid "Currently effective:"
 msgstr "当前生效："
 
-#: lib/phoenix_kit_web/live/notifications/settings.ex:451
+#: lib/phoenix_kit_web/live/notifications/settings.ex:538
 #, elixir-autogen, elixir-format
 msgid "Daily"
 msgstr "每天"
@@ -10562,7 +10561,7 @@ msgstr "已停用的配置绝不会用于发送，即使它是默认配置。"
 #: lib/phoenix_kit_web/components/core/upload_manager.ex:264
 #: lib/phoenix_kit_web/components/core/upload_manager.ex:265
 #: lib/phoenix_kit_web/components/media_browser/browser.html.heex:294
-#: lib/phoenix_kit_web/live/notifications/inbox.ex:350
+#: lib/phoenix_kit_web/live/notifications/inbox.ex:393
 #, elixir-autogen, elixir-format
 msgid "Dismiss"
 msgstr "忽略"
@@ -10572,12 +10571,12 @@ msgstr "忽略"
 msgid "Do not verify"
 msgstr "不验证"
 
-#: lib/phoenix_kit_web/live/notifications/inbox.ex:198
+#: lib/phoenix_kit_web/live/notifications/inbox.ex:216
 #, elixir-autogen, elixir-format
 msgid "Earlier"
 msgstr "更早"
 
-#: lib/phoenix_kit_web/live/notifications/inbox.ex:197
+#: lib/phoenix_kit_web/live/notifications/inbox.ex:215
 #, elixir-autogen, elixir-format
 msgid "Earlier this week"
 msgstr "本周早些时候"
@@ -10612,7 +10611,7 @@ msgstr "加密"
 msgid "Enter a recipient email address"
 msgstr "请输入收件人邮箱地址"
 
-#: lib/phoenix_kit_web/live/notifications/settings.ex:450
+#: lib/phoenix_kit_web/live/notifications/settings.ex:537
 #, elixir-autogen, elixir-format
 msgid "Every 12 hours"
 msgstr "每 12 小时"
@@ -10655,7 +10654,7 @@ msgstr "发件人名称"
 msgid "Full Access"
 msgstr "完全访问"
 
-#: lib/phoenix_kit_web/live/notifications/settings.ex:449
+#: lib/phoenix_kit_web/live/notifications/settings.ex:536
 #, elixir-autogen, elixir-format
 msgid "Hourly"
 msgstr "每小时"
@@ -10665,7 +10664,7 @@ msgstr "每小时"
 msgid "If offered (default)"
 msgstr "如果支持（默认）"
 
-#: lib/phoenix_kit_web/live/notifications/settings.ex:448
+#: lib/phoenix_kit_web/live/notifications/settings.ex:535
 #, elixir-autogen, elixir-format
 msgid "Immediate"
 msgstr "立即"
@@ -10675,8 +10674,8 @@ msgstr "立即"
 msgid "Implicit TLS / SMTPS"
 msgstr "隐式 TLS / SMTPS"
 
-#: lib/phoenix_kit_web/live/notifications/settings.ex:245
-#: lib/phoenix_kit_web/live/notifications/settings.ex:415
+#: lib/phoenix_kit_web/live/notifications/settings.ex:292
+#: lib/phoenix_kit_web/live/notifications/settings.ex:502
 #, elixir-autogen, elixir-format
 msgid "In-app"
 msgstr "应用内"
@@ -10770,12 +10769,12 @@ msgstr "设为默认"
 msgid "Manage integrations under Settings → Integrations"
 msgstr "请在 设置 → 集成 中管理集成"
 
-#: lib/phoenix_kit_web/live/notifications/inbox.ex:231
+#: lib/phoenix_kit_web/live/notifications/inbox.ex:249
 #, elixir-autogen, elixir-format
 msgid "Mark all read"
 msgstr "全部标为已读"
 
-#: lib/phoenix_kit_web/live/notifications/inbox.ex:340
+#: lib/phoenix_kit_web/live/notifications/inbox.ex:383
 #, elixir-autogen, elixir-format
 msgid "Mark read"
 msgstr "标为已读"
@@ -10803,13 +10802,13 @@ msgid "My Integrations"
 msgstr "我的集成"
 
 #: lib/phoenix_kit_web/live/notifications/inbox.ex:37
-#: lib/phoenix_kit_web/live/notifications/inbox.ex:216
+#: lib/phoenix_kit_web/live/notifications/inbox.ex:234
 #, elixir-autogen, elixir-format
 msgid "My Notifications"
 msgstr "我的通知"
 
-#: lib/phoenix_kit_web/live/notifications/settings.ex:37
-#: lib/phoenix_kit_web/live/notifications/settings.ex:232
+#: lib/phoenix_kit_web/live/notifications/settings.ex:50
+#: lib/phoenix_kit_web/live/notifications/settings.ex:260
 #, elixir-autogen, elixir-format
 msgid "My Settings"
 msgstr "我的设置"
@@ -10830,7 +10829,7 @@ msgstr "未为静态邮件发送器配置适配器。请在应用配置中设置
 msgid "No bot token configured"
 msgstr "未配置机器人令牌"
 
-#: lib/phoenix_kit_web/live/notifications/inbox.ex:201
+#: lib/phoenix_kit_web/live/notifications/inbox.ex:219
 #, elixir-autogen, elixir-format
 msgid "No dismissed notifications"
 msgstr "没有已忽略的通知"
@@ -10855,7 +10854,7 @@ msgstr "还没有发送配置"
 msgid "No system CA certificates found, so the relay's certificate cannot be verified"
 msgstr "未找到系统 CA 证书，因此无法验证中继的证书"
 
-#: lib/phoenix_kit_web/live/notifications/inbox.ex:202
+#: lib/phoenix_kit_web/live/notifications/inbox.ex:220
 #, elixir-autogen, elixir-format
 msgid "No unread notifications"
 msgstr "没有未读通知"
@@ -10870,17 +10869,17 @@ msgstr "无（明文）"
 msgid "None — use the static mailer"
 msgstr "无，使用静态邮件发送器"
 
-#: lib/phoenix_kit_web/live/notifications/inbox.ex:217
+#: lib/phoenix_kit_web/live/notifications/inbox.ex:235
 #, elixir-autogen, elixir-format
 msgid "Notifications addressed to you"
 msgstr "发给您的通知"
 
-#: lib/phoenix_kit_web/live/notifications/inbox.ex:205
+#: lib/phoenix_kit_web/live/notifications/inbox.ex:223
 #, elixir-autogen, elixir-format
 msgid "Notifications you dismiss will appear here."
 msgstr "您忽略的通知将显示在这里。"
 
-#: lib/phoenix_kit_web/live/notifications/inbox.ex:207
+#: lib/phoenix_kit_web/live/notifications/inbox.ex:225
 #, elixir-autogen, elixir-format
 msgid "Notifications you receive will show up here."
 msgstr "您收到的通知将显示在这里。"
@@ -10986,7 +10985,7 @@ msgstr "使用应用前需要确认邮箱"
 #: lib/phoenix_kit_web/components/media_browser/helpers.ex:483
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:933
 #: lib/phoenix_kit_web/live/components/library_settings.ex:1592
-#: lib/phoenix_kit_web/live/notifications/inbox.ex:329
+#: lib/phoenix_kit_web/live/notifications/inbox.ex:372
 #: lib/phoenix_kit_web/live/users/relationship_types.ex:213
 #, elixir-autogen, elixir-format
 msgid "Restore"
@@ -11275,7 +11274,7 @@ msgstr "是否发送登录凭据。“如果支持”遵循中继的设置；“
 msgid "Who does this bot message?"
 msgstr "此机器人向谁发送消息？"
 
-#: lib/phoenix_kit_web/live/notifications/inbox.ex:196
+#: lib/phoenix_kit_web/live/notifications/inbox.ex:214
 #, elixir-autogen, elixir-format
 msgid "Yesterday"
 msgstr "昨天"
@@ -11290,12 +11289,12 @@ msgstr "您现在已以 %{email} 登录。"
 msgid "You do not have permission to sign in as another user."
 msgstr "您无权以其他用户的身份登录。"
 
-#: lib/phoenix_kit_web/live/notifications/inbox.ex:203
+#: lib/phoenix_kit_web/live/notifications/inbox.ex:221
 #, elixir-autogen, elixir-format
 msgid "You're all caught up"
 msgstr "您已全部看完"
 
-#: lib/phoenix_kit_web/live/notifications/inbox.ex:206
+#: lib/phoenix_kit_web/live/notifications/inbox.ex:224
 #, elixir-autogen, elixir-format
 msgid "You've read everything here."
 msgstr "这里的内容您都已读完。"
@@ -11953,7 +11952,7 @@ msgstr "机器人策略的另一半：一份告诉 AI 助手本站内容的 Mark
 msgid "Type @ to mention someone, # to link a record."
 msgstr "输入 @ 提及某人，输入 # 链接记录。"
 
-#: lib/phoenix_kit_web/live/notifications/inbox.ex:179
+#: lib/phoenix_kit_web/live/notifications/inbox.ex:197
 #, elixir-autogen, elixir-format
 msgid "Unread · %{day}"
 msgstr "未读 · %{day}"
@@ -12560,17 +12559,17 @@ msgstr "欢迎回来！"
 msgid "Your account is currently inactive. Please contact the team if you believe this is an error."
 msgstr "您的账户当前未激活。如果您认为这是错误，请联系团队。"
 
-#: lib/phoenix_kit_web/users/auth.ex:2493
+#: lib/phoenix_kit_web/users/auth.ex:2530
 #, elixir-autogen, elixir-format
 msgid "%{label} module is not enabled"
 msgstr "%{label}模块未启用"
 
-#: lib/phoenix_kit_web/users/auth.ex:3231
+#: lib/phoenix_kit_web/users/auth.ex:3268
 #, elixir-autogen, elixir-format
 msgid "Enter your referral code to continue."
 msgstr "请输入您的推荐码以继续。"
 
-#: lib/phoenix_kit_web/users/auth.ex:3227
+#: lib/phoenix_kit_web/users/auth.ex:3264
 #, elixir-autogen, elixir-format
 msgid "Please confirm your email before accessing the application."
 msgstr "请先确认您的邮箱地址，再访问应用。"
@@ -12582,46 +12581,46 @@ msgstr "此账户未激活。请联系管理员。"
 
 #: lib/phoenix_kit_web/live/settings/security_gate.ex:38
 #: lib/phoenix_kit_web/users/auth.ex:1077
-#: lib/phoenix_kit_web/users/auth.ex:2514
-#: lib/phoenix_kit_web/users/auth.ex:3376
+#: lib/phoenix_kit_web/users/auth.ex:2551
+#: lib/phoenix_kit_web/users/auth.ex:3413
 #, elixir-autogen, elixir-format
 msgid "You do not have permission to access this section."
 msgstr "您无权访问此部分。"
 
 #: lib/phoenix_kit_web/users/auth.ex:1052
 #: lib/phoenix_kit_web/users/auth.ex:1217
-#: lib/phoenix_kit_web/users/auth.ex:3325
-#: lib/phoenix_kit_web/users/auth.ex:3361
+#: lib/phoenix_kit_web/users/auth.ex:3362
+#: lib/phoenix_kit_web/users/auth.ex:3398
 #, elixir-autogen, elixir-format
 msgid "You do not have the required permission to access this page."
 msgstr "您没有访问此页面所需的权限。"
 
-#: lib/phoenix_kit_web/users/auth.ex:1990
+#: lib/phoenix_kit_web/users/auth.ex:2027
 #, elixir-autogen, elixir-format
 msgid "You must be an admin to access this page."
 msgstr "您必须是管理员才能访问此页面。"
 
 #: lib/phoenix_kit_web/users/auth.ex:1013
-#: lib/phoenix_kit_web/users/auth.ex:3288
+#: lib/phoenix_kit_web/users/auth.ex:3325
 #, elixir-autogen, elixir-format
 msgid "You must be an owner to access this page."
 msgstr "您必须是所有者才能访问此页面。"
 
-#: lib/phoenix_kit_web/users/auth.ex:3404
+#: lib/phoenix_kit_web/users/auth.ex:3441
 #, elixir-autogen, elixir-format
 msgid "You must have the %{role_name} role to access this page."
 msgstr "您必须拥有 %{role_name} 角色才能访问此页面。"
 
 #: lib/phoenix_kit_web/users/auth.ex:1242
-#: lib/phoenix_kit_web/users/auth.ex:3152
 #: lib/phoenix_kit_web/users/auth.ex:3189
-#: lib/phoenix_kit_web/users/auth.ex:3332
+#: lib/phoenix_kit_web/users/auth.ex:3226
+#: lib/phoenix_kit_web/users/auth.ex:3369
 #: lib/phoenix_kit_web/users/session.ex:290
 #, elixir-autogen, elixir-format
 msgid "You must log in to access this page."
 msgstr "您必须登录才能访问此页面。"
 
-#: lib/phoenix_kit_web/users/auth.ex:1993
+#: lib/phoenix_kit_web/users/auth.ex:2030
 #, elixir-autogen, elixir-format
 msgid "You no longer have permission to access this section."
 msgstr "您已不再有权访问此部分。"
@@ -13321,7 +13320,7 @@ msgstr "输入内容"
 msgid "Visitors asking for a public URL are sent to the same path on the production site. Logged-in users and admin paths are never redirected. Everyone, or only search-engine crawlers."
 msgstr "请求公开 URL 的访客会被发送到生产站点上的相同路径。已登录用户和管理后台路径永远不会被重定向。可选择所有人或仅搜索引擎爬虫。"
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:452
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:456
 #: lib/phoenix_kit_web/live/settings/website_access.ex:56
 #, elixir-autogen, elixir-format
 msgid "Website access"
@@ -13601,159 +13600,159 @@ msgstr "截止于（%{zone}）"
 msgid "for (minutes)"
 msgstr "持续（分钟）"
 
-#: lib/phoenix_kit/notifications/render.ex:182
+#: lib/phoenix_kit/notifications/render.ex:331
 #, elixir-autogen, elixir-format
 msgid "An admin added a note on your account."
 msgstr "管理员在您的账户上添加了备注。"
 
-#: lib/phoenix_kit/notifications/render.ex:186
+#: lib/phoenix_kit/notifications/render.ex:335
 #, elixir-autogen, elixir-format
 msgid "An admin removed a note from your account."
 msgstr "管理员移除了您账户上的一条备注。"
 
-#: lib/phoenix_kit/notifications/render.ex:211
+#: lib/phoenix_kit/notifications/render.ex:360
 #, elixir-autogen, elixir-format
 msgid "An administrator signed in to your account for support."
 msgstr "管理员为提供支持登录了您的账户。"
 
-#: lib/phoenix_kit/email/core_templates.ex:340
+#: lib/phoenix_kit/email/core_templates.ex:346
 #, elixir-autogen, elixir-format
 msgid "Complete your registration"
 msgstr "完成您的注册"
 
-#: lib/phoenix_kit/email/core_templates.ex:260
+#: lib/phoenix_kit/email/core_templates.ex:266
 #: lib/phoenix_kit_web/users/confirmation.ex:18
 #, elixir-autogen, elixir-format
 msgid "Confirm your account"
 msgstr "确认您的账户"
 
-#: lib/phoenix_kit/email/core_templates.ex:300
+#: lib/phoenix_kit/email/core_templates.ex:306
 #, elixir-autogen, elixir-format
 msgid "Confirm your email change"
 msgstr "确认您的邮箱更改"
 
-#: lib/phoenix_kit/email/core_templates.ex:424
+#: lib/phoenix_kit/email/core_templates.ex:430
 #, elixir-autogen, elixir-format
 msgid "New login to your account"
 msgstr "您的账户有新的登录"
 
-#: lib/phoenix_kit/notifications/render.ex:262
+#: lib/phoenix_kit/notifications/render.ex:411
 #, elixir-autogen, elixir-format
 msgid "New notification."
 msgstr "新通知。"
 
-#: lib/phoenix_kit/email/core_templates.ex:280
+#: lib/phoenix_kit/email/core_templates.ex:286
 #, elixir-autogen, elixir-format
 msgid "Reset your password"
 msgstr "重置您的密码"
 
-#: lib/phoenix_kit/notifications/render.ex:194
+#: lib/phoenix_kit/notifications/render.ex:343
 #, elixir-autogen, elixir-format
 msgid "Someone commented on your post."
 msgstr "有人评论了您的帖子。"
 
-#: lib/phoenix_kit/notifications/render.ex:198
+#: lib/phoenix_kit/notifications/render.ex:347
 #, elixir-autogen, elixir-format
 msgid "Someone liked your comment."
 msgstr "有人赞了您的评论。"
 
-#: lib/phoenix_kit/notifications/render.ex:190
+#: lib/phoenix_kit/notifications/render.ex:339
 #, elixir-autogen, elixir-format
 msgid "Someone liked your post."
 msgstr "有人赞了您的帖子。"
 
-#: lib/phoenix_kit/notifications/render.ex:202
+#: lib/phoenix_kit/notifications/render.ex:351
 #, elixir-autogen, elixir-format
 msgid "Someone started following you."
 msgstr "有人开始关注您。"
 
-#: lib/phoenix_kit/notifications/render.ex:177
+#: lib/phoenix_kit/notifications/render.ex:326
 #, elixir-autogen, elixir-format
 msgid "You appear to be in %{zone}, which is not your saved timezone."
 msgstr "您似乎位于 %{zone}，这与您保存的时区不一致。"
 
-#: lib/phoenix_kit/notifications/render.ex:75
+#: lib/phoenix_kit/notifications/render.ex:78
 #, elixir-autogen, elixir-format
 msgid "You have a new notification."
 msgstr "您有一条新通知。"
 
-#: lib/phoenix_kit/email/core_templates.ex:362
-#: lib/phoenix_kit/email/core_templates.ex:404
+#: lib/phoenix_kit/email/core_templates.ex:368
+#: lib/phoenix_kit/email/core_templates.ex:410
 #, elixir-autogen, elixir-format
 msgid "You've been invited to join {{organization_name}}"
 msgstr "您已被邀请加入 {{organization_name}}"
 
-#: lib/phoenix_kit/notifications/render.ex:103
+#: lib/phoenix_kit/notifications/render.ex:252
 #, elixir-autogen, elixir-format
 msgid "Your account status was updated to %{status}."
 msgstr "您的账户状态已更新为 %{status}。"
 
-#: lib/phoenix_kit/notifications/render.ex:101
+#: lib/phoenix_kit/notifications/render.ex:250
 #, elixir-autogen, elixir-format
 msgid "Your account status was updated."
 msgstr "您的账户状态已更新。"
 
-#: lib/phoenix_kit/notifications/render.ex:242
+#: lib/phoenix_kit/notifications/render.ex:391
 #, elixir-autogen, elixir-format
 msgid "Your account was added to another sign-in session."
 msgstr "您的账户已添加到另一个登录会话。"
 
-#: lib/phoenix_kit/notifications/render.ex:142
+#: lib/phoenix_kit/notifications/render.ex:291
 #, elixir-autogen, elixir-format
 msgid "Your avatar was updated."
 msgstr "您的头像已更新。"
 
-#: lib/phoenix_kit/notifications/render.ex:135
+#: lib/phoenix_kit/notifications/render.ex:284
 #, elixir-autogen, elixir-format
 msgid "Your email is no longer confirmed."
 msgstr "您的邮箱已不再处于已确认状态。"
 
-#: lib/phoenix_kit/notifications/render.ex:124
+#: lib/phoenix_kit/notifications/render.ex:273
 #, elixir-autogen, elixir-format
 msgid "Your email was changed to %{email}."
 msgstr "您的邮箱已更改为 %{email}。"
 
-#: lib/phoenix_kit/notifications/render.ex:122
+#: lib/phoenix_kit/notifications/render.ex:271
 #, elixir-autogen, elixir-format
 msgid "Your email was changed."
 msgstr "您的邮箱已更改。"
 
-#: lib/phoenix_kit/notifications/render.ex:131
+#: lib/phoenix_kit/notifications/render.ex:280
 #, elixir-autogen, elixir-format
 msgid "Your email was confirmed."
 msgstr "您的邮箱已确认。"
 
-#: lib/phoenix_kit/notifications/render.ex:110
+#: lib/phoenix_kit/notifications/render.ex:259
 #, elixir-autogen, elixir-format
 msgid "Your password was changed by an administrator."
 msgstr "您的密码已被管理员更改。"
 
-#: lib/phoenix_kit/notifications/render.ex:114
+#: lib/phoenix_kit/notifications/render.ex:263
 #, elixir-autogen, elixir-format
 msgid "Your password was reset."
 msgstr "您的密码已重置。"
 
-#: lib/phoenix_kit/notifications/render.ex:146
+#: lib/phoenix_kit/notifications/render.ex:295
 #, elixir-autogen, elixir-format
 msgid "Your profile was updated."
 msgstr "您的个人资料已更新。"
 
-#: lib/phoenix_kit/notifications/render.ex:90
+#: lib/phoenix_kit/notifications/render.ex:239
 #, elixir-autogen, elixir-format
 msgid "Your roles were updated (added: %{roles})."
 msgstr "您的角色已更新（新增：%{roles}）。"
 
-#: lib/phoenix_kit/notifications/render.ex:88
+#: lib/phoenix_kit/notifications/render.ex:237
 #, elixir-autogen, elixir-format
 msgid "Your roles were updated."
 msgstr "您的角色已更新。"
 
-#: lib/phoenix_kit/email/core_templates.ex:320
+#: lib/phoenix_kit/email/core_templates.ex:326
 #, elixir-autogen, elixir-format
 msgid "Your secure login link"
 msgstr "您的安全登录链接"
 
-#: lib/phoenix_kit/notifications/render.ex:173
+#: lib/phoenix_kit/notifications/render.ex:322
 #, elixir-autogen, elixir-format
 msgid "Your timezone looks wrong for where you are."
 msgstr "您的时区与您所在的位置似乎不符。"
@@ -13773,12 +13772,12 @@ msgstr "该功能没有开关。"
 msgid "Site is closed to visitors"
 msgstr "网站已对访客关闭"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1904
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1907
 #, elixir-autogen, elixir-format
 msgid "Manage Integrations"
 msgstr "管理集成"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1912
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1915
 #, elixir-autogen, elixir-format
 msgid "No personal integrations yet."
 msgstr "暂无个人集成。"
@@ -13789,7 +13788,7 @@ msgstr "暂无个人集成。"
 msgid "You don't have access to Integrations."
 msgstr "您无权访问集成。"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1908
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1911
 #, elixir-autogen, elixir-format
 msgid "Your own API keys and bot connections — only you can see or use these."
 msgstr "您自己的 API 密钥和机器人连接，只有您能查看或使用。"
@@ -14093,7 +14092,7 @@ msgstr "存储桶"
 msgid "OG"
 msgstr "OG"
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:470
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:474
 #: lib/phoenix_kit_web/live/settings/email_sending.html.heex:365
 #: lib/phoenix_kit_web/live/settings/send_profile_form.ex:25
 #: lib/phoenix_kit_web/live/settings/send_profiles.ex:26
@@ -14101,7 +14100,7 @@ msgstr "OG"
 msgid "Emails Bulk"
 msgstr "批量邮件"
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:461
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:465
 #: lib/phoenix_kit_web/live/settings/email_preview.ex:47
 #: lib/phoenix_kit_web/live/settings/email_sending.ex:66
 #, elixir-autogen, elixir-format
@@ -14302,7 +14301,7 @@ msgstr "管理后台首页"
 msgid "There are no custom roles yet."
 msgstr "暂无自定义角色。"
 
-#: lib/phoenix_kit_web/users/auth.ex:1987
+#: lib/phoenix_kit_web/users/auth.ex:2024
 #, elixir-autogen, elixir-format
 msgid "This page is not available in the role you switched to."
 msgstr "此页面在您切换到的角色下不可用。"
@@ -14338,7 +14337,7 @@ msgstr "拥有两个或更多可切换角色的用户一次以其中一个角色
 msgid "Acting as"
 msgstr "当前身份"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1799
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1802
 #: lib/phoenix_kit_web/live/users/sessions.html.heex:394
 #, elixir-autogen, elixir-format
 msgid "Acting as %{role}"
@@ -15187,7 +15186,7 @@ msgstr "所选文件不是可用的图片"
 msgid "Title & description"
 msgstr "标题和描述"
 
-#: lib/phoenix_kit/email/core_templates.ex:554
+#: lib/phoenix_kit/email/core_templates.ex:560
 #, elixir-autogen, elixir-format
 msgid "%{location} (approximate)"
 msgstr "%{location}（大致）"
@@ -15197,7 +15196,7 @@ msgstr "%{location}（大致）"
 msgid "%{attempts} attempts across %{networks} network(s), against %{accounts} known account(s)"
 msgstr "来自 %{networks} 个网络的 %{attempts} 次尝试，针对 %{accounts} 个已知账户"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1865
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1868
 #, elixir-autogen, elixir-format
 msgid "%{count} attempt"
 msgid_plural "%{count} attempts"
@@ -15210,12 +15209,12 @@ msgstr[0] "%{count} 次尝试"
 msgid "Attempts"
 msgstr "尝试次数"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1852
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1855
 #, elixir-autogen, elixir-format
 msgid "Failed sign-in attempts"
 msgstr "登录失败的尝试"
 
-#: lib/phoenix_kit/email/core_templates.ex:453
+#: lib/phoenix_kit/email/core_templates.ex:459
 #, elixir-autogen, elixir-format
 msgid "Failed sign-in attempts on your account"
 msgstr "您账户上登录失败的尝试"
@@ -15236,12 +15235,12 @@ msgstr "最后出现"
 msgid "Network"
 msgstr "网络"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1855
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1858
 #, elixir-autogen, elixir-format
 msgid "Sign-ins to your account that did not succeed. Nobody got in."
 msgstr "未成功的账户登录。没有人进入。"
 
-#: lib/phoenix_kit/email/core_templates.ex:568
+#: lib/phoenix_kit/email/core_templates.ex:574
 #, elixir-autogen, elixir-format
 msgid "There was also %{count} failed sign-in attempt on your account in the last 24 hours."
 msgid_plural "There were also %{count} failed sign-in attempts on your account in the last 24 hours."
@@ -15282,7 +15281,7 @@ msgstr "按标识符、网络和小时汇总。显示在账户持有者的设置
 msgid "At most one email per account per 24 hours, so an attack cannot flood their inbox."
 msgstr "每个账户每 24 小时最多一封邮件，因此攻击不会塞满其收件箱。"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1873
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1876
 #, elixir-autogen, elixir-format
 msgid "Correct password, account was deactivated."
 msgstr "密码正确，但账户已被停用。"
@@ -15337,7 +15336,7 @@ msgstr "密码错误"
 msgid "Annotation settings reset."
 msgstr "标注设置已重置。"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1967
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1970
 #, elixir-autogen, elixir-format
 msgid "Annotation tools"
 msgstr "标注工具"
@@ -15347,22 +15346,22 @@ msgstr "标注工具"
 msgid "Could not read the current figures"
 msgstr "无法读取当前数据"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2029
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2032
 #, elixir-autogen, elixir-format
 msgid "Reset annotation settings"
 msgstr "重置标注设置"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2024
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2027
 #, elixir-autogen, elixir-format
 msgid "Reset your annotation colours, thickness and toolbar to the defaults?"
 msgstr "将您的标注颜色、粗细和工具栏重置为默认值？"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2036
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2039
 #, elixir-autogen, elixir-format
 msgid "Your annotations themselves are not touched — only how the tools are set up."
 msgstr "您的标注本身不会受影响，只会重置工具的设置方式。"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2014
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2017
 #, elixir-autogen, elixir-format
 msgid "Your drawing colours, line thickness, label size and toolbar layout are remembered as you work. Reset them to start fresh."
 msgstr "您的绘图颜色、线条粗细、标签大小和工具栏布局会在您操作时被记住。重置后可重新开始。"
@@ -15733,7 +15732,7 @@ msgstr "私有链接有效期（小时）"
 msgid "Role changed"
 msgstr "角色已更改"
 
-#: lib/phoenix_kit/notifications/types.ex:215
+#: lib/phoenix_kit/notifications/types.ex:245
 #: lib/phoenix_kit_web/components/profile_settings_tabs.ex:350
 #, elixir-autogen, elixir-format
 msgid "Security"
@@ -18127,7 +18126,7 @@ msgstr "Acme Ltd 评论了您的订单"
 msgid "Could not update the welcome email setting"
 msgstr "无法更新欢迎邮件设置"
 
-#: lib/phoenix_kit/email/core_templates.ex:262
+#: lib/phoenix_kit/email/core_templates.ex:268
 #, elixir-autogen, elixir-format
 msgid "Hi {{user_email}},\n\nPlease confirm your account with the button below.\n\n[Confirm account]({{confirmation_url}})\n\nIf the button doesn't work, open this link: [{{confirmation_url}}]({{confirmation_url}})\n\nIf you didn't create an account with us, please ignore this email.\n"
 msgstr ""
@@ -18141,7 +18140,7 @@ msgstr ""
 "\n"
 "如果您没有创建过账户，请忽略此电子邮件。\n"
 
-#: lib/phoenix_kit/email/core_templates.ex:455
+#: lib/phoenix_kit/email/core_templates.ex:461
 #, elixir-autogen, elixir-format
 msgid "Hi {{user_email}},\n\nSomeone has been trying to sign in to your account and failing.\n\n- Failed attempts: {{attempt_count}}\n- In the last: {{window_hours}} hour(s)\n\nNobody has signed in. You do not need to do anything if you recognize this as your own mistyped password.\n\nIf you do not, your password may be being guessed. Change it to something you do not use anywhere else:\n\n[Change password]({{security_url}})\n\nIf the button doesn't work, open this link: [{{security_url}}]({{security_url}})\n"
 msgstr ""
@@ -18160,7 +18159,7 @@ msgstr ""
 "\n"
 "如果按钮无法使用，请打开此链接：[{{security_url}}]({{security_url}})\n"
 
-#: lib/phoenix_kit/email/core_templates.ex:322
+#: lib/phoenix_kit/email/core_templates.ex:328
 #, elixir-autogen, elixir-format
 msgid "Hi {{user_email}},\n\nUse the button below to sign in. This link expires in 15 minutes.\n\n[Sign in]({{magic_link_url}})\n\nIf the button doesn't work, open this link: [{{magic_link_url}}]({{magic_link_url}})\n\nIf you didn't ask for this link, you can ignore this email.\n"
 msgstr ""
@@ -18174,7 +18173,7 @@ msgstr ""
 "\n"
 "如果您没有请求此链接，请忽略此电子邮件。\n"
 
-#: lib/phoenix_kit/email/core_templates.ex:532
+#: lib/phoenix_kit/email/core_templates.ex:538
 #, elixir-autogen, elixir-format
 msgid "Hi {{user_email}},\n\nWelcome to {{site_name}}! Your email address is confirmed and your account is ready.\n\n[Go to {{site_name}}]({{site_url}})\n\nIf the button doesn't work, open this link: [{{site_url}}]({{site_url}})\n"
 msgstr ""
@@ -18186,7 +18185,7 @@ msgstr ""
 "\n"
 "如果按钮无法使用，请打开此链接：[{{site_url}}]({{site_url}})\n"
 
-#: lib/phoenix_kit/email/core_templates.ex:342
+#: lib/phoenix_kit/email/core_templates.ex:348
 #, elixir-autogen, elixir-format
 msgid "Hi {{user_email}},\n\nWelcome! To complete your registration, use the button below.\n\n[Complete registration]({{registration_url}})\n\nIf the button doesn't work, open this link: [{{registration_url}}]({{registration_url}})\n\nThis link will expire in 30 minutes for your security.\n\nIf you didn't request this registration, please ignore this email.\n"
 msgstr ""
@@ -18202,7 +18201,7 @@ msgstr ""
 "\n"
 "如果您没有请求此次注册，请忽略此电子邮件。\n"
 
-#: lib/phoenix_kit/email/core_templates.ex:302
+#: lib/phoenix_kit/email/core_templates.ex:308
 #, elixir-autogen, elixir-format
 msgid "Hi {{user_email}},\n\nYou can change your email with the button below.\n\n[Confirm email change]({{update_url}})\n\nIf the button doesn't work, open this link: [{{update_url}}]({{update_url}})\n\nIf you didn't request this change, please ignore this email.\n"
 msgstr ""
@@ -18216,7 +18215,7 @@ msgstr ""
 "\n"
 "如果您没有请求此更改，请忽略此电子邮件。\n"
 
-#: lib/phoenix_kit/email/core_templates.ex:282
+#: lib/phoenix_kit/email/core_templates.ex:288
 #, elixir-autogen, elixir-format
 msgid "Hi {{user_email}},\n\nYou can reset your password with the button below.\n\n[Reset password]({{reset_url}})\n\nIf the button doesn't work, open this link: [{{reset_url}}]({{reset_url}})\n\nIf you didn't request this change, please ignore this email.\n"
 msgstr ""
@@ -18230,7 +18229,7 @@ msgstr ""
 "\n"
 "如果您没有请求此更改，请忽略此电子邮件。\n"
 
-#: lib/phoenix_kit/email/core_templates.ex:364
+#: lib/phoenix_kit/email/core_templates.ex:370
 #, elixir-autogen, elixir-format
 msgid "Hi {{user_email}},\n\n{{organization_name}} has invited you to join their organization.\n\nTo accept the invitation, register an account with the button below.\n\n[Accept invitation]({{registration_url}})\n\nIf the button doesn't work, open this link: [{{registration_url}}]({{registration_url}})\n\nThis invitation link will expire in 7 days.\n\nIf you did not expect this invitation, you can safely ignore this email.\n"
 msgstr ""
@@ -18298,7 +18297,7 @@ msgstr "欢迎邮件已关闭"
 msgid "Welcome email switched on"
 msgstr "欢迎邮件已开启"
 
-#: lib/phoenix_kit/email/core_templates.ex:530
+#: lib/phoenix_kit/email/core_templates.ex:536
 #, elixir-autogen, elixir-format
 msgid "Welcome to {{site_name}}"
 msgstr "欢迎来到 {{site_name}}"
@@ -18779,12 +18778,12 @@ msgstr "其上传的文件会得到哪些派生版本：缩略图和视频分辨
 msgid "reset %{count} renditions"
 msgstr "已重置 %{count} 个派生版本"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1982
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1985
 #, elixir-autogen, elixir-format
 msgid "Open media ready to annotate"
 msgstr "打开媒体时直接进入标注模式"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1987
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1990
 #, elixir-autogen, elixir-format
 msgid "The viewer opens with the drawing tools already on, so you can edit and move things right away — switch the pencil off to see the finished picture. Off, the viewer opens on the finished picture and the pencil starts the tools."
 msgstr "查看器打开时绘图工具已开启，您可以立即编辑和移动内容——关闭铅笔可查看完成后的图片。关闭此项时，查看器显示完成后的图片，点击铅笔才会启用工具。"
@@ -19526,7 +19525,7 @@ msgstr "媒体详情"
 
 #: lib/phoenix_kit_web/components/media_browser/removal_modal.ex:144
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:956
-#: lib/phoenix_kit_web/components/media_gallery.html.heex:85
+#: lib/phoenix_kit_web/components/media_gallery.html.heex:88
 #, elixir-autogen, elixir-format
 msgid "Move to trash"
 msgstr "移至回收站"
@@ -20200,12 +20199,12 @@ msgstr "已从原始文件生成。"
 msgid "Removed from %{bucket}, which the profile no longer uses."
 msgstr "已从 %{bucket} 移除，配置不再使用它。"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2007
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2010
 #, elixir-autogen, elixir-format
 msgid "If moving around a picture with two fingers on your trackpad goes the opposite way to what you expect, turn this on. Zooming is not affected."
 msgstr "如果在触控板上用两指移动图片的方向与您的预期相反，请开启此项。缩放不受影响。"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2002
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2005
 #, elixir-autogen, elixir-format
 msgid "Invert two-finger pan"
 msgstr "反转两指平移"
@@ -20313,7 +20312,7 @@ msgstr "允许的地址（可选）"
 msgid "A new key is created with the same owner, scopes and limits. The old key keeps working for the grace period, then stops."
 msgstr "新密钥将使用相同的所有者、范围和限制创建。旧密钥在宽限期内继续有效，之后停止。"
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:498
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:502
 #: lib/phoenix_kit_web/live/settings/api.ex:155
 #, elixir-autogen, elixir-format
 msgid "API"
@@ -21932,73 +21931,73 @@ msgstr "审批与限制"
 msgid "The connection check gave an unexpected answer"
 msgstr "连接检查返回了意外的结果"
 
-#: lib/phoenix_kit/notifications/types.ex:233
+#: lib/phoenix_kit/notifications/types.ex:264
 #, elixir-autogen, elixir-format
 msgid "Password, email, role, timezone and profile changes made to your account"
 msgstr "对您账户所做的密码、邮箱、角色、时区和个人资料更改"
 
-#: lib/phoenix_kit/notifications/types.ex:257
+#: lib/phoenix_kit/notifications/types.ex:289
 #, elixir-autogen, elixir-format
 msgid "Likes, comments, mentions, and shares on your posts"
 msgstr "您的帖子收到的点赞、评论、提及和分享"
 
-#: lib/phoenix_kit/notifications/types.ex:265
+#: lib/phoenix_kit/notifications/types.ex:297
 #, elixir-autogen, elixir-format
 msgid "Likes"
 msgstr "点赞"
 
-#: lib/phoenix_kit/notifications/types.ex:266
+#: lib/phoenix_kit/notifications/types.ex:298
 #, elixir-autogen, elixir-format
 msgid "Likes on your posts"
 msgstr "您的帖子收到的点赞"
 
-#: lib/phoenix_kit/notifications/types.ex:273
+#: lib/phoenix_kit/notifications/types.ex:305
 #, elixir-autogen, elixir-format
 msgid "Comments on your posts"
 msgstr "您的帖子收到的评论"
 
-#: lib/phoenix_kit/notifications/types.ex:279
-#: lib/phoenix_kit/notifications/types.ex:322
+#: lib/phoenix_kit/notifications/types.ex:312
+#: lib/phoenix_kit/notifications/types.ex:356
 #, elixir-autogen, elixir-format
 msgid "Mentions"
 msgstr "提及"
 
-#: lib/phoenix_kit/notifications/types.ex:280
+#: lib/phoenix_kit/notifications/types.ex:313
 #, elixir-autogen, elixir-format
 msgid "Mentions of you in posts"
 msgstr "帖子中对您的提及"
 
-#: lib/phoenix_kit/notifications/types.ex:286
+#: lib/phoenix_kit/notifications/types.ex:319
 #, elixir-autogen, elixir-format
 msgid "Shares"
 msgstr "分享"
 
-#: lib/phoenix_kit/notifications/types.ex:287
+#: lib/phoenix_kit/notifications/types.ex:320
 #, elixir-autogen, elixir-format
 msgid "Shares of your posts"
 msgstr "您的帖子被分享"
 
-#: lib/phoenix_kit/notifications/types.ex:296
+#: lib/phoenix_kit/notifications/types.ex:329
 #, elixir-autogen, elixir-format
 msgid "Replies and reactions to your comments"
 msgstr "对您评论的回复和回应"
 
-#: lib/phoenix_kit/notifications/types.ex:302
+#: lib/phoenix_kit/notifications/types.ex:335
 #, elixir-autogen, elixir-format
 msgid "Replies"
 msgstr "回复"
 
-#: lib/phoenix_kit/notifications/types.ex:303
+#: lib/phoenix_kit/notifications/types.ex:336
 #, elixir-autogen, elixir-format
 msgid "Replies to your comments"
 msgstr "对您评论的回复"
 
-#: lib/phoenix_kit/notifications/types.ex:309
+#: lib/phoenix_kit/notifications/types.ex:343
 #, elixir-autogen, elixir-format
 msgid "Reactions"
 msgstr "回应"
 
-#: lib/phoenix_kit/notifications/types.ex:310
+#: lib/phoenix_kit/notifications/types.ex:344
 #, elixir-autogen, elixir-format
 msgid "Likes and reactions to your comments"
 msgstr "对您评论的点赞和回应"
@@ -22082,7 +22081,7 @@ msgstr "请先回到您自己的账户，再添加其他账户。"
 msgid "Return to your own account before signing in as another user."
 msgstr "请先回到您自己的账户，再以其他用户身份登录。"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1809
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1812
 #, elixir-autogen, elixir-format
 msgid "%{organization}, from this browser"
 msgstr "%{organization}，来自此浏览器"
@@ -22254,7 +22253,7 @@ msgstr "您现在可以代表该组织操作。"
 msgid "You've been invited to manage %{organization}. Create a personal account to accept the invitation."
 msgstr "您已被邀请管理 %{organization}。请创建个人账户以接受邀请。"
 
-#: lib/phoenix_kit/email/core_templates.ex:385
+#: lib/phoenix_kit/email/core_templates.ex:391
 #, elixir-autogen
 msgid "You've been invited to manage {{organization_name}}"
 msgstr "您已被邀请管理 {{organization_name}}"
@@ -22264,19 +22263,19 @@ msgstr "您已被邀请管理 {{organization_name}}"
 msgid "invited you to manage their organization."
 msgstr "邀请您管理其组织。"
 
-#: lib/phoenix_kit/notifications/render.ex:151
+#: lib/phoenix_kit/notifications/render.ex:300
 #, elixir-autogen
 msgid "You can now act for %{organization}."
 msgstr "您现在可以代表 %{organization} 操作。"
 
-#: lib/phoenix_kit/notifications/render.ex:158
+#: lib/phoenix_kit/notifications/render.ex:307
 #, elixir-autogen
 msgid "Your access to act for %{organization} was removed."
 msgstr "您代表 %{organization} 操作的权限已被移除。"
 
-#: lib/phoenix_kit/notifications/render.ex:152
-#: lib/phoenix_kit/notifications/render.ex:159
-#: lib/phoenix_kit/notifications/render.ex:166
+#: lib/phoenix_kit/notifications/render.ex:301
+#: lib/phoenix_kit/notifications/render.ex:308
+#: lib/phoenix_kit/notifications/render.ex:315
 #, elixir-autogen
 msgid "the organization"
 msgstr "该组织"
@@ -22286,7 +22285,7 @@ msgstr "该组织"
 msgid "another user"
 msgstr "其他用户"
 
-#: lib/phoenix_kit/email/core_templates.ex:387
+#: lib/phoenix_kit/email/core_templates.ex:393
 #, elixir-autogen
 msgid "Hi {{user_email}},\n\n{{organization_name}} has invited you to become a manager. Managers act for the organization using their own account.\n\nSign in or create your personal account, then accept the invitation banner.\n\n[Review manager invitation]({{invitation_url}})\n\nThis invitation expires in 7 days. If you did not expect it, you can ignore this email.\n"
 msgstr ""
@@ -22601,7 +22600,7 @@ msgid "There is nothing left to remove."
 msgstr "没有可移除的内容。"
 
 #: lib/phoenix_kit_web/components/media_browser.ex:6169
-#: lib/phoenix_kit_web/components/media_gallery.ex:564
+#: lib/phoenix_kit_web/components/media_gallery.ex:606
 #, elixir-autogen, elixir-format
 msgid "The files changed. Check the list and confirm again."
 msgstr "文件已更改。请检查列表并再次确认。"
@@ -24504,7 +24503,7 @@ msgstr "查找有账户的人"
 msgid "For example: Warehouse staff"
 msgstr "例如：仓库员工"
 
-#: lib/phoenix_kit/email/core_templates.ex:406
+#: lib/phoenix_kit/email/core_templates.ex:412
 #, elixir-autogen, elixir-format
 msgid "Hi {{user_email}},\n\n{{organization_name}} has invited you to join as {{relationship_name}}. You act for the organization using your own account.\n\nSign in or create your personal account, then accept the invitation banner.\n\n[Review invitation]({{invitation_url}})\n\nThis invitation expires in 7 days. If you did not expect it, you can ignore this email.\n"
 msgstr ""
@@ -24826,7 +24825,7 @@ msgid "Any"
 msgstr "任意"
 
 #: lib/phoenix_kit/users/table_columns.ex:305
-#: lib/phoenix_kit_web/components/core/user_info.ex:162
+#: lib/phoenix_kit_web/components/core/user_info.ex:169
 #, elixir-autogen, elixir-format
 msgid "Avatar"
 msgstr "头像"
@@ -24995,7 +24994,7 @@ msgstr "所有区域"
 msgid "All sitemaps cleared. Regeneration started..."
 msgstr "已清除所有站点地图。已开始重新生成..."
 
-#: lib/phoenix_kit/notifications/render.ex:254
+#: lib/phoenix_kit/notifications/render.ex:403
 #, elixir-autogen, elixir-format
 msgid "An administrator created your account."
 msgstr "管理员为您创建了账户。"
@@ -25606,8 +25605,8 @@ msgstr "未找到语言"
 msgid "No results found"
 msgstr "未找到结果"
 
-#: lib/phoenix_kit_web/components/core/user_info.ex:370
-#: lib/phoenix_kit_web/components/core/user_info.ex:372
+#: lib/phoenix_kit_web/components/core/user_info.ex:429
+#: lib/phoenix_kit_web/components/core/user_info.ex:431
 #, elixir-autogen, elixir-format
 msgid "No role"
 msgstr "无角色"
@@ -26196,7 +26195,7 @@ msgstr "您不能修改自己的角色。"
 msgid "You signed up using OAuth. Consider setting a password above as a backup sign-in method."
 msgstr "您是通过 OAuth 注册的。建议在上方设置密码，作为备用登录方式。"
 
-#: lib/phoenix_kit/notifications/render.ex:250
+#: lib/phoenix_kit/notifications/render.ex:399
 #, elixir-autogen, elixir-format
 msgid "You switched to this account from another signed-in account."
 msgstr "您是从另一个已登录的账户切换到此账户的。"
@@ -26760,7 +26759,7 @@ msgstr "拥有完全访问权限的系统所有者"
 msgid "Use their own storage"
 msgstr "使用自己的存储"
 
-#: lib/phoenix_kit/notifications/render.ex:165
+#: lib/phoenix_kit/notifications/render.ex:314
 #, elixir-autogen, elixir-format
 msgid "Your access to act for %{organization} was updated."
 msgstr "您代表 %{organization} 操作的权限已更新。"
@@ -26775,7 +26774,7 @@ msgstr "对用户已在使用的浏览器同样有效。国家/地区根据 IP �
 msgid "Email users when their account is signed in from a new country"
 msgstr "当账户从新的国家/地区登录时，向用户发送电子邮件"
 
-#: lib/phoenix_kit/email/core_templates.ex:426
+#: lib/phoenix_kit/email/core_templates.ex:432
 #, elixir-autogen, elixir-format
 msgid "Hi {{user_email}},\n\nWe noticed a login to your account from a new device or location:\n\n- Time: {{login_time}}\n- IP address: {{ip_address}}\n- Location: {{location}}\n- Device: {{browser_os}}\n\n{{failed_attempts}}\n\nIf this was you, no action is needed.\n\nIf you don't recognize this activity, secure your account:\n\n[Review account security]({{security_url}})\n\nIf the button doesn't work, open this link: [{{security_url}}]({{security_url}})\n"
 msgstr ""
@@ -26798,7 +26797,7 @@ msgstr ""
 "\n"
 "如果按钮无法使用，请打开此链接：[{{security_url}}]({{security_url}})\n"
 
-#: lib/phoenix_kit/notifications/types.ex:217
+#: lib/phoenix_kit/notifications/types.ex:247
 #, elixir-autogen, elixir-format
 msgid "New sign-ins to your account from a new device or country, and sessions opened on your account by someone else"
 msgstr "来自新设备或新国家/地区的新登录，以及他人在您账户上开启的会话"
@@ -26813,7 +26812,7 @@ msgstr "%{os} 上的 %{browser}"
 msgid "A name needs 1 to 100 characters."
 msgstr "名称需要 1 到 100 个字符。"
 
-#: lib/phoenix_kit/email/core_templates.ex:478
+#: lib/phoenix_kit/email/core_templates.ex:484
 #, elixir-autogen, elixir-format
 msgid "A passkey was added to your account"
 msgstr "您的账户添加了一个通行密钥"
@@ -26823,7 +26822,7 @@ msgstr "您的账户添加了一个通行密钥"
 msgid "A passkey was added to your account: %{name}."
 msgstr "您的账户添加了一个通行密钥：%{name}。"
 
-#: lib/phoenix_kit/email/core_templates.ex:504
+#: lib/phoenix_kit/email/core_templates.ex:510
 #, elixir-autogen, elixir-format
 msgid "A passkey was removed from your account"
 msgstr "您的账户移除了一个通行密钥"
@@ -26853,12 +26852,12 @@ msgstr "添加于 %{date}"
 msgid "An administrator"
 msgstr "管理员"
 
-#: lib/phoenix_kit/notifications/render.ex:221
+#: lib/phoenix_kit/notifications/render.ex:370
 #, elixir-autogen, elixir-format
 msgid "An administrator removed a passkey from your account."
 msgstr "管理员从您的账户中移除了一个通行密钥。"
 
-#: lib/phoenix_kit/notifications/render.ex:223
+#: lib/phoenix_kit/notifications/render.ex:372
 #, elixir-autogen, elixir-format
 msgid "An administrator removed a passkey from your account: %{name}."
 msgstr "管理员从您的账户中移除了一个通行密钥：%{name}。"
@@ -26868,12 +26867,12 @@ msgstr "管理员从您的账户中移除了一个通行密钥：%{name}。"
 msgid "Enable sign-in with a passkey (Face ID, Touch ID, Windows Hello)"
 msgstr "启用通行密钥登录（Face ID、Touch ID、Windows Hello）"
 
-#: lib/phoenix_kit/email/core_templates.ex:480
+#: lib/phoenix_kit/email/core_templates.ex:486
 #, elixir-autogen, elixir-format
 msgid "Hi {{user_email}},\n\nA passkey was added to your account:\n\n- Name: {{passkey_name}}\n- Time: {{time}}\n- Added on: {{browser_os}}\n\nA passkey signs in to your account without a password. If you added it, no action is needed.\n\nIf you did not, remove it and change your password:\n\n[Review your passkeys]({{security_url}})\n\nIf the button doesn't work, open this link: [{{security_url}}]({{security_url}})\n"
 msgstr "您好 {{user_email}}，\n\n您的账户添加了一个通行密钥：\n\n- 名称：{{passkey_name}}\n- 时间：{{time}}\n- 添加于：{{browser_os}}\n\n通行密钥无需密码即可登录您的账户。如果是您添加的，无需任何操作。\n\n如果不是，请移除它并更改密码：\n\n[查看您的通行密钥]({{security_url}})\n\n如果按钮无法使用，请打开此链接：[{{security_url}}]({{security_url}})\n"
 
-#: lib/phoenix_kit/email/core_templates.ex:506
+#: lib/phoenix_kit/email/core_templates.ex:512
 #, elixir-autogen, elixir-format
 msgid "Hi {{user_email}},\n\nA passkey was removed from your account:\n\n- Name: {{passkey_name}}\n- Time: {{time}}\n- Removed by: {{removed_by}}\n\nIt can no longer be used to sign in. If you expected this, no action is needed.\n\nIf you did not, secure your account:\n\n[Review account security]({{security_url}})\n\nIf the button doesn't work, open this link: [{{security_url}}]({{security_url}})\n"
 msgstr "您好 {{user_email}}，\n\n您的账户移除了一个通行密钥：\n\n- 名称：{{passkey_name}}\n- 时间：{{time}}\n- 移除者：{{removed_by}}\n\n它已无法再用于登录。如果这在您的预料之中，无需任何操作。\n\n如果不是，请保护您的账户：\n\n[查看账户安全]({{security_url}})\n\n如果按钮无法使用，请打开此链接：[{{security_url}}]({{security_url}})\n"
@@ -27068,17 +27067,17 @@ msgstr "已同步"
 msgid "this device only"
 msgstr "仅限此设备"
 
-#: lib/phoenix_kit/notifications/render.ex:234
+#: lib/phoenix_kit/notifications/render.ex:383
 #, elixir-autogen, elixir-format
 msgid "%{name} mentioned you."
 msgstr "%{name} 提到了你。"
 
-#: lib/phoenix_kit/notifications/render.ex:238
+#: lib/phoenix_kit/notifications/render.ex:387
 #, elixir-autogen, elixir-format
 msgid "You were mentioned."
 msgstr "有人提到了你。"
 
-#: lib/phoenix_kit/notifications/types.ex:323
+#: lib/phoenix_kit/notifications/types.ex:357
 #, elixir-autogen, elixir-format
 msgid "When someone mentions you with @"
 msgstr "有人用 @ 提到你时"
@@ -27459,3 +27458,116 @@ msgstr "此连接保存凭证。由哪个连接发送，以及投递事件管道
 #, elixir-autogen, elixir-format
 msgid "The verification could not load, so this form cannot be sent. Your browser or network is blocking challenges.cloudflare.com: allow it (a content blocker is the usual cause), then reload the page."
 msgstr "验证未能加载，因此无法提交此表单。你的浏览器或网络拦截了 challenges.cloudflare.com：请放行该地址（通常是内容拦截器所致），然后重新加载页面。"
+
+#: lib/phoenix_kit_web/live/notifications/settings.ex:345
+#: lib/phoenix_kit_web/live/notifications/settings.ex:383
+#, elixir-autogen, elixir-format
+msgid "%{line} in the inbox"
+msgstr "%{line}（收件箱）"
+
+#: lib/phoenix_kit/email/core_templates.ex:223
+#, elixir-autogen, elixir-format
+msgid "Acme Ltd: “Please send the invoice to the new address.”"
+msgstr "Acme Ltd：“请把发票寄到新地址。”"
+
+#: lib/phoenix_kit_web/components/people_picker.ex:102
+#, elixir-autogen, elixir-format
+msgid "Add me"
+msgstr "添加我"
+
+#: lib/phoenix_kit/notifications/types.ex:265
+#, elixir-autogen, elixir-format
+msgid "An administrator gave you the Editor role."
+msgstr "管理员授予了你“编辑”角色。"
+
+#: lib/phoenix_kit/notifications/types.ex:306
+#, elixir-autogen, elixir-format
+msgid "Anna commented on your post “Spring update”."
+msgstr "Anna 评论了你的帖子“春季更新”。"
+
+#: lib/phoenix_kit/notifications/types.ex:337
+#, elixir-autogen, elixir-format
+msgid "Anna replied to your comment."
+msgstr "Anna 回复了你的评论。"
+
+#: lib/phoenix_kit_web/components/people_picker.ex:525
+#, elixir-autogen, elixir-format
+msgid "Browse more"
+msgstr "浏览更多"
+
+#: lib/phoenix_kit_web/live/notifications/settings.ex:307
+#, elixir-autogen, elixir-format
+msgid "Connect"
+msgstr "连接"
+
+#: lib/phoenix_kit_web/live/notifications/settings.ex:455
+#: lib/phoenix_kit_web/live/notifications/settings.ex:456
+#, elixir-autogen, elixir-format
+msgid "Connect %{channel} first"
+msgstr "请先连接 %{channel}"
+
+#: lib/phoenix_kit_web/live/notifications/settings.ex:287
+#, elixir-autogen, elixir-format
+msgid "Could not save — the switches show what is stored."
+msgstr "无法保存——开关显示的是已保存的状态。"
+
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1738
+#: lib/phoenix_kit_web/live/notifications/settings.ex:439
+#, elixir-autogen, elixir-format
+msgid "For example: %{example}"
+msgstr "例如：%{example}"
+
+#: lib/phoenix_kit/notifications/types.ex:358
+#, elixir-autogen, elixir-format
+msgid "Max wrote “@Anna, can you check this?” in a comment."
+msgstr "Max 在评论中写道：“@Anna，你能看一下吗？”"
+
+#: lib/phoenix_kit_web/components/people_picker.ex:627
+#, elixir-autogen, elixir-format
+msgid "No longer listed"
+msgstr "已不在列表中"
+
+#: lib/phoenix_kit_web/components/people_picker.ex:561
+#, elixir-autogen, elixir-format
+msgid "No matches"
+msgstr "无匹配结果"
+
+#: lib/phoenix_kit_web/components/people_picker.ex:446
+#, elixir-autogen, elixir-format
+msgid "Nobody chosen"
+msgstr "未选择任何人"
+
+#: lib/phoenix_kit_web/components/people_picker.ex:529
+#, elixir-autogen, elixir-format
+msgid "Nobody to choose yet"
+msgstr "暂时没有可选的人"
+
+#: lib/phoenix_kit_web/components/people_picker.ex:568
+#, elixir-autogen, elixir-format
+msgid "Recent:"
+msgstr "最近："
+
+#: lib/phoenix_kit_web/components/people_picker.ex:490
+#, elixir-autogen, elixir-format
+msgid "Search by name or email"
+msgstr "按姓名或邮箱搜索"
+
+#: lib/phoenix_kit_web/components/people_picker.ex:605
+#, elixir-autogen, elixir-format
+msgid "Search results"
+msgstr "搜索结果"
+
+#: lib/phoenix_kit/notifications/render.ex:117
+#, elixir-autogen, elixir-format
+msgid "You get this because “%{line}” is on."
+msgstr "你收到此通知，是因为“%{line}”已开启。"
+
+#: lib/phoenix_kit/email/core_templates.ex:224
+#, elixir-autogen, elixir-format
+msgid "You get this because “Comments” is on."
+msgstr "你收到此通知，是因为“评论”已开启。"
+
+#: lib/phoenix_kit/notifications/types.ex:250
+#, elixir-autogen, elixir-format
+msgid "You signed in from a new phone in Tallinn."
+msgstr "你在塔林用一部新手机登录了。"
