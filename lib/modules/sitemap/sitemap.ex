@@ -862,7 +862,8 @@ defmodule PhoenixKit.Modules.Sitemap do
   @impl PhoenixKit.Module
   def children do
     # Waits for Oban: the host starts PhoenixKit.Supervisor before Oban, so
-    # calling ensure_scheduled/0 right away raised on every boot.
+    # calling ensure_scheduled/0 right away raised on boot whenever scheduled
+    # regeneration was enabled.
     [{Task, fn -> SchedulerWorker.ensure_scheduled_on_boot() end}]
   end
 

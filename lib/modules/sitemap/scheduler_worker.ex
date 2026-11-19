@@ -201,14 +201,20 @@ defmodule PhoenixKit.Modules.Sitemap.SchedulerWorker do
 
   The installer places `PhoenixKit.Supervisor` — which starts module children
   — BEFORE Oban in the host's supervision tree, so when this runs the Oban
-  instance is usually not registered yet and `ensure_scheduled/0` raised
-  `No Oban instance named Oban is running` on every boot: the recovery never
-  happened. This waits until the instance is registered, then ensures the
-  chain; if Oban never comes up within `:timeout` (a node without Oban), it
-  logs and returns `:oban_unavailable` instead of crashing.
+  instance is usually not registered yet. On a host with scheduled
+  regeneration enabled, `ensure_scheduled/0` then raised
+  `No Oban instance named Oban is running` on boot and the recovery never
+  happened.
 
-  Options: `:oban` — instance name (default `Oban`, the one `ensure_scheduled/0`
-  uses); `:timeout` and `:interval` in milliseconds (defaults 60 s and 250 ms).
+  With scheduled regeneration disabled this returns `:disabled` at once,
+  without touching Oban. Otherwise it waits until the instance is registered,
+  then ensures the chain; if Oban never comes up within `:timeout`, it logs a
+  warning and returns `:oban_unavailable` instead of crashing.
+
+  Options: `:timeout` and `:interval` in milliseconds (defaults 60 s and
+  250 ms). For tests only: `:oban` — the name the wait looks for (the check
+  itself always uses the default `Oban` instance) — and `:enabled?`, which
+  stands in for the `sitemap_schedule_enabled` setting.
   """
   @spec ensure_scheduled_on_boot(keyword()) ::
           {:ok, Oban.Job.t()}
@@ -221,15 +227,20 @@ defmodule PhoenixKit.Modules.Sitemap.SchedulerWorker do
     timeout = Keyword.get(opts, :timeout, :timer.seconds(60))
     interval = Keyword.get(opts, :interval, 250)
 
-    if await_oban(oban, timeout, interval) do
-      ensure_scheduled()
-    else
-      Logger.info(
-        "SitemapSchedulerWorker: Oban instance #{inspect(oban)} is not running, " <>
-          "skipping the boot-time scheduling check"
-      )
+    cond do
+      not Keyword.get_lazy(opts, :enabled?, &schedule_enabled?/0) ->
+        :disabled
 
-      :oban_unavailable
+      await_oban(oban, timeout, interval) ->
+        ensure_scheduled()
+
+      true ->
+        Logger.warning(
+          "SitemapSchedulerWorker: Oban instance #{inspect(oban)} is not running, " <>
+            "the boot-time scheduling check was skipped"
+        )
+
+        :oban_unavailable
     end
   end
 

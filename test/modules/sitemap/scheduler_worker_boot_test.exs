@@ -27,7 +27,7 @@ defmodule PhoenixKit.Modules.Sitemap.SchedulerWorkerBootTest do
         end)
 
       assert SchedulerWorker.await_oban(name, 2_000, 10)
-      assert_received :registered
+      assert_receive :registered
       Process.unlink(registrar)
       Process.exit(registrar, :kill)
     end
@@ -37,8 +37,26 @@ defmodule PhoenixKit.Modules.Sitemap.SchedulerWorkerBootTest do
     test "returns :oban_unavailable instead of raising when Oban never comes up" do
       name = {:sitemap_boot_test, make_ref()}
 
-      assert SchedulerWorker.ensure_scheduled_on_boot(oban: name, timeout: 30, interval: 10) ==
-               :oban_unavailable
+      assert SchedulerWorker.ensure_scheduled_on_boot(
+               oban: name,
+               enabled?: true,
+               timeout: 30,
+               interval: 10
+             ) == :oban_unavailable
+    end
+
+    test "returns :disabled at once, without waiting for Oban, when scheduling is off" do
+      name = {:sitemap_boot_test, make_ref()}
+      started = System.monotonic_time(:millisecond)
+
+      assert SchedulerWorker.ensure_scheduled_on_boot(
+               oban: name,
+               enabled?: false,
+               timeout: 5_000,
+               interval: 10
+             ) == :disabled
+
+      assert System.monotonic_time(:millisecond) - started < 2_000
     end
   end
 end
