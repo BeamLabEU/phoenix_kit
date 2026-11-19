@@ -10,7 +10,10 @@ defmodule PhoenixKitWeb.Components.Core.ResizableModalTest do
   import PhoenixKitWeb.Components.Core.ResizableModal, only: [resizable_modal: 1]
 
   defp grips(html) do
-    html |> LazyHTML.from_fragment() |> LazyHTML.query("[data-pk-resize]") |> LazyHTML.attribute("data-pk-resize")
+    html
+    |> LazyHTML.from_fragment()
+    |> LazyHTML.query("[data-pk-resize]")
+    |> LazyHTML.attribute("data-pk-resize")
   end
 
   test "renders the dialog with the PkDialog hook and a box with the PkResizable hook" do
@@ -28,7 +31,10 @@ defmodule PhoenixKitWeb.Components.Core.ResizableModalTest do
     doc = LazyHTML.from_fragment(html)
 
     assert LazyHTML.attribute(LazyHTML.query(doc, "dialog#compose"), "phx-hook") == ["PkDialog"]
-    assert LazyHTML.attribute(LazyHTML.query(doc, "dialog#compose"), "data-close-event") == ["close"]
+
+    assert LazyHTML.attribute(LazyHTML.query(doc, "dialog#compose"), "data-close-event") == [
+             "close"
+           ]
 
     box = LazyHTML.query(doc, "#compose-box.modal-box")
     assert LazyHTML.attribute(box, "phx-hook") == ["PkResizable"]
