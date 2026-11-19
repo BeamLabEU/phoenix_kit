@@ -54,7 +54,7 @@ defmodule PhoenixKit.Integration.Notifications.ReasonLineTest do
 
   test "someone outside the admin area is sent to their profile settings" do
     why = Render.reason(notification("user.password_changed"), user!(nil))
-    assert why.link =~ "/profile/settings#notification-settings"
+    assert why.link =~ "/profile/settings/notifications#notification-settings"
   end
 
   test "an action no line owns has no reason" do

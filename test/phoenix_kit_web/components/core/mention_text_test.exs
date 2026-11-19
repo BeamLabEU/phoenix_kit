@@ -18,7 +18,8 @@ defmodule PhoenixKitWeb.Components.Core.MentionTextTest do
     render_component(&MentionText.mention_text/1,
       text: text,
       scope: Keyword.get(opts, :scope),
-      allow_request: Keyword.get(opts, :allow_request, true)
+      allow_request: Keyword.get(opts, :allow_request, true),
+      withhold_titles: Keyword.get(opts, :withhold_titles, false)
     )
   end
 
@@ -119,6 +120,25 @@ defmodule PhoenixKitWeb.Components.Core.MentionTextTest do
       assert html =~ "Anna Kask"
       # the avatar's letters come from the name shown
       assert html =~ ~r/>\s*AK\s*</
+    end
+
+    test "on a public surface a person is a name, with no uuid and no face" do
+      {:ok, user} =
+        Auth.register_user(%{
+          email: "public_#{System.unique_integer([:positive])}@example.com",
+          password: "ValidPassword123!"
+        })
+
+      html =
+        render_text("thanks @[user:#{user.uuid}|Anna]",
+          scope: Scope.for_user(user),
+          withhold_titles: true
+        )
+
+      refute html =~ "data-mention-user"
+      refute html =~ user.uuid
+      refute html =~ "gravatar"
+      refute html =~ "<img"
     end
 
     test "a person who no longer exists stays the plain label" do

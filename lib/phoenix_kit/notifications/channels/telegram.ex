@@ -71,7 +71,7 @@ defmodule PhoenixKit.Notifications.Channels.Telegram do
   @impl true
   def connect_path do
     if SiteBot.connection_uuid(),
-      do: Routes.path("/profile/settings") <> "#telegram-notifications-card"
+      do: Routes.path("/profile/settings/notifications") <> "#telegram-notifications-card"
   rescue
     _ -> nil
   end

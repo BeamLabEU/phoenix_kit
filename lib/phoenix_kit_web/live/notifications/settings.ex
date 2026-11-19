@@ -429,6 +429,7 @@ defmodule PhoenixKitWeb.Live.Notifications.Settings do
                           channel={channel}
                           type_key={sub.key}
                           on?={channel_type_on?(@channel_configs, channel.key(), sub.key)}
+                          disabled={not master_on}
                           small
                         />
                       </div>
@@ -514,18 +515,24 @@ defmodule PhoenixKitWeb.Live.Notifications.Settings do
   attr :on?, :boolean, required: true
   attr :small, :boolean, default: false
 
+  attr :disabled, :boolean,
+    default: false,
+    doc: "under a master that is off: not posted (with its hidden \"false\"), the stored value stands"
+
   defp channel_cell(assigns) do
     ~H"""
     <input
       type="hidden"
       name={"notification_channel[#{@channel.key()}][types][#{@type_key}]"}
       value="false"
+      disabled={@disabled}
     />
     <input
       type="checkbox"
       name={"notification_channel[#{@channel.key()}][types][#{@type_key}]"}
       value="true"
       checked={@on?}
+      disabled={@disabled}
       class={["toggle toggle-primary", @small && "toggle-sm"]}
     />
     """

@@ -28,8 +28,11 @@ defmodule PhoenixKitWeb.AssetsController do
   # cached copy would pin an old one. `service-worker-allowed`: registered for
   # the whole site from this URL; it still answers only for the pages and
   # files a viewer asked it to keep. 404 while offline annotating is off.
+  # Called directly: the etcher floor (`~> 0.29.0`) always has it, and a bare
+  # `function_exported?/3` answers false in dev until something else has
+  # loaded Etcher, which 404'd the worker on a fresh boot.
   def serve(conn, %{"file" => "etcher-offline-sw.js"}) do
-    if PhoenixKit.Offline.enabled?() and function_exported?(Etcher, :offline_worker, 0) do
+    if PhoenixKit.Offline.enabled?() do
       conn
       |> put_resp_content_type("text/javascript")
       |> put_resp_header("cache-control", "no-cache")

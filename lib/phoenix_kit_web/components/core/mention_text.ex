@@ -100,7 +100,14 @@ defmodule PhoenixKitWeb.Components.Core.MentionText do
 
     # The people a readable @ mention names, in one read: their chip shows
     # their face (the boss, 2026-11-18: "a mentioned user shown as a chip").
-    assigns = assign_new(assigns, :mentioned_users, fn -> mentioned_users(assigns.pieces) end)
+    # Not on a public surface: there a person is a name only (see
+    # `Mentions.state_for/4`), and the chip would put their uuid and their
+    # avatar (a Gravatar URL is a hash of the email) on the open web. With no
+    # user here, the chip clause does not match and the plain name renders.
+    assigns =
+      assign_new(assigns, :mentioned_users, fn ->
+        if assigns.withhold_titles, do: %{}, else: mentioned_users(assigns.pieces)
+      end)
 
     ~H"""
     <span class={@class} {@rest}><%= for piece <- @pieces do %>

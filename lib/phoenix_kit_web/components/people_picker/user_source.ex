@@ -1,8 +1,16 @@
 defmodule PhoenixKitWeb.Components.PeoplePicker.UserSource do
   @moduledoc """
-  The people picker's default source: the site's active accounts, as one
-  group "People", searched by name, username and email. Service users
-  (`api_only`) are not offered. A key is `{"user", user_uuid}`.
+  The people picker's default source: the site's active, confirmed accounts,
+  as one group "People", searched by name, organization name and username,
+  and by the start of the address mail goes to. Service users (`api_only`)
+  and unconfirmed sign-ups are not offered. A key is `{"user", user_uuid}`.
+
+  The same rules as `PhoenixKit.Mentions.Users`, core's other people search:
+  anyone who can render a picker sees these rows, so no email is shown
+  (`sublabel` is the username, when it adds something to the name), and a
+  managed organization is matched on its `contact_email`, never on its
+  `.invalid` placeholder. A module that wants to show more passes its own
+  source and builds rows with `row/1`.
 
   Recent picks are the viewer's own, kept on their account
   (`custom_fields["people_picker_recent"]`, one list per `ctx[:recent_key]`,
@@ -27,14 +35,23 @@ defmodule PhoenixKitWeb.Components.PeoplePicker.UserSource do
 
   def page({:search, text}, cursor, limit, _ctx) do
     pattern = "%" <> escape_like(text) <> "%"
+    # The address only from its start, as in mentions: a substring search
+    # over every account's email would answer "does anyone use this domain".
+    prefix = escape_like(text) <> "%"
 
     base_query()
     |> where(
       [u],
       ilike(u.first_name, ^pattern) or ilike(u.last_name, ^pattern) or
-        ilike(u.username, ^pattern) or ilike(u.email, ^pattern) or
-        ilike(u.organization_name, ^pattern) or
-        ilike(fragment("concat_ws(' ', ?, ?)", u.first_name, u.last_name), ^pattern)
+        ilike(u.username, ^pattern) or ilike(u.organization_name, ^pattern) or
+        ilike(fragment("concat_ws(' ', ?, ?)", u.first_name, u.last_name), ^pattern) or
+        fragment(
+          "(CASE WHEN ? THEN ? ELSE ? END) ILIKE ?",
+          u.managed_by_members,
+          u.contact_email,
+          u.email,
+          ^prefix
+        )
     )
     |> users_page(cursor, limit)
   end
@@ -45,7 +62,7 @@ defmodule PhoenixKitWeb.Components.PeoplePicker.UserSource do
   def describe({"user", uuid}, _ctx) when is_binary(uuid) do
     with {:ok, _} <- Ecto.UUID.cast(uuid),
          %User{} = user <- RepoHelper.repo().get(User, uuid),
-         true <- user.is_active and not user.api_only do
+         true <- user.is_active and not user.api_only and not is_nil(user.confirmed_at) do
       row(user)
     else
       _ -> nil
@@ -78,7 +95,7 @@ defmodule PhoenixKitWeb.Components.PeoplePicker.UserSource do
       kind: "user",
       uuid: user.uuid,
       label: name,
-      sublabel: User.delivery_email(user),
+      sublabel: if(user.username not in [nil, "", name], do: user.username),
       user: user,
       name: name
     }
@@ -88,13 +105,14 @@ defmodule PhoenixKitWeb.Components.PeoplePicker.UserSource do
 
   defp base_query do
     from(u in User,
-      where: u.is_active == true and u.api_only == false,
+      where: u.is_active == true and u.api_only == false and not is_nil(u.confirmed_at),
       order_by: [
         asc:
           fragment(
-            "lower(coalesce(nullif(trim(concat_ws(' ', ?, ?)), ''), ?, ?))",
+            "lower(coalesce(nullif(trim(concat_ws(' ', ?, ?)), ''), nullif(trim(?), ''), ?, ?))",
             u.first_name,
             u.last_name,
+            u.organization_name,
             u.username,
             u.email
           ),

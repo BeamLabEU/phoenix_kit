@@ -25,6 +25,7 @@ defmodule PhoenixKitWeb.Components.PeoplePicker do
         module={PhoenixKitWeb.Components.PeoplePicker}
         id="task-assignees"
         selected={@assignees}
+        viewer_uuid={@phoenix_kit_current_scope.user.uuid}
         name="task[assignees][]"
         label={gettext("Assignees")}
       />
@@ -39,8 +40,10 @@ defmodule PhoenixKitWeb.Components.PeoplePicker do
     * `source` — a `PeoplePicker.Source` module (default `UserSource`).
     * `source_opts` — a map handed to every source callback as `ctx`, with
       `:viewer_uuid` and `:locale` added.
-    * `viewer_uuid` — who is picking (Recent, "Add me"); default the
-      `phoenix_kit_current_user`'s, else nil.
+    * `viewer_uuid` — who is picking (Recent, "Add me"). Pass it: a
+      LiveComponent never sees its parent's assigns, so the fallback to a
+      `phoenix_kit_current_user` assign works only when the caller passes
+      that assign too. With neither, there is no Recent and no "Add me".
     * `name` — when set, the choice is also posted with a surrounding form:
       one hidden input `"kind:uuid"` per key, after an empty one so a
       cleared list still posts.
@@ -83,9 +86,7 @@ defmodule PhoenixKitWeb.Components.PeoplePicker do
        confirm: nil,
        notice: nil,
        query: ""
-     )
-     |> stream_configure(:options, dom_id: &option_dom_id/1)
-     |> stream(:options, [])}
+     )}
   end
 
   @impl true
@@ -108,6 +109,11 @@ defmodule PhoenixKitWeb.Components.PeoplePicker do
       |> assign_new(:me_label, fn -> gettext("Add me") end)
       |> assign_new(:class, fn -> nil end)
       |> assign(:viewer_uuid, assigns[:viewer_uuid] || viewer_from(assigns) || was_viewer)
+      |> ensure_options_stream()
+      # The optional callbacks are probed with `function_exported?/3`, which
+      # does not load a module: in dev and test, a source nothing had called
+      # yet answered "no Recent, no Add me" until the first pick.
+      |> tap(&Code.ensure_loaded(&1.assigns.source))
 
     selected = normalize_keys(socket.assigns.selected)
 
@@ -478,6 +484,23 @@ defmodule PhoenixKitWeb.Components.PeoplePicker do
     :exit, _ -> fallback
   end
 
+  # The options stream, set up on the first update, when the component's id
+  # is known. A stream child's DOM id must BE the stream's dom_id: the client
+  # matches inserts and resets by `el.id`, so an `<li>` whose id merely
+  # contains it is never tracked and a `reset: true` removes nothing (a new
+  # search piled its rows under the old ones). The id is in it so two pickers
+  # on one page never share an option id.
+  defp ensure_options_stream(%{assigns: %{options_stream?: true}} = socket), do: socket
+
+  defp ensure_options_stream(socket) do
+    prefix = "#{socket.assigns.id}-"
+
+    socket
+    |> stream_configure(:options, dom_id: &(prefix <> option_dom_id(&1)))
+    |> stream(:options, [])
+    |> assign(:options_stream?, true)
+  end
+
   # The key encoded, so two keys can never share a DOM id ("team-a" + "b"
   # and "team" + "a-b" would, joined with a dash).
   defp option_dom_id(%{kind: kind, uuid: uuid}),
@@ -665,7 +688,7 @@ defmodule PhoenixKitWeb.Components.PeoplePicker do
             >
               <li
                 :for={{dom_id, row} <- @streams.options}
-                id={"#{@id}-#{dom_id}"}
+                id={dom_id}
                 class={[row[:member?] && "pl-4"]}
               >
                 <.option row={row} selected={@selected} myself={@myself} />

@@ -212,12 +212,13 @@ defmodule PhoenixKit.Notifications.Render do
 
   @doc false
   # Where `recipient` changes the line `key`: the matrix row for someone who
-  # reaches the admin area, else their profile's Notifications section.
+  # reaches the admin area, else their profile's Notifications tab (the bare
+  # `/profile/settings` opens the Account tab, which has no such section).
   @spec settings_link(User.t() | Scope.t() | nil, String.t(), String.t() | nil) :: String.t()
   def settings_link(recipient, key, locale) do
     if matrix_reader?(recipient),
       do: Routes.path("/admin/notifications/settings", locale: locale) <> "#notif-" <> key,
-      else: Routes.path("/profile/settings", locale: locale) <> "#notification-settings"
+      else: Routes.path("/profile/settings/notifications", locale: locale) <> "#notification-settings"
   end
 
   # My Settings is a personal admin view: anyone who reaches the admin area

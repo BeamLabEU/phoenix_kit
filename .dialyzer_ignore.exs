@@ -146,6 +146,13 @@
   # Same class: Access.fresh_scope/1 re-checks a person's rights from the database on
   # every event of the Settings -> API pages (Scope.for_user/2, Scope.can?/2).
   ~r{^lib/phoenix_kit/api/access\.ex:\d+(:\d+)?:call_without_opaque .* in can\?\.},
+  # Same class: a personal key's (and an OAuth grant's hidden key's) owner check builds
+  # the owner's scope with Scope.for_user/2 and asks Scope.can?/2 for
+  # `api_personal_keys` or `api`.
+  ~r{^lib/phoenix_kit/api/keys\.ex:\d+(:\d+)?:call_without_opaque .* in holds_personal_right\?\.},
+  # Same class: the OAuth consent page re-reads the person's rights (Scope.for_user/2,
+  # narrow: false) and asks Scope.can?/2 before it shows or accepts a consent.
+  ~r{^lib/phoenix_kit_web/oauth/consent_controller\.ex:\d+(:\d+)?:call_without_opaque .* in can\?\.},
   # Same class: the approval queue builds a scope for each person who may decide an
   # approval with Scope.for_user/2 and asks Scope.can?/2 and Scope.owner?/1 about it.
   ~r{^lib/phoenix_kit/api/approvals\.ex:\d+(:\d+)?:call_without_opaque .* in decider\?\.},
