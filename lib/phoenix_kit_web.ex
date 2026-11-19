@@ -169,7 +169,12 @@ defmodule PhoenixKitWeb do
       import PhoenixKitWeb.Components.Core.Markdown
       import PhoenixKitWeb.Components.Core.DraggableList
       import PhoenixKitWeb.Components.Core.PkLink
-      import PhoenixKitWeb.Components.Core.Modal
+      # The two public helpers stay out of every LiveView's namespace: a module
+      # (or a host) with a function of its own by either name would not compile.
+      import PhoenixKitWeb.Components.Core.Modal,
+        except: [max_width_class: 1, max_height_style: 1]
+
+      import PhoenixKitWeb.Components.Core.ResizableModal, only: [resizable_modal: 1]
       import PhoenixKitWeb.Components.Core.PopoverPanel
       import PhoenixKitWeb.Components.Core.SearchPicker
       import PhoenixKitWeb.Components.Core.MediaThumbnail

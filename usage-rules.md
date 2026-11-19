@@ -246,7 +246,7 @@ gets a route but no sidebar entry (a detail page, a redirect). Options:
 | Figures and states | `<.stat_card>`, `<.hero_stat_card>`, `<.status_dot>`, the badges | `stat_card.ex`, `hero_stat_card.ex`, `status_dot.ex`, `badge.ex` |
 | Times and durations | `<.time_ago>`, `<.duration_display>`, `<.age_badge>` | `time_display.ex` |
 | One day at a time, in the URL | `<.date_nav>` | `date_nav.ex` |
-| Dialogs and pop-overs | `<.modal>`, `<.confirm_modal>`, `<.alert_modal>`, `<.popover_panel>` | `modal.ex`, `popover_panel.ex` |
+| Dialogs and pop-overs | `<.modal>`, `<.resizable_modal>` (the person drags its edges), `<.confirm_modal>`, `<.alert_modal>`, `<.popover_panel>` | `modal.ex`, `resizable_modal.ex`, `popover_panel.ex` |
 | Collapsible section | `<.accordion>` | `accordion.ex` |
 | Switch to a sibling from the breadcrumb | `<.crumb_switcher>` | `crumb_switcher.ex` |
 | A slice of the Activity log | `<.activity_list>` | `activity_list.ex` |

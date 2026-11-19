@@ -3459,6 +3459,192 @@
     }
   };
 
+  // PkResizable — lets the person resize a box by grips on its edges and
+  // corners (`<.resizable_modal>`'s modal-box). The grips are children with
+  // `data-pk-resize="n|s|e|w|ne|nw|se|sw"`, rendered by the component.
+  //
+  //   data-size-key    name of the kept size in localStorage
+  //   data-min-width   pixels, default 320
+  //   data-min-height  pixels, default 240
+  //
+  // The box is centred by its dialog, so a drag changes the size by twice
+  // the pointer's travel: the edge under the pointer follows the pointer and
+  // the opposite one mirrors it. The size the person chose lives in inline
+  // styles, which a LiveView patch strips, so `updated()` puts them back. The
+  // server's own initial height is never inline (the component renders it as
+  // a custom property that a class applies from `sm` up), so letting go of
+  // the inline size — a double click, a window below 640px — leaves it as it
+  // was. Below 640px nothing is applied: there the box is the component's
+  // full-screen sheet. A double click on a grip forgets the size. What is
+  // kept is the size the person saw (clamped to the minimum and the
+  // viewport), and a press that moves less than a few pixels is a click, not
+  // a resize.
+  window.PhoenixKitHooks.PkResizable = {
+    mounted() {
+      const self = this;
+      const el = this.el;
+      this._size = this._read();
+      this._drag = null;
+      this._margin = 16;
+      this._threshold = 4;
+
+      this._onDown = function(e) {
+        const grip = e.target.closest ? e.target.closest("[data-pk-resize]") : null;
+        if (self._drag || !grip || !el.contains(grip) || e.button > 0 || !self._wide()) return;
+        e.preventDefault();
+        const rect = el.getBoundingClientRect();
+        self._drag = {
+          dir: grip.getAttribute("data-pk-resize"),
+          x: e.clientX,
+          y: e.clientY,
+          w: rect.width,
+          h: rect.height,
+          id: e.pointerId,
+          grip: grip,
+          previousUserSelect: document.documentElement.style.userSelect,
+          moved: false
+        };
+        try { grip.setPointerCapture(e.pointerId); } catch (_e) {}
+        document.documentElement.style.userSelect = "none";
+      };
+      this._onMove = function(e) {
+        const d = self._drag;
+        if (!d || e.pointerId !== d.id) return;
+        // Capture lost and the button let go elsewhere: the drag is over.
+        if (e.buttons === 0) { self._end(); return; }
+        if (!d.moved) {
+          if (Math.abs(e.clientX - d.x) < self._threshold && Math.abs(e.clientY - d.y) < self._threshold) return;
+          d.moved = true;
+        }
+        let w = d.w;
+        let h = d.h;
+        if (d.dir.indexOf("e") !== -1) w = d.w + 2 * (e.clientX - d.x);
+        if (d.dir.indexOf("w") !== -1) w = d.w - 2 * (e.clientX - d.x);
+        if (d.dir.indexOf("s") !== -1) h = d.h + 2 * (e.clientY - d.y);
+        if (d.dir.indexOf("n") !== -1) h = d.h - 2 * (e.clientY - d.y);
+        const horizontal = d.dir.indexOf("e") !== -1 || d.dir.indexOf("w") !== -1;
+        const vertical = d.dir.indexOf("s") !== -1 || d.dir.indexOf("n") !== -1;
+        const size = self._size || {};
+        self._size = {
+          w: horizontal ? Math.round(w) : size.w,
+          h: vertical ? Math.round(h) : size.h
+        };
+        self._apply();
+      };
+      this._onUp = function(e) {
+        const d = self._drag;
+        if (!d || e.pointerId !== d.id) return;
+        self._end();
+      };
+      this._onDblClick = function(e) {
+        const grip = e.target.closest ? e.target.closest("[data-pk-resize]") : null;
+        if (!grip || !el.contains(grip)) return;
+        self._size = null;
+        self._write();
+        self._apply();
+      };
+      this._onWindowResize = function() { self._apply(); };
+
+      el.addEventListener("pointerdown", this._onDown);
+      el.addEventListener("pointermove", this._onMove);
+      el.addEventListener("pointerup", this._onUp);
+      el.addEventListener("pointercancel", this._onUp);
+      el.addEventListener("lostpointercapture", this._onUp);
+      el.addEventListener("dblclick", this._onDblClick);
+      window.addEventListener("resize", this._onWindowResize);
+      this._apply();
+    },
+    updated() { this._apply(); },
+    destroyed() {
+      window.removeEventListener("resize", this._onWindowResize);
+      this._end();
+    },
+    // Ends a drag. A press that never moved past the threshold changes and
+    // keeps nothing; otherwise the size kept is the one on screen.
+    _end() {
+      const d = this._drag;
+      if (!d) return;
+      this._drag = null;
+      try { d.grip.releasePointerCapture(d.id); } catch (_e) {}
+      document.documentElement.style.userSelect = d.previousUserSelect;
+      if (!d.moved) return;
+      this._size = this._bounded(this._size);
+      this._write();
+    },
+    _limits() {
+      const el = this.el;
+      return {
+        minW: parseInt(el.getAttribute("data-min-width"), 10) || 320,
+        minH: parseInt(el.getAttribute("data-min-height"), 10) || 240,
+        maxW: window.innerWidth - 2 * this._margin,
+        maxH: window.innerHeight - 2 * this._margin
+      };
+    },
+    // The size as `_apply` shows it: within the minimum and the viewport.
+    _bounded(size) {
+      if (!size) return size;
+      const l = this._limits();
+      return {
+        w: size.w !== undefined ? this._clamp(size.w, l.minW, l.maxW) : size.w,
+        h: size.h !== undefined ? this._clamp(size.h, l.minH, l.maxH) : size.h
+      };
+    },
+    _wide() { return window.innerWidth >= 640; },
+    _key() {
+      const key = this.el.getAttribute("data-size-key");
+      return key ? "pk:resizable:" + key : null;
+    },
+    _read() {
+      try {
+        const key = this._key();
+        const raw = key && window.localStorage.getItem(key);
+        const size = raw ? JSON.parse(raw) : null;
+        if (!size || typeof size !== "object") return null;
+        return {
+          w: typeof size.w === "number" ? size.w : undefined,
+          h: typeof size.h === "number" ? size.h : undefined
+        };
+      } catch (_e) { return null; }
+    },
+    _write() {
+      try {
+        const key = this._key();
+        if (!key) return;
+        if (this._size && (this._size.w || this._size.h)) {
+          window.localStorage.setItem(key, JSON.stringify(this._size));
+        } else {
+          window.localStorage.removeItem(key);
+        }
+      } catch (_e) {}
+    },
+    _clamp(value, min, max) { return Math.max(1, Math.min(max, Math.max(min, value))); },
+    // The kept size as inline styles, clamped to the minimum and to the
+    // viewport as it is now; with nothing kept (or on a narrow screen) the
+    // styles this hook owns are taken away and the component's own apply.
+    _apply() {
+      const el = this.el;
+      const size = this._size;
+      const props = ["width", "max-width", "height", "max-height"];
+      if (!this._wide() || !size) {
+        if (el.dataset.pkResized) {
+          props.forEach(function(p) { el.style.removeProperty(p); });
+          delete el.dataset.pkResized;
+        }
+        return;
+      }
+      const shown = this._bounded(size);
+      if (shown.w) {
+        el.style.setProperty("width", shown.w + "px");
+        el.style.setProperty("max-width", "none");
+      }
+      if (shown.h) {
+        el.style.setProperty("height", shown.h + "px");
+        el.style.setProperty("max-height", "none");
+      }
+      el.dataset.pkResized = "true";
+    }
+  };
+
   // PkFitHeight — keeps an element that hangs over the page (a menu under a
   // field, a list in a dialog) inside what the person can see: its
   // max-height is the room between its own top and the bottom of the nearest
