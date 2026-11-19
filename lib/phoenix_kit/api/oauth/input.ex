@@ -6,9 +6,9 @@ defmodule PhoenixKit.API.OAuth.Input do
   A NUL byte and bytes that are not UTF-8 cannot be written to (or compared in) a PostgreSQL text
   column: the query raises, and an unauthenticated request would turn into an HTTP 500. `valid?/1`
   is `false` for them, in a string, in a map key or value, or anywhere inside a list or map, so
-  the entries (`PhoenixKit.API.OAuth.Clients`' lookup and registration, and the name of a
-  grant's hidden key in `PhoenixKit.API.OAuth.Grants.create/4`) answer with their ordinary
-  refusal instead.
+  the entries (`PhoenixKit.API.OAuth.Authorize.validate/2`, `PhoenixKit.API.OAuth.Exchange`,
+  `PhoenixKit.API.OAuth.Clients`' lookup and registration, and the name of a grant's hidden key in
+  `PhoenixKit.API.OAuth.Grants.create/4`) answer with their ordinary refusal instead.
   """
 
   @doc "Whether every string in `term` is valid UTF-8 without a NUL byte (anything else passes)."

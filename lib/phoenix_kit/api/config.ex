@@ -15,6 +15,10 @@ defmodule PhoenixKit.API.Config do
   | `api_public_enabled` | `false` |
   | `api_oauth_enabled` | `false` (only counts while `api_admin_enabled` is on) |
   | `api_oauth_access_ttl_seconds` | `3600` (clamped to 300..86400) |
+  | `api_oauth_authorize_per_min` | `30` (authorization requests per client network) |
+  | `api_oauth_token_per_min` | `60` (token and revocation requests per client network) |
+  | `api_oauth_requests_ceiling` | `1000` (authorization requests waiting for consent, all clients) |
+  | `api_oauth_grants_per_person` | `10` (live grants one person may hold) |
   | `api_disabled_tools` | `""` (newline separated tool names) |
   | `api_disabled_modules` | `""` (newline separated module keys) |
   | `api_session_write_modules` | `""` (newline separated module keys) |
@@ -97,6 +101,28 @@ defmodule PhoenixKit.API.Config do
       :unreadable -> []
     end
   end
+
+  @doc "Authorization requests per minute and client network (`api_oauth_authorize_per_min`, 30)."
+  @spec oauth_authorize_per_min() :: pos_integer()
+  def oauth_authorize_per_min, do: int("api_oauth_authorize_per_min", 30)
+
+  @doc "Token and revocation requests per minute and client network (`api_oauth_token_per_min`, 60)."
+  @spec oauth_token_per_min() :: pos_integer()
+  def oauth_token_per_min, do: int("api_oauth_token_per_min", 60)
+
+  @doc """
+  How many authorization requests may wait for a person's consent at once, all clients
+  together (`api_oauth_requests_ceiling`, 1000).
+  """
+  @spec oauth_requests_ceiling() :: pos_integer()
+  def oauth_requests_ceiling, do: int("api_oauth_requests_ceiling", 1000)
+
+  @doc """
+  How many live grants (activated, or not yet activated with a code still alive) one person may
+  hold (`api_oauth_grants_per_person`, 10).
+  """
+  @spec oauth_grants_per_person() :: pos_integer()
+  def oauth_grants_per_person, do: int("api_oauth_grants_per_person", 10)
 
   @doc """
   Tool names the install has hidden (`api_disabled_tools`), telling a list that is empty

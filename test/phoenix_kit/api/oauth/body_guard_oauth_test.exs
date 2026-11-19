@@ -96,6 +96,24 @@ defmodule PhoenixKit.API.OAuth.BodyGuardTest do
       end
     end
 
+    test "a repeated parameter, or one written as a list or a map, is refused" do
+      for name <- ~w(token revoke),
+          body <- [
+            "code=a&code=b",
+            "a=1&b=2&a=3",
+            "code[]=a",
+            "code[]=a&code[]=b",
+            "code[x]=a",
+            "a&a"
+          ] do
+        refusal(form(oauth_path(name), body))
+      end
+
+      for body <- ["a=1&&b=2", "a=1&b", "a=&b=", "a=1&b=1"] do
+        refute form(oauth_path("token"), body).halted, body
+      end
+    end
+
     test "ignores what the content-type says" do
       conn = run(:post, oauth_path("token"), "a=1", [{"content-type", "application/json"}])
       assert conn.body_params == %{"a" => "1"}

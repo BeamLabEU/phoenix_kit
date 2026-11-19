@@ -107,4 +107,16 @@ defmodule PhoenixKit.API.OAuthTestSupport do
 
   defp maybe_put(map, _key, nil), do: map
   defp maybe_put(map, key, value), do: Map.put(map, key, value)
+
+  @doc "A PKCE pair: `{code_verifier, S256 code_challenge}`."
+  @spec pkce() :: {String.t(), String.t()}
+  def pkce do
+    verifier = Base.url_encode64(:crypto.strong_rand_bytes(32), padding: false)
+    {verifier, challenge_of(verifier)}
+  end
+
+  @doc "The S256 challenge of `verifier`."
+  @spec challenge_of(String.t()) :: String.t()
+  def challenge_of(verifier),
+    do: Base.url_encode64(:crypto.hash(:sha256, verifier), padding: false)
 end

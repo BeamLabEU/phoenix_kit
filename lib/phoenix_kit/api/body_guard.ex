@@ -72,7 +72,8 @@ defmodule PhoenixKit.API.BodyGuard do
   `PhoenixKit.API.Config.oauth_enabled?/0`: while it is off, `body_params` is set to `%{}`
   without reading, as above. While it is on, a `POST` body is read up to 16 KB (the host's
   `Plug.Parsers` would read up to 8 MB before any limit of the controller) and decoded in the
-  mode of the path: a form body must be valid UTF-8 and a registration body a JSON object.
+  mode of the path: a form body must be valid UTF-8, without a parameter sent twice or written
+  as a list or a map (RFC 6749 section 3.2), and a registration body a JSON object.
   An empty body is `%{}`. The guard sets `body_params` (and `params` to the same map), but
   the host's `Plug.Parsers`, which runs next, then merges the query string and the path
   parameters into `params`. So an endpoint reads its parameters from `body_params`: a
@@ -279,8 +280,22 @@ defmodule PhoenixKit.API.BodyGuard do
     end
   end
 
+  # A parameter sent twice is refused (RFC 6749 section 3.2: parameters MUST NOT be included more
+  # than once), and so is one written as a list or a map: `Query.decode/1` would keep the last
+  # of two values, and a request that says two things has no single meaning. More segments in
+  # the body than keys in the decoded map means a repeat.
   defp oauth_decode(:form, body) do
-    if String.valid?(body), do: {:ok, Query.decode(body)}, else: :error
+    if String.valid?(body) do
+      params = Query.decode(body)
+      segments = body |> String.split("&", trim: true) |> length()
+
+      if segments == map_size(params) and
+           Enum.all?(params, fn {_name, value} -> is_binary(value) end),
+         do: {:ok, params},
+         else: :error
+    else
+      :error
+    end
   rescue
     # An invalid escape, invalid UTF-8 after decoding, a key nested too deep.
     _error -> :error
