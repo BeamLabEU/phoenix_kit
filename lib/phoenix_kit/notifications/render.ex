@@ -11,7 +11,11 @@ defmodule PhoenixKit.Notifications.Render do
 
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  alias PhoenixKit.Mentions.Token
   alias PhoenixKit.Notifications.Notification
+  alias PhoenixKit.Notifications.Types
+  alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.Roles
   alias PhoenixKit.Utils.RecipientLocale
   alias PhoenixKit.Utils.Routes
@@ -77,6 +81,153 @@ defmodule PhoenixKit.Notifications.Render do
       actor_uuid: nil
     }
   end
+
+  @doc """
+  Why the recipient got this notification: the setting line that sent it and
+  a link to that line, or nil when no line owns it (an action no type claims,
+  a standalone notification without a type).
+
+      %{key: "projects.handoffs", label: "Projects › A task of yours can be started",
+        text: "You get this because “Projects › …” is on.", link: "/…#notif-projects-handoffs"}
+
+  `recipient` decides where the link goes: someone who reaches the admin
+  area (`Scope.can_access_admin_area?/1`) to the matrix row on My Settings
+  (`/admin/notifications/settings#notif-<key>`); anyone else to the
+  Notifications section of their profile settings, the page they have.
+  Rendered in `locale` like `render/2`. The inbox and the bell show it under
+  every notification; email and Telegram carry its text and link.
+  """
+  @spec reason(Notification.t(), User.t() | Scope.t() | nil, String.t() | nil) ::
+          %{key: String.t(), label: String.t(), text: String.t(), link: String.t()} | nil
+  def reason(%Notification{} = notification, recipient, locale \\ nil) do
+    reason_for_key(type_key(notification), recipient, locale)
+  rescue
+    _ -> nil
+  end
+
+  @doc "`reason/3` for a setting line's key (a digest's, say); nil for no line."
+  @spec reason_for_key(String.t() | nil, User.t() | Scope.t() | nil, String.t() | nil) ::
+          %{key: String.t(), label: String.t(), text: String.t(), link: String.t()} | nil
+  def reason_for_key(key, recipient, locale) when is_binary(key) do
+    RecipientLocale.in_locale(locale, fn ->
+      case Types.line_label(key) do
+        label when is_binary(label) and label != "" ->
+          %{
+            key: key,
+            label: label,
+            text: gettext("You get this because “%{line}” is on.", line: label),
+            link: settings_link(recipient, key, locale)
+          }
+
+        _ ->
+          nil
+      end
+    end)
+  rescue
+    _ -> nil
+  end
+
+  def reason_for_key(_key, _recipient, _locale), do: nil
+
+  defp type_key(%Notification{activity: %_{action: action}}) when is_binary(action),
+    do: Types.key_for_action(action)
+
+  defp type_key(%Notification{metadata: %{} = meta}) do
+    case meta["type"] || meta["type_key"] do
+      key when is_binary(key) -> if Types.line_label(key), do: key
+      _ -> nil
+    end
+  end
+
+  defp type_key(_), do: nil
+
+  @quote_cap 2000
+
+  @doc """
+  The message a notification carries, shown as its own block under its
+  line — the comment left in a "mark done" dialog, a reopen reason, the
+  comment someone was mentioned in. Set by the module that logs the
+  activity, in its metadata (or a standalone notification's):
+
+      "quote" => %{
+        "text" => "Measured again, wall A is 3240.",   # required, markdown
+        "author_uuid" => "019…",                       # optional, the writer's account
+        "author_name" => "Anna Kask"                    # optional, shown when no account
+      }
+
+  Answers `%{text:, author_uuid:, author_name:, truncated?:}` or nil (no
+  quote, or an empty text). Mention tokens in the text become their
+  labels; the text is cut at #{@quote_cap} characters for display
+  (`truncated?`). The inbox renders `text` as sanitized markdown; email and
+  Telegram carry it as plain text.
+  """
+  @spec quote(Notification.t()) ::
+          %{
+            text: String.t(),
+            author_uuid: String.t() | nil,
+            author_name: String.t() | nil,
+            truncated?: boolean()
+          }
+          | nil
+  def quote(%Notification{} = notification) do
+    with %{} = q <- quote_meta(notification),
+         text when is_binary(text) <- q["text"],
+         text = text |> Token.to_plain_text() |> String.trim(),
+         true <- text != "" do
+      truncated? = String.length(text) > @quote_cap
+
+      %{
+        text: if(truncated?, do: String.slice(text, 0, @quote_cap) <> "…", else: text),
+        author_uuid: string_or_nil(q["author_uuid"]),
+        author_name: string_or_nil(q["author_name"]),
+        truncated?: truncated?
+      }
+    else
+      _ -> nil
+    end
+  rescue
+    _ -> nil
+  end
+
+  def quote(_), do: nil
+
+  defp quote_meta(%Notification{activity: %_{metadata: %{"quote" => %{} = q}}}), do: q
+  defp quote_meta(%Notification{metadata: %{"quote" => %{} = q}}), do: q
+  defp quote_meta(_), do: nil
+
+  defp string_or_nil(value) when is_binary(value) and value != "", do: value
+  defp string_or_nil(_), do: nil
+
+  @doc """
+  A quote as plain text for a channel without HTML (Telegram, an email's
+  text part): `Anna Kask: “…”`, or the text alone without a name.
+  """
+  @spec quote_text(map() | nil, String.t() | nil) :: String.t() | nil
+  def quote_text(nil, _name), do: nil
+
+  def quote_text(%{text: text}, name) when is_binary(name) and name != "",
+    do: "#{name}: “#{text}”"
+
+  def quote_text(%{text: text}, _name), do: "“#{text}”"
+
+  @doc false
+  # Where `recipient` changes the line `key`: the matrix row for someone who
+  # reaches the admin area, else their profile's Notifications section.
+  @spec settings_link(User.t() | Scope.t() | nil, String.t(), String.t() | nil) :: String.t()
+  def settings_link(recipient, key, locale) do
+    if matrix_reader?(recipient),
+      do: Routes.path("/admin/notifications/settings", locale: locale) <> "#notif-" <> key,
+      else: Routes.path("/profile/settings", locale: locale) <> "#notification-settings"
+  end
+
+  # My Settings is a personal admin view: anyone who reaches the admin area
+  # opens it (`PhoenixKitWeb.Users.Auth`'s `@personal_admin_views`).
+  defp matrix_reader?(%Scope{} = scope), do: Scope.can_access_admin_area?(scope)
+
+  defp matrix_reader?(%User{} = user),
+    do: user |> Scope.for_user() |> Scope.can_access_admin_area?()
+
+  defp matrix_reader?(_), do: false
 
   # ── Action → (icon, text) ────────────────────────────────────────────
 

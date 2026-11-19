@@ -1662,7 +1662,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
           <%= if Enum.any?([:identity, :custom_fields, :email, :password, :oauth], & &1 in @sections) do %>
             <div class="divider"></div>
           <% end %>
-          <div>
+          <div id="notification-settings" class="scroll-mt-24">
             <%!-- Collapsed behind a toggle like Email and Password above: a --%>
             <%!-- row of checkboxes per registered type is the longest block --%>
             <%!-- on the page, and it pushed Active Sessions off-screen for  --%>
@@ -1732,8 +1732,18 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                     class="checkbox-sm"
                     wrapper_class="p-3 rounded-lg border border-base-300 hover:bg-base-200/40 transition-colors"
                   >
-                    <:description :if={type.description not in [nil, ""]}>
+                    <:description :if={
+                      type.description not in [nil, ""] or Map.get(type, :example) not in [nil, ""]
+                    }>
                       {NotificationTypes.translate(type, :description)}
+                      <span
+                        :if={Map.get(type, :example) not in [nil, ""]}
+                        class="block italic opacity-80 mt-0.5"
+                      >
+                        {gettext("For example: %{example}",
+                          example: NotificationTypes.translate(type, :example)
+                        )}
+                      </span>
                     </:description>
                   </.checkbox>
                 <% end %>

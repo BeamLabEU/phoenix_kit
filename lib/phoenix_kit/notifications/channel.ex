@@ -46,8 +46,18 @@ defmodule PhoenixKit.Notifications.Channel do
   `:url` is absolute (or `nil`). `:title` is set for channels that have a
   subject line (email); text-only channels ignore it. `:type_key` /
   `:notification_uuid` are for logging/idempotency, not display.
+  `:reason` is the line that sent it ("You get this because “Projects ›
+  Comments” is on.") and `:reason_url` the absolute link where the
+  recipient changes it — both optional (nil when no line owns the
+  notification); a channel shows them under the message. `:quote` is the
+  message the notification carries (`Render.quote/1`), as plain text with
+  its writer's name ("Anna Kask: “…”"), nil when there is none; a channel
+  shows it under `:text`.
   """
   @type envelope :: %{
+          optional(:reason) => String.t() | nil,
+          optional(:quote) => String.t() | nil,
+          optional(:reason_url) => String.t() | nil,
           recipient_uuid: String.t(),
           type_key: String.t() | nil,
           notification_uuid: String.t() | nil,
@@ -104,5 +114,14 @@ defmodule PhoenixKit.Notifications.Channel do
   """
   @callback validate_config(config()) :: {:ok, config()} | {:error, term()}
 
-  @optional_callbacks [validate_config: 1]
+  @doc """
+  Where a user connects this channel (a kit path, `Routes.path/1`-built),
+  or nil when it cannot be connected now (Telegram with no site bot
+  chosen). The settings table puts a **Connect** link in the header of an
+  unconnected channel that answers a path, and leaves out one that
+  answers nil. Optional — a channel without it is never offered unconnected.
+  """
+  @callback connect_path() :: String.t() | nil
+
+  @optional_callbacks [validate_config: 1, connect_path: 0]
 end

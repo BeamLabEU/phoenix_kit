@@ -12,8 +12,12 @@ defmodule PhoenixKit.Notifications.Channels.Email do
   it is sent in the shared layout with the site's branding, can be rewritten
   with override files like any other email, and shows in the admin preview.
   Its variables are `{{subject}}` (the notification's title, or the start of
-  its text), `{{text}}` and `{{url}}` (empty when the notification has no
-  link) — all already rendered in the reader's language.
+  its text), `{{text}}`, `{{quote}}` (the message it carries, with its
+  writer's name — a comment, a reason — empty when none), `{{url}}` (empty when the notification has no
+  link), `{{reason}}` (the setting line that sent it, "You get this because
+  “…” is on.") and `{{settings_url}}` (where the reader changes it) — all
+  already rendered in the reader's language; the last two empty when no
+  line owns the notification.
   """
 
   @behaviour PhoenixKit.Notifications.Channel
@@ -73,7 +77,10 @@ defmodule PhoenixKit.Notifications.Channels.Email do
         %{
           "subject" => subject_for(envelope),
           "text" => envelope.text,
-          "url" => envelope.url || ""
+          "quote" => Map.get(envelope, :quote) || "",
+          "url" => envelope.url || "",
+          "reason" => Map.get(envelope, :reason) || "",
+          "settings_url" => Map.get(envelope, :reason_url) || ""
         },
         &CoreTemplates.notification_defaults/0
       )
@@ -100,6 +107,9 @@ defmodule PhoenixKit.Notifications.Channels.Email do
   defp subject_for(%{text: text}), do: String.slice(text, 0, 120)
 
   # A notification without a link leaves the default's `{{url}}` line empty.
-  defp trim(text) when is_binary(text), do: String.trim_trailing(text)
+  # An empty variable (no quote, no reason) leaves its blank lines behind.
+  defp trim(text) when is_binary(text),
+    do: text |> String.replace(~r/\n{3,}/, "\n\n") |> String.trim_trailing()
+
   defp trim(text), do: text
 end
