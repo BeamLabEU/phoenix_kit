@@ -3459,6 +3459,152 @@
     }
   };
 
+  // PkResizable — lets the person resize a box by grips on its edges and
+  // corners (`<.resizable_modal>`'s modal-box). The grips are children with
+  // `data-pk-resize="n|s|e|w|ne|nw|se|sw"`, rendered by the component.
+  //
+  //   data-size-key    name of the kept size in localStorage
+  //   data-min-width   pixels, default 320
+  //   data-min-height  pixels, default 240
+  //
+  // The box is centred by its dialog, so a drag changes the size by twice
+  // the pointer's travel: the edge under the pointer follows the pointer and
+  // the opposite one mirrors it. The size lives in inline styles, which a
+  // LiveView patch strips (the server renders none), so `updated()` puts it
+  // back. Below 640px nothing is applied: there the box is the component's
+  // full-screen sheet. A double click on a grip forgets the size.
+  window.PhoenixKitHooks.PkResizable = {
+    mounted() {
+      const self = this;
+      const el = this.el;
+      this._size = this._read();
+      this._drag = null;
+      this._margin = 16;
+
+      this._onDown = function(e) {
+        const grip = e.target.closest ? e.target.closest("[data-pk-resize]") : null;
+        if (!grip || !el.contains(grip) || e.button > 0 || !self._wide()) return;
+        e.preventDefault();
+        const rect = el.getBoundingClientRect();
+        self._drag = {
+          dir: grip.getAttribute("data-pk-resize"),
+          x: e.clientX,
+          y: e.clientY,
+          w: rect.width,
+          h: rect.height,
+          id: e.pointerId,
+          grip: grip
+        };
+        try { grip.setPointerCapture(e.pointerId); } catch (_e) {}
+        document.documentElement.style.userSelect = "none";
+      };
+      this._onMove = function(e) {
+        const d = self._drag;
+        if (!d || e.pointerId !== d.id) return;
+        let w = d.w;
+        let h = d.h;
+        if (d.dir.indexOf("e") !== -1) w = d.w + 2 * (e.clientX - d.x);
+        if (d.dir.indexOf("w") !== -1) w = d.w - 2 * (e.clientX - d.x);
+        if (d.dir.indexOf("s") !== -1) h = d.h + 2 * (e.clientY - d.y);
+        if (d.dir.indexOf("n") !== -1) h = d.h - 2 * (e.clientY - d.y);
+        const horizontal = d.dir.indexOf("e") !== -1 || d.dir.indexOf("w") !== -1;
+        const vertical = d.dir.indexOf("s") !== -1 || d.dir.indexOf("n") !== -1;
+        const size = self._size || {};
+        self._size = {
+          w: horizontal ? Math.round(w) : size.w,
+          h: vertical ? Math.round(h) : size.h
+        };
+        self._apply();
+      };
+      this._onUp = function(e) {
+        const d = self._drag;
+        if (!d || e.pointerId !== d.id) return;
+        self._drag = null;
+        try { d.grip.releasePointerCapture(d.id); } catch (_e) {}
+        document.documentElement.style.userSelect = "";
+        self._write();
+      };
+      this._onDblClick = function(e) {
+        const grip = e.target.closest ? e.target.closest("[data-pk-resize]") : null;
+        if (!grip || !el.contains(grip)) return;
+        self._size = null;
+        self._write();
+        self._apply();
+      };
+      this._onWindowResize = function() { self._apply(); };
+
+      el.addEventListener("pointerdown", this._onDown);
+      el.addEventListener("pointermove", this._onMove);
+      el.addEventListener("pointerup", this._onUp);
+      el.addEventListener("pointercancel", this._onUp);
+      el.addEventListener("dblclick", this._onDblClick);
+      window.addEventListener("resize", this._onWindowResize);
+      this._apply();
+    },
+    updated() { this._apply(); },
+    destroyed() {
+      window.removeEventListener("resize", this._onWindowResize);
+      document.documentElement.style.userSelect = "";
+    },
+    _wide() { return window.innerWidth >= 640; },
+    _key() {
+      const key = this.el.getAttribute("data-size-key");
+      return key ? "pk:resizable:" + key : null;
+    },
+    _read() {
+      try {
+        const key = this._key();
+        const raw = key && window.localStorage.getItem(key);
+        const size = raw ? JSON.parse(raw) : null;
+        if (!size || typeof size !== "object") return null;
+        return {
+          w: typeof size.w === "number" ? size.w : undefined,
+          h: typeof size.h === "number" ? size.h : undefined
+        };
+      } catch (_e) { return null; }
+    },
+    _write() {
+      try {
+        const key = this._key();
+        if (!key) return;
+        if (this._size && (this._size.w || this._size.h)) {
+          window.localStorage.setItem(key, JSON.stringify(this._size));
+        } else {
+          window.localStorage.removeItem(key);
+        }
+      } catch (_e) {}
+    },
+    _clamp(value, min, max) { return Math.max(min, Math.min(value, Math.max(min, max))); },
+    // The kept size as inline styles, clamped to the minimum and to the
+    // viewport as it is now; with nothing kept (or on a narrow screen) the
+    // styles this hook owns are taken away and the component's own apply.
+    _apply() {
+      const el = this.el;
+      const size = this._size;
+      const props = ["width", "max-width", "height", "max-height"];
+      if (!this._wide() || !size) {
+        if (el.dataset.pkResized) {
+          props.forEach(function(p) { el.style.removeProperty(p); });
+          delete el.dataset.pkResized;
+        }
+        return;
+      }
+      const minW = parseInt(el.getAttribute("data-min-width"), 10) || 320;
+      const minH = parseInt(el.getAttribute("data-min-height"), 10) || 240;
+      if (size.w) {
+        const w = this._clamp(size.w, minW, window.innerWidth - 2 * this._margin);
+        el.style.setProperty("width", w + "px");
+        el.style.setProperty("max-width", "none");
+      }
+      if (size.h) {
+        const h = this._clamp(size.h, minH, window.innerHeight - 2 * this._margin);
+        el.style.setProperty("height", h + "px");
+        el.style.setProperty("max-height", "none");
+      }
+      el.dataset.pkResized = "true";
+    }
+  };
+
   // PkDialogTrigger — makes a REGION instant-open a kept-in-DOM PkDialog.
   // Attach to a container whose descendants push server events that end in
   // a modal (e.g. a calendar grid where event/date clicks open an editor):
