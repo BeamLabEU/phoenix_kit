@@ -3469,10 +3469,16 @@
   //
   // The box is centred by its dialog, so a drag changes the size by twice
   // the pointer's travel: the edge under the pointer follows the pointer and
-  // the opposite one mirrors it. The size lives in inline styles, which a
-  // LiveView patch strips (the server renders none), so `updated()` puts it
-  // back. Below 640px nothing is applied: there the box is the component's
-  // full-screen sheet. A double click on a grip forgets the size.
+  // the opposite one mirrors it. The size the person chose lives in inline
+  // styles, which a LiveView patch strips, so `updated()` puts them back. The
+  // server's own initial height is never inline (the component renders it as
+  // a custom property that a class applies from `sm` up), so letting go of
+  // the inline size — a double click, a window below 640px — leaves it as it
+  // was. Below 640px nothing is applied: there the box is the component's
+  // full-screen sheet. A double click on a grip forgets the size. What is
+  // kept is the size the person saw (clamped to the minimum and the
+  // viewport), and a press that moves less than a few pixels is a click, not
+  // a resize.
   window.PhoenixKitHooks.PkResizable = {
     mounted() {
       const self = this;
@@ -3480,6 +3486,7 @@
       this._size = this._read();
       this._drag = null;
       this._margin = 16;
+      this._threshold = 4;
 
       this._onDown = function(e) {
         const grip = e.target.closest ? e.target.closest("[data-pk-resize]") : null;
@@ -3493,7 +3500,8 @@
           w: rect.width,
           h: rect.height,
           id: e.pointerId,
-          grip: grip
+          grip: grip,
+          moved: false
         };
         try { grip.setPointerCapture(e.pointerId); } catch (_e) {}
         document.documentElement.style.userSelect = "none";
@@ -3501,6 +3509,12 @@
       this._onMove = function(e) {
         const d = self._drag;
         if (!d || e.pointerId !== d.id) return;
+        // Capture lost and the button let go elsewhere: the drag is over.
+        if (e.buttons === 0) { self._end(); return; }
+        if (!d.moved) {
+          if (Math.abs(e.clientX - d.x) < self._threshold && Math.abs(e.clientY - d.y) < self._threshold) return;
+          d.moved = true;
+        }
         let w = d.w;
         let h = d.h;
         if (d.dir.indexOf("e") !== -1) w = d.w + 2 * (e.clientX - d.x);
@@ -3519,10 +3533,7 @@
       this._onUp = function(e) {
         const d = self._drag;
         if (!d || e.pointerId !== d.id) return;
-        self._drag = null;
-        try { d.grip.releasePointerCapture(d.id); } catch (_e) {}
-        document.documentElement.style.userSelect = "";
-        self._write();
+        self._end();
       };
       this._onDblClick = function(e) {
         const grip = e.target.closest ? e.target.closest("[data-pk-resize]") : null;
@@ -3537,6 +3548,7 @@
       el.addEventListener("pointermove", this._onMove);
       el.addEventListener("pointerup", this._onUp);
       el.addEventListener("pointercancel", this._onUp);
+      el.addEventListener("lostpointercapture", this._onUp);
       el.addEventListener("dblclick", this._onDblClick);
       window.addEventListener("resize", this._onWindowResize);
       this._apply();
@@ -3545,6 +3557,36 @@
     destroyed() {
       window.removeEventListener("resize", this._onWindowResize);
       document.documentElement.style.userSelect = "";
+    },
+    // Ends a drag. A press that never moved past the threshold changes and
+    // keeps nothing; otherwise the size kept is the one on screen.
+    _end() {
+      const d = this._drag;
+      if (!d) return;
+      this._drag = null;
+      try { d.grip.releasePointerCapture(d.id); } catch (_e) {}
+      document.documentElement.style.userSelect = "";
+      if (!d.moved) return;
+      this._size = this._bounded(this._size);
+      this._write();
+    },
+    _limits() {
+      const el = this.el;
+      return {
+        minW: parseInt(el.getAttribute("data-min-width"), 10) || 320,
+        minH: parseInt(el.getAttribute("data-min-height"), 10) || 240,
+        maxW: window.innerWidth - 2 * this._margin,
+        maxH: window.innerHeight - 2 * this._margin
+      };
+    },
+    // The size as `_apply` shows it: within the minimum and the viewport.
+    _bounded(size) {
+      if (!size) return size;
+      const l = this._limits();
+      return {
+        w: size.w ? this._clamp(size.w, l.minW, l.maxW) : size.w,
+        h: size.h ? this._clamp(size.h, l.minH, l.maxH) : size.h
+      };
     },
     _wide() { return window.innerWidth >= 640; },
     _key() {
@@ -3589,16 +3631,13 @@
         }
         return;
       }
-      const minW = parseInt(el.getAttribute("data-min-width"), 10) || 320;
-      const minH = parseInt(el.getAttribute("data-min-height"), 10) || 240;
-      if (size.w) {
-        const w = this._clamp(size.w, minW, window.innerWidth - 2 * this._margin);
-        el.style.setProperty("width", w + "px");
+      const shown = this._bounded(size);
+      if (shown.w) {
+        el.style.setProperty("width", shown.w + "px");
         el.style.setProperty("max-width", "none");
       }
-      if (size.h) {
-        const h = this._clamp(size.h, minH, window.innerHeight - 2 * this._margin);
-        el.style.setProperty("height", h + "px");
+      if (shown.h) {
+        el.style.setProperty("height", shown.h + "px");
         el.style.setProperty("max-height", "none");
       }
       el.dataset.pkResized = "true";

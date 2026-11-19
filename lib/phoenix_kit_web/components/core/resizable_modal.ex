@@ -38,6 +38,8 @@ defmodule PhoenixKitWeb.Components.Core.ResizableModal do
 
   use Phoenix.Component
 
+  import PhoenixKitWeb.Components.Core.Modal, only: [max_width_class: 1]
+
   @doc """
   Renders a modal dialog whose box can be resized by its edges and corners.
 
@@ -94,11 +96,14 @@ defmodule PhoenixKitWeb.Components.Core.ResizableModal do
         aria-labelledby={"#{@id}-title"}
         {@rest}
       >
-        <%!-- The box carries no `style` from the server once the hook has
-             sized it, so every patch strips the inline size and the hook
-             puts it back in `updated()` — the same dance `PkDialog` does
-             for `open`. `overflow-hidden`: the content area scrolls, the box
-             does not, so the grips stay on its edges. --%>
+        <%!-- The server renders at most a custom property here: `height`, as
+             `--pk-resizable-h`, which a class below applies from `sm` up. The
+             inline `width`/`height` the hook puts on the box for a size the
+             person chose are its own: a patch strips them and `updated()`
+             puts them back (as `PkDialog` does for `open`), and letting go
+             of them (a double click, a narrow window) leaves the server's
+             height as it was. `overflow-hidden`: the content area scrolls,
+             the box does not, so the grips stay on its edges. --%>
         <div
           id={"#{@id}-box"}
           phx-hook="PkResizable"
@@ -110,9 +115,11 @@ defmodule PhoenixKitWeb.Components.Core.ResizableModal do
             @fullscreen_on_mobile &&
               "max-sm:w-full max-sm:max-w-none max-sm:h-full max-sm:max-h-none max-sm:rounded-none",
             max_width_class(@max_width),
+            @height && @fullscreen_on_mobile && "sm:h-[var(--pk-resizable-h)]",
+            @height && !@fullscreen_on_mobile && "h-[var(--pk-resizable-h)]",
             @class
           ]}
-          style={@height && "height: #{@height}"}
+          style={@height && "--pk-resizable-h: #{@height}"}
         >
           <h3
             :if={@title != []}
@@ -160,16 +167,4 @@ defmodule PhoenixKitWeb.Components.Core.ResizableModal do
       {"sw", "bottom-0 left-0 size-3 cursor-nesw-resize"}
     ]
   end
-
-  defp max_width_class("sm"), do: "max-w-sm"
-  defp max_width_class("md"), do: "max-w-md"
-  defp max_width_class("lg"), do: "max-w-lg"
-  defp max_width_class("xl"), do: "max-w-xl"
-  defp max_width_class("2xl"), do: "max-w-2xl"
-  defp max_width_class("3xl"), do: "max-w-3xl"
-  defp max_width_class("4xl"), do: "max-w-4xl"
-  defp max_width_class("5xl"), do: "max-w-5xl"
-  defp max_width_class("6xl"), do: "max-w-6xl"
-  defp max_width_class("7xl"), do: "max-w-7xl"
-  defp max_width_class("full"), do: "max-w-full"
 end

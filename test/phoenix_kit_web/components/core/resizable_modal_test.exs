@@ -96,9 +96,69 @@ defmodule PhoenixKitWeb.Components.Core.ResizableModalTest do
       """)
 
     assert html =~ "max-w-4xl"
-    assert html =~ "height: 70vh"
     assert html =~ ~s(data-min-width="480")
     assert html =~ ~s(data-min-height="300")
+  end
+
+  test "the initial height is a custom property that applies from sm up, never an inline height" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.resizable_modal id="m" show={true} on_close="close" height="70vh">body</.resizable_modal>
+      """)
+
+    box = LazyHTML.query(LazyHTML.from_fragment(html), "#m-box")
+    [style] = LazyHTML.attribute(box, "style")
+    [class] = LazyHTML.attribute(box, "class")
+
+    assert style == "--pk-resizable-h: 70vh"
+    refute style =~ ~r/(^|;)\s*height/
+    assert class =~ "sm:h-[var(--pk-resizable-h)]"
+    # The phone sheet keeps its own full height: nothing unprefixed sets one.
+    assert class =~ "max-sm:h-full"
+    refute class =~ ~r/(^|\s)h-\[var/
+  end
+
+  test "without fullscreen_on_mobile the height applies at every width" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.resizable_modal id="m" show={true} on_close="close" height="600px" fullscreen_on_mobile={false}>
+        body
+      </.resizable_modal>
+      """)
+
+    [class] =
+      html |> LazyHTML.from_fragment() |> LazyHTML.query("#m-box") |> LazyHTML.attribute("class")
+
+    assert class =~ ~r/(^|\s)h-\[var\(--pk-resizable-h\)\]/
+    refute class =~ "sm:h-[var"
+  end
+
+  test "the server renders no style content without a height" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.resizable_modal id="m" show={true} on_close="close">body</.resizable_modal>
+      """)
+
+    box = LazyHTML.query(LazyHTML.from_fragment(html), "#m-box")
+    # Phoenix renders an empty `style=""` for a nil one; either way it is empty.
+    assert LazyHTML.attribute(box, "style") in [[], [""]]
+  end
+
+  test "a width outside the table falls back as <.modal> does" do
+    assigns = %{width: "9xl"}
+
+    html =
+      rendered_to_string(~H"""
+      <.resizable_modal id="m" show={true} on_close="close" max_width={@width}>body</.resizable_modal>
+      """)
+
+    assert html =~ "max-w-md"
   end
 
   test "the box fills a phone's screen unless the caller turns that off" do

@@ -521,18 +521,21 @@ defmodule PhoenixKitWeb.Components.Core.Modal do
 
   # Private helpers
 
-  defp max_width_class("sm"), do: "max-w-sm"
-  defp max_width_class("md"), do: "max-w-md"
-  defp max_width_class("lg"), do: "max-w-lg"
-  defp max_width_class("xl"), do: "max-w-xl"
-  defp max_width_class("2xl"), do: "max-w-2xl"
-  defp max_width_class("3xl"), do: "max-w-3xl"
-  defp max_width_class("4xl"), do: "max-w-4xl"
-  defp max_width_class("5xl"), do: "max-w-5xl"
-  defp max_width_class("6xl"), do: "max-w-6xl"
-  defp max_width_class("7xl"), do: "max-w-7xl"
-  defp max_width_class("full"), do: "max-w-full"
-  defp max_width_class(_), do: "max-w-md"
+  @doc false
+  # `<.resizable_modal>` takes its initial width through the same table.
+  @spec max_width_class(String.t()) :: String.t()
+  def max_width_class("sm"), do: "max-w-sm"
+  def max_width_class("md"), do: "max-w-md"
+  def max_width_class("lg"), do: "max-w-lg"
+  def max_width_class("xl"), do: "max-w-xl"
+  def max_width_class("2xl"), do: "max-w-2xl"
+  def max_width_class("3xl"), do: "max-w-3xl"
+  def max_width_class("4xl"), do: "max-w-4xl"
+  def max_width_class("5xl"), do: "max-w-5xl"
+  def max_width_class("6xl"), do: "max-w-6xl"
+  def max_width_class("7xl"), do: "max-w-7xl"
+  def max_width_class("full"), do: "max-w-full"
+  def max_width_class(_), do: "max-w-md"
 
   defp message_styles(:warning), do: "bg-warning/10 border-warning/30"
   defp message_styles(:error), do: "bg-error/10 border-error/30"
