@@ -20,6 +20,7 @@ defmodule PhoenixKit.API.ProblemTest do
         unauthorized: 401,
         forbidden: 403,
         ip_not_allowed: 403,
+        approval_pending: 403,
         origin_not_allowed: 403,
         token_in_url: 400,
         invalid_json: 400,

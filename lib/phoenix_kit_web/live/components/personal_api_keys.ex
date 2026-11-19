@@ -901,6 +901,13 @@ defmodule PhoenixKitWeb.Live.Components.PersonalApiKeys do
               </div>
             </.form_section>
 
+            <.live_component
+              module={PhoenixKitWeb.Live.Components.ConnectedApps}
+              id={"#{@id}-connected-apps"}
+              scope={@scope}
+              impersonated={@impersonated}
+            />
+
             <%!-- How to connect --%>
             <.form_section
               id={"#{@id}-connect"}

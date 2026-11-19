@@ -9,8 +9,9 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
   The page is split into tabs held in the URL (`?tab=…`, see
   `PhoenixKitWeb.Live.Settings.UrlTabs`): switches and modules (the default), keys and
   service users, approvals and limits, and the API guide
-  (`PhoenixKitWeb.Live.Settings.ApiGuidePanel`, built each time its tab is opened). The
-  other panes are all rendered and only hidden, so a form keeps what was typed when the
+  (`PhoenixKitWeb.Live.Settings.ApiGuidePanel`, built each time its tab is opened) and the
+  OAuth tab (`PhoenixKitWeb.Live.Settings.ApiOauthPanel`, a LiveComponent mounted while its
+  tab is open). The other panes are all rendered and only hidden, so a form keeps what was typed when the
   tab changes; the dialogs sit outside the panes.
 
   Gated by the `api` permission (opt-in for Admin; see
@@ -122,21 +123,28 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
   alias PhoenixKit.API.FlowConfig
   alias PhoenixKit.API.Keys
   alias PhoenixKit.API.Keys.DisplayToken
+  alias PhoenixKit.API.ModuleLabel
   alias PhoenixKit.API.PersonalKeysConfig
   alias PhoenixKit.API.Registry
   alias PhoenixKit.API.ServiceUsers
   alias PhoenixKit.ModuleRegistry
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Actor
   alias PhoenixKitWeb.Components.PersonalKeyDisplay
   alias PhoenixKitWeb.Live.Settings.ApiGuidePanel
+  alias PhoenixKitWeb.Live.Settings.ApiOauthPanel
   alias PhoenixKitWeb.Live.Settings.UrlTabs
   alias PhoenixKitWeb.Users.MultiSession
 
   # The two switches: the name used in the page, the setting it writes.
-  @switches %{"admin" => "api_admin_enabled", "public" => "api_public_enabled"}
+  @switches %{
+    "admin" => "api_admin_enabled",
+    "public" => "api_public_enabled",
+    "password" => "api_pw_change_revokes"
+  }
 
   # Limits form field -> {setting, key in `Config.rate_limits/0`}.
   @limit_fields [
@@ -208,6 +216,7 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
       %{id: "access", label: gettext("Switches and modules"), icon: "hero-power"},
       %{id: "keys", label: gettext("Keys and service users"), icon: "hero-key"},
       %{id: "approvals", label: gettext("Approvals and limits"), icon: "hero-shield-check"},
+      %{id: "oauth", label: gettext("Sign-in (OAuth)"), icon: "hero-link"},
       %{id: "guide", label: gettext("API guide"), icon: "hero-book-open"}
     ]
   end
@@ -240,19 +249,10 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
   def handle_event("toggle_switch", %{"switch" => name}, socket)
       when is_map_key(@switches, name) do
     with_access(socket, fn socket ->
-      key = Map.fetch!(@switches, name)
-
-      case Settings.update_boolean_setting_with_module(
-             key,
-             not switch_on?(name),
-             "api",
-             history(socket)
-           ) do
-        {:ok, _setting} ->
-          socket |> assign_state(statuses: :keep) |> put_flash(:info, switch_text(name))
-
-        {:error, _changeset} ->
-          put_flash(socket, :error, gettext("The switch could not be saved."))
+      if owner_only_switch?(name) and not Scope.owner?(scope(socket)) do
+        socket |> assign(:owner?, false) |> put_flash(:error, owner_only_text())
+      else
+        write_switch(socket, name)
       end
     end)
   end
@@ -505,6 +505,30 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
     {:noreply, put_flash(socket, :error, gettext("That action is not available."))}
   end
 
+  # The password switch decides whether a stolen session's keys outlive a password change:
+  # an Owner's call, like who may connect without approval.
+  defp owner_only_switch?("password"), do: true
+  defp owner_only_switch?(_name), do: false
+
+  defp write_switch(socket, name) do
+    key = Map.fetch!(@switches, name)
+
+    case Settings.update_boolean_setting_with_module(
+           key,
+           not switch_on?(name),
+           "api",
+           history(socket)
+         ) do
+      {:ok, _setting} ->
+        socket |> assign_state(statuses: :keep) |> put_flash(:info, switch_text(name))
+
+      {:error, _changeset} ->
+        put_flash(socket, :error, gettext("The switch could not be saved."))
+    end
+  end
+
+  defp owner_only_text, do: gettext("Only an Owner can change this.")
+
   # ── Access ─────────────────────────────────────────────────────────
 
   # Every event that changes something goes through here. The scope the socket
@@ -528,6 +552,15 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
   defp fresh_scope(socket), do: Access.fresh_scope(socket.assigns.phoenix_kit_current_scope)
 
   defp scope(socket), do: socket.assigns.api_scope
+
+  # Whether the person is an Owner now, read as the events read it (the scope captured at mount
+  # may be narrowed to one active role, and a role changed since is not in it).
+  defp owner_now?(socket) do
+    case fresh_scope(socket) do
+      {:ok, fresh} -> Scope.owner?(fresh)
+      :error -> false
+    end
+  end
 
   # A token that has not been dismissed is the only copy there is: nothing may
   # start another one (or reopen the form that would) until it is stored.
@@ -556,6 +589,8 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
     socket
     |> assign(:admin_enabled, Config.admin_enabled?())
     |> assign(:public_enabled, Config.public_enabled?())
+    |> assign(:password_change_revokes, Config.password_change_revokes?())
+    |> assign(:owner?, owner_now?(socket))
     |> assign_api_modules()
     |> assign(:keys, keys)
     |> assign(:service_users, service_users)
@@ -637,23 +672,10 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
   defp module_api_saved(mod, false),
     do: gettext("The API of %{module} is off.", module: module_label(mod))
 
-  @doc false
-  # A module's name, translated: by the gettext backend the module declares in its
-  # `permission_metadata/0` (the one the permissions matrix uses for its label), then by
-  # core's own catalogue. A module without a backend reads as before. A module of
-  # `api_modules/0` already carries its `:label`; resolving one asks every module for its
-  # metadata, which the template must not repeat for each row and aria-label of a render.
-  def module_label(%{label: label}) when is_binary(label), do: label
-  def module_label(mod), do: label_in(ModuleRegistry.permission_gettext(), mod)
-
-  defp label_in(backends, %{key: key, name: name}) do
-    with {backend, domain} <- Map.get(backends, key),
-         translated when translated != name <- Gettext.dgettext(backend, domain, name) do
-      translated
-    else
-      _ -> Gettext.gettext(PhoenixKitWeb.Gettext, name)
-    end
-  end
+  # A module's name, translated (`PhoenixKit.API.ModuleLabel`). A module of `api_modules/0`
+  # already carries its `:label`, so the template does not resolve it again for each row and
+  # aria-label of a render.
+  defp module_label(mod), do: ModuleLabel.label(mod)
 
   # The modules with tools, whether their API is on right now and whether the agent may act
   # in them (`api_session_write_modules`).
@@ -666,7 +688,7 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
       mod
       |> Map.put(:api_on?, mod.key not in disabled)
       |> Map.put(:session_write?, mod.key in writes)
-      |> Map.put(:label, label_in(backends, mod))
+      |> Map.put(:label, ModuleLabel.label(mod, backends))
     end)
   end
 
@@ -702,9 +724,11 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
 
   defp switch_on?("admin"), do: Config.admin_enabled?()
   defp switch_on?("public"), do: Config.public_enabled?()
+  defp switch_on?("password"), do: Config.password_change_revokes?()
 
   defp switch_text("admin"), do: gettext("The admin API setting was saved.")
   defp switch_text("public"), do: gettext("The public API setting was saved.")
+  defp switch_text("password"), do: gettext("The setting for a password change was saved.")
 
   # The names shown in the Owner column. A key's owner is the person who created
   # it, or a service user; an Owner also sees keys of other people, which cost

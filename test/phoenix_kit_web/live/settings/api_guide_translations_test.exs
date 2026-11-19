@@ -14,7 +14,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiGuideTranslationsTest do
     lib/phoenix_kit_web/live/settings/api_guide_panel.ex
     lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex
   )
-  @locales ~w(de es et fr it pl ru uk)
+  @locales ~w(de es et fr it pl ru uk zh)
   @root Path.expand("../../../..", __DIR__)
 
   # Every literal first argument of a `gettext(...)` or `ngettext(...)` call in the

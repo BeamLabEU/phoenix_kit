@@ -307,7 +307,7 @@ defmodule PhoenixKit.API.OpenAPI do
 
   defp components(audience) do
     components = %{
-      "schemas" => %{"Problem" => problem_schema()},
+      "schemas" => %{"Problem" => problem_schema(audience)},
       "headers" => %{"IdempotentReplayed" => replayed_header(audience)},
       "responses" =>
         Map.new([@conflict | statuses(audience)], fn {_status, name, text} ->
@@ -372,8 +372,17 @@ defmodule PhoenixKit.API.OpenAPI do
     }
   end
 
-  defp problem_schema do
-    codes = Problem.statuses() |> Map.keys() |> Enum.map(&Atom.to_string/1) |> Enum.sort()
+  # Codes only an admin key can meet (an OAuth connection that waits for an owner's approval): the
+  # public document, served without a key, never names them.
+  @admin_only_codes [:approval_pending]
+
+  defp problem_schema(audience) do
+    codes =
+      Problem.statuses()
+      |> Map.keys()
+      |> Enum.reject(&(audience == :public and &1 in @admin_only_codes))
+      |> Enum.map(&Atom.to_string/1)
+      |> Enum.sort()
 
     %{
       "type" => "object",

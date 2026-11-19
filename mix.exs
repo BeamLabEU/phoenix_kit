@@ -200,18 +200,21 @@ defmodule PhoenixKit.MixProject do
       # `priv/static/assets/phoenix_kit.js` loads the browser half from the
       # host's own copy of the Hex package's file, so an open ceiling lets a
       # host float past the API phoenix_kit.js was written against.
-      # `~> 0.12.0` is `>= 0.12.0 and < 0.13.0`, so the next leaf minor needs a
+      # `~> 0.13.0` is `>= 0.13.0 and < 0.14.0`, so the next leaf minor needs a
       # requirement move and a read of phoenix_kit.js's use of it. No test
       # holds the ceiling (leaf_bundle_pin_test.exs went with the CDN pin).
       # 0.9 added tag previews and `media_url`; 0.10 sanitizes what it renders
       # and writes typed text back as text; 0.11 adds `notify` (an editor inside
       # a LiveComponent sends its messages to that component) and `autofocus` —
       # both off by default; 0.12 adds `mentions` (mention tokens shown as chips,
-      # off by default — phoenix_kit_comments turns it on). phoenix_kit.js only
-      # looks up `window.LeafHooks.Leaf` to register the hook, unchanged in all
-      # four.
+      # off by default — phoenix_kit_comments turns it on); 0.13 adds the minimal
+      # input (`chrome: :minimal`, Enter submits, a `:focus` command) and keeps
+      # pasted markdown as blocks, text pasted into code as text — the minimal
+      # input is opt-in, and `height` still means 480px when not given.
+      # phoenix_kit.js only looks up `window.LeafHooks.Leaf` to register the
+      # hook, unchanged in all five.
       {:leaf,
-       "~> 0.4.1 or ~> 0.5.0 or ~> 0.6.0 or ~> 0.7.0 or ~> 0.8.0 or ~> 0.9.0 or ~> 0.10.0 or ~> 0.11.0 or ~> 0.12.0"},
+       "~> 0.4.1 or ~> 0.5.0 or ~> 0.6.0 or ~> 0.7.0 or ~> 0.8.0 or ~> 0.9.0 or ~> 0.10.0 or ~> 0.11.0 or ~> 0.12.0 or ~> 0.13.0"},
 
       # Markdown → HTML (comrak). Declared here in core so every module shares
       # one resolved version instead of each pulling its own and risking
@@ -370,10 +373,15 @@ defmodule PhoenixKit.MixProject do
       # `invert_two_finger_pan`, the per-user "Invert two-finger pan" switch.
       # Older fresco does not declare the attributes, so the host's compile
       # warns and the viewer keeps the old column.
-      {:fresco, "~> 0.16.0"},
-      # 0.3.11 is the first tessera that admits fresco 0.16 (0.3.10 was the
-      # first to admit 0.15, 0.3.9 0.14): with an older one locked,
-      # `mix deps.update phoenix_kit` cannot resolve fresco 0.15 at all, and
+      #
+      # 0.17 is where a canvas keeps a copy of its element as the server
+      # rendered it, which etcher 0.28's offline mode rebuilds a page from when
+      # there is no connection (`phoenix_kit_boards` boards work offline). On
+      # 0.16 the rebuild has nothing to start from and the page stays a spinner.
+      {:fresco, "~> 0.17.0"},
+      # 0.3.12 is the first tessera that admits fresco 0.17 (0.3.11 was the
+      # first to admit 0.16, 0.3.10 0.15, 0.3.9 0.14): with an older one locked,
+      # `mix deps.update phoenix_kit` cannot resolve the new fresco at all, and
       # the failure names neither library. The same holds for etcher: 0.23 is
       # the first that admits fresco 0.15 (it also brings a scaling and
       # turning selection frame), so the etcher floor moves with fresco's.
@@ -393,8 +401,21 @@ defmodule PhoenixKit.MixProject do
       # 0.26 is the floor because the viewer offers `:measure`, the laser
       # measure (a Bosch meter's readings written onto the picture as
       # labels). An older etcher ignores the name and the button is missing.
-      {:tessera, "~> 0.3.11"},
-      {:etcher, "~> 0.26.0"},
+      #
+      # 0.28 is the floor because it is the first etcher that admits fresco
+      # 0.17, and it brings offline mode (`offline` / `offline_sw` on
+      # `Etcher.layer`), which `phoenix_kit_boards` uses so a board opens and
+      # saves with no connection. It also has 0.27's placing loupe: hold a
+      # dragged point still and a magnified view shows where it will land.
+      {:tessera, "~> 0.3.12"},
+      #
+      # 0.29 is the floor because the media viewer starts offline on the
+      # markup its first render already holds (Etcher's in-place start, which
+      # starts Tessera's zoom layer with it), and passes `offline_protect`, so a
+      # shape with a comment thread is never deleted by a device that was
+      # offline. An older Etcher warns about the attribute at compile time and
+      # the viewer stays a spinner offline.
+      {:etcher, "~> 0.29.0"},
 
       # QR device-handoff login ("scan to sign in" on the login page).
       #
@@ -458,8 +479,9 @@ defmodule PhoenixKit.MixProject do
       {:saxy, "~> 1.5"},
       {:finch, "~> 0.18"},
       # Direct HTTP for Storage.RemoteFetch: it must connect to the address it
-      # checked (Mint's :hostname), which a pooled client cannot promise.
-      {:mint, "~> 1.6"},
+      # checked (Mint's :hostname), which a pooled client cannot promise. 1.11 limits the
+      # header list and the frame buffer of a response, which a stranger's server controls.
+      {:mint, "~> 1.11"},
 
       # HTTP client for payment providers
       {:req, "~> 0.5"},

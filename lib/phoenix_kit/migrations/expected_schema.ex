@@ -202,6 +202,19 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   # access to; the real-database integration suite re-ran clean against a DB
   # migrated through V196, which is the property s7/s8 exist to prove.
   #
+  # V234 (2026-11-17, approval of an OAuth connection) adds a generated overlay, `ExpectedSchema.V234`
+  # (dev_docs/squash/generate_v234_manifest.exs: the catalog diff V233 -> V234 in a scratch
+  # schema), merged after `V233`: the nullable `approved_at` column of `phoenix_kit_api_oauth_grants`.
+  # No seed rows. Kept honest by `PhoenixKit.Migrations.Postgres.V234Test`. `chain_hash` restamped.
+  #
+  # V233 (2026-11-16, OAuth for the MCP endpoint) adds a generated overlay, `ExpectedSchema.V233`
+  # (dev_docs/squash/generate_v233_manifest.exs: the catalog diff V232 -> V233 in a scratch
+  # schema), merged after `V232`: the five new `phoenix_kit_api_oauth_*` tables (clients,
+  # requests, grants, codes, tokens) with their columns, primary keys, foreign keys, check
+  # constraints and indexes, and on `phoenix_kit_api_keys` the `oauth_grant_uuid` column and
+  # the unique partial `phoenix_kit_api_keys_oauth_grant_uuid_index`. No seed rows. Kept
+  # honest by `PhoenixKit.Migrations.Postgres.V233Test`. `chain_hash` restamped.
+  #
   # V232 (2026-11-11, stacks of files) adds a generated overlay, `ExpectedSchema.V232`
   # (dev_docs/squash/generate_v232_manifest.exs: the catalog diff V231 -> V232 in a scratch
   # schema), merged after `V231`: the new `phoenix_kit_file_stacks` table with its columns,
@@ -702,12 +715,14 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   alias PhoenixKit.Migrations.ExpectedSchema.V229
   alias PhoenixKit.Migrations.ExpectedSchema.V231
   alias PhoenixKit.Migrations.ExpectedSchema.V232
+  alias PhoenixKit.Migrations.ExpectedSchema.V233
+  alias PhoenixKit.Migrations.ExpectedSchema.V234
   alias PhoenixKit.Migrations.Postgres.Helpers
 
   @schema_token "__SCHEMA__"
   @name_marker_exempt "__PK_NAME_EXEMPT__"
   @name_marker_always "__PK_NAME_ALWAYS__"
-  @chain_hash "ba89b83b2477db83b133ee2ad9af0a73b71c7227c2679de5c9341867d1c0b165"
+  @chain_hash "541259580b9e5536a7c4525ae9d084a984ac52e16a4f3366268a8caf4ee0c667"
 
   def objects(prefix) do
     prefix = normalize_prefix!(prefix)
@@ -720,6 +735,8 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
     |> V229.merge()
     |> V231.merge()
     |> V232.merge()
+    |> V233.merge()
+    |> V234.merge()
     |> Enum.reject(&module_owned_object?/1)
     |> Enum.map(&materialize_object(&1, prefix))
   end
@@ -776,7 +793,14 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   # `ModuleOwnedTablesTest` still has to prove the ownership lists cover all
   # of core's chain. Goes when step 7 rewrites this file.
   def created_table_names do
-    objects = raw_objects() |> V227.merge() |> V229.merge() |> V231.merge() |> V232.merge()
+    objects =
+      raw_objects()
+      |> V227.merge()
+      |> V229.merge()
+      |> V231.merge()
+      |> V232.merge()
+      |> V233.merge()
+      |> V234.merge()
 
     for %{class: :table, check: {:catalog, %{name: name}}} <- objects,
         into: MapSet.new(),

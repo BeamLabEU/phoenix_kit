@@ -600,7 +600,11 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
   # The Comments thread's rich-text editor reports to the LiveView; hand it
   # back, or "Post" sends an empty comment (`PhoenixKitWeb.CommentsForwarding`).
   def handle_info({:leaf_changed, _} = msg, socket),
-    do: PhoenixKitWeb.CommentsForwarding.forward_leaf_changed(msg, socket)
+    do: PhoenixKitWeb.CommentsForwarding.forward_leaf_event(msg, socket)
+
+  # The comment composer's @ / # typeahead asks the host for matches.
+  def handle_info({:leaf_suggest, _} = msg, socket),
+    do: PhoenixKitWeb.CommentsForwarding.forward_leaf_event(msg, socket)
 
   def handle_info({:user_updated, user}, socket) do
     {:noreply, maybe_refresh_user(socket, user)}

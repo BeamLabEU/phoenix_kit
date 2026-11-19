@@ -4,6 +4,8 @@ defmodule PhoenixKit.Supervisor do
   """
   use Supervisor
 
+  alias PhoenixKit.API.OAuth.Cimd
+  alias PhoenixKit.API.OAuth.RequestLog
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Storage.BucketLog
 
@@ -19,6 +21,8 @@ defmodule PhoenixKit.Supervisor do
 
   @impl true
   def init(_init_arg) do
+    # A primary Logger filter, so the host's endpoint needs no option for it.
+    RequestLog.install()
     update_mode = Application.get_env(:phoenix_kit, :update_mode, false)
     children = build_children(update_mode)
     Supervisor.init(children, strategy: :one_for_one)
@@ -187,6 +191,13 @@ defmodule PhoenixKit.Supervisor do
       PhoenixKit.Users.RateLimiter.Backend,
       # Task supervisor for fire-and-forget background work (e.g. stale fixer)
       {Task.Supervisor, name: PhoenixKit.TaskSupervisor},
+      # The downloads of OAuth client metadata documents (`PhoenixKit.API.OAuth.Cimd`). How many
+      # run at once is the setting `api_oauth_cimd_concurrency`; `max_children` is the hard stop.
+      Supervisor.child_spec(
+        {Task.Supervisor,
+         name: PhoenixKit.API.OAuth.FetchSupervisor, max_children: Cimd.max_concurrency()},
+        id: :oauth_fetch_tasks
+      ),
       Supervisor.child_spec(
         {Task.Supervisor, name: BucketLog.task_supervisor(), max_children: 4},
         id: :bucket_log_tasks

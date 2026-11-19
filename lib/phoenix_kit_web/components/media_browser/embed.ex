@@ -109,8 +109,9 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Embed do
   * Fallback `handle_info({MediaBrowser, _, _}, socket)` — forwards to
     `MediaBrowser.handle_parent_info/2` for component registration and
     upload piping.
-  * Fallback `handle_info({:leaf_changed, _}, socket)` — routes
-    Leaf editor content updates from the sidebar comments (when
+  * Fallback `handle_info({:leaf_changed, _}, socket)` and
+    `handle_info({:leaf_suggest, _}, socket)` — route Leaf editor content
+    updates and `@` / `#` typeahead requests from the sidebar comments (when
     PhoenixKitComments is installed) to
     `PhoenixKitComments.Web.CommentsComponent.forward_leaf_event/2`.
     Without this, comment Leaf editors render but the typed
@@ -355,7 +356,13 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Embed do
 
       def handle_info({:leaf_changed, _} = msg, socket) do
         # credo:disable-for-next-line Credo.Check.Design.AliasUsage
-        PhoenixKitWeb.CommentsForwarding.forward_leaf_changed(msg, socket)
+        PhoenixKitWeb.CommentsForwarding.forward_leaf_event(msg, socket)
+      end
+
+      # The comment composer's @ / # typeahead asks the host for matches.
+      def handle_info({:leaf_suggest, _} = msg, socket) do
+        # credo:disable-for-next-line Credo.Check.Design.AliasUsage
+        PhoenixKitWeb.CommentsForwarding.forward_leaf_event(msg, socket)
       end
 
       # The embedded CommentsComponent (media viewer sidebar) reports

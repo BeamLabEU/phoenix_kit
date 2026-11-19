@@ -30,6 +30,19 @@ defmodule PhoenixKit.API.Keys do
   `:impersonation_unknown`, `:personal_key_limit`, `:scopes_not_narrowing` and, on a
   request, `:personal_keys_not_allowed`); validation failures are changesets.
 
+  ## The hidden key of an OAuth grant
+
+  A row with `oauth_grant_uuid` set (V233) is the hidden key of an OAuth grant
+  (`PhoenixKit.API.OAuth.Grants`), made by `create_oauth_key/3`. Nobody holds its token (none
+  exists), so it is **not a key a person manages**: `verify/2` never takes it, and every
+  listing (`list_keys/1`, `list_personal_keys/1`), the count against
+  `PhoenixKit.API.PersonalKeysConfig.max_count/0` and the room checks leave it out;
+  `rotate/4` and `update_scopes/3` refuse it (`:oauth_key`). `revoke/2` ends it **with its
+  grant** (one transaction, key, grant, then tokens) and never refuses, because
+  `PhoenixKit.Users.ManagedOrganizations` revokes every key of a person this way and rolls the
+  conversion back on an error. What the row gives a grant is an actor: the owner's rights,
+  read on every request, the rate limit, the confirmations and the activity of API keys.
+
   ## Personal keys
 
   A **personal** key (`personal = true`, V226) is a person's own key, made through
@@ -117,6 +130,9 @@ defmodule PhoenixKit.API.Keys do
   alias PhoenixKit.API.Keys.CIDR
   alias PhoenixKit.API.Keys.Key
   alias PhoenixKit.API.Keys.Token
+  alias PhoenixKit.API.OAuth.Clients
+  alias PhoenixKit.API.OAuth.Grant
+  alias PhoenixKit.API.OAuth.Grants
   alias PhoenixKit.API.PersonalKeysConfig
   alias PhoenixKit.API.Registry, as: ToolRegistry
   alias PhoenixKit.RepoHelper
@@ -388,7 +404,12 @@ defmodule PhoenixKit.API.Keys do
   defp authorize_personal(scope),
     do: if(holds_personal_right?(scope), do: :ok, else: {:error, :forbidden})
 
-  defp holds_personal_right?(scope), do: Enum.any?(@personal_rights, &Scope.can?(scope, &1))
+  @doc """
+  Whether `scope` holds `api_personal_keys` or `api`: the right to keep personal keys, and with
+  them to connect applications by OAuth (`PhoenixKit.API.OAuth.Connections`).
+  """
+  @spec holds_personal_right?(Scope.t() | nil) :: boolean()
+  def holds_personal_right?(scope), do: Enum.any?(@personal_rights, &Scope.can?(scope, &1))
 
   # The person is read again: blocked or deleted since the scope was built is
   # `:owner_inactive`, and the rights are checked once more on a scope built now.
@@ -479,7 +500,7 @@ defmodule PhoenixKit.API.Keys do
     repo().aggregate(
       from(k in Key,
         where:
-          k.user_uuid == ^owner_uuid and k.personal == true and
+          k.user_uuid == ^owner_uuid and k.personal == true and is_nil(k.oauth_grant_uuid) and
             (is_nil(k.revoked_at) or k.revoked_at > ^now) and
             (is_nil(k.expires_at) or k.expires_at > ^now)
       ),
@@ -509,7 +530,7 @@ defmodule PhoenixKit.API.Keys do
     if holds_personal_right?(scope) do
       repo().all(
         from(k in Key,
-          where: k.personal == true and k.user_uuid == ^user_uuid,
+          where: k.personal == true and k.user_uuid == ^user_uuid and is_nil(k.oauth_grant_uuid),
           order_by: [desc: k.inserted_at, desc: k.uuid]
         )
       )
@@ -519,6 +540,124 @@ defmodule PhoenixKit.API.Keys do
   end
 
   def list_personal_keys(_scope), do: []
+
+  # --- The hidden key of an OAuth grant ------------------------------------
+
+  @oauth_name_prefix "OAuth: "
+
+  @doc """
+  Creates the **hidden key** of an OAuth grant (`PhoenixKit.API.OAuth.Grants.create/4` calls
+  it) for the person behind `creator_scope`, who is its owner. Nobody ever sees or presents
+  this key: no token of it exists (its secret is random bytes that are thrown away),
+  `verify/2` refuses it, and every listing, count and edit of keys leaves it out
+  (`oauth_grant_uuid`, V233). What it gives a grant is an actor: the owner's rights, the rate
+  limit, the confirmations and the activity of API keys.
+
+  `attrs`: `grant_uuid` (required; the uuid the grant will have), `client_name` (the key is
+  named `"OAuth: <client_name>"`, cut to fit), `scopes` and `expires_at` (required; at most
+  `PersonalKeysConfig.latest_expiry/0`, and the grant's own end: the key must not die before
+  its grant). `opts` must say `impersonated: true | false` (`:impersonation_unknown` /
+  `:impersonated`, as `create_personal_key/3`).
+
+  The key is **personal** (`personal: true`): it works only while its owner holds
+  `api_personal_keys` or `api`, checked on every request, so taking the right from a role
+  stops the grant. It never needs approval. It is made under the same locks as a personal
+  key (the owner's row lock, then the per-person advisory lock, so a consent and the
+  conversion of the account to a managed organization cannot cross) and the owner is checked
+  inside them: active, confirmed where required, not a service user, not a managed
+  organization, every scope one the owner could hold now. It does **not** count towards
+  `api_personal_key_max_count`, and writes no `api.key_created` entry.
+
+  Returns `{:ok, key}`, or one of the atoms of `create_personal_key/3` (`:forbidden`,
+  `:owner_inactive`, `:owner_not_allowed`, `:invalid_scopes`, ...) or a changeset.
+  """
+  @spec create_oauth_key(Scope.t() | nil, map(), keyword()) ::
+          {:ok, Key.t()} | {:error, Ecto.Changeset.t() | atom()}
+  def create_oauth_key(%Scope{user: %User{}} = creator_scope, attrs, opts)
+      when is_map(attrs) and is_list(opts) do
+    with :ok <- check_not_impersonated(opts),
+         :ok <- authorize_personal(creator_scope),
+         {:ok, grant_uuid} <- oauth_grant_uuid(attrs) do
+      repo().transaction(fn -> insert_oauth_key(creator_scope, grant_uuid, attrs) end)
+    end
+  end
+
+  def create_oauth_key(_creator_scope, _attrs, opts) do
+    with :ok <- check_not_impersonated(opts), do: {:error, :forbidden}
+  end
+
+  defp oauth_grant_uuid(attrs) do
+    case Map.get(attrs, :grant_uuid) do
+      uuid when is_binary(uuid) ->
+        if UUIDUtils.valid?(uuid), do: {:ok, uuid}, else: {:error, :invalid_grant}
+
+      _ ->
+        {:error, :invalid_grant}
+    end
+  end
+
+  defp insert_oauth_key(creator_scope, grant_uuid, attrs) do
+    with {:ok, owner} <- lock_oauth_owner(creator_scope),
+         {:ok, changeset} <- valid(oauth_changeset(attrs, owner, grant_uuid)),
+         :ok <- authorize_scopes(owner, changeset),
+         {:ok, key} <- insert_with_fresh_prefix(changeset) do
+      key
+    else
+      {:error, reason} -> repo().rollback(reason)
+    end
+  end
+
+  # The locks of `insert_personal/4`, in its order: the owner's row, then the person's advisory
+  # lock; the owner is read again under them.
+  defp lock_oauth_owner(%Scope{user: %User{uuid: user_uuid}} = creator_scope) do
+    with :ok <- lock_mint_users(user_uuid, creator_scope),
+         {:ok, owner} <- personal_owner(creator_scope) do
+      lock_personal_keys(owner.uuid)
+      {:ok, owner}
+    end
+  end
+
+  @doc false
+  # The name the person saw on the consent screen, which `create_oauth_key/3` put after the
+  # prefix, or nil for a key that does not carry it.
+  @spec pinned_oauth_name(Key.t() | nil) :: String.t() | nil
+  def pinned_oauth_name(%Key{name: @oauth_name_prefix <> name}) when name != "", do: name
+  def pinned_oauth_name(_key), do: nil
+
+  defp oauth_changeset(attrs, owner, grant_uuid) do
+    # Cut by characters (the validation counts those) and by code points (the column does).
+    name =
+      (@oauth_name_prefix <>
+         (attrs |> Map.get(:client_name) |> Clients.clean_name() |> to_string()))
+      |> Clients.cut_name(@max_name_length)
+
+    %{name: name, scopes: Map.get(attrs, :scopes, []), expires_at: Map.get(attrs, :expires_at)}
+    |> base_changeset()
+    |> Ecto.Changeset.validate_required([:expires_at])
+    |> validate_personal_expiry()
+    |> Ecto.Changeset.put_change(:requires_approval, false)
+    |> Ecto.Changeset.put_change(:personal, true)
+    |> Ecto.Changeset.put_change(:oauth_grant_uuid, grant_uuid)
+    |> Ecto.Changeset.put_change(:user_uuid, owner.uuid)
+    |> Ecto.Changeset.put_change(:created_by_uuid, owner.uuid)
+    |> Ecto.Changeset.unique_constraint(:oauth_grant_uuid)
+  end
+
+  # The secret is never used: no token of this key exists. The prefix is the row's only
+  # handle, so a collision (1 in 2^32 per key) is retried before the insert.
+  defp insert_with_fresh_prefix(changeset, attempts \\ 5) do
+    {prefix, _token, secret_hash} = Token.generate()
+
+    if attempts > 1 and repo().exists?(from(k in Key, where: k.prefix == ^prefix)) do
+      insert_with_fresh_prefix(changeset, attempts - 1)
+    else
+      changeset
+      |> Ecto.Changeset.put_change(:prefix, prefix)
+      |> Ecto.Changeset.put_change(:secret_hash, secret_hash)
+      |> Ecto.Changeset.unique_constraint(:prefix)
+      |> repo().insert()
+    end
+  end
 
   # --- Allowed scopes ----------------------------------------------------
 
@@ -624,9 +763,9 @@ defmodule PhoenixKit.API.Keys do
          {:ok, key} <- find_key(prefix, presented_hash),
          :ok <- check_alive(key),
          :ok <- check_ip(key, ip),
-         {:ok, owner, scope} <- checked_owner(key) do
+         {:ok, actor} <- active_actor(key, ip) do
       touch_last_used(key, ip)
-      {:ok, build_actor(key, owner, ip, scope || scope_of(owner))}
+      {:ok, actor}
     else
       :error -> {:error, :invalid_token}
       {:error, _reason} = error -> error
@@ -637,7 +776,9 @@ defmodule PhoenixKit.API.Keys do
     key = Cache.fetch(prefix, fn -> repo().get_by(Key, prefix: prefix) end)
     stored_hash = if key, do: key.secret_hash, else: @unknown_key_hash
 
-    if Token.matches?(presented_hash, stored_hash) and key != nil,
+    # The hidden key of an OAuth grant has no token a person holds: whatever hash is
+    # presented, it is never a `pk_` key.
+    if Token.matches?(presented_hash, stored_hash) and key != nil and key.oauth_grant_uuid == nil,
       do: {:ok, key},
       else: {:error, :invalid_token}
   end
@@ -671,6 +812,17 @@ defmodule PhoenixKit.API.Keys do
           {:ok, User.t()} | {:error, :owner_inactive | :personal_keys_not_allowed}
   def active_owner(%Key{} = key) do
     with {:ok, owner, _scope} <- checked_owner(key), do: {:ok, owner}
+  end
+
+  @doc """
+  The `Actor` of `key` held from `ip`, after the same owner check as `active_owner/1`; the owner's
+  scope is built once. Behind `verify/2` and `PhoenixKit.API.OAuth.Tokens.verify/2`.
+  """
+  @spec active_actor(Key.t(), String.t() | nil) ::
+          {:ok, Actor.t()} | {:error, :owner_inactive | :personal_keys_not_allowed}
+  def active_actor(%Key{} = key, ip) do
+    with {:ok, owner, scope} <- checked_owner(key),
+         do: {:ok, build_actor(key, owner, ip, scope || scope_of(owner))}
   end
 
   # The one owner check of a key: the owner is active and, for a personal key, holds one
@@ -807,18 +959,164 @@ defmodule PhoenixKit.API.Keys do
   @spec revoke(Key.t(), String.t() | nil) :: {:ok, Key.t()} | {:error, term()}
   def revoke(%Key{} = key, actor_uuid) do
     with {:ok, current} <- reload(key) do
-      if reached?(current.revoked_at) do
-        {:ok, current}
-      else
-        current
-        |> Ecto.Changeset.change(revoked_at: now())
-        |> repo().update()
-        |> after_revoke(actor_uuid)
+      cond do
+        reached?(current.revoked_at) ->
+          {:ok, current}
+
+        current.oauth_grant_uuid != nil ->
+          revoke_oauth_key(current, actor_uuid)
+
+        true ->
+          current
+          |> Ecto.Changeset.change(revoked_at: now())
+          |> repo().update()
+          |> after_revoke(actor_uuid)
       end
     end
   rescue
     Ecto.StaleEntryError -> {:error, :not_found}
   end
+
+  # The hidden key of an OAuth grant is ended with its grant, in one transaction and in the
+  # grant's lock order (`PhoenixKit.API.OAuth.Grants`): this never refuses, because
+  # `ManagedOrganizations` revokes every key of a person this way and rolls the whole
+  # conversion back on an error.
+  defp revoke_oauth_key(%Key{oauth_grant_uuid: grant_uuid} = key, actor_uuid) do
+    case Grants.revoke(grant_uuid, actor_uuid: actor_uuid) do
+      {:ok, _grant} -> reload(key)
+      {:error, :not_found} -> revoke_orphan_oauth_key(key)
+      {:error, _reason} = error -> error
+    end
+  end
+
+  # A hidden key whose grant row is gone cannot happen through `Grants.create/4` (one
+  # transaction), but a key that outlived its grant must still be endable.
+  defp revoke_orphan_oauth_key(%Key{uuid: uuid, prefix: prefix}) do
+    repo().transaction(fn ->
+      with {:ok, locked} <- lock(uuid),
+           {:ok, revoked} <- revoke_oauth_row(locked, now()) do
+        revoked
+      else
+        {:error, reason} -> repo().rollback(reason)
+      end
+    end)
+    |> tap(fn _ -> Cache.invalidate(prefix) end)
+  end
+
+  @doc false
+  # Step of `PhoenixKit.API.OAuth.Grants.revoke/2`: the hidden key, locked `FOR UPDATE` first
+  # (key, then grant, then tokens). Not for anyone else.
+  @spec lock_oauth_row(String.t()) :: {:ok, Key.t()} | {:error, :not_found}
+  def lock_oauth_row(uuid), do: lock(uuid)
+
+  @doc false
+  # Step of `PhoenixKit.API.OAuth.Grants.revoke/2`: ends the locked hidden key at `at`, with
+  # no activity entry (the grant writes `oauth.grant_revoked`) and no recursion into `revoke/2`.
+  # Ending an ended key changes nothing.
+  @spec revoke_oauth_row(Key.t(), DateTime.t()) :: {:ok, Key.t()} | {:error, Ecto.Changeset.t()}
+  def revoke_oauth_row(%Key{oauth_grant_uuid: grant_uuid} = key, %DateTime{} = at)
+      when grant_uuid != nil do
+    if reached?(key.revoked_at),
+      do: {:ok, key},
+      else: key |> Ecto.Changeset.change(revoked_at: at) |> repo().update()
+  end
+
+  @doc """
+  Ends everything of one person that works with their password: every live personal key
+  (`personal = true`, no `oauth_grant_uuid`, neither revoked nor expired; a key in the grace
+  period of a rotation is ended at once) and every live OAuth grant (not revoked, not expired,
+  activated or not, waiting for approval or not) with its hidden key and tokens. Every other key
+  stays: the keys made on Settings -> API under "Keys and service users" (`personal = false`)
+  are not touched, whether a service user owns them or the person made one in their own name
+  (an administrator can). Those are revoked by hand.
+
+  It is the step of a password change, so it takes part in the caller's transaction (and opens
+  one when there is none): it takes the personal-keys lock of the person first, as a new personal
+  key does (after the person's row, which the caller holds), then ends each key
+  with `revoke/2` and each grant with `PhoenixKit.API.OAuth.Grants.revoke/2`. Nothing authorizes
+  here: the password change is the authority. `actor_uuid` is for the entries of the feed only
+  (`nil` for a change with no actor to name).
+
+  Returns `{:ok, %{keys: prefixes, connections: prefixes}}`, the key prefixes of what was ended,
+  or `{:error, reason}`, which rolls the caller's transaction back. Both end the key's cache
+  entry inside the transaction; the caller invalidates the prefixes again after its commit
+  (`PhoenixKit.API.Keys.Cache.invalidate/1`), because a request that read the key while the
+  transaction was open may have cached it again.
+  """
+  @spec revoke_all_for_password_change(String.t(), String.t() | nil) ::
+          {:ok, %{keys: [String.t()], connections: [String.t()]}} | {:error, term()}
+  def revoke_all_for_password_change(owner_uuid, actor_uuid)
+      when is_binary(owner_uuid) and (is_binary(actor_uuid) or is_nil(actor_uuid)) do
+    repo().transaction(fn ->
+      lock_personal_keys(owner_uuid)
+
+      with {:ok, keys} <- revoke_live_personal_keys(owner_uuid, actor_uuid),
+           {:ok, connections} <- revoke_live_grants(owner_uuid, actor_uuid) do
+        %{keys: keys, connections: connections}
+      else
+        {:error, reason} -> repo().rollback(reason)
+      end
+    end)
+  end
+
+  defp revoke_live_personal_keys(owner_uuid, actor_uuid) do
+    now = DateTime.utc_now()
+
+    from(k in Key,
+      where:
+        k.user_uuid == ^owner_uuid and k.personal == true and is_nil(k.oauth_grant_uuid) and
+          (is_nil(k.revoked_at) or k.revoked_at > ^now) and
+          (is_nil(k.expires_at) or k.expires_at > ^now),
+      order_by: k.uuid,
+      lock: "FOR UPDATE"
+    )
+    |> repo().all()
+    |> Enum.reduce_while({:ok, []}, fn key, {:ok, prefixes} ->
+      case revoke(key, actor_uuid) do
+        {:ok, revoked} -> {:cont, {:ok, [revoked.prefix | prefixes]}}
+        {:error, _reason} = error -> {:halt, error}
+      end
+    end)
+    |> reversed()
+  end
+
+  defp revoke_live_grants(owner_uuid, actor_uuid) do
+    now = DateTime.utc_now()
+
+    from(g in Grant,
+      join: k in Key,
+      on: k.uuid == g.key_uuid,
+      where: g.user_uuid == ^owner_uuid and is_nil(g.revoked_at) and g.expires_at > ^now,
+      order_by: g.uuid,
+      select: {g.uuid, k.prefix}
+    )
+    |> repo().all()
+    |> Enum.reduce_while({:ok, []}, fn {grant_uuid, prefix}, {:ok, prefixes} ->
+      case end_grant(grant_uuid, actor_uuid) do
+        {:ok, _grant} -> {:cont, {:ok, [prefix | prefixes]}}
+        # Removed since the list was read (an unfinished consent that was cleaned up): ended.
+        {:error, :not_found} -> {:cont, {:ok, prefixes}}
+        {:error, _reason} = error -> {:halt, error}
+      end
+    end)
+    |> reversed()
+  end
+
+  # A write that changed nothing (the grant was not ended) is a failure, not "already ended":
+  # the password change must not go through with a connection alive.
+  defp end_grant(grant_uuid, actor_uuid) do
+    Grants.revoke(grant_uuid, reason: "password_changed", actor_uuid: actor_uuid)
+  rescue
+    Ecto.StaleEntryError -> {:error, :not_ended}
+  end
+
+  defp reversed({:ok, prefixes}), do: {:ok, Enum.reverse(prefixes)}
+  defp reversed({:error, _reason} = error), do: error
+
+  # The hidden key of a grant is not a key a person manages: it is never rotated and its scopes
+  # are the grant's.
+  defp check_not_oauth(%Key{oauth_grant_uuid: nil}), do: :ok
+  defp check_not_oauth(%Key{}), do: {:error, :oauth_key}
 
   defp after_revoke({:ok, key}, actor_uuid) do
     Cache.invalidate(key.prefix)
@@ -886,6 +1184,7 @@ defmodule PhoenixKit.API.Keys do
 
     repo().transaction(fn ->
       with %Key{} = original <- repo().get(Key, uuid),
+           :ok <- check_not_oauth(original),
            :ok <- lock_mint_users(original.user_uuid, creator_scope),
            {:ok, current} <- lock_for_rotation(uuid),
            :ok <- authorize_manage(creator_scope, current),
@@ -1053,11 +1352,18 @@ defmodule PhoenixKit.API.Keys do
   """
   @spec update_scopes(Key.t(), [String.t()], Scope.t()) ::
           {:ok, Key.t()}
-          | {:error, :forbidden | :invalid_scopes | :scopes_not_narrowing | :revoked | :not_found}
+          | {:error,
+             :forbidden
+             | :invalid_scopes
+             | :scopes_not_narrowing
+             | :revoked
+             | :not_found
+             | :oauth_key}
   def update_scopes(%Key{uuid: uuid}, new_scopes, %Scope{} = editor_scope) do
     result =
       repo().transaction(fn ->
         with {:ok, current} <- lock(uuid),
+             :ok <- check_not_oauth(current),
              {:ok, mode} <- authorize_scope_edit(editor_scope, current),
              :ok <- check_not_revoked(current),
              {:ok, scopes} <- validate_scope_edit(mode, current, new_scopes, editor_scope) do
@@ -1272,12 +1578,17 @@ defmodule PhoenixKit.API.Keys do
         []
 
       Scope.owner?(scope) ->
-        repo().all(from(k in Key, order_by: [desc: k.inserted_at, desc: k.uuid]))
+        repo().all(
+          from(k in Key,
+            where: is_nil(k.oauth_grant_uuid),
+            order_by: [desc: k.inserted_at, desc: k.uuid]
+          )
+        )
 
       true ->
         repo().all(
           from(k in Key,
-            where: k.created_by_uuid == ^user_uuid,
+            where: k.created_by_uuid == ^user_uuid and is_nil(k.oauth_grant_uuid),
             order_by: [desc: k.inserted_at, desc: k.uuid]
           )
         )

@@ -108,7 +108,9 @@ something every page needs. (`MentionInput`, `UploadStats` and `UploadGuard` are
 an upload form, a comment box. So is `AudioRecorder`: `<.audio_recorder>` is a form primitive any page can use.
 So are `PasskeySignIn` and `PasskeyRegister`: core renders them on the sign-in page and on the Security tab of the
 account settings, a page in the host's own layout. So is `Turnstile`: core renders it on its sign-up, magic-link,
-confirmation and password-reset forms. So is `PkResizable`: the grips of `<.resizable_modal>`, a dialog primitive like
+confirmation and password-reset forms. So is `PkFitHeight`: it fits the `max-height` of an overlay (a menu under a
+field, a list in a dialog) to the room its scrolling ancestor has left, a UI primitive any page can put on an
+element, whatever the layout. So is `PkResizable`: the grips of `<.resizable_modal>`, a dialog primitive like
 `PkDialog`, which any page can open. `NavTabsOverflow`, the opt-in `overflow={:menu}` of `<.nav_tabs>`, is
 admin only because no page outside the admin area opts in yet: the first change that sets it on one moves the hook into
 `phoenix_kit.js` in the same commit.)

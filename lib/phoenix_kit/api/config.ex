@@ -13,6 +13,23 @@ defmodule PhoenixKit.API.Config do
   |---|---|
   | `api_admin_enabled` | `false` |
   | `api_public_enabled` | `false` |
+  | `api_oauth_enabled` | `false` (only counts while `api_admin_enabled` is on) |
+  | `api_oauth_access_ttl_seconds` | `3600` (clamped to 300..86400) |
+  | `api_oauth_authorize_per_min` | `30` (authorization requests per client network) |
+  | `api_oauth_token_per_min` | `60` (token and revocation requests per client network) |
+  | `api_oauth_requests_ceiling` | `1000` (authorization requests waiting for consent, all clients) |
+  | `api_oauth_requests_per_network` | `20` (authorization requests waiting for consent, per client network) |
+  | `api_oauth_grants_per_person` | `10` (live grants one person may hold) |
+  | `api_oauth_dcr_enabled` | `false` (Dynamic Client Registration, `POST /oauth/register`; only counts while OAuth is on) |
+  | `api_oauth_client_policy` | `"approval"` (`"any"`: every client at once; `"allow_list"`: only the hosts of `api_oauth_client_allow_hosts`) |
+  | `api_oauth_client_allow_hosts` | `""` (newline separated hosts) |
+  | `api_pw_change_revokes` | `false` (a password change ends the person's personal keys and OAuth connections) |
+  | `api_oauth_cimd_per_min` | `20` (client metadata fetches per client network) |
+  | `api_oauth_cimd_client_per_min` | `5` (client metadata fetches per client) |
+  | `api_oauth_cimd_concurrency` | `4` (client metadata downloads that run at once) |
+  | `api_oauth_cimd_clients_ceiling` | `1000` (new metadata document clients with no grant, whole install, last 24 hours) |
+  | `api_oauth_register_per_hour` | `10` (registrations per client network) |
+  | `api_oauth_register_per_day` | `200` (registrations, whole install) |
   | `api_disabled_tools` | `""` (newline separated tool names) |
   | `api_disabled_modules` | `""` (newline separated module keys) |
   | `api_session_write_modules` | `""` (newline separated module keys) |
@@ -29,6 +46,9 @@ defmodule PhoenixKit.API.Config do
   `encode_list/1` when writing one and `parse_list/1` when reading one.
   """
 
+  require Logger
+
+  alias PhoenixKit.API.LogSafe
   alias PhoenixKit.Settings
 
   @type rate_limits :: %{
@@ -60,6 +80,124 @@ defmodule PhoenixKit.API.Config do
   def public_enabled?, do: flag("api_public_enabled")
 
   @doc """
+  Whether OAuth for the admin MCP endpoint (`PhoenixKit.API.OAuth`) is switched on: the
+  `api_oauth_enabled` setting reads exactly `"true"` **and** the admin API is on. Fails closed
+  like the other switches. While it is off, no OAuth token is accepted, the `401` challenge of
+  the MCP endpoint is the plain one and the OAuth paths read no body.
+  """
+  @spec oauth_enabled?() :: boolean()
+  def oauth_enabled?, do: admin_enabled?() and flag("api_oauth_enabled")
+
+  @doc """
+  Whether Dynamic Client Registration (`POST /oauth/register`, RFC 7591) is switched on: the
+  `api_oauth_dcr_enabled` setting reads exactly `"true"` **and** OAuth itself is on. Off by
+  default; fails closed. The switch governs new registrations only: a client registered while it
+  was on keeps working after it is turned off (it can be deleted).
+  """
+  @spec oauth_dcr_enabled?() :: boolean()
+  def oauth_dcr_enabled?, do: oauth_enabled?() and flag("api_oauth_dcr_enabled")
+
+  @doc """
+  Which clients may use the server (`api_oauth_client_policy`): `:approval` (the default, and
+  what a missing or empty setting reads as: the clients of `fetch_oauth_allow_hosts/0` connect at
+  once, every other one waits for an owner's approval), `:any` (any https client, its host shown
+  to the person) or `:allow_list` (only the hosts of `fetch_oauth_allow_hosts/0`). A value that is
+  none of these, or a setting that cannot be read, is `:allow_list`: the stricter reading.
+  """
+  @spec oauth_client_policy() :: :any | :allow_list | :approval
+  def oauth_client_policy do
+    # `fetch_setting_cached/1` tells a store that cannot be read (`:error`) from a setting that is
+    # not there; `get_setting_cached/2` would answer its default for both.
+    case Settings.fetch_setting_cached("api_oauth_client_policy") do
+      {:ok, value} when value in [nil, "", "approval"] -> :approval
+      {:ok, "any"} -> :any
+      _other -> :allow_list
+    end
+  rescue
+    _ -> :allow_list
+  catch
+    :exit, _ -> :allow_list
+  end
+
+  @doc """
+  Whether changing a person's password ends their personal API keys and OAuth connections
+  (`api_pw_change_revokes`). Off by default. A setting that cannot be read is off too: it
+  does NOT fail closed like the switches that close the API, since "off" here means the password
+  changes and no key or connection ends. Such a read writes one warning to the log, so the gap
+  is visible.
+  """
+  @spec password_change_revokes?() :: boolean()
+  def password_change_revokes? do
+    case Settings.fetch_setting_cached("api_pw_change_revokes") do
+      {:ok, "true"} -> true
+      {:ok, _other} -> false
+      :error -> unreadable_revokes("the store could not be read")
+    end
+  rescue
+    error -> unreadable_revokes(LogSafe.exception_label(error))
+  catch
+    :exit, _reason -> unreadable_revokes("the read exited")
+  end
+
+  defp unreadable_revokes(why) do
+    Logger.warning(
+      "[PhoenixKit.API] api_pw_change_revokes could not be read (#{why}): " <>
+        "a password change ends no key or connection until it can"
+    )
+
+    false
+  end
+
+  @doc """
+  The hosts of the client allow-list (`api_oauth_client_allow_hosts`), as the person wrote them,
+  or `:unreadable`.
+  """
+  @spec fetch_oauth_allow_hosts() :: {:ok, [String.t()]} | :unreadable
+  def fetch_oauth_allow_hosts, do: fetch_list("api_oauth_client_allow_hosts")
+
+  @doc "Client metadata fetches per minute and client network (`api_oauth_cimd_per_min`, 20)."
+  @spec oauth_cimd_per_min() :: pos_integer()
+  def oauth_cimd_per_min, do: int("api_oauth_cimd_per_min", 20)
+
+  @doc "Client metadata fetches per minute and client (`api_oauth_cimd_client_per_min`, 5)."
+  @spec oauth_cimd_client_per_min() :: pos_integer()
+  def oauth_cimd_client_per_min, do: int("api_oauth_cimd_client_per_min", 5)
+
+  @doc "Client metadata downloads that run at once (`api_oauth_cimd_concurrency`, 4)."
+  @spec oauth_cimd_concurrency() :: pos_integer()
+  def oauth_cimd_concurrency, do: int("api_oauth_cimd_concurrency", 4)
+
+  @doc """
+  How many clients named by a metadata document may be stored in a day, the whole install, that
+  nobody has connected through yet (`api_oauth_cimd_clients_ceiling`, 1000).
+  """
+  @spec oauth_cimd_clients_ceiling() :: pos_integer()
+  def oauth_cimd_clients_ceiling, do: int("api_oauth_cimd_clients_ceiling", 1000)
+
+  @doc "Registrations per hour and client network (`api_oauth_register_per_hour`, 10)."
+  @spec oauth_register_per_hour() :: pos_integer()
+  def oauth_register_per_hour, do: int("api_oauth_register_per_hour", 10)
+
+  @doc "Registrations per day, the whole install (`api_oauth_register_per_day`, 200)."
+  @spec oauth_register_per_day() :: pos_integer()
+  def oauth_register_per_day, do: int("api_oauth_register_per_day", 200)
+
+  @oauth_access_ttl_default 3_600
+  @oauth_access_ttl_range 300..86_400
+
+  @doc """
+  Seconds an OAuth access token lives (`api_oauth_access_ttl_seconds`): 5 minutes to 24 hours,
+  one hour when the setting is missing or unreadable.
+  """
+  @spec oauth_access_ttl_seconds() :: pos_integer()
+  def oauth_access_ttl_seconds do
+    "api_oauth_access_ttl_seconds"
+    |> int(@oauth_access_ttl_default)
+    |> max(@oauth_access_ttl_range.first)
+    |> min(@oauth_access_ttl_range.last)
+  end
+
+  @doc """
   Tool names the install has hidden (`api_disabled_tools`). For display only: a list that
   cannot be read is `[]` here, so request paths (`PhoenixKit.API.Registry`) use
   `fetch_disabled_tools/0`, which does not treat it as "nothing is hidden".
@@ -71,6 +209,36 @@ defmodule PhoenixKit.API.Config do
       :unreadable -> []
     end
   end
+
+  @doc "Authorization requests per minute and client network (`api_oauth_authorize_per_min`, 30)."
+  @spec oauth_authorize_per_min() :: pos_integer()
+  def oauth_authorize_per_min, do: int("api_oauth_authorize_per_min", 30)
+
+  @doc "Token and revocation requests per minute and client network (`api_oauth_token_per_min`, 60)."
+  @spec oauth_token_per_min() :: pos_integer()
+  def oauth_token_per_min, do: int("api_oauth_token_per_min", 60)
+
+  @doc """
+  How many authorization requests may wait for a person's consent at once, all clients
+  together (`api_oauth_requests_ceiling`, 1000).
+  """
+  @spec oauth_requests_ceiling() :: pos_integer()
+  def oauth_requests_ceiling, do: int("api_oauth_requests_ceiling", 1000)
+
+  @doc """
+  How many authorization requests of one client network may wait for a person's consent at once
+  (`api_oauth_requests_per_network`, 20): the share of `oauth_requests_ceiling/0` one network can
+  hold.
+  """
+  @spec oauth_requests_per_network() :: pos_integer()
+  def oauth_requests_per_network, do: int("api_oauth_requests_per_network", 20)
+
+  @doc """
+  How many live grants (activated, or not yet activated with a code still alive) one person may
+  hold (`api_oauth_grants_per_person`, 10).
+  """
+  @spec oauth_grants_per_person() :: pos_integer()
+  def oauth_grants_per_person, do: int("api_oauth_grants_per_person", 10)
 
   @doc """
   Tool names the install has hidden (`api_disabled_tools`), telling a list that is empty

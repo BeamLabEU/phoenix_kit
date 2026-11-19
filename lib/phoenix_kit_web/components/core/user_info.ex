@@ -11,6 +11,7 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.Modules.Storage.URLSigner
+  alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.AvatarCrop
   alias PhoenixKit.Users.AvatarShape
   alias PhoenixKit.Users.Role
@@ -42,12 +43,18 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
   1. Uploaded avatar (custom_fields["avatar_file_uuid"]) - PhoenixKit Storage
   2. OAuth avatar (custom_fields["oauth_avatar_url"]) - Google/GitHub/etc
   3. Gravatar - by email hash (with d=404 for fallback detection)
-  4. Gradient initials - colored background based on email hash
+  4. Gradient initials - colored background based on email hash; the letters
+     come from the name the page shows (`name`, else the user's display
+     name), two of them: "Anna Kask" → "AK", a single name → its first
+     letter. The email is used only when the account has no name at all.
 
   ## Attributes
   - `user` - User struct with email and optional custom_fields
   - `size` - Avatar size: "xs" (w-6), "sm" (w-8), "md" (w-10), "lg" (w-12), "card" (w-16, a grid card's header), "xl" (w-40). Defaults to "sm"
   - `class` - Additional CSS classes
+  - `name` - The name shown beside the avatar, when it is not the user's own
+    display name (a staff record's name, an organization's): the letters
+    are taken from it, so they match what the reader sees
   - `peek` - Show the picture larger while the pointer is over it (lists of
     small avatars). The preview floats above the page, placed by
     `phoenix_kit_admin.js` (it shows on admin and dashboard pages, where that
@@ -67,6 +74,7 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
   attr :user, :map, required: true
   attr :size, :string, default: "sm"
   attr :class, :string, default: ""
+  attr :name, :string, default: nil
   attr :shape, :string, default: nil
   attr :peek, :boolean, default: false
 
@@ -113,7 +121,7 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
 
     size_classes = size_classes(assigns.size)
     gradient = gradient_for_email(email)
-    initial = get_user_initial(assigns.user)
+    initial = initials_for(assigns.name, assigns.user)
 
     assigns =
       assigns
@@ -302,14 +310,67 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
     Enum.at(@gradients, index)
   end
 
-  defp get_user_initial(nil), do: "?"
-  defp get_user_initial(%{email: nil}), do: "?"
-  defp get_user_initial(%{email: ""}), do: "?"
+  # The letters on an avatar without a picture: from the name the page shows,
+  # else the user's display name, else the email (an account with no name).
+  defp initials_for(name, user) do
+    case initials(name) do
+      "" -> user |> user_name() |> initials() |> blank_to("?")
+      letters -> letters
+    end
+  end
 
-  defp get_user_initial(%{email: email}) when is_binary(email),
-    do: String.first(email) |> String.upcase()
+  defp user_name(%User{} = user), do: User.display_name(user)
 
-  defp get_user_initial(_), do: "?"
+  defp user_name(%{} = user) do
+    full =
+      [Map.get(user, :first_name), Map.get(user, :last_name)]
+      |> Enum.filter(&(is_binary(&1) and String.trim(&1) != ""))
+      |> Enum.join(" ")
+
+    cond do
+      full != "" -> full
+      present?(Map.get(user, :name)) -> Map.get(user, :name)
+      present?(Map.get(user, :username)) -> Map.get(user, :username)
+      present?(Map.get(user, :email)) -> user.email |> String.split("@") |> hd()
+      true -> nil
+    end
+  end
+
+  defp user_name(_), do: nil
+
+  defp present?(value), do: is_binary(value) and String.trim(value) != ""
+
+  defp blank_to("", fallback), do: fallback
+  defp blank_to(text, _fallback), do: text
+
+  @doc """
+  The letters an avatar without a picture shows for `name`: the first
+  letter of its first and of its last word ("Anna Kask" → "AK",
+  "Anna-Liisa Kask" → "AK", "anna.kask" → "AK"), one letter for a single
+  word ("Max" → "M"), "" for no name. Upper-cased, whole graphemes.
+
+      iex> PhoenixKitWeb.Components.Core.UserInfo.initials("Anna Kask")
+      "AK"
+
+      iex> PhoenixKitWeb.Components.Core.UserInfo.initials("max")
+      "M"
+  """
+  @spec initials(String.t() | nil) :: String.t()
+  def initials(name) when is_binary(name) do
+    words =
+      name
+      |> String.split(~r/[\s._]+/u, trim: true)
+      |> Enum.map(&String.replace(&1, ~r/^[^\p{L}\p{N}]+/u, ""))
+      |> Enum.reject(&(&1 == ""))
+
+    case words do
+      [] -> ""
+      [one] -> one |> String.first() |> String.upcase()
+      [first | rest] -> String.upcase(String.first(first) <> String.first(List.last(rest)))
+    end
+  end
+
+  def initials(_), do: ""
 
   @doc """
   Displays user's primary role name.

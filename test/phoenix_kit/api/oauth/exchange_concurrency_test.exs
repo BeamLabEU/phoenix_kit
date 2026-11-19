@@ -1,0 +1,174 @@
+defmodule PhoenixKit.API.OAuth.ExchangeConcurrencyTest do
+  @moduledoc """
+  The one-shot rules of the token endpoint under real concurrency: separate database sessions,
+  real commits, no sandbox. A code is redeemed by one caller (the others are replays that end the
+  grant); a refresh token is rotated by one
+  caller, and a burst of presentations of one used token is never more than one new pair
+  (the retry window) before the family is revoked. A disconnect (`Grants.revoke/1`) that runs
+  against an exchange leaves no live token behind, whichever of them gets the locks first.
+  """
+  use ExUnit.Case, async: false
+
+  import Ecto.Query
+  import PhoenixKit.API.OAuthTestSupport
+
+  alias Ecto.Adapters.SQL.Sandbox
+  alias PhoenixKit.API.KeyTestSupport
+  alias PhoenixKit.API.OAuth.Client
+  alias PhoenixKit.API.OAuth.Codes
+  alias PhoenixKit.API.OAuth.Exchange
+  alias PhoenixKit.API.OAuth.Grant
+  alias PhoenixKit.API.OAuth.Grants
+  alias PhoenixKit.API.OAuth.Token
+  alias PhoenixKit.Test.Repo
+
+  @moduletag :integration
+  @callers 10
+
+  setup do
+    Sandbox.mode(Repo, :auto)
+    KeyTestSupport.register_fake_module!()
+    KeyTestSupport.start_key_cache!()
+    {user, role, scope} = oauth_holder(["media"])
+    {verifier, challenge} = pkce()
+    client = client!()
+    redirect_uri = hd(client.redirect_uris)
+
+    {:ok, grant, key} =
+      Grants.create(
+        scope,
+        client,
+        %{
+          scopes: [KeyTestSupport.read_scope()],
+          expires_at: DateTime.add(DateTime.utc_now(), 86_400, :second),
+          approved?: true
+        },
+        impersonated: false
+      )
+
+    {:ok, code, _row} =
+      Codes.issue(grant, %{redirect_uri: redirect_uri, code_challenge: challenge})
+
+    on_exit(fn ->
+      Sandbox.mode(Repo, :auto)
+      Repo.delete_all(from(t in Token, where: t.grant_uuid == ^grant.uuid))
+      Repo.delete_all(from(c in PhoenixKit.API.OAuth.Code, where: c.grant_uuid == ^grant.uuid))
+      Repo.delete_all(from(g in Grant, where: g.uuid == ^grant.uuid))
+      Repo.delete_all(from(k in PhoenixKit.API.Keys.Key, where: k.uuid == ^key.uuid))
+      Repo.delete_all(from(c in Client, where: c.uuid == ^client.uuid))
+      Repo.delete_all(from(u in PhoenixKit.Users.Auth.User, where: u.uuid == ^user.uuid))
+      Repo.delete_all(from(r in PhoenixKit.Users.Role, where: r.uuid == ^role.uuid))
+      Sandbox.mode(Repo, :manual)
+    end)
+
+    %{
+      grant: grant,
+      client: client,
+      params: %{
+        "grant_type" => "authorization_code",
+        "code" => code,
+        "code_verifier" => verifier,
+        "redirect_uri" => redirect_uri,
+        "client_id" => client.client_id
+      }
+    }
+  end
+
+  defp concurrently(count, fun) do
+    1..count
+    |> Task.async_stream(fun, max_concurrency: count, timeout: 60_000)
+    |> Enum.map(fn {:ok, result} -> result end)
+  end
+
+  test "of simultaneous exchanges of one code exactly one gets a pair; the replays end the grant",
+       ctx do
+    results = concurrently(@callers, fn _ -> Exchange.token(ctx.params) end)
+
+    # The exchange runs under the grant's locks: the first caller is the winner and gets its
+    # pair, every other caller is a replay behind it (RFC 6749 section 4.1.2).
+    assert Enum.count(results, &match?({:ok, %{"access_token" => _, "refresh_token" => _}}, &1)) ==
+             1,
+           inspect(results)
+
+    assert Enum.count(results, &match?({:error, "invalid_grant", _}, &1)) == @callers - 1,
+           inspect(results)
+
+    # ... and the replay took the grant, and with it the winner's tokens, away.
+    assert %Grant{revoked_at: %DateTime{}} = Repo.get!(Grant, ctx.grant.uuid)
+
+    live_tokens =
+      Repo.aggregate(
+        from(t in Token, where: t.grant_uuid == ^ctx.grant.uuid and is_nil(t.revoked_at)),
+        :count
+      )
+
+    assert live_tokens == 0
+  end
+
+  test "simultaneous refreshes of one token never leave two live successors", ctx do
+    {:ok, %{"refresh_token" => refresh}} = Exchange.token(ctx.params)
+
+    request = %{
+      "grant_type" => "refresh_token",
+      "refresh_token" => refresh,
+      "client_id" => ctx.client.client_id
+    }
+
+    results = concurrently(@callers, fn _ -> Exchange.token(request) end)
+    wins = Enum.filter(results, &match?({:ok, %{"refresh_token" => _}}, &1))
+
+    # The first caller rotates; the others are retries inside the window, each superseding the
+    # previous successor. Whatever the interleaving, at most one refresh token of the family
+    # is left unused and live.
+    assert wins != []
+
+    live_refresh =
+      Repo.aggregate(
+        from(t in Token,
+          where:
+            t.grant_uuid == ^ctx.grant.uuid and t.kind == "refresh" and is_nil(t.used_at) and
+              is_nil(t.revoked_at)
+        ),
+        :count
+      )
+
+    assert live_refresh == 1
+  end
+
+  defp live_tokens(grant) do
+    Repo.aggregate(
+      from(t in Token, where: t.grant_uuid == ^grant.uuid and is_nil(t.revoked_at)),
+      :count
+    )
+  end
+
+  test "a disconnect against the exchange of the code leaves no live token", ctx do
+    results =
+      concurrently(@callers, fn
+        1 -> {:revoke, Grants.revoke(ctx.grant)}
+        _ -> {:exchange, Exchange.token(ctx.params)}
+      end)
+
+    assert Enum.any?(results, &match?({:revoke, {:ok, _}}, &1)), inspect(results)
+    assert %Grant{revoked_at: %DateTime{}} = Repo.get!(Grant, ctx.grant.uuid)
+    assert live_tokens(ctx.grant) == 0
+  end
+
+  test "a disconnect against refreshes leaves no live token", ctx do
+    {:ok, %{"refresh_token" => refresh}} = Exchange.token(ctx.params)
+
+    request = %{
+      "grant_type" => "refresh_token",
+      "refresh_token" => refresh,
+      "client_id" => ctx.client.client_id
+    }
+
+    concurrently(@callers, fn
+      1 -> Grants.revoke(ctx.grant)
+      _ -> Exchange.token(request)
+    end)
+
+    assert %Grant{revoked_at: %DateTime{}} = Repo.get!(Grant, ctx.grant.uuid)
+    assert live_tokens(ctx.grant) == 0
+  end
+end

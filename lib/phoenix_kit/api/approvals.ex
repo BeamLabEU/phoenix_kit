@@ -625,8 +625,14 @@ defmodule PhoenixKit.API.Approvals do
       else: {:failed, error(:not_found, "The admin API is switched off. Nothing was run.")}
   end
 
+  # A connection that no Owner has approved runs nothing, an approved operation included: its
+  # row can only come from before the approval was a rule (a code-only rollback and forward).
   defp live_actor(row) do
     case Confirm.live_actor(row.actor_key_uuid) do
+      {:ok, %{awaiting_approval: true}} ->
+        {:failed,
+         error(:unauthorized, "The connection is waiting for approval. Nothing was run.")}
+
       {:ok, actor} ->
         {:ok, actor}
 

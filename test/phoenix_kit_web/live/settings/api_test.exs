@@ -10,6 +10,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiTest do
   use PhoenixKitWeb.ConnCase, async: false
 
   import ExUnit.CaptureLog
+  import PhoenixKit.API.OAuthTestSupport, only: [oauth_holder: 1, seed_grant!: 1]
 
   alias Phoenix.LiveView.Channel
   alias PhoenixKit.Activity
@@ -18,6 +19,8 @@ defmodule PhoenixKitWeb.Live.Settings.ApiTest do
   alias PhoenixKit.API.Keys.Key
   alias PhoenixKit.API.KeyTestSupport
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.ActiveRole
+  alias PhoenixKit.Users.Auth, as: AuthCtx
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.Permissions
@@ -173,6 +176,85 @@ defmodule PhoenixKitWeb.Live.Settings.ApiTest do
 
       entries = Activity.list(action: "setting.changed", actor_uuid: admin.uuid).entries
       assert Enum.any?(entries, &(&1.metadata["key"] == "api_admin_enabled"))
+    end
+
+    test "the password switch starts off and ends keys on a password change only when on", %{} do
+      owner = KeyTestSupport.owner_user()
+      conn = log_in_user(Phoenix.ConnTest.build_conn(), owner)
+      {:ok, view, _html} = live(conn, @path)
+      switch = element(view, ~s(#api-switch-password-row input[phx-click="toggle_switch"]))
+
+      refute Config.password_change_revokes?()
+      refute has_element?(view, "#api-switch-password-row input[checked]")
+      refute has_element?(view, "#api-switch-password-owner-only")
+
+      render_click(switch)
+      assert Config.password_change_revokes?()
+      assert has_element?(view, "#api-switch-password-row input[checked]")
+
+      entries = Activity.list(action: "setting.changed", actor_uuid: owner.uuid).entries
+      assert Enum.any?(entries, &(&1.metadata["key"] == "api_pw_change_revokes"))
+
+      render_click(switch)
+      refute Config.password_change_revokes?()
+    end
+
+    test "an Admin who holds api sees the password switch disabled and cannot change it", %{
+      conn: conn,
+      admin: admin
+    } do
+      {:ok, view, _html} = live(conn, @path)
+
+      assert has_element?(view, "#api-switch-password-owner-only")
+      assert has_element?(view, "#api-switch-password-row input[disabled]")
+
+      html = render_click(view, "toggle_switch", %{"switch" => "password"})
+
+      assert html =~ "Only an Owner can change this."
+      refute Config.password_change_revokes?()
+
+      entries = Activity.list(action: "setting.changed", actor_uuid: admin.uuid).entries
+      refute Enum.any?(entries, &(&1.metadata["key"] == "api_pw_change_revokes"))
+    end
+
+    test "an Owner acting as Admin through the role switcher still sees the switch enabled" do
+      KeyTestSupport.write_setting(fn ->
+        Settings.update_boolean_setting("role_switcher_enabled", true)
+      end)
+
+      owner = KeyTestSupport.owner_user()
+      {:ok, _} = Roles.assign_role(owner, "Admin", nil, broadcast: false)
+      token = AuthCtx.generate_user_session_token(owner)
+      admin_role = Roles.get_role_by_name("Admin")
+      session_user = AuthCtx.get_user_by_session_token(token)
+
+      assert {:ok, _} = ActiveRole.switch(session_user, token, admin_role.uuid)
+
+      conn =
+        Phoenix.ConnTest.build_conn()
+        |> Phoenix.ConnTest.init_test_session(%{})
+        |> Plug.Conn.put_session(:user_token, token)
+        |> Plug.Conn.put_session(
+          :live_socket_id,
+          "phoenix_kit_sessions:#{Base.url_encode64(token)}"
+        )
+
+      {:ok, view, _html} = live(conn, @path)
+
+      refute has_element?(view, "#api-switch-password-owner-only")
+      refute has_element?(view, "#api-switch-password-row input[disabled]")
+    end
+
+    test "an Admin cannot switch the password setting OFF either", %{conn: conn} do
+      KeyTestSupport.write_setting(fn ->
+        Settings.update_boolean_setting("api_pw_change_revokes", true)
+      end)
+
+      {:ok, view, _html} = live(conn, @path)
+      html = render_click(view, "toggle_switch", %{"switch" => "password"})
+
+      assert html =~ "Only an Owner can change this."
+      assert Config.password_change_revokes?()
     end
 
     test "an unknown switch name is refused and writes no setting", %{conn: conn} do
@@ -442,6 +524,23 @@ defmodule PhoenixKitWeb.Live.Settings.ApiTest do
 
       assert has_element?(view, "#api-key-#{mine.uuid}")
       assert has_element?(view, "#api-key-#{theirs.uuid}")
+    end
+
+    test "the hidden key of an OAuth connection is in nobody's table, the Owner's included", %{
+      conn: conn,
+      admin: admin
+    } do
+      {_holder, _role, holder_scope} = oauth_holder(["media"])
+      hidden = seed_grant!(holder_scope)
+      {visible, _} = make_key!(admin, %{"name" => "Visible"})
+
+      for conn <- [conn, log_in_user(Phoenix.ConnTest.build_conn(), KeyTestSupport.owner_user())] do
+        {:ok, view, html} = live(conn, @path)
+
+        assert has_element?(view, "#api-key-#{visible.uuid}")
+        refute has_element?(view, "#api-key-#{hidden.key.uuid}")
+        refute html =~ hidden.key.prefix
+      end
     end
 
     test "a key shows its prefix but never its token or hash", %{conn: conn, admin: admin} do

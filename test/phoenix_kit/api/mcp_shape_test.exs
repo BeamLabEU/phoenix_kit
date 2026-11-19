@@ -397,6 +397,24 @@ defmodule PhoenixKit.API.MCP.ShapeTest do
       assert sentence =~ "idempotency_key"
     end
 
+    test "the admin instructions open with the one sentence on approval_pending, then identity" do
+      instructions = Shape.instructions(:admin)
+
+      assert String.starts_with?(
+               instructions,
+               "If calls answer approval_pending, the connection is not approved yet: see the advice in that answer. Call system_get_identity first"
+             )
+    end
+
+    test "the advice of approval_pending names where an owner approves and that no reconnecting is needed" do
+      advice = Shape.advice(:approval_pending)
+
+      assert advice =~ "waiting for approval by an Owner"
+      assert advice =~ "Sign-in (OAuth)"
+      assert advice =~ "Waiting for approval"
+      assert advice =~ "no need to connect again"
+    end
+
     test "the public side" do
       info = Shape.server_info(:public, @new)
 

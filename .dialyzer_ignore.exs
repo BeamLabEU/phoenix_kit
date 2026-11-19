@@ -70,6 +70,13 @@
   # above. The code is correct and covered.
   ~r/lib\/phoenix_kit\/mentions\/users\.ex:.*call_without_opaque/,
 
+  # Same pipe: Render.reason/3 asks whether a notification's recipient (a
+  # User, in the delivery worker) can open My Settings —
+  # `Scope.for_user/1 |> Scope.can_access_admin_area?/1` — to pick where the
+  # "why you got this" link goes. The opaque MapSet in :cached_permissions is
+  # widened across the pipe; the same false positive as mentions/users.ex.
+  ~r/lib\/phoenix_kit\/notifications\/render\.ex:.*call_without_opaque/,
+
   # Connections module (extracted to phoenix_kit_user_connections) — conditional calls via Code.ensure_loaded?
   {"lib/phoenix_kit_web/live/users/user_details.ex", :unknown_function},
 
@@ -139,6 +146,13 @@
   # Same class: Access.fresh_scope/1 re-checks a person's rights from the database on
   # every event of the Settings -> API pages (Scope.for_user/2, Scope.can?/2).
   ~r{^lib/phoenix_kit/api/access\.ex:\d+(:\d+)?:call_without_opaque .* in can\?\.},
+  # Same class: a personal key's (and an OAuth grant's hidden key's) owner check builds
+  # the owner's scope with Scope.for_user/2 and asks Scope.can?/2 for
+  # `api_personal_keys` or `api`.
+  ~r{^lib/phoenix_kit/api/keys\.ex:\d+(:\d+)?:call_without_opaque .* in holds_personal_right\?\.},
+  # Same class: the OAuth consent page re-reads the person's rights (Scope.for_user/2,
+  # narrow: false) and asks Scope.can?/2 before it shows or accepts a consent.
+  ~r{^lib/phoenix_kit_web/oauth/consent_controller\.ex:\d+(:\d+)?:call_without_opaque .* in can\?\.},
   # Same class: the approval queue builds a scope for each person who may decide an
   # approval with Scope.for_user/2 and asks Scope.can?/2 and Scope.owner?/1 about it.
   ~r{^lib/phoenix_kit/api/approvals\.ex:\d+(:\d+)?:call_without_opaque .* in decider\?\.},

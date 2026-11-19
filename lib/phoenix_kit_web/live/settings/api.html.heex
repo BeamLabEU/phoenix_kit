@@ -244,6 +244,40 @@
           )}
         </:subtitle>
 
+        <div id="api-switch-password-row" class="flex items-start justify-between gap-4">
+          <div class="min-w-0">
+            <h3 id="api-switch-password-title" class="font-medium">
+              {gettext("A password change ends personal keys and connections")}
+            </h3>
+            <p id="api-switch-password-text" class="text-sm text-base-content/70">
+              {gettext(
+                "When a person's password is changed or reset, their personal keys and the applications connected with the OAuth sign-in end at once, and each has to be made or connected again. This includes a person who sets a password for the first time. Nothing else ends: a key made under Keys and service users stays, including one made in a person's own name and one of a service, so revoke such keys there. It is off until you switch it on."
+              )}
+            </p>
+            <p
+              :if={not @owner?}
+              id="api-switch-password-owner-only"
+              class="text-sm text-base-content/70"
+            >
+              {gettext("Only an Owner can change this.")}
+            </p>
+          </div>
+          <.checkbox
+            id="api-switch-password"
+            name="api-switch-password"
+            variant="toggle"
+            class="toggle-lg"
+            wrapper_class="shrink-0 flex-row-reverse"
+            label={if @password_change_revokes, do: gettext("Enabled"), else: gettext("Disabled")}
+            aria-labelledby="api-switch-password-title"
+            aria-describedby="api-switch-password-text"
+            checked={@password_change_revokes}
+            disabled={not @owner?}
+            phx-click="toggle_switch"
+            phx-value-switch="password"
+          />
+        </div>
+
         <form id="api-personal-keys-form" phx-submit="save_personal_keys" class="space-y-4">
           <div
             :if={@personal_keys_errors != []}
@@ -808,6 +842,16 @@
           </div>
         </form>
       </.form_section>
+    </div>
+
+    <div id="api-tab-oauth" class={["space-y-6", @active_tab != "oauth" && "hidden"]}>
+      <.live_component
+        :if={@active_tab == "oauth"}
+        module={ApiOauthPanel}
+        id="api-oauth"
+        scope={@phoenix_kit_current_scope}
+        impersonated={@impersonated}
+      />
     </div>
 
     <div id="api-tab-guide" class={@active_tab != "guide" && "hidden"}>

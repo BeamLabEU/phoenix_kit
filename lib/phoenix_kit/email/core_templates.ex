@@ -28,6 +28,7 @@ defmodule PhoenixKit.Email.CoreTemplates do
 
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.Components.ProfileSettingsTabs
 
   @sample_email "jane.doe@example.com"
   @sample_token "preview-token"
@@ -198,6 +199,28 @@ defmodule PhoenixKit.Email.CoreTemplates do
         end
       },
       %{
+        name: "app_connected",
+        label: gettext("Application connected"),
+        description:
+          gettext(
+            "Sent once when an application is connected to an account through the OAuth sign-in."
+          ),
+        defaults: &app_connected_defaults/0,
+        variables: fn ->
+          %{
+            "user_email" => @sample_email,
+            "app_name" => "Example Agent",
+            "app_host" => "agent.example.com",
+            "rights" => app_connected_right("Orders", true, true),
+            "expires" => Calendar.strftime(DateTime.utc_now(), "%Y-%m-%d %H:%M UTC"),
+            "time" => Calendar.strftime(DateTime.utc_now(), "%Y-%m-%d %H:%M UTC"),
+            "ip_address" => "203.0.113.24",
+            "state" => app_connected_state(false),
+            "connections_url" => app_connected_url()
+          }
+        end
+      },
+      %{
         name: "welcome",
         label: gettext("Welcome"),
         description:
@@ -219,7 +242,10 @@ defmodule PhoenixKit.Email.CoreTemplates do
           %{
             "subject" => gettext("Acme Ltd commented on your order"),
             "text" => gettext("Acme Ltd commented on your order"),
-            "url" => Routes.url("/admin/notifications")
+            "url" => Routes.url("/admin/notifications"),
+            "quote" => gettext("Acme Ltd: “Please send the invoice to the new address.”"),
+            "reason" => gettext("You get this because “Comments” is on."),
+            "settings_url" => Routes.url("/admin/notifications/settings") <> "#notif-comments"
           }
         end
       }
@@ -250,7 +276,10 @@ defmodule PhoenixKit.Email.CoreTemplates do
   """
   @spec notification_defaults() :: PhoenixKit.Templates.defaults()
   def notification_defaults do
-    %{subject: "{{subject}}", text: "{{text}}\n\n{{url}}"}
+    %{
+      subject: "{{subject}}",
+      text: "{{text}}\n\n{{quote}}\n\n{{url}}\n\n{{reason}} {{settings_url}}"
+    }
   end
 
   @doc "Default copy of the account confirmation email (`register`)."
@@ -522,6 +551,67 @@ defmodule PhoenixKit.Email.CoreTemplates do
         """)
     }
   end
+
+  @doc "Default copy of the application-connected email (`app_connected`)."
+  @spec app_connected_defaults() :: PhoenixKit.Templates.defaults()
+  def app_connected_defaults do
+    %{
+      subject: gettext("An application was connected to your account"),
+      markdown:
+        gettext("""
+        Hi {{user_email}},
+
+        An application was connected to your account:
+
+        - The application says its name is: {{app_name}}
+        - Its answers are sent to: {{app_host}}
+        - Rights: {{rights}}
+        - Valid until: {{expires}}
+        - Time: {{time}}
+        - From the address: {{ip_address}}
+        - State: {{state}}
+
+        The name is the application's own and has not been checked. If you connected it, no action is needed.
+
+        If you did not, disconnect the application and then change your password:
+
+        [Disconnect the application]({{connections_url}})
+
+        If the button doesn't work, open this link: [{{connections_url}}]({{connections_url}})
+        """)
+    }
+  end
+
+  @doc """
+  The `{{connections_url}}` of the application-connected email: the page where the person sees
+  and disconnects what is connected (My API keys), in the current process's language.
+  """
+  @spec app_connected_url() :: String.t()
+  def app_connected_url, do: Routes.base_url() <> ProfileSettingsTabs.path("api-keys")
+
+  @doc """
+  The `{{state}}` of the application-connected email: a connection that waits for approval does
+  nothing until the owner of the system gives it.
+  """
+  @spec app_connected_state(boolean()) :: String.t()
+  def app_connected_state(true),
+    do: gettext("Waiting for approval by the owner of the system: it does nothing until then")
+
+  def app_connected_state(false), do: gettext("Works")
+
+  @doc """
+  One module of the `{{rights}}` of the application-connected email: the module's label and
+  whether the application may read it, change it, or both.
+  """
+  @spec app_connected_right(String.t(), boolean(), boolean()) :: String.t()
+  def app_connected_right(label, true, true),
+    do: gettext("%{module} (reading and changing)", module: label)
+
+  def app_connected_right(label, _read?, true),
+    do: gettext("%{module} (changing)", module: label)
+
+  def app_connected_right(label, _read?, _write?),
+    do: gettext("%{module} (reading)", module: label)
 
   @doc "Default copy of the welcome email (`welcome`), sent once an address is confirmed."
   @spec welcome_defaults() :: PhoenixKit.Templates.defaults()

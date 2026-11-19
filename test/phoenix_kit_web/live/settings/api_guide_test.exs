@@ -2,12 +2,14 @@ defmodule PhoenixKitWeb.Live.Settings.ApiGuideTest do
   @moduledoc """
   Settings -> API, the guide tab (`?tab=guide`): who may open it, what it says
   about the endpoints, the client snippets (decoded, not matched as text, so a
-  broken file shows), the tools grouped by module, and the table of errors.
+  broken file shows), the section on connecting with a sign-in (OAuth), the tools grouped by
+  module, and the table of errors.
   """
   use PhoenixKitWeb.ConnCase, async: false
 
   alias PhoenixKit.API.KeyTestSupport
   alias PhoenixKit.API.MCP.Shape
+  alias PhoenixKit.API.OAuth.Resource
   alias PhoenixKit.API.Problem
   alias PhoenixKit.ModuleRegistry
   alias PhoenixKit.Test.ApiFlowHarness
@@ -222,6 +224,140 @@ defmodule PhoenixKitWeb.Live.Settings.ApiGuideTest do
     end
   end
 
+  describe "connecting with a sign-in (OAuth)" do
+    test "has its own section with the server address, the documents and a link to the settings",
+         %{conn: conn} do
+      {:ok, view, _html} = live(conn, @path)
+
+      assert has_element?(view, "#api-tab-guide #guide-oauth")
+      assert text(view, "#guide-oauth-url") == base() <> Routes.path("/mcp/admin")
+
+      assert text(view, "#guide-oauth-metadata-url") ==
+               base() <> "/.well-known/oauth-protected-resource" <> Routes.path("/mcp/admin")
+
+      assert text(view, "#guide-oauth-server-metadata-url") ==
+               base() <> "/.well-known/oauth-authorization-server"
+
+      assert view |> element("#guide-oauth-settings-link") |> render() =~
+               Routes.path("/admin/settings/api?tab=oauth")
+    end
+
+    test "the sign-in address is the resource the documents publish, not the base URL",
+         %{conn: conn} do
+      # A site_url with a path: the snippets of a key are built on it, a token only on its origin.
+      KeyTestSupport.put_setting("site_url", "https://guide.example/shop")
+      {:ok, view, _html} = live(conn, @path)
+      resource = Resource.resource()
+
+      assert resource == "https://guide.example" <> Routes.path("/mcp/admin")
+      assert text(view, "#guide-oauth-url") == resource
+      assert text(view, "#guide-oauth-claude-code-command") =~ "'#{resource}'"
+    end
+
+    test "says OAuth is off while it is, and not once it is on", %{conn: conn} do
+      {:ok, view, _html} = live(conn, @path)
+      assert has_element?(view, "#guide-oauth-off")
+
+      KeyTestSupport.put_setting("api_admin_enabled", "true")
+      KeyTestSupport.put_setting("api_oauth_enabled", "true")
+
+      {:ok, view, _html} = live(conn, @path)
+      refute has_element?(view, "#guide-oauth-off")
+    end
+
+    test "Claude Code is added without a header and the key placeholder stays out of the section",
+         %{conn: conn} do
+      {:ok, view, _html} = live(conn, @path)
+
+      assert text(view, "#guide-oauth-claude-code-command") ==
+               "claude mcp add --transport http acme-print-admin '#{base()}#{Routes.path("/mcp/admin")}'"
+
+      section = view |> element("#guide-oauth") |> render()
+      refute section =~ "your key"
+      refute section =~ "Bearer"
+      refute section =~ ~r/\bpk_[0-9a-f]{8}_/
+    end
+
+    test "the matrix marks every client as not tried live, and Cursor, VS Code and Codex as no promise",
+         %{conn: conn} do
+      {:ok, view, _html} = live(conn, @path)
+
+      for client <- ~w(claude chatgpt claude-code inspector) do
+        assert text(view, "#guide-oauth-matrix-#{client}") =~ "Not yet tried live"
+      end
+
+      assert text(view, "#guide-oauth-matrix-claude") =~ "Document and return address read"
+      assert text(view, "#guide-oauth-matrix-chatgpt") =~ "Depends on the plan"
+
+      assert text(view, "#guide-oauth-matrix-cursor") =~ "not promised"
+      assert text(view, "#guide-oauth-matrix-cursor") =~ "Codex"
+      refute has_element?(view, "#guide-oauth-codex")
+      refute has_element?(view, "#guide-oauth-matrix-codex")
+    end
+
+    test "the status of the live checks is worded in one place" do
+      root = Path.expand("../../../..", __DIR__)
+
+      sources =
+        for file <- ~w(api_guide_panel.ex api_guide_panel.html.heex),
+            do: File.read!(Path.join([root, "lib/phoenix_kit_web/live/settings", file]))
+
+      assert sources |> Enum.join("\n") |> String.split("tried live") |> length() == 2
+    end
+
+    test "tells that a lost right ends the connection at the next request", %{conn: conn} do
+      {:ok, view, _html} = live(conn, @path)
+      assert has_element?(view, "#guide-oauth-rights", "stop at the next request")
+    end
+
+    test "tells that other rights mean disconnecting and connecting again", %{conn: conn} do
+      {:ok, view, _html} = live(conn, @path)
+
+      assert has_element?(view, "#guide-oauth-reconnect", "disconnects the application")
+      assert has_element?(view, "#guide-oauth-reconnect", "connects it again")
+    end
+
+    test "tells which applications wait for an Owner's approval and where to give it", %{
+      conn: conn
+    } do
+      {:ok, view, _html} = live(conn, @path)
+
+      assert has_element?(view, "#guide-oauth-approval", "Owner who holds the API right")
+      assert has_element?(view, "#guide-oauth-approval", "Waiting for approval")
+      assert has_element?(view, "#guide-oauth-approval", "7 days")
+      assert has_element?(view, "#guide-oauth-approval", "empty list")
+    end
+
+    test "tells what a waiting application gets", %{conn: conn} do
+      {:ok, view, _html} = live(conn, @path)
+
+      assert has_element?(view, "#guide-oauth-waiting", "approval_pending")
+      assert has_element?(view, "#guide-oauth-waiting", "nothing has to be connected again")
+    end
+
+    test "tells about the email of a new connection and the password setting", %{conn: conn} do
+      {:ok, view, _html} = live(conn, @path)
+
+      assert has_element?(view, "#guide-oauth-mail", "one email")
+      assert has_element?(view, "#guide-oauth-password", "personal keys and connections")
+
+      assert has_element?(
+               view,
+               "#guide-oauth-password",
+               "Keys made under Keys and service users stay"
+             )
+    end
+
+    test "tells how the language of the consent screen is chosen and that sign-in is not covered",
+         %{conn: conn} do
+      {:ok, view, _html} = live(conn, @path)
+
+      assert has_element?(view, "#guide-oauth-language", "language")
+      assert has_element?(view, "#guide-oauth-language", "switcher")
+      assert has_element?(view, "#guide-oauth-language", "sign-in page")
+    end
+  end
+
   describe "tools" do
     test "are grouped by module, with scope, title and flags", %{conn: conn} do
       {:ok, view, _html} = live(conn, @path)
@@ -388,7 +524,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiGuideTest do
       assert length(Enum.uniq(rows)) == length(rows)
 
       first_ten =
-        ~w(invalid_json token_in_url unauthorized forbidden ip_not_allowed module_write_disabled origin_not_allowed module_disabled not_found method_not_allowed)
+        ~w(invalid_json token_in_url unauthorized approval_pending forbidden ip_not_allowed module_write_disabled origin_not_allowed module_disabled not_found)
 
       assert Enum.take(rows, 10) == Enum.map(first_ten, &"guide-error-#{&1}")
 

@@ -313,6 +313,23 @@ defmodule PhoenixKit.Utils.RoutesTest do
       end
     end
 
+    test "/oauth is the authorization server's: itself and what lies under it, not a longer name" do
+      for path <- [
+            "/oauth",
+            "/oauth/authorize",
+            "/oauth/token",
+            "/oauth/consent/abc",
+            "/oauth?x=1"
+          ] do
+        assert Routes.path(path, locale: "de") == Routes.prefix_base() <> path, path
+        assert Routes.path(path, locale: "en") == Routes.prefix_base() <> path, path
+      end
+
+      for name <- ["/oauth-guide", "/oauthx"] do
+        assert Routes.path(name, locale: "de") == Routes.prefix_base() <> "/de" <> name, name
+      end
+    end
+
     test "a path that is not reserved still gets its locale" do
       assert Routes.path("/shop/cart", locale: "de") == Routes.prefix_base() <> "/de/shop/cart"
     end

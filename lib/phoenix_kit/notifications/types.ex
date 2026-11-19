@@ -32,6 +32,7 @@ defmodule PhoenixKit.Notifications.Types do
         key: "comments",
         label: "Comments",
         description: "Replies and reactions to your comments",
+        example: "Anna replied to your comment on “Fit the doors”.",   # optional
         actions: [],                       # base-owned actions (often [] when fully split)
         default: true,
         sub_types: [
@@ -39,6 +40,11 @@ defmodule PhoenixKit.Notifications.Types do
           %{key: "comments.reactions", label: "Reactions", actions: ["comment.liked", "comment.disliked"], default: true}
         ]
       }
+
+  `example` (optional, on a type and on each sub-type) is one concrete case
+  the line covers, shown under its description on the settings page, so a
+  reader can tell which line sent a given notification ("Fit the doors" is
+  marked "Can be started"). Lines without one show their description alone.
 
   Module authors declare sub keys **bare** (`"replies"`); `normalize/1` composes
   them to `"<type>.<sub>"`. Declared keys must not contain `.` and nesting is one
@@ -58,6 +64,7 @@ defmodule PhoenixKit.Notifications.Types do
   alias PhoenixKit.ModuleRegistry
 
   @type sub_type :: %{
+          optional(:example) => String.t(),
           key: String.t(),
           label: String.t(),
           description: String.t(),
@@ -66,6 +73,7 @@ defmodule PhoenixKit.Notifications.Types do
         }
 
   @type t :: %{
+          optional(:example) => String.t(),
           key: String.t(),
           label: String.t(),
           description: String.t(),
@@ -189,12 +197,12 @@ defmodule PhoenixKit.Notifications.Types do
   def default_for(_), do: true
 
   @doc """
-  A type's or sub-type's `:label` or `:description` in the current Gettext
+  A type's or sub-type's `:label`, `:description` or `:example` in the current Gettext
   locale — through the backend the type names (`gettext_backend:`), else
   core's. Text the backend has no translation for comes back as declared.
   """
-  @spec translate(map(), :label | :description) :: String.t()
-  def translate(type, field) when field in [:label, :description] do
+  @spec translate(map(), :label | :description | :example) :: String.t()
+  def translate(type, field) when field in [:label, :description, :example] do
     case Map.get(type, field) do
       text when is_binary(text) and text != "" ->
         Gettext.gettext(Map.get(type, :gettext_backend) || PhoenixKitWeb.Gettext, text)
@@ -205,6 +213,28 @@ defmodule PhoenixKit.Notifications.Types do
   rescue
     _ -> Map.get(type, field) || ""
   end
+
+  @doc """
+  The setting line a preference key names, as a reader sees it: the
+  type's label, and for a sub-type the type's and its own joined
+  ("Projects › Your turn"), translated. nil for a key no registered type
+  has. What a notification's "why you got this" line names.
+  """
+  @spec line_label(String.t() | nil) :: String.t() | nil
+  def line_label(key) when is_binary(key) do
+    case parent_type_key(key) do
+      nil ->
+        with %{} = type <- find(key), do: translate(type, :label)
+
+      base ->
+        with %{} = type <- find(base),
+             %{} = sub <- Enum.find(type.sub_types, &(&1.key == key)) do
+          translate(type, :label) <> " › " <> translate(sub, :label)
+        end
+    end
+  end
+
+  def line_label(_), do: nil
 
   # ── Core types ───────────────────────────────────────────────────────
 
@@ -217,6 +247,7 @@ defmodule PhoenixKit.Notifications.Types do
           gettext_noop(
             "New sign-ins to your account from a new device or country, and sessions opened on your account by someone else"
           ),
+        example: gettext_noop("You signed in from a new phone in Tallinn."),
         actions: [
           "user.new_login_detected",
           "session.account_added",
@@ -231,6 +262,7 @@ defmodule PhoenixKit.Notifications.Types do
         label: gettext_noop("Account"),
         description:
           gettext_noop("Password, email, role, timezone and profile changes made to your account"),
+        example: gettext_noop("An administrator gave you the Editor role."),
         actions: [
           "user.password_changed",
           "user.password_reset",
@@ -271,6 +303,7 @@ defmodule PhoenixKit.Notifications.Types do
             key: "comments",
             label: gettext_noop("Comments"),
             description: gettext_noop("Comments on your posts"),
+            example: gettext_noop("Anna commented on your post “Spring update”."),
             actions: ["post.commented"],
             default: true
           },
@@ -301,6 +334,7 @@ defmodule PhoenixKit.Notifications.Types do
             key: "replies",
             label: gettext_noop("Replies"),
             description: gettext_noop("Replies to your comments"),
+            example: gettext_noop("Anna replied to your comment."),
             actions: ["comment.replied"],
             default: true
           },
@@ -321,6 +355,7 @@ defmodule PhoenixKit.Notifications.Types do
         key: "mentions",
         label: gettext_noop("Mentions"),
         description: gettext_noop("When someone mentions you with @"),
+        example: gettext_noop("Max wrote “@Anna, can you check this?” in a comment."),
         actions: ["mention.created"],
         default: true
       }

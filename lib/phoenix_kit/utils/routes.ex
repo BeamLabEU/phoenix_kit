@@ -17,12 +17,15 @@ defmodule PhoenixKit.Utils.Routes do
   # Keep the entries both lists share (api, mcp, webhooks, assets, static,
   # files, images) in sync with @reserved_path_segments in
   # PhoenixKitWeb.Users.Auth, which names them without the slashes. `/api` and
-  # `/mcp` are the machine API's and MCP's endpoints.
+  # `/mcp` are the machine API's and MCP's endpoints; `/oauth` (the authorization server of
+  # the MCP endpoint) is listed under `@reserved_segments` below, as `/mcp` is.
   @reserved_prefixes ~w(/api /webhooks /assets /static /files /images /fonts /js /css /sitemap)
 
   # Reserved as a whole path segment only: `/mcp` and `/mcp/...` keep their
-  # place, a host page such as `/mcp-servers` still gets its locale.
-  @reserved_segments ~w(/mcp)
+  # place, a host page such as `/mcp-servers` still gets its locale. The same holds for
+  # `/oauth`: the endpoints of the authorization server have one address, whatever the
+  # visitor's language, and a host page such as `/oauth-guide` still gets its locale.
+  @reserved_segments ~w(/mcp /oauth)
 
   @warn_interval_ms 60_000
 

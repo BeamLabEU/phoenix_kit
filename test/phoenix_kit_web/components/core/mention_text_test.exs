@@ -8,6 +8,8 @@ defmodule PhoenixKitWeb.Components.Core.MentionTextTest do
 
   import Phoenix.LiveViewTest
 
+  alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKitWeb.Components.Core.MentionText
 
   @uuid "018e3c4a-9f6b-7890-abcd-ef1234567890"
@@ -16,7 +18,8 @@ defmodule PhoenixKitWeb.Components.Core.MentionTextTest do
     render_component(&MentionText.mention_text/1,
       text: text,
       scope: Keyword.get(opts, :scope),
-      allow_request: Keyword.get(opts, :allow_request, true)
+      allow_request: Keyword.get(opts, :allow_request, true),
+      withhold_titles: Keyword.get(opts, :withhold_titles, false)
     )
   end
 
@@ -91,6 +94,57 @@ defmodule PhoenixKitWeb.Components.Core.MentionTextTest do
       assert html =~ "Q3 Launch"
       assert html =~ "hero-lock-closed"
       refute html =~ "pk_request_access"
+    end
+  end
+
+  describe "a person" do
+    test "a readable @ mention is a chip with their face and name" do
+      {:ok, user} =
+        Auth.register_user(%{
+          email: "chip_#{System.unique_integer([:positive])}@example.com",
+          password: "ValidPassword123!"
+        })
+
+      {:ok, user} =
+        Auth.update_user_profile(user, %{
+          "first_name" => "Anna",
+          "last_name" => "Kask"
+        })
+
+      # users are a public mention type: any signed-in reader resolves one
+      scope = Scope.for_user(user)
+
+      html = render_text("thanks @[user:#{user.uuid}|Anna]", scope: scope)
+
+      assert html =~ ~s(data-mention-user="#{user.uuid}")
+      assert html =~ "Anna Kask"
+      # the avatar's letters come from the name shown
+      assert html =~ ~r/>\s*AK\s*</
+    end
+
+    test "on a public surface a person is a name, with no uuid and no face" do
+      {:ok, user} =
+        Auth.register_user(%{
+          email: "public_#{System.unique_integer([:positive])}@example.com",
+          password: "ValidPassword123!"
+        })
+
+      html =
+        render_text("thanks @[user:#{user.uuid}|Anna]",
+          scope: Scope.for_user(user),
+          withhold_titles: true
+        )
+
+      refute html =~ "data-mention-user"
+      refute html =~ user.uuid
+      refute html =~ "gravatar"
+      refute html =~ "<img"
+    end
+
+    test "a person who no longer exists stays the plain label" do
+      html = render_text("thanks @[user:#{@uuid}|Gone Person]")
+      refute html =~ "data-mention-user"
+      assert html =~ "Gone Person"
     end
   end
 end

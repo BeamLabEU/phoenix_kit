@@ -235,6 +235,11 @@ defmodule PhoenixKit.Migrations.ModuleOwnedTables do
     phoenix_kit_api_confirmations
     phoenix_kit_api_idempotency
     phoenix_kit_api_keys
+    phoenix_kit_api_oauth_clients
+    phoenix_kit_api_oauth_codes
+    phoenix_kit_api_oauth_grants
+    phoenix_kit_api_oauth_requests
+    phoenix_kit_api_oauth_tokens
     phoenix_kit_audit_logs
     phoenix_kit_bucket_log
     phoenix_kit_buckets

@@ -193,12 +193,17 @@ msgstr "musi zawierać znak @ i nie może zawierać spacji"
 msgid "must start with a letter and contain only letters, numbers, and underscores"
 msgstr "musi zaczynać się od litery i zawierać tylko litery, cyfry i podkreślenia"
 
-#: lib/phoenix_kit/users/auth.ex:493
+#: lib/phoenix_kit/users/auth.ex:496
 #, elixir-autogen, elixir-format
 msgid "This email domain cannot receive mail. Please check the address."
 msgstr "Ta domena e-mail nie może odbierać poczty. Sprawdź adres."
 
-#: lib/phoenix_kit/users/auth.ex:504
+#: lib/phoenix_kit/users/auth.ex:507
 #, elixir-autogen, elixir-format
 msgid "Too many registration attempts. Please try again later."
 msgstr "Zbyt wiele prób rejestracji. Spróbuj ponownie później."
+
+#: lib/phoenix_kit/users/auth.ex:2169
+#, elixir-autogen, elixir-format
+msgid "The API keys and connections of this account could not be ended, so the password was not changed. Please try again."
+msgstr "Nie udało się zakończyć kluczy API i połączeń tego konta, więc hasło nie zostało zmienione. Spróbuj ponownie."
