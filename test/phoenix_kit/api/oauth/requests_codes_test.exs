@@ -31,7 +31,8 @@ defmodule PhoenixKit.API.OAuth.RequestsCodesTest do
       redirect_uri: "https://client.example/callback",
       code_challenge: "c",
       resource: "https://x.example/mcp/admin",
-      browser: @browser
+      browser: @browser,
+      ip: unique_ip()
     }
 
   describe "requests" do
@@ -116,6 +117,48 @@ defmodule PhoenixKit.API.OAuth.RequestsCodesTest do
       assert {:ok, _, _} = Requests.create(client, attrs())
       assert Requests.create(client, attrs()) == {:error, :busy}
       assert Requests.live_count() == 2
+    end
+  end
+
+  describe "the share of one network" do
+    test "a network holds at most its share of the waiting requests", %{client: client} do
+      put_setting_value("api_oauth_requests_per_network", "2")
+      ip = "203.0.113.7"
+
+      assert {:ok, _, %Request{network_hash: hash} = first} =
+               Requests.create(client, Map.put(attrs(), :ip, ip))
+
+      assert {:ok, _, _} = Requests.create(client, Map.put(attrs(), :ip, ip))
+      assert Requests.create(client, Map.put(attrs(), :ip, ip)) == {:error, :busy}
+
+      # The row keeps a hash of the network, never the address.
+      assert hash == Requests.network_hash(ip)
+      refute hash =~ ip
+      assert byte_size(hash) == 32
+
+      # Another network is not held back; a request used leaves the share.
+      assert {:ok, _, _} = Requests.create(client, Map.put(attrs(), :ip, "198.51.100.7"))
+      assert Requests.consume(first) == :ok
+      assert {:ok, _, _} = Requests.create(client, Map.put(attrs(), :ip, ip))
+    end
+
+    test "an IPv6 /64 is one network, and an unknown address is one of its own", %{client: client} do
+      put_setting_value("api_oauth_requests_per_network", "1")
+
+      assert {:ok, _, _} = Requests.create(client, Map.put(attrs(), :ip, "2001:db8:1:2::1"))
+
+      assert Requests.create(client, Map.put(attrs(), :ip, "2001:db8:1:2:ffff::9")) ==
+               {:error, :busy}
+
+      assert {:ok, _, _} = Requests.create(client, Map.put(attrs(), :ip, "2001:db8:1:3::1"))
+      assert {:ok, _, _} = Requests.create(client, Map.put(attrs(), :ip, nil))
+      assert Requests.create(client, Map.put(attrs(), :ip, nil)) == {:error, :busy}
+    end
+
+    test "an address is required" do
+      assert_raise KeyError, fn ->
+        Requests.create(client!(), Map.delete(attrs(), :ip))
+      end
     end
   end
 

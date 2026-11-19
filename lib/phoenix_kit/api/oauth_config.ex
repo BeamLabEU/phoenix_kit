@@ -12,6 +12,7 @@ defmodule PhoenixKit.API.OAuthConfig do
   | `api_oauth_authorize_per_min` | `30` | 1 to 1000000 |
   | `api_oauth_token_per_min` | `60` | 1 to 1000000 |
   | `api_oauth_requests_ceiling` | `1000` | 1 to 1000000 |
+  | `api_oauth_requests_per_network` | `20` | 1 to 1000000 |
   | `api_oauth_cimd_per_min` | `20` | 1 to 1000 |
   | `api_oauth_cimd_client_per_min` | `5` | 1 to 1000 |
   | `api_oauth_cimd_concurrency` | `4` | 1 to 64 |
@@ -81,6 +82,13 @@ defmodule PhoenixKit.API.OAuthConfig do
       min: 1,
       max: 1_000_000,
       reader: :oauth_requests_ceiling
+    },
+    %{
+      field: "requests_per_network",
+      setting: "api_oauth_requests_per_network",
+      min: 1,
+      max: 1_000_000,
+      reader: :oauth_requests_per_network
     },
     %{
       field: "cimd_per_min",

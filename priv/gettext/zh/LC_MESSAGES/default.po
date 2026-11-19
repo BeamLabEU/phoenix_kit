@@ -27955,6 +27955,11 @@ msgstr "每个地址每分钟的令牌请求数"
 msgid "Authorization requests waiting for an answer, in all"
 msgstr "等待回应的授权请求总数"
 
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex
+#, elixir-autogen, elixir-format
+msgid "Authorization requests waiting for an answer, per address"
+msgstr "每个地址等待回应的授权请求数"
+
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:548
 #, elixir-autogen, elixir-format
 msgid "Metadata document downloads per minute, per address"

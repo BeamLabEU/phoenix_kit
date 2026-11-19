@@ -424,6 +424,25 @@ defmodule PhoenixKitWeb.OAuth.AuthorizeTest do
       assert length(Repo.all(Request)) == 1
     end
 
+    test "one network's share of the waiting requests: 503, and other networks still pass", %{
+      client: client,
+      challenge: challenge
+    } do
+      put_setting("api_oauth_requests_per_network", "1")
+      ip = unique_ip()
+      params = authorize_params(client, challenge)
+      from_ip = fn -> browser() |> put_req_header("x-forwarded-for", ip) |> authorize(params) end
+
+      assert from_ip.().status == 302
+
+      conn = from_ip.()
+      assert conn.status == 503
+      assert get_resp_header(conn, "retry-after") == ["30"]
+      assert length(Repo.all(Request)) == 1
+
+      assert authorize(browser(), params).status == 302
+    end
+
     test "OAuth off: 404, nothing stored", %{client: client, challenge: challenge} do
       put_setting("api_oauth_enabled", "false")
       conn = authorize(browser(), authorize_params(client, challenge))

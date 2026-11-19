@@ -397,7 +397,9 @@ defmodule PhoenixKit.API.OAuth.Grants do
     end
   end
 
-  # Hosts, not addresses: the redirect URI of a client is never written to the feed.
+  # Hosts, not addresses: the redirect URI of a client is never written to the feed. The host the
+  # grant really answers to (`redirect_uri`, kept when its code was exchanged); the client's row
+  # only for a grant that has none.
   defp log_approved(%Grant{} = grant, actor_uuid) do
     Activity.log("api", "oauth.grant_approved",
       actor_uuid: actor_uuid,
@@ -407,20 +409,31 @@ defmodule PhoenixKit.API.OAuth.Grants do
       metadata: %{
         "client_uuid" => grant.client_uuid,
         "owner_uuid" => grant.user_uuid,
-        "hosts" => client_hosts(grant.client_uuid)
+        "hosts" => grant_hosts(grant)
       }
     )
   end
 
-  defp client_hosts(client_uuid) do
-    case repo().get(Client, client_uuid) do
-      %Client{redirect_uris: uris} ->
-        uris |> Enum.map(&RedirectUri.host/1) |> Enum.reject(&is_nil/1) |> Enum.uniq()
+  defp grant_hosts(%Grant{redirect_uri: uri}) when is_binary(uri), do: hosts([uri])
 
-      nil ->
-        []
+  defp grant_hosts(%Grant{client_uuid: client_uuid}) do
+    case repo().get(Client, client_uuid) do
+      %Client{redirect_uris: uris} -> hosts(uris)
+      nil -> []
     end
   end
+
+  @doc """
+  The hosts the answers of `grant` go to: the host of the redirect URI its code was exchanged
+  with (`grant.redirect_uri`), or, for a grant that has none, the hosts of `client`'s redirect
+  URIs. Hosts only, never a path or a query.
+  """
+  @spec redirect_hosts(Grant.t(), Client.t()) :: [String.t()]
+  def redirect_hosts(%Grant{redirect_uri: uri}, _client) when is_binary(uri), do: hosts([uri])
+  def redirect_hosts(%Grant{}, %Client{redirect_uris: uris}), do: hosts(uris)
+
+  defp hosts(uris),
+    do: uris |> Enum.map(&RedirectUri.host/1) |> Enum.reject(&is_nil/1) |> Enum.uniq()
 
   defp window_start(now), do: DateTime.add(now, -@approval_days * 86_400, :second)
 

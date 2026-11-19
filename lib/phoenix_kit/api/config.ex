@@ -18,6 +18,7 @@ defmodule PhoenixKit.API.Config do
   | `api_oauth_authorize_per_min` | `30` (authorization requests per client network) |
   | `api_oauth_token_per_min` | `60` (token and revocation requests per client network) |
   | `api_oauth_requests_ceiling` | `1000` (authorization requests waiting for consent, all clients) |
+  | `api_oauth_requests_per_network` | `20` (authorization requests waiting for consent, per client network) |
   | `api_oauth_grants_per_person` | `10` (live grants one person may hold) |
   | `api_oauth_dcr_enabled` | `false` (Dynamic Client Registration, `POST /oauth/register`; only counts while OAuth is on) |
   | `api_oauth_client_policy` | `"approval"` (`"any"`: every client at once; `"allow_list"`: only the hosts of `api_oauth_client_allow_hosts`) |
@@ -223,6 +224,14 @@ defmodule PhoenixKit.API.Config do
   """
   @spec oauth_requests_ceiling() :: pos_integer()
   def oauth_requests_ceiling, do: int("api_oauth_requests_ceiling", 1000)
+
+  @doc """
+  How many authorization requests of one client network may wait for a person's consent at once
+  (`api_oauth_requests_per_network`, 20): the share of `oauth_requests_ceiling/0` one network can
+  hold.
+  """
+  @spec oauth_requests_per_network() :: pos_integer()
+  def oauth_requests_per_network, do: int("api_oauth_requests_per_network", 20)
 
   @doc """
   How many live grants (activated, or not yet activated with a code still alive) one person may

@@ -7,7 +7,8 @@ defmodule PhoenixKit.API.OAuth.Request do
   consent URL; the token itself is never stored. It lives ten minutes and is used once
   (`consumed_at`). `client_snapshot` pins what the client's document said when the request
   was made (its name and redirect URIs), so a document that changes before the code is
-  exchanged changes nothing.
+  exchanged changes nothing. `network_hash` is the SHA-256 of the client network the request came
+  from (never the address), for the per-network count of `PhoenixKit.API.OAuth.Requests.create/2`.
 
   This module is the schema only.
   """
@@ -30,6 +31,7 @@ defmodule PhoenixKit.API.OAuth.Request do
     field :client_snapshot, :map, default: %{}
     field :expires_at, :utc_datetime
     field :consumed_at, :utc_datetime
+    field :network_hash, :binary
 
     belongs_to :client, Client, foreign_key: :client_uuid, references: :uuid, type: UUIDv7
 

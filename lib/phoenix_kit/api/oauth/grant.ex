@@ -13,6 +13,9 @@ defmodule PhoenixKit.API.OAuth.Grant do
     * `approved_at` - when the connection was approved (made at once for a trusted client, or
       by an owner afterwards). **`nil` means it waits for approval**: nothing the grant's
       tokens carry may run (`PhoenixKit.API.OAuth.Grants.awaiting?/1`).
+    * `redirect_uri` - where the connection's answers go, taken from the authorization code when
+      it was exchanged; `nil` before that (and for a grant made before V234), when the client's
+      own redirect URIs stand in.
     * `revoked_at`, `last_used_at`, `created_ip`.
 
   The effective rights of a request are the grant's scopes narrowed to what its owner may do
@@ -36,6 +39,7 @@ defmodule PhoenixKit.API.OAuth.Grant do
     field :expires_at, :utc_datetime
     field :activated_at, :utc_datetime
     field :approved_at, :utc_datetime
+    field :redirect_uri, :string
     field :revoked_at, :utc_datetime
     field :last_used_at, :utc_datetime
     field :created_ip, :string

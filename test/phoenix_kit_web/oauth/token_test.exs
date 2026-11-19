@@ -70,8 +70,10 @@ defmodule PhoenixKitWeb.OAuth.TokenTest do
     test "the grant is activated by it, and the resource is the server's own", %{flow: flow} do
       assert [%Grant{activated_at: nil}] = Repo.all(Grant)
       assert exchange_code(flow).status == 200
-      assert [%Grant{activated_at: %DateTime{}, resource: resource}] = Repo.all(Grant)
+      assert [%Grant{activated_at: %DateTime{}, resource: resource} = grant] = Repo.all(Grant)
       assert resource == Resource.resource()
+      # Where its answers go, kept from the code: what the approval and the feed show.
+      assert grant.redirect_uri == flow.redirect_uri
     end
 
     test "the resource parameter, when sent, must be the server's own", %{flow: flow} do

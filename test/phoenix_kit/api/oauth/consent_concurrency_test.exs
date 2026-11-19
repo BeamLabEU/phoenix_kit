@@ -70,7 +70,8 @@ defmodule PhoenixKit.API.OAuth.ConsentConcurrencyTest do
         redirect_uri: hd(client.redirect_uris),
         code_challenge: elem(pkce(), 1),
         resource: Resource.resource(),
-        browser: Requests.new_browser()
+        browser: Requests.new_browser(),
+        ip: KeyTestSupport.unique_ip()
       })
 
     request

@@ -85,6 +85,26 @@ defmodule PhoenixKit.API.OAuth.ApprovalTest do
       assert [_one] = entries("oauth.grant_approved", uuid)
     end
 
+    test "names the host the connection answers to, not what the client's row says now", ctx do
+      seeded = waiting!(ctx.scope)
+      uuid = seeded.grant.uuid
+
+      # The code was exchanged for this address; the document changed afterwards.
+      Repo.update_all(Ecto.Query.from(g in Grant, where: g.uuid == ^uuid),
+        set: [redirect_uri: "https://agent.example/cb?x=1"]
+      )
+
+      Repo.update_all(
+        Ecto.Query.from(c in PhoenixKit.API.OAuth.Client, where: c.uuid == ^seeded.client.uuid),
+        set: [redirect_uris: ["https://elsewhere.example/cb"]]
+      )
+
+      assert {:ok, _} = Grants.approve(ctx.owner, uuid, impersonated: false)
+      assert [entry] = entries("oauth.grant_approved", uuid)
+      assert entry.metadata["hosts"] == ["agent.example"]
+      refute inspect(entry.metadata) =~ "x=1"
+    end
+
     test "is an Owner's: an administrator with api, the person and nobody are refused", ctx do
       seeded = waiting!(ctx.scope)
       uuid = seeded.grant.uuid

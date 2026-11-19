@@ -28009,6 +28009,11 @@ msgstr "Запитів токенів за хвилину, з однієї ад�
 msgid "Authorization requests waiting for an answer, in all"
 msgstr "Запитів авторизації, що чекають відповіді, всього"
 
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex
+#, elixir-autogen, elixir-format
+msgid "Authorization requests waiting for an answer, per address"
+msgstr "Запитів авторизації, що чекають відповіді, з однієї адреси"
+
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:548
 #, elixir-autogen, elixir-format
 msgid "Metadata document downloads per minute, per address"

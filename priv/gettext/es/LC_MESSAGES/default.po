@@ -27942,6 +27942,11 @@ msgstr "Solicitudes de token por minuto y por dirección"
 msgid "Authorization requests waiting for an answer, in all"
 msgstr "Solicitudes de autorización pendientes de respuesta, en total"
 
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex
+#, elixir-autogen, elixir-format
+msgid "Authorization requests waiting for an answer, per address"
+msgstr "Solicitudes de autorización pendientes de respuesta, por dirección"
+
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:548
 #, elixir-autogen, elixir-format
 msgid "Metadata document downloads per minute, per address"

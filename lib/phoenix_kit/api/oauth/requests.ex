@@ -23,7 +23,12 @@ defmodule PhoenixKit.API.OAuth.Requests do
 
   A request lives ten minutes. The number of live ones is bounded for the whole install
   (`PhoenixKit.API.Config.oauth_requests_ceiling/0`), because the authorization endpoint is
-  public: `create/2` refuses over the ceiling.
+  public: `create/2` refuses over the ceiling. So that a few networks cannot hold the whole
+  ceiling and keep everyone else from signing in, the live requests of one client network
+  (`PhoenixKit.Utils.IpAddress.network/1`: an IPv4 address, an IPv6 /64) are bounded too
+  (`PhoenixKit.API.Config.oauth_requests_per_network/0`). The row keeps the SHA-256 of the
+  network (`network_hash`), never the address; it is not keyed, so it hides an address only from
+  a casual reader, and the row is deleted within a day of its ten minutes (the prune).
   """
 
   import Ecto.Query, only: [from: 2]
@@ -32,6 +37,7 @@ defmodule PhoenixKit.API.OAuth.Requests do
   alias PhoenixKit.API.OAuth.Client
   alias PhoenixKit.API.OAuth.Request
   alias PhoenixKit.RepoHelper
+  alias PhoenixKit.Utils.IpAddress
 
   @ttl_seconds 600
   @token_bytes 32
@@ -44,28 +50,34 @@ defmodule PhoenixKit.API.OAuth.Requests do
 
   @doc """
   Stores a validated request of `client`. `attrs` takes `redirect_uri`, `code_challenge`,
-  `resource`, `state`, `requested_scopes` and `browser` (the nonce of the browser that made the
-  request, required, see `new_browser/0`); the client's name and redirect URIs are pinned in
-  the row (`client_snapshot`), so a changed document changes nothing here.
+  `resource`, `state`, `requested_scopes`, `browser` (the nonce of the browser that made the
+  request, required, see `new_browser/0`) and `ip` (the client address the request came from,
+  `PhoenixKit.Utils.IpAddress.client_address/1`, required; `nil` counts as one network of its
+  own); the client's name and redirect URIs are pinned in the row (`client_snapshot`), so a
+  changed document changes nothing here.
 
   Returns `{:ok, token, request}` (the token goes into the consent URL and is not kept), or
-  `{:error, :busy}` when the install already has as many waiting requests as the ceiling allows
-  (counted and inserted under one advisory lock, so requests that arrive together cannot all pass).
+  `{:error, :busy}` when the install already has as many waiting requests as the ceiling allows,
+  or the network of `ip` as many as `api_oauth_requests_per_network` allows (both counted and the
+  row inserted under one advisory lock, so requests that arrive together cannot all pass).
   """
   @spec create(Client.t(), map()) :: {:ok, String.t(), Request.t()} | {:error, :busy}
   def create(%Client{} = client, attrs) when is_map(attrs) do
     browser = Map.fetch!(attrs, :browser)
     browser?(browser) || raise ArgumentError, "browser must be a nonce made by new_browser/0"
+    network = network_hash(Map.fetch!(attrs, :ip))
 
-    # The count and the insert run under one advisory lock for the whole install, so requests
-    # that arrive together cannot all pass the ceiling.
+    # The counts and the insert run under one advisory lock for the whole install, so requests
+    # that arrive together cannot all pass the ceiling or the network's share of it.
     result =
       repo().transaction(fn ->
         repo().query!("SELECT pg_advisory_xact_lock(hashtext($1))", [@ceiling_lock])
 
-        if live_count() >= Config.oauth_requests_ceiling(),
-          do: repo().rollback(:busy),
-          else: insert(client, attrs, browser)
+        cond do
+          live_count() >= Config.oauth_requests_ceiling() -> repo().rollback(:busy)
+          live_count(network) >= Config.oauth_requests_per_network() -> repo().rollback(:busy)
+          true -> insert(client, attrs, browser, network)
+        end
       end)
 
     case result do
@@ -74,7 +86,7 @@ defmodule PhoenixKit.API.OAuth.Requests do
     end
   end
 
-  defp insert(client, attrs, browser) do
+  defp insert(client, attrs, browser, network) do
     secret = :crypto.strong_rand_bytes(@token_bytes)
 
     {:ok, request} =
@@ -87,6 +99,7 @@ defmodule PhoenixKit.API.OAuth.Requests do
         state: Map.get(attrs, :state),
         requested_scopes: Map.get(attrs, :requested_scopes, []),
         client_snapshot: snapshot(client),
+        network_hash: network,
         expires_at: DateTime.add(now(), @ttl_seconds, :second)
       })
 
@@ -155,6 +168,25 @@ defmodule PhoenixKit.API.OAuth.Requests do
       from(r in Request, where: is_nil(r.consumed_at) and r.expires_at > ^now()),
       :count
     )
+  end
+
+  defp live_count(network_hash) do
+    repo().aggregate(
+      from(r in Request,
+        where: r.network_hash == ^network_hash and is_nil(r.consumed_at) and r.expires_at > ^now()
+      ),
+      :count
+    )
+  end
+
+  @doc """
+  The hash a request keeps of the client network `ip` belongs to (`IpAddress.network/1`; an
+  address that cannot be read, or `nil`, is the network `"unknown"`, as for the rate limits).
+  """
+  @spec network_hash(String.t() | nil) :: binary()
+  def network_hash(ip) do
+    network = IpAddress.network(ip) || "unknown"
+    :crypto.hash(:sha256, "phoenix_kit_api:oauth_request_network:" <> network)
   end
 
   defp snapshot(%Client{} = client) do

@@ -28015,6 +28015,11 @@ msgstr "Żądania tokenów na minutę, na adres"
 msgid "Authorization requests waiting for an answer, in all"
 msgstr "Żądania autoryzacji oczekujące na odpowiedź, łącznie"
 
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex
+#, elixir-autogen, elixir-format
+msgid "Authorization requests waiting for an answer, per address"
+msgstr "Żądania autoryzacji oczekujące na odpowiedź, na adres"
+
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:548
 #, elixir-autogen, elixir-format
 msgid "Metadata document downloads per minute, per address"

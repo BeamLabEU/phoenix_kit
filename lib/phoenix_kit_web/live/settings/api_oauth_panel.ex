@@ -678,6 +678,15 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
                 value={@settings_params["requests_ceiling"]}
               />
               <.input
+                id="api-oauth-requests-per-network"
+                name="oauth[requests_per_network]"
+                type="text"
+                inputmode="numeric"
+                wrap_label
+                label={gettext("Authorization requests waiting for an answer, per address")}
+                value={@settings_params["requests_per_network"]}
+              />
+              <.input
                 id="api-oauth-cimd-per-min"
                 name="oauth[cimd_per_min]"
                 type="text"

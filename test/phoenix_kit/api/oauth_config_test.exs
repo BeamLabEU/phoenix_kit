@@ -32,6 +32,7 @@ defmodule PhoenixKit.API.OAuthConfigTest do
       assert current["authorize_per_min"] == "30"
       assert current["token_per_min"] == "60"
       assert current["requests_ceiling"] == "1000"
+      assert current["requests_per_network"] == "20"
       assert current["cimd_per_min"] == "20"
       assert current["cimd_client_per_min"] == "5"
       assert current["cimd_concurrency"] == "4"

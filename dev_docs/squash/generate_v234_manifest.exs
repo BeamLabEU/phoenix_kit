@@ -7,8 +7,12 @@
 # that discards pre-floor history (README, Manifest + reference policy). This
 # tool preserves every historical object and revision verbatim and emits only
 # the delta overlay. It never rewrites the baseline or its reference dumps.
-# The two schema snapshots below supply every new shape: one nullable column,
-# `phoenix_kit_api_oauth_grants.approved_at`. No seed rows.
+# The two schema snapshots below supply every new shape: the nullable columns
+# `phoenix_kit_api_oauth_grants.approved_at`, `phoenix_kit_api_oauth_grants.redirect_uri`
+# and `phoenix_kit_api_oauth_requests.network_hash`, and the indexes
+# `phoenix_kit_api_oauth_requests_network_hash_index`,
+# `phoenix_kit_api_oauth_tokens_expires_at_index` and
+# `phoenix_kit_api_oauth_codes_expires_at_index`. No seed rows.
 # Run restamp_chain_hash.exs after formatting the migration.
 
 System.put_env("PK_GEN_LIBRARY", "1")
@@ -120,7 +124,9 @@ try do
 
   # A standalone, normalized reference for the tables touched by V234.
   # Created by pg_dump, not transcribed from the migration or edited by hand.
-  tables = ~w(phoenix_kit_api_oauth_grants)
+  tables =
+    ~w(phoenix_kit_api_oauth_grants phoenix_kit_api_oauth_requests phoenix_kit_api_oauth_tokens
+       phoenix_kit_api_oauth_codes)
 
   args =
     ["--schema-only", "--no-owner", "--no-privileges", "--no-comments"] ++
@@ -131,7 +137,8 @@ try do
 
   File.write!(
     reference,
-    "-- Generated V234 reference: approval of an OAuth connection.\n" <>
+    "-- Generated V234 reference: approval of an OAuth connection, the redirect URI of a\n" <>
+      "-- grant, the network of a request and the expiry indexes of tokens and codes.\n" <>
       DumpHelper.normalise(dump, schema)
   )
 

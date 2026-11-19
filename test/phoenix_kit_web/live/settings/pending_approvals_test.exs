@@ -84,6 +84,24 @@ defmodule PhoenixKitWeb.Live.Settings.PendingApprovalsTest do
       refute has_element?(view, row(ctx.seeded), placeholder)
     end
 
+    test "shows the host the connection answers to, kept when its code was exchanged", ctx do
+      Repo.update_all(
+        Ecto.Query.from(g in Grant, where: g.uuid == ^ctx.seeded.grant.uuid),
+        set: [redirect_uri: "https://agent.example/cb"]
+      )
+
+      # A document fetched again after the consent names other addresses: not shown.
+      Repo.update_all(
+        Ecto.Query.from(c in PhoenixKit.API.OAuth.Client, where: c.uuid == ^ctx.client.uuid),
+        set: [redirect_uris: ["https://elsewhere.example/cb"]]
+      )
+
+      view = owner_view(ctx)
+      hosts = "#{@block}-hosts-#{ctx.seeded.grant.uuid}"
+      assert has_element?(view, hosts, "agent.example")
+      refute has_element?(view, hosts, "elsewhere.example")
+    end
+
     test "names the host of the metadata document of an application that has one", ctx do
       client =
         client!(%{client_id: "https://docs.agent.example/client.json", client_name: "Cimd One"})

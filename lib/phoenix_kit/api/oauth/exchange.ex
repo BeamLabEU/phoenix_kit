@@ -125,7 +125,7 @@ defmodule PhoenixKit.API.OAuth.Exchange do
         with {:ok, row} <- redeem(grant, code),
              :ok <- code_checks(row, grant, client, redirect_uri, verifier, params),
              :ok <- usable(grant, key),
-             {:ok, grant} <- activate(grant),
+             {:ok, grant} <- activate(grant, row.redirect_uri),
              {:ok, response} <- issue_first_pair(grant) do
           {:ok, response, grant}
         end
@@ -181,16 +181,21 @@ defmodule PhoenixKit.API.OAuth.Exchange do
     Plug.Crypto.secure_compare(computed, challenge)
   end
 
-  defp activate(%Grant{activated_at: nil} = grant) do
+  # The redirect URI of the code is where this connection's answers go: kept on the grant, so the
+  # owner who approves it is shown that, not the client's row, which a document fetched again can
+  # change after the consent.
+  defp activate(%Grant{activated_at: nil} = grant, redirect_uri) do
     now = DateTime.truncate(DateTime.utc_now(), :second)
 
-    case grant |> Ecto.Changeset.change(activated_at: now) |> repo().update() do
+    case grant
+         |> Ecto.Changeset.change(activated_at: now, redirect_uri: redirect_uri)
+         |> repo().update() do
       {:ok, grant} -> {:ok, grant}
       {:error, _changeset} -> repo().rollback(:activation_failed)
     end
   end
 
-  defp activate(%Grant{} = grant), do: {:ok, grant}
+  defp activate(%Grant{} = grant, _redirect_uri), do: {:ok, grant}
 
   defp issue_first_pair(%Grant{} = grant) do
     family = UUIDv7.generate()

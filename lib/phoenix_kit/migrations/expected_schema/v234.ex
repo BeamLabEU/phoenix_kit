@@ -36,6 +36,135 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V234 do
            }}
         ],
         backfill: nil
+      },
+      %{
+        id: "column:phoenix_kit_api_oauth_grants.redirect_uri",
+        owner: :core,
+        check:
+          {:catalog,
+           %{
+             table: "phoenix_kit_api_oauth_grants",
+             column: "redirect_uri",
+             kind: :column
+           }},
+        create:
+          "ALTER TABLE __SCHEMA__.phoenix_kit_api_oauth_grants ADD COLUMN IF NOT EXISTS \"redirect_uri\" text",
+        since: 234,
+        class: :column,
+        presence: :required,
+        revisions: [{234, %{default: nil, type: "text", pos: 15, not_null: false}}],
+        backfill: nil
+      },
+      %{
+        id: "column:phoenix_kit_api_oauth_requests.network_hash",
+        owner: :core,
+        check:
+          {:catalog,
+           %{
+             table: "phoenix_kit_api_oauth_requests",
+             column: "network_hash",
+             kind: :column
+           }},
+        create:
+          "ALTER TABLE __SCHEMA__.phoenix_kit_api_oauth_requests ADD COLUMN IF NOT EXISTS \"network_hash\" bytea",
+        since: 234,
+        class: :column,
+        presence: :required,
+        revisions: [{234, %{default: nil, type: "bytea", pos: 13, not_null: false}}],
+        backfill: nil
+      },
+      %{
+        id: "index:phoenix_kit_api_oauth_codes_expires_at_index",
+        owner: :core,
+        check:
+          {:catalog,
+           %{
+             name: "phoenix_kit_api_oauth_codes_expires_at_index",
+             table: "phoenix_kit_api_oauth_codes",
+             kind: :index
+           }},
+        create:
+          "CREATE INDEX IF NOT EXISTS phoenix_kit_api_oauth_codes_expires_at_index ON __SCHEMA__.phoenix_kit_api_oauth_codes USING btree (expires_at)",
+        since: 234,
+        class: :index,
+        presence: :required,
+        revisions: [
+          {234,
+           %{
+             table: "phoenix_kit_api_oauth_codes",
+             keys: ["expires_at"],
+             unique: false,
+             method: "btree",
+             definition:
+               "CREATE INDEX phoenix_kit_api_oauth_codes_expires_at_index ON __SCHEMA__.phoenix_kit_api_oauth_codes USING btree (expires_at)",
+             predicate: nil,
+             opclasses: ["timestamp_ops"],
+             name_template: nil
+           }}
+        ],
+        backfill: nil
+      },
+      %{
+        id: "index:phoenix_kit_api_oauth_requests_network_hash_index",
+        owner: :core,
+        check:
+          {:catalog,
+           %{
+             name: "phoenix_kit_api_oauth_requests_network_hash_index",
+             table: "phoenix_kit_api_oauth_requests",
+             kind: :index
+           }},
+        create:
+          "CREATE INDEX IF NOT EXISTS phoenix_kit_api_oauth_requests_network_hash_index ON __SCHEMA__.phoenix_kit_api_oauth_requests USING btree (network_hash)",
+        since: 234,
+        class: :index,
+        presence: :required,
+        revisions: [
+          {234,
+           %{
+             table: "phoenix_kit_api_oauth_requests",
+             keys: ["network_hash"],
+             unique: false,
+             method: "btree",
+             definition:
+               "CREATE INDEX phoenix_kit_api_oauth_requests_network_hash_index ON __SCHEMA__.phoenix_kit_api_oauth_requests USING btree (network_hash)",
+             predicate: nil,
+             opclasses: ["bytea_ops"],
+             name_template: nil
+           }}
+        ],
+        backfill: nil
+      },
+      %{
+        id: "index:phoenix_kit_api_oauth_tokens_expires_at_index",
+        owner: :core,
+        check:
+          {:catalog,
+           %{
+             name: "phoenix_kit_api_oauth_tokens_expires_at_index",
+             table: "phoenix_kit_api_oauth_tokens",
+             kind: :index
+           }},
+        create:
+          "CREATE INDEX IF NOT EXISTS phoenix_kit_api_oauth_tokens_expires_at_index ON __SCHEMA__.phoenix_kit_api_oauth_tokens USING btree (expires_at)",
+        since: 234,
+        class: :index,
+        presence: :required,
+        revisions: [
+          {234,
+           %{
+             table: "phoenix_kit_api_oauth_tokens",
+             keys: ["expires_at"],
+             unique: false,
+             method: "btree",
+             definition:
+               "CREATE INDEX phoenix_kit_api_oauth_tokens_expires_at_index ON __SCHEMA__.phoenix_kit_api_oauth_tokens USING btree (expires_at)",
+             predicate: nil,
+             opclasses: ["timestamp_ops"],
+             name_template: nil
+           }}
+        ],
+        backfill: nil
       }
     ]
   end

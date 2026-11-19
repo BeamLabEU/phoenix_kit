@@ -37,7 +37,6 @@ defmodule PhoenixKitWeb.Live.Components.PendingApprovals do
   alias PhoenixKit.API.ModuleLabel
   alias PhoenixKit.API.OAuth.Connections
   alias PhoenixKit.API.OAuth.Grants
-  alias PhoenixKit.API.OAuth.RedirectUri
   alias PhoenixKit.API.OAuth.Scopes
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.Auth.User
@@ -274,10 +273,6 @@ defmodule PhoenixKitWeb.Live.Components.PendingApprovals do
   # The address a person is reached at: a managed organization's `email` is a placeholder.
   defp owner_address(owner), do: User.delivery_email(owner) || ""
 
-  defp redirect_hosts(client) do
-    client.redirect_uris |> Enum.map(&RedirectUri.host/1) |> Enum.reject(&is_nil/1) |> Enum.uniq()
-  end
-
   # An application that names itself by a metadata document lives at the host of that address.
   defp described_at(%{kind: "cimd", client_id: client_id}) when is_binary(client_id) do
     case URI.parse(client_id) do
@@ -377,7 +372,7 @@ defmodule PhoenixKitWeb.Live.Components.PendingApprovals do
                       id={"#{@id}-hosts-#{row.grant.uuid}"}
                       class="font-mono text-xs text-base-content/60 break-all"
                     >
-                      {Enum.join(redirect_hosts(row.client), ", ")}
+                      {Enum.join(Grants.redirect_hosts(row.grant, row.client), ", ")}
                     </div>
                   </.table_default_cell>
                   <.table_default_cell class="text-sm break-all">

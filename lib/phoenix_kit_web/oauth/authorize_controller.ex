@@ -106,7 +106,8 @@ defmodule PhoenixKitWeb.OAuth.AuthorizeController do
       code_challenge: request.code_challenge,
       resource: request.resource,
       state: request.state,
-      requested_scopes: request.scopes
+      requested_scopes: request.scopes,
+      ip: IpAddress.client_address(conn)
     }
 
     case Requests.create(request.client, attrs) do
