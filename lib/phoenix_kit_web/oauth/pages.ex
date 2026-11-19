@@ -27,6 +27,7 @@ defmodule PhoenixKitWeb.OAuth.Pages do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias Phoenix.HTML.Safe
+  alias PhoenixKit.API.OAuth.Grants
 
   @max_name 80
 
@@ -140,7 +141,9 @@ defmodule PhoenixKitWeb.OAuth.Pages do
   with the port when it is not the scheme's own), `redirect_path` (shown under it: on a host that
   serves pages of many people the path says whose),
   `loopback?`, `unverified?` (the client named itself: a notice that the name is not checked),
-  `client_address` (the host of its metadata document, or `nil`), `email`, `sections` (the rights
+  `client_address` (the host of its metadata document, or `nil`), `needs_approval?` (the
+  application is not on the list of trusted ones: the connection will wait for an owner's
+  approval, and the screen says so), `email`, `sections` (the rights
   by module: `key`, `label`, `reads` and `writes`, lists of
   `PhoenixKit.API.OAuth.Scopes.describe/1` entries), `preselected`,
   `days` (`{default, choices}`), `error` (`nil` or `:no_scopes`).
@@ -158,6 +161,11 @@ defmodule PhoenixKitWeb.OAuth.Pages do
       <p :if={@unverified?} class="muted" id="consent-unverified">
         {gettext(
           "Anyone can publish a description of an application under any name, and the name above has not been checked. Allow access only if you started this connection from that application."
+        )}
+      </p>
+      <p :if={@needs_approval?} class="warn" id="consent-needs-approval">
+        {gettext(
+          "This application is not on the list of trusted applications. After you allow access, the connection will not work until the owner of the system approves it (Settings, API)."
         )}
       </p>
       <p :if={@client_address} class="muted" id="consent-client-address">
@@ -240,7 +248,7 @@ defmodule PhoenixKitWeb.OAuth.Pages do
   @doc """
   The page of a person at the ceiling of connections. Assigns: `csrf_token`, `action` (the revoke
   endpoint), `back` (the consent page), `grants` (the live grants, least used first, with their
-  `client` loaded).
+  `client` loaded; one that still waits for an owner's approval is marked).
   """
   @spec limit(map()) :: iodata()
   def limit(assigns) do
@@ -270,6 +278,9 @@ defmodule PhoenixKitWeb.OAuth.Pages do
                 grant.client && grant.client.client_name,
                 grant.client && grant.client.client_id
               )}
+              <small :if={Grants.awaiting?(grant)} class="muted" id={"grant-waiting-#{grant.uuid}"}>
+                <br />{gettext("Waiting for approval")}
+              </small>
             </td>
             <td>{Calendar.strftime(grant.inserted_at, "%Y-%m-%d")}</td>
             <td>
@@ -423,6 +434,7 @@ defmodule PhoenixKitWeb.OAuth.Pages do
     |> Map.put_new(:languages, [])
     |> Map.put_new(:unverified?, false)
     |> Map.put_new(:client_address, nil)
+    |> Map.put_new(:needs_approval?, false)
     |> Map.put_new(:__changed__, nil)
   end
 

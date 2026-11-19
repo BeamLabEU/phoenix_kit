@@ -57,12 +57,25 @@ defmodule PhoenixKit.API.OAuth.ClientPolicyUnreadableTest do
   end
 
   @tag capture_log: true
-  test "a policy that is not set at all stays the default policy" do
+  test "a policy that is not set at all is the default policy, approval" do
     Process.put({:read, "api_oauth_client_policy"}, :missing)
 
-    assert Config.oauth_client_policy() == :any
-    assert ClientPolicy.allowed?("cimd", @claude_id, @claude_uris)
-    assert ClientPolicy.allowed?("dcr", "dcr_x", @claude_uris)
+    assert Config.oauth_client_policy() == :approval
+  end
+
+  @tag capture_log: true
+  test "an allow-list that cannot be read refuses under the approval policy too" do
+    Process.put({:read, "api_oauth_client_policy"}, :missing)
+
+    assert ClientPolicy.judge("cimd", @claude_id, @claude_uris) == :refused
+    refute ClientPolicy.allowed?("dcr", "dcr_x", @claude_uris)
+  end
+
+  @tag capture_log: true
+  test "a policy saved as an empty text is the default policy too" do
+    PhoenixKit.Cache.put(:settings, "api_oauth_client_policy", "")
+
+    assert Config.oauth_client_policy() == :approval
   end
 
   @tag capture_log: true

@@ -42,6 +42,10 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
   the install has that language enabled. A `lang` the person chose on the switcher rides the form
   actions and links of the page, so the language survives the answer.
 
+  An application that is not on the list of trusted ones (`PhoenixKit.API.OAuth.ClientPolicy`
+  under the policy `approval`) gets the screen with a paragraph that says its connection will not
+  work until the owner of the system approves it.
+
   A person at the ceiling of connections is not served: the page lists their grants and the
   request stays unused while they disconnect one.
   """
@@ -266,6 +270,7 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
           redirect_path: address.path,
           loopback?: RedirectUri.loopback?(request.redirect_uri),
           unverified?: snapshot["kind"] != "preregistered",
+          needs_approval?: Consent.judge(request) == :needs_approval,
           client_address: client_address(snapshot),
           email: user.email,
           sections: sections(Scopes.describe(selectable)),

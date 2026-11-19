@@ -25,6 +25,19 @@ defmodule PhoenixKit.API.OAuth.Grants do
 
   The refresh and the verification of a token re-read the grant, so a token inserted after the
   revoking statement is dead the moment it is used.
+
+  ## Waiting for approval
+
+  A grant works only once it is approved: `approved_at` is `nil` while it waits
+  (`awaiting?/1`). `create/4` does not read the client policy itself; the caller says whether the
+  grant is born approved (a trusted client) or waiting (`approved?: true | false` in `attrs`, no
+  default: a caller that forgot to decide gets `{:error, :approval_undecided}`, never a working
+  grant).
+
+  `approve/3` is the owner's decision that lets a waiting grant work: one atomic update, so a
+  grant that was ended, expired or approved a moment ago is never approved by a late click.
+  A grant that is not approved within `approval_days/0` days is ended by
+  `PhoenixKit.API.OAuth.Prune` (reason `approval_timeout`).
   """
 
   import Ecto.Query, only: [from: 2]
@@ -35,8 +48,10 @@ defmodule PhoenixKit.API.OAuth.Grants do
   alias PhoenixKit.API.Keys.Cache
   alias PhoenixKit.API.Keys.Key
   alias PhoenixKit.API.OAuth.Client
+  alias PhoenixKit.API.OAuth.Connections
   alias PhoenixKit.API.OAuth.Grant
   alias PhoenixKit.API.OAuth.Input
+  alias PhoenixKit.API.OAuth.RedirectUri
   alias PhoenixKit.API.OAuth.Resource
   alias PhoenixKit.API.OAuth.Token
   alias PhoenixKit.RepoHelper
@@ -45,11 +60,13 @@ defmodule PhoenixKit.API.OAuth.Grants do
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
   @default_reason "grant_revoked"
+  @approval_days 7
 
   @doc """
   Makes a grant of `client` for the person behind `scope`, and its hidden key.
 
-  `attrs` takes `scopes` (a list of scope names), `client_name` (the name the hidden key gets; the
+  `attrs` takes `approved?` (**required**, `true` or `false`: whether the grant works at once or
+  waits for an owner's approval), `scopes` (a list of scope names), `client_name` (the name the hidden key gets; the
   client's own name by default; text the table cannot hold - a NUL byte, bytes that are not
   UTF-8 - is refused as `:invalid_client_name`), `expires_at` (required; at most
   `PhoenixKit.API.PersonalKeysConfig.latest_expiry/0`), `resource` (default
@@ -61,7 +78,8 @@ defmodule PhoenixKit.API.OAuth.Grants do
   advisory lock (the one the personal keys use), so two consents that run together cannot both
   pass it. A person at the ceiling gets `{:error, :grant_limit}` and nothing is created.
 
-  Returns `{:ok, grant, key}`, or the key's refusal (`:forbidden`, `:impersonated`,
+  Returns `{:ok, grant, key}`, or `{:error, :approval_undecided}` when `approved?` is missing or
+  not a boolean, or the key's refusal (`:forbidden`, `:impersonated`,
   `:invalid_scopes`, `:invalid_client_name`, `:owner_inactive`, a changeset, ...), or `:client_gone` when the client was
   deleted in the meantime (nothing is created).
   """
@@ -71,12 +89,21 @@ defmodule PhoenixKit.API.OAuth.Grants do
       when is_map(attrs) and is_list(opts) do
     client_name = Map.get(attrs, :client_name) || client.client_name || client.client_id
 
-    if Input.valid?(client_name),
-      do: create_valid(scope, client, attrs, client_name, opts),
-      else: {:error, :invalid_client_name}
+    with {:ok, approved?} <- decision(attrs) do
+      if Input.valid?(client_name),
+        do: create_valid(scope, client, Map.put(attrs, :approved?, approved?), client_name, opts),
+        else: {:error, :invalid_client_name}
+    end
   end
 
   def create(_scope, _client, _attrs, opts) when is_list(opts), do: {:error, :forbidden}
+
+  defp decision(attrs) do
+    case Map.fetch(attrs, :approved?) do
+      {:ok, approved?} when is_boolean(approved?) -> {:ok, approved?}
+      _missing_or_not_a_boolean -> {:error, :approval_undecided}
+    end
+  end
 
   defp create_valid(
          %Scope{user: %User{uuid: user_uuid}} = scope,
@@ -108,6 +135,7 @@ defmodule PhoenixKit.API.OAuth.Grants do
                resource: Map.get(attrs, :resource) || Resource.resource(),
                scopes: key.scopes,
                expires_at: key.expires_at,
+               approved_at: if(attrs.approved?, do: now()),
                created_ip: attrs |> Map.get(:created_ip) |> ip_column()
              }) do
         {grant, key}
@@ -270,6 +298,131 @@ defmodule PhoenixKit.API.OAuth.Grants do
       end
     end)
   end
+
+  @doc """
+  Whether the grant waits for approval: it has no `approved_at`. A missing grant (a key whose
+  grant cannot be found) and anything that is not a grant wait too: no decision is never
+  "working".
+  """
+  @spec awaiting?(Grant.t() | nil) :: boolean()
+  def awaiting?(%Grant{approved_at: %DateTime{}}), do: false
+  def awaiting?(_no_approval), do: true
+
+  @doc "How many days a connection may wait for its approval before it is ended."
+  @spec approval_days() :: pos_integer()
+  def approval_days, do: @approval_days
+
+  @doc """
+  The grants an owner may decide on now, as a query with the grant as its named binding `:grant`:
+  activated (the code was exchanged), not approved, not revoked, not expired and made at most
+  `approval_days/0` days ago. `approve/3`, the list of the waiting connections
+  (`PhoenixKit.API.OAuth.Connections.list_pending/1`) and the count of the status report all
+  mean exactly this.
+  """
+  @spec pending_query() :: Ecto.Query.t()
+  def pending_query do
+    now = now()
+
+    from(g in Grant,
+      as: :grant,
+      where: is_nil(g.approved_at) and not is_nil(g.activated_at) and is_nil(g.revoked_at),
+      where: g.expires_at > ^now and g.inserted_at > ^window_start(now)
+    )
+  end
+
+  @doc "How many connections wait for an owner's decision (`pending_query/0`)."
+  @spec count_pending() :: non_neg_integer()
+  def count_pending, do: pending_query() |> repo().aggregate(:count)
+
+  @doc """
+  Approves the waiting grant `grant_uuid` as the person behind `scope`, who must be an Owner who
+  holds `api` (the rights of the scope are the caller's to read fresh: a page hands in
+  `PhoenixKit.API.Access.fresh_scope/1`, which carries no mark of a borrowed session). `opts`
+  must say `impersonated: true | false` (no default), what the page reads from the session
+  (`PhoenixKitWeb.Users.MultiSession.impersonated?/1`): a missing or non-boolean value is
+  `{:error, :impersonation_unknown}` and `true` is `{:error, :impersonated}`, before anything
+  else is looked at, as for `PhoenixKit.API.Keys.create_key/4`. One `UPDATE` with every
+  condition of `pending_query/0`, so it locks only that grant's row and a grant ended or
+  approved meanwhile is not touched. Writes `oauth.grant_approved` (who, the client, the hosts
+  of its redirect addresses, whose grant; no token).
+
+  Returns `{:ok, grant}`, `{:error, :forbidden}` (not an Owner with `api`),
+  `{:error, :not_found}` (not a uuid) or `{:error, :not_pending}` (unknown, someone's that is not
+  waiting any more, not activated, ended, expired, or older than `approval_days/0` days).
+  """
+  @spec approve(Scope.t() | nil, term(), keyword()) ::
+          {:ok, Grant.t()}
+          | {:error,
+             :forbidden | :not_found | :not_pending | :impersonated | :impersonation_unknown}
+  def approve(scope, grant_uuid, opts) do
+    with :ok <- check_not_impersonated(opts) do
+      cond do
+        not Connections.owner?(scope) ->
+          {:error, :forbidden}
+
+        not (is_binary(grant_uuid) and UUIDUtils.valid?(grant_uuid)) ->
+          {:error, :not_found}
+
+        true ->
+          approve_pending(scope, grant_uuid)
+      end
+    end
+  end
+
+  @doc false
+  # The refusal of a decision made in a borrowed session, shared with
+  # `PhoenixKit.API.OAuth.Connections.reject/3`: the option is required, `true` and a missing or
+  # non-boolean value are both refused.
+  @spec check_not_impersonated(term()) :: :ok | {:error, :impersonated | :impersonation_unknown}
+  def check_not_impersonated(opts) when is_list(opts) do
+    case List.keyfind(opts, :impersonated, 0) do
+      {:impersonated, false} -> :ok
+      {:impersonated, true} -> {:error, :impersonated}
+      _missing_or_not_boolean -> {:error, :impersonation_unknown}
+    end
+  end
+
+  def check_not_impersonated(_opts), do: {:error, :impersonation_unknown}
+
+  defp approve_pending(scope, grant_uuid) do
+    query = from([grant: g] in pending_query(), where: g.uuid == ^grant_uuid, select: g)
+
+    case repo().update_all(query, set: [approved_at: now()]) do
+      {1, [%Grant{} = grant]} ->
+        log_approved(grant, Scope.user_uuid(scope))
+        {:ok, grant}
+
+      {0, _none} ->
+        {:error, :not_pending}
+    end
+  end
+
+  # Hosts, not addresses: the redirect URI of a client is never written to the feed.
+  defp log_approved(%Grant{} = grant, actor_uuid) do
+    Activity.log("api", "oauth.grant_approved",
+      actor_uuid: actor_uuid,
+      resource_type: "oauth_grant",
+      resource_uuid: grant.uuid,
+      permanent: true,
+      metadata: %{
+        "client_uuid" => grant.client_uuid,
+        "owner_uuid" => grant.user_uuid,
+        "hosts" => client_hosts(grant.client_uuid)
+      }
+    )
+  end
+
+  defp client_hosts(client_uuid) do
+    case repo().get(Client, client_uuid) do
+      %Client{redirect_uris: uris} ->
+        uris |> Enum.map(&RedirectUri.host/1) |> Enum.reject(&is_nil/1) |> Enum.uniq()
+
+      nil ->
+        []
+    end
+  end
+
+  defp window_start(now), do: DateTime.add(now, -@approval_days * 86_400, :second)
 
   @doc """
   Whether the grant can still be used: not revoked and not expired, and for this install's
@@ -441,6 +594,8 @@ defmodule PhoenixKit.API.OAuth.Grants do
 
   defp truncate(%DateTime{} = at), do: DateTime.truncate(at, :second)
   defp truncate(other), do: other
+
+  defp now, do: DateTime.truncate(DateTime.utc_now(), :second)
 
   defp repo, do: RepoHelper.repo()
 end

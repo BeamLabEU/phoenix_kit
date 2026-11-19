@@ -61,7 +61,13 @@ defmodule PhoenixKit.API.OAuth.ClientsAdminTest do
     test "counts a consent just approved whose code is not yet exchanged, as the removal does",
          ctx do
       client = client!()
-      attrs = %{scopes: [read_scope()], expires_at: DateTime.add(DateTime.utc_now(), 86_400)}
+
+      attrs = %{
+        scopes: [read_scope()],
+        expires_at: DateTime.add(DateTime.utc_now(), 86_400),
+        approved?: true
+      }
+
       {:ok, grant, _key} = Grants.create(ctx.scope, client, attrs, impersonated: false)
       {:ok, _code, row} = Codes.issue(grant, %{redirect_uri: "https://x/cb", code_challenge: "c"})
 
@@ -176,7 +182,13 @@ defmodule PhoenixKit.API.OAuth.ClientsAdminTest do
     test "only_idle: a consent just approved, its code not yet exchanged, is a live connection",
          ctx do
       client = client!()
-      attrs = %{scopes: [read_scope()], expires_at: DateTime.add(DateTime.utc_now(), 86_400)}
+
+      attrs = %{
+        scopes: [read_scope()],
+        expires_at: DateTime.add(DateTime.utc_now(), 86_400),
+        approved?: true
+      }
+
       {:ok, grant, key} = Grants.create(ctx.scope, client, attrs, impersonated: false)
 
       {:ok, _code, _row} =
@@ -193,7 +205,13 @@ defmodule PhoenixKit.API.OAuth.ClientsAdminTest do
 
     test "only_idle: a consent whose code ran out is not a connection", ctx do
       client = client!()
-      attrs = %{scopes: [read_scope()], expires_at: DateTime.add(DateTime.utc_now(), 86_400)}
+
+      attrs = %{
+        scopes: [read_scope()],
+        expires_at: DateTime.add(DateTime.utc_now(), 86_400),
+        approved?: true
+      }
+
       {:ok, grant, _key} = Grants.create(ctx.scope, client, attrs, impersonated: false)
       {:ok, _code, row} = Codes.issue(grant, %{redirect_uri: "https://x/cb", code_challenge: "c"})
 

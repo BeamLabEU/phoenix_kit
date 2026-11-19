@@ -1,15 +1,16 @@
 defmodule PhoenixKitWeb.Live.Settings.ApiOauthTranslationsTest do
   @moduledoc """
-  Every string of the "Connected apps" card and of the OAuth tab of Settings -> API is in the
-  sources and has a translation in every shipped locale. Nothing checks the catalogues
-  automatically and a missing entry only shows as English text in the browser, so this test reads
-  the `gettext/1` calls of the two sources and looks each msgid up in the `.pot` and in the nine
+  Every string of the "Connected apps" card, of the "Waiting for approval" block and of the OAuth
+  tab of Settings -> API is in the sources and has a translation in every shipped locale. Nothing
+  checks the catalogues automatically and a missing entry only shows as English text in the
+  browser, so this test reads the `gettext/1` calls of the three sources and looks each msgid up in the `.pot` and in the nine
   translated `.po` files. `en` is the source language and keeps empty msgstr values.
   """
   use ExUnit.Case, async: true
 
   @sources ~w(
     lib/phoenix_kit_web/live/components/connected_apps.ex
+    lib/phoenix_kit_web/live/components/pending_approvals.ex
     lib/phoenix_kit_web/live/settings/api_oauth_panel.ex
   )
   @locales ~w(de es et fr it pl ru uk zh)

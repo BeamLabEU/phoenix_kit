@@ -35,7 +35,7 @@ defmodule PhoenixKit.API.OAuthConfigTest do
       assert current["cimd_concurrency"] == "4"
       assert current["register_per_hour"] == "10"
       assert current["register_per_day"] == "200"
-      assert current["client_policy"] == "any"
+      assert current["client_policy"] == "approval"
       assert current["allow_hosts"] == ""
     end
 
@@ -95,8 +95,11 @@ defmodule PhoenixKit.API.OAuthConfigTest do
       assert "token_per_min" in fields
     end
 
-    test "the policy is one of the two values" do
-      assert {:ok, _} = OAuthConfig.validate(params(%{"client_policy" => "allow_list"}))
+    test "the policy is one of the three values" do
+      for policy <- ["approval", "any", "allow_list"] do
+        assert {:ok, pairs} = OAuthConfig.validate(params(%{"client_policy" => policy}))
+        assert {"api_oauth_client_policy", policy} in pairs
+      end
 
       assert {:error, ["client_policy"]} =
                OAuthConfig.validate(params(%{"client_policy" => "none"}))
@@ -145,6 +148,19 @@ defmodule PhoenixKit.API.OAuthConfigTest do
       assert Config.oauth_client_policy() == :allow_list
       assert length(activity("api_oauth_access_ttl_seconds")) == before_ttl + 1
       assert length(activity("api_oauth_token_per_min")) == before_token
+    end
+
+    test "the policy `approval` is saved and read back, and leaving it is saved too" do
+      assert {:ok, ["api_oauth_client_policy"]} =
+               OAuthConfig.save(params(%{"client_policy" => "any"}), [])
+
+      assert Config.oauth_client_policy() == :any
+
+      assert {:ok, ["api_oauth_client_policy"]} =
+               OAuthConfig.save(params(%{"client_policy" => "approval"}), [])
+
+      assert Config.oauth_client_policy() == :approval
+      assert OAuthConfig.current()["client_policy"] == "approval"
     end
 
     test "saves the allowed hosts as the normalized list" do

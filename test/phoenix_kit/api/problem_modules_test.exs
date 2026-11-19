@@ -120,8 +120,13 @@ defmodule PhoenixKit.API.ProblemModulesTest do
 
         assert "pm_over_quota" in codes
 
-        assert codes ==
-                 Problem.statuses() |> Map.keys() |> Enum.map(&Atom.to_string/1) |> Enum.sort()
+        all = Problem.statuses() |> Map.keys() |> Enum.map(&Atom.to_string/1) |> Enum.sort()
+
+        # The document served without a key leaves out the one code only an admin key meets.
+        assert codes == all -- ["approval_pending"]
+
+        admin = OpenAPI.build([], :admin, server_url: "https://example.test", title: "Test")
+        assert admin["components"]["schemas"]["Problem"]["properties"]["code"]["enum"] == all
       end)
     end
 

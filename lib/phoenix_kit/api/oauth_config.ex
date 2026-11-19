@@ -17,7 +17,7 @@ defmodule PhoenixKit.API.OAuthConfig do
   | `api_oauth_cimd_concurrency` | `4` | 1 to 64 |
   | `api_oauth_register_per_hour` | `10` | 1 to 10000 |
   | `api_oauth_register_per_day` | `200` | 1 to 100000 |
-  | `api_oauth_client_policy` | `any` | `any` or `allow_list` |
+  | `api_oauth_client_policy` | `approval` | `approval`, `any` or `allow_list` |
   | `api_oauth_client_allow_hosts` | empty | up to 100 host names, one per line |
 
   The life of a **connection** is not here: the person chooses it on the consent screen, up to the
@@ -35,7 +35,9 @@ defmodule PhoenixKit.API.OAuthConfig do
 
   The allowed hosts are plain host names (`claude.ai`, an IP literal, `[::1]`): lower-cased,
   trimmed, without duplicates. They apply to clients that name or register themselves, never to
-  one an administrator added by hand (`PhoenixKit.API.OAuth.ClientPolicy`).
+  one an administrator added by hand (`PhoenixKit.API.OAuth.ClientPolicy`). Under `approval` the
+  listed clients connect at once and every other one waits for an owner's approval; under
+  `allow_list` the others are refused; under `any` the list is not read.
   """
 
   alias PhoenixKit.API.Config
@@ -137,6 +139,7 @@ defmodule PhoenixKit.API.OAuthConfig do
     })
   end
 
+  defp policy_text(:approval), do: "approval"
   defp policy_text(:any), do: "any"
   defp policy_text(:allow_list), do: "allow_list"
 
@@ -210,7 +213,7 @@ defmodule PhoenixKit.API.OAuthConfig do
 
   defp number(_value, _min, _max), do: :error
 
-  defp policy(value) when value in ["any", "allow_list"], do: {:ok, value}
+  defp policy(value) when value in ["approval", "any", "allow_list"], do: {:ok, value}
   defp policy(_value), do: :error
 
   defp hosts(value) when is_binary(value) do

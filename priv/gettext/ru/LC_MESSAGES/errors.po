@@ -222,3 +222,8 @@ msgstr "Этот почтовый домен не может принимать 
 #, elixir-autogen, elixir-format
 msgid "Too many registration attempts. Please try again later."
 msgstr "Слишком много попыток регистрации. Повторите попытку позже."
+
+#: lib/phoenix_kit/users/auth.ex:2171
+#, elixir-autogen, elixir-format
+msgid "The API keys and connections of this account could not be ended, so the password was not changed. Please try again."
+msgstr "Не удалось завершить API-ключи и подключения этой учётной записи, поэтому пароль не изменён. Повторите попытку."

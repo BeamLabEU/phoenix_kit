@@ -203,3 +203,8 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "Too many registration attempts. Please try again later."
 msgstr ""
+
+#: lib/phoenix_kit/users/auth.ex:2171
+#, elixir-autogen, elixir-format
+msgid "The API keys and connections of this account could not be ended, so the password was not changed. Please try again."
+msgstr ""

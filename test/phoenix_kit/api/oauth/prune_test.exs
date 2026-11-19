@@ -58,7 +58,7 @@ defmodule PhoenixKit.API.OAuth.PruneTest do
 
   defp unfinished_grant!(scope, code_expired_ago) do
     client = client!()
-    attrs = %{scopes: [read_scope()], expires_at: ahead(86_400)}
+    attrs = %{scopes: [read_scope()], expires_at: ahead(86_400), approved?: true}
     {:ok, grant, key} = Grants.create(scope, client, attrs, impersonated: false)
     age(grant, 7200)
     code = insert_code!(grant, ago(code_expired_ago))
@@ -96,7 +96,7 @@ defmodule PhoenixKit.API.OAuth.PruneTest do
 
     test "a grant made a minute ago stays whatever its codes say", %{scope: scope} do
       client = client!()
-      attrs = %{scopes: [read_scope()], expires_at: ahead(86_400)}
+      attrs = %{scopes: [read_scope()], expires_at: ahead(86_400), approved?: true}
       {:ok, grant, _key} = Grants.create(scope, client, attrs, impersonated: false)
 
       assert %{grants: 0} = Prune.run()
@@ -489,7 +489,7 @@ defmodule PhoenixKit.API.OAuth.PruneTest do
       insert_request!(waiting, ahead(300))
 
       with_grant = dcr_client!(90_000)
-      attrs = %{scopes: [read_scope()], expires_at: ahead(86_400)}
+      attrs = %{scopes: [read_scope()], expires_at: ahead(86_400), approved?: true}
       {:ok, _grant, _key} = Grants.create(scope, with_grant, attrs, impersonated: false)
 
       assert %{clients: 0} = Prune.run()
@@ -527,7 +527,7 @@ defmodule PhoenixKit.API.OAuth.PruneTest do
       insert_request!(waiting, ahead(300))
 
       with_grant = cimd_client!(90_000)
-      attrs = %{scopes: [read_scope()], expires_at: ahead(86_400)}
+      attrs = %{scopes: [read_scope()], expires_at: ahead(86_400), approved?: true}
       {:ok, _grant, _key} = Grants.create(scope, with_grant, attrs, impersonated: false)
 
       assert %{clients: 0} = Prune.run()
@@ -548,7 +548,7 @@ defmodule PhoenixKit.API.OAuth.PruneTest do
 
     test "a client freed by an abandoned consent goes in the same run", %{scope: scope} do
       client = dcr_client!(90_000)
-      attrs = %{scopes: [read_scope()], expires_at: ahead(86_400)}
+      attrs = %{scopes: [read_scope()], expires_at: ahead(86_400), approved?: true}
       {:ok, grant, _key} = Grants.create(scope, client, attrs, impersonated: false)
       age(grant, 7200)
       insert_code!(grant, ago(3700))

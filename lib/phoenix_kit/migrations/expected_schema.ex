@@ -202,6 +202,11 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   # access to; the real-database integration suite re-ran clean against a DB
   # migrated through V196, which is the property s7/s8 exist to prove.
   #
+  # V234 (2026-11-17, approval of an OAuth connection) adds a generated overlay, `ExpectedSchema.V234`
+  # (dev_docs/squash/generate_v234_manifest.exs: the catalog diff V233 -> V234 in a scratch
+  # schema), merged after `V233`: the nullable `approved_at` column of `phoenix_kit_api_oauth_grants`.
+  # No seed rows. Kept honest by `PhoenixKit.Migrations.Postgres.V234Test`. `chain_hash` restamped.
+  #
   # V233 (2026-11-16, OAuth for the MCP endpoint) adds a generated overlay, `ExpectedSchema.V233`
   # (dev_docs/squash/generate_v233_manifest.exs: the catalog diff V232 -> V233 in a scratch
   # schema), merged after `V232`: the five new `phoenix_kit_api_oauth_*` tables (clients,
@@ -711,12 +716,13 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   alias PhoenixKit.Migrations.ExpectedSchema.V231
   alias PhoenixKit.Migrations.ExpectedSchema.V232
   alias PhoenixKit.Migrations.ExpectedSchema.V233
+  alias PhoenixKit.Migrations.ExpectedSchema.V234
   alias PhoenixKit.Migrations.Postgres.Helpers
 
   @schema_token "__SCHEMA__"
   @name_marker_exempt "__PK_NAME_EXEMPT__"
   @name_marker_always "__PK_NAME_ALWAYS__"
-  @chain_hash "2250370a7aea843a11ca81d7ba089dc33df61d4c4a20555e447fcf1f7924971a"
+  @chain_hash "cea58ab557775236b65b23d4cc7392226da0b1581dd9dd8ae2e88c62246062ac"
 
   def objects(prefix) do
     prefix = normalize_prefix!(prefix)
@@ -730,6 +736,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
     |> V231.merge()
     |> V232.merge()
     |> V233.merge()
+    |> V234.merge()
     |> Enum.reject(&module_owned_object?/1)
     |> Enum.map(&materialize_object(&1, prefix))
   end
@@ -793,6 +800,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
       |> V231.merge()
       |> V232.merge()
       |> V233.merge()
+      |> V234.merge()
 
     for %{class: :table, check: {:catalog, %{name: name}}} <- objects,
         into: MapSet.new(),

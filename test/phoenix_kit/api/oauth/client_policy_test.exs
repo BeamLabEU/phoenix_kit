@@ -1,13 +1,16 @@
 defmodule PhoenixKit.API.OAuth.ClientPolicyTest do
   @moduledoc """
-  Which clients may use the server: any https client (the default) or only the hosts of an
-  allow-list.
+  Which clients may use the server and how they are judged: any https client (`any`), only the
+  hosts of an allow-list (`allow_list`), or the listed hosts at once and every other client after
+  an owner's approval (`approval`, the default).
   """
   use PhoenixKit.DataCase, async: false
 
   import PhoenixKit.Test.ApiHarness, only: [put_setting: 2, setup_api: 0]
 
+  alias PhoenixKit.API.Config
   alias PhoenixKit.API.OAuth.ClientPolicy
+  alias PhoenixKit.Settings
 
   @claude_id "https://claude.ai/oauth/mcp-oauth-client-metadata"
   @claude_uris ["https://claude.ai/api/mcp/auth_callback"]
@@ -16,11 +19,84 @@ defmodule PhoenixKit.API.OAuth.ClientPolicyTest do
     setup_api()
   end
 
-  describe "the default policy" do
+  describe "the policy `any`" do
+    setup do
+      put_setting("api_oauth_client_policy", "any")
+    end
+
     test "any https client is allowed" do
       assert ClientPolicy.allowed?("cimd", @claude_id, @claude_uris)
       assert ClientPolicy.allowed?("dcr", "dcr_x", ["https://anything.example/cb"])
       assert ClientPolicy.allowed?("dcr", "dcr_x", ["http://127.0.0.1:8080/cb"])
+    end
+
+    test "every client is trusted, listed or not" do
+      assert ClientPolicy.judge("cimd", @claude_id, @claude_uris) == :trusted
+      assert ClientPolicy.judge("dcr", "dcr_x", ["https://anything.example/cb"]) == :trusted
+
+      put_setting("api_oauth_client_allow_hosts", "chatgpt.com")
+      assert ClientPolicy.judge("dcr", "dcr_x", ["https://anything.example/cb"]) == :trusted
+    end
+  end
+
+  describe "the default policy" do
+    @describetag :capture_log
+
+    test "a setting that is not there is `approval`" do
+      {:ok, _} = Settings.delete_setting("api_oauth_client_policy")
+      assert Config.oauth_client_policy() == :approval
+    end
+
+    test "an empty list under it asks for approval for every client" do
+      {:ok, _} = Settings.delete_setting("api_oauth_client_policy")
+
+      assert ClientPolicy.judge("cimd", @claude_id, @claude_uris) == :needs_approval
+
+      assert ClientPolicy.judge("dcr", "dcr_x", ["https://anything.example/cb"]) ==
+               :needs_approval
+
+      assert ClientPolicy.allowed?("cimd", @claude_id, @claude_uris)
+    end
+  end
+
+  describe "the policy `approval`" do
+    setup do
+      put_setting("api_oauth_client_policy", "approval")
+      put_setting("api_oauth_client_allow_hosts", "claude.ai\nchatgpt.com")
+    end
+
+    test "a client whose every host is listed is trusted" do
+      assert ClientPolicy.judge("cimd", @claude_id, @claude_uris) == :trusted
+      assert ClientPolicy.judge("dcr", "dcr_x", @claude_uris) == :trusted
+    end
+
+    test "a client with a host outside the list waits for approval, and is still allowed in" do
+      uris = ["https://elsewhere.example/cb"]
+
+      assert ClientPolicy.judge("cimd", @claude_id, uris) == :needs_approval
+
+      assert ClientPolicy.judge("cimd", "https://elsewhere.example/c.json", @claude_uris) ==
+               :needs_approval
+
+      assert ClientPolicy.judge("dcr", "dcr_x", @claude_uris ++ uris) == :needs_approval
+      assert ClientPolicy.allowed?("dcr", "dcr_x", uris)
+    end
+
+    test "a client with no host at all waits for approval" do
+      assert ClientPolicy.judge("dcr", "dcr_x", []) == :needs_approval
+    end
+
+    test "a pre-registered client is trusted whatever the list says" do
+      assert ClientPolicy.judge("preregistered", "https://elsewhere.example/c", [
+               "https://elsewhere.example/cb"
+             ]) == :trusted
+    end
+
+    test "an unknown policy value is the allow-list, never an approval" do
+      put_setting("api_oauth_client_policy", "banana")
+
+      assert ClientPolicy.judge("cimd", @claude_id, @claude_uris) == :trusted
+      assert ClientPolicy.judge("cimd", @claude_id, ["https://elsewhere.example/cb"]) == :refused
     end
   end
 
@@ -74,6 +150,7 @@ defmodule PhoenixKit.API.OAuth.ClientPolicyTest do
 
   describe "there is no deny-list" do
     test "a setting of that old name changes nothing" do
+      put_setting("api_oauth_client_policy", "any")
       put_setting("api_oauth_client_deny_hosts", "claude.ai")
       assert ClientPolicy.allowed?("cimd", @claude_id, @claude_uris)
     end
@@ -123,6 +200,15 @@ defmodule PhoenixKit.API.OAuth.ClientPolicyTest do
       assert ClientPolicy.allowed?("preregistered", "https://elsewhere.example/c", [
                "https://elsewhere.example/cb"
              ])
+    end
+
+    test "judge: listed is trusted, anything else is refused, never waiting" do
+      assert ClientPolicy.judge("cimd", @claude_id, @claude_uris) == :trusted
+
+      assert ClientPolicy.judge("cimd", @claude_id, ["https://elsewhere.example/cb"]) ==
+               :refused
+
+      assert ClientPolicy.judge("dcr", "dcr_x", []) == :refused
     end
   end
 end

@@ -90,6 +90,7 @@ defmodule PhoenixKit.API.OutputShapeTest do
         )
 
       assert JSON.encode!(document) =~ "pending_approval"
+      assert JSON.encode!(document) =~ "approval_pending"
     end
   end
 

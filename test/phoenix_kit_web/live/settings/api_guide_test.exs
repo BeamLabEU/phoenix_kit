@@ -304,6 +304,37 @@ defmodule PhoenixKitWeb.Live.Settings.ApiGuideTest do
       assert has_element?(view, "#guide-oauth-reconnect", "connects it again")
     end
 
+    test "tells which applications wait for an Owner's approval and where to give it", %{
+      conn: conn
+    } do
+      {:ok, view, _html} = live(conn, @path)
+
+      assert has_element?(view, "#guide-oauth-approval", "Owner who holds the API right")
+      assert has_element?(view, "#guide-oauth-approval", "Waiting for approval")
+      assert has_element?(view, "#guide-oauth-approval", "7 days")
+      assert has_element?(view, "#guide-oauth-approval", "empty list")
+    end
+
+    test "tells what a waiting application gets", %{conn: conn} do
+      {:ok, view, _html} = live(conn, @path)
+
+      assert has_element?(view, "#guide-oauth-waiting", "approval_pending")
+      assert has_element?(view, "#guide-oauth-waiting", "nothing has to be connected again")
+    end
+
+    test "tells about the email of a new connection and the password setting", %{conn: conn} do
+      {:ok, view, _html} = live(conn, @path)
+
+      assert has_element?(view, "#guide-oauth-mail", "one email")
+      assert has_element?(view, "#guide-oauth-password", "personal keys and connections")
+
+      assert has_element?(
+               view,
+               "#guide-oauth-password",
+               "Keys made under Keys and service users stay"
+             )
+    end
+
     test "tells how the language of the consent screen is chosen and that sign-in is not covered",
          %{conn: conn} do
       {:ok, view, _html} = live(conn, @path)
@@ -480,7 +511,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiGuideTest do
       assert length(Enum.uniq(rows)) == length(rows)
 
       first_ten =
-        ~w(invalid_json token_in_url unauthorized forbidden ip_not_allowed module_write_disabled origin_not_allowed module_disabled not_found method_not_allowed)
+        ~w(invalid_json token_in_url unauthorized approval_pending forbidden ip_not_allowed module_write_disabled origin_not_allowed module_disabled not_found)
 
       assert Enum.take(rows, 10) == Enum.map(first_ten, &"guide-error-#{&1}")
 

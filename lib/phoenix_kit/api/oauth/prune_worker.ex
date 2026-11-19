@@ -1,7 +1,8 @@
 defmodule PhoenixKit.API.OAuth.PruneWorker do
   @moduledoc """
   Oban worker that clears the OAuth tables daily (`PhoenixKit.API.OAuth.Prune`): consents nobody
-  finished, grants that have been over for three days (with their hidden key, unless it has
+  finished, connections nobody approved within seven days (ended, reason `approval_timeout`),
+  grants that have been over for three days (with their hidden key, unless it has
   confirmations), expired requests, codes and tokens, and registered clients nobody uses.
   """
 

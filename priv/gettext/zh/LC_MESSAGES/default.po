@@ -27851,6 +27851,11 @@ msgstr "只有列表中的主机可以连接，而列表为空：除下方手动
 msgid "Any application (its address is shown to the person)"
 msgstr "任何应用（其地址会显示给用户）"
 
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:393
+#, elixir-autogen, elixir-format
+msgid "Listed applications at once, the others after approval"
+msgstr "列表中的应用立即可用，其余的需批准后才可用"
+
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:300
 #, elixir-autogen, elixir-format
 msgid "Only the hosts listed below"
@@ -27928,8 +27933,8 @@ msgstr "允许的主机（每行一个）"
 
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:502
 #, elixir-autogen, elixir-format
-msgid "For example claude.ai. Judged on the host of the application's address and of each redirect address; an application added by hand below is always allowed. A host taken off the list stops new connections and refreshes at once, but an access token already issued works until it expires (the access token life above): to cut an application off now, remove it below."
-msgstr "例如 claude.ai。依据应用地址和每个重定向地址的主机判断；下方手动添加的应用始终被允许。从列表中移除的主机会立即无法建立新连接或刷新，但已签发的访问令牌在过期前仍然有效（见上方的访问令牌有效期）：要立即切断某个应用，请在下方将其移除。"
+msgid "For example claude.ai. Judged on the host of the application's address and of each redirect address; an application added by hand below is always allowed. A listed application connects at once; any other one only after an Owner approves it (or not at all, under the list-only setting). A host taken off the list does not end the connections that already work: under the list-only setting they stop at the next refresh, and an access token already issued works until it expires (the access token life above). To cut an application off now, remove it below."
+msgstr "例如 claude.ai。系统会检查应用地址和每个重定向地址的主机；下方手动添加的应用始终允许。名单中的应用立即连接，其他应用须经所有者批准后才能连接（在“仅限名单”设置下则完全不能连接）。从名单中移除主机不会终止已在工作的连接：在“仅限名单”设置下，它们会在下次刷新时停止，已签发的访问令牌在到期前仍然有效（见上方访问令牌有效期）。要立即切断某个应用，请在下方将其删除。"
 
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:512
 #, elixir-autogen, elixir-format
@@ -28185,3 +28190,191 @@ msgstr "在您以其他账户操作期间，此处无法更改任何内容。"
 #, elixir-autogen, elixir-format
 msgid "The client ID is the address of a metadata document. An application that names itself by a metadata document is known when it is used: do not add it by hand."
 msgstr "客户端 ID 是元数据文档的地址。通过元数据文档表明身份的应用在使用时即被识别：请勿手动添加。"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:3
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:316
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:40
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:263
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:17
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:398
+#: lib/phoenix_kit_web/oauth/pages.ex:282
+#, elixir-autogen, elixir-format
+msgid "Waiting for approval"
+msgstr "等待批准"
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:383
+#, elixir-autogen, elixir-format
+msgid "This connection does not work yet. The owner of the system approves it in Settings, API."
+msgstr "此连接尚不能使用。系统所有者在“设置、API”中批准它。"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:398
+#, elixir-autogen, elixir-format
+msgid "Some connections are waiting for an Owner's approval and run nothing until it is given: see Waiting for approval below."
+msgstr "有些连接正在等待所有者（Owner）批准，在批准之前不会执行任何操作：见下方“等待批准”。"
+
+#: lib/phoenix_kit_web/oauth/pages.ex:168
+#, elixir-autogen, elixir-format
+msgid "This application is not on the list of trusted applications. After you allow access, the connection will not work until the owner of the system approves it (Settings, API)."
+msgstr "此应用不在受信任应用名单中。您允许访问后，在系统所有者批准之前，该连接不会工作（设置、API）。"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:323
+#, elixir-autogen, elixir-format
+msgid "Applications that are not on the list of trusted ones. A person signed in and allowed them access, but nothing runs on the connection until an Owner approves it. A connection nobody decides on ends after %{days} days."
+msgstr "不在受信任名单中的应用。有人登录并允许了它们访问，但在所有者批准之前，该连接不会执行任何操作。无人处理的连接将在 %{days} 天后结束。"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:332
+#, elixir-autogen, elixir-format
+msgid "Connections waiting: %{count}"
+msgstr "等待中的连接：%{count}"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:358
+#, elixir-autogen, elixir-format
+msgid "The name is the application's own and has not been checked."
+msgstr "名称由应用自己提供，未经核实。"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:417
+#, elixir-autogen, elixir-format
+msgid "Approve %{name}"
+msgstr "批准 %{name}"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:429
+#, elixir-autogen, elixir-format
+msgid "Reject %{name}"
+msgstr "拒绝 %{name}"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:451
+#, elixir-autogen, elixir-format
+msgid "No connection is waiting for approval."
+msgstr "没有等待批准的连接。"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:465
+#, elixir-autogen, elixir-format
+msgid "Reject this application?"
+msgstr "拒绝此应用？"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:469
+#, elixir-autogen, elixir-format
+msgid "Approve this application?"
+msgstr "批准此应用？"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:484
+#, elixir-autogen, elixir-format
+msgid "The connection ends at once and the application has to ask for access again. This cannot be undone."
+msgstr "连接将立即结束，应用必须重新请求访问。此操作无法撤销。"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:493
+#, elixir-autogen, elixir-format
+msgid "From now on the application acts with the rights of this person, limited to the rights it was given. Approve it only if you know the application and trust the address its answers go to."
+msgstr "从现在起，应用将以此人的权限行事，范围限于授予它的权限。只有在您了解该应用并信任其响应所发往的地址时才批准。"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:183
+#, elixir-autogen, elixir-format
+msgid "The connection was approved. The application works now, with no need to connect again."
+msgstr "连接已批准。应用现已可用，无需重新连接。"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:202
+#, elixir-autogen, elixir-format
+msgid "The connection was rejected. The application stops at once."
+msgstr "连接已拒绝。应用立即停止。"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:257
+#, elixir-autogen, elixir-format
+msgid "That connection is not waiting for approval any more."
+msgstr "此连接不再等待批准。"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:194
+#, elixir-autogen, elixir-format
+msgid "The connection could not be approved."
+msgstr "无法批准该连接。"
+
+#: lib/phoenix_kit_web/live/components/pending_approvals.ex:211
+#, elixir-autogen, elixir-format
+msgid "The connection could not be rejected."
+msgstr "无法拒绝该连接。"
+
+#: lib/phoenix_kit/email/core_templates.ex:202
+#, elixir-autogen, elixir-format
+msgid "Application connected"
+msgstr "应用已连接"
+
+#: lib/phoenix_kit/email/core_templates.ex:204
+#, elixir-autogen, elixir-format
+msgid "Sent once when an application is connected to an account through the OAuth sign-in."
+msgstr "当应用通过 OAuth 登录连接到账户时发送一次。"
+
+#: lib/phoenix_kit/email/core_templates.ex:552
+#, elixir-autogen, elixir-format
+msgid "An application was connected to your account"
+msgstr "您的账户连接了一个应用"
+
+#: lib/phoenix_kit/email/core_templates.ex:554
+#, elixir-autogen, elixir-format
+msgid "Hi {{user_email}},\n\nAn application was connected to your account:\n\n- The application says its name is: {{app_name}}\n- Its answers are sent to: {{app_host}}\n- Rights: {{rights}}\n- Valid until: {{expires}}\n- Time: {{time}}\n- From the address: {{ip_address}}\n- State: {{state}}\n\nThe name is the application's own and has not been checked. If you connected it, no action is needed.\n\nIf you did not, disconnect the application and then change your password:\n\n[Disconnect the application]({{connections_url}})\n\nIf the button doesn't work, open this link: [{{connections_url}}]({{connections_url}})\n"
+msgstr "您好 {{user_email}}，\n\n您的账户连接了一个应用：\n\n- 应用自称：{{app_name}}\n- 其响应发送至：{{app_host}}\n- 权限：{{rights}}\n- 有效期至：{{expires}}\n- 时间：{{time}}\n- 来自地址：{{ip_address}}\n- 状态：{{state}}\n\n名称由应用自行提供，未经核实。如果是您连接的，无需任何操作。\n\n如果不是，请断开该应用，然后更改密码：\n\n[断开该应用]({{connections_url}})\n\n如果按钮无法使用，请打开此链接：[{{connections_url}}]({{connections_url}})\n"
+
+#: lib/phoenix_kit/email/core_templates.ex:584
+#, elixir-autogen, elixir-format
+msgid "Waiting for approval by the owner of the system: it does nothing until then"
+msgstr "等待系统所有者批准：在此之前不会执行任何操作"
+
+#: lib/phoenix_kit/email/core_templates.ex:586
+#, elixir-autogen, elixir-format
+msgid "Works"
+msgstr "正常工作"
+
+#: lib/phoenix_kit/email/core_templates.ex:594
+#, elixir-autogen, elixir-format
+msgid "%{module} (reading and changing)"
+msgstr "%{module}（读取和修改）"
+
+#: lib/phoenix_kit/email/core_templates.ex:597
+#, elixir-autogen, elixir-format
+msgid "%{module} (changing)"
+msgstr "%{module}（修改）"
+
+#: lib/phoenix_kit/email/core_templates.ex:600
+#, elixir-autogen, elixir-format
+msgid "%{module} (reading)"
+msgstr "%{module}（读取）"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex:250
+#, elixir-autogen, elixir-format
+msgid "A password change ends personal keys and connections"
+msgstr "更改密码会终止个人密钥和连接"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex:254
+#, elixir-autogen, elixir-format
+msgid "When a person's password is changed or reset, their personal keys and the applications connected with the OAuth sign-in end at once, and each has to be made or connected again. This includes a person who sets a password for the first time. Nothing else ends: a key made under Keys and service users stays, including one made in a person's own name and one of a service, so revoke such keys there. It is off until you switch it on."
+msgstr "当某人的密码被更改或重置时，其个人密钥和通过 OAuth 登录连接的应用会立即失效，每个密钥都需重新创建，每个应用都需重新连接。首次设置密码的人也包括在内。其他内容不会失效：在“密钥与服务用户”下创建的密钥会保留，包括以本人名义创建的密钥和服务的密钥，请在那里撤销这些密钥。在您开启之前，此选项为关闭状态。"
+
+#: lib/phoenix_kit_web/live/settings/api.ex:717
+#, elixir-autogen, elixir-format
+msgid "The setting for a password change was saved."
+msgstr "更改密码的设置已保存。"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:280
+#, elixir-autogen, elixir-format
+msgid "Which applications connect at once: those of the hosts in the list of allowed hosts in the OAuth settings, and those added there by hand. Any other application (your own agents, Claude Code, an inspector) signs in and gets the consent screen like the rest, but runs nothing until an Owner who holds the API right approves it: Settings, API, the Sign-in (OAuth) tab, the Waiting for approval block (Approve or Reject). A connection nobody decides on ends after %{days} days. With an empty list every connection waits for approval."
+msgstr "哪些应用会立即连接：OAuth 设置中允许主机列表里的主机所属的应用，以及在那里手动添加的应用。其他任何应用（您自己的代理、Claude Code、检查器）与其余应用一样登录并看到同意界面，但在持有 API 权限的所有者批准之前不会执行任何操作：设置、API、“登录（OAuth）”标签页、“等待批准”区块（批准或拒绝）。无人处理的连接将在 %{days} 天后结束。列表为空时，每个连接都要等待批准。"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:286
+#, elixir-autogen, elixir-format
+msgid "An application that waits for approval sees the list of tools as usual, but every call answers approval_pending, with advice to tell an Owner, and does nothing. Once an Owner approves, the same connection works at its next call: nothing has to be connected again."
+msgstr "等待批准的应用照常看到工具列表，但每次调用都会返回 approval_pending，并建议告知所有者，且不会执行任何操作。所有者批准后，同一连接在下一次调用时即可使用，无需重新连接。"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:291
+#, elixir-autogen, elixir-format
+msgid "The person gets one email when an application is connected: the name the application gave itself, the address its answers go to, the rights, the time, the address of the consent and whether it works or waits for approval, with a link to disconnect it. There is no switch for this email."
+msgstr "应用被连接时，该用户会收到一封邮件：应用自称的名称、其响应发送到的地址、权限、时间、同意时的地址，以及它是正常工作还是等待批准，并附有断开连接的链接。此邮件没有开关。"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:296
+#, elixir-autogen, elixir-format
+msgid "With the setting A password change ends personal keys and connections switched on (the API settings, Personal API keys), a changed or reset password ends the person's personal keys and connections at once. Keys made under Keys and service users stay, including one made in the person's own name; revoke them there."
+msgstr "开启“更改密码会终止个人密钥和连接”设置（API 设置，个人 API 密钥）后，更改或重置密码会立即终止该用户的个人密钥和连接。在“密钥与服务用户”下创建的密钥会保留，包括以本人名义创建的密钥；请在那里撤销。"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex:260
+#: lib/phoenix_kit_web/live/settings/api.ex:564
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:196
+#, elixir-autogen, elixir-format
+msgid "Only an Owner can change this."
+msgstr "只有 Owner 可以更改此项。"

@@ -38,6 +38,10 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
   alias PhoenixKit.Utils.RecipientLocale
   alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Utils.TimeZone
+  alias PhoenixKitWeb.Live.Settings.Api, as: SettingsApi
+
+  # How much of an application's own name the email about a new connection shows.
+  @app_name_limit 60
 
   # Every templated auth email resolves identically and differs only in its
   # name, its variables and its default copy — so the resolution and the send
@@ -435,6 +439,77 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
       variables,
       &CoreTemplates.passkey_removed_defaults/0
     )
+  end
+
+  @doc """
+  Tells `user` an application was connected to their account through the OAuth sign-in
+  (`PhoenixKit.API.OAuth.ConnectedMail` sends it once, when the connection is activated).
+
+  `attrs`: `name` (what the application called itself; the email shows it in quotes, cut to 60
+  characters, quote characters inside it dropped), `host` (where its answers go),
+  `rights` (one entry per module: `key`, `name`, `read?`, `write?`), `expires_at`, `at`, `ip`
+  (or `nil`) and `waiting?` (the connection does nothing until an Owner approves it). There is
+  no switch for this email: it is the account holder's way to learn of an application they did
+  not connect.
+  """
+  def deliver_app_connected(user, attrs) do
+    if Auth.unsolicited_mail_allowed?(user),
+      do: do_deliver_app_connected(user, attrs),
+      else: {:ok, %{suppressed: true}}
+  end
+
+  defp do_deliver_app_connected(user, attrs) do
+    variables =
+      RecipientLocale.in_locale(RecipientLocale.for_rendering(user), fn ->
+        %{
+          "user_email" => User.delivery_email(user),
+          "app_name" => app_name_text(attrs[:name]),
+          "app_host" => (attrs[:host] in [nil, ""] && gettext("Unknown")) || attrs.host,
+          "rights" => rights_line(attrs.rights),
+          "expires" => login_time(user, attrs.expires_at),
+          "time" => login_time(user, attrs.at),
+          "ip_address" => (attrs[:ip] in [nil, ""] && gettext("Unknown")) || attrs.ip,
+          "state" => CoreTemplates.app_connected_state(attrs.waiting?),
+          "connections_url" => CoreTemplates.app_connected_url()
+        }
+      end)
+
+    deliver_templated(
+      user,
+      User.delivery_email(user),
+      "app_connected",
+      variables,
+      &CoreTemplates.app_connected_defaults/0
+    )
+  end
+
+  # The name is the application's own and unchecked: a long one is cut and the whole is quoted,
+  # so it reads as the application's words and not as a sentence of the site.
+  # Quote characters inside it are dropped first, so the name cannot close the quotes and go on
+  # as the site's own words.
+  defp app_name_text(name) when is_binary(name) do
+    case name |> String.replace(~r/["“”„«»]/u, "") |> String.trim() do
+      "" -> gettext("Unknown")
+      clean -> quoted(clean)
+    end
+  end
+
+  defp app_name_text(_name), do: gettext("Unknown")
+
+  defp quoted(name) do
+    shown =
+      if String.length(name) > @app_name_limit,
+        do: String.slice(name, 0, @app_name_limit) <> "…",
+        else: name
+
+    ~s("#{shown}")
+  end
+
+  defp rights_line(rights) do
+    Enum.map_join(rights, ", ", fn %{key: key, name: name} = right ->
+      label = SettingsApi.module_label(%{key: key, name: name})
+      CoreTemplates.app_connected_right(label, right.read?, right.write?)
+    end)
   end
 
   defp login_time(user, at) do

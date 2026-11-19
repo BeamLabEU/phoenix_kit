@@ -23,12 +23,19 @@ defmodule PhoenixKit.API.Actor do
       every other actor.
     * `requires_approval` - every write call of the key (not a read, not a `dry_run`)
       waits for a human, dangerous or not.
+    * `awaiting_approval` - the key is the hidden key of an OAuth connection that no owner has
+      approved yet (`PhoenixKit.API.OAuth.Grants.awaiting?/1`): the executor refuses every tool
+      call of such an actor with `approval_pending`. Set where an actor is built from a token or
+      a key row that has a grant (`PhoenixKit.API.OAuth.Tokens.verify/2`,
+      `PhoenixKit.API.Confirm.live_actor/1`); `false` for every other actor.
     * `client_token_hash` - the hash of the client token an anonymous public caller sent in the
       field its tool declares (`PhoenixKit.API.Tool`'s `:client_token`); `nil` when the tool
       declares none or the caller sent none. The raw token is never kept.
     * `ip` - the address the request came from, as a string.
 
-  The default is the least-privileged value: anonymous, no scopes, not personal, no approval.
+  The default is the least-privileged value: anonymous, no scopes, not personal, no approval. (A
+  connection that waits for approval is the opposite case, a key with scopes that may not run
+  yet: `awaiting_approval`.)
 
   `inspect/1` leaves `scope` out: it holds the user (email, name), and the actor sits in
   `conn.assigns` on every API request, where error reports and debug pages print it.
@@ -44,6 +51,7 @@ defmodule PhoenixKit.API.Actor do
             scope: nil,
             personal: false,
             requires_approval: false,
+            awaiting_approval: false,
             client_token_hash: nil,
             ip: nil
 
@@ -57,6 +65,7 @@ defmodule PhoenixKit.API.Actor do
           scope: PhoenixKit.Users.Auth.Scope.t() | nil,
           personal: boolean(),
           requires_approval: boolean(),
+          awaiting_approval: boolean(),
           client_token_hash: String.t() | nil,
           ip: String.t() | nil
         }

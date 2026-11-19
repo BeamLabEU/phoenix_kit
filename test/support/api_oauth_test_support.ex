@@ -29,14 +29,18 @@ defmodule PhoenixKit.API.OAuthTestSupport do
     {user, role, KeyTestSupport.scope_of(user)}
   end
 
-  @doc "Switches the admin API and OAuth on (`api_admin_enabled`, `api_oauth_enabled`)."
+  @doc """
+  Switches the admin API and OAuth on (`api_admin_enabled`, `api_oauth_enabled`) and saves the
+  client policy as `any`: the install default is `approval`, under which a test client on an
+  example host would wait for an approval. A test of another policy writes its own.
+  """
   @spec enable_oauth!() :: :ok
   def enable_oauth! do
     for key <- ~w(api_admin_enabled api_oauth_enabled) do
       KeyTestSupport.write_setting(fn -> Settings.update_boolean_setting(key, true) end)
     end
 
-    :ok
+    KeyTestSupport.put_setting("api_oauth_client_policy", "any")
   end
 
   @doc "A pre-registered client with a unique `client_id`."
@@ -62,7 +66,8 @@ defmodule PhoenixKit.API.OAuthTestSupport do
   @doc """
   A grant of a new client for the person behind `scope`, with an access token and a refresh
   token. `opts`: `:scopes` (default the fake module's read scope), `:expires_at` (default ten
-  days), `:client`, `:resource`, `:access_expires_at`.
+  days), `:client`, `:resource`, `:access_expires_at`, `:approved?` (default `true`: a grant that
+  works; `false` makes one that waits for approval).
 
   Returns `%{grant, key, client, access, refresh, access_row, refresh_row}`.
   """
@@ -74,7 +79,8 @@ defmodule PhoenixKit.API.OAuthTestSupport do
       %{
         scopes: Keyword.get(opts, :scopes, [KeyTestSupport.read_scope()]),
         expires_at:
-          Keyword.get(opts, :expires_at, DateTime.add(DateTime.utc_now(), 10 * 86_400, :second))
+          Keyword.get(opts, :expires_at, DateTime.add(DateTime.utc_now(), 10 * 86_400, :second)),
+        approved?: Keyword.get(opts, :approved?, true)
       }
       |> maybe_put(:resource, Keyword.get(opts, :resource))
 

@@ -129,6 +129,7 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
   alias PhoenixKit.ModuleRegistry
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Actor
   alias PhoenixKitWeb.Components.PersonalKeyDisplay
@@ -138,7 +139,11 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
   alias PhoenixKitWeb.Users.MultiSession
 
   # The two switches: the name used in the page, the setting it writes.
-  @switches %{"admin" => "api_admin_enabled", "public" => "api_public_enabled"}
+  @switches %{
+    "admin" => "api_admin_enabled",
+    "public" => "api_public_enabled",
+    "password" => "api_pw_change_revokes"
+  }
 
   # Limits form field -> {setting, key in `Config.rate_limits/0`}.
   @limit_fields [
@@ -243,19 +248,10 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
   def handle_event("toggle_switch", %{"switch" => name}, socket)
       when is_map_key(@switches, name) do
     with_access(socket, fn socket ->
-      key = Map.fetch!(@switches, name)
-
-      case Settings.update_boolean_setting_with_module(
-             key,
-             not switch_on?(name),
-             "api",
-             history(socket)
-           ) do
-        {:ok, _setting} ->
-          socket |> assign_state(statuses: :keep) |> put_flash(:info, switch_text(name))
-
-        {:error, _changeset} ->
-          put_flash(socket, :error, gettext("The switch could not be saved."))
+      if owner_only_switch?(name) and not Scope.owner?(scope(socket)) do
+        socket |> assign(:owner?, false) |> put_flash(:error, owner_only_text())
+      else
+        write_switch(socket, name)
       end
     end)
   end
@@ -508,6 +504,30 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
     {:noreply, put_flash(socket, :error, gettext("That action is not available."))}
   end
 
+  # The password switch decides whether a stolen session's keys outlive a password change:
+  # an Owner's call, like who may connect without approval.
+  defp owner_only_switch?("password"), do: true
+  defp owner_only_switch?(_name), do: false
+
+  defp write_switch(socket, name) do
+    key = Map.fetch!(@switches, name)
+
+    case Settings.update_boolean_setting_with_module(
+           key,
+           not switch_on?(name),
+           "api",
+           history(socket)
+         ) do
+      {:ok, _setting} ->
+        socket |> assign_state(statuses: :keep) |> put_flash(:info, switch_text(name))
+
+      {:error, _changeset} ->
+        put_flash(socket, :error, gettext("The switch could not be saved."))
+    end
+  end
+
+  defp owner_only_text, do: gettext("Only an Owner can change this.")
+
   # ── Access ─────────────────────────────────────────────────────────
 
   # Every event that changes something goes through here. The scope the socket
@@ -531,6 +551,15 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
   defp fresh_scope(socket), do: Access.fresh_scope(socket.assigns.phoenix_kit_current_scope)
 
   defp scope(socket), do: socket.assigns.api_scope
+
+  # Whether the person is an Owner now, read as the events read it (the scope captured at mount
+  # may be narrowed to one active role, and a role changed since is not in it).
+  defp owner_now?(socket) do
+    case fresh_scope(socket) do
+      {:ok, fresh} -> Scope.owner?(fresh)
+      :error -> false
+    end
+  end
 
   # A token that has not been dismissed is the only copy there is: nothing may
   # start another one (or reopen the form that would) until it is stored.
@@ -559,6 +588,8 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
     socket
     |> assign(:admin_enabled, Config.admin_enabled?())
     |> assign(:public_enabled, Config.public_enabled?())
+    |> assign(:password_change_revokes, Config.password_change_revokes?())
+    |> assign(:owner?, owner_now?(socket))
     |> assign_api_modules()
     |> assign(:keys, keys)
     |> assign(:service_users, service_users)
@@ -705,9 +736,11 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
 
   defp switch_on?("admin"), do: Config.admin_enabled?()
   defp switch_on?("public"), do: Config.public_enabled?()
+  defp switch_on?("password"), do: Config.password_change_revokes?()
 
   defp switch_text("admin"), do: gettext("The admin API setting was saved.")
   defp switch_text("public"), do: gettext("The public API setting was saved.")
+  defp switch_text("password"), do: gettext("The setting for a password change was saved.")
 
   # The names shown in the Owner column. A key's owner is the person who created
   # it, or a service user; an Owner also sees keys of other people, which cost

@@ -13,6 +13,7 @@ defmodule PhoenixKit.Migrations.Postgres.V219Test do
   alias PhoenixKit.Migrations.Postgres.V219
   alias PhoenixKit.Migrations.Postgres.V220
   alias PhoenixKit.Migrations.Postgres.V233
+  alias PhoenixKit.Migrations.Postgres.V234
   alias PhoenixKit.Migrations.Repair.Differ
   alias PhoenixKit.Migrations.Repair.Probe
   alias PhoenixKit.Test.Repo
@@ -198,7 +199,9 @@ defmodule PhoenixKit.Migrations.Postgres.V219Test do
     end
 
     test "rolls back and forward again" do
-      # V220's and V233's tables reference the keys table, so they go first and come back last.
+      # V220's and V233's tables reference the keys table, so they go first and come back last
+      # (V234's column sits on one of V233's tables: it goes before V233).
+      run(V234.down_statements("public"))
       run(V233.down_statements("public"))
       run(V220.down_statements("public"))
       run(V219.down_statements("public"))
@@ -222,6 +225,7 @@ defmodule PhoenixKit.Migrations.Postgres.V219Test do
 
       run(V220.up_statements("public"))
       run(V233.up_statements("public"))
+      run(V234.up_statements("public"))
     end
   end
 

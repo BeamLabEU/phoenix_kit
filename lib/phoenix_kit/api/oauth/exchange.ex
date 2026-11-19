@@ -19,8 +19,11 @@ defmodule PhoenixKit.API.OAuth.Exchange do
   the presented client, the `redirect_uri` must be the very string of the authorization request, the
   `code_verifier` must hash (S256) to the stored challenge, and `resource`, when sent, must be the
   one of the grant. On success the grant is activated, an access token and a refresh token are
-  issued, and `oauth.grant_created` is written to the activity feed. Nothing about the person
-  or the client is in the response: only the tokens, their lifetime and the scope actually granted.
+  issued, and `oauth.grant_created` is written to the activity feed (with `oauth.grant_pending`
+  when the grant waits for approval). After the commit the person is told of the connection by
+  email (`PhoenixKit.API.OAuth.ConnectedMail`), once, from a task of its own. Nothing about the
+  person or the client is in the response: only the tokens, their lifetime and the scope actually
+  granted.
 
   ## Refresh token
 
@@ -52,6 +55,7 @@ defmodule PhoenixKit.API.OAuth.Exchange do
   alias PhoenixKit.API.OAuth.Client
   alias PhoenixKit.API.OAuth.Clients
   alias PhoenixKit.API.OAuth.Codes
+  alias PhoenixKit.API.OAuth.ConnectedMail
   alias PhoenixKit.API.OAuth.Grant
   alias PhoenixKit.API.OAuth.Grants
   alias PhoenixKit.API.OAuth.Input
@@ -121,15 +125,24 @@ defmodule PhoenixKit.API.OAuth.Exchange do
         with {:ok, row} <- redeem(grant, code),
              :ok <- code_checks(row, grant, client, redirect_uri, verifier, params),
              :ok <- usable(grant, key),
-             {:ok, grant} <- activate(grant) do
-          issue_first_pair(grant)
+             {:ok, grant} <- activate(grant),
+             {:ok, response} <- issue_first_pair(grant) do
+          {:ok, response, grant}
         end
       end)
 
     case result do
-      {:ok, {:ok, _response} = ok} -> ok
-      {:ok, {:error, _error, _description} = error} -> error
-      {:error, reason} -> locked_failure(reason, "The grant is no longer valid.")
+      {:ok, {:ok, response, grant}} ->
+        # After the commit: the pair exists, the person may now be told of the connection. The
+        # delivery runs on its own and cannot fail the exchange.
+        ConnectedMail.start(grant, redirect_uri)
+        {:ok, response}
+
+      {:ok, {:error, _error, _description} = error} ->
+        error
+
+      {:error, reason} ->
+        locked_failure(reason, "The grant is no longer valid.")
     end
   end
 
@@ -185,6 +198,10 @@ defmodule PhoenixKit.API.OAuth.Exchange do
     with {:ok, access, access_row} <- Tokens.issue(grant, :access, family: family),
          {:ok, refresh, _row} <- Tokens.issue(grant, :refresh, family: family) do
       log(grant, "oauth.grant_created", %{"client_uuid" => grant.client_uuid})
+
+      if Grants.awaiting?(grant),
+        do: log(grant, "oauth.grant_pending", %{"client_uuid" => grant.client_uuid})
+
       response(grant, access, access_row, refresh)
     else
       _ -> repo().rollback(:issue_failed)

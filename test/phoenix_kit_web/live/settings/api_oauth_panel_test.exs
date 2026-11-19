@@ -205,6 +205,33 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanelTest do
   end
 
   describe "the settings form" do
+    # Who is trusted without approval is an Owner's decision: these tests act as the Owner.
+    setup do
+      owner = KeyTestSupport.owner_user()
+      %{conn: log_in_user(Phoenix.ConnTest.build_conn(), owner), admin: owner}
+    end
+
+    test "offers the three policies and shows the default one, approval, as chosen", %{
+      conn: conn
+    } do
+      {:ok, view, _html} = live(conn, @path)
+
+      assert has_element?(view, ~s(#api-oauth-client-policy option[value="approval"][selected]))
+      assert has_element?(view, ~s(#api-oauth-client-policy option[value="any"]))
+      assert has_element?(view, ~s(#api-oauth-client-policy option[value="allow_list"]))
+    end
+
+    test "saves the policy `approval` after another one was chosen", %{conn: conn} do
+      {:ok, view, _html} = live(conn, @path)
+
+      assert settings_form(view, %{"client_policy" => "any"}) =~ "The settings were saved."
+      assert Config.oauth_client_policy() == :any
+
+      assert settings_form(view, %{"client_policy" => "approval"}) =~ "The settings were saved."
+      assert Config.oauth_client_policy() == :approval
+      assert has_element?(view, ~s(#api-oauth-client-policy option[value="approval"][selected]))
+    end
+
     test "saves what changed, each with this admin as the actor", %{conn: conn, admin: admin} do
       {:ok, view, _html} = live(conn, @path)
 
@@ -293,6 +320,12 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanelTest do
   end
 
   describe "adding a client by hand" do
+    # Who is trusted without approval is an Owner's decision: these tests act as the Owner.
+    setup do
+      owner = KeyTestSupport.owner_user()
+      %{conn: log_in_user(Phoenix.ConnTest.build_conn(), owner), admin: owner}
+    end
+
     test "adds it, writes oauth.client_registered by this admin and clears the form", %{
       conn: conn,
       admin: admin
@@ -420,6 +453,89 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanelTest do
         })
 
       assert html =~ "client ID is required"
+    end
+  end
+
+  describe "what decides who is trusted, as an Admin who is not an Owner" do
+    test "the form and the add form are disabled and say who may change them", %{conn: conn} do
+      {:ok, view, _html} = live(conn, @path)
+
+      assert has_element?(view, "#api-oauth-settings-owner-only")
+      assert has_element?(view, "#api-oauth-client-owner-only")
+      assert has_element?(view, "#api-oauth-settings-submit[disabled]")
+      assert has_element?(view, "#api-oauth-client-submit[disabled]")
+    end
+
+    test "an Owner sees no note and live buttons" do
+      conn = log_in_user(Phoenix.ConnTest.build_conn(), KeyTestSupport.owner_user())
+      {:ok, view, _html} = live(conn, @path)
+
+      refute has_element?(view, "#api-oauth-settings-owner-only")
+      refute has_element?(view, "#api-oauth-client-owner-only")
+      refute has_element?(view, "#api-oauth-settings-submit[disabled]")
+      refute has_element?(view, "#api-oauth-client-submit[disabled]")
+    end
+
+    test "save_settings is refused and writes nothing", %{conn: conn, admin: admin} do
+      {:ok, view, _html} = live(conn, @path)
+
+      html =
+        fire(view, "save_settings", %{
+          "oauth" =>
+            Map.merge(OAuthConfig.current(), %{
+              "client_policy" => "any",
+              "allow_hosts" => "evil.example"
+            })
+        })
+
+      assert html =~ "Only an Owner can change this."
+      assert Config.oauth_client_policy() == :approval
+      assert {:ok, []} = Config.fetch_oauth_allow_hosts()
+      assert changed_settings(admin) == []
+    end
+
+    test "add_client is refused and registers nothing", %{conn: conn, admin: admin} do
+      {:ok, view, _html} = live(conn, @path)
+
+      html =
+        fire(view, "add_client", %{
+          "client" => %{
+            "client_id" => "planted",
+            "client_name" => "Planted",
+            "redirect_uris" => "https://evil.example/cb"
+          }
+        })
+
+      assert html =~ "Only an Owner can change this."
+      assert Repo.get_by(Client, client_id: "planted") == nil
+
+      assert Activity.list(action: "oauth.client_registered", actor_uuid: admin.uuid).entries ==
+               []
+    end
+
+    test "the switches of OAuth and of registration stay open to the holder of api", %{
+      conn: conn
+    } do
+      switch("api_admin_enabled", true)
+      {:ok, view, _html} = live(conn, @path)
+
+      fire(view, "set_oauth", %{"state" => "on"})
+      assert Config.oauth_enabled?()
+    end
+
+    test "an Owner demoted to Admin during the session is refused too", %{} do
+      owner = KeyTestSupport.owner_user()
+      conn = log_in_user(Phoenix.ConnTest.build_conn(), owner)
+      {:ok, view, _html} = live(conn, @path)
+      demote_owner!(owner)
+
+      html =
+        fire(view, "save_settings", %{
+          "oauth" => Map.put(OAuthConfig.current(), "client_policy", "any")
+        })
+
+      assert html =~ "Only an Owner can change this."
+      assert Config.oauth_client_policy() == :approval
     end
   end
 
@@ -628,7 +744,8 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanelTest do
 
       attrs = %{
         scopes: [KeyTestSupport.read_scope()],
-        expires_at: DateTime.add(DateTime.utc_now(), 86_400)
+        expires_at: DateTime.add(DateTime.utc_now(), 86_400),
+        approved?: true
       }
 
       {:ok, grant, _key} = Grants.create(scope, pending, attrs, impersonated: false)

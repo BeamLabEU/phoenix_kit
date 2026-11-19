@@ -64,6 +64,7 @@ defmodule PhoenixKit.API.Confirm do
   alias PhoenixKit.API.FlowConfig
   alias PhoenixKit.API.Keys
   alias PhoenixKit.API.Keys.Key
+  alias PhoenixKit.API.OAuth.Grants
   alias PhoenixKit.RepoHelper
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.Auth.SessionRef
@@ -578,6 +579,9 @@ defmodule PhoenixKit.API.Confirm do
   else `{:error, :personal_keys_not_allowed}`); `scopes` are the key's scopes filtered by
   the owner's live permissions. This is the request-path check of the executor, for code that has no
   request.
+
+  The hidden key of an OAuth connection that waits for approval gives an actor with
+  `awaiting_approval: true` (also when its grant cannot be found: no grant is no approval).
   """
   @spec live_actor(String.t()) ::
           {:ok, Actor.t()}
@@ -587,9 +591,14 @@ defmodule PhoenixKit.API.Confirm do
     with %Key{} = key <- Keys.get_key(key_uuid) || {:error, :not_found},
          :ok <- alive(key),
          {:ok, owner} <- Keys.active_owner(key) do
-      {:ok, Keys.actor(key, owner, nil)}
+      {:ok, key |> Keys.actor(owner, nil) |> mark_awaiting(key)}
     end
   end
+
+  defp mark_awaiting(%Actor{} = actor, %Key{oauth_grant_uuid: nil}), do: actor
+
+  defp mark_awaiting(%Actor{} = actor, %Key{oauth_grant_uuid: grant_uuid}),
+    do: %{actor | awaiting_approval: grant_uuid |> Grants.get() |> Grants.awaiting?()}
 
   defp alive(%Key{} = key) do
     case Keys.dead_reason(key) do

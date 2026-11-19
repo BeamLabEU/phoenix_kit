@@ -336,6 +336,7 @@ defmodule PhoenixKit.API.Executor do
     state = new_state(conn, audience, tool_name, input, opts)
 
     with {:ok, state} <- require_actor(state),
+         {:ok, state} <- require_approved(state),
          {:ok, state} <- charge_before_lookup(state),
          {:ok, state} <- find_tool(state),
          {:ok, state} <- take_scopes(state),
@@ -873,6 +874,18 @@ defmodule PhoenixKit.API.Executor do
 
   defp require_actor(state),
     do: {:error, :unauthorized, "Authentication is required.", %{}, state}
+
+  # The one place a connection that waits for an owner's approval is stopped (an OAuth
+  # connection no owner has approved yet): before the tool is looked up, so a read, a write and an
+  # unknown name are refused alike, with one unit of the limit and no audit entry, idempotency
+  # claim or confirmation. The refusal goes the common way (`refused/4`).
+  defp require_approved(%{actor: %Actor{awaiting_approval: true}} = state) do
+    {:error, :approval_pending,
+     "This connection is waiting for approval by an Owner of this site, so no tool can be called yet.",
+     %{}, state}
+  end
+
+  defp require_approved(state), do: {:ok, state}
 
   # The scope of a live session, rebuilt for this call: the session must still be alive,
   # belong to the user named in the reference, and its user be active and pass the
