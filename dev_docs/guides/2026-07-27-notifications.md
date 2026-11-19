@@ -40,7 +40,21 @@ def notification_types do
 end
 ```
 
-`Types.list/0` merges core + modules; toggle appears automatically. `Notifications.Prefs.user_wants?/2` is **fail-open** — unknown actions, missing prefs, or lookup errors return `true`.
+`Types.list/0` merges core + modules; toggle appears automatically.
+
+A type (and each sub-type) may also carry `example:` — one concrete case it
+covers, shown under its description on My Settings ("For example: “Fit the
+doors” is marked “Can be started”."), so a reader can tell which line sent a
+notification. Register it with `gettext_noop/1` like the label.
+
+**Which line sent it** (2026-11-19): every notification names its line and
+links to it — `Render.reason(notification, recipient, locale)` →
+`%{key, label, text, link}` ("You get this because “Projects › Comments” is
+on."), nil when no type owns the action. The link goes to the line's row on
+My Settings (`/admin/notifications/settings#notif-<key>`) for
+someone who reaches the admin area, else to the profile settings'
+Notifications section. The inbox shows it under each entry; email carries it
+as `{{reason}} {{settings_url}}`, Telegram as a last line. `Notifications.Prefs.user_wants?/2` is **fail-open** — unknown actions, missing prefs, or lookup errors return `true`.
 
 **Custom display:** `Render.render/1` honors three metadata keys before falling back:
 
@@ -53,6 +67,30 @@ metadata: %{
 ```
 
 Any key can be absent — Render falls back to the action lookup for the missing parts.
+
+**A quote under the line** (2026-11-19): a notification can carry the
+message that came with it — the comment typed when a task was marked done,
+a reopen reason, the comment someone was mentioned in — shown as its own
+block (the writer's face and name, then the text) rather than squeezed into
+the one line:
+
+```elixir
+metadata: %{
+  "quote" => %{
+    "text" => "Measured again, wall A is 3240.",  # required, markdown (Leaf's)
+    "author_uuid" => writer.uuid,                 # optional: face + current name
+    "author_name" => "Anna Kask"                  # optional: shown when no account
+  }
+}
+```
+
+`Render.quote/1` reads it (from the activity's metadata, or a standalone
+notification's): mention tokens become their labels, the text is cut at
+2,000 characters for display. The inbox renders it as sanitized markdown
+(`<.markdown compact>`); email carries it as `{{quote}}` and Telegram as a
+paragraph, both plain text with the writer's name ("Anna Kask: “…”").
+Store the WHOLE message in the activity: the notification is its only copy
+for a reader who cannot open the record it came from.
 
 **Mentions** (`PhoenixKit.Mentions.notify/2`, action `mention.created`) are a core type of their own, `"mentions"`, so a person can mute them or route them to email like anything else (routing is fail-closed: an action no type owns never leaves the inbox). The activity stores `actor_name` (full name, else username — never the email's local part) and Render words it in the reader's language: "Ada mentioned you." (`hero-at-symbol`). A caller passes `link:` — a local path built with `Routes.path/1`, pointing at the mention itself (comments: the record's page + `#pk-comment-<uuid>`); anything failing `Routes.local_path?/1` is dropped. Rows from before the name was stored keep their own `notification_text`.
 

@@ -19,7 +19,9 @@ defmodule PhoenixKitWeb.Live.Notifications.Inbox do
   alias PhoenixKit.Notifications.Events
   alias PhoenixKit.Notifications.Render
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Utils.Routes
 
   @per_page 25
@@ -144,6 +146,7 @@ defmodule PhoenixKitWeb.Live.Notifications.Inbox do
 
     socket
     |> assign(:notifications, rows)
+    |> assign(:quote_authors, quote_authors(rows))
     |> assign(:total, total)
     |> assign(:unread_count, Notifications.count_unread(user_uuid))
   end
@@ -151,8 +154,25 @@ defmodule PhoenixKitWeb.Live.Notifications.Inbox do
   defp load(socket) do
     socket
     |> assign(:notifications, [])
+    |> assign(:quote_authors, %{})
     |> assign(:total, 0)
     |> assign(:unread_count, 0)
+  end
+
+  # The writers of the quotes on this page, in one read (faces and names).
+  defp quote_authors(rows) do
+    rows
+    |> Enum.flat_map(fn n ->
+      case Render.quote(n) do
+        %{author_uuid: uuid} when is_binary(uuid) -> [uuid]
+        _ -> []
+      end
+    end)
+    |> Enum.uniq()
+    |> Auth.get_users_by_uuids()
+    |> Map.new(&{&1.uuid, &1})
+  rescue
+    _ -> %{}
   end
 
   defp reset_limit(socket), do: assign(socket, :limit, socket.assigns.per_page)
@@ -312,8 +332,43 @@ defmodule PhoenixKitWeb.Live.Notifications.Inbox do
                           >
                             {view.text}
                           </button>
+                          <%!-- The message it carries (a comment, a reason),
+                               as its own block: who wrote it and all of it. --%>
+                          <% q = Render.quote(n) %>
+                          <% author = q && q.author_uuid && @quote_authors[q.author_uuid] %>
+                          <div
+                            :if={q}
+                            class="mt-2 rounded-box border border-base-200 bg-base-200/40 px-3 py-2"
+                            data-quote
+                          >
+                            <div :if={author || q.author_name} class="flex items-center gap-2 mb-1">
+                              <.user_avatar :if={author} user={author} size="xs" />
+                              <span class="text-xs font-medium">
+                                {(author && User.display_name(author)) ||
+                                  q.author_name}
+                              </span>
+                            </div>
+                            <.markdown content={q.text} compact class="text-sm break-words" />
+                          </div>
                           <p class="text-xs text-base-content/50 mt-1">
                             {PhoenixKit.Utils.Date.ago(n.inserted_at)}
+                          </p>
+                          <%!-- Which setting line sent it, and where to change it. --%>
+                          <% why =
+                            Render.reason(
+                              n,
+                              assigns[:phoenix_kit_current_scope],
+                              assigns[:current_locale]
+                            ) %>
+                          <p
+                            :if={why}
+                            class="text-xs text-base-content/40 mt-0.5"
+                            data-reason={why.key}
+                          >
+                            {why.text}
+                            <.link navigate={why.link} class="link link-hover text-base-content/60">
+                              {gettext("Change")}
+                            </.link>
                           </p>
                         </div>
 

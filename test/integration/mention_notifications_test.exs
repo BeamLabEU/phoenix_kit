@@ -122,4 +122,55 @@ defmodule PhoenixKit.Integration.MentionNotificationsTest do
              channel.key()
            end)
   end
+
+  defmodule OpenHandler do
+    @moduledoc false
+    # A source whose every record every user may read: visibility :yes.
+    def visible_resource_uuids(uuids, _opts), do: uuids
+  end
+
+  describe "the comment as the notification's quote" do
+    setup do
+      previous = Application.get_env(:phoenix_kit, :comment_resource_handlers)
+
+      Application.put_env(:phoenix_kit, :comment_resource_handlers, %{"open_thing" => OpenHandler})
+
+      on_exit(fn ->
+        if previous,
+          do: Application.put_env(:phoenix_kit, :comment_resource_handlers, previous),
+          else: Application.delete_env(:phoenix_kit, :comment_resource_handlers)
+      end)
+    end
+
+    test "a reader the source lets read it gets the whole comment as the quote" do
+      author = user(%{"first_name" => "Grace", "last_name" => "Hopper"})
+      ada = user()
+      long = String.duplicate("word ", 60)
+
+      mention(author, ada, source_type: "open_thing", preview: "short", quote: "Hi Ada. " <> long)
+
+      {[n], _} = Notifications.list_for_user(ada.uuid, status: :all)
+      q = Render.quote(n)
+      assert q.text == String.trim("Hi Ada. " <> long)
+      assert q.author_uuid == author.uuid
+    end
+
+    test "without a `:quote`, the uncut preview is the quote" do
+      author = user()
+      ada = user()
+      mention(author, ada, source_type: "open_thing")
+
+      {[n], _} = Notifications.list_for_user(ada.uuid, status: :all)
+      assert Render.quote(n).text =~ "Hi @Ada"
+    end
+  end
+
+  test "a source nobody can vouch for carries no quote" do
+    author = user()
+    ada = user()
+    mention(author, ada, quote: "secret comment")
+
+    {[n], _} = Notifications.list_for_user(ada.uuid, status: :all)
+    assert Render.quote(n) == nil
+  end
 end

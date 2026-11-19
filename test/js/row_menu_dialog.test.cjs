@@ -222,3 +222,28 @@ test("a modal dialog whose `open` attribute a patch stripped is still the portal
   hook._open();
   assert.equal(menu.parentNode, dialog);
 });
+
+test("opening a second row menu by its ⋮ closes the first", () => {
+  const first = mountMenu();
+  const second = mountMenu();
+  first.hook._open();
+  assert.equal(first.menu.popoverOpen, true);
+  second.hook._open();
+  assert.equal(first.menu.popoverOpen, false);
+  assert.equal(first.hook.isOpen, false);
+  assert.equal(second.menu.popoverOpen, true);
+  second.hook._close();
+});
+
+test("an open row menu is in the top layer, whatever its row's stacking context", () => {
+  // The boss, 2026-11-18: a card's menu showed under the NEXT card. A faded
+  // card (opacity < 1) is its own stacking context, which caps any z-index
+  // inside it; the row menu leaves it — portaled to <body> and shown as a
+  // popover, which paints above every stacking context.
+  const { hook, menu } = mountMenu();
+  hook._open();
+  assert.equal(menu.parentNode, global.document.body);
+  assert.equal(menu.attrs.popover, "manual");
+  assert.equal(menu.popoverOpen, true);
+  hook._close();
+});

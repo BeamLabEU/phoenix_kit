@@ -242,7 +242,10 @@ defmodule PhoenixKit.Email.CoreTemplates do
           %{
             "subject" => gettext("Acme Ltd commented on your order"),
             "text" => gettext("Acme Ltd commented on your order"),
-            "url" => Routes.url("/admin/notifications")
+            "url" => Routes.url("/admin/notifications"),
+            "quote" => gettext("Acme Ltd: “Please send the invoice to the new address.”"),
+            "reason" => gettext("You get this because “Comments” is on."),
+            "settings_url" => Routes.url("/admin/notifications/settings") <> "#notif-comments"
           }
         end
       }
@@ -273,7 +276,10 @@ defmodule PhoenixKit.Email.CoreTemplates do
   """
   @spec notification_defaults() :: PhoenixKit.Templates.defaults()
   def notification_defaults do
-    %{subject: "{{subject}}", text: "{{text}}\n\n{{url}}"}
+    %{
+      subject: "{{subject}}",
+      text: "{{text}}\n\n{{quote}}\n\n{{url}}\n\n{{reason}} {{settings_url}}"
+    }
   end
 
   @doc "Default copy of the account confirmation email (`register`)."

@@ -52,6 +52,7 @@ defmodule PhoenixKit.Notifications.Channels.Telegram do
   alias PhoenixKit.Integrations
   alias PhoenixKit.Integrations.Telegram, as: Client
   alias PhoenixKit.Integrations.Telegram.SiteBot
+  alias PhoenixKit.Utils.Routes
 
   @impl true
   def key, do: "telegram"
@@ -64,6 +65,16 @@ defmodule PhoenixKit.Notifications.Channels.Telegram do
 
   @impl true
   def configured?(user_uuid, config), do: targets(user_uuid, config) != []
+
+  # Linked from the settings table while the site has a bot to link to: the
+  # Telegram card on the person's profile settings.
+  @impl true
+  def connect_path do
+    if SiteBot.connection_uuid(),
+      do: Routes.path("/profile/settings") <> "#telegram-notifications-card"
+  rescue
+    _ -> nil
+  end
 
   @impl true
   def deliver(envelope, config) do
@@ -176,8 +187,24 @@ defmodule PhoenixKit.Notifications.Channels.Telegram do
 
   # Plain text (no parse_mode) so notification content can't break Telegram
   # markup. The deep-link goes on its own line.
-  defp body(%{text: text, url: url}) when is_binary(url) and url != "", do: "#{text}\n\n#{url}"
-  defp body(%{text: text}), do: text
+  defp body(%{text: text} = envelope) do
+    [text, present(envelope[:quote]), present(envelope[:url]), reason_line(envelope)]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.join("\n\n")
+  end
+
+  # The setting line that sent it, and where to change it.
+  defp reason_line(%{reason: reason} = envelope) when is_binary(reason) and reason != "" do
+    case present(envelope[:reason_url]) do
+      nil -> reason
+      url -> reason <> "\n" <> url
+    end
+  end
+
+  defp reason_line(_envelope), do: nil
+
+  defp present(value) when is_binary(value) and value != "", do: value
+  defp present(_), do: nil
 
   # Map the send client's error into the permanent/transient taxonomy.
   #

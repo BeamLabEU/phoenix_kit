@@ -3,10 +3,12 @@ defmodule PhoenixKitWeb.CommentsForwarding do
   Forwards Leaf rich-text editor process messages to the optional
   `phoenix_kit_comments` package.
 
-  The embedded `CommentsComponent`'s Leaf composer reports its content to the
-  *host* LiveView via a `{:leaf_changed, _}` process message — LiveComponents
-  can't receive `handle_info` themselves. The host must forward that message
-  back into the component, or "Post Comment" silently posts empty content.
+  The embedded `CommentsComponent`'s Leaf composer reports to the *host*
+  LiveView with process messages — LiveComponents can't receive
+  `handle_info` themselves: `{:leaf_changed, _}` (its content) and
+  `{:leaf_suggest, _}` (an `@` / `#` typeahead asking for matches). The host
+  must forward both back into the component, or "Post Comment" silently posts
+  empty content and the typeahead never answers.
 
   `phoenix_kit_comments` is an optional sibling dependency with no compile-order
   guarantee, so the call is resolved at runtime via `apply/3` (never a
@@ -21,7 +23,17 @@ defmodule PhoenixKitWeb.CommentsForwarding do
   require Logger
 
   @doc """
-  Forwards a `{:leaf_changed, _}` message to the comments component.
+  Forwards a Leaf message (`{:leaf_changed, _}` or `{:leaf_suggest, _}`) to
+  the comments component. Same contract as `forward_leaf_changed/2`.
+  """
+  def forward_leaf_event({kind, _} = msg, socket) when kind in [:leaf_changed, :leaf_suggest],
+    do: forward_leaf_changed(msg, socket)
+
+  def forward_leaf_event(_msg, socket), do: {:noreply, socket}
+
+  @doc """
+  Forwards a `{:leaf_changed, _}` (or `{:leaf_suggest, _}`) message to the
+  comments component.
 
   Always returns `{:noreply, socket}`, so it can be used directly as the body of
   a host `handle_info({:leaf_changed, _} = msg, socket)` clause. When the

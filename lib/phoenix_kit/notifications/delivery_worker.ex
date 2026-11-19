@@ -49,6 +49,7 @@ defmodule PhoenixKit.Notifications.DeliveryWorker do
   alias PhoenixKit.Notifications.Notification
   alias PhoenixKit.Notifications.Render
   alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Utils.RecipientLocale
   alias PhoenixKit.Utils.Routes
 
@@ -180,6 +181,8 @@ defmodule PhoenixKit.Notifications.DeliveryWorker do
   defp build_envelope(notification, user, recipient, type_key) do
     locale = RecipientLocale.base(user)
     rendered = Render.render(notification, locale)
+    why = Render.reason(notification, user, locale)
+    quoted = Render.quote(notification)
 
     %{
       recipient_uuid: recipient,
@@ -189,8 +192,22 @@ defmodule PhoenixKit.Notifications.DeliveryWorker do
       icon: rendered.icon,
       title: nil,
       text: rendered.text,
-      url: absolutize(rendered.link)
+      url: absolutize(rendered.link),
+      reason: why && why.text,
+      reason_url: why && absolutize(why.link),
+      quote: Render.quote_text(quoted, quote_author(quoted))
     }
+  end
+
+  # The quote's writer as the reader sees them: their display name, else the
+  # name the module stored.
+  defp quote_author(nil), do: nil
+
+  defp quote_author(%{author_uuid: uuid, author_name: name}) do
+    case is_binary(uuid) && Auth.get_user(uuid) do
+      %{} = writer -> User.display_name(writer)
+      _ -> name
+    end
   end
 
   # A notification `link` is already url-/locale-prefixed (or nil). Prepend the

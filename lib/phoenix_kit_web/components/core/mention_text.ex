@@ -49,9 +49,11 @@ defmodule PhoenixKitWeb.Components.Core.MentionText do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   import PhoenixKitWeb.Components.Core.Icon, only: [icon: 1]
+  import PhoenixKitWeb.Components.Core.UserInfo, only: [user_avatar: 1]
 
   alias PhoenixKit.Mentions
   alias PhoenixKit.Mentions.Token
+  alias PhoenixKit.Users.Auth
   alias PhoenixKit.Utils.Routes
 
   attr :text, :string, default: nil
@@ -96,14 +98,36 @@ defmodule PhoenixKitWeb.Components.Core.MentionText do
         end)
       end)
 
+    # The people a readable @ mention names, in one read: their chip shows
+    # their face (the boss, 2026-11-18: "a mentioned user shown as a chip").
+    assigns = assign_new(assigns, :mentioned_users, fn -> mentioned_users(assigns.pieces) end)
+
     ~H"""
     <span class={@class} {@rest}><%= for piece <- @pieces do %>
       <.piece
         piece={piece}
         allow_request={@allow_request}
+        users={@mentioned_users}
       />
     <% end %></span>
     """
+  end
+
+  defp mentioned_users(pieces) do
+    pieces
+    |> Enum.flat_map(fn
+      {%Token{kind: :user, uuid: uuid}, %{state: :ok}} when is_binary(uuid) -> [uuid]
+      _ -> []
+    end)
+    |> Enum.uniq()
+    |> case do
+      [] -> %{}
+      uuids -> uuids |> Auth.get_users_by_uuids() |> Map.new(&{&1.uuid, &1})
+    end
+  rescue
+    _ -> %{}
+  catch
+    :exit, _ -> %{}
   end
 
   # One rendered fragment: either a run of ordinary text or a resolved
@@ -111,9 +135,30 @@ defmodule PhoenixKitWeb.Components.Core.MentionText do
   # readable side by side rather than nested in a comprehension.
   attr :piece, :any, required: true
   attr :allow_request, :boolean, required: true
+  attr :users, :map, default: %{}
 
   defp piece(%{piece: text} = assigns) when is_binary(text) do
     ~H"{@piece}"
+  end
+
+  # A person: a chip with their face and name, a link where the mention
+  # resolves to one (public surfaces drop the path).
+  defp piece(%{piece: {%Token{kind: :user, uuid: uuid} = token, %{state: :ok} = info}} = assigns)
+       when is_map_key(assigns.users, uuid) do
+    assigns = assign(assigns, token: token, info: info, person: Map.fetch!(assigns.users, uuid))
+
+    ~H"""
+    <.link
+      :if={@info[:path]}
+      navigate={href(@info)}
+      class="inline-flex items-center gap-1 align-middle rounded-full bg-base-200 hover:bg-base-300 py-0.5 pl-0.5 pr-2 font-medium no-underline"
+      data-mention-user={@token.uuid}
+    ><.user_avatar user={@person} name={@info[:title]} size="xs" />{@info[:title]}</.link><span
+      :if={is_nil(@info[:path])}
+      class="inline-flex items-center gap-1 align-middle rounded-full bg-base-200 py-0.5 pl-0.5 pr-2 font-medium"
+      data-mention-user={@token.uuid}
+    ><.user_avatar user={@person} name={@info[:title]} size="xs" />{@info[:title]}</span>
+    """
   end
 
   defp piece(%{piece: {%Token{} = token, %{state: :ok} = info}} = assigns) do

@@ -4387,6 +4387,12 @@
 
     // `at` is `{x, y}` for a right-click, absent for the ⋮ trigger.
     _open(at) {
+      // One row menu at a time, however this one was opened (the ⋮, a
+      // right-click, the keyboard): the one already open closes first.
+      // Every row menu is already in the top layer while open (a manual
+      // popover portaled to <body>, or to the open dialog), so no card or
+      // row can cover it — only another open menu could.
+      if (openRowMenu && openRowMenu !== this) openRowMenu._close();
       this._at = at;
       this._present(at);
 
