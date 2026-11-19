@@ -403,7 +403,12 @@ defmodule PhoenixKit.API.Keys do
   defp authorize_personal(scope),
     do: if(holds_personal_right?(scope), do: :ok, else: {:error, :forbidden})
 
-  defp holds_personal_right?(scope), do: Enum.any?(@personal_rights, &Scope.can?(scope, &1))
+  @doc """
+  Whether `scope` holds `api_personal_keys` or `api`: the right to keep personal keys, and with
+  them to connect applications by OAuth (`PhoenixKit.API.OAuth.Connections`).
+  """
+  @spec holds_personal_right?(Scope.t() | nil) :: boolean()
+  def holds_personal_right?(scope), do: Enum.any?(@personal_rights, &Scope.can?(scope, &1))
 
   # The person is read again: blocked or deleted since the scope was built is
   # `:owner_inactive`, and the rights are checked once more on a scope built now.

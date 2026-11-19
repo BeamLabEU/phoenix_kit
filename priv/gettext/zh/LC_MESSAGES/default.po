@@ -27586,10 +27586,35 @@ msgstr "它将立即停止工作。若要再次使用，请重新连接并再次
 msgid "Yes, disconnect"
 msgstr "是，断开连接"
 
-#: lib/phoenix_kit_web/oauth/pages.ex:292
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:425 lib/phoenix_kit_web/oauth/pages.ex:292
 #, elixir-autogen, elixir-format
 msgid "Disconnect this application?"
 msgstr "断开此应用？"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.ex:161
+#, elixir-autogen, elixir-format
+msgid "Document and return address read"
+msgstr "已读取文档和返回地址"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.ex:168
+#, elixir-autogen, elixir-format
+msgid "Document read"
+msgstr "已读取文档"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.ex:168
+#, elixir-autogen, elixir-format
+msgid "Depends on the plan"
+msgstr "取决于套餐"
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:404
+#, elixir-autogen, elixir-format
+msgid "Disconnect %{name}"
+msgstr "断开连接 %{name}"
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:259
+#, elixir-autogen, elixir-format
+msgid "Account inactive"
+msgstr "账户未激活"
 
 #: lib/phoenix_kit_web/oauth/pages.ex:188
 #, elixir-autogen, elixir-format
@@ -27630,3 +27655,533 @@ msgstr "应用程序"
 #, elixir-autogen, elixir-format
 msgid "Back to the request"
 msgstr "返回请求"
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:129
+#, elixir-autogen, elixir-format
+msgid "The connection was ended. The application stops working at once."
+msgstr "连接已结束。该应用立即停止工作。"
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:139
+#, elixir-autogen, elixir-format
+msgid "The connection could not be ended."
+msgstr "无法结束该连接。"
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:161
+#, elixir-autogen, elixir-format
+msgid "Connections cannot be changed while you act in another account."
+msgstr "在以其他账户身份操作时，无法更改连接。"
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:183
+#, elixir-autogen, elixir-format
+msgid "That connection was not found."
+msgstr "未找到该连接。"
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:207
+#, elixir-autogen, elixir-format
+msgid "Site address changed"
+msgstr "网站地址已更改"
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:234
+#, elixir-autogen, elixir-format
+msgid "You are acting in another account, so connections are shown but cannot be ended here."
+msgstr "您正在以其他账户身份操作，因此这里会显示连接，但不能结束它们。"
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:243
+#, elixir-autogen, elixir-format
+msgid "OAuth is switched off by an administrator. These connections do not work now."
+msgstr "管理员已关闭 OAuth。这些连接目前无法使用。"
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:249
+#, elixir-autogen, elixir-format
+msgid "Connected apps"
+msgstr "已连接的应用"
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:255
+#, elixir-autogen, elixir-format
+msgid "Applications you let act with your rights after a sign-in, such as an AI assistant. A connection never has more rights than you, and stops working at once when you lose them."
+msgstr "登录后您允许以您的权限执行操作的应用，例如 AI 助手。连接的权限绝不会超过您本人，一旦您失去权限，连接会立即失效。"
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:266
+#, elixir-autogen, elixir-format
+msgid "Person"
+msgstr "用户"
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:323
+#, elixir-autogen, elixir-format
+msgid "The owner no longer holds the right to API keys: this connection does not work until they hold it again."
+msgstr "所有者已不再拥有 API 密钥权限：在重新获得该权限之前，此连接无法使用。"
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:367
+#, elixir-autogen, elixir-format
+msgid "No application is connected."
+msgstr "没有已连接的应用。"
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:369
+#, elixir-autogen, elixir-format
+msgid "Add the server's address in the application, then sign in and allow access."
+msgstr "在应用中添加服务器地址，登录并允许访问。"
+
+#: lib/phoenix_kit_web/live/components/connected_apps.ex:394
+#, elixir-autogen, elixir-format
+msgid "The application stops working at once and has to ask for access again. This cannot be undone."
+msgstr "该应用将立即停止工作，必须重新请求访问权限。此操作无法撤销。"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:75
+#, elixir-autogen, elixir-format
+msgid "Switch the admin API on first."
+msgstr "请先开启管理 API。"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:83
+#, elixir-autogen, elixir-format
+msgid "Switch OAuth on first."
+msgstr "请先开启 OAuth。"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:108
+#, elixir-autogen, elixir-format
+msgid "Every number must be a whole number inside its range, and the hosts must be plain host names, one per line."
+msgstr "每个数字必须是其范围内的整数，主机必须是普通主机名，每行一个。"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:126
+#, elixir-autogen, elixir-format
+msgid "That client was not found."
+msgstr "未找到该客户端。"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:151
+#, elixir-autogen, elixir-format
+msgid "The client was removed."
+msgstr "客户端已移除。"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:153
+#, elixir-autogen, elixir-format
+msgid "The client could not be removed."
+msgstr "无法移除该客户端。"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:218
+#, elixir-autogen, elixir-format
+msgid "Give from 1 to 10 redirect addresses, one per line."
+msgstr "请提供 1 到 10 个重定向地址，每行一个。"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:227
+#, elixir-autogen, elixir-format
+msgid "The client was added."
+msgstr "客户端已添加。"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:242
+#, elixir-autogen, elixir-format
+msgid "That client ID is already registered."
+msgstr "该客户端 ID 已被注册。"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:243
+#, elixir-autogen, elixir-format
+msgid "The client ID is required (at most 2048 characters, plain text)."
+msgstr "必须提供客户端 ID（最多 2048 个字符，纯文本）。"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:246
+#, elixir-autogen, elixir-format
+msgid "A redirect address must be https, or http to localhost, 127.0.0.1 or [::1], with no fragment and no wildcard."
+msgstr "重定向地址必须是 https，或指向 localhost、127.0.0.1 或 [::1] 的 http，且不含片段和通配符。"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:251
+#, elixir-autogen, elixir-format
+msgid "The client could not be saved."
+msgstr "无法保存该客户端。"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:265
+#, elixir-autogen, elixir-format
+msgid "Added by hand"
+msgstr "手动添加"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:266
+#, elixir-autogen, elixir-format
+msgid "Registered itself"
+msgstr "自行注册"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:267
+#, elixir-autogen, elixir-format
+msgid "Metadata document"
+msgstr "元数据文档"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:274
+#, elixir-autogen, elixir-format
+msgid "Protected resource metadata"
+msgstr "受保护资源元数据"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:275
+#, elixir-autogen, elixir-format
+msgid "Authorization server metadata"
+msgstr "授权服务器元数据"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:276
+#, elixir-autogen, elixir-format
+msgid "Authorization endpoint"
+msgstr "授权端点"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:277
+#, elixir-autogen, elixir-format
+msgid "Token endpoint"
+msgstr "令牌端点"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:278
+#, elixir-autogen, elixir-format
+msgid "Revocation endpoint"
+msgstr "撤销端点"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:279
+#, elixir-autogen, elixir-format
+msgid "Registration endpoint"
+msgstr "注册端点"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:283
+#, elixir-autogen, elixir-format
+msgid "The admin API is off, so every OAuth address answers 404 whatever this tab says."
+msgstr "管理 API 已关闭，因此无论此标签页如何设置，所有 OAuth 地址都会返回 404。"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:287
+#, elixir-autogen, elixir-format
+msgid "The site address is not https. Web assistants refuse to connect to it: set the site address in the general settings."
+msgstr "网站地址不是 https。网页版助手会拒绝连接：请在常规设置中设置网站地址。"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:293
+#, elixir-autogen, elixir-format
+msgid "Only listed hosts may connect and the list is empty: no application can connect, except one added by hand below."
+msgstr "只有列表中的主机可以连接，而列表为空：除下方手动添加的应用外，没有应用可以连接。"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:299
+#, elixir-autogen, elixir-format
+msgid "Any application (its address is shown to the person)"
+msgstr "任何应用（其地址会显示给用户）"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:300
+#, elixir-autogen, elixir-format
+msgid "Only the hosts listed below"
+msgstr "仅限下方列出的主机"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:328
+#, elixir-autogen, elixir-format
+msgid "Sign-in connections (OAuth)"
+msgstr "登录式连接（OAuth）"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:334
+#, elixir-autogen, elixir-format
+msgid "Lets AI assistants such as Claude and ChatGPT connect after a sign-in, with no key to copy. It is off until you switch it on; while it is off every OAuth address answers 404."
+msgstr "允许 Claude、ChatGPT 等 AI 助手在登录后连接，无需复制密钥。默认关闭，需要您手动开启；关闭期间所有 OAuth 地址都会返回 404。"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:342
+#, elixir-autogen, elixir-format
+msgid "OAuth for the MCP server"
+msgstr "MCP 服务器的 OAuth"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:345
+#, elixir-autogen, elixir-format
+msgid "Needs the admin API. A person who may keep personal API keys connects an application by signing in and allowing access."
+msgstr "需要管理 API。有权拥有个人 API 密钥的用户通过登录并允许访问来连接应用。"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:369
+#, elixir-autogen, elixir-format
+msgid "Self-registration of applications"
+msgstr "应用自行注册"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:372
+#, elixir-autogen, elixir-format
+msgid "Lets programs register themselves (Claude Code, MCP Inspector). Off by default. Applications that name themselves by a metadata document, as Claude and ChatGPT do, do not need it."
+msgstr "允许程序自行注册（Claude Code、MCP Inspector）。默认关闭。通过元数据文档标识自己的应用（如 Claude 和 ChatGPT）无需此项。"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:397
+#, elixir-autogen, elixir-format
+msgid "Status and addresses"
+msgstr "状态和地址"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:427
+#, elixir-autogen, elixir-format
+msgid "These addresses answer without a key, and only while OAuth is on. An application that cannot open them cannot connect."
+msgstr "这些地址无需密钥即可响应，且仅在 OAuth 开启时有效。无法打开它们的应用无法连接。"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:436
+#, elixir-autogen, elixir-format
+msgid "OAuth settings"
+msgstr "OAuth 设置"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:442
+#, elixir-autogen, elixir-format
+msgid "How long a connection lasts is chosen by the person, up to the longest life of a personal key. Every change is kept in the history of the settings."
+msgstr "连接的持续时间由用户选择，不超过个人密钥的最长有效期。每次更改都会记录在设置历史中。"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:470
+#, elixir-autogen, elixir-format
+msgid "Access token life, in seconds (300 to 86400)"
+msgstr "访问令牌有效期，单位秒（300 到 86400）"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:479
+#, elixir-autogen, elixir-format
+msgid "Connections one person may have (1 to 100)"
+msgstr "每人可拥有的连接数（1 到 100）"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:489
+#, elixir-autogen, elixir-format
+msgid "Which applications may connect"
+msgstr "允许哪些应用连接"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:500
+#, elixir-autogen, elixir-format
+msgid "Allowed hosts (one per line)"
+msgstr "允许的主机（每行一个）"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:502
+#, elixir-autogen, elixir-format
+msgid "For example claude.ai. Judged on the host of the application's address and of each redirect address; an application added by hand below is always allowed. A host taken off the list stops new connections and refreshes at once, but an access token already issued works until it expires (the access token life above): to cut an application off now, remove it below."
+msgstr "例如 claude.ai。依据应用地址和每个重定向地址的主机判断；下方手动添加的应用始终被允许。从列表中移除的主机会立即无法建立新连接或刷新，但已签发的访问令牌在过期前仍然有效（见上方的访问令牌有效期）：要立即切断某个应用，请在下方将其移除。"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:512
+#, elixir-autogen, elixir-format
+msgid "Limits of the public OAuth addresses"
+msgstr "公开 OAuth 地址的限制"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:521
+#, elixir-autogen, elixir-format
+msgid "Authorization requests per minute, per address"
+msgstr "每个地址每分钟的授权请求数"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:530
+#, elixir-autogen, elixir-format
+msgid "Token requests per minute, per address"
+msgstr "每个地址每分钟的令牌请求数"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:539
+#, elixir-autogen, elixir-format
+msgid "Authorization requests waiting for an answer, in all"
+msgstr "等待回应的授权请求总数"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:548
+#, elixir-autogen, elixir-format
+msgid "Metadata document downloads per minute, per address"
+msgstr "每个地址每分钟的元数据文档下载次数"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:557
+#, elixir-autogen, elixir-format
+msgid "Metadata document downloads per minute, per application"
+msgstr "每个应用每分钟的元数据文档下载次数"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:665
+#, elixir-autogen, elixir-format
+msgid "Metadata document downloads at the same time, in all"
+msgstr "同时下载元数据文档的数量，总计"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:566
+#, elixir-autogen, elixir-format
+msgid "Registrations per hour, per address"
+msgstr "每个地址每小时的注册次数"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:575
+#, elixir-autogen, elixir-format
+msgid "Registrations per day, in all"
+msgstr "每天的注册总次数"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:592
+#, elixir-autogen, elixir-format
+msgid "Known applications"
+msgstr "已知应用"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:598
+#, elixir-autogen, elixir-format
+msgid "Applications that connected or registered, and those you add by hand. Removing one ends every connection it has."
+msgstr "已连接或已注册的应用，以及您手动添加的应用。移除某个应用会结束它的所有连接。"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:609
+#, elixir-autogen, elixir-format
+msgid "How it became known"
+msgstr "来源"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:650
+#, elixir-autogen, elixir-format
+msgid "No application is known yet."
+msgstr "目前还没有已知应用。"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:660
+#, elixir-autogen, elixir-format
+msgid "Add an application by hand"
+msgstr "手动添加应用"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:686
+#, elixir-autogen, elixir-format
+msgid "Name shown to the person"
+msgstr "向用户显示的名称"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:697
+#, elixir-autogen, elixir-format
+msgid "Redirect addresses (one per line)"
+msgstr "重定向地址（每行一个）"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:699
+#, elixir-autogen, elixir-format
+msgid "Where the application receives the answer: https, or http to localhost, 127.0.0.1 or [::1]. Compared exactly (the port may differ only for 127.0.0.1 and [::1])."
+msgstr "应用接收响应的位置：https，或指向 localhost、127.0.0.1 或 [::1] 的 http。需完全匹配（仅 127.0.0.1 和 [::1] 的端口可以不同）。"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:728
+#, elixir-autogen, elixir-format
+msgid "Remove this application?"
+msgstr "移除此应用？"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:735
+#, elixir-autogen, elixir-format
+msgid "Every connection of this application ends at once and it has to ask for access again. An application that names itself by a metadata document is known again when it is used."
+msgstr "该应用的所有连接将立即结束，它必须重新请求访问权限。通过元数据文档标识自己的应用在下次使用时会再次被识别。"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:161
+#, elixir-autogen, elixir-format
+msgid "Connect with a sign-in (OAuth)"
+msgstr "通过登录连接（OAuth）"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:171
+#, elixir-autogen, elixir-format
+msgid "Open the OAuth settings"
+msgstr "打开 OAuth 设置"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:175
+#, elixir-autogen, elixir-format
+msgid "No key to copy: the person signs in to this site and allows access. The application then works with that person's rights, never more, and only with what they allowed."
+msgstr "无需复制密钥：用户登录本站并允许访问。应用随后以该用户的权限工作，绝不超出，且仅限于已允许的范围。"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:186
+#, elixir-autogen, elixir-format
+msgid "OAuth is switched off, so none of this works yet."
+msgstr "OAuth 已关闭，因此以下内容目前都无法使用。"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:189
+#, elixir-autogen, elixir-format
+msgid "Who may connect: a person whose role holds the right to personal API keys (or to the API). They end a connection under My API keys; an Owner ends any of them in the OAuth settings."
+msgstr "谁可以连接：角色拥有个人 API 密钥（或 API）权限的用户。他们在“我的 API 密钥”下结束连接；Owner 可在 OAuth 设置中结束任何连接。"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:204
+#, elixir-autogen, elixir-format
+msgid "Open Settings, then Connectors, then Add custom connector."
+msgstr "打开“设置”，然后是“连接器”，再选择“添加自定义连接器”。"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:205
+#, elixir-autogen, elixir-format
+msgid "Paste the MCP server address above and connect."
+msgstr "粘贴上面的 MCP 服务器地址并连接。"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:207
+#, elixir-autogen, elixir-format
+msgid "Sign in to this site if asked, read what the application asks for, and choose Allow."
+msgstr "如有提示，请登录本站，阅读应用的请求内容，然后选择“允许”。"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:213
+#, elixir-autogen, elixir-format
+msgid "The connection is made from the provider's servers, so the site must be reachable from the internet over https on port 443."
+msgstr "连接由提供商的服务器发起，因此网站必须能通过互联网经 https 在 443 端口访问。"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:222
+#, elixir-autogen, elixir-format
+msgid "Add the server without a header, then run /mcp inside a session and choose to authenticate. Claude Code registers itself, so switch on self-registration of applications first."
+msgstr "不带请求头添加服务器，然后在会话中运行 /mcp 并选择认证。Claude Code 会自行注册，因此请先开启应用自行注册。"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:232
+#, elixir-autogen, elixir-format
+msgid "On a plan that offers custom MCP servers, add the MCP server address above, choose OAuth as the authentication and follow the sign-in."
+msgstr "在提供自定义 MCP 服务器的套餐上，添加上面的 MCP 服务器地址，选择 OAuth 作为认证方式并完成登录。"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:250
+#, elixir-autogen, elixir-format
+msgid "Other clients"
+msgstr "其他客户端"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:252
+#, elixir-autogen, elixir-format
+msgid "A client that follows the MCP authorization specification needs only the MCP server address: it learns the rest from the 401 answer and from these two documents."
+msgstr "遵循 MCP 授权规范的客户端只需要 MCP 服务器地址：其余信息从 401 响应和这两个文档中获取。"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:267
+#, elixir-autogen, elixir-format
+msgid "The client must use PKCE with S256 and return to an https address or to 127.0.0.1 or [::1]. Custom URL schemes such as cursor:// are not supported: such a client uses a key, as above."
+msgstr "客户端必须使用 S256 的 PKCE，并返回到 https 地址或 127.0.0.1 或 [::1]。不支持 cursor:// 之类的自定义 URL 方案：此类客户端请使用密钥，如上所述。"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:274
+#, elixir-autogen, elixir-format
+msgid "What the person sees"
+msgstr "用户看到的内容"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:276
+#, elixir-autogen, elixir-format
+msgid "The name of the application and the address it returns to, what it may do (reading is selected, writing is not) and for how long. A person without the right is told so and nothing is granted."
+msgstr "应用的名称和它返回的地址、它可以做什么（默认选中读取，不选写入）以及持续多久。没有权限的用户会被告知，且不会授予任何权限。"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:281
+#, elixir-autogen, elixir-format
+msgid "A connection has the rights its person holds now. Take the right to personal API keys away from a role and its connections stop at the next request; give it back and they work again."
+msgstr "连接拥有其用户当前持有的权限。从角色中收回个人 API 密钥权限后，其连接会在下一次请求时停止；恢复权限后它们会重新生效。"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:276
+#, elixir-autogen, elixir-format
+msgid "A connection keeps the rights that were ticked when it was made. For other rights, the person disconnects the application (under My API keys) and connects it again, choosing the new rights on the consent screen."
+msgstr "连接保留创建时勾选的权限。如需其他权限，用户需断开应用（在“我的 API 密钥”中）并重新连接，在同意界面选择新的权限。"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:281
+#, elixir-autogen, elixir-format
+msgid "The consent screen and its error pages are shown in the language given by the lang address parameter (the language switcher on the page sets it), else the person's saved language, else the browser's, else the site's default, each only if the site has that language enabled. The sign-in page the person passes before the consent screen is the site's own and stays in the site's language."
+msgstr "同意页面及其错误页面使用以下语言显示：地址参数 lang 指定的语言（页面上的语言切换器会设置它），否则使用此人保存的语言，否则使用浏览器的语言，否则使用网站的默认语言；每一项都只在网站启用了该语言时才会采用。此人在同意页面之前经过的登录页面属于网站本身，仍使用网站的语言。"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:288
+#, elixir-autogen, elixir-format
+msgid "Which clients were checked"
+msgstr "已检查的客户端"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:293
+#, elixir-autogen, elixir-format
+msgid "Client"
+msgstr "客户端"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:294
+#, elixir-autogen, elixir-format
+msgid "Connects by"
+msgstr "连接方式"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:295
+#, elixir-autogen, elixir-format
+msgid "Checked"
+msgstr "检查情况"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:312
+#, elixir-autogen, elixir-format
+msgid "Not yet tried live"
+msgstr "尚未实际试用"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:321
+#, elixir-autogen, elixir-format
+msgid "A key, as above"
+msgstr "使用密钥，如上所述"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex:322
+#, elixir-autogen, elixir-format
+msgid "OAuth is not promised; use a key"
+msgstr "不承诺支持 OAuth；请使用密钥"
+
+#: lib/phoenix_kit_web/live/settings/api.ex:213
+#, elixir-autogen, elixir-format
+msgid "Sign-in (OAuth)"
+msgstr "登录（OAuth）"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:96
+#, elixir-autogen, elixir-format
+msgid "The settings could not be saved completely. The form shows what is stored now; some of your changes may have been saved."
+msgstr "设置未能完整保存。表单显示的是当前已保存的内容；你的部分更改可能已保存。"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:183
+#, elixir-autogen, elixir-format
+msgid "Only an Owner can remove an application that has connections."
+msgstr "只有 Owner 可以移除已有连接的应用。"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:640
+#, elixir-autogen, elixir-format
+msgid "Only the newest %{count} are shown."
+msgstr "仅显示最新的 %{count} 条。"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:100
+#, elixir-autogen, elixir-format
+msgid "Nothing here can be changed while you act in another account."
+msgstr "在您以其他账户操作期间，此处无法更改任何内容。"
+
+#: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:280
+#, elixir-autogen, elixir-format
+msgid "The client ID is the address of a metadata document. An application that names itself by a metadata document is known when it is used: do not add it by hand."
+msgstr "客户端 ID 是元数据文档的地址。通过元数据文档表明身份的应用在使用时即被识别：请勿手动添加。"

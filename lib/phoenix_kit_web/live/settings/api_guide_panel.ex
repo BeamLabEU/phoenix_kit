@@ -14,7 +14,16 @@ defmodule PhoenixKitWeb.Live.Settings.ApiGuidePanel do
 
   A key. Every snippet carries the placeholder `<your key>` (or, for VS Code, an
   `inputs` prompt that keeps the key out of the file), and the guide warns that a key
-  must not be committed. The guide reads no key and no token from anywhere.
+  must not be committed. The guide reads no key and no token from anywhere. The section
+  "Connect with a sign-in (OAuth)" has no key at all: its snippets name the server and its
+  address, and the sign-in happens in the browser.
+
+  ## The OAuth section
+
+  Built from `PhoenixKit.API.OAuth.Status` (the addresses are the ones the discovery
+  documents publish) and shown whether or not OAuth is on, with a note and a link to the
+  switch while it is off. The table of clients says plainly which connection was checked
+  against a live client and which only against the client's published documents.
 
   ## Where the numbers come from
 
@@ -33,6 +42,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiGuidePanel do
   alias PhoenixKit.API.FlowConfig
   alias PhoenixKit.API.MCP.Names
   alias PhoenixKit.API.MCP.Shape
+  alias PhoenixKit.API.OAuth.Status
   alias PhoenixKit.API.Paths
   alias PhoenixKit.API.Problem
   alias PhoenixKit.API.Registry
@@ -69,6 +79,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiGuidePanel do
       claude_code_command: claude_code_command(name, mcp),
       cursor_config: cursor_config(name, mcp),
       vscode_config: vscode_config(name, mcp),
+      oauth: oauth(name, mcp),
       tool_groups: tool_groups(),
       confirm_ttl_seconds: FlowConfig.confirm_ttl_seconds(),
       confirm_batch_over: FlowConfig.confirm_batch_over(),
@@ -121,6 +132,68 @@ defmodule PhoenixKitWeb.Live.Settings.ApiGuidePanel do
       }
     })
   end
+
+  # No key and no header: the client finds the sign-in from the 401 answer of the server.
+  defp oauth(name, url) do
+    report = Status.report()
+
+    %{
+      enabled: report.oauth_enabled,
+      dcr_enabled: report.dcr_enabled,
+      settings_path: Routes.path("/admin/settings/api?tab=oauth"),
+      mcp_url: url,
+      metadata_url: Keyword.fetch!(report.urls, :protected_resource_metadata),
+      server_metadata_url: Keyword.fetch!(report.urls, :authorization_server_metadata),
+      claude_code_command: "claude mcp add --transport http #{name} #{shell_quote(url)}",
+      matrix: oauth_matrix()
+    }
+  end
+
+  # The table "Which clients were checked". What is known of each client is here and nowhere else
+  # (the template only prints it); `status` is the one fact that changes when a client is first
+  # tried against a live installation, and `status_text/1` is the only place that words it.
+  defp oauth_matrix do
+    [
+      %{
+        id: "claude",
+        name: "Claude",
+        connects_by: gettext("Metadata document"),
+        known: [gettext("Document and return address read")],
+        status: :not_tried
+      },
+      %{
+        id: "chatgpt",
+        name: "ChatGPT",
+        connects_by: gettext("Metadata document"),
+        known: [gettext("Document read"), gettext("Depends on the plan")],
+        status: :not_tried
+      },
+      %{
+        id: "claude-code",
+        name: "Claude Code",
+        connects_by: gettext("Self-registration of applications"),
+        known: [],
+        status: :not_tried
+      },
+      %{
+        id: "inspector",
+        name: "MCP Inspector",
+        connects_by: gettext("Self-registration of applications"),
+        known: [],
+        status: :not_tried
+      },
+      %{
+        id: "cursor",
+        name: "Cursor, VS Code, Codex",
+        connects_by: gettext("A key, as above"),
+        known: [],
+        status: :not_promised
+      }
+    ]
+  end
+
+  defp status_text(:not_tried), do: gettext("Not yet tried live")
+  defp status_text(:not_promised), do: gettext("OAuth is not promised; use a key")
 
   defp json(term), do: Jason.encode!(term, pretty: true)
 

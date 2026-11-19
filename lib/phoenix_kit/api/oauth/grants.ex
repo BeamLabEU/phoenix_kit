@@ -166,12 +166,40 @@ defmodule PhoenixKit.API.OAuth.Grants do
     |> repo().all()
   end
 
+  @doc """
+  How many grants of the client `client_uuid` are live in the sense of `count_live/1` (activated,
+  or a consent whose authorization code is still alive; not revoked, not expired), whoever owns
+  them.
+  """
+  @spec count_live_for_client(String.t()) :: non_neg_integer()
+  def count_live_for_client(client_uuid) do
+    from(g in Grant, as: :grant, where: g.client_uuid == ^client_uuid)
+    |> live()
+    |> repo().aggregate(:count)
+  end
+
+  @doc """
+  `%{client_uuid => count}` of the live grants (in the sense of `count_live/1`) of every client
+  that has one, whoever owns them: what `count_live_for_client/1` counts, for a page of clients.
+  """
+  @spec count_live_by_client() :: %{String.t() => pos_integer()}
+  def count_live_by_client do
+    from(g in Grant, as: :grant, group_by: g.client_uuid, select: {g.client_uuid, count(g.uuid)})
+    |> live()
+    |> repo().all()
+    |> Map.new()
+  end
+
   defp live_query(user_uuid) do
+    from(g in Grant, as: :grant, where: g.user_uuid == ^user_uuid) |> live()
+  end
+
+  # `query` has the grant as its named binding `:grant`.
+  defp live(query) do
     now = DateTime.truncate(DateTime.utc_now(), :second)
 
-    from(g in Grant,
-      as: :grant,
-      where: g.user_uuid == ^user_uuid and is_nil(g.revoked_at) and g.expires_at > ^now,
+    from(g in query,
+      where: is_nil(g.revoked_at) and g.expires_at > ^now,
       where:
         not is_nil(g.activated_at) or
           exists(
