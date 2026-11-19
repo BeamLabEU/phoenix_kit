@@ -22,17 +22,17 @@ defmodule PhoenixKit.API.OAuth.ClientsTest do
 
   defp errors(changeset), do: Map.new(changeset.errors, fn {field, {msg, _}} -> {field, msg} end)
 
-  describe "register_preregistered/1" do
+  describe "register_preregistered/2" do
     test "keeps a client with https and loopback redirects" do
       uris = ["https://client.example/callback", "http://127.0.0.1:7777/cb", "http://[::1]/cb"]
 
       assert {:ok, %Client{kind: "preregistered", redirect_uris: ^uris}} =
-               Clients.register_preregistered(attrs(%{redirect_uris: uris}))
+               Clients.register_preregistered(:system, attrs(%{redirect_uris: uris}))
     end
 
     test "a client without redirect addresses is still a client" do
       assert {:ok, %Client{redirect_uris: []}} =
-               Clients.register_preregistered(attrs(%{redirect_uris: []}))
+               Clients.register_preregistered(:system, attrs(%{redirect_uris: []}))
     end
 
     test "refuses every redirect address a code must never be sent to, and stores nothing" do
@@ -46,13 +46,14 @@ defmodule PhoenixKit.API.OAuth.ClientsTest do
             "cursor://callback"
           ] do
         assert {:error, changeset} =
-                 Clients.register_preregistered(attrs(%{redirect_uris: [bad]}))
+                 Clients.register_preregistered(:system, attrs(%{redirect_uris: [bad]}))
 
         assert %{redirect_uris: _} = errors(changeset), inspect(bad)
       end
 
       assert {:error, changeset} =
                Clients.register_preregistered(
+                 :system,
                  attrs(%{
                    redirect_uris: ["https://client.example/ok", "http://client.example/no"]
                  })
@@ -66,25 +67,32 @@ defmodule PhoenixKit.API.OAuth.ClientsTest do
       # A name is not here: `Clients.clean_name/1` strips what it cannot keep (clients_resolve_test).
       for field <- [:client_id, :client_uri] do
         for bad <- ["a\0b", <<0xFF, ?a>>] do
-          assert {:error, changeset} = Clients.register_preregistered(attrs(%{field => bad}))
+          assert {:error, changeset} =
+                   Clients.register_preregistered(:system, attrs(%{field => bad}))
+
           assert Map.has_key?(errors(changeset), field), "#{field} #{inspect(bad)}"
         end
       end
     end
 
     test "a client_id is required, bounded and unique" do
-      assert {:error, changeset} = Clients.register_preregistered(attrs(%{client_id: nil}))
+      assert {:error, changeset} =
+               Clients.register_preregistered(:system, attrs(%{client_id: nil}))
+
       assert %{client_id: _} = errors(changeset)
 
       assert {:error, changeset} =
-               Clients.register_preregistered(attrs(%{client_id: String.duplicate("a", 2049)}))
+               Clients.register_preregistered(
+                 :system,
+                 attrs(%{client_id: String.duplicate("a", 2049)})
+               )
 
       assert %{client_id: _} = errors(changeset)
 
-      assert {:ok, client} = Clients.register_preregistered(attrs())
+      assert {:ok, client} = Clients.register_preregistered(:system, attrs())
 
       assert {:error, changeset} =
-               Clients.register_preregistered(attrs(%{client_id: client.client_id}))
+               Clients.register_preregistered(:system, attrs(%{client_id: client.client_id}))
 
       assert errors(changeset) == %{client_id: "has already been taken"}
     end
@@ -92,7 +100,7 @@ defmodule PhoenixKit.API.OAuth.ClientsTest do
 
   describe "get_by_client_id/1" do
     test "finds a client by the id it presents" do
-      {:ok, client} = Clients.register_preregistered(attrs())
+      {:ok, client} = Clients.register_preregistered(:system, attrs())
       assert %Client{uuid: uuid} = Clients.get_by_client_id(client.client_id)
       assert uuid == client.uuid
     end

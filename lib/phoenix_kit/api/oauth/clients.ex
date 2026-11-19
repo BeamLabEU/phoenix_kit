@@ -3,7 +3,7 @@ defmodule PhoenixKit.API.OAuth.Clients do
   The applications that may ask for access (`PhoenixKit.API.OAuth.Client`).
 
   A client enters the table in one of three ways: an administrator names it
-  (`register_preregistered/1`), it registers itself (`PhoenixKit.API.OAuth.Registration`,
+  (`register_preregistered/2`), it registers itself (`PhoenixKit.API.OAuth.Registration`,
   Dynamic Client Registration), or it names itself by the URL of a metadata document
   (`PhoenixKit.API.OAuth.Cimd`) that `resolve/2` fetches the first time the URL is presented.
   Looking one up is by its row (`get/1`) or by the `client_id` it presents (`get_by_client_id/1`);
@@ -18,12 +18,14 @@ defmodule PhoenixKit.API.OAuth.Clients do
   alias PhoenixKit.API.OAuth.Cimd
   alias PhoenixKit.API.OAuth.Client
   alias PhoenixKit.API.OAuth.ClientPolicy
+  alias PhoenixKit.API.OAuth.Connections
   alias PhoenixKit.API.OAuth.Grant
   alias PhoenixKit.API.OAuth.Grants
   alias PhoenixKit.API.OAuth.Input
   alias PhoenixKit.API.OAuth.Limits
   alias PhoenixKit.API.OAuth.RedirectUri
   alias PhoenixKit.RepoHelper
+  alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
   @max_name_length 160
@@ -41,20 +43,29 @@ defmodule PhoenixKit.API.OAuth.Clients do
   `https`, or `http` to the loopback; no fragment, no wildcard, no custom scheme), and the text
   fields must be storable (`PhoenixKit.API.OAuth.Input`: no NUL byte, valid UTF-8).
 
-  Returns the row, or a changeset error (a taken `client_id` is `{"has already been taken", ...}`
-  on `:client_id`). With `opts[:actor_uuid]` (the administrator who typed it in) the registration
-  is written to the activity feed as `oauth.client_registered`, kind `"preregistered"`.
-  """
-  @spec register_preregistered(map(), keyword()) ::
-          {:ok, Client.t()} | {:error, Ecto.Changeset.t()}
-  def register_preregistered(attrs, opts \\ []) when is_map(attrs) and is_list(opts) do
-    case insert_preregistered(attrs) do
-      {:ok, client} = ok ->
-        log_registered(client, opts[:actor_uuid])
-        ok
+  `actor` is who adds it. A person is their scope, read fresh for this request
+  (`PhoenixKit.API.Access.fresh_scope/1`), and must be an Owner who holds `api`
+  (`PhoenixKit.API.OAuth.Connections.owner?/1`: a client added by hand is trusted without an
+  approval, which is an Owner's call): anyone else is `{:error, :forbidden}` and nothing is
+  written; the registration is written to the activity feed as `oauth.client_registered`, kind
+  `"preregistered"`, with the person as its actor. `:system` is the application's own code (a
+  seed, a host's setup): nothing is checked and nothing is written to the feed.
 
-      {:error, _changeset} = error ->
-        error
+  Returns the row, or a changeset error (a taken `client_id` is `{"has already been taken", ...}`
+  on `:client_id`).
+  """
+  @spec register_preregistered(Scope.t() | :system | nil, map()) ::
+          {:ok, Client.t()} | {:error, Ecto.Changeset.t() | :forbidden}
+  def register_preregistered(:system, attrs) when is_map(attrs), do: insert_preregistered(attrs)
+
+  def register_preregistered(scope, attrs) when is_map(attrs) do
+    if Connections.owner?(scope) do
+      with {:ok, client} <- insert_preregistered(attrs) do
+        log_registered(client, Scope.user_uuid(scope))
+        {:ok, client}
+      end
+    else
+      {:error, :forbidden}
     end
   end
 
@@ -358,46 +369,60 @@ defmodule PhoenixKit.API.OAuth.Clients do
   end
 
   @doc """
-  Removes a client (a `Client` or its row uuid) and ends every grant of it first.
+  Removes a client (a `Client` or its row uuid) as `actor`, and ends every grant of it first.
 
   The tables would take the grants and their tokens with the client (`ON DELETE CASCADE`) and
   leave the hidden keys of those grants behind, alive. So each grant goes through
   `PhoenixKit.API.OAuth.Grants.revoke/2` (the lock order key, grant, tokens; reason
   `"client_deleted"`; one `oauth.grant_revoked` entry each), and only then is the client deleted,
-  all in one transaction: if a grant cannot be ended, the client stays. `opts`:
+  all in one transaction: if a grant cannot be ended, the client stays.
 
-    * `:actor_uuid` - who deletes: every ended grant is an `oauth.grant_revoked` entry and the
-      removal itself is a permanent `oauth.client_removed` entry (the kind of the client and how
-      many live connections were ended; no name, no address), written once the client is gone.
-    * `:only_idle` - when `true` the client is removed only if it has no live connection, counted
-      under the same row lock the removal takes (`Grants.count_live_for_client/1`: an activated
-      grant, or a consent just approved whose code has not been exchanged yet), so a connection
-      made a moment ago is never ended by someone who may not end other people's:
-      `{:error, :has_connections}` otherwise.
+  Ending other people's connections is never the default. A client that has a live connection,
+  counted under the same row lock the removal takes (`Grants.count_live_for_client/1`: an
+  activated grant, or a consent just approved whose code has not been exchanged yet), so that a
+  connection made a moment ago is counted, is removed only when the actor may end it; otherwise
+  the answer is `{:error, :has_connections}` and nothing changes. `actor`:
 
-  Nothing here checks who may end other people's connections: a caller that is not an Owner passes
-  `only_idle: true` (the default, `false`, ends every connection of the client).
+    * a person's scope, read fresh for this request (`PhoenixKit.API.Access.fresh_scope/1`). It
+      must hold `api` (`{:error, :forbidden}` otherwise); an Owner who holds `api`
+      (`PhoenixKit.API.OAuth.Connections.owner?/1`) ends the client's connections, anyone else
+      removes only a client nobody is connected through. Every ended grant is an
+      `oauth.grant_revoked` entry with the person as its actor, and the removal itself a
+      permanent `oauth.client_removed` entry (the kind of the client and how many live
+      connections were ended; no name, no address), written once the client is gone.
+    * `:system` - the application's own code: nothing is written to the feed, and the
+      connections are ended only with `opts[:end_connections] == true`.
 
-  Returns `{:ok, client}`, `{:error, :not_found}` for a client that is not there, or
-  `{:error, :has_connections}`.
+  Returns `{:ok, client}`, `{:error, :not_found}` for a client that is not there,
+  `{:error, :has_connections}` or `{:error, :forbidden}`.
   """
-  @spec delete(Client.t() | String.t() | nil, keyword()) ::
-          {:ok, Client.t()} | {:error, :not_found | :has_connections | term()}
-  def delete(client_or_uuid, opts \\ [])
+  @spec delete(Scope.t() | :system | nil, Client.t() | String.t() | nil, keyword()) ::
+          {:ok, Client.t()} | {:error, :not_found | :has_connections | :forbidden | term()}
+  def delete(actor, client_or_uuid, opts \\ [])
 
-  def delete(%Client{uuid: uuid}, opts), do: delete(uuid, opts)
+  def delete(:system, client_or_uuid, opts),
+    do: find_and_remove(client_or_uuid, opts[:end_connections] == true, nil)
 
-  def delete(uuid, opts) when is_binary(uuid) do
+  def delete(scope, client_or_uuid, _opts) do
+    if Scope.can?(scope, "api"),
+      do: find_and_remove(client_or_uuid, Connections.owner?(scope), Scope.user_uuid(scope)),
+      else: {:error, :forbidden}
+  end
+
+  defp find_and_remove(%Client{uuid: uuid}, end_connections?, actor_uuid),
+    do: find_and_remove(uuid, end_connections?, actor_uuid)
+
+  defp find_and_remove(uuid, end_connections?, actor_uuid) when is_binary(uuid) do
     case get(uuid) do
-      %Client{} = client -> remove(client, opts)
+      %Client{} = client -> remove(client, end_connections?, actor_uuid)
       nil -> {:error, :not_found}
     end
   end
 
-  def delete(_client, _opts), do: {:error, :not_found}
+  defp find_and_remove(_client, _end_connections?, _actor_uuid), do: {:error, :not_found}
 
-  defp remove(%Client{uuid: uuid}, opts) do
-    revoke_opts = [reason: "client_deleted", actor_uuid: opts[:actor_uuid]]
+  defp remove(%Client{uuid: uuid}, end_connections?, actor_uuid) do
+    revoke_opts = [reason: "client_deleted", actor_uuid: actor_uuid]
 
     result =
       repo().transaction(fn ->
@@ -408,7 +433,7 @@ defmodule PhoenixKit.API.OAuth.Clients do
           %Client{} = locked ->
             live = Grants.count_live_for_client(uuid)
 
-            if opts[:only_idle] == true and live > 0, do: repo().rollback(:has_connections)
+            if not end_connections? and live > 0, do: repo().rollback(:has_connections)
 
             end_grants(locked, revoke_opts)
             {repo().delete(locked) |> unwrap(), live}
@@ -420,7 +445,7 @@ defmodule PhoenixKit.API.OAuth.Clients do
 
     case result do
       {:ok, {client, live}} ->
-        log_removed(client, live, opts[:actor_uuid])
+        log_removed(client, live, actor_uuid)
         {:ok, client}
 
       {:error, _reason} = error ->

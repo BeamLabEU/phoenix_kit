@@ -50,6 +50,7 @@ defmodule PhoenixKit.API.OAuthTestSupport do
 
     {:ok, client} =
       Clients.register_preregistered(
+        :system,
         Map.merge(
           %{
             client_id: "https://client.example/#{n}",

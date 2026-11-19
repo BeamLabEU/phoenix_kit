@@ -31,7 +31,7 @@ defmodule PhoenixKit.API.OAuthConfig do
   nothing. Once every field is valid only the values that changed are written, each on its own (no
   transaction) and each as a permanent `setting.changed` Activity entry
   (`Settings.update_setting_with_module/4`); if a database error stops one of them,
-  `save/2` answers `{:error, :save_failed}` and the others may be saved, so a page shows
+  `save/3` answers `{:error, :save_failed}` and the others may be saved, so a page shows
   `current/0` again rather than what was typed.
 
   The allowed hosts are plain host names (`claude.ai`, an IP literal, `[::1]`): lower-cased,
@@ -42,7 +42,9 @@ defmodule PhoenixKit.API.OAuthConfig do
   """
 
   alias PhoenixKit.API.Config
+  alias PhoenixKit.API.OAuth.Connections
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.Auth.Scope
 
   @fields [
     %{
@@ -184,11 +186,23 @@ defmodule PhoenixKit.API.OAuthConfig do
     do: {:error, Enum.map(@fields, & &1.field) ++ ["client_policy", "allow_hosts"]}
 
   @doc """
-  Validates and writes a form. Returns the settings that changed. `opts` are the history options
-  of `Settings.update_setting_with_module/4` (`actor_uuid:`, `source:`).
+  Validates and writes a form as the person behind `scope`, who must be an Owner who holds `api`
+  (`PhoenixKit.API.OAuth.Connections.owner?/1`, the rule of the approvals: these settings decide
+  which clients are trusted without one). The rights of the scope are the caller's to read fresh
+  (`PhoenixKit.API.Access.fresh_scope/1`); anyone else is `{:error, :forbidden}` and nothing is
+  read or written. Returns the settings that changed. `opts` are the history options of
+  `Settings.update_setting_with_module/4` (`source:`); the actor of every entry is the person
+  behind `scope`.
   """
-  @spec save(term(), keyword()) :: {:ok, [String.t()]} | {:error, [String.t()] | :save_failed}
-  def save(params, opts) do
+  @spec save(Scope.t() | nil, term(), keyword()) ::
+          {:ok, [String.t()]} | {:error, [String.t()] | :save_failed | :forbidden}
+  def save(scope, params, opts) do
+    if Connections.owner?(scope),
+      do: save_valid(params, Keyword.put(opts, :actor_uuid, Scope.user_uuid(scope))),
+      else: {:error, :forbidden}
+  end
+
+  defp save_valid(params, opts) do
     with {:ok, pairs} <- validate(params) do
       current = current()
       names = Map.new(all_settings(), fn {field, setting} -> {setting, field} end)

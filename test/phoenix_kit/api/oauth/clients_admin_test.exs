@@ -124,7 +124,9 @@ defmodule PhoenixKit.API.OAuth.ClientsAdminTest do
       )
     end
 
-    test "writes who typed the client in, with the redirect hosts and no path", ctx do
+    test "writes who typed the client in, with the redirect hosts and no path" do
+      owner = owner_user()
+
       attrs = %{
         client_id: "claude-#{System.unique_integer([:positive])}",
         client_name: "Claude",
@@ -134,18 +136,18 @@ defmodule PhoenixKit.API.OAuth.ClientsAdminTest do
         ]
       }
 
-      assert {:ok, client} = Clients.register_preregistered(attrs, actor_uuid: ctx.user.uuid)
+      assert {:ok, client} = Clients.register_preregistered(scope_of(owner), attrs)
 
       assert [entry] = entries(client)
-      assert entry.actor_uuid == ctx.user.uuid
+      assert entry.actor_uuid == owner.uuid
       assert entry.permanent
       assert entry.metadata == %{"kind" => "preregistered", "redirect_hosts" => ["claude.ai"]}
       refute inspect(entry.metadata) =~ "secret"
     end
 
-    test "writes nothing without an actor, and nothing for a refused client", ctx do
+    test "writes nothing for the system, and nothing for a refused client" do
       {:ok, client} =
-        Clients.register_preregistered(%{
+        Clients.register_preregistered(:system, %{
           client_id: "plain-#{System.unique_integer([:positive])}"
         })
 
@@ -154,15 +156,32 @@ defmodule PhoenixKit.API.OAuth.ClientsAdminTest do
       before = Repo.aggregate(Entry, :count)
 
       assert {:error, %Ecto.Changeset{}} =
-               Clients.register_preregistered(%{client_id: "", redirect_uris: []},
-                 actor_uuid: ctx.user.uuid
-               )
+               Clients.register_preregistered(scope_of(owner_user()), %{
+                 client_id: "",
+                 redirect_uris: []
+               })
 
       assert Repo.aggregate(Entry, :count) == before
     end
+
+    # A forged call: the page refuses anyone but an Owner, and so does the context.
+    test "anyone but an Owner who holds api is refused and nothing is written", ctx do
+      {admin, _role} = user_with([])
+      before = Repo.aggregate(PhoenixKit.API.OAuth.Client, :count)
+
+      for scope <- [scope_of(admin), ctx.scope, nil] do
+        assert {:error, :forbidden} =
+                 Clients.register_preregistered(scope, %{
+                   client_id: "forged-#{System.unique_integer([:positive])}",
+                   redirect_uris: ["https://evil.example/cb"]
+                 })
+      end
+
+      assert Repo.aggregate(PhoenixKit.API.OAuth.Client, :count) == before
+    end
   end
 
-  describe "delete/2" do
+  describe "delete/3" do
     defp removed_entries(client) do
       Repo.all(
         from(e in Entry,
@@ -171,17 +190,24 @@ defmodule PhoenixKit.API.OAuth.ClientsAdminTest do
       )
     end
 
-    test "writes who removed the client and how many connections ended, even with none", ctx do
+    defp admin_scope do
+      {admin, _role} = user_with([])
+      scope_of(admin)
+    end
+
+    test "an Owner: writes who removed the client and how many connections ended, even with none",
+         ctx do
+      owner = owner_user()
       idle = client!()
       busy = client!()
       seed_grant!(ctx.scope, client: busy)
       seed_grant!(ctx.scope, client: busy)
 
-      assert {:ok, _} = Clients.delete(idle.uuid, actor_uuid: ctx.user.uuid)
-      assert {:ok, _} = Clients.delete(busy.uuid, actor_uuid: ctx.user.uuid)
+      assert {:ok, _} = Clients.delete(scope_of(owner), idle.uuid)
+      assert {:ok, _} = Clients.delete(scope_of(owner), busy.uuid)
 
       assert [idle_entry] = removed_entries(idle)
-      assert idle_entry.actor_uuid == ctx.user.uuid
+      assert idle_entry.actor_uuid == owner.uuid
       assert idle_entry.permanent
       assert idle_entry.metadata == %{"kind" => idle.kind, "connections_ended" => 0}
 
@@ -190,29 +216,49 @@ defmodule PhoenixKit.API.OAuth.ClientsAdminTest do
       refute inspect(busy_entry.metadata) =~ busy.client_id
     end
 
-    test "writes nothing for a client that was not there, and nothing without an actor", ctx do
+    test "writes nothing for a client that was not there, and nothing for the system" do
       before = Repo.aggregate(Entry, :count)
-      assert {:error, :not_found} = Clients.delete(UUIDv7.generate(), actor_uuid: ctx.user.uuid)
+      assert {:error, :not_found} = Clients.delete(scope_of(owner_user()), UUIDv7.generate())
       assert Repo.aggregate(Entry, :count) == before
 
       client = client!()
-      assert {:ok, _} = Clients.delete(client.uuid)
+      assert {:ok, _} = Clients.delete(:system, client.uuid)
       assert removed_entries(client) == []
     end
 
-    test "only_idle: refuses a client with a live connection and ends nothing", ctx do
+    test "a person without api is refused, whatever the client", ctx do
+      client = client!()
+      assert {:error, :forbidden} = Clients.delete(ctx.scope, client.uuid)
+      assert {:error, :forbidden} = Clients.delete(nil, client.uuid)
+      assert Repo.get(PhoenixKit.API.OAuth.Client, client.uuid)
+    end
+
+    test "the system ends connections only when it says so", ctx do
+      client = client!()
+      seeded = seed_grant!(ctx.scope, client: client)
+
+      assert {:error, :has_connections} = Clients.delete(:system, client.uuid)
+      assert Repo.get!(PhoenixKit.API.Keys.Key, seeded.key.uuid).revoked_at == nil
+
+      assert {:ok, _} = Clients.delete(:system, client.uuid, end_connections: true)
+      assert Repo.get!(PhoenixKit.API.Keys.Key, seeded.key.uuid).revoked_at
+    end
+
+    # A forged call: an option cannot make a person who is not an Owner end other people's
+    # connections.
+    test "not an Owner: refuses a client with a live connection and ends nothing", ctx do
       client = client!()
       seeded = seed_grant!(ctx.scope, client: client)
 
       assert {:error, :has_connections} =
-               Clients.delete(client.uuid, actor_uuid: ctx.user.uuid, only_idle: true)
+               Clients.delete(admin_scope(), client.uuid, end_connections: true)
 
       assert Repo.get(PhoenixKit.API.OAuth.Client, client.uuid)
       assert Repo.get!(PhoenixKit.API.Keys.Key, seeded.key.uuid).revoked_at == nil
       assert removed_entries(client) == []
     end
 
-    test "only_idle: a consent just approved, its code not yet exchanged, is a live connection",
+    test "not an Owner: a consent just approved, its code not yet exchanged, is a live connection",
          ctx do
       client = client!()
 
@@ -229,14 +275,13 @@ defmodule PhoenixKit.API.OAuth.ClientsAdminTest do
 
       assert grant.activated_at == nil
 
-      assert {:error, :has_connections} =
-               Clients.delete(client.uuid, actor_uuid: ctx.user.uuid, only_idle: true)
+      assert {:error, :has_connections} = Clients.delete(admin_scope(), client.uuid)
 
       assert Repo.get(PhoenixKit.API.OAuth.Client, client.uuid)
       assert Repo.get!(PhoenixKit.API.Keys.Key, key.uuid).revoked_at == nil
     end
 
-    test "only_idle: a consent whose code ran out is not a connection", ctx do
+    test "not an Owner: a consent whose code ran out is not a connection", ctx do
       client = client!()
 
       attrs = %{
@@ -252,15 +297,15 @@ defmodule PhoenixKit.API.OAuth.ClientsAdminTest do
         set: [expires_at: DateTime.add(DateTime.utc_now(), -60) |> DateTime.truncate(:second)]
       )
 
-      assert {:ok, _} = Clients.delete(client.uuid, actor_uuid: ctx.user.uuid, only_idle: true)
+      assert {:ok, _} = Clients.delete(admin_scope(), client.uuid)
     end
 
-    test "only_idle: removes a client whose grants all ended", ctx do
+    test "not an Owner: removes a client whose grants all ended", ctx do
       client = client!()
       ended = seed_grant!(ctx.scope, client: client)
       {:ok, _} = Grants.revoke(ended.grant)
 
-      assert {:ok, _} = Clients.delete(client.uuid, actor_uuid: ctx.user.uuid, only_idle: true)
+      assert {:ok, _} = Clients.delete(admin_scope(), client.uuid)
       assert Repo.get(PhoenixKit.API.OAuth.Client, client.uuid) == nil
     end
   end

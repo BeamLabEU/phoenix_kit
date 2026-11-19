@@ -13,6 +13,7 @@ defmodule PhoenixKitWeb.OAuth.ActivitySecrecyTest do
   import PhoenixKit.Test.ApiHarness, only: [put_setting: 2, setup_api: 0]
 
   alias PhoenixKit.Activity.Entry
+  alias PhoenixKit.API.KeyTestSupport
   alias PhoenixKit.API.OAuth.Clients
   alias PhoenixKit.API.OAuth.Grant
   alias PhoenixKit.API.OAuth.Grants
@@ -32,10 +33,10 @@ defmodule PhoenixKitWeb.OAuth.ActivitySecrecyTest do
     %{user: user, client: client!()}
   end
 
-  defp entries(user) do
+  defp entries(actor_uuids) do
     Repo.all(
       from(e in Entry,
-        where: e.action in ^@actions and (e.actor_uuid == ^user.uuid or is_nil(e.actor_uuid)),
+        where: e.action in ^@actions and (e.actor_uuid in ^actor_uuids or is_nil(e.actor_uuid)),
         order_by: e.inserted_at
       )
     )
@@ -68,10 +69,12 @@ defmodule PhoenixKitWeb.OAuth.ActivitySecrecyTest do
              "client_name" => "Secrecy Agent"
            }).status == 201
 
-    # Removing a client ends the connections it still has and is an entry of its own.
-    {:ok, _} = Clients.delete(client, actor_uuid: user.uuid)
+    # Removing a client ends the connections it still has and is an entry of its own (an Owner's
+    # act: ending other people's connections).
+    owner = KeyTestSupport.owner_user()
+    {:ok, _} = Clients.delete(KeyTestSupport.scope_of(owner), client)
 
-    rows = entries(user)
+    rows = entries([user.uuid, owner.uuid])
     seen = rows |> Enum.map(& &1.action) |> Enum.uniq() |> Enum.sort()
     assert seen == Enum.sort(@actions)
 

@@ -1,6 +1,6 @@
 defmodule PhoenixKit.API.OAuth.ClientsDeleteTest do
   @moduledoc """
-  `Clients.delete/1`: a client is never removed while a grant of it is alive. The database would
+  `Clients.delete/3`: a client is never removed while a grant of it is alive. The database would
   take the grants and their tokens with the client (`ON DELETE CASCADE`) and leave their hidden
   keys behind, still valid; so every grant is ended first, through `Grants.revoke/2`, in the same
   transaction.
@@ -32,7 +32,8 @@ defmodule PhoenixKit.API.OAuth.ClientsDeleteTest do
     first = seed_grant!(ctx.scope, client: ctx.client)
     second = seed_grant!(ctx.scope, client: ctx.client)
 
-    assert {:ok, %Client{}} = Clients.delete(ctx.client, actor_uuid: ctx.user.uuid)
+    owner = owner_user()
+    assert {:ok, %Client{}} = Clients.delete(scope_of(owner), ctx.client)
 
     assert Repo.get(Client, ctx.client.uuid) == nil
     assert Repo.all(from(g in Grant, where: g.client_uuid == ^ctx.client.uuid)) == []
@@ -45,7 +46,7 @@ defmodule PhoenixKit.API.OAuth.ClientsDeleteTest do
     entries =
       Repo.all(
         from(e in Entry,
-          where: e.action == "oauth.grant_revoked" and e.actor_uuid == ^ctx.user.uuid
+          where: e.action == "oauth.grant_revoked" and e.actor_uuid == ^owner.uuid
         )
       )
 
@@ -57,7 +58,7 @@ defmodule PhoenixKit.API.OAuth.ClientsDeleteTest do
     seeded = seed_grant!(ctx.scope, client: ctx.client)
     assert {:ok, _actor} = Tokens.verify(seeded.access, "203.0.113.9")
 
-    assert {:ok, %Client{}} = Clients.delete(ctx.client.uuid)
+    assert {:ok, %Client{}} = Clients.delete(:system, ctx.client.uuid, end_connections: true)
 
     assert {:error, _reason} = Tokens.verify(seeded.access, "203.0.113.9")
   end
@@ -66,7 +67,7 @@ defmodule PhoenixKit.API.OAuth.ClientsDeleteTest do
     other = seed_grant!(ctx.scope)
     seed_grant!(ctx.scope, client: ctx.client)
 
-    assert {:ok, %Client{}} = Clients.delete(ctx.client)
+    assert {:ok, %Client{}} = Clients.delete(:system, ctx.client, end_connections: true)
 
     assert %Key{revoked_at: nil} = key_state(other.key)
     assert %Client{} = Repo.get(Client, other.client.uuid)
@@ -76,9 +77,9 @@ defmodule PhoenixKit.API.OAuth.ClientsDeleteTest do
   end
 
   test "a client with no grant is simply removed, an unknown one is not found", ctx do
-    assert {:ok, %Client{}} = Clients.delete(ctx.client)
-    assert {:error, :not_found} = Clients.delete(ctx.client)
-    assert {:error, :not_found} = Clients.delete("nope")
-    assert {:error, :not_found} = Clients.delete(nil)
+    assert {:ok, %Client{}} = Clients.delete(:system, ctx.client)
+    assert {:error, :not_found} = Clients.delete(:system, ctx.client)
+    assert {:error, :not_found} = Clients.delete(:system, "nope")
+    assert {:error, :not_found} = Clients.delete(:system, nil)
   end
 end

@@ -28,12 +28,13 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
   list of every connection, the Remove button of a client that has connections), so a role taken
   away since the page was opened stops showing what only an Owner may see. The form is validated
   as a whole (one invalid field saves nothing) and each changed setting is a permanent `setting.changed` Activity entry
-  (`PhoenixKit.API.OAuthConfig.save/2`); adding a client writes `oauth.client_registered`.
-  Removing a client ends every connection of it first (`PhoenixKit.API.OAuth.Clients.delete/2`,
+  (`PhoenixKit.API.OAuthConfig.save/3`); adding a client writes `oauth.client_registered`.
+  Removing a client ends every connection of it first (`PhoenixKit.API.OAuth.Clients.delete/3`,
   one `oauth.grant_revoked` entry each, then `oauth.client_removed`), which is ending other
   people's connections: an Owner may remove any client, anyone else only a client nobody is
-  connected through (the button is hidden, the event is refused, and the delete itself checks again
-  under the row lock).
+  connected through (the button is hidden, the event is refused, and the delete itself decides
+  from the scope and checks again under the row lock). The saving of the form and the adding of a
+  client are refused by their contexts too for anyone but an Owner who holds `api`.
 
   Only the fields of the form are read from the params, each as text; the client to remove is the
   uuid the server stored when its dialog opened, never a param of the confirming event.
@@ -129,7 +130,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
     with_owner(socket, fn socket ->
       params = normalize_settings(params)
 
-      case OAuthConfig.save(params, history(socket)) do
+      case OAuthConfig.save(socket.assigns.fresh_scope, params, source: "settings") do
         {:ok, _changed} ->
           socket
           |> assign(:settings_params, OAuthConfig.current())
@@ -144,6 +145,9 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
               "The settings could not be saved completely. The form shows what is stored now; some of your changes may have been saved."
             )
           ])
+
+        {:error, :forbidden} ->
+          error(socket, gettext("Only an Owner can change this."))
 
         {:error, fields} when is_list(fields) ->
           socket
@@ -199,16 +203,11 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
   end
 
   # Ending the connections of OTHER people is an Owner's right (`Connections.revoke/3` in the
-  # `:all` view), so anyone else removes only a client nobody is connected through; the check is
-  # made again under the row lock (`only_idle`), so a connection made after the dialog opened is
-  # never ended by someone who may not end it.
+  # `:all` view), so anyone else removes only a client nobody is connected through; `Clients.delete/3`
+  # decides that from the fresh scope and counts again under the row lock, so a connection made
+  # after the dialog opened is never ended by someone who may not end it.
   defp delete_client(socket, uuid) do
-    fresh = socket.assigns.fresh_scope
-
-    case Clients.delete(uuid,
-           actor_uuid: Scope.user_uuid(fresh),
-           only_idle: not Scope.owner?(fresh)
-         ) do
+    case Clients.delete(socket.assigns.fresh_scope, uuid) do
       {:ok, _client} ->
         socket
         |> update(:connections_nonce, &(&1 + 1))
@@ -219,6 +218,9 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
 
       {:error, :has_connections} ->
         error(socket, owner_only_text())
+
+      {:error, :forbidden} ->
+        error(socket, gettext("You are not allowed to do that."))
 
       _other ->
         error(socket, gettext("The client could not be removed."))
@@ -333,14 +335,15 @@ defmodule PhoenixKitWeb.Live.Settings.ApiOauthPanel do
     do: socket |> assign(:client_params, params) |> assign(:client_errors, [text])
 
   defp register_client(socket, params, attrs) do
-    actor = Scope.user_uuid(socket.assigns.fresh_scope)
-
-    case Clients.register_preregistered(attrs, actor_uuid: actor) do
+    case Clients.register_preregistered(socket.assigns.fresh_scope, attrs) do
       {:ok, _client} ->
         socket
         |> assign(:client_params, blank_client())
         |> assign(:client_errors, [])
         |> info(gettext("The client was added."))
+
+      {:error, :forbidden} ->
+        error(socket, gettext("Only an Owner can change this."))
 
       {:error, %Ecto.Changeset{} = changeset} ->
         socket

@@ -21,6 +21,8 @@ defmodule PhoenixKit.API.OAuthConfigTest do
 
   defp activity(setting), do: Settings.history(setting)
 
+  defp owner, do: scope_of(owner_user())
+
   describe "current/0" do
     test "shows the defaults of a fresh install as text" do
       current = OAuthConfig.current()
@@ -144,13 +146,14 @@ defmodule PhoenixKit.API.OAuthConfigTest do
     end
   end
 
-  describe "save/2" do
+  describe "save/3" do
     test "writes only what changed, each as a setting.changed entry" do
       before_ttl = length(activity("api_oauth_access_ttl_seconds"))
       before_token = length(activity("api_oauth_token_per_min"))
 
       assert {:ok, changed} =
                OAuthConfig.save(
+                 owner(),
                  params(%{"access_ttl_seconds" => "1800", "client_policy" => "allow_list"}),
                  []
                )
@@ -164,12 +167,12 @@ defmodule PhoenixKit.API.OAuthConfigTest do
 
     test "the policy `approval` is saved and read back, and leaving it is saved too" do
       assert {:ok, ["api_oauth_client_policy"]} =
-               OAuthConfig.save(params(%{"client_policy" => "any"}), [])
+               OAuthConfig.save(owner(), params(%{"client_policy" => "any"}), [])
 
       assert Config.oauth_client_policy() == :any
 
       assert {:ok, ["api_oauth_client_policy"]} =
-               OAuthConfig.save(params(%{"client_policy" => "approval"}), [])
+               OAuthConfig.save(owner(), params(%{"client_policy" => "approval"}), [])
 
       assert Config.oauth_client_policy() == :approval
       assert OAuthConfig.current()["client_policy"] == "approval"
@@ -178,6 +181,7 @@ defmodule PhoenixKit.API.OAuthConfigTest do
     test "saves the allowed hosts as the normalized list" do
       {:ok, _} =
         OAuthConfig.save(
+          owner(),
           params(%{"allow_hosts" => "claude.ai\r\n\r\nchatgpt.com\nclaude.ai"}),
           []
         )
@@ -189,6 +193,7 @@ defmodule PhoenixKit.API.OAuthConfigTest do
     test "one bad field saves nothing" do
       assert {:error, ["token_per_min"]} =
                OAuthConfig.save(
+                 owner(),
                  params(%{"access_ttl_seconds" => "900", "token_per_min" => "0"}),
                  []
                )
@@ -197,20 +202,34 @@ defmodule PhoenixKit.API.OAuthConfigTest do
     end
 
     test "saving the form as it stands changes and logs nothing" do
-      assert {:ok, []} = OAuthConfig.save(params(), [])
+      assert {:ok, []} = OAuthConfig.save(owner(), params(), [])
     end
 
-    test "the history options reach the activity entry" do
-      {user, _role} = user_with([])
+    test "the person behind the scope is the actor of the activity entry" do
+      owner = owner_user()
 
       {:ok, _} =
-        OAuthConfig.save(params(%{"grants_per_person" => "5"}),
-          actor_uuid: user.uuid,
+        OAuthConfig.save(scope_of(owner), params(%{"grants_per_person" => "5"}),
+          actor_uuid: UUIDv7.generate(),
           source: "settings"
         )
 
       assert [entry | _] = activity("api_oauth_grants_per_person")
-      assert entry.actor_uuid == user.uuid
+      assert entry.actor_uuid == owner.uuid
+    end
+
+    # A forged call: the page refuses anyone but an Owner, and so does the context.
+    test "anyone but an Owner who holds api is refused and nothing is written" do
+      {admin, _role} = user_with([])
+      before = length(activity("api_oauth_client_policy"))
+
+      for scope <- [scope_of(admin), nil] do
+        assert {:error, :forbidden} =
+                 OAuthConfig.save(scope, params(%{"client_policy" => "any"}), [])
+      end
+
+      assert Config.oauth_client_policy() == :approval
+      assert length(activity("api_oauth_client_policy")) == before
     end
   end
 end

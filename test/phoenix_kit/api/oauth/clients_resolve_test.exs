@@ -105,7 +105,7 @@ defmodule PhoenixKit.API.OAuth.ClientsResolveTest do
       zalgo = String.duplicate("a\u0301\u0302\u0303", 160)
 
       assert {:ok, %Client{client_name: stored}} =
-               Clients.register_preregistered(%{
+               Clients.register_preregistered(:system, %{
                  client_id: "pre_zalgo",
                  client_name: zalgo,
                  redirect_uris: ["https://app.example/cb"]
@@ -118,7 +118,7 @@ defmodule PhoenixKit.API.OAuth.ClientsResolveTest do
   describe "an administrator's name with a control character" do
     test "is stripped, not a database error" do
       assert {:ok, %Client{client_name: "ab"}} =
-               Clients.register_preregistered(%{
+               Clients.register_preregistered(:system, %{
                  client_id: "pre_nul",
                  client_name: "a\u0000b",
                  redirect_uris: ["https://app.example/cb"]
@@ -127,7 +127,7 @@ defmodule PhoenixKit.API.OAuth.ClientsResolveTest do
 
     test "a name of nothing but control characters is stored as no name" do
       assert {:ok, %Client{client_name: nil}} =
-               Clients.register_preregistered(%{
+               Clients.register_preregistered(:system, %{
                  client_id: "pre_blank",
                  client_name: " \u0000 ",
                  redirect_uris: ["https://app.example/cb"]
@@ -142,7 +142,8 @@ defmodule PhoenixKit.API.OAuth.ClientsResolveTest do
             %{client_id: "pre_ok", client_uri: "https://app.example/\0", redirect_uris: []},
             %{client_id: "pre_ok", redirect_uris: ["https://app.example/cb\0"]}
           ] do
-        assert {:error, %Ecto.Changeset{valid?: false}} = Clients.register_preregistered(attrs)
+        assert {:error, %Ecto.Changeset{valid?: false}} =
+                 Clients.register_preregistered(:system, attrs)
       end
 
       assert Repo.aggregate(Client, :count) == 0
@@ -150,13 +151,13 @@ defmodule PhoenixKit.API.OAuth.ClientsResolveTest do
 
     test "bytes that are not UTF-8 are a changeset error, and a name of them is no name" do
       assert {:error, %Ecto.Changeset{}} =
-               Clients.register_preregistered(%{
+               Clients.register_preregistered(:system, %{
                  client_id: <<"pre", 0xFF>>,
                  redirect_uris: ["https://app.example/cb"]
                })
 
       assert {:ok, %Client{client_name: nil}} =
-               Clients.register_preregistered(%{
+               Clients.register_preregistered(:system, %{
                  client_id: "pre_bytes",
                  client_name: <<0xFF, ?a>>,
                  redirect_uris: ["https://app.example/cb"]
