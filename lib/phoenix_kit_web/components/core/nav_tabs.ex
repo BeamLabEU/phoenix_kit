@@ -36,6 +36,9 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
   Every optional key treats `nil` as absent, so the common
   `badge: if(count > 0, do: count)` renders no badge rather than an empty one.
 
+  `:in_menu` (a boolean, `overflow={:menu}` only) keeps a tab out of the strip
+  on every width — see "Tabs that live in the menu" below.
+
   The link keys mirror `Phoenix.Component.link/1` rather than inventing a
   parallel vocabulary: `:navigate` for a full LiveView navigation, `:patch`
   to stay in the current LiveView (query-param tabs want this — a `:navigate`
@@ -130,6 +133,26 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
   a trailing slot), so layout classes meant for the strip's own row — `flex-1`,
   `inline-flex` — belong on a parent instead.
 
+  ### Tabs that live in the menu
+
+  A strip with more tabs than anyone needs at once can say which ones are
+  secondary: a tab with `in_menu: true` is listed behind "⋯" on every width,
+  however much room the strip has, and the tabs without the key share the row
+  as before; those that do not fit still join the menu, which lists its tabs
+  in the order of `tabs` whichever way they got there.
+
+      <.nav_tabs id="order-tabs" active_tab={@tab} overflow={:menu} tabs={[
+        %{id: "items", label: "Items", patch: ~p"/orders/1/items"},
+        %{id: "files", label: "Files", patch: ~p"/orders/1/files"},
+        %{id: "history", label: "History", patch: ~p"/orders/1/history", in_menu: true}
+      ]} />
+
+  While such a tab is the active one it is shown in the strip, in its place,
+  like any other active tab — a page is never open with no tab marked. "⋯" is
+  then always visible while at least one tab is in the menu. The server renders
+  that state itself (the tab hidden, the button shown), so nothing moves when
+  the hook mounts. The key is ignored with `overflow={:wrap}`, which has no menu.
+
   `overflow={:menu}` requires an `id` (an `ArgumentError` without one): the hook
   binds to it, so it must be unique on the page — a derived id would collide for
   two strips with the same tabs.
@@ -182,7 +205,8 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
 
   attr :tabs, :list,
     required: true,
-    doc: "List of tab maps with :id, :label, and optional :icon, :badge, :navigate/:patch/:path"
+    doc:
+      "List of tab maps with :id, :label, and optional :icon, :badge, :navigate/:patch/:path, :in_menu"
 
   attr :on_change, :string,
     default: nil,
@@ -227,6 +251,7 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
       assigns
       |> assign(:tabs, tabs)
       |> assign(:menu_id, id <> "-menu")
+      |> assign(:any_in_menu?, Enum.any?(tabs, &in_menu?(&1, assigns.active_tab)))
 
     ~H"""
     <%!-- daisyUI styles a tab only as a DIRECT child of `.tabs` (`.tabs > .tab`,
@@ -251,7 +276,13 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
             role="tab"
             data-nav-tab={tab.id}
             data-nav-active={tab.id == @active_tab || nil}
-            class={tab_class(tab.id == @active_tab, strip_tab_class(tab.id == @active_tab))}
+            data-nav-in-menu={tab[:in_menu] == true || nil}
+            class={
+              tab_class(tab.id == @active_tab, [
+                strip_tab_class(tab.id == @active_tab),
+                in_menu?(tab, @active_tab) && "hidden"
+              ])
+            }
           >
             <.overflow_tab_body tab={tab} active?={tab.id == @active_tab} />
           </.link>
@@ -264,21 +295,24 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
             phx-value-tab={tab.id}
             data-nav-tab={tab.id}
             data-nav-active={tab.id == @active_tab || nil}
+            data-nav-in-menu={tab[:in_menu] == true || nil}
             class={
               tab_class(tab.id == @active_tab, [
                 strip_tab_class(tab.id == @active_tab),
-                "[&.phx-click-loading]:animate-pulse"
+                "[&.phx-click-loading]:animate-pulse",
+                in_menu?(tab, @active_tab) && "hidden"
               ])
             }
           >
             <.overflow_tab_body tab={tab} active?={tab.id == @active_tab} />
           </button>
         <% end %>
-        <%!-- Hidden until the hook finds a tab that does not fit. --%>
+        <%!-- Hidden until the hook finds a tab that does not fit — unless a
+             tab is in the menu by choice (`in_menu`), which the server knows. --%>
         <button
           type="button"
           data-nav-more
-          class="tab shrink-0 min-w-11 hidden"
+          class={["tab shrink-0 min-w-11", !@any_in_menu? && "hidden"]}
           aria-label={gettext("More tabs")}
           aria-haspopup="menu"
           aria-expanded="false"
@@ -309,7 +343,7 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
           role="menuitem"
           data-nav-item={tab.id}
           aria-current={tab.id == @active_tab && "true"}
-          class={menu_item_class(tab.id == @active_tab)}
+          class={[menu_item_class(tab.id == @active_tab), !in_menu?(tab, @active_tab) && "hidden"]}
         >
           <.overflow_tab_body tab={tab} active?={tab.id == @active_tab} />
         </button>
@@ -376,6 +410,10 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
   # tab that fits.
   defp strip_tab_class(true), do: "flex-nowrap whitespace-nowrap min-w-0"
   defp strip_tab_class(false), do: "flex-nowrap whitespace-nowrap shrink-0"
+
+  # A tab the caller put behind "⋯" (`in_menu: true`) — while it is not the
+  # active one, which always shows in the strip.
+  defp in_menu?(tab, active_tab), do: tab[:in_menu] == true and tab.id != active_tab
 
   # 44px (`min-h-11`) is the touch-target floor; the badge is pushed to the end.
   defp menu_item_class(active?) do

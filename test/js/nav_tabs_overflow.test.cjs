@@ -333,3 +333,46 @@ test("Escape on an open menu is consumed so it does not close a surrounding dial
     global.document.addEventListener = realAdd;
   }
 });
+
+// navTabsLayout: the same fitting with tabs the caller keeps in the menu
+// (`in_menu`). Arguments: widths, gap, avail, the "⋯" button's width, the
+// active index, and which tabs are forced into the menu.
+const { navTabsLayout } = admin;
+
+test("layout: with nothing forced and everything fitting, nothing hides", () => {
+  assert.deepEqual(navTabsLayout([100, 100, 100], 0, 300, 44, 0, [false, false, false]), [false, false, false]);
+});
+
+test("layout: with nothing forced it is navTabsHidden beside the button", () => {
+  assert.deepEqual(
+    navTabsLayout([100, 100, 100, 100], 0, 350, 50, 0, [false, false, false, false]),
+    navTabsHidden([100, 100, 100, 100], 0, 300, 0)
+  );
+});
+
+test("layout: a forced tab hides however much room there is", () => {
+  assert.deepEqual(navTabsLayout([100, 0, 100], 0, 1000, 44, 0, [false, true, false]), [false, true, false]);
+});
+
+test("layout: a forced tab's width is ignored", () => {
+  // 100 + 100 + the 44 button = 244 fits in 244 even though the forced tab reports 500.
+  assert.deepEqual(navTabsLayout([100, 500, 100], 0, 244, 44, 0, [false, true, false]), [false, true, false]);
+});
+
+test("layout: the others must fit beside the button once a tab is forced", () => {
+  // Without a forced tab 300 fits in 300; with one the button takes 44.
+  assert.deepEqual(navTabsLayout([100, 100, 100], 0, 300, 44, 0, [false, false, false]), [false, false, false]);
+  assert.deepEqual(navTabsLayout([100, 100, 100, 0], 0, 300, 44, 0, [false, false, false, true]), [false, false, true, true]);
+});
+
+test("layout: the active index is mapped past forced tabs", () => {
+  // Tab 3 is active and last among the free ones: room is reserved for it.
+  assert.deepEqual(
+    navTabsLayout([100, 0, 100, 100], 0, 250, 50, 3, [false, true, false, false]),
+    [false, true, true, false]
+  );
+});
+
+test("layout: every tab forced leaves an empty strip", () => {
+  assert.deepEqual(navTabsLayout([0, 0], 0, 300, 44, -1, [true, true]), [true, true]);
+});

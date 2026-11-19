@@ -657,6 +657,95 @@ defmodule PhoenixKitWeb.Components.Core.NavTabsTest do
     end
   end
 
+  describe "overflow: :menu with in_menu tabs" do
+    @menu_set [
+      %{id: "a", label: "General", navigate: "/a"},
+      %{id: "b", label: "History", navigate: "/b", in_menu: true},
+      %{id: "c", label: "Notes", in_menu: true}
+    ]
+
+    defp parts(assigns) do
+      html =
+        render_tabs(
+          assigns
+          |> Map.put(:overflow, :menu)
+          |> Map.put_new(:id, "tabs")
+          |> Map.put_new(:on_change, "go")
+        )
+
+      doc = Floki.parse_fragment!(html)
+
+      %{
+        html: html,
+        tab: fn id -> doc |> Floki.find(~s([data-nav-tab="#{id}"])) |> hd() end,
+        item: fn id -> doc |> Floki.find(~s([data-nav-item="#{id}"])) |> hd() end,
+        more: doc |> Floki.find("[data-nav-more]") |> hd()
+      }
+    end
+
+    defp hidden?(node),
+      do: "hidden" in (node |> Floki.attribute("class") |> Enum.join(" ") |> String.split())
+
+    test "a tab kept in the menu is out of the strip and shown in the menu" do
+      p = parts(%{tabs: @menu_set})
+
+      refute hidden?(p.tab.("a"))
+      assert hidden?(p.tab.("b"))
+      assert hidden?(p.tab.("c"))
+
+      assert hidden?(p.item.("a"))
+      refute hidden?(p.item.("b"))
+      refute hidden?(p.item.("c"))
+    end
+
+    test "the more button is shown from the first render" do
+      refute hidden?(parts(%{tabs: @menu_set}).more)
+    end
+
+    test "the strip tab is marked for the hook, link and event tabs alike" do
+      p = parts(%{tabs: @menu_set})
+
+      assert Floki.attribute(p.tab.("a"), "data-nav-in-menu") == []
+      assert Floki.attribute(p.tab.("b"), "data-nav-in-menu") != []
+      assert Floki.attribute(p.tab.("c"), "data-nav-in-menu") != []
+    end
+
+    test "while it is the active tab it shows in the strip" do
+      p = parts(%{tabs: @menu_set, active_tab: "b"})
+
+      refute hidden?(p.tab.("b"))
+      assert hidden?(p.item.("b"))
+      assert hidden?(p.tab.("c"))
+      refute hidden?(p.more)
+    end
+
+    test "the more button hides again when the only menu tab is the active one" do
+      tabs = Enum.reject(@menu_set, &(&1.id == "c"))
+      assert hidden?(parts(%{tabs: tabs, active_tab: "b"}).more)
+    end
+
+    test "false and nil read as absent" do
+      tabs = [
+        %{id: "a", label: "General", navigate: "/a", in_menu: false},
+        %{id: "b", label: "History", navigate: "/b", in_menu: nil}
+      ]
+
+      p = parts(%{tabs: tabs})
+
+      refute hidden?(p.tab.("a"))
+      refute hidden?(p.tab.("b"))
+      assert hidden?(p.more)
+      refute p.html =~ "data-nav-in-menu"
+    end
+
+    test "the key is ignored in :wrap mode" do
+      html = render_tabs(%{tabs: @menu_set, on_change: "go"})
+
+      refute html =~ "data-nav-in-menu"
+      refute html =~ "hidden"
+    end
+  end
+
   describe "id in :wrap mode" do
     test "is rendered only when given, so callers without one are unchanged" do
       assert render_tabs(%{tabs: [%{id: "a", label: "A", navigate: "/x"}], id: "t"}) =~

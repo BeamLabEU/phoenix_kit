@@ -3474,6 +3474,8 @@
   //   * the active tab always stays in the strip: earlier non-active tabs make
   //     room for it (and it truncates when it is alone and still too wide);
   //   * the "⋯" button shows only while something is hidden.
+  //   * a tab marked `data-nav-in-menu` (the `in_menu` tab key) stays in the
+  //     menu on every width while it is not the active one.
   // Measured on mount, on container resize, after web fonts load, and whenever
   // the strip's DOM changes — a LiveView patch resets JS-set classes to the
   // server's markup, so a MutationObserver re-applies them before the next paint.
@@ -3506,6 +3508,27 @@
       full = true;
       return true;
     });
+  }
+
+  // The whole decision for one strip. `forced[i]` marks a tab the caller keeps
+  // in the menu (`in_menu`) and that is not the active one: it is hidden
+  // whatever the room, takes no part in the fitting (its width is ignored), and
+  // makes the "⋯" button permanent — so the others fit beside the button from
+  // the start. `active` is an index into the full list.
+  function navTabsLayout(widths, gap, avail, moreWidth, active, forced) {
+    var free = [];
+    widths.forEach(function(_w, i) { if (!forced[i]) free.push(i); });
+    var anyForced = free.length < widths.length;
+    var hide = forced.slice();
+    var freeWidths = free.map(function(i) { return widths[i]; });
+    var total = freeWidths.reduce(function(a, w) { return a + w; }, 0) +
+      gap * Math.max(free.length - 1, 0);
+    var withMore = avail - moreWidth - gap;
+    if (total > (anyForced ? withMore : avail) + 0.5) {
+      var h = navTabsHidden(freeWidths, gap, withMore, free.indexOf(active));
+      free.forEach(function(i, k) { hide[i] = h[k]; });
+    }
+    return hide;
   }
 
   function navTabsFind(host, id) {
@@ -3670,14 +3693,19 @@
       this._applying = true;
       var tabs = Array.prototype.slice.call(strip.querySelectorAll("[data-nav-tab]"));
       var items = Array.prototype.slice.call(menu.querySelectorAll("[data-nav-item]"));
-      var hide = tabs.map(function() { return false; });
+      // Tabs the caller keeps in the menu (`in_menu`), the active one excepted.
+      var forced = tabs.map(function(t) {
+        return t.hasAttribute("data-nav-in-menu") && !t.hasAttribute("data-nav-active");
+      });
+      var hide = forced.slice();
 
-      tabs.forEach(function(t) { t.classList.remove("hidden"); });
-      more.classList.add("hidden");
+      // Out of the row before measuring: they take no room in it.
+      tabs.forEach(function(t, i) { t.classList.toggle("hidden", forced[i]); });
+      more.classList.toggle("hidden", forced.indexOf(true) < 0);
 
       // A strip that is not laid out (inside a hidden pane) measures 0 and
-      // would hide everything; leave it fully shown until the resize observer
-      // reports a real width.
+      // would hide everything; leave it as the server rendered it until the
+      // resize observer reports a real width.
       if (strip.clientWidth > 0) {
         var cs = window.getComputedStyle(strip);
         var gap = parseFloat(cs.columnGap) || 0;
@@ -3689,13 +3717,13 @@
         // Natural widths: the active tab is allowed to shrink, so freeze it.
         tabs.forEach(function(t) { t.style.flexShrink = "0"; });
         var widths = tabs.map(function(t) { return t.getBoundingClientRect().width; });
-        var total = widths.reduce(function(a, w) { return a + w; }, 0) +
-          gap * Math.max(tabs.length - 1, 0);
-        if (total > avail + 0.5) {
-          more.classList.remove("hidden");
-          var active = tabs.findIndex(function(t) { return t.hasAttribute("data-nav-active"); });
-          hide = navTabsHidden(widths, gap, avail - more.getBoundingClientRect().width - gap, active);
-        }
+        // The button is measured shown, whether or not it ends up so.
+        var moreHidden = more.classList.contains("hidden");
+        more.classList.remove("hidden");
+        var moreWidth = more.getBoundingClientRect().width;
+        more.classList.toggle("hidden", moreHidden);
+        var active = tabs.findIndex(function(t) { return t.hasAttribute("data-nav-active"); });
+        hide = navTabsLayout(widths, gap, avail, moreWidth, active, forced);
         tabs.forEach(function(t) { t.style.flexShrink = ""; });
       }
 
@@ -3755,6 +3783,7 @@
   // Exported for the Node test harness (test/js); harmless in a browser.
   if (typeof module === "object" && module.exports) {
     module.exports.navTabsHidden = navTabsHidden;
+    module.exports.navTabsLayout = navTabsLayout;
     module.exports.navTabsFind = navTabsFind;
   }
 
