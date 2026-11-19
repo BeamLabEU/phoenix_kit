@@ -52,6 +52,21 @@ defmodule PhoenixKitWeb.OAuth.TokenTest do
       assert expires_in in 1..3600
     end
 
+    test "every answer of the token and the revoke endpoints is readable from any origin", %{
+      flow: flow
+    } do
+      # A client that runs in a browser (an MCP inspector) reads the answer from its own origin.
+      for conn <- [
+            exchange_code(flow),
+            token(%{"grant_type" => "password"}),
+            revoke(%{"token" => "x"}),
+            revoke(%{"token" => "a\u0000b"})
+          ] do
+        assert get_resp_header(conn, "access-control-allow-origin") == ["*"]
+        assert get_resp_header(conn, "access-control-allow-credentials") == []
+      end
+    end
+
     test "the grant is activated by it, and the resource is the server's own", %{flow: flow} do
       assert [%Grant{activated_at: nil}] = Repo.all(Grant)
       assert exchange_code(flow).status == 200

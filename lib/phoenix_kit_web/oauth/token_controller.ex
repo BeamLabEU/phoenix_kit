@@ -8,7 +8,8 @@ defmodule PhoenixKitWeb.OAuth.TokenController do
 
   Answers are JSON in the form of RFC 6749 section 5: `{"error":..., "error_description":...}`
   (not a problem document), and every one carries `Cache-Control: no-store` and
-  `Pragma: no-cache`. A refused request is `400`, except `invalid_client`, which is `401` with a
+  `Pragma: no-cache`, and `Access-Control-Allow-Origin: *` (a client that runs in a browser reads
+  them from its own origin; no cookie or session is involved). A refused request is `400`, except `invalid_client`, which is `401` with a
   `WWW-Authenticate` challenge when the client sent an `Authorization` header and `400`
   otherwise, the rate limit, `429`, and `server_error` (the tokens could not be written), `500`.
   One minute of requests per client network is `api_oauth_token_per_min` (60); the routes are
@@ -99,5 +100,12 @@ defmodule PhoenixKitWeb.OAuth.TokenController do
   defp error_answer(conn, error, description),
     do: json_answer(conn, 400, %{"error" => error, "error_description" => description})
 
-  defp json_answer(conn, status, body), do: Responses.json(conn, status, body)
+  # Readable from any origin: an application that runs in a browser (an MCP inspector) makes these
+  # requests from its own page. Nothing here rides on a cookie or a session, so there is nothing
+  # another origin could borrow.
+  defp json_answer(conn, status, body) do
+    conn
+    |> put_resp_header("access-control-allow-origin", "*")
+    |> Responses.json(status, body)
+  end
 end
