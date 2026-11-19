@@ -77,6 +77,16 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
     * `:own_files_only`, `:write_library_uuid`, `:viewer_uuid` (default `nil`) —
       the browser's uploader, library and visibility restrictions. Every file
       metadata or rotation write checks them against the current database row.
+      `:own_files_only` covers the drawings as well: on a file someone else
+      uploaded the viewer is read-only (shapes locked, tools gone), and the
+      annotation events — draw, change, delete, Reply, a title edited from the
+      thread — are refused on the server. Looking at the drawings stays open.
+    * `:comments` (default `true`) — `false` takes the discussion out of the
+      viewer. It is not rendered, and what is not rendered cannot be reached:
+      no comments thread in the sidebar, no reply popup, the shapes carry no
+      comment count, preview or badge (so the tooltip offers no Reply / View),
+      and `annotation_reply` is refused on the server. The drawings themselves
+      are untouched.
     * `:details_path` (default `nil`) — when set, the sidebar shows an
       "Open details page" button navigating to this path. Admin-context
       hosts (`MediaBrowser` with `admin={true}`) pass the file's
@@ -212,6 +222,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
      |> assign(:etcher_line_params, @default_etcher_line_params)
      |> assign(:viewer_only, false)
      |> assign(:can_annotate, true)
+     |> assign(:comments, true)
      |> assign(:viewer_rotation, 0)
      |> assign(:persist_rotation, false)
      |> assign(:rotation_status, nil)
@@ -320,6 +331,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       |> assign(:has_prev, assigns[:has_prev] || false)
       |> assign(:has_next, assigns[:has_next] || false)
       |> assign(:viewer_only, assigns[:viewer_only] || false)
+      |> assign(:comments, assigns[:comments] != false)
       |> assign_can_annotate(assigns, file)
       # Opt-in: hosts that pass `persist_rotation` write a rotation back to the
       # shared file row (see handle_event "fresco:rotate") — the media browser
@@ -364,7 +376,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
     socket =
       cond do
         socket.assigns[:viewer_canvas] == nil and is_map(file) ->
-          annotations = load_annotations_for(file.file_uuid)
+          annotations = load_annotations(socket, "file", file.file_uuid)
 
           socket
           |> assign(:viewer_annotations, annotations)
@@ -394,7 +406,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
           end)
 
         socket.assigns[:viewer_canvas] == nil and is_map(board) ->
-          annotations = load_annotations_for_target(board.target_type, board.target_uuid)
+          annotations = load_annotations(socket, board.target_type, board.target_uuid)
 
           socket
           |> assign(:viewer_annotations, annotations)
@@ -572,6 +584,11 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   # The tooltip still offers Reply on a readonly shape. The button is UX;
   # this clause is the boundary, same as `etcher:annotations-changed`.
   def handle_event("annotation_reply", _params, %{assigns: %{can_annotate: false}} = socket),
+    do: {:noreply, socket}
+
+  # Comments off: the popup is not rendered, and Reply would write a comment
+  # (the shape's master) all the same if the event were sent from a console.
+  def handle_event("annotation_reply", _params, %{assigns: %{comments: false}} = socket),
     do: {:noreply, socket}
 
   def handle_event("annotation_reply", %{"uuid" => uuid}, socket) do
@@ -1038,7 +1055,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
     not Libraries.managed?(row) and
       user_library_writable?(row, assigns[:current_user]) and
       Storage.within_scope?(row.folder_uuid, assigns[:write_scope]) and
-      (is_nil(assigns[:own_files_only]) or row.user_uuid == assigns[:own_files_only]) and
+      own_file?(row, assigns) and
       (is_nil(assigns[:write_library_uuid]) or
          row.library_uuid == assigns[:write_library_uuid]) and
       Storage.viewer_can_see_file?(assigns[:viewer_uuid], row)
@@ -1058,15 +1075,25 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
 
   defp annotation_file_writable?(%{file_uuid: uuid}, assigns) when is_binary(uuid) do
     case Storage.get_file(uuid) do
-      %Storage.File{} = row ->
-        not Libraries.managed?(row) and user_library_writable?(row, assigns[:current_user])
-
-      _ ->
-        true
+      %Storage.File{} = row -> annotation_row_writable?(row, assigns)
+      _ -> true
     end
   end
 
   defp annotation_file_writable?(_file, _assigns), do: true
+
+  # The drawings follow the uploader rule of the file's own writes
+  # (`own_files_only`), which answers first: someone else's file is refused
+  # without a second look. Public (`@doc false`) so the unit suite can pin it
+  # without a database.
+  @doc false
+  def annotation_row_writable?(%Storage.File{} = row, assigns) do
+    own_file?(row, assigns) and not Libraries.managed?(row) and
+      user_library_writable?(row, assigns[:current_user])
+  end
+
+  defp own_file?(row, assigns),
+    do: is_nil(assigns[:own_files_only]) or row.user_uuid == assigns[:own_files_only]
 
   defp user_library_readable?(uuid, user) do
     with %Storage.File{} = row <- Storage.get_file(uuid),
@@ -1464,7 +1491,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       # A row was created / updated / deleted — reload from DB to pick up
       # fresh comment metadata + cascade changes (deleted-annotation
       # comments cascading out), then rebuild the canvas blob.
-      refreshed = load_annotations_for_target(target_type, target_uuid)
+      refreshed = load_annotations(socket, target_type, target_uuid)
 
       socket
       |> assign(:viewer_annotations, refreshed)
@@ -1655,7 +1682,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       end
 
     refresh_file_comments(socket)
-    fresh = if file_uuid, do: load_annotations_for(file_uuid), else: []
+    fresh = if file_uuid, do: load_annotations(socket, "file", file_uuid), else: []
 
     socket =
       socket
@@ -1690,7 +1717,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   defp refresh_annotations(socket) do
     case socket.assigns[:file] do
       %{file_uuid: file_uuid} ->
-        fresh = load_annotations_for(file_uuid)
+        fresh = load_annotations(socket, "file", file_uuid)
 
         socket =
           socket
@@ -2358,7 +2385,25 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
     end)
   end
 
-  defp curate_row(row) do
+  # What this viewer shows of a target: with `comments` off the discussion is
+  # not even read — the rows carry no comment fields, so Etcher's tooltip has
+  # no Reply / View and the shape no count.
+  defp load_annotations(%{assigns: %{comments: false}}, target_type, target_uuid) do
+    target_type
+    |> Annotations.list_for_target(target_uuid)
+    |> Enum.map(fn a ->
+      curate_row(
+        %{annotation: a, first_comment: nil, comment_count: 0, master_comment_uuid: nil},
+        false
+      )
+    end)
+  end
+
+  defp load_annotations(_socket, target_type, target_uuid),
+    do: load_annotations_for_target(target_type, target_uuid)
+
+  @doc false
+  def curate_row(row, comments? \\ true) do
     %{annotation: a, first_comment: fc, comment_count: count} = row
 
     # `metadata` flows through to Etcher's tooltip. The JS reads
@@ -2368,6 +2413,9 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
 
     comment_meta =
       case fc do
+        _ when not comments? ->
+          %{}
+
         nil ->
           %{"comment_created_at" => format_date(a.inserted_at), "comment_count" => 0}
 
@@ -2393,7 +2441,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
     # `patchShape` merges metadata, so an omitted key would leave a
     # stale bubble on the shape after its last comment is deleted —
     # Etcher hides the bubble for 0 itself.
-    badge_meta = %{"badge" => count}
+    badge_meta = if comments?, do: %{"badge" => count}, else: %{}
 
     %{
       uuid: a.uuid,
@@ -2499,7 +2547,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       persist_annotation_title(annotation_uuid, normalize_annotation_title(title))
     end
 
-    fresh = if file_uuid, do: load_annotations_for(file_uuid), else: []
+    fresh = if file_uuid, do: load_annotations(socket, "file", file_uuid), else: []
 
     socket =
       socket
@@ -2588,7 +2636,8 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   # comment, cascade-deleted annotation comments, etc.). Flipping
   # `loaded?` to false makes its `update/2` rerun `load_comments/1`.
   defp refresh_file_comments(socket) do
-    with %{file_uuid: file_uuid} when is_binary(file_uuid) <- socket.assigns[:file],
+    with true <- socket.assigns[:comments] != false,
+         %{file_uuid: file_uuid} when is_binary(file_uuid) <- socket.assigns[:file],
          true <- Code.ensure_loaded?(PhoenixKitComments.Web.CommentsComponent) do
       Phoenix.LiveView.send_update(PhoenixKitComments.Web.CommentsComponent,
         id: viewer_dom_id(socket.assigns, "media-comments-" <> file_uuid),

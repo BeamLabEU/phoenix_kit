@@ -389,6 +389,22 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
           scope_folder_id={@order.storage_folder_uuid}
           readonly
         />
+  - `comments` (default `true`) — `false` leaves the discussion out of the modal
+    viewer: no comments thread in the sidebar, no reply popup, and the shapes
+    drawn on a picture carry no comment count, preview or badge, so their
+    tooltip offers no Reply / View. The mechanism is that it is **not
+    rendered**: what is not rendered cannot be reached, and the viewer also
+    refuses the Reply event on the server. Drawings and file details are
+    untouched (they follow `readonly`, `own_files_only` and the rest). Use it
+    where the viewer is embedded for someone who must not read or add
+    comments.
+  - `show_path` (default `true`) — `false` leaves out the list view's "Path"
+    column (the header and the cell of every folder and file row), which spells
+    out a file's whole folder chain from the top of the library, including the
+    folders above `scope_folder_id`. The breadcrumb and the folder tree of a
+    scoped browser already start at the scope folder, and neither the grid, the
+    stacks view nor the viewer shows a folder chain, so with `show_path={false}`
+    no ancestor of the scope folder is named anywhere in the browser.
   - `featured` — `nil` (default, feature off) or `%{uuid: uuid | nil,
     label: String.t() | nil}` naming the host's own featured-image
     pointer. `label` is the star badge's tooltip; falls back to gettext
@@ -639,6 +655,10 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       |> assign_new(:notify, fn -> nil end)
       |> assign_new(:folder_labels, fn -> %{} end)
       |> assign_new(:folder_actions, fn -> true end)
+      # Opt-out views for an embedding: the viewer's comments thread, and the
+      # list view's Path column (see the moduledoc).
+      |> assign_new(:comments, fn -> true end)
+      |> assign_new(:show_path, fn -> true end)
       |> assign_new(:allow_move, fn -> false end)
       |> assign_new(:subtree_toggle, fn -> false end)
       # The removal guard (see the moduledoc's "Removal guard"): `nil` takes

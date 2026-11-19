@@ -15,7 +15,9 @@
         <% end %>
         <th class="w-12"></th>
         <th>{gettext("Name")}</th>
-        <th class="hidden lg:table-cell">{gettext("Path")}</th>
+        <th :if={assigns[:show_path] != false} data-col="path" class="hidden lg:table-cell">
+          {gettext("Path")}
+        </th>
         <th class="hidden lg:table-cell">{gettext("Description")}</th>
         <th class="hidden md:table-cell">{gettext("Type")}</th>
         <th class="hidden md:table-cell">{gettext("Size")}</th>
@@ -33,7 +35,8 @@
       breadcrumbs walk independently, an N+1 over
       identical work.
     --%>
-      <% folders_path = folder_list_path(@current_folder, @scope_folder_id) %>
+      <% folders_path =
+        if assigns[:show_path] != false, do: folder_list_path(@current_folder, @scope_folder_id) %>
       <%!-- Folders --%>
       <%= for folder <- if(@file_view == "all", do: [], else: @folders) do %>
         <%= cond do %>
@@ -52,7 +55,7 @@
                   </span>
                 </div>
               </td>
-              <td colspan="6">
+              <td colspan={if assigns[:show_path] != false, do: 6, else: 5}>
                 <form
                   id={"#{@id}-list-folder-description-form-#{folder.uuid}"}
                   phx-submit="save_folder_description"
@@ -103,7 +106,7 @@
                   </span>
                 </div>
               </td>
-              <td colspan="6">
+              <td colspan={if assigns[:show_path] != false, do: 6, else: 5}>
                 <form
                   id={"#{@id}-list-folder-rename-form-#{folder.uuid}"}
                   phx-submit="rename_folder"
@@ -205,7 +208,7 @@
                   <span>{PhoenixKit.Utils.Date.short_with_year(folder.inserted_at)}</span>
                 </div>
               </td>
-              <td class="hidden lg:table-cell">
+              <td :if={assigns[:show_path] != false} data-col="path" class="hidden lg:table-cell">
                 <%= if folders_path do %>
                   <span class="text-xs text-base-content/50">
                     {folders_path}
@@ -389,7 +392,7 @@
               <span>{PhoenixKit.Utils.Date.short_with_year(file.inserted_at)}</span>
             </div>
           </td>
-          <td class="hidden lg:table-cell">
+          <td :if={assigns[:show_path] != false} data-col="path" class="hidden lg:table-cell">
             <%= if file.folder_path do %>
               <span class="text-xs text-base-content/50">
                 {file.folder_path}
