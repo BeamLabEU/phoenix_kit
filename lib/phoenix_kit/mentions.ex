@@ -669,6 +669,11 @@ defmodule PhoenixKit.Mentions do
       mention's own source).
     * `:preview` — the text around the mention, shown only to someone the
       source's handler says may read it.
+    * `:quote` — the whole text the mention sits in (a comment), carried as
+      the notification's quote (`PhoenixKit.Notifications.Render.quote/1`,
+      a block under the line, and in email and Telegram), under the same
+      rule as the preview: only for a reader the source says may read it.
+      Absent, the uncut `:preview` is used.
     * `:link` — where clicking the notification goes: a local path built with
       `PhoenixKit.Utils.Routes.path/1`, pointing at the mention itself where
       the caller can (a comment's anchor on its record's page). Anything that
@@ -685,6 +690,7 @@ defmodule PhoenixKit.Mentions do
     source_type = Keyword.get(opts, :source_type)
     source_uuid = Keyword.get(opts, :source_uuid)
     preview = opts |> Keyword.get(:preview) |> preview_text()
+    quote_text = quote_text(Keyword.get(opts, :quote) || Keyword.get(opts, :preview))
     link = local_link(Keyword.get(opts, :link))
 
     mentions
@@ -721,6 +727,11 @@ defmodule PhoenixKit.Mentions do
             # source. Otherwise they get the ping and a link, and the link
             # answers for itself.
             "preview" => if(visibility == :yes, do: preview),
+            # The comment itself, as the notification's quote — same rule.
+            "quote" =>
+              if(visibility == :yes and quote_text,
+                do: %{"text" => quote_text, "author_uuid" => mention.actor_uuid}
+              ),
             "notification_link" => link
           }
           |> Map.reject(fn {_key, value} -> is_nil(value) end)
@@ -805,6 +816,12 @@ defmodule PhoenixKit.Mentions do
       _ -> nil
     end)
   end
+
+  defp quote_text(text) when is_binary(text) do
+    if String.trim(text) == "", do: nil, else: text
+  end
+
+  defp quote_text(_), do: nil
 
   defp preview_text(nil), do: nil
 
