@@ -4263,6 +4263,8 @@
       });
     }
 
+    pkLoaders.tessera = loadTessera;
+
     window.PhoenixKitHooks.TesseraLayer = lazyHook(loadTessera, function() {
       return window.TesseraHooks && window.TesseraHooks.TesseraLayer;
     });
@@ -4330,6 +4332,22 @@
     window.PhoenixKitHooks.EtcherLayer = lazyHook(loadEtcher, function() {
       return window.EtcherHooks && window.EtcherHooks.EtcherLayer;
     });
+
+    // A page answered by Etcher's offline service worker (`PhoenixKit.Offline`;
+    // the worker marks it with this meta tag) has no server behind it: the
+    // LiveView never joins, so no hook mounts and nothing above would ever
+    // load the viewer. Etcher starts the canvas itself from this device's copy
+    // — once it is here, so load it, and Tessera for the zoom ladder.
+    function loadForOfflineCopy() {
+      if (!document.querySelector('meta[name="etcher-offline-copy"]')) return;
+      loadEtcher().catch(function() { /* reported by the loader */ });
+      if (pkLoaders.tessera) pkLoaders.tessera().catch(function() { /* reported by the loader */ });
+    }
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", loadForOfflineCopy);
+    } else {
+      setTimeout(loadForOfflineCopy, 0);
+    }
   })();
 
   // ============================================================================
