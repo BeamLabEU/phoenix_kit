@@ -250,7 +250,7 @@ defmodule PhoenixKitWeb.Live.Components.ConnectedApps do
     client.redirect_uris |> Enum.map(&RedirectUri.host/1) |> Enum.reject(&is_nil/1) |> Enum.uniq()
   end
 
-  defp person(%{assigns: %{mode: :all}}, row), do: row.owner.email
+  defp person(%{assigns: %{mode: :all}}, row), do: User.delivery_email(row.owner)
   defp person(_socket, _row), do: nil
 
   defp date(datetime, user), do: UtilsDate.format_date_with_user_timezone(datetime, user)
@@ -342,7 +342,7 @@ defmodule PhoenixKitWeb.Live.Components.ConnectedApps do
                     </div>
                   </.table_default_cell>
                   <.table_default_cell :if={@mode == :all} class="text-sm">
-                    {row.owner.email}
+                    {User.delivery_email(row.owner)}
                   </.table_default_cell>
                   <.table_default_cell>
                     <div class="flex flex-wrap gap-1 max-w-xs">
