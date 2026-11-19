@@ -65,6 +65,25 @@ defmodule PhoenixKitWeb.Live.Settings.PendingApprovalsTest do
       assert has_element?(view, "#{@block}-reject-#{ctx.seeded.grant.uuid}")
     end
 
+    test "names a managed organization by the address it is reached at, not its placeholder",
+         ctx do
+      placeholder = "org-#{ctx.user.uuid}@organization.invalid"
+
+      Repo.update_all(
+        Ecto.Query.from(u in PhoenixKit.Users.Auth.User, where: u.uuid == ^ctx.user.uuid),
+        set: [
+          email: placeholder,
+          managed_by_members: true,
+          account_type: "organization",
+          contact_email: "desk@acme.example"
+        ]
+      )
+
+      view = owner_view(ctx)
+      assert has_element?(view, row(ctx.seeded), "desk@acme.example")
+      refute has_element?(view, row(ctx.seeded), placeholder)
+    end
+
     test "names the host of the metadata document of an application that has one", ctx do
       client =
         client!(%{client_id: "https://docs.agent.example/client.json", client_name: "Cimd One"})

@@ -27,6 +27,8 @@ defmodule PhoenixKit.API.OAuth.CimdTest do
             "ftp://app.example/client.json",
             "app.example/client.json",
             "https://app.example",
+            "https://app.example/",
+            "https://app.example/?v=2",
             "https://app.example/client.json#frag",
             "https://user@app.example/client.json",
             "https://user:pw@app.example/client.json",

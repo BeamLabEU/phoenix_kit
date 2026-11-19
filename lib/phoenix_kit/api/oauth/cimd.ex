@@ -108,7 +108,7 @@ defmodule PhoenixKit.API.OAuth.Cimd do
          {:ok, %URI{} = uri} <- URI.new(url) do
       uri.scheme == "https" and is_binary(uri.host) and uri.host != "" and
         is_nil(uri.userinfo) and is_nil(uri.fragment) and uri.port == 443 and
-        is_binary(uri.path) and uri.path != "" and not dot_segment?(uri.path)
+        is_binary(uri.path) and uri.path not in ["", "/"] and not dot_segment?(uri.path)
     else
       _ -> false
     end

@@ -75,6 +75,28 @@ defmodule PhoenixKit.API.OAuth.ClientsTest do
       end
     end
 
+    test "a home page is kept only when it is one a link can be made of" do
+      assert {:ok, %Client{client_uri: "https://tool.example/about"}} =
+               Clients.register_preregistered(
+                 :system,
+                 attrs(%{client_uri: "https://tool.example/about"})
+               )
+
+      for bad <- [
+            "http://tool.example/",
+            "javascript:alert(1)",
+            "https://user@tool.example/",
+            "https://tool.example/#x",
+            "https://tool.example/ a",
+            "https://tool.example/" <> String.duplicate("a", 2048)
+          ] do
+        assert {:error, changeset} =
+                 Clients.register_preregistered(:system, attrs(%{client_uri: bad}))
+
+        assert %{client_uri: _} = errors(changeset), inspect(bad)
+      end
+    end
+
     test "a client_id is required, bounded and unique" do
       assert {:error, changeset} =
                Clients.register_preregistered(:system, attrs(%{client_id: nil}))

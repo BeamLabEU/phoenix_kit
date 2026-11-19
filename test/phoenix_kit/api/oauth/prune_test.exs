@@ -127,6 +127,19 @@ defmodule PhoenixKit.API.OAuth.PruneTest do
       assert Grants.delete_unactivated(UUIDv7.generate(), ago(3600)) == :kept
     end
 
+    test "delete_unactivated/2 never deletes a key that is not the hidden key of this grant", %{
+      scope: scope
+    } do
+      {grant, key, _code} = unfinished_grant!(scope, 7200)
+
+      # The key loses its mark: it now looks like a person's own key the grant points at.
+      Repo.update_all(from(k in Key, where: k.uuid == ^key.uuid), set: [oauth_grant_uuid: nil])
+
+      assert Grants.delete_unactivated(grant.uuid, ago(3600)) == :kept
+      assert Repo.get(Key, key.uuid)
+      assert Repo.get(Grant, grant.uuid)
+    end
+
     test "delete_unactivated/2 keeps a grant that already has a token", %{scope: scope} do
       {grant, key, _code} = unfinished_grant!(scope, 3700)
       {:ok, _token, _row} = Tokens.issue(grant, :access)

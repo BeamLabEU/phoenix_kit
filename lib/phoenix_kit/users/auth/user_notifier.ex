@@ -28,6 +28,7 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
 
   import Swoosh.Email
 
+  alias PhoenixKit.API.ModuleLabel
   alias PhoenixKit.Email.Content
   alias PhoenixKit.Email.CoreTemplates
   alias PhoenixKit.Mailer
@@ -38,7 +39,6 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
   alias PhoenixKit.Utils.RecipientLocale
   alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Utils.TimeZone
-  alias PhoenixKitWeb.Live.Settings.Api, as: SettingsApi
 
   # How much of an application's own name the email about a new connection shows.
   @app_name_limit 60
@@ -507,7 +507,7 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
 
   defp rights_line(rights) do
     Enum.map_join(rights, ", ", fn %{key: key, name: name} = right ->
-      label = SettingsApi.module_label(%{key: key, name: name})
+      label = ModuleLabel.label(%{key: key, name: name})
       CoreTemplates.app_connected_right(label, right.read?, right.write?)
     end)
   end

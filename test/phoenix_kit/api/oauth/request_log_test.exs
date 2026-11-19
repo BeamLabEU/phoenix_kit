@@ -55,6 +55,32 @@ defmodule PhoenixKit.API.OAuth.RequestLogTest do
       assert text == "could not render /oauth/consent/[FILTERED] for x"
     end
 
+    test "reads a message written as other chardata as one text" do
+      token = @token
+
+      # The request line nested another way, and with the path as a charlist.
+      for line <- [
+            [["GET", " "], ["/oauth/consent/", token]],
+            ~c"GET /oauth/consent/" ++ String.to_charlist(token),
+            ["GET ", ~c"/oauth/authorize?code=SECRETCODE"]
+          ] do
+        assert %{msg: {:string, redacted}} = RequestLog.filter(event(line), [])
+        assert is_binary(redacted)
+        refute redacted =~ token
+        refute redacted =~ "SECRETCODE"
+      end
+
+      assert %{msg: {:string, "could not render /oauth/consent/[FILTERED] for x"}} =
+               RequestLog.filter(
+                 event(["could not render ", ["/oauth/consent/", token], " for x"]),
+                 []
+               )
+
+      # Not chardata at all: as it is.
+      odd = event([:not_chardata, "/oauth/consent/" <> token])
+      assert RequestLog.filter(odd, []) == odd
+    end
+
     test "leaves every other event as it is" do
       for line <- [
             ["GET", ?\s, "/users/log-in?return_to=%2Foauth"],

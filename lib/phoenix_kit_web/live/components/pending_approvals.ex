@@ -34,6 +34,7 @@ defmodule PhoenixKitWeb.Live.Components.PendingApprovals do
   use PhoenixKitWeb, :live_component
 
   alias PhoenixKit.API.Access
+  alias PhoenixKit.API.ModuleLabel
   alias PhoenixKit.API.OAuth.Connections
   alias PhoenixKit.API.OAuth.Grants
   alias PhoenixKit.API.OAuth.RedirectUri
@@ -41,7 +42,6 @@ defmodule PhoenixKitWeb.Live.Components.PendingApprovals do
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Utils.Date, as: UtilsDate
-  alias PhoenixKitWeb.Live.Settings.Api
 
   @impl true
   def update(assigns, socket) do
@@ -104,7 +104,7 @@ defmodule PhoenixKitWeb.Live.Components.PendingApprovals do
 
           %{
             key: first.module_key,
-            label: Api.module_label(%{key: first.module_key, name: first.module_name}),
+            label: ModuleLabel.label(%{key: first.module_key, name: first.module_name}),
             reads: reads,
             writes: writes
           }
@@ -163,7 +163,7 @@ defmodule PhoenixKitWeb.Live.Components.PendingApprovals do
               action: action,
               uuid: row.grant.uuid,
               name: app_name(row),
-              person: row.owner.email
+              person: owner_address(row.owner)
             })
         end
       end,
@@ -270,6 +270,9 @@ defmodule PhoenixKitWeb.Live.Components.PendingApprovals do
 
   defp client_name(%{client_name: name}) when is_binary(name) and name != "", do: name
   defp client_name(%{client_id: client_id}), do: client_id
+
+  # The address a person is reached at: a managed organization's `email` is a placeholder.
+  defp owner_address(owner), do: User.delivery_email(owner) || ""
 
   defp redirect_hosts(client) do
     client.redirect_uris |> Enum.map(&RedirectUri.host/1) |> Enum.reject(&is_nil/1) |> Enum.uniq()
@@ -378,7 +381,7 @@ defmodule PhoenixKitWeb.Live.Components.PendingApprovals do
                     </div>
                   </.table_default_cell>
                   <.table_default_cell class="text-sm break-all">
-                    {row.owner.email}
+                    {owner_address(row.owner)}
                   </.table_default_cell>
                   <.table_default_cell>
                     <div

@@ -38,7 +38,8 @@ defmodule PhoenixKit.API.OAuth.Clients do
 
   @doc """
   Registers a client an administrator named: `attrs` takes `client_id` (required, unique, at most
-  2048 characters), `client_name` (made safe by `clean_name/1`), `client_uri` and `redirect_uris`.
+  2048 characters), `client_name` (made safe by `clean_name/1`), `client_uri` (one `clean_uri/1`
+  keeps as it is) and `redirect_uris`.
 
   Every redirect URI must be one a client may register (`PhoenixKit.API.OAuth.RedirectUri`:
   `https`, or `http` to the loopback; no fragment, no wildcard, no custom scheme), and the text
@@ -93,6 +94,10 @@ defmodule PhoenixKit.API.OAuth.Clients do
     |> Ecto.Changeset.update_change(:client_name, &clean_name/1)
     |> Ecto.Changeset.validate_length(:client_id, max: 2048)
     |> validate_storable([:client_id, :client_uri])
+    |> Ecto.Changeset.validate_change(:client_uri, fn :client_uri, uri ->
+      # Shown as a link, like the home page a metadata document names: the same rule.
+      if clean_uri(uri), do: [], else: [client_uri: "must be an https URL of at most 2048 bytes"]
+    end)
     |> Ecto.Changeset.validate_change(:redirect_uris, fn :redirect_uris, uris ->
       if Enum.all?(uris, &RedirectUri.valid?/1),
         do: [],
@@ -162,11 +167,12 @@ defmodule PhoenixKit.API.OAuth.Clients do
 
   @doc """
   A client's home page URL if it is one an `https` link can be made of (a host, no userinfo, no
-  fragment, no whitespace or control character, 2048 bytes at most), else `nil`.
+  fragment, no whitespace or control character, valid UTF-8, 2048 bytes at most), else `nil`.
   """
   @spec clean_uri(term()) :: String.t() | nil
   def clean_uri(uri) when is_binary(uri) and byte_size(uri) in 1..2048 do
-    with false <- Regex.match?(~r/[\x00-\x20\x7F\\]/, uri),
+    with true <- String.valid?(uri),
+         false <- Regex.match?(~r/[\x00-\x20\x7F\\]/, uri),
          {:ok, %URI{scheme: "https", host: host, userinfo: nil, fragment: nil}} <- URI.new(uri),
          true <- is_binary(host) and host != "" do
       uri

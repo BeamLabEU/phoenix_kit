@@ -123,6 +123,7 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
   alias PhoenixKit.API.FlowConfig
   alias PhoenixKit.API.Keys
   alias PhoenixKit.API.Keys.DisplayToken
+  alias PhoenixKit.API.ModuleLabel
   alias PhoenixKit.API.PersonalKeysConfig
   alias PhoenixKit.API.Registry
   alias PhoenixKit.API.ServiceUsers
@@ -671,23 +672,10 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
   defp module_api_saved(mod, false),
     do: gettext("The API of %{module} is off.", module: module_label(mod))
 
-  @doc false
-  # A module's name, translated: by the gettext backend the module declares in its
-  # `permission_metadata/0` (the one the permissions matrix uses for its label), then by
-  # core's own catalogue. A module without a backend reads as before. A module of
-  # `api_modules/0` already carries its `:label`; resolving one asks every module for its
-  # metadata, which the template must not repeat for each row and aria-label of a render.
-  def module_label(%{label: label}) when is_binary(label), do: label
-  def module_label(mod), do: label_in(ModuleRegistry.permission_gettext(), mod)
-
-  defp label_in(backends, %{key: key, name: name}) do
-    with {backend, domain} <- Map.get(backends, key),
-         translated when translated != name <- Gettext.dgettext(backend, domain, name) do
-      translated
-    else
-      _ -> Gettext.gettext(PhoenixKitWeb.Gettext, name)
-    end
-  end
+  # A module's name, translated (`PhoenixKit.API.ModuleLabel`). A module of `api_modules/0`
+  # already carries its `:label`, so the template does not resolve it again for each row and
+  # aria-label of a render.
+  defp module_label(mod), do: ModuleLabel.label(mod)
 
   # The modules with tools, whether their API is on right now and whether the agent may act
   # in them (`api_session_write_modules`).
@@ -700,7 +688,7 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
       mod
       |> Map.put(:api_on?, mod.key not in disabled)
       |> Map.put(:session_write?, mod.key in writes)
-      |> Map.put(:label, label_in(backends, mod))
+      |> Map.put(:label, ModuleLabel.label(mod, backends))
     end)
   end
 

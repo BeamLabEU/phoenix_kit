@@ -8,7 +8,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiModuleLabelTest do
   use ExUnit.Case, async: false
 
   alias PhoenixKit.ModuleRegistry
-  alias PhoenixKitWeb.Live.Settings.Api
+  alias PhoenixKit.API.ModuleLabel
 
   defmodule LabelledModule do
     @moduledoc false
@@ -44,24 +44,24 @@ defmodule PhoenixKitWeb.Live.Settings.ApiModuleLabelTest do
   end
 
   test "a module with its own backend is named in that backend's translation" do
-    assert Api.module_label(%{key: "apilabeltest", name: "can't be blank"}) ==
+    assert ModuleLabel.label(%{key: "apilabeltest", name: "can't be blank"}) ==
              "не может быть пустым"
   end
 
   test "a module without a backend is named through core's catalogue, as before" do
-    assert Api.module_label(%{key: "nobackend", name: "Users"}) ==
+    assert ModuleLabel.label(%{key: "nobackend", name: "Users"}) ==
              Gettext.gettext(PhoenixKitWeb.Gettext, "Users")
 
-    assert Api.module_label(%{key: "nobackend", name: "Users"}) != "Users"
+    assert ModuleLabel.label(%{key: "nobackend", name: "Users"}) != "Users"
   end
 
   test "a name the module's backend does not translate falls back to core's catalogue" do
-    assert Api.module_label(%{key: "apilabeltest", name: "Users"}) ==
+    assert ModuleLabel.label(%{key: "apilabeltest", name: "Users"}) ==
              Gettext.gettext(PhoenixKitWeb.Gettext, "Users")
   end
 
   test "a module that already carries its label is not resolved again" do
-    assert Api.module_label(%{key: "apilabeltest", name: "can't be blank", label: "Already"}) ==
+    assert ModuleLabel.label(%{key: "apilabeltest", name: "can't be blank", label: "Already"}) ==
              "Already"
   end
 end

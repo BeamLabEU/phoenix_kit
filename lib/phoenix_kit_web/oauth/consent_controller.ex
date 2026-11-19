@@ -52,6 +52,7 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
   use PhoenixKitWeb, :controller
 
   alias PhoenixKit.API.Config
+  alias PhoenixKit.API.ModuleLabel
   alias PhoenixKit.API.OAuth.Clients
   alias PhoenixKit.API.OAuth.Consent
   alias PhoenixKit.API.OAuth.Grants
@@ -62,7 +63,6 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
-  alias PhoenixKitWeb.Live.Settings.Api
   alias PhoenixKitWeb.OAuth.Language
   alias PhoenixKitWeb.OAuth.Pages
   alias PhoenixKitWeb.OAuth.Responses
@@ -292,7 +292,7 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
 
       %{
         key: first.module_key,
-        label: Api.module_label(%{key: first.module_key, name: first.module_name}),
+        label: ModuleLabel.label(%{key: first.module_key, name: first.module_name}),
         reads: reads,
         writes: writes
       }

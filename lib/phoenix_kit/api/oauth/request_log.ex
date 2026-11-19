@@ -12,9 +12,10 @@ defmodule PhoenixKit.API.OAuth.RequestLog do
   starts) and the host's endpoint needs no change. The filter looks at the one shape those two
   loggers write, `"<METHOD> <path>"`, and at a plain text message: in the first it replaces the token
   of a consent path by `[FILTERED]` (the word Phoenix uses for a parameter it hides) and drops a
-  query string from any `/oauth/` path; in the second it replaces the token of a consent path. Every
-  other event passes unchanged. The `[RequestTimer]` lines of the kit's own
-  `PhoenixKitWeb.Plugs.RequestTimer` log `path/1`.
+  query string from any `/oauth/` path; in the second it replaces the token of a consent path. A
+  message written as other chardata (nested lists, a charlist) is read as one text first and
+  judged the same way. Every other event passes unchanged. The `[RequestTimer]` lines of the
+  kit's own `PhoenixKitWeb.Plugs.RequestTimer` log `path/1`.
 
   The filter is registered for every install, also while OAuth is off, and it is global to the
   VM: a line of another application that has the same shape is rewritten as well. A request logger
@@ -55,7 +56,35 @@ defmodule PhoenixKit.API.OAuth.RequestLog do
       else: %{event | msg: {:string, hide_token(text)}}
   end
 
+  # Any other chardata (a list nested another way, a charlist): read as one text, and judged as
+  # the request line when it has its shape, else as a plain text message. A message that is not
+  # chardata passes as it is.
+  def filter(%{msg: {:string, chardata}} = event, _extra) when is_list(chardata) do
+    case flatten(chardata) do
+      {:ok, text} ->
+        if oauth?(text), do: %{event | msg: {:string, redact_text(text)}}, else: event
+
+      :error ->
+        event
+    end
+  end
+
   def filter(event, _extra), do: event
+
+  defp flatten(chardata) do
+    {:ok, IO.chardata_to_string(chardata)}
+  rescue
+    _ -> :error
+  end
+
+  defp oauth?(text), do: :binary.match(text, "/oauth/") != :nomatch
+
+  defp redact_text(text) do
+    case Regex.run(~r/\A([A-Z]+) (\S+)\z/, text, capture: :all_but_first) do
+      [method, path] -> method <> " " <> redact(path)
+      nil -> hide_token(text)
+    end
+  end
 
   @doc """
   The path of `conn` as it may be written to the log (see `redact/1`).

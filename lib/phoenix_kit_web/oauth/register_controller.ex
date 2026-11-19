@@ -8,7 +8,8 @@ defmodule PhoenixKitWeb.OAuth.RegisterController do
   the API's empty pipeline and `PhoenixKit.API.BodyGuard` has already read the JSON body (16 KB at
   most) into `body_params`, the only place this controller reads.
 
-  Each request is counted before anything is read: against `api_oauth_register_per_hour` (10) of
+  Each request is counted before anything in its body is looked at (the guard has read it, within
+  its size limit, but nothing of it is judged or stored before the count): against `api_oauth_register_per_hour` (10) of
   its network and `api_oauth_register_per_day` (200) of the whole install (`429`). Answers are
   the JSON of RFC 7591 (`201` with the client; `400` with `error` and `error_description`),
   `Cache-Control: no-store` and `Pragma: no-cache`. The route is declared with `log: false`.
