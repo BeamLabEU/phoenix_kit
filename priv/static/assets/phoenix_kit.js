@@ -3459,6 +3459,59 @@
     }
   };
 
+  // PkFitHeight — keeps an element that hangs over the page (a menu under a
+  // field, a list in a dialog) inside what the person can see: its
+  // max-height is the room between its own top and the bottom of the nearest
+  // scrolling ancestor (a dialog's content area), or of the viewport when
+  // there is none — never more, so the ancestor gets no scrollbar because of
+  // it. Measured when it is put on the page, after every patch, and whenever
+  // the window or that ancestor changes size.
+  //
+  //   data-fit-margin  pixels kept free under it, default 8
+  //   data-fit-min     pixels it never goes below, default 160
+  //
+  // The element scrolls its own content (give it `overflow-y: auto`, or make
+  // it a flex column with a `min-h-0 overflow-y-auto` child). A LiveView
+  // patch strips the inline style, so `updated()` measures again.
+  window.PhoenixKitHooks.PkFitHeight = {
+    mounted() {
+      const self = this;
+      this._fit = function() { self._measure(); };
+      this._boundary = this._scroller();
+      window.addEventListener("resize", this._fit);
+      if (window.ResizeObserver && this._boundary) {
+        this._observer = new ResizeObserver(this._fit);
+        this._observer.observe(this._boundary);
+      }
+      this._measure();
+    },
+    updated() { this._measure(); },
+    destroyed() {
+      window.removeEventListener("resize", this._fit);
+      if (this._observer) this._observer.disconnect();
+    },
+    // The nearest ancestor that scrolls up and down, or null for the viewport.
+    _scroller() {
+      let node = this.el.parentElement;
+      while (node && node !== document.body) {
+        const overflow = window.getComputedStyle(node).overflowY;
+        if (overflow === "auto" || overflow === "scroll") return node;
+        node = node.parentElement;
+      }
+      return null;
+    },
+    _measure() {
+      const el = this.el;
+      const margin = parseInt(el.getAttribute("data-fit-margin"), 10);
+      const min = parseInt(el.getAttribute("data-fit-min"), 10);
+      const bottom = this._boundary
+        ? Math.min(this._boundary.getBoundingClientRect().bottom, window.innerHeight)
+        : window.innerHeight;
+      const room = bottom - el.getBoundingClientRect().top - (isNaN(margin) ? 8 : margin);
+      el.style.maxHeight = Math.max(isNaN(min) ? 160 : min, Math.floor(room)) + "px";
+    }
+  };
+
   // PkDialogTrigger — makes a REGION instant-open a kept-in-DOM PkDialog.
   // Attach to a container whose descendants push server events that end in
   // a modal (e.g. a calendar grid where event/date clicks open an editor):
