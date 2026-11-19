@@ -28345,6 +28345,7 @@ msgstr ""
 #: lib/phoenix_kit_web/live/settings/api_oauth_panel.ex:196
 #, elixir-autogen, elixir-format
 msgid "Only an Owner can change this."
+msgstr ""
 
 #: lib/phoenix_kit_web/live/notifications/settings.ex:345
 #: lib/phoenix_kit_web/live/notifications/settings.ex:383
