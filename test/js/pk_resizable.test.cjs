@@ -164,7 +164,7 @@ test("reads a kept size when it is put on the page, and applies it clamped to th
 });
 
 test("a kept size that is not a size is ignored", () => {
-  for (const stored of ["{not json", "null", "5", JSON.stringify({ w: "wide" })]) {
+  for (const stored of ["{not json", "null", "5", JSON.stringify({ w: "wide" }), JSON.stringify({ w: "800", h: "500" })]) {
     const p = page({ stored });
     p.mount();
     assert.deepStrictEqual(p.props, {}, String(stored));
