@@ -34,7 +34,8 @@ test.after(() => {
 // the ones added since (`RemovalModal`, #999; `UploadManager`, #1006; `AudioRecorder`, 3.4.0;
 // `PasskeySignIn` and `PasskeyRegister`, the passkeys of the sign-in page and the Security tab; `NavTabsOverflow`,
 // the opt-in overflow menu of `<.nav_tabs>`, admin until a page outside the admin area opts in; `Turnstile`, the
-// Cloudflare bot check of the sign-up, magic-link, confirmation and password-reset forms). A hook
+// Cloudflare bot check of the sign-up, magic-link, confirmation and password-reset forms; `PkFitHeight`, the
+// max-height of an overlay, a generic primitive any page can use). A hook
 // that is neither listed as public nor as admin has been lost; one that is
 // listed twice has been classified twice.
 const PUBLIC = `LibraryLoadNotice CookieConsent FlashAutoDismiss TimezoneOffset TimezoneDetector
@@ -42,7 +43,7 @@ const PUBLIC = `LibraryLoadNotice CookieConsent FlashAutoDismiss TimezoneOffset 
   SelectOnMount TimeAgo CopyToClipboard FadeOut PreserveScroll InfiniteScroll PageSizeAutoFit
   MaintenanceCountdown PkShiftEnter PkUrlMirror PhoenixKitUrlState PkCheckboxIndeterminate PkDateInput
   PkChartCrosshair ViewportPopover Leaf FrescoViewer FrescoCanvas TesseraLayer EtcherLayer
-  MentionInput UploadStats UploadGuard AudioRecorder PasskeySignIn PasskeyRegister Turnstile`.split(/\s+/);
+  MentionInput UploadStats UploadGuard AudioRecorder PasskeySignIn PasskeyRegister Turnstile PkFitHeight`.split(/\s+/);
 
 const ADMIN = `SortableGrid MediaImageZoom MarkdownEditor InstantViewer ViewerKeydown ViewerPaneFit
   MediaViewerDialog PkHashHighlight BulkSelectScope TableLocalSearch AdminSidebarScroll PkDialogDraft
@@ -75,8 +76,8 @@ const plain = (v) => JSON.parse(JSON.stringify(v));
 
 // ── The inventory ──────────────────────────────────────────────────────────
 
-test("the two lists are disjoint and together are the 79 hooks the bundle has", () => {
-  assert.equal(PUBLIC.length, 38);
+test("the two lists are disjoint and together are the 80 hooks the bundle has", () => {
+  assert.equal(PUBLIC.length, 39);
   assert.equal(ADMIN.length, 41);
   assert.deepEqual(PUBLIC.filter((n) => ADMIN.includes(n)), []);
 });
@@ -199,12 +200,15 @@ test("a size budget keeps the public file public", () => {
   // and main's Turnstile hook with its phoenix_kit:set_input listener (3.9 KB, the public auth forms). The
   // budget went 256 -> 272 KiB (the recorder), -> 280 (headroom for the next public hook from main), -> 288
   // (main's passkey hooks), -> 292 (the loader telling an outdated cached copy of the install facts from
-  // missing ones: no hook, ~2 KB in the loader every page already runs). What it is for has not changed: an
+  // missing ones: no hook, ~2 KB in the loader every page already runs), -> 296 (PkFitHeight, ~5.6 KB with its
+  // notes: a generic overlay primitive like PkDialog, for any page a host puts a menu or list over; main plus it
+  // is 302 981 B), -> 298 (296 KiB = 303 104 B left ~0.1 KB, so the next one-line fix to any public hook
+  // would have failed here; ~2.1 KB of headroom, still far under one admin hook). What it is for has not changed: an
   // admin hook that lands in the public file by mistake pushes it over (AvatarCrop alone is 13 158 B). A
   // coarse backstop only: a small admin hook would still fit in the margin, and it is the name checks above
   // that catch one put in the wrong file (or one that neither list names: the inventory test compares every
   // registered hook with the two lists).
-  assert.ok(publicBytes < 292 * 1024, "phoenix_kit.js is " + publicBytes + " bytes");
+  assert.ok(publicBytes < 298 * 1024, "phoenix_kit.js is " + publicBytes + " bytes");
   assert.ok(adminBytes > publicBytes / 2, "the admin file is where the weight went");
 });
 

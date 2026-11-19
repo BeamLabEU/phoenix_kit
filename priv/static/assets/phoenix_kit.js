@@ -3459,6 +3459,117 @@
     }
   };
 
+  // PkFitHeight — keeps an element that hangs over the page (a menu under a
+  // field, a list in a dialog) inside what the person can see: its
+  // max-height is the room between its own top and the bottom of the nearest
+  // scrolling ancestor (a dialog's content area), or of the viewport when
+  // there is none — so the ancestor gets no scrollbar because of it.
+  // Measured when it is put on the page, after every patch, when it is shown
+  // (it is observed itself, so a menu mounted hidden and revealed on the
+  // client is measured then), and whenever the window, that ancestor or
+  // anything scrolls.
+  //
+  //   data-fit-margin  pixels kept free under it, default 8
+  //   data-fit-min     pixels it never goes below, default 160
+  //
+  // Below the minimum the overlay MAY overflow: with less than `data-fit-min`
+  // pixels left it is that tall anyway, so it runs past the area and the area
+  // scrolls. A field that low wants its menu above it, which this hook does
+  // not do (ViewportPopover flips); `data-fit-min="0"` keeps the promise
+  // strictly, at the price of a menu that can shrink to nothing.
+  //
+  // An element's own ceiling stays: a `max-height` from its classes is read
+  // (with the inline value cleared) and the smaller of the two wins.
+  //
+  // The element scrolls its own content (give it `overflow-y: auto`, or make
+  // it a flex column with a `min-h-0 overflow-y-auto` child) and is anchored by
+  // its top edge, which is the edge the room is counted from. A LiveView patch
+  // strips the inline style, so `updated()` measures again.
+  //
+  // The boundary is the nearest ancestor whose `overflow-y` is `auto` or
+  // `scroll`. An `overflow: hidden` or `clip` ancestor between the two clips
+  // the overlay sooner and is not seen; a `position: fixed` overlay is not
+  // clipped by the scroller at all, yet is still limited by it. Both are the
+  // caller's to avoid. `window.innerHeight` does not shrink for an on-screen
+  // keyboard.
+  //
+  // Re-measuring from the observers and scroll is deferred to the next frame:
+  // setting `max-height` inside a ResizeObserver callback resizes what that
+  // observer watches and the browser reports "ResizeObserver loop completed
+  // with undelivered notifications". The price: the first frame after a
+  // hidden overlay is shown is painted before its height is limited. And a
+  // ceiling that is not in pixels (a percentage) is not read as a cap.
+  window.PhoenixKitHooks.PkFitHeight = {
+    mounted() {
+      const self = this;
+      this._frame = null;
+      this._fit = function() {
+        if (self._frame !== null) return;
+        self._frame = window.requestAnimationFrame(function() {
+          self._frame = null;
+          self._measure();
+        });
+      };
+      // A scroll inside the element itself (its own list) changes nothing.
+      // The target of a scroll can be the document or the window (a
+      // synthetic `window.dispatchEvent(new Event("scroll"))`), which are not
+      // elements and which `contains` refuses: those are the page's scroll.
+      this._onScroll = function(event) {
+        const t = event.target;
+        if (t && t.nodeType === 1 && self.el.contains(t)) return;
+        self._fit();
+      };
+      this._boundary = this._scroller();
+      window.addEventListener("resize", this._fit);
+      window.addEventListener("scroll", this._onScroll, { capture: true, passive: true });
+      if (window.ResizeObserver) {
+        this._observer = new window.ResizeObserver(this._fit);
+        this._observer.observe(this.el);
+        if (this._boundary) this._observer.observe(this._boundary);
+      }
+      this._measure();
+    },
+    updated() { this._measure(); },
+    destroyed() {
+      window.removeEventListener("resize", this._fit);
+      window.removeEventListener("scroll", this._onScroll, { capture: true });
+      if (this._observer) this._observer.disconnect();
+      if (this._frame !== null) window.cancelAnimationFrame(this._frame);
+      this._frame = null;
+    },
+    // The nearest ancestor that scrolls up and down, or null for the viewport.
+    _scroller() {
+      let node = this.el.parentElement;
+      while (node && node !== document.body) {
+        const overflow = window.getComputedStyle(node).overflowY;
+        if (overflow === "auto" || overflow === "scroll") return node;
+        node = node.parentElement;
+      }
+      return null;
+    },
+    _measure() {
+      const el = this.el;
+      // Hidden: no box, so no top to measure from. Shown later, the observer
+      // on the element itself calls this again.
+      if (el.getClientRects().length === 0) return;
+      const margin = parseInt(el.getAttribute("data-fit-margin"), 10);
+      const min = parseInt(el.getAttribute("data-fit-min"), 10);
+      // The geometry first, while the overlay is as it is: clearing the
+      // inline value below puts it at full height and the next read would
+      // lay the page out with that.
+      const bottom = this._boundary
+        ? Math.min(this._boundary.getBoundingClientRect().bottom, window.innerHeight)
+        : window.innerHeight;
+      const room = bottom - el.getBoundingClientRect().top - (isNaN(margin) ? 8 : margin);
+      // The element's own ceiling, read with ours out of the way.
+      el.style.maxHeight = "";
+      const own = window.getComputedStyle(el).maxHeight;
+      const cap = /px$/.test(own) ? parseFloat(own) : Infinity;
+      const fit = Math.max(isNaN(min) ? 160 : min, Math.floor(room));
+      el.style.maxHeight = Math.min(cap, fit) + "px";
+    }
+  };
+
   // PkDialogTrigger — makes a REGION instant-open a kept-in-DOM PkDialog.
   // Attach to a container whose descendants push server events that end in
   // a modal (e.g. a calendar grid where event/date clicks open an editor):
