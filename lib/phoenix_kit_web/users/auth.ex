@@ -2599,6 +2599,8 @@ defmodule PhoenixKitWeb.Users.Auth do
     # Website access (password gate, redirect, closed page, noindex, allow
     # list) — `settings.security` too: it decides who sees the site at all.
     PhoenixKitWeb.Live.Settings.WebsiteAccess => "settings.security",
+    # The wording of notification messages (item 20).
+    PhoenixKitWeb.Live.Settings.NotificationMessages => "settings.messages",
     # Integrations + Emails Transactional/Bulk settings pages: none of these resolve
     # through the later inference layers (their PhoenixKitWeb namespace has no
     # ModuleRegistry entry), so an explicit mapping is required — unmapped

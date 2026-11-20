@@ -779,6 +779,10 @@ defmodule PhoenixKitWeb.Integration do
       live "/admin/settings/email-sending", Live.Settings.EmailSending, :index
       live "/admin/settings/email-sending/preview", Live.Settings.EmailPreview, :index
 
+      # The wording of notification emails and Telegram messages, per type
+      # and language (`PhoenixKit.Notifications.Messages`, item 20).
+      live "/admin/settings/notification-messages", Live.Settings.NotificationMessages, :index
+
       # "Emails Bulk" — Send Profiles, promoted to a top-level Settings tab
       # (sibling of Emails Transactional, not nested under it): bulk/marketing
       # sending config is a distinct concern from the always-needed

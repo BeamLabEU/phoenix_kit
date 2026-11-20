@@ -28,7 +28,7 @@ msgstr "La autenticación OAuth no está configurada. Póngase en contacto con s
 
 ## Dashboard page translations
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:130
-#: lib/phoenix_kit/users/permissions.ex:745
+#: lib/phoenix_kit/users/permissions.ex:757
 #: lib/phoenix_kit_web/components/core/admin_label.ex:64
 #: lib/phoenix_kit_web/live/dashboard.ex:90
 #: lib/phoenix_kit_web/live/dashboard.html.heex:5
@@ -56,7 +56,7 @@ msgstr "Información del Sistema"
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:143
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:158
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:447
-#: lib/phoenix_kit/users/permissions.ex:746
+#: lib/phoenix_kit/users/permissions.ex:758
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:108
 #: lib/phoenix_kit_web/live/settings/users.ex:52
 #: lib/phoenix_kit_web/live/users/managed_organization_new.ex:24
@@ -129,9 +129,10 @@ msgstr "Agregar Usuario"
 msgid "Create new account"
 msgstr "Crear nueva cuenta"
 
-#: lib/phoenix_kit/notifications/channels/email.ex:41
+#: lib/phoenix_kit/notifications/channels/email.ex:42
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:200
 #: lib/phoenix_kit_web/live/components/library_settings.ex:2600
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:290
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:233
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:700
 #: lib/phoenix_kit_web/live/users/users.html.heex:328
@@ -1515,7 +1516,7 @@ msgstr "Noindex/nofollow desactivado. El sitio puede volver a indexarse."
 msgid "Noindex/nofollow enabled. Search engines will not index this site."
 msgstr "Noindex/nofollow activado. Los motores de búsqueda no indexarán este sitio."
 
-#: lib/phoenix_kit/users/permissions.ex:1661
+#: lib/phoenix_kit/users/permissions.ex:1673
 #: lib/phoenix_kit_web/components/admin_nav.ex:408
 #, elixir-autogen, elixir-format
 msgid "Not authenticated"
@@ -1571,14 +1572,14 @@ msgstr "Lista numerada"
 msgid "OK"
 msgstr "Aceptar"
 
-#: lib/phoenix_kit/users/permissions.ex:1670
+#: lib/phoenix_kit/users/permissions.ex:1682
 #, elixir-autogen, elixir-format
 msgid "Only the Owner can edit Admin permissions"
 msgstr "Solo el propietario puede editar los permisos de administrador"
 
 #: lib/modules/storage/web/libraries_component.ex:632
-#: lib/phoenix_kit/notifications/channels/email.ex:127
-#: lib/phoenix_kit/notifications/channels/telegram.ex:211
+#: lib/phoenix_kit/notifications/channels/email.ex:136
+#: lib/phoenix_kit/notifications/channels/telegram.ex:212
 #: lib/phoenix_kit_web/components/core/preview_card.ex:305
 #: lib/phoenix_kit_web/components/core/preview_card.ex:339
 #: lib/phoenix_kit_web/live/components/library_settings.ex:1373
@@ -1621,7 +1622,7 @@ msgstr "Información de la organización guardada"
 msgid "Overview of role permissions across all modules"
 msgstr "Resumen de los permisos de los roles en todos los módulos"
 
-#: lib/phoenix_kit/users/permissions.ex:1664
+#: lib/phoenix_kit/users/permissions.ex:1676
 #, elixir-autogen, elixir-format
 msgid "Owner role always has full access and cannot be modified"
 msgstr "El rol Propietario siempre tiene acceso completo y no se puede modificar"
@@ -1659,7 +1660,7 @@ msgstr "Contraseña cambiada correctamente."
 msgid "Pending"
 msgstr "Pendiente"
 
-#: lib/phoenix_kit/users/permissions.ex:1673
+#: lib/phoenix_kit/users/permissions.ex:1685
 #, elixir-autogen, elixir-format
 msgid "Permission denied"
 msgstr "Permiso denegado"
@@ -1932,6 +1933,7 @@ msgstr "SWIFT/BIC"
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:256
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:306
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:356
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:464
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:143
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:316
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:375
@@ -2005,7 +2007,7 @@ msgstr "Seleccione a qué secciones y módulos puede acceder este rol. Solo pued
 #: lib/modules/storage/web/library_page.html.heex:5
 #: lib/modules/storage/web/settings.html.heex:5
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:399
-#: lib/phoenix_kit/users/permissions.ex:748
+#: lib/phoenix_kit/users/permissions.ex:760
 #: lib/phoenix_kit_web/components/admin_nav.ex:270
 #: lib/phoenix_kit_web/components/layouts/root.html.heex:94
 #: lib/phoenix_kit_web/components/user_dashboard_nav.ex:176
@@ -2022,6 +2024,7 @@ msgstr "Seleccione a qué secciones y módulos puede acceder este rol. Solo pued
 #: lib/phoenix_kit_web/live/settings/email_sending.ex:73
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:6
 #: lib/phoenix_kit_web/live/settings/integrations.ex:42
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:52
 #: lib/phoenix_kit_web/live/settings/organization.ex:51
 #: lib/phoenix_kit_web/live/settings/send_profile_form.ex:22
 #: lib/phoenix_kit_web/live/settings/send_profiles.ex:33
@@ -2354,7 +2357,7 @@ msgstr "Solo puede gestionar los permisos que usted tiene"
 msgid "You cannot edit permissions for this role"
 msgstr "No puede editar los permisos de este rol"
 
-#: lib/phoenix_kit/users/permissions.ex:1667
+#: lib/phoenix_kit/users/permissions.ex:1679
 #, elixir-autogen, elixir-format
 msgid "You cannot edit permissions for your own role"
 msgstr "No puede editar los permisos de su propio rol"
@@ -4359,7 +4362,7 @@ msgstr "Estado de salud"
 msgid "Integration deleted"
 msgstr "Integración eliminada"
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:490
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:499
 #: lib/phoenix_kit_web/components/profile_settings_tabs.ex:353
 #: lib/phoenix_kit_web/live/components/user_settings.ex:1920
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:10
@@ -5555,14 +5558,14 @@ msgid "Headers Only"
 msgstr "Solo encabezados"
 
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:253
-#: lib/phoenix_kit/users/permissions.ex:750
+#: lib/phoenix_kit/users/permissions.ex:762
 #: lib/phoenix_kit_web/live/modules/jobs/index.html.heex:5
 #, elixir-autogen, elixir-format
 msgid "Jobs"
 msgstr "Tareas"
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:513
-#: lib/phoenix_kit/users/permissions.ex:753
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:522
+#: lib/phoenix_kit/users/permissions.ex:765
 #: lib/phoenix_kit_web/live/modules/languages.ex:53
 #, elixir-autogen, elixir-format
 msgid "Languages"
@@ -5590,7 +5593,7 @@ msgid "Module Management"
 msgstr "Gestión de módulos"
 
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:338
-#: lib/phoenix_kit/users/permissions.ex:749
+#: lib/phoenix_kit/users/permissions.ex:761
 #: lib/phoenix_kit_web/live/modules.html.heex:5
 #: lib/phoenix_kit_web/live/settings/api.html.heex:87
 #, elixir-autogen, elixir-format
@@ -5660,8 +5663,8 @@ msgstr "requiere el"
 #: lib/modules/storage/web/settings.ex:81
 #: lib/modules/storage/web/settings.html.heex:4
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:266
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:522
-#: lib/phoenix_kit/users/permissions.ex:747
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:531
+#: lib/phoenix_kit/users/permissions.ex:759
 #: lib/phoenix_kit_web/components/profile_settings_tabs.ex:355
 #: lib/phoenix_kit_web/live/users/media.ex:65
 #: lib/phoenix_kit_web/live/users/media.ex:66
@@ -7186,6 +7189,7 @@ msgstr "No se encontraron archivos de medios"
 #: lib/phoenix_kit_web/components/media_gallery.html.heex:58
 #: lib/phoenix_kit_web/components/media_gallery.html.heex:59
 #: lib/phoenix_kit_web/live/settings/email_sending.html.heex:218
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:470
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:383
 #, elixir-autogen, elixir-format
 msgid "Preview"
@@ -7721,6 +7725,8 @@ msgstr "Personas"
 #: lib/phoenix_kit_web/live/activity/show.html.heex:112
 #: lib/phoenix_kit_web/live/settings/email_preview.ex:157
 #: lib/phoenix_kit_web/live/settings/email_preview.html.heex:76
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:294
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:478
 #, elixir-autogen, elixir-format
 msgid "Subject"
 msgstr "Asunto"
@@ -8711,10 +8717,11 @@ msgstr "Explore los archivos que ya no están vinculados a ningún registro (med
 msgid "Cannot edit a folder outside the allowed scope"
 msgstr "No se puede editar una carpeta fuera del ámbito permitido"
 
-#: lib/phoenix_kit/notifications/channels/email.ex:135
+#: lib/phoenix_kit/notifications/channels/email.ex:144
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:248
 #: lib/phoenix_kit_web/components/tree_picker.ex:253
 #: lib/phoenix_kit_web/live/notifications/inbox.ex:370
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:241
 #, elixir-autogen, elixir-format
 msgid "Change"
 msgstr "Cambiar"
@@ -8931,6 +8938,7 @@ msgstr "Si su cuenta pertenece a varias organizaciones, las claves se limitan a 
 #: lib/phoenix_kit_web/components/account_menu.ex:129
 #: lib/phoenix_kit_web/components/core/file_details_fields.ex:61
 #: lib/phoenix_kit_web/live/settings/email_preview.html.heex:48
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:365
 #: lib/phoenix_kit_web/oauth/pages.ex:408
 #, elixir-autogen, elixir-format
 msgid "Language"
@@ -10856,7 +10864,7 @@ msgstr "Etiquetas del mensaje"
 msgid "Mode every content editor opens in"
 msgstr "Modo en el que se abre cada editor de contenido"
 
-#: lib/phoenix_kit/users/permissions.ex:764
+#: lib/phoenix_kit/users/permissions.ex:776
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:633
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:52
 #, elixir-autogen, elixir-format
@@ -11202,8 +11210,9 @@ msgid "Tags"
 msgstr "Etiquetas"
 
 #: lib/phoenix_kit/integrations/providers.ex:1494
-#: lib/phoenix_kit/notifications/channels/telegram.ex:61
+#: lib/phoenix_kit/notifications/channels/telegram.ex:62
 #: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:341
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:291
 #, elixir-autogen, elixir-format
 msgid "Telegram"
 msgstr "Telegram"
@@ -12626,12 +12635,12 @@ msgstr "Su cuenta está inactiva actualmente. Póngase en contacto con el equipo
 msgid "%{label} module is not enabled"
 msgstr "El módulo %{label} no está activado"
 
-#: lib/phoenix_kit_web/users/auth.ex:3268
+#: lib/phoenix_kit_web/users/auth.ex:3270
 #, elixir-autogen, elixir-format
 msgid "Enter your referral code to continue."
 msgstr "Introduzca su código de referencia para continuar."
 
-#: lib/phoenix_kit_web/users/auth.ex:3264
+#: lib/phoenix_kit_web/users/auth.ex:3266
 #, elixir-autogen, elixir-format
 msgid "Please confirm your email before accessing the application."
 msgstr "Confirme su correo antes de acceder a la aplicación."
@@ -12641,18 +12650,19 @@ msgstr "Confirme su correo antes de acceder a la aplicación."
 msgid "This account is not active. Contact an administrator."
 msgstr "Esta cuenta no está activa. Póngase en contacto con un administrador."
 
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:63
 #: lib/phoenix_kit_web/live/settings/security_gate.ex:38
 #: lib/phoenix_kit_web/users/auth.ex:1077
 #: lib/phoenix_kit_web/users/auth.ex:2551
-#: lib/phoenix_kit_web/users/auth.ex:3413
+#: lib/phoenix_kit_web/users/auth.ex:3415
 #, elixir-autogen, elixir-format
 msgid "You do not have permission to access this section."
 msgstr "No tiene permiso para acceder a esta sección."
 
 #: lib/phoenix_kit_web/users/auth.ex:1052
 #: lib/phoenix_kit_web/users/auth.ex:1217
-#: lib/phoenix_kit_web/users/auth.ex:3362
-#: lib/phoenix_kit_web/users/auth.ex:3398
+#: lib/phoenix_kit_web/users/auth.ex:3364
+#: lib/phoenix_kit_web/users/auth.ex:3400
 #, elixir-autogen, elixir-format
 msgid "You do not have the required permission to access this page."
 msgstr "No tiene el permiso necesario para acceder a esta página."
@@ -12663,20 +12673,20 @@ msgid "You must be an admin to access this page."
 msgstr "Debe ser administrador para acceder a esta página."
 
 #: lib/phoenix_kit_web/users/auth.ex:1013
-#: lib/phoenix_kit_web/users/auth.ex:3325
+#: lib/phoenix_kit_web/users/auth.ex:3327
 #, elixir-autogen, elixir-format
 msgid "You must be an owner to access this page."
 msgstr "Debe ser propietario para acceder a esta página."
 
-#: lib/phoenix_kit_web/users/auth.ex:3441
+#: lib/phoenix_kit_web/users/auth.ex:3443
 #, elixir-autogen, elixir-format
 msgid "You must have the %{role_name} role to access this page."
 msgstr "Debe tener el rol %{role_name} para acceder a esta página."
 
 #: lib/phoenix_kit_web/users/auth.ex:1242
-#: lib/phoenix_kit_web/users/auth.ex:3189
-#: lib/phoenix_kit_web/users/auth.ex:3226
-#: lib/phoenix_kit_web/users/auth.ex:3369
+#: lib/phoenix_kit_web/users/auth.ex:3191
+#: lib/phoenix_kit_web/users/auth.ex:3228
+#: lib/phoenix_kit_web/users/auth.ex:3371
 #: lib/phoenix_kit_web/users/session.ex:290
 #, elixir-autogen, elixir-format
 msgid "You must log in to access this page."
@@ -14155,7 +14165,7 @@ msgstr "Buckets"
 msgid "OG"
 msgstr "OG"
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:474
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:483
 #: lib/phoenix_kit_web/live/settings/email_sending.html.heex:365
 #: lib/phoenix_kit_web/live/settings/send_profile_form.ex:25
 #: lib/phoenix_kit_web/live/settings/send_profiles.ex:26
@@ -14333,6 +14343,7 @@ msgid "Let users with several roles act as one role at a time"
 msgstr "Permitir que los usuarios con varios roles actúen con un solo rol a la vez"
 
 #: lib/phoenix_kit_web/live/components/user_settings.ex:619
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:147
 #, elixir-autogen, elixir-format
 msgid "Saved."
 msgstr "Guardado."
@@ -16819,6 +16830,7 @@ msgid "HTML body"
 msgstr "Cuerpo HTML"
 
 #: lib/phoenix_kit_web/live/settings/email_preview.html.heex:91
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:489
 #, elixir-autogen, elixir-format
 msgid "HTML version of the email"
 msgstr "Versión HTML del correo"
@@ -16999,6 +17011,7 @@ msgid "Source"
 msgstr "Origen"
 
 #: lib/phoenix_kit_web/live/settings/email_preview.html.heex:101
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:296
 #, elixir-autogen, elixir-format
 msgid "Text"
 msgstr "Texto"
@@ -20328,13 +20341,13 @@ msgstr "Direcciones permitidas (opcional)"
 msgid "A new key is created with the same owner, scopes and limits. The old key keeps working for the grace period, then stops."
 msgstr "Se crea una clave nueva con el mismo propietario, los mismos ámbitos y los mismos límites. La clave anterior sigue funcionando durante el periodo de gracia y después deja de funcionar."
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:502
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:511
 #: lib/phoenix_kit_web/live/settings/api.ex:163
 #, elixir-autogen, elixir-format
 msgid "API"
 msgstr "API"
 
-#: lib/phoenix_kit/users/permissions.ex:766
+#: lib/phoenix_kit/users/permissions.ex:778
 #: lib/phoenix_kit_web/components/profile_settings_tabs.ex:354
 #: lib/phoenix_kit_web/live/settings/api.html.heex:327
 #, elixir-autogen, elixir-format
@@ -22328,7 +22341,7 @@ msgstr "otro usuario"
 msgid "Hi {{user_email}},\n\n{{organization_name}} has invited you to become a manager. Managers act for the organization using their own account.\n\nSign in or create your personal account, then accept the invitation banner.\n\n[Review manager invitation]({{invitation_url}})\n\nThis invitation expires in 7 days. If you did not expect it, you can ignore this email.\n"
 msgstr "Hola {{user_email}},\n\n{{organization_name}} te ha invitado a ser gestor. Los gestores actúan por la organización desde su propia cuenta.\n\nInicia sesión o crea tu cuenta personal y acepta la invitación del aviso.\n\n[Revisar invitación de gestor]({{invitation_url}})\n\nEsta invitación caduca en 7 días. Si no la esperabas, puedes ignorar este correo.\n"
 
-#: lib/phoenix_kit/users/permissions.ex:767
+#: lib/phoenix_kit/users/permissions.ex:779
 #: lib/phoenix_kit_web/live/settings/api.html.heex:236
 #, elixir-autogen, elixir-format
 msgid "Personal API keys"
@@ -26753,12 +26766,12 @@ msgstr "Administrador con privilegios elevados"
 msgid "Create libraries"
 msgstr "Crear bibliotecas"
 
-#: lib/phoenix_kit/users/permissions.ex:763
+#: lib/phoenix_kit/users/permissions.ex:775
 #, elixir-autogen, elixir-format
 msgid "DB"
 msgstr "BD"
 
-#: lib/phoenix_kit/users/permissions.ex:768
+#: lib/phoenix_kit/users/permissions.ex:780
 #, elixir-autogen, elixir-format
 msgid "Full Access (Superadmin)"
 msgstr "Acceso total (superadministrador)"
@@ -26768,22 +26781,22 @@ msgstr "Acceso total (superadministrador)"
 msgid "Make libraries public"
 msgstr "Hacer públicas las bibliotecas"
 
-#: lib/phoenix_kit/users/permissions.ex:166
+#: lib/phoenix_kit/users/permissions.ex:167
 #, elixir-autogen, elixir-format
 msgid "Manage jobs"
 msgstr "Gestionar tareas"
 
-#: lib/phoenix_kit/users/permissions.ex:153
+#: lib/phoenix_kit/users/permissions.ex:154
 #, elixir-autogen, elixir-format
 msgid "Manage storage"
 msgstr "Gestionar el almacenamiento"
 
-#: lib/phoenix_kit/users/permissions.ex:180
+#: lib/phoenix_kit/users/permissions.ex:181
 #, elixir-autogen, elixir-format
 msgid "Security settings"
 msgstr "Ajustes de seguridad"
 
-#: lib/phoenix_kit/users/permissions.ex:148
+#: lib/phoenix_kit/users/permissions.ex:149
 #, elixir-autogen, elixir-format
 msgid "See everyone's files"
 msgstr "Ver los archivos de todos"
@@ -26793,7 +26806,7 @@ msgstr "Ver los archivos de todos"
 msgid "Standard user with basic access"
 msgstr "Usuario estándar con acceso básico"
 
-#: lib/phoenix_kit/users/permissions.ex:765
+#: lib/phoenix_kit/users/permissions.ex:777
 #, elixir-autogen, elixir-format
 msgid "System Integrations"
 msgstr "Integraciones del sistema"

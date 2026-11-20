@@ -28,7 +28,7 @@ msgstr "OAuth autentimine ei ole seadistatud. Palun võtke ühendust administraa
 
 ## Dashboard page translations
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:130
-#: lib/phoenix_kit/users/permissions.ex:745
+#: lib/phoenix_kit/users/permissions.ex:757
 #: lib/phoenix_kit_web/components/core/admin_label.ex:64
 #: lib/phoenix_kit_web/live/dashboard.ex:90
 #: lib/phoenix_kit_web/live/dashboard.html.heex:5
@@ -56,7 +56,7 @@ msgstr "Süsteemi teave"
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:143
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:158
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:447
-#: lib/phoenix_kit/users/permissions.ex:746
+#: lib/phoenix_kit/users/permissions.ex:758
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:108
 #: lib/phoenix_kit_web/live/settings/users.ex:52
 #: lib/phoenix_kit_web/live/users/managed_organization_new.ex:24
@@ -129,9 +129,10 @@ msgstr "Lisa kasutaja"
 msgid "Create new account"
 msgstr "Loo uus konto"
 
-#: lib/phoenix_kit/notifications/channels/email.ex:41
+#: lib/phoenix_kit/notifications/channels/email.ex:42
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:200
 #: lib/phoenix_kit_web/live/components/library_settings.ex:2600
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:290
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:233
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:700
 #: lib/phoenix_kit_web/live/users/users.html.heex:328
@@ -1515,7 +1516,7 @@ msgstr "Noindex/nofollow keelatud. Saiti saab uuesti indekseerida."
 msgid "Noindex/nofollow enabled. Search engines will not index this site."
 msgstr "Noindex/nofollow lubatud. Otsingumootorid ei indekseeri seda saiti."
 
-#: lib/phoenix_kit/users/permissions.ex:1661
+#: lib/phoenix_kit/users/permissions.ex:1673
 #: lib/phoenix_kit_web/components/admin_nav.ex:408
 #, elixir-autogen, elixir-format
 msgid "Not authenticated"
@@ -1571,14 +1572,14 @@ msgstr "Nummerdatud loend"
 msgid "OK"
 msgstr "OK"
 
-#: lib/phoenix_kit/users/permissions.ex:1670
+#: lib/phoenix_kit/users/permissions.ex:1682
 #, elixir-autogen, elixir-format
 msgid "Only the Owner can edit Admin permissions"
 msgstr "Ainult Omanik saab muuta Administraatori õigusi"
 
 #: lib/modules/storage/web/libraries_component.ex:632
-#: lib/phoenix_kit/notifications/channels/email.ex:127
-#: lib/phoenix_kit/notifications/channels/telegram.ex:211
+#: lib/phoenix_kit/notifications/channels/email.ex:136
+#: lib/phoenix_kit/notifications/channels/telegram.ex:212
 #: lib/phoenix_kit_web/components/core/preview_card.ex:305
 #: lib/phoenix_kit_web/components/core/preview_card.ex:339
 #: lib/phoenix_kit_web/live/components/library_settings.ex:1373
@@ -1621,7 +1622,7 @@ msgstr "Organisatsiooni teave salvestatud"
 msgid "Overview of role permissions across all modules"
 msgstr "Rollide õiguste ülevaade kõigis moodulites"
 
-#: lib/phoenix_kit/users/permissions.ex:1664
+#: lib/phoenix_kit/users/permissions.ex:1676
 #, elixir-autogen, elixir-format
 msgid "Owner role always has full access and cannot be modified"
 msgstr "Omaniku rollil on alati täielik juurdepääs ja seda ei saa muuta"
@@ -1659,7 +1660,7 @@ msgstr "Parool muudetud edukalt."
 msgid "Pending"
 msgstr "Ootel"
 
-#: lib/phoenix_kit/users/permissions.ex:1673
+#: lib/phoenix_kit/users/permissions.ex:1685
 #, elixir-autogen, elixir-format
 msgid "Permission denied"
 msgstr "Õigus puudub"
@@ -1932,6 +1933,7 @@ msgstr "SWIFT/BIC"
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:256
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:306
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:356
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:464
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:143
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:316
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:375
@@ -2005,7 +2007,7 @@ msgstr "Vali, millistele lõikudele ja moodulitele see roll pääseb juurde. Sa 
 #: lib/modules/storage/web/library_page.html.heex:5
 #: lib/modules/storage/web/settings.html.heex:5
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:399
-#: lib/phoenix_kit/users/permissions.ex:748
+#: lib/phoenix_kit/users/permissions.ex:760
 #: lib/phoenix_kit_web/components/admin_nav.ex:270
 #: lib/phoenix_kit_web/components/layouts/root.html.heex:94
 #: lib/phoenix_kit_web/components/user_dashboard_nav.ex:176
@@ -2022,6 +2024,7 @@ msgstr "Vali, millistele lõikudele ja moodulitele see roll pääseb juurde. Sa 
 #: lib/phoenix_kit_web/live/settings/email_sending.ex:73
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:6
 #: lib/phoenix_kit_web/live/settings/integrations.ex:42
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:52
 #: lib/phoenix_kit_web/live/settings/organization.ex:51
 #: lib/phoenix_kit_web/live/settings/send_profile_form.ex:22
 #: lib/phoenix_kit_web/live/settings/send_profiles.ex:33
@@ -2354,7 +2357,7 @@ msgstr "Sa saad hallata ainult õigusi, mis sul on"
 msgid "You cannot edit permissions for this role"
 msgstr "Sa ei saa muuta selle rolli õigusi"
 
-#: lib/phoenix_kit/users/permissions.ex:1667
+#: lib/phoenix_kit/users/permissions.ex:1679
 #, elixir-autogen, elixir-format
 msgid "You cannot edit permissions for your own role"
 msgstr "Sa ei saa muuta oma rolli õigusi"
@@ -4357,7 +4360,7 @@ msgstr "Seisund"
 msgid "Integration deleted"
 msgstr "Integratsioon kustutatud"
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:490
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:499
 #: lib/phoenix_kit_web/components/profile_settings_tabs.ex:353
 #: lib/phoenix_kit_web/live/components/user_settings.ex:1920
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:10
@@ -5553,14 +5556,14 @@ msgid "Headers Only"
 msgstr "Ainult päised"
 
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:253
-#: lib/phoenix_kit/users/permissions.ex:750
+#: lib/phoenix_kit/users/permissions.ex:762
 #: lib/phoenix_kit_web/live/modules/jobs/index.html.heex:5
 #, elixir-autogen, elixir-format
 msgid "Jobs"
 msgstr "Tööd"
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:513
-#: lib/phoenix_kit/users/permissions.ex:753
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:522
+#: lib/phoenix_kit/users/permissions.ex:765
 #: lib/phoenix_kit_web/live/modules/languages.ex:53
 #, elixir-autogen, elixir-format
 msgid "Languages"
@@ -5588,7 +5591,7 @@ msgid "Module Management"
 msgstr "Moodulite haldamine"
 
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:338
-#: lib/phoenix_kit/users/permissions.ex:749
+#: lib/phoenix_kit/users/permissions.ex:761
 #: lib/phoenix_kit_web/live/modules.html.heex:5
 #: lib/phoenix_kit_web/live/settings/api.html.heex:87
 #, elixir-autogen, elixir-format
@@ -5658,8 +5661,8 @@ msgstr "nõuab, et"
 #: lib/modules/storage/web/settings.ex:81
 #: lib/modules/storage/web/settings.html.heex:4
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:266
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:522
-#: lib/phoenix_kit/users/permissions.ex:747
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:531
+#: lib/phoenix_kit/users/permissions.ex:759
 #: lib/phoenix_kit_web/components/profile_settings_tabs.ex:355
 #: lib/phoenix_kit_web/live/users/media.ex:65
 #: lib/phoenix_kit_web/live/users/media.ex:66
@@ -7184,6 +7187,7 @@ msgstr "Meediafaile ei leitud"
 #: lib/phoenix_kit_web/components/media_gallery.html.heex:58
 #: lib/phoenix_kit_web/components/media_gallery.html.heex:59
 #: lib/phoenix_kit_web/live/settings/email_sending.html.heex:218
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:470
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:383
 #, elixir-autogen, elixir-format
 msgid "Preview"
@@ -7719,6 +7723,8 @@ msgstr "Osapooled"
 #: lib/phoenix_kit_web/live/activity/show.html.heex:112
 #: lib/phoenix_kit_web/live/settings/email_preview.ex:157
 #: lib/phoenix_kit_web/live/settings/email_preview.html.heex:76
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:294
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:478
 #, elixir-autogen, elixir-format
 msgid "Subject"
 msgstr "Subjekt"
@@ -8709,10 +8715,11 @@ msgstr "Sirvi faile, mis pole enam ühegi kirjega seotud (orvuks jäänud meedia
 msgid "Cannot edit a folder outside the allowed scope"
 msgstr "Kausta ei saa muuta lubatud ulatusest väljaspool"
 
-#: lib/phoenix_kit/notifications/channels/email.ex:135
+#: lib/phoenix_kit/notifications/channels/email.ex:144
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:248
 #: lib/phoenix_kit_web/components/tree_picker.ex:253
 #: lib/phoenix_kit_web/live/notifications/inbox.ex:370
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:241
 #, elixir-autogen, elixir-format
 msgid "Change"
 msgstr "Muuda"
@@ -8929,6 +8936,7 @@ msgstr "Kui sinu konto kuulub mitmesse organisatsiooni, on võtmed seotud organi
 #: lib/phoenix_kit_web/components/account_menu.ex:129
 #: lib/phoenix_kit_web/components/core/file_details_fields.ex:61
 #: lib/phoenix_kit_web/live/settings/email_preview.html.heex:48
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:365
 #: lib/phoenix_kit_web/oauth/pages.ex:408
 #, elixir-autogen, elixir-format
 msgid "Language"
@@ -10857,7 +10865,7 @@ msgstr "Sõnumi sildid"
 msgid "Mode every content editor opens in"
 msgstr "Režiim, milles iga sisuredaktor avaneb"
 
-#: lib/phoenix_kit/users/permissions.ex:764
+#: lib/phoenix_kit/users/permissions.ex:776
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:633
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:52
 #, elixir-autogen, elixir-format
@@ -11203,8 +11211,9 @@ msgid "Tags"
 msgstr "Sildid"
 
 #: lib/phoenix_kit/integrations/providers.ex:1494
-#: lib/phoenix_kit/notifications/channels/telegram.ex:61
+#: lib/phoenix_kit/notifications/channels/telegram.ex:62
 #: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:341
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:291
 #, elixir-autogen, elixir-format
 msgid "Telegram"
 msgstr "Telegram"
@@ -12627,12 +12636,12 @@ msgstr "Teie konto on hetkel mitteaktiivne. Kui arvate, et tegemist on veaga, v�
 msgid "%{label} module is not enabled"
 msgstr "%{label} moodul ei ole lubatud"
 
-#: lib/phoenix_kit_web/users/auth.ex:3268
+#: lib/phoenix_kit_web/users/auth.ex:3270
 #, elixir-autogen, elixir-format
 msgid "Enter your referral code to continue."
 msgstr "Jätkamiseks sisestage oma soovituskood."
 
-#: lib/phoenix_kit_web/users/auth.ex:3264
+#: lib/phoenix_kit_web/users/auth.ex:3266
 #, elixir-autogen, elixir-format
 msgid "Please confirm your email before accessing the application."
 msgstr "Palun kinnitage oma e-post enne rakenduse kasutamist."
@@ -12642,18 +12651,19 @@ msgstr "Palun kinnitage oma e-post enne rakenduse kasutamist."
 msgid "This account is not active. Contact an administrator."
 msgstr "See konto ei ole aktiivne. Võtke ühendust administraatoriga."
 
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:63
 #: lib/phoenix_kit_web/live/settings/security_gate.ex:38
 #: lib/phoenix_kit_web/users/auth.ex:1077
 #: lib/phoenix_kit_web/users/auth.ex:2551
-#: lib/phoenix_kit_web/users/auth.ex:3413
+#: lib/phoenix_kit_web/users/auth.ex:3415
 #, elixir-autogen, elixir-format
 msgid "You do not have permission to access this section."
 msgstr "Teil ei ole õigust seda jaotist vaadata."
 
 #: lib/phoenix_kit_web/users/auth.ex:1052
 #: lib/phoenix_kit_web/users/auth.ex:1217
-#: lib/phoenix_kit_web/users/auth.ex:3362
-#: lib/phoenix_kit_web/users/auth.ex:3398
+#: lib/phoenix_kit_web/users/auth.ex:3364
+#: lib/phoenix_kit_web/users/auth.ex:3400
 #, elixir-autogen, elixir-format
 msgid "You do not have the required permission to access this page."
 msgstr "Teil ei ole selle lehe vaatamiseks vajalikku õigust."
@@ -12664,20 +12674,20 @@ msgid "You must be an admin to access this page."
 msgstr "Selle lehe vaatamiseks peate olema administraator."
 
 #: lib/phoenix_kit_web/users/auth.ex:1013
-#: lib/phoenix_kit_web/users/auth.ex:3325
+#: lib/phoenix_kit_web/users/auth.ex:3327
 #, elixir-autogen, elixir-format
 msgid "You must be an owner to access this page."
 msgstr "Selle lehe vaatamiseks peate olema omanik."
 
-#: lib/phoenix_kit_web/users/auth.ex:3441
+#: lib/phoenix_kit_web/users/auth.ex:3443
 #, elixir-autogen, elixir-format
 msgid "You must have the %{role_name} role to access this page."
 msgstr "Selle lehe vaatamiseks on vajalik %{role_name} roll."
 
 #: lib/phoenix_kit_web/users/auth.ex:1242
-#: lib/phoenix_kit_web/users/auth.ex:3189
-#: lib/phoenix_kit_web/users/auth.ex:3226
-#: lib/phoenix_kit_web/users/auth.ex:3369
+#: lib/phoenix_kit_web/users/auth.ex:3191
+#: lib/phoenix_kit_web/users/auth.ex:3228
+#: lib/phoenix_kit_web/users/auth.ex:3371
 #: lib/phoenix_kit_web/users/session.ex:290
 #, elixir-autogen, elixir-format
 msgid "You must log in to access this page."
@@ -14156,7 +14166,7 @@ msgstr "Bucketid"
 msgid "OG"
 msgstr "OG"
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:474
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:483
 #: lib/phoenix_kit_web/live/settings/email_sending.html.heex:365
 #: lib/phoenix_kit_web/live/settings/send_profile_form.ex:25
 #: lib/phoenix_kit_web/live/settings/send_profiles.ex:26
@@ -14334,6 +14344,7 @@ msgid "Let users with several roles act as one role at a time"
 msgstr "Luba mitme rolliga kasutajatel tegutseda korraga ühes rollis"
 
 #: lib/phoenix_kit_web/live/components/user_settings.ex:619
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:147
 #, elixir-autogen, elixir-format
 msgid "Saved."
 msgstr "Salvestatud."
@@ -16820,6 +16831,7 @@ msgid "HTML body"
 msgstr "HTML-sisu"
 
 #: lib/phoenix_kit_web/live/settings/email_preview.html.heex:91
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:489
 #, elixir-autogen, elixir-format
 msgid "HTML version of the email"
 msgstr "E-kirja HTML-versioon"
@@ -17000,6 +17012,7 @@ msgid "Source"
 msgstr "Allikas"
 
 #: lib/phoenix_kit_web/live/settings/email_preview.html.heex:101
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:296
 #, elixir-autogen, elixir-format
 msgid "Text"
 msgstr "Tekst"
@@ -20328,13 +20341,13 @@ msgstr "Lubatud aadressid (valikuline)"
 msgid "A new key is created with the same owner, scopes and limits. The old key keeps working for the grace period, then stops."
 msgstr "Luuakse uus võti sama omaniku, ulatuste ja piirangutega. Vana võti töötab üleminekuaja jooksul edasi ja lõpetab siis töö."
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:502
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:511
 #: lib/phoenix_kit_web/live/settings/api.ex:163
 #, elixir-autogen, elixir-format
 msgid "API"
 msgstr "API"
 
-#: lib/phoenix_kit/users/permissions.ex:766
+#: lib/phoenix_kit/users/permissions.ex:778
 #: lib/phoenix_kit_web/components/profile_settings_tabs.ex:354
 #: lib/phoenix_kit_web/live/settings/api.html.heex:327
 #, elixir-autogen, elixir-format
@@ -22328,7 +22341,7 @@ msgstr "teine kasutaja"
 msgid "Hi {{user_email}},\n\n{{organization_name}} has invited you to become a manager. Managers act for the organization using their own account.\n\nSign in or create your personal account, then accept the invitation banner.\n\n[Review manager invitation]({{invitation_url}})\n\nThis invitation expires in 7 days. If you did not expect it, you can ignore this email.\n"
 msgstr "Tere, {{user_email}}!\n\n{{organization_name}} kutsus sind halduriks. Haldurid tegutsevad organisatsiooni nimel oma konto kaudu.\n\nLogi sisse või loo isiklik konto ning võta kutse lehe ülaservas vastu.\n\n[Vaata halduri kutset]({{invitation_url}})\n\nKutse aegub 7 päeva pärast. Kui sa seda ei oodanud, võid kirja eirata.\n"
 
-#: lib/phoenix_kit/users/permissions.ex:767
+#: lib/phoenix_kit/users/permissions.ex:779
 #: lib/phoenix_kit_web/live/settings/api.html.heex:236
 #, elixir-autogen, elixir-format
 msgid "Personal API keys"
@@ -26754,12 +26767,12 @@ msgstr "Laiendatud õigustega administraator"
 msgid "Create libraries"
 msgstr "Teekide loomine"
 
-#: lib/phoenix_kit/users/permissions.ex:763
+#: lib/phoenix_kit/users/permissions.ex:775
 #, elixir-autogen, elixir-format
 msgid "DB"
 msgstr "AB"
 
-#: lib/phoenix_kit/users/permissions.ex:768
+#: lib/phoenix_kit/users/permissions.ex:780
 #, elixir-autogen, elixir-format
 msgid "Full Access (Superadmin)"
 msgstr "Täielik juurdepääs (superadmin)"
@@ -26769,22 +26782,22 @@ msgstr "Täielik juurdepääs (superadmin)"
 msgid "Make libraries public"
 msgstr "Teekide avalikuks tegemine"
 
-#: lib/phoenix_kit/users/permissions.ex:166
+#: lib/phoenix_kit/users/permissions.ex:167
 #, elixir-autogen, elixir-format
 msgid "Manage jobs"
 msgstr "Tööde haldamine"
 
-#: lib/phoenix_kit/users/permissions.ex:153
+#: lib/phoenix_kit/users/permissions.ex:154
 #, elixir-autogen, elixir-format
 msgid "Manage storage"
 msgstr "Salvestuse haldamine"
 
-#: lib/phoenix_kit/users/permissions.ex:180
+#: lib/phoenix_kit/users/permissions.ex:181
 #, elixir-autogen, elixir-format
 msgid "Security settings"
 msgstr "Turvaseaded"
 
-#: lib/phoenix_kit/users/permissions.ex:148
+#: lib/phoenix_kit/users/permissions.ex:149
 #, elixir-autogen, elixir-format
 msgid "See everyone's files"
 msgstr "Kõigi faile näha"
@@ -26794,7 +26807,7 @@ msgstr "Kõigi faile näha"
 msgid "Standard user with basic access"
 msgstr "Tavakasutaja põhiõigustega"
 
-#: lib/phoenix_kit/users/permissions.ex:765
+#: lib/phoenix_kit/users/permissions.ex:777
 #, elixir-autogen, elixir-format
 msgid "System Integrations"
 msgstr "Süsteemi integratsioonid"
