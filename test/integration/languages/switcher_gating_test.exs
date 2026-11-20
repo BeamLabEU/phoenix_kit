@@ -18,6 +18,7 @@ defmodule PhoenixKit.Integration.Languages.SwitcherGatingTest do
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKitWeb.Components.AccountMenu
   alias PhoenixKitWeb.Components.AdminNav
   alias PhoenixKitWeb.Components.Core.LanguageSwitcher
 
@@ -104,12 +105,35 @@ defmodule PhoenixKit.Integration.Languages.SwitcherGatingTest do
       refute "ar" in offered
     end
 
-    test "the admin user menu lists the same languages" do
-      offered = offered(admin_menu_html())
+    test "the session menu shows the current language and offers only the alternatives" do
+      html = admin_menu_html()
+      doc = LazyHTML.from_fragment(html)
+      assert LazyHTML.attribute(LazyHTML.query(doc, "summary [lang]"), "lang") == ["en-US"]
+      assert Enum.sort(offered(html)) == ["de-DE", "ja"]
+    end
 
-      assert "ja" in offered
-      assert "de-DE" in offered
-      refute "ko" in offered
+    test "a guest can follow the other dialect's link when both share a base" do
+      {:ok, _} = Languages.add_language("en-GB")
+      assigns = %{languages: AccountMenu.languages("en-GB")}
+
+      doc =
+        rendered_to_string(~H"""
+        <AccountMenu.language_section
+          languages={@languages}
+          current_path="/en-GB/users/log-in?from=home"
+          current_locale="en-GB"
+        />
+        """)
+        |> LazyHTML.from_fragment()
+
+      assert LazyHTML.attribute(LazyHTML.query(doc, "summary [lang]"), "lang") == ["en-GB"]
+
+      assert Enum.sort(LazyHTML.attribute(LazyHTML.query(doc, "a [lang]"), "lang")) ==
+               ["de-DE", "en-US", "ja"]
+
+      assert Enum.all?(LazyHTML.attribute(LazyHTML.query(doc, "a"), "href"), fn href ->
+               String.ends_with?(href, "/users/log-in?from=home")
+             end)
     end
 
     test "a configured language switched off is not offered" do

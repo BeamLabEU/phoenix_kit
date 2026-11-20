@@ -57,6 +57,103 @@
   if (window.PhoenixKitInitialized) return;
   window.PhoenixKitInitialized = true;
 
+  // Keep the native disclosure usable on controller-rendered pages. In browsers
+  // with popovers, lift its list above the scrolling account menu's clipping edge.
+  if (window.customElements && !customElements.get("pk-session-languages")) {
+    customElements.define("pk-session-languages", class extends HTMLElement {
+      connectedCallback() {
+        this.listeners = new AbortController();
+        const options = { signal: this.listeners.signal };
+        this.addEventListener("pointerenter", event => {
+          if (event.pointerType === "mouse" && !this.details.open) {
+            this.preview = true;
+            this.details.open = true;
+          }
+        }, options);
+        this.addEventListener("pointerleave", () => {
+          if (this.preview && !this.panel.contains(document.activeElement)) this.close();
+        }, options);
+        this.addEventListener("click", event => {
+          if (this.preview && event.target.closest("summary")) {
+            event.preventDefault();
+            this.preview = false;
+          } else if (this.panel.contains(event.target) && event.target.closest("a,button")) {
+            this.close();
+          }
+        }, options);
+        this.addEventListener("toggle", event => {
+          if (event.target !== this.details) return;
+          if (this.details.open) this.openPanel();
+          else this.close();
+        }, { ...options, capture: true });
+      }
+
+      get details() { return this.querySelector("details"); }
+      get panel() { return this.details.lastElementChild; }
+
+      openPanel() {
+        this.openListeners?.abort();
+        this.openListeners = new AbortController();
+        const options = { signal: this.openListeners.signal };
+        const closeOutside = event => {
+          if (!this.contains(event.target)) this.close();
+        };
+        document.addEventListener("pointerdown", closeOutside, options);
+        document.addEventListener("focusin", closeOutside, options);
+        document.addEventListener("keydown", event => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            this.close();
+            this.details.firstElementChild.focus();
+          }
+        }, options);
+
+        const panel = this.panel;
+        if (!panel.showPopover) return;
+        // Focus in the top layer can drop :focus-within on the outer dropdown.
+        this.dropdown = this.closest(".dropdown");
+        this.dropdown?.classList.add("dropdown-open");
+        panel.popover = "manual";
+        panel.showPopover({ source: this.details.firstElementChild });
+        const position = () => {
+          const row = this.details.firstElementChild.getBoundingClientRect();
+          const width = Math.min(Math.max(row.width, 192), window.innerWidth - 16);
+          const left = row.left >= width + 8 ? row.left - width : row.right;
+          const beside = left + width <= window.innerWidth - 8;
+          const above = !beside && row.top > window.innerHeight - row.bottom;
+          const room = beside ? window.innerHeight : above ? row.top : window.innerHeight - row.bottom;
+          Object.assign(panel.style, {
+            position: "fixed", inset: "auto", margin: "0", width: width + "px",
+            maxHeight: "min(15rem, " + Math.max(0, room - 8) + "px)",
+            left: (beside ? left : Math.max(8, Math.min(row.left, window.innerWidth - width - 8))) + "px"
+          });
+          const top = beside ? Math.min(row.top, window.innerHeight - panel.offsetHeight - 8)
+            : above ? row.top - panel.offsetHeight : row.bottom;
+          panel.style.top = Math.max(8, top) + "px";
+        };
+        position();
+        window.addEventListener("resize", position, options);
+        document.addEventListener("scroll", event => {
+          if (event.target !== panel) position();
+        }, { ...options, capture: true });
+      }
+
+      close() {
+        this.openListeners?.abort();
+        this.preview = false;
+        this.dropdown?.classList.remove("dropdown-open");
+        if (!this.details) return;
+        this.details.open = false;
+        if (this.panel.popover) this.panel.hidePopover();
+      }
+
+      disconnectedCallback() {
+        this.listeners.abort();
+        this.close();
+      }
+    });
+  }
+
   // ============================================================================
   // WEBSOCKET TRANSPORT CACHE CLEARING
   // ============================================================================

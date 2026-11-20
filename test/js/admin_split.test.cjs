@@ -195,7 +195,7 @@ test("the admin file registers into its own namespace only", () => {
 test("a size budget keeps the public file public", () => {
   const publicBytes = fs.statSync(PUBLIC_FILE).size;
   const adminBytes = fs.statSync(ADMIN_FILE).size;
-  // 292 KiB: the public half is about 288 KiB with the mention field, the two upload hooks (public pages
+  // Public bundle: the public half is about 288 KiB with the mention field, the two upload hooks (public pages
   // render them), the audio recorder, a public primitive that main added (15 KB, "any page can use"), the
   // retry and the menu restore of the stubs, and main's two passkey hooks (9.3 KB: core renders them on the
   // sign-in page and on the Security tab of the account settings, outside the admin area and the dashboard),
@@ -212,7 +212,8 @@ test("a size budget keeps the public file public", () => {
   // coarse backstop only: a small admin hook would still fit in the margin, and it is the name checks above
   // that catch one put in the wrong file (or one that neither list names: the inventory test compares every
   // registered hook with the two lists).
-  assert.ok(publicBytes < 304 * 1024, "phoenix_kit.js is " + publicBytes + " bytes");
+  // 309 KiB includes the session language popup (~5 KB), used on public sign-in pages as well.
+  assert.ok(publicBytes < 309 * 1024, "phoenix_kit.js is " + publicBytes + " bytes");
   assert.ok(adminBytes > publicBytes / 2, "the admin file is where the weight went");
 });
 

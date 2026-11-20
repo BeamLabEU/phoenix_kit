@@ -36,8 +36,6 @@ defmodule PhoenixKitWeb.Components.AccountMenu do
   """
   @spec languages(String.t() | nil) :: [map()]
   def languages(current_locale) do
-    current_base = DialectMapper.extract_base(current_locale || "")
-
     enabled = if Languages.enabled?(), do: Languages.get_enabled_languages(), else: []
 
     languages =
@@ -48,10 +46,18 @@ defmodule PhoenixKitWeb.Components.AccountMenu do
 
     per_base = DialectMapper.group_dialects_by_base(languages)
 
+    locale = current_locale || Gettext.get_locale(PhoenixKitWeb.Gettext)
+    base = DialectMapper.extract_base(locale)
+
+    active =
+      Enum.find(languages, &(&1.code == locale)) ||
+        Enum.find(languages, &(&1.code == DialectMapper.base_to_dialect(base))) ||
+        Enum.find(languages, &(&1.base == base))
+
     Enum.map(languages, fn language ->
       language
       |> Map.put(:label, label(language, Map.get(per_base, language.base, 0)))
-      |> Map.put(:active?, language.base == current_base)
+      |> Map.put(:active?, language == active)
     end)
   end
 
@@ -92,8 +98,8 @@ defmodule PhoenixKitWeb.Components.AccountMenu do
   end
 
   @doc """
-  The language list of an account menu. Renders nothing for fewer than two
-  languages.
+  The current language of an account menu, with the other enabled languages in
+  a submenu. Renders nothing for fewer than two languages.
 
   `switch: :event` (inside a LiveView) sends `phoenix_kit_set_locale`, which
   also saves the person's choice; `switch: :link` is a plain link, for pages
@@ -106,44 +112,51 @@ defmodule PhoenixKitWeb.Components.AccountMenu do
   attr :divider, :boolean, default: true
 
   def language_section(assigns) do
+    {current, alternatives} = Enum.split_with(assigns.languages, & &1.active?)
+
+    assigns =
+      assigns
+      |> assign(:current, List.first(current))
+      |> assign(:alternatives, alternatives)
+
     ~H"""
     <%= if length(@languages) > 1 do %>
       <div :if={@divider} class="divider my-0"></div>
-
-      <li class="menu-title px-4 py-1">
-        <span class="text-xs">{gettext("Language")}</span>
-      </li>
-
-      <%!--
-        Independently scrollable list, about five rows tall. The entries are
-        styled directly (no nested daisyUI <ul class="menu">), so the parent
-        menu adds no submenu indent or child padding, which would force a
-        horizontal scroll. `!p-0` resets the padding the parent menu gives the
-        wrapper <li>'s children.
-      --%>
-      <li class="p-0 !bg-transparent hover:!bg-transparent focus:!bg-transparent">
-        <div class="!p-0 block w-full max-h-60 overflow-y-auto overflow-x-hidden !bg-transparent hover:!bg-transparent focus:!bg-transparent">
-          <%= for language <- @languages do %>
-            <% url =
-              Routes.locale_switch_path(@current_path, language.code, current_locale: @current_locale) %>
-            <button
-              :if={@switch == :event}
-              type="button"
-              phx-click="phoenix_kit_set_locale"
-              phx-value-locale={language.code}
-              phx-value-url={url}
-              class={[
-                entry_class(language),
-                "phx-click-loading:opacity-60 phx-click-loading:pointer-events-none"
-              ]}
-            >
-              <.language_entry language={language} />
-            </button>
-            <a :if={@switch == :link} href={url} class={entry_class(language)}>
-              <.language_entry language={language} />
-            </a>
-          <% end %>
-        </div>
+      <li class="w-full">
+        <pk-session-languages class="w-full !block !p-0 !bg-transparent">
+          <details class="col-span-full w-full">
+            <summary class="flex cursor-pointer list-none items-center gap-3 rounded-lg px-4 py-2 hover:bg-base-200 focus-visible:outline">
+              <span class={if @current, do: "sr-only"}>{gettext("Language")}</span>
+              <.language_entry :if={@current} language={@current} />
+              <span class="ms-auto" aria-hidden="true">▾</span>
+            </summary>
+            <div class="rounded-box border border-base-300 bg-base-100 text-base-content shadow-lg p-1 max-h-60 overflow-y-auto">
+              <%= for language <- @alternatives do %>
+                <% url =
+                  Routes.locale_switch_path(@current_path, language.code,
+                    current_locale: @current_locale
+                  ) %>
+                <button
+                  :if={@switch == :event}
+                  type="button"
+                  phx-click="phoenix_kit_set_locale"
+                  phx-value-locale={language.code}
+                  phx-value-url={url}
+                  class="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-start hover:bg-base-200 focus-visible:outline phx-click-loading:opacity-60"
+                >
+                  <.language_entry language={language} />
+                </button>
+                <a
+                  :if={@switch == :link}
+                  href={url}
+                  class="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-base-200 focus-visible:outline"
+                >
+                  <.language_entry language={language} />
+                </a>
+              <% end %>
+            </div>
+          </details>
+        </pk-session-languages>
       </li>
     <% end %>
     """
@@ -153,23 +166,9 @@ defmodule PhoenixKitWeb.Components.AccountMenu do
 
   defp language_entry(assigns) do
     ~H"""
-    <span class="text-lg">{@language.flag}</span>
-    <span lang={@language.base} title={@language.name}>{@language.label}</span>
-    <Icons.icon_check :if={@language.active?} class="w-4 h-4 ml-auto" />
+    <span class="text-lg" aria-hidden="true">{@language.flag}</span>
+    <span lang={@language.code} title={@language.name}>{@language.label}</span>
     """
-  end
-
-  defp entry_class(language) do
-    [
-      "w-full flex items-center gap-3 rounded-lg px-4 py-2 text-sm",
-      "focus:outline-none focus-visible:outline-none",
-      if(language.active?,
-        do:
-          "bg-primary !text-primary-content hover:bg-primary hover:!text-primary-content active:!bg-primary/80",
-        else:
-          "!text-base-content hover:bg-base-200 hover:!text-base-content focus:!text-base-content active:!text-base-content active:!bg-base-300"
-      )
-    ]
   end
 
   @doc """

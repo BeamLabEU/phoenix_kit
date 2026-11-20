@@ -85,6 +85,9 @@
 
 ### Changed
 
+- The session menu shows the current language. Hover, click or tap it to open a scrollable
+  menu of the other enabled languages, each listed under its own name.
+
 - **Notification settings save each switch as it is flipped** (#1046). The page has no Save
   button. A channel switch no longer flips back when the page redraws. Switches under a master
   that is off are disabled and keep their stored values.
