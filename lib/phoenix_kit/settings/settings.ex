@@ -1298,8 +1298,8 @@ defmodule PhoenixKit.Settings do
     settings = get_settings_direct(keys)
 
     %{
-      client_id: Map.get(settings, "oauth_google_client_id", ""),
-      client_secret: Map.get(settings, "oauth_google_client_secret", "")
+      client_id: settings["oauth_google_client_id"] || "",
+      client_secret: settings["oauth_google_client_secret"] || ""
     }
   end
 
@@ -1308,8 +1308,8 @@ defmodule PhoenixKit.Settings do
     settings = get_settings_direct(keys)
 
     %{
-      client_id: Map.get(settings, "oauth_github_client_id", ""),
-      client_secret: Map.get(settings, "oauth_github_client_secret", "")
+      client_id: settings["oauth_github_client_id"] || "",
+      client_secret: settings["oauth_github_client_secret"] || ""
     }
   end
 
@@ -1318,8 +1318,8 @@ defmodule PhoenixKit.Settings do
     settings = get_settings_direct(keys)
 
     %{
-      app_id: Map.get(settings, "oauth_facebook_app_id", ""),
-      app_secret: Map.get(settings, "oauth_facebook_app_secret", "")
+      app_id: settings["oauth_facebook_app_id"] || "",
+      app_secret: settings["oauth_facebook_app_secret"] || ""
     }
   end
 

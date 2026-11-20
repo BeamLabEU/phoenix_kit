@@ -36,7 +36,11 @@ function page(o) {
 
   const body = { tag: "body" };
   const outer = { tag: "outer", parentElement: body };
-  const scroller = { tag: "scroller", parentElement: outer, getBoundingClientRect: () => ({ bottom: p.o.scrollerBottom }) };
+  const scroller = {
+    tag: "scroller", parentElement: outer, clientTop: 0,
+    get clientHeight() { return p.o.scrollerBottom; },
+    getBoundingClientRect: () => ({ top: 0, bottom: p.o.scrollerBottom })
+  };
   const inner = { tag: "inner", parentElement: o.scroller ? scroller : outer };
   const style = { maxHeight: "" };
   const el = {
@@ -97,6 +101,15 @@ test("the room under the overlay up to the bottom of the scrolling ancestor, les
   const p = page({ top: 100, scrollerBottom: 500 });
   p.mount();
   assert.strictEqual(p.max(), "392px"); // 500 - 100 - 8
+});
+
+test("stops at the scrollport above the bottom border and horizontal scrollbar", () => {
+  const p = page({ top: 100, scrollerBottom: 500 });
+  p.scroller.clientTop = 3;
+  p.scroller.getBoundingClientRect = () => ({ top: 20, bottom: 500 });
+  Object.defineProperty(p.scroller, "clientHeight", { value: 460 });
+  p.mount();
+  assert.strictEqual(p.max(), "375px"); // 20 + 3 + 460 - 100 - 8
 });
 
 test("finds the nearest ancestor that scrolls, skipping the ones that do not", () => {

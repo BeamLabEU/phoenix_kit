@@ -209,7 +209,8 @@ defmodule PhoenixKit.Modules.Storage.Providers.Local do
   @impl true
   def file_exists?(bucket, file_path) do
     full_path = Path.join(root(bucket), file_path)
-    File.exists?(full_path)
+    # Local probes must be able to finish while another retrieval occupies the file server.
+    File.exists?(full_path, [:raw])
   end
 
   @impl true

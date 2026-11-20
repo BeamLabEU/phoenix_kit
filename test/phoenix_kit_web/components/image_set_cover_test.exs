@@ -108,7 +108,7 @@ defmodule PhoenixKitWeb.Components.ImageSetCoverTest do
 
     assert srcset(render(no_height, %{fit: "cover"}), "img") == "/n/s 300w"
 
-    for bad <- ["wide", "4/0", -1, 0, 1.0e308, 0.001] do
+    for bad <- ["wide", "4/0", "1.0e308/1.0e-308", -1, 0, 1.0e308, 0.001] do
       html = render(landscape(), %{fit: "cover", box_aspect: bad})
       assert srcset(html, "img") =~ "/f/medium 600w", inspect(bad)
     end

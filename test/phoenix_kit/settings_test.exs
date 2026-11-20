@@ -425,6 +425,8 @@ defmodule PhoenixKit.SettingsTest do
       {:ok, _} =
         Settings.update_setting("oauth_google_client_secret", "synthetic-will-be-corrupted")
 
+      {:ok, _} = Settings.update_setting("oauth_google_client_id", "synthetic-client-id")
+      assert Settings.has_oauth_credentials_direct?(:google)
       raw = Queries.get_setting_by_key("oauth_google_client_secret")
       assert String.starts_with?(raw.value, "enc:v1:")
 
@@ -455,6 +457,7 @@ defmodule PhoenixKit.SettingsTest do
 
       refute direct_value == corrupted_ciphertext
       refute is_binary(direct_value) and String.starts_with?(direct_value, "enc:v1:")
+      refute Settings.has_oauth_credentials_direct?(:google)
     end
   end
 end

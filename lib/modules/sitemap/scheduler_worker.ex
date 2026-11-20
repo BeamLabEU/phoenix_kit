@@ -148,7 +148,10 @@ defmodule PhoenixKit.Modules.Sitemap.SchedulerWorker do
       scheduled_at = DateTime.add(UtilsDate.utc_now(), delay_hours * 3600, :second)
 
       %{scheduled: true}
-      |> new(scheduled_at: scheduled_at)
+      |> new(
+        scheduled_at: scheduled_at,
+        unique: [period: :infinity, fields: [:worker, :args], states: [:available, :scheduled]]
+      )
       |> insert_job()
     else
       Logger.info("SitemapSchedulerWorker: Scheduling disabled, job not created")
@@ -326,13 +329,8 @@ defmodule PhoenixKit.Modules.Sitemap.SchedulerWorker do
   """
   @spec cancel_scheduled() :: {:ok, non_neg_integer()}
   def cancel_scheduled do
-    # Cancel all pending/scheduled jobs for this worker
-    worker_name = inspect(__MODULE__)
-
     {count, _} =
-      Oban.Job
-      |> where([j], j.worker == ^worker_name)
-      |> where([j], j.state in ["available", "scheduled"])
+      pending_scheduled_jobs()
       |> oban_repo_delete_all()
 
     Logger.info("SitemapSchedulerWorker: Cancelled #{count} scheduled jobs")
@@ -344,12 +342,8 @@ defmodule PhoenixKit.Modules.Sitemap.SchedulerWorker do
   """
   @spec status() :: map()
   def status do
-    worker_name = inspect(__MODULE__)
-
     next_job =
-      Oban.Job
-      |> where([j], j.worker == ^worker_name)
-      |> where([j], j.state in ["available", "scheduled"])
+      pending_scheduled_jobs()
       |> order_by([j], asc: j.scheduled_at)
       |> limit(1)
       |> oban_repo_one()
@@ -433,13 +427,15 @@ defmodule PhoenixKit.Modules.Sitemap.SchedulerWorker do
     end
   end
 
-  defp count_pending_jobs do
+  defp count_pending_jobs, do: oban_repo_aggregate(pending_scheduled_jobs(), :count)
+
+  defp pending_scheduled_jobs do
     worker_name = inspect(__MODULE__)
 
     Oban.Job
     |> where([j], j.worker == ^worker_name)
     |> where([j], j.state in ["available", "scheduled"])
-    |> oban_repo_aggregate(:count)
+    |> where([j], j.args["scheduled"] == true)
   end
 
   # Oban.Repo threads the instance's `prefix` into every query, so these hit

@@ -206,9 +206,14 @@ defmodule PhoenixKit.Modules.Shared.Components.ImageSet do
 
   defp parse_aspect(text) when is_binary(text) do
     case text |> String.split("/", parts: 2) |> Enum.map(&number/1) do
-      [w, h] when is_number(w) and is_number(h) and h > 0 -> parse_aspect(w / h)
-      [n] -> parse_aspect(n)
-      _ -> nil
+      [w, h] when is_number(w) and is_number(h) and h > 0 and w / h >= 0.01 and w / h <= 100 ->
+        w / h
+
+      [n] ->
+        parse_aspect(n)
+
+      _ ->
+        nil
     end
   end
 

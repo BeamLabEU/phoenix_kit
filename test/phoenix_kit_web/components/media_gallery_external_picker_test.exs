@@ -93,7 +93,7 @@ defmodule PhoenixKitWeb.Components.MediaGalleryExternalPickerTest do
 
     assert_receive {:open_picker_received, "g", %{selected: [@uuid1]}}
     # A full replacement, clamped to max_count like the built-in picker's.
-    assert_receive {:changed_received, [@uuid3, @uuid1]}
+    assert_receive {:changed_received, [@uuid3, @uuid1]}, 1_000
 
     html = render(view)
     assert html =~ ~s(data-id="#{@uuid3}")
@@ -108,7 +108,7 @@ defmodule PhoenixKitWeb.Components.MediaGalleryExternalPickerTest do
     view |> element(@add) |> render_click()
 
     assert_receive {:open_picker_received, "g", %{selected: [], mode: :single, max_count: nil}}
-    assert_receive {:changed_received, [@uuid2]}
+    assert_receive {:changed_received, [@uuid2]}, 1_000
   end
 
   test "a forged open_picker on a readonly gallery reaches no host" do

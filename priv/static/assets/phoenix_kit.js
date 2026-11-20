@@ -3744,7 +3744,7 @@
       // inline value below puts it at full height and the next read would
       // lay the page out with that.
       const bottom = this._boundary
-        ? Math.min(this._boundary.getBoundingClientRect().bottom, window.innerHeight)
+        ? Math.min(this._boundary.getBoundingClientRect().top + this._boundary.clientTop + this._boundary.clientHeight, window.innerHeight)
         : window.innerHeight;
       const room = bottom - el.getBoundingClientRect().top - (isNaN(margin) ? 8 : margin);
       // The element's own ceiling, read with ours out of the way.
