@@ -31,8 +31,9 @@ defmodule PhoenixKit.Users.Permissions do
     `opt_in_admin_keys/0` and `admin_baseline_exclusions/0`, so a default Admin
     still passes `Scope.holds_all_enabled_permissions?/1`.
   - Core sections declare theirs in `@core_sub_permissions`: `media.view_all`,
-    `media.manage`, `jobs.manage` and `settings.security` (the Authorization and
-    Website access pages and the registration / new-user-default settings).
+    `media.manage`, `jobs.manage`, `settings.security` (the Authorization and
+    Website access pages and the registration / new-user-default settings) and
+    `settings.messages` (the wording of notification messages).
     A sub-key that narrows what its base used to allow is granted once to every
     role holding the base (`backfill_media_sub_permissions/0`,
     `backfill_settings_sub_permissions/0`).
@@ -180,6 +181,17 @@ defmodule PhoenixKit.Users.Permissions do
         label: gettext_noop("Security settings"),
         description:
           "Sign-in methods and OAuth secrets, website access (password gate, site close, allowed addresses), registration and the new-user default role"
+      },
+      # `settings.messages` — the wording of notification emails and Telegram
+      # messages (Settings → Notifications → Messages,
+      # `PhoenixKit.Notifications.Messages`; Max and the boss, 2026-11-20).
+      # New authority, so NOT backfilled to `settings` holders, like
+      # `jobs.manage`: Admin gets it at boot with every new key, anyone else
+      # when granted it.
+      %{
+        key: "settings.messages",
+        label: gettext_noop("Notification wording"),
+        description: "Change the wording of notification emails and Telegram messages"
       }
     ]
   }

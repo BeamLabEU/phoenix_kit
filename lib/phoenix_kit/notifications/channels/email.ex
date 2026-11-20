@@ -31,6 +31,7 @@ defmodule PhoenixKit.Notifications.Channels.Email do
   alias PhoenixKit.Email.Content
   alias PhoenixKit.Email.CoreTemplates
   alias PhoenixKit.Mailer
+  alias PhoenixKit.Notifications.Messages
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
 
@@ -91,7 +92,15 @@ defmodule PhoenixKit.Notifications.Channels.Email do
             link: action_label(envelope) != "",
             reason: settings_label(envelope) != ""
           )
-        end
+        end,
+        # What an operator saved in Settings → Notifications → Messages,
+        # for this type and the reader's language, over everything else.
+        overrides:
+          Messages.for_message(
+            Map.get(envelope, :type_key),
+            "email",
+            Map.get(envelope, :locale)
+          )
       )
 
     email =

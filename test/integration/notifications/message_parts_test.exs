@@ -150,6 +150,32 @@ defmodule PhoenixKit.Integration.Notifications.MessagePartsTest do
       assert String.valid?(body["text"])
     end
 
+    test "saved wording is the text; values go in once, as written", %{user: user, config: config} do
+      telegram_answers(fn conn, _body -> ok(conn) end)
+
+      owner = %PhoenixKit.Users.Auth.Scope{
+        user: %PhoenixKit.Users.Auth.User{uuid: Ecto.UUID.generate()},
+        authenticated?: true,
+        cached_roles: ["Owner"],
+        cached_permissions: MapSet.new()
+      }
+
+      {:ok, _} =
+        PhoenixKit.Notifications.Messages.save(owner, "*", "telegram", "en", %{
+          "text" => "{{text}}\n\n{{quote}}\n\n— {{title}}"
+        })
+
+      env = envelope(user, %{locale: "en", type_key: nil, quote: "says {{title}} literally"})
+      assert :ok = Channel.deliver(env, config)
+      assert_received {:telegram, body}
+
+      assert body["text"] ==
+               "Fit the doors (ACME-12) can be started\n\nsays {{title}} literally\n\n— ACME-12 can be started"
+
+      # The button stays the renderer's.
+      assert body["reply_markup"]["inline_keyboard"]
+    end
+
     test "with no link there is no button", %{user: user, config: config} do
       telegram_answers(fn conn, _body -> ok(conn) end)
 

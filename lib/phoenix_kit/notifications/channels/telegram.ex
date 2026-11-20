@@ -52,6 +52,7 @@ defmodule PhoenixKit.Notifications.Channels.Telegram do
   alias PhoenixKit.Integrations
   alias PhoenixKit.Integrations.Telegram, as: Client
   alias PhoenixKit.Integrations.Telegram.SiteBot
+  alias PhoenixKit.Notifications.Messages
   alias PhoenixKit.Utils.Routes
 
   @impl true
@@ -234,7 +235,42 @@ defmodule PhoenixKit.Notifications.Channels.Telegram do
   # them (UTF-16 code units, so an emoji is two), the quote cut first.
   @telegram_max 4_096
 
-  defp body(%{text: text} = envelope, link_in_text?) do
+  defp body(envelope, link_in_text?) do
+    case Messages.for_message(envelope[:type_key], "telegram", envelope[:locale]) do
+      %{"text" => template} -> saved_body(template, envelope, link_in_text?)
+      _ -> default_body(envelope, link_in_text?)
+    end
+  end
+
+  # Wording an operator saved (`PhoenixKit.Notifications.Messages`): their
+  # template, every value put in as plain text in one pass, so a comment
+  # holding `{{title}}` stays as written. Blank lines a missing value leaves
+  # are closed up; the link is still the button (or its own line).
+  defp saved_body(template, envelope, link_in_text?) do
+    values = %{
+      "title" => envelope[:title] || "",
+      "text" => envelope[:text] || "",
+      "quote" => envelope[:quote] || "",
+      "url" => envelope[:url] || "",
+      "reason" => envelope[:reason] || "",
+      "settings_url" => envelope[:reason_url] || ""
+    }
+
+    filled =
+      ~r/\{\{\s*([a-z_]+)\s*\}\}/
+      |> Regex.replace(template, fn _whole, name -> Map.get(values, name, "") end)
+      |> String.replace(~r/\n{3,}/, "\n\n")
+      |> String.trim()
+
+    url = if link_in_text?, do: present(envelope[:url])
+
+    filled =
+      if url && not String.contains?(filled, url), do: filled <> "\n\n" <> url, else: filled
+
+    cut_utf16(filled, @telegram_max)
+  end
+
+  defp default_body(%{text: text} = envelope, link_in_text?) do
     title = present(envelope[:title])
     title = if title && title != text, do: title
 
