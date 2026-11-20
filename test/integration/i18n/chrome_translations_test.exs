@@ -94,7 +94,7 @@ defmodule PhoenixKit.Integration.I18n.ChromeTranslationsTest do
         """)
 
       for html <- [admin, user] do
-        assert html =~ ~r/<span lang="de"[^>]*>Deutsch<\/span>/
+        assert html =~ ~r/<span lang="de-DE"[^>]*>Deutsch<\/span>/
         refute html =~ ">German<"
       end
     end
