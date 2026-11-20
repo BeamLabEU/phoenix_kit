@@ -183,7 +183,10 @@ defmodule PhoenixKit.Notifications.Channels.Telegram do
   defp send(uuid, chat_id, owner, envelope) do
     case button(envelope) do
       nil ->
-        Client.send_message(uuid, chat_id, body(envelope, true), owner: owner, link_preview: false)
+        Client.send_message(uuid, chat_id, body(envelope, true),
+          owner: owner,
+          link_preview: false
+        )
 
       markup ->
         case Client.send_message(uuid, chat_id, body(envelope, false),
@@ -295,7 +298,8 @@ defmodule PhoenixKit.Notifications.Channels.Telegram do
   end
 
   @doc false
-  def utf16_length(text), do: div(byte_size(:unicode.characters_to_binary(text, :utf8, :utf16)), 2)
+  def utf16_length(text),
+    do: div(byte_size(:unicode.characters_to_binary(text, :utf8, :utf16)), 2)
 
   # The longest start of `text` within `max` UTF-16 units, never cutting a
   # character (or a grapheme) in two.

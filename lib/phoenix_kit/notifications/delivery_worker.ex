@@ -78,7 +78,10 @@ defmodule PhoenixKit.Notifications.DeliveryWorker do
          true <- deliverable?(channel, user, config, type_key),
          {:ok, notification} <- load_source(args) do
       envelope = build_envelope(notification, user, recipient, type_key)
-      envelope = if visible?(type_key, notification, user), do: envelope, else: line_only(envelope)
+
+      envelope =
+        if visible?(type_key, notification, user), do: envelope, else: line_only(envelope)
+
       handle(channel.deliver(envelope, config), user, channel_key)
     else
       # Channel/user/source gone, or the user turned the channel/type off

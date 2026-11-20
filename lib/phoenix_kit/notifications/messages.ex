@@ -273,7 +273,9 @@ defmodule PhoenixKit.Notifications.Messages do
 
   @doc "Whether the scope may change notification wording: `settings.messages`, or the Owner."
   @spec may_edit?(Scope.t() | nil) :: boolean()
-  def may_edit?(%Scope{} = scope), do: Scope.owner?(scope) or Scope.can?(scope, "settings.messages")
+  def may_edit?(%Scope{} = scope),
+    do: Scope.owner?(scope) or Scope.can?(scope, "settings.messages")
+
   def may_edit?(_scope), do: false
 
   defp allowed(scope), do: if(may_edit?(scope), do: :ok, else: {:error, :not_allowed})
@@ -323,11 +325,20 @@ defmodule PhoenixKit.Notifications.Messages do
       end
 
     cond do
-      Enum.all?(cleaned, fn {_k, v} -> v == "" end) -> {:error, :empty}
-      (too_long = Enum.find(cleaned, &too_long?/1)) != nil -> {:error, {:too_long, elem(too_long, 0)}}
-      Enum.any?(cleaned, fn {_k, v} -> String.contains?(v, "{{{") end) -> {:error, :raw_html}
-      (unknown = unknown_variables(channel, cleaned)) != [] -> {:error, {:unknown_variables, unknown}}
-      true -> {:ok, cleaned}
+      Enum.all?(cleaned, fn {_k, v} -> v == "" end) ->
+        {:error, :empty}
+
+      (too_long = Enum.find(cleaned, &too_long?/1)) != nil ->
+        {:error, {:too_long, elem(too_long, 0)}}
+
+      Enum.any?(cleaned, fn {_k, v} -> String.contains?(v, "{{{") end) ->
+        {:error, :raw_html}
+
+      (unknown = unknown_variables(channel, cleaned)) != [] ->
+        {:error, {:unknown_variables, unknown}}
+
+      true ->
+        {:ok, cleaned}
     end
   end
 

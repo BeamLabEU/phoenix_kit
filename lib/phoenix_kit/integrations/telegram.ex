@@ -74,7 +74,10 @@ defmodule PhoenixKit.Integrations.Telegram do
     |> maybe_put(:parse_mode, opts[:parse_mode])
     |> maybe_put(:disable_notification, opts[:silent])
     |> maybe_put(:reply_markup, opts[:reply_markup])
-    |> maybe_put(:link_preview_options, if(opts[:link_preview] == false, do: %{is_disabled: true}))
+    |> maybe_put(
+      :link_preview_options,
+      if(opts[:link_preview] == false, do: %{is_disabled: true})
+    )
     |> then(&request(token, "sendMessage", &1))
   end
 

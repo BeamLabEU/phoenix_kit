@@ -58,7 +58,8 @@ defmodule PhoenixKit.Integration.Notifications.EmailChannelTest do
       assert email.html_body =~ "Acme Ltd commented on &lt;your&gt; order"
 
       # A button in the accent colour, labelled "Open".
-      assert email.html_body =~ ~r{<a[^>]*href="https://shop.example.test/orders/1"[^>]*>\s*Open\s*</a>}
+      assert email.html_body =~
+               ~r{<a[^>]*href="https://shop.example.test/orders/1"[^>]*>\s*Open\s*</a>}
     end)
   end
 
