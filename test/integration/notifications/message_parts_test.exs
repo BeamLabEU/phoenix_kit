@@ -21,7 +21,11 @@ defmodule PhoenixKit.Integration.Notifications.MessagePartsTest do
   alias PhoenixKit.Notifications.ChannelConfig
   alias PhoenixKit.Notifications.Channels.Email
   alias PhoenixKit.Notifications.Channels.Telegram, as: Channel
+  alias PhoenixKit.Notifications.Messages
+  alias PhoenixKit.Notifications.Types
   alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKit.Users.Auth.User
 
   @stub __MODULE__.Telegram
 
@@ -153,15 +157,15 @@ defmodule PhoenixKit.Integration.Notifications.MessagePartsTest do
     test "saved wording is the text; values go in once, as written", %{user: user, config: config} do
       telegram_answers(fn conn, _body -> ok(conn) end)
 
-      owner = %PhoenixKit.Users.Auth.Scope{
-        user: %PhoenixKit.Users.Auth.User{uuid: Ecto.UUID.generate()},
+      owner = %Scope{
+        user: %User{uuid: Ecto.UUID.generate()},
         authenticated?: true,
         cached_roles: ["Owner"],
         cached_permissions: MapSet.new()
       }
 
       {:ok, _} =
-        PhoenixKit.Notifications.Messages.save(owner, "*", "telegram", "en", %{
+        Messages.save(owner, "*", "telegram", "en", %{
           "text" => "{{text}}\n\n{{quote}}\n\n— {{title}}"
         })
 
@@ -226,15 +230,15 @@ defmodule PhoenixKit.Integration.Notifications.MessagePartsTest do
          %{user: user, config: config} do
       telegram_answers(fn conn, _body -> ok(conn) end)
 
-      owner = %PhoenixKit.Users.Auth.Scope{
-        user: %PhoenixKit.Users.Auth.User{uuid: Ecto.UUID.generate()},
+      owner = %Scope{
+        user: %User{uuid: Ecto.UUID.generate()},
         authenticated?: true,
         cached_roles: ["Owner"],
         cached_permissions: MapSet.new()
       }
 
       {:ok, _} =
-        PhoenixKit.Notifications.Messages.save(owner, "*", "telegram", "en", %{
+        Messages.save(owner, "*", "telegram", "en", %{
           "text" => "{{quote}}"
         })
 
@@ -330,8 +334,8 @@ defmodule PhoenixKit.Integration.Notifications.MessagePartsTest do
 
   describe "the type's visibility check" do
     test "a type without one is visible; an unknown type too" do
-      assert PhoenixKit.Notifications.Types.still_visible?("no.such.type", %{}, %{})
-      assert PhoenixKit.Notifications.Types.still_visible?(nil, %{}, %{})
+      assert Types.still_visible?("no.such.type", %{}, %{})
+      assert Types.still_visible?(nil, %{}, %{})
     end
   end
 end

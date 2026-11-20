@@ -8,7 +8,10 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessagesTest do
   use PhoenixKitWeb.ConnCase, async: false
 
   alias PhoenixKit.Notifications.Messages
+  alias PhoenixKit.Notifications.Types
   alias PhoenixKit.Users.{Auth, Permissions}
+  alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Utils.Routes
 
   @path Routes.path("/admin/settings/notification-messages")
@@ -116,8 +119,8 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessagesTest do
   end
 
   test "a type shows what it inherits, and a save keeps only what was changed", %{conn: conn} do
-    owner = %PhoenixKit.Users.Auth.Scope{
-      user: %PhoenixKit.Users.Auth.User{uuid: Ecto.UUID.generate()},
+    owner = %Scope{
+      user: %User{uuid: Ecto.UUID.generate()},
       authenticated?: true,
       cached_roles: ["Owner"],
       cached_permissions: MapSet.new()
@@ -129,7 +132,7 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessagesTest do
         "markdown" => "{{text}}"
       })
 
-    [type | _] = PhoenixKit.Notifications.Types.all_pref_keys()
+    [type | _] = Types.all_pref_keys()
     {:ok, view, _html} = live(editor(conn), @path <> "?type=#{type}&channel=email&lang=en")
 
     assert has_element?(view, "#notification-messages-subject[value='Operations notice']")
@@ -147,14 +150,14 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessagesTest do
   end
 
   test "clearing a type's last own part is the same as a reset", %{conn: conn} do
-    owner = %PhoenixKit.Users.Auth.Scope{
-      user: %PhoenixKit.Users.Auth.User{uuid: Ecto.UUID.generate()},
+    owner = %Scope{
+      user: %User{uuid: Ecto.UUID.generate()},
       authenticated?: true,
       cached_roles: ["Owner"],
       cached_permissions: MapSet.new()
     }
 
-    [type | _] = PhoenixKit.Notifications.Types.all_pref_keys()
+    [type | _] = Types.all_pref_keys()
     {:ok, _} = Messages.save(owner, type, "email", "en", %{"subject" => "Own", "markdown" => ""})
 
     {:ok, view, _html} = live(editor(conn), @path <> "?type=#{type}&channel=email&lang=en")

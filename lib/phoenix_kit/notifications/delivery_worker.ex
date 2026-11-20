@@ -48,6 +48,7 @@ defmodule PhoenixKit.Notifications.DeliveryWorker do
   alias PhoenixKit.Notifications.Channels
   alias PhoenixKit.Notifications.Notification
   alias PhoenixKit.Notifications.Render
+  alias PhoenixKit.Notifications.Types
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Utils.RecipientLocale
@@ -207,7 +208,7 @@ defmodule PhoenixKit.Notifications.DeliveryWorker do
   # Asked when the job runs, not when it was queued: a reader who lost
   # access since gets the line only, never the comment (codex, 2026-11-19).
   defp visible?(type_key, notification, user),
-    do: PhoenixKit.Notifications.Types.still_visible?(type_key, notification, user)
+    do: Types.still_visible?(type_key, notification, user)
 
   defp line_only(envelope), do: %{envelope | quote: nil}
 

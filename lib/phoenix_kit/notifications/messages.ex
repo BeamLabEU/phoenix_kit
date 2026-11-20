@@ -61,10 +61,12 @@ defmodule PhoenixKit.Notifications.Messages do
 
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  alias PhoenixKit.Activity
   alias PhoenixKit.Email.CoreTemplates
-  alias PhoenixKit.RepoHelper
   alias PhoenixKit.Notifications.Types
+  alias PhoenixKit.RepoHelper
   alias PhoenixKit.Settings
+  alias PhoenixKit.Settings.History
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.RecipientLocale
 
@@ -274,7 +276,7 @@ defmodule PhoenixKit.Notifications.Messages do
       RepoHelper.repo().query!("SELECT pg_advisory_xact_lock(hashtext($1))", ["pkmsg:" <> key])
 
       current =
-        case PhoenixKit.Settings.History.lock_current(key) do
+        case History.lock_current(key) do
           %{value_json: %{} = entry} -> entry
           _ -> nil
         end
@@ -433,7 +435,7 @@ defmodule PhoenixKit.Notifications.Messages do
   defp scope_user_uuid(_), do: nil
 
   defp log(action, actor, type_key, channel, locale) do
-    PhoenixKit.Activity.log(%{
+    Activity.log(%{
       action: action,
       module: "notifications",
       mode: "manual",

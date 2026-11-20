@@ -11,6 +11,7 @@ defmodule PhoenixKit.Integration.Notifications.MessagesTest do
 
   alias PhoenixKit.Notifications.Channels.Email
   alias PhoenixKit.Notifications.Messages
+  alias PhoenixKit.Notifications.Types
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.Auth.User
@@ -103,7 +104,7 @@ defmodule PhoenixKit.Integration.Notifications.MessagesTest do
   describe "which wording a reader gets" do
     test "the type's own in their language, then its base language, then everyone's; part by part" do
       o = owner()
-      [type | _] = PhoenixKit.Notifications.Types.all_pref_keys()
+      [type | _] = Types.all_pref_keys()
 
       {:ok, _} = Messages.save(o, "*", "email", "en", email_parts("Everyone", "{{text}} (all)"))
       {:ok, _} = Messages.save(o, "*", "email", "et", email_parts("Kõik", "{{text}} (kõik)"))
