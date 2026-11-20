@@ -161,12 +161,18 @@ defmodule PhoenixKit.Integration.Users.EmailDomainTest do
       assert %User{} = Auth.get_user_by_email(email)
     end
 
-    test "the hint appears while typing and fills the field when taken", %{conn: conn} do
+    test "the hint appears once the field is left and fills the field when taken", %{
+      conn: conn
+    } do
       name = local()
       {:ok, view, html} = live(conn, Routes.path("/users/register"))
       refute html =~ "email-suggestion"
 
+      # Still typing: the address may not be finished, so no hint yet.
       html = render_change(view, "validate", %{"user" => %{"email" => "#{name}@gmial.com"}})
+      refute html =~ "email-suggestion"
+
+      html = view |> element("#user_email") |> render_blur()
       assert html =~ "Did you mean"
       assert html =~ "#{name}@gmail.com"
 
@@ -193,8 +199,8 @@ defmodule PhoenixKit.Integration.Users.EmailDomainTest do
       email = "#{local()}@dead.test"
       {:ok, view, _html} = live(conn, Routes.path("/users/register"))
 
-      refute render_change(view, "validate", %{"user" => %{"email" => "a@gmial.com"}}) =~
-               "email-suggestion"
+      render_change(view, "validate", %{"user" => %{"email" => "a@gmial.com"}})
+      refute view |> element("#user_email") |> render_blur() =~ "email-suggestion"
 
       render_submit(view, "save", %{"user" => %{"email" => email, "password" => @password}})
       assert %User{} = Auth.get_user_by_email(email)

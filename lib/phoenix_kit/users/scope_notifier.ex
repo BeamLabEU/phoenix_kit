@@ -49,6 +49,24 @@ defmodule PhoenixKit.Users.ScopeNotifier do
   def broadcast_active_role_changed(_), do: :ok
 
   @doc """
+  Broadcasts that the account itself changed in a way its open pages show (its
+  email was confirmed): each of them re-reads the user and its scope, the same
+  refresh as `broadcast_roles_updated/1`, so a "check your email" notice in
+  another tab goes away without a reload. Never fails the change that caused it.
+  """
+  @spec broadcast_account_changed(binary()) :: :ok
+  def broadcast_account_changed(user_uuid) when is_binary(user_uuid) do
+    _ = Manager.broadcast(topic(user_uuid), {:phoenix_kit_scope_roles_updated, user_uuid})
+    :ok
+  rescue
+    _ -> :ok
+  catch
+    :exit, _ -> :ok
+  end
+
+  def broadcast_account_changed(_), do: :ok
+
+  @doc """
   Broadcasts that the per-viewer menu badges of the user changed
   (`PhoenixKit.Dashboard.ScopeBadges.changed/1`). Open pages redraw their
   menu; the scope itself is not re-read.

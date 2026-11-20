@@ -54,7 +54,7 @@ defmodule PhoenixKitWeb.Components.Core.DecimalInput do
   use Phoenix.Component
 
   import PhoenixKitWeb.Components.Core.FormFieldError, only: [error: 1]
-  import PhoenixKitWeb.Components.Core.Input, only: [translate_error: 1]
+  import PhoenixKitWeb.Components.Core.Input, only: [field_errors: 1]
 
   alias PhoenixKit.Utils.Number
 
@@ -133,7 +133,7 @@ defmodule PhoenixKitWeb.Components.Core.DecimalInput do
   def decimal_input(%{field: %Phoenix.HTML.FormField{} = field} = assigns) do
     assigns
     |> assign(field: nil, id: assigns.id || field.id)
-    |> assign(:errors, Enum.map(field.errors, &translate_error(&1)))
+    |> assign(:errors, field_errors(field))
     |> assign_new(:name, fn -> field.name end)
     |> assign(:value, if(assigns.value == nil, do: field.value, else: assigns.value))
     |> decimal_input()

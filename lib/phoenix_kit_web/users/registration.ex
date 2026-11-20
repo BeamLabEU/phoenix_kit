@@ -14,10 +14,12 @@ defmodule PhoenixKitWeb.Users.Registration do
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.EmailDomain
   alias PhoenixKit.Users.Invitations
+  alias PhoenixKit.Users.OAuthAvailability
   alias PhoenixKit.Users.Referrals
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.Components.Core.Input, as: CoreInput
   alias PhoenixKitWeb.Users.Auth, as: WebAuth
   alias PhoenixKitWeb.Users.AuthSEO
   alias PhoenixKitWeb.Users.BotCheck
@@ -93,6 +95,10 @@ defmodule PhoenixKitWeb.Users.Registration do
         socket
         |> assign(trigger_submit: false, check_errors: false)
         |> assign(username_edited: false)
+        # Whether the visitor has left the email field (or submitted): its
+        # error and the "Did you mean" hint wait until then (`email_field/1`).
+        |> assign(email_left: false, email_errors: [])
+        |> assign(oauth_providers: OAuthAvailability.configured_providers())
         |> assign(project_title: project_title)
         |> assign(canonical_url: seo.canonical_url)
         |> assign(hreflang_links: seo.hreflang_links)
@@ -130,7 +136,15 @@ defmodule PhoenixKitWeb.Users.Registration do
   # and the address's domain is asked for in DNS.
   @public_door [site_wide: true, check_email_domain: true]
 
+  # The email is sent while typed, so the username made from it follows live;
+  # its error waits until the visitor leaves the field.
+  def handle_event("email_left", _params, socket) do
+    {:noreply, assign(socket, :email_left, true)}
+  end
+
   def handle_event("save", %{"user" => user_params} = params, socket) do
+    socket = assign(socket, :email_left, true)
+
     if Settings.get_boolean_setting("allow_registration", true) do
       case BotCheck.run(socket, params, socket.assigns[:user_ip_address]) do
         {:ok, socket} -> do_save(user_params, params, socket)
@@ -172,7 +186,11 @@ defmodule PhoenixKitWeb.Users.Registration do
     # Track whether the user owns the username field, then keep it in sync with
     # the email while it's still auto-managed.
     username_edited = username_manually_edited?(socket, params, user_params)
-    user_params = maybe_sync_username(user_params, username_edited)
+
+    user_params =
+      user_params
+      |> maybe_sync_username(username_edited)
+      |> maybe_preview_username(username_edited)
 
     # The form re-renders on every change, so the checkbox has to be driven by
     # what the user actually left it at — otherwise unticking it would snap
@@ -206,7 +224,7 @@ defmodule PhoenixKitWeb.Users.Registration do
 
   defp do_save(user_params, params, socket) do
     referral_code = params["referral_code"]
-    user_params = form_params(user_params, socket.assigns.account_type_mode)
+    user_params = save_params(user_params, socket.assigns.account_type_mode)
 
     # If the username was never manually edited, let the schema (re)generate it
     # from the final email rather than persisting a possibly-stale preview value.
@@ -295,6 +313,15 @@ defmodule PhoenixKitWeb.Users.Registration do
     end
   end
 
+  @doc false
+  # The email input carries no errors of its own: they are `@email_errors`,
+  # shown under it once the visitor has left the field or submitted, so "must
+  # have the @ sign" does not scold an address still being typed. They live in
+  # an assign of their own because the form is a temporary assign (it holds the
+  # typed password): leaving the field re-renders the error, never the input,
+  # which could not be rebuilt without the form.
+  def email_field(form), do: %{form[:email] | errors: []}
+
   # Determines whether the user has taken manual ownership of the username field.
   #
   # `phx-change` reports the touched field in `_target`. Typing a non-empty value
@@ -316,6 +343,22 @@ defmodule PhoenixKitWeb.Users.Registration do
   defp maybe_sync_username(user_params, false = _username_edited),
     do: Map.put(user_params, "username", "")
 
+  # While typing only: the changeset makes the username once the address has
+  # its "@" (it must not mint one from a half-typed address it saves), so until
+  # then the field shows the name the typed part would give, and it fills in
+  # from the first letter. The save regenerates it from the final email.
+  defp maybe_preview_username(%{"username" => ""} = user_params, false = _username_edited) do
+    email = user_params["email"]
+
+    if is_binary(email) and email != "" and not String.contains?(email, "@") do
+      Map.put(user_params, "username", User.generate_username_from_email(email) || "")
+    else
+      user_params
+    end
+  end
+
+  defp maybe_preview_username(user_params, _username_edited), do: user_params
+
   defp assign_form(socket, %Ecto.Changeset{} = changeset) do
     form = to_form(changeset, as: "user")
 
@@ -327,6 +370,8 @@ defmodule PhoenixKitWeb.Users.Registration do
         :email_suggestion,
         EmailDomain.suggestion(Ecto.Changeset.get_field(changeset, :email))
       )
+
+    socket = assign(socket, :email_errors, CoreInput.field_errors(form[:email]))
 
     if changeset.valid? do
       assign(socket, form: form, check_errors: false)
@@ -366,13 +411,25 @@ defmodule PhoenixKitWeb.Users.Registration do
   @form_fields ~w(email username password first_name last_name account_type
                   organization_name user_timezone remember_me return_to)
 
-  defp form_params(user_params, mode) when is_map(user_params) do
+  # While the visitor types, LiveView's `_unused_<field>` markers pass too: they
+  # are how the form knows which fields have not been touched yet, to keep their
+  # errors hidden (`PhoenixKitWeb.Components.Core.Input.field_errors/1`).
+  # Nothing casts them.
+  @form_keys @form_fields ++ Enum.map(@form_fields, &"_unused_#{&1}")
+
+  defp form_params(user_params, mode, keys \\ @form_keys)
+
+  defp form_params(user_params, mode, keys) when is_map(user_params) do
     user_params
-    |> Map.take(@form_fields)
+    |> Map.take(keys)
     |> Auth.enforce_registration_account_type(mode)
   end
 
-  defp form_params(other, _mode), do: other
+  defp form_params(other, _mode, _keys), do: other
+
+  # A browser submit carries no `_unused_` markers; one sent anyway must not hide
+  # the errors of the save it failed.
+  defp save_params(user_params, mode), do: form_params(user_params, mode, @form_fields)
 
   # The site policy, with one local override: a visitor arriving on an
   # organization invitation is joining an organization that already exists.

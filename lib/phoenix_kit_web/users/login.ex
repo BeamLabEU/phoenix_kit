@@ -10,6 +10,7 @@ defmodule PhoenixKitWeb.Users.Login do
 
   alias PhoenixKit.Admin.Presence
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.OAuthAvailability
   alias PhoenixKit.Users.Passkeys
   alias PhoenixKit.Users.RateLimiter
   alias PhoenixKit.Utils.Date, as: UtilsDate
@@ -70,6 +71,7 @@ defmodule PhoenixKitWeb.Users.Login do
             project_title: project_title,
             allow_registration: allow_registration,
             magic_link_enabled: magic_link_enabled,
+            oauth_providers: OAuthAvailability.configured_providers(),
             qr_login_enabled: qr_login_enabled,
             passkey_enabled: passkey_enabled,
             remember_me_available: Auth.remember_me_enabled?(),

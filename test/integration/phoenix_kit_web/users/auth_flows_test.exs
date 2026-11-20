@@ -18,6 +18,7 @@ defmodule PhoenixKitWeb.Users.AuthFlowsTest do
   alias PhoenixKit.Users.MagicLinkRegistration
   alias PhoenixKit.Users.RateLimiter
   alias PhoenixKit.Users.RateLimiter.Backend
+  alias PhoenixKit.Users.ScopeNotifier
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Users.Auth, as: UserAuth
 
@@ -527,18 +528,24 @@ defmodule PhoenixKitWeb.Users.AuthFlowsTest do
       assert html =~ ~s(aria-controls="user_password")
     end
 
-    test "the sign-up link comes right after the form, before the other sign-in methods",
+    test "the other sign-in methods come first, the sign-up link right after the form",
          %{conn: conn} do
+      # At the top, so a site with several providers does not push them off the
+      # screen; named by the method alone, as the heading says what the page does.
       Settings.update_setting("allow_registration", "true")
       Settings.update_setting("magic_link_login_enabled", "true")
       html = conn |> get(Routes.path("/users/log-in")) |> html_response(200)
 
+      {others, _} = :binary.match(html, ~s(id="auth-methods"))
+      {form_start, _} = :binary.match(html, ~s(id="login_form"))
       {form_end, _} = :binary.match(html, "</form>")
       {sign_up, _} = :binary.match(html, "Create an account")
-      {others, _} = :binary.match(html, "Or continue with")
 
+      assert others < form_start
       assert form_end < sign_up
-      assert sign_up < others
+      assert html =~ "Magic link"
+      refute html =~ "Sign in with Magic Link"
+      refute html =~ "Welcome back"
     end
   end
 
@@ -1007,11 +1014,17 @@ defmodule PhoenixKitWeb.Users.AuthFlowsTest do
           Auth.deliver_user_confirmation_instructions(user, url_fun)
         end)
 
+      ScopeNotifier.subscribe(user.uuid)
       {:ok, lv, _html} = live(conn, Routes.path("/users/confirm/#{token}"))
+
+      refute Auth.get_user(user.uuid).confirmed_at
 
       lv |> element("#confirmation_form") |> render_submit()
 
       assert_redirect(lv, "/welcome")
+      assert Auth.get_user(user.uuid).confirmed_at
+      user_uuid = user.uuid
+      assert_receive {:phoenix_kit_scope_roles_updated, ^user_uuid}
     end
 
     test "confirming via the emailed link honors a session return_to", %{conn: conn} do

@@ -73,6 +73,44 @@ defmodule PhoenixKitWeb.Components.MultilangFormTest do
     end
   end
 
+  describe "translatable_field errors of an untouched field" do
+    defp title_field(changeset) do
+      assigns = %{changeset: changeset}
+
+      html(~H"""
+      <.translatable_field
+        field_name="title"
+        form_prefix="record"
+        changeset={@changeset}
+        schema_field={:title}
+        multilang_enabled={false}
+        current_lang="en"
+        primary_language="en"
+        lang_data={%{}}
+        label="Title"
+      />
+      """)
+    end
+
+    test "wait while LiveView reports the field unused" do
+      changeset =
+        make_changeset(%{}, %{"slug" => "x", "title" => "", "_unused_title" => ""})
+        |> Ecto.Changeset.validate_required([:title])
+        |> Map.put(:action, :validate)
+
+      refute title_field(changeset) =~ "can&#39;t be blank"
+    end
+
+    test "show once the field was touched" do
+      changeset =
+        make_changeset(%{}, %{"slug" => "x", "title" => ""})
+        |> Ecto.Changeset.validate_required([:title])
+        |> Map.put(:action, :validate)
+
+      assert title_field(changeset) =~ "can&#39;t be blank"
+    end
+  end
+
   describe "translatable_field debounce" do
     test "defaults to the 300ms every caller used to hardcode" do
       changeset = make_changeset(%{title: "Hello"})

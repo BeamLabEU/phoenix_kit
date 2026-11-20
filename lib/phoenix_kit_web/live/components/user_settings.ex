@@ -992,11 +992,14 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
   end
 
   # One line per custom field the changeset refused, led by the field's own
-  # label. `User.profile_changeset/3` tags each error with its `:field`.
+  # label. `User.profile_changeset/3` tags each error with its `:field`. A field
+  # the person has not touched yet waits (`CoreInput.field_errors/1`).
   defp custom_field_errors(form, definitions) do
     labels = Map.new(definitions, &{&1["key"], &1["label"]})
+    typed = custom_field_params(form)
 
-    for {:custom_fields, {_message, opts} = error} <- form.errors do
+    for {:custom_fields, {_message, opts} = error} <- form.errors,
+        is_nil(opts[:field]) or not CoreInput.field_untouched?(typed, opts[:field]) do
       message = CoreInput.translate_error(error)
 
       case labels[opts[:field]] || opts[:field] do
@@ -1005,6 +1008,11 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
       end
     end
   end
+
+  # The custom fields as the last `validate_profile` sent them, with LiveView's
+  # `_unused_<key>` markers.
+  defp custom_field_params(%{params: %{"custom_fields" => typed}}) when is_map(typed), do: typed
+  defp custom_field_params(_form), do: %{}
 
   defp format_provider_name("google"), do: "Google"
   defp format_provider_name("apple"), do: "Apple"

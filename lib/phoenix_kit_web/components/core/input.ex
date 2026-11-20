@@ -100,7 +100,7 @@ defmodule PhoenixKitWeb.Components.Core.Input do
   def input(%{field: %Phoenix.HTML.FormField{} = field} = assigns) do
     assigns
     |> assign(field: nil, id: assigns.id || field.id)
-    |> assign(:errors, Enum.map(field.errors, &translate_error(&1)))
+    |> assign(:errors, field_errors(field))
     |> assign_new(:name, fn -> if assigns.multiple, do: field.name <> "[]", else: field.name end)
     |> assign_new(:value, fn -> field.value end)
     |> input()
@@ -252,6 +252,45 @@ defmodule PhoenixKitWeb.Components.Core.Input do
     |> JS.toggle_attribute({"aria-pressed", "true", "false"})
     |> JS.toggle_class("hidden", to: {:inner, "span"})
   end
+
+  @doc """
+  The translated errors to show under a form field.
+
+  None while LiveView reports the field as untouched. Its `phx-change` (and the
+  form recovery after a reconnect) sends `_unused_<field>` next to every input
+  the person has not typed in yet, so one keystroke in the email field (or a
+  dropped connection) does not paint the empty password field red. A field that
+  sends no value at all (a radio group with nothing picked, an empty multiple
+  select, a disabled input) gets no marker either: while other fields carry
+  markers, the form is still being filled in, and its errors wait too.
+
+  A submit sends no markers, so every error shows then, as do the errors of a
+  form that never went through LiveView. `Phoenix.Component.used_input?/1` is
+  not used: it hides the errors of a field missing from the params on submit
+  too, where the person has to see why the save failed.
+  """
+  def field_errors(%Phoenix.HTML.FormField{field: field, form: form, errors: errors}) do
+    # A `FormField` built by hand may have no form behind it.
+    params = if is_struct(form, Phoenix.HTML.Form), do: form.params, else: %{}
+    if field_untouched?(params, field), do: [], else: Enum.map(errors, &translate_error/1)
+  end
+
+  @doc """
+  Whether the person has not touched `field` yet, going by the params of a
+  `phx-change` (`changeset.params` or `form.params`). The rule of
+  `field_errors/1`, for a template that renders a field's errors itself.
+  """
+  def field_untouched?(params, field) when is_map(params) do
+    key = to_string(field)
+
+    Map.has_key?(params, "_unused_" <> key) or
+      (not Map.has_key?(params, key) and Enum.any?(Map.keys(params), &unused_marker?/1))
+  end
+
+  def field_untouched?(_params, _field), do: false
+
+  defp unused_marker?("_unused_" <> _), do: true
+  defp unused_marker?(_key), do: false
 
   @doc """
   Translates an error message using gettext.

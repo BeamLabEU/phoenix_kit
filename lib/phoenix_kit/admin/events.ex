@@ -61,6 +61,7 @@ defmodule PhoenixKit.Admin.Events do
   alias PhoenixKit.PubSub.Manager
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.Roles
+  alias PhoenixKit.Users.ScopeNotifier
   alias PhoenixKit.Users.Sessions
 
   # Topic names
@@ -135,6 +136,9 @@ defmodule PhoenixKit.Admin.Events do
   def broadcast_user_confirmed(user) do
     broadcast(@topic_users, {:user_confirmed, user})
     broadcast(user_confirmation_topic(user.uuid), {:user_confirmed, user})
+    # The account's own open pages: they re-read the user, so whatever they show
+    # for an unconfirmed account (a "check your email" notice) goes away live.
+    ScopeNotifier.broadcast_account_changed(user.uuid)
     maybe_broadcast_stats_updated()
   end
 

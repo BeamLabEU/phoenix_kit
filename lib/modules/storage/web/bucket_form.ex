@@ -23,6 +23,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Actor
+  alias PhoenixKitWeb.Components.Core.Input
   alias PhoenixKitWeb.Live.Modules.Storage.BucketUsage
 
   @cloud_providers ~w(s3 b2 r2 hetzner tigris)
@@ -575,9 +576,16 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
   defp page_title(:new), do: gettext("Add Storage Bucket")
   defp page_title(:edit), do: gettext("Edit Storage Bucket")
 
+  # A field's errors wait until the person has touched it (see
+  # `PhoenixKitWeb.Components.Core.Input.field_errors/1`).
+  defp shows_errors?(changeset, field) do
+    Keyword.has_key?(changeset.errors, field) and
+      not Input.field_untouched?(changeset.params, field)
+  end
+
   # Helper function for input validation styling
   defp input_class(changeset, field) do
-    if Keyword.has_key?(changeset.errors, field) do
+    if shows_errors?(changeset, field) do
       "input-error"
     else
       ""
