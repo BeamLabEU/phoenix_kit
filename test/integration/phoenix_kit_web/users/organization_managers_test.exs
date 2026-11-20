@@ -330,7 +330,8 @@ defmodule PhoenixKitWeb.Users.OrganizationManagersTest do
       )
 
     token = F.email_token(person, "confirm")
-    assert {:error, {:redirect, _}} = live(build_conn(), Routes.path("/users/confirm/#{token}"))
+    {:ok, view, _html} = live(build_conn(), Routes.path("/users/confirm/#{token}"))
+    render_submit(view, "confirm_account", %{user: %{token: token}})
     assert Repo.get!(OrganizationInvitation, invitation.uuid).status == :accepted
 
     assert Repo.get_by!(OrganizationManager,

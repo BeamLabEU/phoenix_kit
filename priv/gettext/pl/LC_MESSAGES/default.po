@@ -1127,7 +1127,7 @@ msgid "Edit in General"
 msgstr "Edytuj w sekcji Ogólne"
 
 #: lib/phoenix_kit_web/live/users/profile_settings.ex:51
-#: lib/phoenix_kit_web/users/confirm_email_change.ex:66
+#: lib/phoenix_kit_web/users/confirm_email_change.ex:60
 #, elixir-autogen, elixir-format
 msgid "Email change link is invalid or it has expired."
 msgstr "Link zmiany adresu e-mail jest nieprawidłowy lub wygasł."
@@ -1414,6 +1414,7 @@ msgid "Line Break"
 msgstr "Podział wiersza"
 
 #: lib/phoenix_kit_web/components/user_dashboard_nav.ex:353
+#: lib/phoenix_kit_web/users/confirmation.html.heex:33
 #: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:141
 #: lib/phoenix_kit_web/users/forgot_password.html.heex:33
 #: lib/phoenix_kit_web/users/login.ex:22
@@ -7304,6 +7305,11 @@ msgstr "Nie udało się zaktualizować ustawienia"
 msgid "When on, the primary language drops its locale segment in every URL (e.g. /admin/users instead of /en/admin/users, /blog/post instead of /en/blog/post). Other languages always keep their prefix."
 msgstr "Gdy włączone, język główny nie ma segmentu lokalizacji w żadnym adresie URL (np. /admin/users zamiast /en/admin/users, /blog/post zamiast /en/blog/post). Pozostałe języki zawsze zachowują prefiks."
 
+#: lib/phoenix_kit_web/users/confirmation.html.heex:10
+#, elixir-autogen, elixir-format
+msgid "Account Confirmation"
+msgstr "Potwierdzenie konta"
+
 #: lib/phoenix_kit_web/users/registration.html.heex:255
 #, elixir-autogen, elixir-format
 msgid "Already have an account?"
@@ -7345,13 +7351,23 @@ msgstr "Zakończ rejestrację"
 msgid "Complete your profile"
 msgstr "Uzupełnij profil"
 
+#: lib/phoenix_kit_web/users/confirmation.html.heex:7
+#, elixir-autogen, elixir-format
+msgid "Confirm Account"
+msgstr "Potwierdź konto"
+
+#: lib/phoenix_kit_web/users/confirmation.html.heex:17
+#, elixir-autogen, elixir-format
+msgid "Confirm my account"
+msgstr "Potwierdź moje konto"
+
 #: lib/phoenix_kit_web/users/reset_password.html.heex:32
 #, elixir-autogen, elixir-format
 msgid "Confirm new password"
 msgstr "Potwierdź nowe hasło"
 
-#: lib/phoenix_kit_web/users/confirm_email_change.html.heex:15
-#: lib/phoenix_kit_web/users/confirmation.html.heex:11
+#: lib/phoenix_kit_web/users/confirm_email_change.html.heex:17
+#: lib/phoenix_kit_web/users/confirmation.html.heex:14
 #, elixir-autogen, elixir-format
 msgid "Confirming..."
 msgstr "Potwierdzanie…"
@@ -7456,6 +7472,7 @@ msgstr "Wolisz hasło?"
 msgid "Referral Code"
 msgstr "Kod polecający"
 
+#: lib/phoenix_kit_web/users/confirmation.html.heex:26
 #: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:134
 #: lib/phoenix_kit_web/users/registration.ex:27
 #: lib/phoenix_kit_web/users/reset_password.html.heex:51
@@ -12588,12 +12605,12 @@ msgstr "Zbyt wiele prób logowania. Spróbuj ponownie później."
 msgid "Unknown OAuth provider: %{provider}"
 msgstr "Nieznany dostawca OAuth: %{provider}"
 
-#: lib/phoenix_kit_web/users/confirmation.ex:83
+#: lib/phoenix_kit_web/users/confirmation.ex:70
 #, elixir-autogen, elixir-format
 msgid "User confirmation link is invalid or it has expired."
 msgstr "Link potwierdzający jest nieprawidłowy lub wygasł."
 
-#: lib/phoenix_kit_web/users/confirmation.ex:66
+#: lib/phoenix_kit_web/users/confirmation.ex:52
 #, elixir-autogen, elixir-format
 msgid "User confirmed successfully."
 msgstr "Użytkownik został potwierdzony."
@@ -13683,7 +13700,7 @@ msgid "Complete your registration"
 msgstr "Dokończ rejestrację"
 
 #: lib/phoenix_kit/email/core_templates.ex:289
-#: lib/phoenix_kit_web/users/confirmation.ex:27
+#: lib/phoenix_kit_web/users/confirmation.ex:18
 #, elixir-autogen, elixir-format
 msgid "Confirm your account"
 msgstr "Potwierdź swoje konto"
@@ -14055,12 +14072,28 @@ msgstr "Auto"
 msgid "Change Email"
 msgstr "Zmień e-mail"
 
-#: lib/phoenix_kit_web/users/confirm_email_change.ex:28
+#: lib/phoenix_kit_web/users/confirm_email_change.ex:26
+#: lib/phoenix_kit_web/users/confirm_email_change.html.heex:13
 #, elixir-autogen, elixir-format
 msgid "Confirm Email Change"
 msgstr "Potwierdź zmianę e-maila"
 
-#: lib/phoenix_kit_web/users/confirm_email_change.ex:55
+#: lib/phoenix_kit_web/users/confirm_email_change.html.heex:20
+#, elixir-autogen, elixir-format
+msgid "Confirm email change"
+msgstr "Potwierdź zmianę e-maila"
+
+#: lib/phoenix_kit_web/users/confirm_email_change.html.heex:7
+#, elixir-autogen, elixir-format
+msgid "Confirm your new email"
+msgstr "Potwierdź nowy adres e-mail"
+
+#: lib/phoenix_kit_web/users/confirm_email_change.html.heex:9
+#, elixir-autogen, elixir-format
+msgid "Confirming also completes your account confirmation."
+msgstr "Potwierdzenie jednocześnie potwierdzi Twoje konto."
+
+#: lib/phoenix_kit_web/users/confirm_email_change.ex:48
 #, elixir-autogen, elixir-format
 msgid "Email changed and confirmed. Welcome!"
 msgstr "E-mail zmieniony i potwierdzony. Witamy!"
@@ -28593,7 +28626,7 @@ msgstr "Zalogowano się z nowego telefonu w Tallinie."
 msgid "QR code"
 msgstr "Kod QR"
 
-#: lib/phoenix_kit_web/components/auth_methods.ex:35
+#: lib/phoenix_kit_web/components/auth_methods.ex:33
 #, elixir-autogen, elixir-format
 msgid "or"
 msgstr "lub"

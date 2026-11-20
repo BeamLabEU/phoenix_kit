@@ -953,12 +953,15 @@ defmodule PhoenixKitWeb.Users.AuthFlowsTest do
         # new address is confirmed, exactly like the direct confirm-link flow.
         {:ok, other_lv, _html} = live(other_conn, Routes.path("/users/confirm"))
 
-        # The link confirms on opening, no button to press.
-        assert {:error, {:redirect, _}} =
-                 live(
-                   login_conn(build_conn(), user),
-                   Routes.path("/users/confirm/change-email/#{token}")
-                 )
+        {:ok, confirm_lv, _html} =
+          live(
+            login_conn(build_conn(), user),
+            Routes.path("/users/confirm/change-email/#{token}")
+          )
+
+        confirm_lv
+        |> form("#confirm_email_change_form", %{"user" => %{"token" => token}})
+        |> render_submit()
 
         assert_redirect(other_lv, 3000)
 
@@ -1011,43 +1014,15 @@ defmodule PhoenixKitWeb.Users.AuthFlowsTest do
           Auth.deliver_user_confirmation_instructions(user, url_fun)
         end)
 
-      assert {:error, {:redirect, %{to: "/welcome"}}} =
-               live(conn, Routes.path("/users/confirm/#{token}"))
+      ScopeNotifier.subscribe(user.uuid)
+      {:ok, lv, _html} = live(conn, Routes.path("/users/confirm/#{token}"))
 
-      assert Auth.get_user(user.uuid).confirmed_at
-    end
-
-    test "the link confirms on opening, but a plain fetch (a mail scanner) spends nothing",
-         %{conn: conn} do
-      user = register_user()
-
-      token =
-        extract_token(fn url_fun ->
-          Auth.deliver_user_confirmation_instructions(user, url_fun)
-        end)
-
-      # A scanner fetches the page and runs no JavaScript: no socket, no spend.
-      html = conn |> get(Routes.path("/users/confirm/#{token}")) |> html_response(200)
-      assert html =~ "Confirming"
-      refute html =~ "Confirm my account"
       refute Auth.get_user(user.uuid).confirmed_at
 
-      # The person's browser connects, and that confirms.
-      assert {:error, {:redirect, _}} = live(conn, Routes.path("/users/confirm/#{token}"))
+      lv |> element("#confirmation_form") |> render_submit()
+
+      assert_redirect(lv, "/welcome")
       assert Auth.get_user(user.uuid).confirmed_at
-    end
-
-    test "confirming tells the account's open pages to re-read it" do
-      user = register_user()
-
-      token =
-        extract_token(fn url_fun ->
-          Auth.deliver_user_confirmation_instructions(user, url_fun)
-        end)
-
-      ScopeNotifier.subscribe(user.uuid)
-      {:ok, _} = Auth.confirm_user(token)
-
       user_uuid = user.uuid
       assert_receive {:phoenix_kit_scope_roles_updated, ^user_uuid}
     end
@@ -1065,8 +1040,11 @@ defmodule PhoenixKitWeb.Users.AuthFlowsTest do
         |> Phoenix.ConnTest.init_test_session(%{})
         |> Plug.Conn.put_session(:user_return_to, "/protected-page")
 
-      assert {:error, {:redirect, %{to: "/protected-page"}}} =
-               live(conn, Routes.path("/users/confirm/#{token}"))
+      {:ok, lv, _html} = live(conn, Routes.path("/users/confirm/#{token}"))
+
+      lv |> element("#confirmation_form") |> render_submit()
+
+      assert_redirect(lv, "/protected-page")
     end
   end
 

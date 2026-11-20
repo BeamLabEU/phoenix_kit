@@ -30,9 +30,8 @@
   <% end %>
 
   <%!-- The other ways in, first: see `AuthMethods`. --%>
-  <% oauth_providers = PhoenixKitWeb.Components.OAuthButtons.enabled_providers() %>
   <PhoenixKitWeb.Components.AuthMethods.auth_methods :if={
-    @magic_link_registration_enabled or oauth_providers != []
+    @magic_link_registration_enabled or @oauth_providers != []
   }>
     <.link
       :if={@magic_link_registration_enabled}
@@ -43,7 +42,7 @@
       {gettext("Magic link")}
     </.link>
     <PhoenixKitWeb.Components.OAuthButtons.provider_links
-      providers={oauth_providers}
+      providers={@oauth_providers}
       return_to={@return_to}
     />
   </PhoenixKitWeb.Components.AuthMethods.auth_methods>

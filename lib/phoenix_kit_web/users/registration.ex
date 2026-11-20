@@ -14,6 +14,7 @@ defmodule PhoenixKitWeb.Users.Registration do
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.EmailDomain
   alias PhoenixKit.Users.Invitations
+  alias PhoenixKit.Users.OAuthAvailability
   alias PhoenixKit.Users.Referrals
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.IpAddress
@@ -95,8 +96,9 @@ defmodule PhoenixKitWeb.Users.Registration do
         |> assign(trigger_submit: false, check_errors: false)
         |> assign(username_edited: false)
         # Whether the visitor has left the email field (or submitted): its
-        # error and the "Did you mean" hint wait until then (`email_field/2`).
+        # error and the "Did you mean" hint wait until then (`email_field/1`).
         |> assign(email_left: false, email_errors: [])
+        |> assign(oauth_providers: OAuthAvailability.configured_providers())
         |> assign(project_title: project_title)
         |> assign(canonical_url: seo.canonical_url)
         |> assign(hreflang_links: seo.hreflang_links)
@@ -311,12 +313,6 @@ defmodule PhoenixKitWeb.Users.Registration do
     end
   end
 
-  # Determines whether the user has taken manual ownership of the username field.
-  #
-  # `phx-change` reports the touched field in `_target`. Typing a non-empty value
-  # into the username field claims it (auto-sync stops); clearing it releases
-  # ownership so auto-sync from email resumes. Any other field leaves the current
-  # ownership state untouched.
   @doc false
   # The email input carries no errors of its own: they are `@email_errors`,
   # shown under it once the visitor has left the field or submitted, so "must
@@ -326,6 +322,12 @@ defmodule PhoenixKitWeb.Users.Registration do
   # which could not be rebuilt without the form.
   def email_field(form), do: %{form[:email] | errors: []}
 
+  # Determines whether the user has taken manual ownership of the username field.
+  #
+  # `phx-change` reports the touched field in `_target`. Typing a non-empty value
+  # into the username field claims it (auto-sync stops); clearing it releases
+  # ownership so auto-sync from email resumes. Any other field leaves the current
+  # ownership state untouched.
   defp username_manually_edited?(socket, params, user_params) do
     case params["_target"] do
       ["user", "username"] -> String.trim(user_params["username"] || "") != ""

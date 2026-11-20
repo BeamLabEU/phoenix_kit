@@ -109,6 +109,21 @@ defmodule PhoenixKitWeb.Integration.Users.UntouchedFieldErrorsTest do
       :ok
     end
 
+    test "offer only OAuth providers with credentials", %{conn: conn} do
+      for key <- ["oauth_enabled", "oauth_google_enabled", "oauth_github_enabled"] do
+        {:ok, _} = PhoenixKit.Settings.update_boolean_setting(key, true)
+      end
+
+      {:ok, _} = PhoenixKit.Settings.update_setting("oauth_github_client_id", "test-id")
+      {:ok, _} = PhoenixKit.Settings.update_setting("oauth_github_client_secret", "test-secret")
+
+      for path <- ["/users/register", "/users/log-in"] do
+        {:ok, view, _} = live(conn, Routes.path(path))
+        assert has_element?(view, "#auth-methods a[href*='/users/auth/github']")
+        refute has_element?(view, "#auth-methods a[href*='/users/auth/google']")
+      end
+    end
+
     test "come first, named by the method alone", %{conn: conn} do
       for {path, form_id} <- [
             {"/users/register", "registration_form"},

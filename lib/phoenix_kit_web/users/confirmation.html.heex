@@ -4,10 +4,33 @@
   page_title={@page_title}
   current_path={assigns[:url_path] || "/users/confirm"}
 >
-  <%!-- Shown only until the LiveView connects: the account is confirmed on the
-       connected mount and the visitor is sent on (see the module doc). --%>
-  <div id="confirmation-pending" class="flex flex-col items-center gap-4 py-6" role="status">
-    <span class="loading loading-spinner loading-lg text-primary" aria-hidden="true"></span>
-    <p class="text-base-content/70">{gettext("Confirming...")}</p>
+  <h1 class="text-2xl font-bold text-center mb-4">{gettext("Confirm Account")}</h1>
+  <.form for={@form} id="confirmation_form" phx-submit="confirm_account">
+    <fieldset class="fieldset min-w-0">
+      <legend class="fieldset-legend sr-only">{gettext("Account Confirmation")}</legend>
+      <input type="hidden" name={@form[:token].name} value={@form[:token].value} />
+      <button
+        type="submit"
+        phx-disable-with={gettext("Confirming...")}
+        class="btn btn-primary w-full transition-all hover:scale-[1.02] active:scale-[0.98]"
+      >
+        {gettext("Confirm my account")} <span aria-hidden="true">→</span>
+      </button>
+    </fieldset>
+  </.form>
+  <div class="text-center mt-4 text-sm">
+    <.link
+      href={Routes.path("/users/register")}
+      class="font-semibold text-primary hover:underline"
+    >
+      {gettext("Register")}
+    </.link>
+    <span class="mx-2 text-base-content/40">|</span>
+    <.link
+      href={Routes.path("/users/log-in")}
+      class="font-semibold text-primary hover:underline"
+    >
+      {gettext("Log in")}
+    </.link>
   </div>
 </PhoenixKitWeb.Components.AuthPageWrapper.auth_page_wrapper>

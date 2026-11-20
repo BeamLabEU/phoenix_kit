@@ -100,20 +100,12 @@ defmodule PhoenixKitWeb.Components.OAuthButtons do
   end
 
   @doc """
-  The enabled OAuth providers, in the order the sign-in pages show them.
-  """
-  @spec enabled_providers() :: [:google | :github | :facebook]
-  def enabled_providers do
-    Enum.filter([:google, :github, :facebook], &OAuthAvailability.provider_enabled?/1)
-  end
-
-  @doc """
   One compact button per enabled provider, named by the provider alone
   ("Google"), for the grid of sign-in methods at the top of the sign-in and
   sign-up pages (`PhoenixKitWeb.Components.AuthMethods`). Renders the links
   only, with no wrapper, so each one is a cell of the caller's grid.
   """
-  attr :providers, :list, required: true, doc: "from `enabled_providers/0`"
+  attr :providers, :list, required: true, doc: "from `OAuthAvailability.configured_providers/0`"
   attr :return_to, :string, default: nil
 
   def provider_links(assigns) do

@@ -10,9 +10,8 @@
   </h1>
 
   <%!-- The other ways in, first: see `AuthMethods`. --%>
-  <% oauth_providers = PhoenixKitWeb.Components.OAuthButtons.enabled_providers() %>
   <PhoenixKitWeb.Components.AuthMethods.auth_methods :if={
-    @passkey_enabled or @magic_link_enabled or @qr_login_enabled or oauth_providers != []
+    @passkey_enabled or @magic_link_enabled or @qr_login_enabled or @oauth_providers != []
   }>
     <%!-- Passkey: the button for the browser's prompt. The same hook also
          starts the passkey suggestions in the email field as the page loads. --%>
@@ -44,7 +43,7 @@
       {gettext("QR code")}
     </.link>
     <PhoenixKitWeb.Components.OAuthButtons.provider_links
-      providers={oauth_providers}
+      providers={@oauth_providers}
       return_to={@return_to}
     />
   </PhoenixKitWeb.Components.AuthMethods.auth_methods>
