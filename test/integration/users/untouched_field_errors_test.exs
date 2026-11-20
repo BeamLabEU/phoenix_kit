@@ -16,6 +16,8 @@ defmodule PhoenixKitWeb.Integration.Users.UntouchedFieldErrorsTest do
   alias PhoenixKit.Users.Permissions
   alias PhoenixKit.Users.Roles
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.Components.AccountMenu
+  alias PhoenixKitWeb.Components.OAuthButtons
 
   @password "hello world password!"
 
@@ -122,6 +124,21 @@ defmodule PhoenixKitWeb.Integration.Users.UntouchedFieldErrorsTest do
         assert has_element?(view, "#auth-methods a[href*='/users/auth/github']")
         refute has_element?(view, "#auth-methods a[href*='/users/auth/google']")
       end
+
+      # The same rule on the other doors: adding an account, and the shared
+      # button list a host page can still render.
+      add_account =
+        render_component(&AccountMenu.add_account_modal/1,
+          id: "add-account",
+          current_path: "/admin"
+        )
+
+      assert add_account =~ "/users/auth/github"
+      refute add_account =~ "/users/auth/google"
+
+      buttons = render_component(&OAuthButtons.oauth_buttons/1, %{})
+      assert buttons =~ "/users/auth/github"
+      refute buttons =~ "/users/auth/google"
     end
 
     test "come first, named by the method alone", %{conn: conn} do

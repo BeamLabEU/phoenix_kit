@@ -36,71 +36,42 @@ defmodule PhoenixKitWeb.Components.OAuthButtons do
       "Local post-login destination to carry through the OAuth round-trip. The callback stashes it as :oauth_return_to; without it a user sent to sign in from a protected page lands on the default instead."
 
   def oauth_buttons(assigns) do
-    # Check each provider individually
+    # A switch with no credentials is not a way in: the same list the sign-in
+    # and sign-up pages use. Only a local path travels; anything else is
+    # dropped rather than handed to the callback's session stash.
     assigns =
       assigns
-      |> assign(:google_enabled, OAuthAvailability.provider_enabled?(:google))
-      |> assign(:github_enabled, OAuthAvailability.provider_enabled?(:github))
-      |> assign(:facebook_enabled, OAuthAvailability.provider_enabled?(:facebook))
-
-    # Check if at least one provider is enabled
-    any_provider_enabled =
-      assigns.google_enabled or assigns.github_enabled or assigns.facebook_enabled
-
-    assigns = assign(assigns, :any_provider_enabled, any_provider_enabled)
-
-    # Only a local path travels; anything else is dropped rather than handed
-    # to the callback's session stash.
-    assigns =
-      assign(assigns, :return_query, oauth_return_query(assigns[:return_to]))
+      |> assign(:providers, OAuthAvailability.configured_providers())
+      |> assign(:return_query, oauth_return_query(assigns[:return_to]))
 
     ~H"""
-    <%= if @any_provider_enabled do %>
-      <div class={@class}>
-        <%= if @show_divider do %>
-          <div class="divider text-base-content/60">{gettext("Or continue with")}</div>
-        <% end %>
-
-        <div class="space-y-2">
-          <%!-- Google Sign-In Button --%>
-          <%!-- OAuth routes are non-localized, so we use locale: :none --%>
-          <%= if @google_enabled do %>
-            <.link
-              href={Routes.path("/users/auth/google", locale: :none) <> @return_query}
-              class="btn btn-outline w-full flex items-center justify-center gap-2 hover:bg-base-200 transition-all hover:scale-[1.02] active:scale-[0.98]"
-            >
-              <Icons.icon_google class="w-5 h-5" />
-              <span>{gettext("Continue with Google")}</span>
-            </.link>
-          <% end %>
-          <%!-- GitHub Sign-In Button --%>
-          <%= if @github_enabled do %>
-            <.link
-              href={Routes.path("/users/auth/github", locale: :none) <> @return_query}
-              class="btn btn-outline w-full flex items-center justify-center gap-2 hover:bg-base-200 transition-all hover:scale-[1.02] active:scale-[0.98]"
-            >
-              <Icons.icon_github class="w-5 h-5" />
-              <span>{gettext("Continue with GitHub")}</span>
-            </.link>
-          <% end %>
-          <%!-- Facebook Sign-In Button --%>
-          <%= if @facebook_enabled do %>
-            <.link
-              href={Routes.path("/users/auth/facebook", locale: :none) <> @return_query}
-              class="btn btn-outline w-full flex items-center justify-center gap-2 hover:bg-base-200 transition-all hover:scale-[1.02] active:scale-[0.98]"
-            >
-              <Icons.icon_facebook class="w-5 h-5" />
-              <span>{gettext("Continue with Facebook")}</span>
-            </.link>
-          <% end %>
-        </div>
+    <div :if={@providers != []} class={@class}>
+      <div :if={@show_divider} class="divider text-base-content/60">
+        {gettext("Or continue with")}
       </div>
-    <% end %>
+
+      <div class="space-y-2">
+        <%!-- OAuth routes are non-localized, so we use locale: :none --%>
+        <.link
+          :for={provider <- @providers}
+          href={Routes.path("/users/auth/#{provider}", locale: :none) <> @return_query}
+          class="btn btn-outline w-full flex items-center justify-center gap-2 hover:bg-base-200 transition-all hover:scale-[1.02] active:scale-[0.98]"
+        >
+          <.provider_icon provider={provider} />
+          <span>{continue_label(provider)}</span>
+        </.link>
+      </div>
+    </div>
     """
   end
 
+  # Brand names stay inside the sentence so each one remains its own msgid.
+  defp continue_label(:google), do: gettext("Continue with Google")
+  defp continue_label(:github), do: gettext("Continue with GitHub")
+  defp continue_label(:facebook), do: gettext("Continue with Facebook")
+
   @doc """
-  One compact button per enabled provider, named by the provider alone
+  One compact button per provider that has credentials, named by the provider alone
   ("Google"), for the grid of sign-in methods at the top of the sign-in and
   sign-up pages (`PhoenixKitWeb.Components.AuthMethods`). Renders the links
   only, with no wrapper, so each one is a cell of the caller's grid.

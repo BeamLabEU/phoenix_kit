@@ -294,20 +294,17 @@ defmodule PhoenixKitWeb.Components.AccountMenu do
 
   @doc """
   The "Add account" dialog: email or username and password, then the OAuth
-  providers enabled in Settings. Each provider link carries `add_account=1`,
-  so the OAuth callback adds the account to the session instead of replacing it.
+  providers that have credentials (`OAuthAvailability.configured_providers/0`).
+  A switch with nothing behind it is not offered. Each provider link carries
+  `add_account=1`, so the OAuth callback adds the account to the session
+  instead of replacing it.
   """
   attr :id, :string, required: true
   attr :current_path, :string, required: true
   attr :current_locale, :string, default: nil
 
   def add_account_modal(assigns) do
-    assigns =
-      assign(assigns, :providers, [
-        {:google, OAuthAvailability.provider_enabled?(:google)},
-        {:github, OAuthAvailability.provider_enabled?(:github)},
-        {:facebook, OAuthAvailability.provider_enabled?(:facebook)}
-      ])
+    assigns = assign(assigns, :providers, OAuthAvailability.configured_providers())
 
     ~H"""
     <input type="checkbox" id={@id} class="modal-toggle" />
@@ -344,11 +341,11 @@ defmodule PhoenixKitWeb.Components.AccountMenu do
           </div>
         </.form>
 
-        <div :if={Enum.any?(@providers, &elem(&1, 1))} class="mt-4">
+        <div :if={@providers != []} class="mt-4">
           <div class="divider text-base-content/60 text-xs">{gettext("Or add via")}</div>
           <div class="space-y-2">
             <.link
-              :for={{provider, true} <- @providers}
+              :for={provider <- @providers}
               href={
                 Routes.path("/users/auth/#{provider}", locale: :none) <>
                   "?add_account=1&return_to=#{URI.encode_www_form(@current_path)}"

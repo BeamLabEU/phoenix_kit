@@ -941,18 +941,19 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
     end
   end
 
+  # Connect buttons for providers that can actually sign someone in. A switch
+  # with no credentials is the same dead button the sign-in page no longer shows.
   defp get_available_oauth_providers(oauth_providers) do
     connected = Enum.map(oauth_providers, & &1.provider)
-    all_providers = ["google", "github"]
 
-    all_providers
+    configured =
+      OAuthAvailability.configured_providers()
+      |> Enum.map(&Atom.to_string/1)
+
+    ["google", "github"]
     |> Enum.reject(&(&1 in connected))
-    |> Enum.filter(&provider_enabled?/1)
+    |> Enum.filter(&(&1 in configured))
   end
-
-  defp provider_enabled?("google"), do: OAuthAvailability.provider_enabled?(:google)
-  defp provider_enabled?("github"), do: OAuthAvailability.provider_enabled?(:github)
-  defp provider_enabled?(_), do: false
 
   defp can_disconnect_provider?(user, _provider) do
     has_password = user.hashed_password != nil
