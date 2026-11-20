@@ -47,11 +47,12 @@ defmodule PhoenixKitWeb.Components.PeoplePicker do
     * `name` — when set, the choice is also posted with a surrounding form:
       one hidden input `"kind:uuid"` per key, after an empty one so a
       cleared list still posts.
-    * `can_edit` — false shows the chips alone (no search, no ×).
+    * `can_edit` — false shows no search and no way to add (the chips' ×
+      still show with `can_remove`).
     * `can_remove` — with `can_edit` false, true still lets a chip be taken
       off (its ×), never anyone added: a list a viewer may thin out but not
-      grow (Projects' "who to tell" without the right to assign). Defaults
-      to `can_edit`.
+      grow (Projects' "who to tell" without the right to assign). Default
+      false; with `can_edit` true a chip is always removable.
     * `max` — `1` makes a pick replace the choice; nil (default) adds.
     * `tags` — `%{key => [tag]}`: small labels on a chip ("You", "Project
       owner", "Not on this project"); a tag is a string or `%{label:,
@@ -517,6 +518,12 @@ defmodule PhoenixKitWeb.Components.PeoplePicker do
   defp option_dom_id(%{kind: kind, uuid: uuid}),
     do: "opt-" <> Base.url_encode64(kind <> <<0>> <> uuid, padding: false)
 
+  # The home list is not a stream, so two rows of one key both render — but
+  # they must still not share an id: a row with its own `:id` keeps it, the
+  # rest stay keyed on kind-uuid as they were.
+  defp home_dom_id(%{id: id} = row) when is_binary(id) and id != "", do: option_dom_id(row)
+  defp home_dom_id(%{kind: kind, uuid: uuid}), do: "#{kind}-#{uuid}"
+
   # A chip's × works for an editor, and for a caller that lets the list be
   # thinned without being grown (`can_remove`).
   defp removable?(assigns), do: assigns.can_edit == true or assigns[:can_remove] == true
@@ -562,7 +569,7 @@ defmodule PhoenixKitWeb.Components.PeoplePicker do
           key={key}
           row={Map.get(@rows, key)}
           tags={Map.get(@tags, key, [])}
-          can_edit={removable?(assigns)}
+          removable={removable?(assigns)}
           myself={@myself}
         />
       </div>
@@ -654,7 +661,7 @@ defmodule PhoenixKitWeb.Components.PeoplePicker do
                 {group.label}
               </h4>
               <ul class="flex flex-col">
-                <li :for={row <- group.rows} id={"#{@id}-home-#{row.kind}-#{row.uuid}"}>
+                <li :for={row <- group.rows} id={"#{@id}-home-#{home_dom_id(row)}"}>
                   <.option row={row} selected={@selected} myself={@myself} />
                 </li>
               </ul>
@@ -750,7 +757,7 @@ defmodule PhoenixKitWeb.Components.PeoplePicker do
   attr :key, :any, required: true
   attr :row, :map, default: nil
   attr :tags, :list, default: []
-  attr :can_edit, :boolean, default: true
+  attr :removable, :boolean, default: false
   attr :myself, :any, required: true
 
   defp chip(assigns) do
@@ -778,7 +785,7 @@ defmodule PhoenixKitWeb.Components.PeoplePicker do
         </div>
       </div>
       <button
-        :if={@can_edit}
+        :if={@removable}
         type="button"
         id={"#{@id}-remove-#{@kind}-#{@uuid}"}
         phx-click="remove"

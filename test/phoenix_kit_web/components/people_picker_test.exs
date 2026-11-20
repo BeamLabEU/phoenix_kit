@@ -22,12 +22,26 @@ defmodule PhoenixKitWeb.Components.PeoplePickerTest do
                 do: %{kind: "person", uuid: "p#{n}", label: "Person #{n}", sublabel: "p#{n}@x"}
     @teams [%{kind: "team", uuid: "t1", label: "Kitchen", icon: "hero-user-group"}]
 
+    # p1 also sits under the team as a member row, with its own id.
+    @team_members [
+      %{
+        kind: "person",
+        uuid: "p1",
+        label: "Person 1",
+        sublabel: "p1@x",
+        member?: true,
+        id: "team-t1-person-p1"
+      }
+    ]
+
     @impl true
     def groups(_ctx), do: [%{key: "team", label: "Teams"}, %{key: "person", label: "People"}]
 
     @impl true
     def page({:group, "person"}, cursor, limit, _ctx), do: slice(@people, cursor, limit)
-    def page({:group, "team"}, cursor, limit, _ctx), do: slice(@teams, cursor, limit)
+
+    def page({:group, "team"}, cursor, limit, _ctx),
+      do: slice(@teams ++ @team_members, cursor, limit)
 
     # One person under two teams: two rows of one key, each with its own id.
     def page({:search, "Twice"}, _cursor, _limit, _ctx),
@@ -167,6 +181,18 @@ defmodule PhoenixKitWeb.Components.PeoplePickerTest do
 
     assert has_element?(view, "#pp-options", "Twice in Kitchen")
     assert has_element?(view, "#pp-options", "Twice in Garden")
+  end
+
+  test "a row with its own id keeps it in the home list too", %{conn: conn} do
+    {:ok, view, _html} = open(conn)
+    focus(view)
+
+    # p1 is under the team as a member row with its own id and in People:
+    # two <li>s, two ids.
+    member_id = Base.url_encode64("team-t1-person-p1", padding: false)
+
+    assert has_element?(view, "#pp-group-team li#pp-home-row-#{member_id}", "Person 1")
+    assert has_element?(view, "#pp-group-person li#pp-home-person-p1", "Person 1")
   end
 
   test "× and a second press take a pick off", %{conn: conn} do
