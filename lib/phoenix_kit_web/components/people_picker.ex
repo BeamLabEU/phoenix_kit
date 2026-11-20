@@ -48,6 +48,10 @@ defmodule PhoenixKitWeb.Components.PeoplePicker do
       one hidden input `"kind:uuid"` per key, after an empty one so a
       cleared list still posts.
     * `can_edit` — false shows the chips alone (no search, no ×).
+    * `can_remove` — with `can_edit` false, true still lets a chip be taken
+      off (its ×), never anyone added: a list a viewer may thin out but not
+      grow (Projects' "who to tell" without the right to assign). Defaults
+      to `can_edit`.
     * `max` — `1` makes a pick replace the choice; nil (default) adds.
     * `tags` — `%{key => [tag]}`: small labels on a chip ("You", "Project
       owner", "Not on this project"); a tag is a string or `%{label:,
@@ -102,6 +106,7 @@ defmodule PhoenixKitWeb.Components.PeoplePicker do
       |> assign_new(:source_opts, fn -> %{} end)
       |> assign_new(:name, fn -> nil end)
       |> assign_new(:can_edit, fn -> true end)
+      |> assign_new(:can_remove, fn -> false end)
       |> assign_new(:max, fn -> nil end)
       |> assign_new(:tags, fn -> %{} end)
       |> assign_new(:label, fn -> nil end)
@@ -223,7 +228,7 @@ defmodule PhoenixKitWeb.Components.PeoplePicker do
       when is_binary(kind) and is_binary(uuid) do
     key = {kind, uuid}
 
-    if socket.assigns.can_edit and key in socket.assigns.selected,
+    if removable?(socket.assigns) and key in socket.assigns.selected,
       do: {:noreply, change(socket, socket.assigns.selected -- [key])},
       else: {:noreply, socket}
   end
@@ -501,10 +506,20 @@ defmodule PhoenixKitWeb.Components.PeoplePicker do
     |> assign(:options_stream?, true)
   end
 
-  # The key encoded, so two keys can never share a DOM id ("team-a" + "b"
+  # The source's own row id when it gives one (a person listed under two
+  # teams is two rows — keyed on the key alone, the second replaced the
+  # first and the person vanished from the first team), else the key.
+  # Encoded either way, so two rows can never share a DOM id ("team-a" + "b"
   # and "team" + "a-b" would, joined with a dash).
+  defp option_dom_id(%{id: id}) when is_binary(id) and id != "",
+    do: "row-" <> Base.url_encode64(id, padding: false)
+
   defp option_dom_id(%{kind: kind, uuid: uuid}),
     do: "opt-" <> Base.url_encode64(kind <> <<0>> <> uuid, padding: false)
+
+  # A chip's × works for an editor, and for a caller that lets the list be
+  # thinned without being grown (`can_remove`).
+  defp removable?(assigns), do: assigns.can_edit == true or assigns[:can_remove] == true
 
   # ── Rendering ──────────────────────────────────────────────────────
 
@@ -547,7 +562,7 @@ defmodule PhoenixKitWeb.Components.PeoplePicker do
           key={key}
           row={Map.get(@rows, key)}
           tags={Map.get(@tags, key, [])}
-          can_edit={@can_edit}
+          can_edit={removable?(assigns)}
           myself={@myself}
         />
       </div>
