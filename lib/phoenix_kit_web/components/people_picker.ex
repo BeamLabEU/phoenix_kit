@@ -356,12 +356,14 @@ defmodule PhoenixKitWeb.Components.PeoplePicker do
   # The listed rows of these keys, inserted again so their tick follows (a
   # stream keeps no assigns of its own). In place: the list does not move.
   defp refresh_rows(socket, keys) do
-    Enum.reduce(keys, socket, fn key, acc ->
-      case Map.get(acc.assigns.listed, key) do
-        nil -> acc
-        row -> stream_insert(acc, :options, row)
-      end
-    end)
+    changed = MapSet.new(keys)
+
+    rows =
+      for {_id, row} <- socket.assigns.listed,
+          MapSet.member?(changed, {row.kind, row.uuid}),
+          do: row
+
+    stream(socket, :options, rows)
   end
 
   # ── Lists ──────────────────────────────────────────────────────────
@@ -384,7 +386,7 @@ defmodule PhoenixKitWeb.Components.PeoplePicker do
       safe(fn -> socket.assigns.source.page(view, cursor, @page_size, ctx(socket)) end, {[], nil})
 
     rows = Enum.filter(rows, &valid_row?/1)
-    listed = Enum.reduce(rows, socket.assigns.listed, &Map.put(&2, {&1.kind, &1.uuid}, &1))
+    listed = Enum.into(rows, socket.assigns.listed, &{option_dom_id(&1), &1})
 
     socket
     |> assign(cursor: next, listed: listed)

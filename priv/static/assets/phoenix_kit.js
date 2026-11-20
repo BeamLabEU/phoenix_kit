@@ -3846,10 +3846,15 @@
       const room = bottom - el.getBoundingClientRect().top - (isNaN(margin) ? 8 : margin);
       // The element's own ceiling, read with ours out of the way.
       el.style.maxHeight = "";
-      const own = window.getComputedStyle(el).maxHeight;
-      const cap = /px$/.test(own) ? parseFloat(own) : Infinity;
+      const style = window.getComputedStyle(el);
+      const cap = /px$/.test(style.maxHeight) ? parseFloat(style.maxHeight) : Infinity;
       const fit = Math.max(isNaN(min) ? 160 : min, Math.floor(room));
-      el.style.maxHeight = Math.min(cap, fit) + "px";
+      // The measured room includes the padding and borders of the overlay.
+      const edges = style.boxSizing === "content-box"
+        ? parseFloat(style.paddingTop) + parseFloat(style.paddingBottom)
+          + parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth)
+        : 0;
+      el.style.maxHeight = Math.min(cap, Math.max(0, fit - edges)) + "px";
     }
   };
 

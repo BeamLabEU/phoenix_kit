@@ -174,13 +174,23 @@ defmodule PhoenixKitWeb.Components.PeoplePickerTest do
     refute has_element?(view, "#pp-remove-person-p2")
   end
 
-  test "a person under two teams shows in both rows of a search", %{conn: conn} do
+  test "selecting or clearing either search row updates both teams", %{conn: conn} do
     {:ok, view, _html} = open(conn)
     focus(view)
     view |> element("#pp-q") |> render_keyup(%{"value" => "Twice"})
 
-    assert has_element?(view, "#pp-options", "Twice in Kitchen")
-    assert has_element?(view, "#pp-options", "Twice in Garden")
+    kitchen = "Twice in Kitchen"
+    garden = "Twice in Garden"
+
+    view |> element("#pp-options button", kitchen) |> render_click()
+    assert keys(view) == "person:p5"
+    assert has_element?(view, "#pp-options [aria-selected=true]", kitchen)
+    assert has_element?(view, "#pp-options [aria-selected=true]", garden)
+
+    view |> element("#pp-options button", garden) |> render_click()
+    assert keys(view) == ""
+    assert has_element?(view, "#pp-options [aria-selected=false]", kitchen)
+    assert has_element?(view, "#pp-options [aria-selected=false]", garden)
   end
 
   test "a row with its own id keeps it in the home list too", %{conn: conn} do

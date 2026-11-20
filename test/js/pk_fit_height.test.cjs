@@ -71,7 +71,7 @@ function page(o) {
     requestAnimationFrame: (fn) => { p.frames.push(fn); return p.frames.length; },
     cancelAnimationFrame: (id) => { p.cancelled.push(id); p.frames[id - 1] = null; },
     getComputedStyle: (n) => {
-      if (n === el) return { maxHeight: style.maxHeight || p.o.cssCap };
+      if (n === el) return { ...p.o.boxStyle, maxHeight: style.maxHeight || p.o.cssCap };
       if (n === scroller) return { overflowY: p.o.ancestorOverflow };
       return { overflowY: "visible" };
     },
@@ -110,6 +110,20 @@ test("stops at the scrollport above the bottom border and horizontal scrollbar",
   Object.defineProperty(p.scroller, "clientHeight", { value: 460 });
   p.mount();
   assert.strictEqual(p.max(), "375px"); // 20 + 3 + 460 - 100 - 8
+});
+
+test("a content-box overlay leaves room for its padding and borders", () => {
+  const boxStyle = {
+    boxSizing: "content-box", paddingTop: "10px", paddingBottom: "12px",
+    borderTopWidth: "1px", borderBottomWidth: "2px"
+  };
+  const p = page({ boxStyle });
+  p.mount();
+  assert.strictEqual(p.max(), "367px"); // 392px available, 25px outside the content box
+
+  p.o.cssCap = "200px";
+  p.cx._measure();
+  assert.strictEqual(p.max(), "200px"); // CSS caps already use content-box units
 });
 
 test("finds the nearest ancestor that scrolls, skipping the ones that do not", () => {
