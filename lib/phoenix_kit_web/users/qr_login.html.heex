@@ -5,7 +5,7 @@
   current_path={assigns[:url_path] || "/users/qr-login"}
 >
   <h1 class="text-2xl font-bold text-center mb-2">{gettext("Sign in with QR code")}</h1>
-  <p class="text-center text-base-content/60 text-sm mb-6">
+  <p class="text-center text-base-content/60 text-sm mb-4">
     {gettext("Use a phone that's already signed in to %{project_title}.",
       project_title: @project_title
     )}
@@ -46,7 +46,7 @@
     <li>3. {gettext("Tap Approve on your phone to finish signing in here.")}</li>
   </ol>
 
-  <div class="text-center mt-6 text-sm">
+  <div class="text-center mt-4 text-sm">
     <.link
       navigate={Routes.path("/users/log-in")}
       class="font-semibold text-primary hover:underline"

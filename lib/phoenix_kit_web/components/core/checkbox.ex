@@ -11,6 +11,7 @@ defmodule PhoenixKitWeb.Components.Core.Checkbox do
   use Phoenix.Component
 
   alias Phoenix.HTML.Form
+  alias PhoenixKitWeb.Components.Core.Input
   import PhoenixKitWeb.Components.Core.FormFieldError, only: [error: 1]
 
   @doc """
@@ -54,7 +55,9 @@ defmodule PhoenixKitWeb.Components.Core.Checkbox do
   attr :id, :any, default: nil
   attr :name, :any
   attr :label, :string, default: nil
-  attr :errors, :list, default: []
+  # nil (the default): a field-bound checkbox shows its field's errors
+  # (`Core.Input.field_errors/1`). A list given, `[]` included, is used as is.
+  attr :errors, :list, default: nil
   # nil (the default) means "derive from the field's value". A non-nil
   # default would defeat that: attr defaults are materialized into assigns
   # before the component runs, so `assign_new` in the field clause would
@@ -105,6 +108,8 @@ defmodule PhoenixKitWeb.Components.Core.Checkbox do
     |> assign(field: nil, id: assigns.id || field.id)
     |> assign_new(:name, fn -> field.name end)
     |> assign(:checked, if(is_nil(assigns.checked), do: derived, else: assigns.checked))
+    # The field's own errors, unless the caller passed a list.
+    |> assign(:errors, assigns.errors || Input.field_errors(field))
     |> checkbox()
   end
 
@@ -115,7 +120,7 @@ defmodule PhoenixKitWeb.Components.Core.Checkbox do
       <label
         title={@title}
         class={[
-          "flex gap-4 text-sm leading-6 text-base-content",
+          "flex gap-2.5 text-sm leading-6 text-base-content",
           (has_description? && "items-start") || "items-center",
           (@disabled && "cursor-not-allowed opacity-70") || "cursor-pointer",
           @wrapper_class
@@ -166,7 +171,7 @@ defmodule PhoenixKitWeb.Components.Core.Checkbox do
           </span>
         </span>
       </label>
-      <.error :for={msg <- @errors}>{msg}</.error>
+      <.error :for={msg <- @errors || []}>{msg}</.error>
     </div>
     """
   end

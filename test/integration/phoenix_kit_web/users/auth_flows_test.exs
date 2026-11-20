@@ -18,6 +18,7 @@ defmodule PhoenixKitWeb.Users.AuthFlowsTest do
   alias PhoenixKit.Users.MagicLinkRegistration
   alias PhoenixKit.Users.RateLimiter
   alias PhoenixKit.Users.RateLimiter.Backend
+  alias PhoenixKit.Users.ScopeNotifier
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Users.Auth, as: UserAuth
 
@@ -527,18 +528,24 @@ defmodule PhoenixKitWeb.Users.AuthFlowsTest do
       assert html =~ ~s(aria-controls="user_password")
     end
 
-    test "the sign-up link comes right after the form, before the other sign-in methods",
+    test "the other sign-in methods come first, the sign-up link right after the form",
          %{conn: conn} do
+      # At the top, so a site with several providers does not push them off the
+      # screen; named by the method alone, as the heading says what the page does.
       Settings.update_setting("allow_registration", "true")
       Settings.update_setting("magic_link_login_enabled", "true")
       html = conn |> get(Routes.path("/users/log-in")) |> html_response(200)
 
+      {others, _} = :binary.match(html, ~s(id="auth-methods"))
+      {form_start, _} = :binary.match(html, ~s(id="login_form"))
       {form_end, _} = :binary.match(html, "</form>")
       {sign_up, _} = :binary.match(html, "Create an account")
-      {others, _} = :binary.match(html, "Or continue with")
 
+      assert others < form_start
       assert form_end < sign_up
-      assert sign_up < others
+      assert html =~ "Magic link"
+      refute html =~ "Sign in with Magic Link"
+      refute html =~ "Welcome back"
     end
   end
 
@@ -946,15 +953,12 @@ defmodule PhoenixKitWeb.Users.AuthFlowsTest do
         # new address is confirmed, exactly like the direct confirm-link flow.
         {:ok, other_lv, _html} = live(other_conn, Routes.path("/users/confirm"))
 
-        {:ok, confirm_lv, _html} =
-          live(
-            login_conn(build_conn(), user),
-            Routes.path("/users/confirm/change-email/#{token}")
-          )
-
-        confirm_lv
-        |> form("#confirm_email_change_form", %{"user" => %{"token" => token}})
-        |> render_submit()
+        # The link confirms on opening, no button to press.
+        assert {:error, {:redirect, _}} =
+                 live(
+                   login_conn(build_conn(), user),
+                   Routes.path("/users/confirm/change-email/#{token}")
+                 )
 
         assert_redirect(other_lv, 3000)
 
@@ -1007,11 +1011,45 @@ defmodule PhoenixKitWeb.Users.AuthFlowsTest do
           Auth.deliver_user_confirmation_instructions(user, url_fun)
         end)
 
-      {:ok, lv, _html} = live(conn, Routes.path("/users/confirm/#{token}"))
+      assert {:error, {:redirect, %{to: "/welcome"}}} =
+               live(conn, Routes.path("/users/confirm/#{token}"))
 
-      lv |> element("#confirmation_form") |> render_submit()
+      assert Auth.get_user(user.uuid).confirmed_at
+    end
 
-      assert_redirect(lv, "/welcome")
+    test "the link confirms on opening, but a plain fetch (a mail scanner) spends nothing",
+         %{conn: conn} do
+      user = register_user()
+
+      token =
+        extract_token(fn url_fun ->
+          Auth.deliver_user_confirmation_instructions(user, url_fun)
+        end)
+
+      # A scanner fetches the page and runs no JavaScript: no socket, no spend.
+      html = conn |> get(Routes.path("/users/confirm/#{token}")) |> html_response(200)
+      assert html =~ "Confirming"
+      refute html =~ "Confirm my account"
+      refute Auth.get_user(user.uuid).confirmed_at
+
+      # The person's browser connects, and that confirms.
+      assert {:error, {:redirect, _}} = live(conn, Routes.path("/users/confirm/#{token}"))
+      assert Auth.get_user(user.uuid).confirmed_at
+    end
+
+    test "confirming tells the account's open pages to re-read it" do
+      user = register_user()
+
+      token =
+        extract_token(fn url_fun ->
+          Auth.deliver_user_confirmation_instructions(user, url_fun)
+        end)
+
+      ScopeNotifier.subscribe(user.uuid)
+      {:ok, _} = Auth.confirm_user(token)
+
+      user_uuid = user.uuid
+      assert_receive {:phoenix_kit_scope_roles_updated, ^user_uuid}
     end
 
     test "confirming via the emailed link honors a session return_to", %{conn: conn} do
@@ -1027,11 +1065,8 @@ defmodule PhoenixKitWeb.Users.AuthFlowsTest do
         |> Phoenix.ConnTest.init_test_session(%{})
         |> Plug.Conn.put_session(:user_return_to, "/protected-page")
 
-      {:ok, lv, _html} = live(conn, Routes.path("/users/confirm/#{token}"))
-
-      lv |> element("#confirmation_form") |> render_submit()
-
-      assert_redirect(lv, "/protected-page")
+      assert {:error, {:redirect, %{to: "/protected-page"}}} =
+               live(conn, Routes.path("/users/confirm/#{token}"))
     end
   end
 

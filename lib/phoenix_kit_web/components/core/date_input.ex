@@ -179,7 +179,7 @@ defmodule PhoenixKitWeb.Components.Core.DateInput do
 
   import PhoenixKitWeb.Components.Core.FormFieldError, only: [error: 1]
   import PhoenixKitWeb.Components.Core.Icon, only: [icon: 1]
-  import PhoenixKitWeb.Components.Core.Input, only: [translate_error: 1]
+  import PhoenixKitWeb.Components.Core.Input, only: [field_errors: 1]
 
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Date, as: UtilsDate
@@ -273,7 +273,7 @@ defmodule PhoenixKitWeb.Components.Core.DateInput do
   def date_input(%{field: %Phoenix.HTML.FormField{} = field} = assigns) do
     assigns
     |> assign(field: nil, id: assigns.id || field.id)
-    |> assign(:errors, Enum.map(field.errors, &translate_error(&1)))
+    |> assign(:errors, field_errors(field))
     |> assign(:name, assigns.name || field.name)
     |> assign(:value, if(assigns.value == nil, do: field.value, else: assigns.value))
     |> date_input()

@@ -13,6 +13,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Actor
+  alias PhoenixKitWeb.Components.Core.Input
   alias PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent
 
   def mount(params, _session, socket) do
@@ -190,9 +191,16 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
   defp page_title_with_type(:new, "video"), do: gettext("Add video rendition")
   defp page_title_with_type(:new, _), do: gettext("Add rendition")
 
+  # A field's errors wait until the person has touched it (see
+  # `PhoenixKitWeb.Components.Core.Input.field_errors/1`).
+  defp shows_errors?(changeset, field) do
+    Keyword.has_key?(changeset.errors, field) and
+      not Input.field_untouched?(changeset.params, field)
+  end
+
   # Helper function for input validation styling
   defp input_class(changeset, field) do
-    if Keyword.has_key?(changeset.errors, field) do
+    if shows_errors?(changeset, field) do
       "input-error"
     else
       ""
@@ -222,7 +230,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
 
   # Helper function to render error messages
   defp render_error(changeset, field) do
-    if Keyword.has_key?(changeset.errors, field) do
+    if shows_errors?(changeset, field) do
       errors =
         changeset.errors
         |> Keyword.get_values(field)
