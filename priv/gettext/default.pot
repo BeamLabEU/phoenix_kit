@@ -29285,3 +29285,14 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "seconds into one"
 msgstr ""
+
+
+#: lib/phoenix_kit_web/components/media_browser/helpers.ex:325
+#, elixir-autogen, elixir-format
+msgid "Mark"
+msgstr ""
+
+#: lib/phoenix_kit_web/components/media_browser/helpers.ex:324
+#, elixir-autogen, elixir-format
+msgid "Marked"
+msgstr ""

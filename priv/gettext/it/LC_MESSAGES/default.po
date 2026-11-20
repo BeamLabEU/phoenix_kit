@@ -29142,3 +29142,14 @@ msgstr "iPhone e iPad mostrano le notifiche di un sito web solo quando è nella 
 #, elixir-autogen, elixir-format
 msgid "seconds into one"
 msgstr "secondi in una sola"
+
+
+#: lib/phoenix_kit_web/components/media_browser/helpers.ex:325
+#, elixir-autogen, elixir-format
+msgid "Mark"
+msgstr "Contrassegna"
+
+#: lib/phoenix_kit_web/components/media_browser/helpers.ex:324
+#, elixir-autogen, elixir-format
+msgid "Marked"
+msgstr "Contrassegnato"

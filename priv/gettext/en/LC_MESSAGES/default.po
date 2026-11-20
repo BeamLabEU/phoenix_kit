@@ -29073,3 +29073,14 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "(open it to read the rest)"
 msgstr "(open it to read the rest)"
+
+
+#: lib/phoenix_kit_web/components/media_browser/helpers.ex:325
+#, elixir-autogen, elixir-format
+msgid "Mark"
+msgstr "Mark"
+
+#: lib/phoenix_kit_web/components/media_browser/helpers.ex:324
+#, elixir-autogen, elixir-format
+msgid "Marked"
+msgstr "Marked"

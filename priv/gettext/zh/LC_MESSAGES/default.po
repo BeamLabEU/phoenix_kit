@@ -29162,3 +29162,14 @@ msgstr "iPhone 和 iPad 只有在网站添加到主屏幕后才会显示其通�
 #, elixir-autogen, elixir-format
 msgid "seconds into one"
 msgstr "秒内到达的通知合并为一条"
+
+
+#: lib/phoenix_kit_web/components/media_browser/helpers.ex:325
+#, elixir-autogen, elixir-format
+msgid "Mark"
+msgstr "标记"
+
+#: lib/phoenix_kit_web/components/media_browser/helpers.ex:324
+#, elixir-autogen, elixir-format
+msgid "Marked"
+msgstr "已标记"

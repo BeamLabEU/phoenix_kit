@@ -29142,3 +29142,14 @@ msgstr "L’iPhone et l’iPad n’affichent les notifications d’un site web q
 #, elixir-autogen, elixir-format
 msgid "seconds into one"
 msgstr "secondes en une seule"
+
+
+#: lib/phoenix_kit_web/components/media_browser/helpers.ex:325
+#, elixir-autogen, elixir-format
+msgid "Mark"
+msgstr "Marquer"
+
+#: lib/phoenix_kit_web/components/media_browser/helpers.ex:324
+#, elixir-autogen, elixir-format
+msgid "Marked"
+msgstr "Marqué"

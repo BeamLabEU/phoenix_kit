@@ -549,6 +549,7 @@
                       drag={not @readonly and @folder_actions and not @picker}
                       editing_folder_description={assigns[:editing_folder_description]}
                       featured={assigns[:featured]}
+                      mark={assigns[:mark]}
                       file_view={assigns[:file_view]}
                       filter_trash={assigns[:filter_trash]}
                       folder_actions={assigns[:folder_actions]}
@@ -576,6 +577,7 @@
                     <MediaBrowser.StacksView.stacks_view
                       expanded_stacks={assigns[:expanded_stacks]}
                       featured={assigns[:featured]}
+                      mark={assigns[:mark]}
                       filter_trash={assigns[:filter_trash]}
                       folder_actions={assigns[:folder_actions]}
                       folders={label_folders(assigns[:folders], @folder_labels)}
@@ -598,6 +600,7 @@
                       drag={not @readonly and @folder_actions and not @picker}
                       editing_folder_description={assigns[:editing_folder_description]}
                       featured={assigns[:featured]}
+                      mark={assigns[:mark]}
                       file_view={assigns[:file_view]}
                       filter_trash={assigns[:filter_trash]}
                       folder_actions={assigns[:folder_actions]}
@@ -1118,6 +1121,7 @@
           write_library_uuid={@library_uuid}
           viewer_uuid={@viewer_uuid}
           featured={if @readonly or @picker, do: nil, else: @featured}
+          mark={if @readonly or @picker, do: nil, else: @mark}
         />
       </div>
       <div class="modal-backdrop" phx-click="close_viewer" phx-target={@myself}></div>

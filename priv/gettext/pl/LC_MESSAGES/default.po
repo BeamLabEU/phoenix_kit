@@ -29226,3 +29226,14 @@ msgstr "iPhone i iPad pokazują powiadomienia witryny dopiero wtedy, gdy jest na
 #, elixir-autogen, elixir-format
 msgid "seconds into one"
 msgstr "sekund, w jedno"
+
+
+#: lib/phoenix_kit_web/components/media_browser/helpers.ex:325
+#, elixir-autogen, elixir-format
+msgid "Mark"
+msgstr "Oznacz"
+
+#: lib/phoenix_kit_web/components/media_browser/helpers.ex:324
+#, elixir-autogen, elixir-format
+msgid "Marked"
+msgstr "Oznaczony"

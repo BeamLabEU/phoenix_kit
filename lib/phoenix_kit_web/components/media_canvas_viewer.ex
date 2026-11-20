@@ -88,6 +88,13 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       `"unset_featured"` straight to `:parent_id` (same `phx-target`
       routing the close/prev/next buttons use) — this component does
       not own the pointer and has no event handler of its own for it.
+    * `:mark` (default `nil`) — mirrors `MediaBrowser`'s own `:mark` attr
+      as the browser normalises it (`nil` = off, or `%{uuids: MapSet, icon:
+      String.t(), on_label: String.t() | nil, off_label: String.t() | nil}`).
+      When set, the sidebar shows a toggle for ANY open file that is not in
+      the trash — the host's icon and wording, solid when the file is in
+      `uuids` — that posts `"toggle_mark"` straight to `:parent_id`, like
+      the featured button. This component owns no mark and no handler for it.
     * `:can_trash` (default `false`) — offers "Move to trash" for a file
       that is not in the trash even without `:edit_target` (a picker's
       viewer, which writes nothing else). The click posts `"trash_file"`
@@ -225,6 +232,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
      |> assign(:viewer_uuid, nil)
      |> assign(:file_writable, true)
      |> assign(:featured, nil)
+     |> assign(:mark, nil)
      |> assign(:can_trash, false)
      |> assign(:server_confirm, false)
      |> assign(:pick, nil)
@@ -335,6 +343,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       |> assign(:write_library_uuid, assigns[:write_library_uuid])
       |> assign(:viewer_uuid, assigns[:viewer_uuid])
       |> assign(:featured, assigns[:featured])
+      |> assign(:mark, assigns[:mark])
       |> assign(:can_trash, assigns[:can_trash] == true)
       |> assign(:server_confirm, assigns[:server_confirm] == true)
       |> assign(:pick, assigns[:pick])

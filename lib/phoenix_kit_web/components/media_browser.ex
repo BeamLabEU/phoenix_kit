@@ -412,6 +412,47 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     the star flips in the UI and nothing is ever persisted. The host persists the choice and, if the write is
     rejected or the pointer changes elsewhere, corrects it with a later
     `featured` assign (e.g. via `send_update`).
+  - `mark` — `nil` (default, feature off) or `%{uuids: uuids, icon: icon,
+    on_label: on_label, off_label: off_label}`: a host-defined on/off mark
+    on files, modelled on `featured` with three differences — it is a SET
+    of files, not one pointer; it applies to EVERY file type, not only
+    images; and its icon and wording are the host's. What the mark means
+    is entirely the host's ("approved", "shared with the customer", "needs
+    a retake"); the browser only draws it and relays the click.
+    `uuids` is a list or a `MapSet` of the uuids of the files that carry
+    it. `icon` is a Heroicon name, `"hero-eye"` when absent; write it as a
+    literal in the host's own source so the host's Tailwind build finds it.
+    `on_label` is the tooltip / aria text of a marked file and `off_label`
+    that of the control on an unmarked one — plain strings, already
+    translated by the host; they fall back to gettext "Marked" / "Mark".
+    When set, every file tile (grid and stack views) gets a round toggle
+    in the top-left corner, after the featured star when both are on: the
+    primary colour on a marked file (`data-role="mark-on"`,
+    `aria-pressed="true"`), a quiet outline on the others
+    (`data-role="mark-off"`); both carry `data-mark-file={uuid}`. The list
+    view gets a narrow column with the same toggle, every file's kebab (in
+    all three views) an item worded with `on_label` / `off_label`, and the
+    modal viewer's sidebar the same toggle for any file. Folders never get
+    the mark. In select mode, the trash, a `picker` or `readonly`, there is
+    no toggle: a marked file shows its icon as a plain badge, an unmarked
+    one shows nothing.
+    The browser never persists anything itself: a click sends
+    `{__MODULE__, id, {:set_mark, file_uuid, boolean}}` to the host
+    process — the same `{MediaBrowser, id, payload}` channel
+    `{:set_featured, _}` uses — and optimistically updates its own copy
+    of `uuids`. The click is refused (logged, nothing sent) when
+    `readonly`, in a picker, with `mark` off, for a file the browser does
+    not show or one in the trash. It is not a write to the file, so
+    `own_files_only` does not stop it (a host marks other people's files on
+    purpose) and the removal guard is not asked.
+    ⚠️ A host that funnels every `{MediaBrowser, _, _}` message into
+    `handle_parent_info/2` **must match `{:set_mark, _, _}` before it**:
+    that function ends in a catch-all, so the choice is swallowed
+    silently — no crash, no log, the toggle flips in the UI and nothing is
+    ever persisted. The host persists the choice and, if the write is
+    rejected or the set changes elsewhere, corrects it with a later
+    `mark` assign (e.g. via `send_update`), which replaces the browser's
+    own copy.
   """
   use PhoenixKitWeb, :live_component
 
@@ -612,6 +653,12 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       # every toggle so the badge/kebab reflect the choice immediately,
       # ahead of the host's own write landing.
       |> assign_new(:featured, fn -> nil end)
+      # `nil` (default) keeps the mark UI off entirely. A map turns it on
+      # (see the moduledoc's `:mark`): normalised here, on every assign, so
+      # the views and `toggle_mark/2` always read a MapSet; the host's own
+      # (later) assign replaces the browser's optimistic copy.
+      |> assign_new(:mark, fn -> nil end)
+      |> normalize_mark_assign()
       |> assign_new(:viewer_file, fn -> nil end)
       # The list the open viewer's prev/next steps through — the page's
       # files, or an expanded stack's own (see `locate_file/2`).
@@ -3046,10 +3093,12 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
   # What a picker does not do to the files it shows: they are someone's
   # files, opened to be chosen from. Rotating, editing, the featured pointer,
-  # emptying the trash and clearing the orphans are refused; Download and Move
-  # to Trash stay. Deleting for good (the Trash view's Delete) is refused below.
+  # the host's mark, emptying the trash and clearing the orphans are refused;
+  # Download and Move to Trash stay. Deleting for good (the Trash view's
+  # Delete) is refused below.
   @picker_file_write_events ~w(
-    rotate_file open_image_editor set_featured unset_featured empty_trash delete_all_orphaned
+    rotate_file open_image_editor set_featured unset_featured toggle_mark
+    empty_trash delete_all_orphaned
   )
 
   @doc false
@@ -4981,6 +5030,23 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     {:noreply, notify_featured(socket, nil)}
   end
 
+  # The host's file mark — see the moduledoc's `:mark` attr. Tells the host and
+  # flips the browser's own copy so the toggle feels instant. Not in
+  # `@write_events` on purpose: it writes nothing to the file, so the
+  # `own_files_only` gate (a host marks other people's files) and the removal
+  # guard have no business with it, and a readonly-clause here would have to be
+  # listed there (a test holds the two together). The refusals are the body's:
+  # readonly, mark off, a file this browser does not show, a trashed one. A
+  # picker is refused earlier, through `@picker_file_write_events`. The
+  # library and `viewer_uuid` gates in front of every handler have already
+  # looked at the uuid in `params`.
+  def handle_event("toggle_mark", %{"file-uuid" => file_uuid}, socket) do
+    {:noreply, toggle_mark(socket, file_uuid)}
+  end
+
+  def handle_event("toggle_mark", _params, socket),
+    do: {:noreply, log_refused(socket, "toggle_mark", "it names no file")}
+
   def handle_event("toggle_trash_filter", _params, socket) do
     filter_trash = !socket.assigns.filter_trash
     # Trash is scoped to the current folder's subtree (see trash_scope/1);
@@ -6517,6 +6583,65 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
         assign(socket, :featured, %{featured | uuid: uuid})
     end
   end
+
+  defp normalize_mark_assign(socket),
+    do: assign(socket, :mark, Helpers.normalize_mark(socket.assigns.mark))
+
+  # The `"toggle_mark"` handler's work: refuse, or relay the new state of one
+  # file to the host and move the browser's own `mark.uuids` to match.
+  defp toggle_mark(socket, file_uuid) do
+    case mark_refusal(socket, file_uuid) do
+      nil ->
+        on? = not Helpers.marked?(socket.assigns.mark, file_uuid)
+        send(self(), {__MODULE__, socket.assigns.id, {:set_mark, file_uuid, on?}})
+
+        uuids =
+          if on?,
+            do: MapSet.put(socket.assigns.mark.uuids, file_uuid),
+            else: MapSet.delete(socket.assigns.mark.uuids, file_uuid)
+
+        assign(socket, :mark, %{socket.assigns.mark | uuids: uuids})
+
+      :readonly ->
+        log_readonly_blocked(socket, "toggle_mark")
+
+      why ->
+        log_refused(socket, "toggle_mark", why)
+    end
+  end
+
+  # Why the mark may not be toggled for `file_uuid`, or nil. A file counts when
+  # the browser is showing it — on the page, in an expanded stack, or open in
+  # the viewer (which a `file` URL can open on a file the page does not list) —
+  # because every listing and `fetch_viewable_file/2` already applied the
+  # scope, the library, `viewer_uuid` and the file-type lock.
+  defp mark_refusal(socket, file_uuid) do
+    assigns = socket.assigns
+
+    cond do
+      assigns[:mark] == nil -> "the host did not turn the mark on"
+      assigns[:readonly] == true -> :readonly
+      assigns[:picker] == true -> "the browser is a picker"
+      true -> shown_file_refusal(socket, file_uuid)
+    end
+  end
+
+  defp shown_file_refusal(socket, file_uuid) do
+    file =
+      case locate_file(socket, file_uuid) do
+        {file, _list} -> file
+        nil -> shown_viewer_file(socket.assigns[:viewer_file], file_uuid)
+      end
+
+    cond do
+      is_nil(file) -> "the browser does not show that file"
+      Map.get(file, :status) == "trashed" -> "the file is in the trash"
+      true -> nil
+    end
+  end
+
+  defp shown_viewer_file(%{file_uuid: file_uuid} = file, file_uuid), do: file
+  defp shown_viewer_file(_viewer_file, _file_uuid), do: nil
 
   # Open the move modal, seeding its directory tree's expansion from the
   # sidebar's current `:expanded_folders` so the picker opens showing the

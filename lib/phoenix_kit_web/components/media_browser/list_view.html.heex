@@ -20,6 +20,9 @@
         <th class="hidden md:table-cell">{gettext("Type")}</th>
         <th class="hidden md:table-cell">{gettext("Size")}</th>
         <th class="hidden md:table-cell">{gettext("Date")}</th>
+        <th :if={@mark} data-mark-column class="w-10">
+          <span class="sr-only">{mark_label(@mark, false)}</span>
+        </th>
         <th class="w-10"></th>
       </tr>
     </thead>
@@ -86,6 +89,7 @@
                   </button>
                 </form>
               </td>
+              <td :if={@mark}></td>
               <td></td>
             </tr>
           <% @renaming_folder == folder.uuid && @renaming_source == "content" -> %>
@@ -137,6 +141,7 @@
                   </button>
                 </form>
               </td>
+              <td :if={@mark}></td>
               <td></td>
             </tr>
           <% true -> %>
@@ -235,6 +240,7 @@
               <td class="hidden md:table-cell text-sm text-base-content/70">
                 {PhoenixKit.Utils.Date.short_with_year(folder.inserted_at)}
               </td>
+              <td :if={@mark}></td>
               <td>
                 <.table_row_menu
                   :if={not @readonly and @folder_actions}
@@ -412,6 +418,14 @@
           <td class="hidden md:table-cell text-sm text-base-content/70">
             {PhoenixKit.Utils.Date.short_with_year(file.inserted_at)}
           </td>
+          <td :if={@mark}>
+            <.mark_toggle
+              file={file}
+              mark={@mark}
+              interactive={not @readonly and not @select_mode and not @filter_trash}
+              myself={@myself}
+            />
+          </td>
           <td>
             <%!--
             Per-file kebab. `phx-click="noop"` on the
@@ -473,6 +487,16 @@
                       do: gettext("Unset featured"),
                       else: gettext("Set as featured")
                   }
+                />
+                <%!-- See the moduledoc's `:mark` attr — off
+                      entirely when the host didn't opt in. --%>
+                <.table_row_menu_button
+                  :if={not @readonly and @mark != nil and not @filter_trash}
+                  phx-click="toggle_mark"
+                  phx-target={@myself}
+                  phx-value-file-uuid={file.file_uuid}
+                  icon={@mark.icon}
+                  label={mark_label(@mark, marked?(@mark, file.file_uuid))}
                 />
                 <.table_row_menu_button
                   :if={not @readonly and file.file_type == "image"}

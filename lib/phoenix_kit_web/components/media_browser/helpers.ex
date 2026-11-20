@@ -298,6 +298,167 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Helpers do
     """
   end
 
+  # Normalises the host's `:mark` attr once (see the moduledoc's `:mark`):
+  # `nil` stays `nil` (feature off); a map becomes
+  # `%{uuids: MapSet, icon: String, on_label: nil | String, off_label: nil | String}`.
+  # Labels stay `nil` here and fall back to gettext when drawn, so the locale
+  # of the render applies. Idempotent — `update/2` runs it on every assign.
+  def normalize_mark(nil), do: nil
+
+  def normalize_mark(%{} = mark) do
+    %{
+      uuids: MapSet.new(Map.get(mark, :uuids) || []),
+      icon: Map.get(mark, :icon) || "hero-eye",
+      on_label: Map.get(mark, :on_label),
+      off_label: Map.get(mark, :off_label)
+    }
+  end
+
+  # Whether `file_uuid` carries the host's mark. `mark` is the raw `:mark`
+  # attr (nil when the host never opted in).
+  def marked?(nil, _file_uuid), do: false
+  def marked?(%{uuids: uuids}, file_uuid), do: file_uuid in uuids
+
+  # The tooltip / aria text of the mark's control: the host's wording for the
+  # file's state, gettext when the host gave none.
+  def mark_label(mark, true), do: mark[:on_label] || gettext("Marked")
+  def mark_label(mark, false), do: mark[:off_label] || gettext("Mark")
+
+  # The host's on/off mark (see the moduledoc's `:mark`) on a FILE tile, in the
+  # top-left corner beside the featured star — the same round, same size.
+  # Interactive, it is a toggle on every file of any type: filled with the
+  # primary colour on a marked file (`mark-on`, a click → `toggle_mark`
+  # unmarks), a quiet outline on the rest (`mark-off`). Not interactive
+  # (read-only, select mode, trash, picker), only a marked file keeps it, as a
+  # plain badge. Like the star it is a sibling of the tile's `click_file`
+  # target, so a click on it never opens the viewer. Unlike the star it
+  # appears on every file type, so it shares the corner with the video/PDF
+  # badges: callers move those down (`top-9`) while `:mark` is on.
+  # The offset follows what is already in the corner: the star (an image tile
+  # with `:featured` on, interactive; or the featured tile's passive star), the
+  # selection checkbox, or a picker's View (eye) button.
+  attr :file, :map, required: true
+  attr :mark, :any, default: nil
+  attr :featured, :any, default: nil
+  attr :interactive, :boolean, default: false
+  attr :select_mode, :boolean, default: false
+  attr :picker, :boolean, default: false
+  attr :myself, :any, default: nil
+
+  def mark_badge(assigns) do
+    assigns =
+      assigns
+      |> assign(:on, marked?(assigns.mark, assigns.file.file_uuid))
+      |> assign(:star, mark_star?(assigns))
+
+    ~H"""
+    <button
+      :if={@interactive and @mark != nil}
+      type="button"
+      data-role={if @on, do: "mark-on", else: "mark-off"}
+      data-mark-file={@file.file_uuid}
+      phx-click="toggle_mark"
+      phx-target={@myself}
+      phx-value-file-uuid={@file.file_uuid}
+      aria-pressed={to_string(@on)}
+      aria-label={mark_label(@mark, @on)}
+      title={mark_label(@mark, @on)}
+      class={[
+        "absolute top-1.5 w-5 h-5 flex items-center justify-center rounded-full transition-colors cursor-pointer",
+        if(@star, do: "left-8", else: "left-1.5"),
+        if(@on,
+          do: "bg-primary text-primary-content hover:bg-primary/80",
+          else: "bg-black/40 hover:bg-black/60 text-white"
+        )
+      ]}
+    >
+      <.icon name={@mark.icon} class="w-3 h-3 block" />
+    </button>
+    <div
+      :if={not @interactive and @on}
+      data-role="mark-on"
+      data-mark-file={@file.file_uuid}
+      class={[
+        "absolute top-1.5 w-5 h-5 flex items-center justify-center rounded-full bg-primary text-primary-content pointer-events-none",
+        mark_badge_left(@select_mode, @picker, @star)
+      ]}
+    >
+      <span class="block pointer-events-auto" title={mark_label(@mark, true)}>
+        <.icon name={@mark.icon} class="w-3 h-3 block" />
+      </span>
+    </div>
+    """
+  end
+
+  # The mark on a list row (see the moduledoc's `:mark`): the same toggle /
+  # passive badge as `mark_badge/1`, in the row's own cell instead of a tile's
+  # corner. The row itself carries `click_file`; the toggle's own `phx-click`
+  # is the closest binding, so a click on it never opens the viewer.
+  attr :file, :map, required: true
+  attr :mark, :any, default: nil
+  attr :interactive, :boolean, default: false
+  attr :myself, :any, default: nil
+
+  def mark_toggle(assigns) do
+    assigns = assign(assigns, :on, marked?(assigns.mark, assigns.file.file_uuid))
+
+    ~H"""
+    <button
+      :if={@interactive and @mark != nil}
+      type="button"
+      data-role={if @on, do: "mark-on", else: "mark-off"}
+      data-mark-file={@file.file_uuid}
+      phx-click="toggle_mark"
+      phx-target={@myself}
+      phx-value-file-uuid={@file.file_uuid}
+      aria-pressed={to_string(@on)}
+      aria-label={mark_label(@mark, @on)}
+      title={mark_label(@mark, @on)}
+      class={[
+        "w-5 h-5 flex items-center justify-center rounded-full transition-colors cursor-pointer",
+        if(@on,
+          do: "bg-primary text-primary-content hover:bg-primary/80",
+          else: "border border-base-content/30 text-base-content/50 hover:bg-base-200"
+        )
+      ]}
+    >
+      <.icon name={@mark.icon} class="w-3 h-3 block" />
+    </button>
+    <div
+      :if={not @interactive and @on}
+      data-role="mark-on"
+      data-mark-file={@file.file_uuid}
+      class="w-5 h-5 flex items-center justify-center rounded-full bg-primary text-primary-content pointer-events-none"
+    >
+      <span class="block pointer-events-auto" title={mark_label(@mark, true)}>
+        <.icon name={@mark.icon} class="w-3 h-3 block" />
+      </span>
+    </div>
+    """
+  end
+
+  # Whether `featured_badge/1` draws a star on this tile, for the mark to step
+  # past it: the interactive toggle on every image tile when `:featured` is on,
+  # else the passive badge on the featured image only.
+  defp mark_star?(%{file: %{file_type: "image"}, featured: featured, interactive: true}),
+    do: featured != nil
+
+  defp mark_star?(%{file: %{file_type: "image", file_uuid: uuid}, featured: featured}),
+    do: featured?(featured, uuid)
+
+  defp mark_star?(_assigns), do: false
+
+  # The passive badge's left offset. The star badge takes `left-1.5`, `left-7`
+  # (select mode, beside the checkbox) or `left-8` (picker, beside the eye) and
+  # is 20px wide, so a mark badge on the same tile steps past it. Literal
+  # classes only: Tailwind finds them by scanning the source.
+  defp mark_badge_left(true, _picker, true), do: "left-14"
+  defp mark_badge_left(true, _picker, false), do: "left-7"
+  defp mark_badge_left(false, true, true), do: "left-14"
+  defp mark_badge_left(false, true, false), do: "left-8"
+  defp mark_badge_left(false, false, true), do: "left-8"
+  defp mark_badge_left(false, false, false), do: "left-1.5"
+
   # A single file thumbnail tile, reused by the "Everything else" grid and each
   # expanded stack. Selection-aware; opens the viewer / detail on click.
   attr :file, :map, required: true
@@ -312,6 +473,9 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Helpers do
   # See the moduledoc's `:featured` attr. `nil` (the default) keeps the
   # star badge and kebab item off.
   attr :featured, :any, default: nil
+  # See the moduledoc's `:mark` attr (already normalised). `nil` keeps the
+  # toggle, badge and kebab item off.
+  attr :mark, :any, default: nil
   attr :readonly, :boolean, default: false
   attr :removal_guarded, :boolean, default: false
   # `false`: no Move (see the moduledoc's "Picker"). The card stays
@@ -369,14 +533,20 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Helpers do
 
         <div
           :if={@file.file_type == "video"}
-          class="absolute top-2 left-2 bg-black/60 text-white p-1.5 rounded pointer-events-none flex items-center justify-center"
+          class={[
+            "absolute left-2 bg-black/60 text-white p-1.5 rounded pointer-events-none flex items-center justify-center",
+            if(@mark, do: "top-9", else: "top-2")
+          ]}
         >
           <.icon name="hero-play-solid" class="w-4 h-4" />
         </div>
 
         <div
           :if={@file.mime_type == "application/pdf"}
-          class="absolute top-2 left-2 bg-error/80 text-white px-2 py-0.5 rounded text-xs font-bold pointer-events-none"
+          class={[
+            "absolute left-2 bg-error/80 text-white px-2 py-0.5 rounded text-xs font-bold pointer-events-none",
+            if(@mark, do: "top-9", else: "top-2")
+          ]}
         >
           PDF
         </div>
@@ -388,6 +558,14 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Helpers do
 
       <.featured_badge
         file={@file}
+        featured={@featured}
+        interactive={not @readonly and not @select_mode and not @filter_trash}
+        select_mode={@select_mode}
+        myself={@myself}
+      />
+      <.mark_badge
+        file={@file}
+        mark={@mark}
         featured={@featured}
         interactive={not @readonly and not @select_mode and not @filter_trash}
         select_mode={@select_mode}
@@ -444,6 +622,16 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Helpers do
               do: gettext("Unset featured"),
               else: gettext("Set as featured")
           }
+        />
+        <%!-- See the moduledoc's `:mark` attr — off entirely when the host
+              didn't opt in. --%>
+        <.table_row_menu_button
+          :if={not @readonly and @mark != nil and not @filter_trash}
+          phx-click="toggle_mark"
+          phx-target={@myself}
+          phx-value-file-uuid={@file.file_uuid}
+          icon={@mark.icon}
+          label={mark_label(@mark, marked?(@mark, @file.file_uuid))}
         />
         <.table_row_menu_button
           :if={not @readonly and @file.file_type == "image"}

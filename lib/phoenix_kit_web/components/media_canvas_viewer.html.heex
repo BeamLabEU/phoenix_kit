@@ -732,6 +732,26 @@
                 do: gettext("Unset featured"),
                 else: gettext("Set as featured")}
             </button>
+            <%!-- See MediaBrowser's `:mark` attr. Any file type, the host's icon
+                  and wording; the click goes to the parent like the featured
+                  button's. Never on a trashed file, as with featured. --%>
+            <% mark_on? =
+              @mark != nil and
+                PhoenixKitWeb.Components.MediaBrowser.Helpers.marked?(@mark, f.file_uuid) %>
+            <button
+              :if={@mark && Map.get(f, :status) != "trashed"}
+              type="button"
+              data-role={if mark_on?, do: "mark-on", else: "mark-off"}
+              data-mark-file={f.file_uuid}
+              phx-click="toggle_mark"
+              phx-target={"##{@parent_id}"}
+              phx-value-file-uuid={f.file_uuid}
+              aria-pressed={to_string(mark_on?)}
+              class={["btn btn-sm gap-2", if(mark_on?, do: "btn-primary", else: "btn-ghost")]}
+            >
+              <.icon name={@mark.icon} class="w-4 h-4" />
+              {PhoenixKitWeb.Components.MediaBrowser.Helpers.mark_label(@mark, mark_on?)}
+            </button>
             <%!-- Admin-context hosts pass details_path — the file's storage page --%>
             <%!-- (renditions, checksums, the buckets holding each copy).         --%>
             <.link
