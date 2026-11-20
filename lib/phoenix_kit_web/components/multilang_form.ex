@@ -100,7 +100,7 @@ defmodule PhoenixKitWeb.Components.MultilangForm do
 
   import PhoenixKitWeb.Components.Core.Icon
   import PhoenixKitWeb.Components.Core.FormFieldError, only: [error: 1]
-  import PhoenixKitWeb.Components.Core.Input, only: [translate_error: 1]
+  import PhoenixKitWeb.Components.Core.Input, only: [translate_error: 1, field_untouched?: 2]
   import PhoenixKitWeb.Components.LanguageSwitcher, only: [language_switcher: 1]
 
   alias Phoenix.LiveView.JS
@@ -1127,11 +1127,20 @@ defmodule PhoenixKitWeb.Components.MultilangForm do
 
   # Extracts translated error messages for a field from the changeset.
   # Only returns errors on the primary tab — secondary tabs don't validate DB columns.
-  defp field_errors(%Ecto.Changeset{action: action, errors: errors}, field, true = _is_primary)
+  # None while the person has not touched the field (see `Core.Input.field_errors/1`).
+  defp field_errors(
+         %Ecto.Changeset{action: action, errors: errors, params: params},
+         field,
+         true = _is_primary
+       )
        when not is_nil(action) do
-    errors
-    |> Keyword.get_values(field)
-    |> Enum.map(&translate_error/1)
+    if field_untouched?(params, field) do
+      []
+    else
+      errors
+      |> Keyword.get_values(field)
+      |> Enum.map(&translate_error/1)
+    end
   end
 
   defp field_errors(_changeset, _field, _is_primary), do: []

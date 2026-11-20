@@ -8,7 +8,7 @@ defmodule PhoenixKitWeb.Components.Core.Textarea do
   import PhoenixKitWeb.Components.Core.FormFieldLabel, only: [label: 1]
   import PhoenixKitWeb.Components.Core.FormFieldError, only: [error: 1]
   import PhoenixKitWeb.Components.Core.FormFieldHint, only: [field_hint: 1, describe_by_hint: 2]
-  import PhoenixKitWeb.Components.Core.Input, only: [translate_error: 1]
+  import PhoenixKitWeb.Components.Core.Input, only: [field_errors: 1]
 
   attr :field, Phoenix.HTML.FormField
 
@@ -49,7 +49,7 @@ defmodule PhoenixKitWeb.Components.Core.Textarea do
     # Mirror `<.input>` / `<.select>`: without this a field-bound textarea
     # silently renders no error text and never picks up `textarea-error`, so a
     # failing changeset looks like a form that just refuses to save.
-    |> assign(:errors, Enum.map(field.errors, &translate_error(&1)))
+    |> assign(:errors, field_errors(field))
     |> assign_new(:name, fn -> field.name end)
     |> assign_new(:value, fn -> field.value end)
     |> textarea()

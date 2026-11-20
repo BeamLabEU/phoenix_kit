@@ -141,7 +141,7 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistration do
   @impl true
   def handle_event("save", %{"user" => user_params} = params, socket) do
     referral_code = params["referral_code"]
-    user_params = form_params(user_params, socket.assigns.account_type_mode)
+    user_params = save_params(user_params, socket.assigns.account_type_mode)
 
     case validate_referral_code(referral_code, socket, :submit) do
       {:ok, _validated_code} ->
@@ -200,13 +200,25 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistration do
   @form_fields ~w(email username password first_name last_name account_type
                   organization_name user_timezone remember_me return_to)
 
-  defp form_params(user_params, mode) when is_map(user_params) do
+  # While the visitor types, LiveView's `_unused_<field>` markers pass too: they
+  # are how the form knows which fields have not been touched yet, to keep their
+  # errors hidden (`PhoenixKitWeb.Components.Core.Input.field_errors/1`).
+  # Nothing casts them.
+  @form_keys @form_fields ++ Enum.map(@form_fields, &"_unused_#{&1}")
+
+  defp form_params(user_params, mode, keys \\ @form_keys)
+
+  defp form_params(user_params, mode, keys) when is_map(user_params) do
     user_params
-    |> Map.take(@form_fields)
+    |> Map.take(keys)
     |> Auth.enforce_registration_account_type(mode)
   end
 
-  defp form_params(other, _mode), do: other
+  defp form_params(other, _mode, _keys), do: other
+
+  # A browser submit carries no `_unused_` markers; one sent anyway must not hide
+  # the errors of the save it failed.
+  defp save_params(user_params, mode), do: form_params(user_params, mode, @form_fields)
 
   defp default_account_type("organization"), do: "organization"
   defp default_account_type(_mode), do: "person"

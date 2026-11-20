@@ -62,7 +62,16 @@
         <label class="label" for="user_email">
           <span class="fieldset-legend">{gettext("Email")}</span>
         </label>
-        <.input field={@form[:email]} type="email" autocomplete="email" required>
+        <%!-- Checked when the person leaves the field, not on every keystroke:
+             "must have the @ sign" while they are still typing it reads as
+             a scolding. The username fills in from it then. --%>
+        <.input
+          field={@form[:email]}
+          type="email"
+          autocomplete="email"
+          required
+          phx-debounce="blur"
+        >
           <:icon>
             <PhoenixKitWeb.Components.Core.Icons.icon_email class="h-[1em] w-[1em] opacity-50" />
           </:icon>
@@ -183,6 +192,7 @@
           autocomplete="new-password"
           required
           password_toggle
+          phx-debounce="blur"
         >
           <:icon>
             <PhoenixKitWeb.Components.Core.Icons.icon_lock class="h-[1em] w-[1em] opacity-50" />

@@ -7085,6 +7085,10 @@
 // "Did you mean ...@gmail.com?" hint sets the email field here and fires the
 // field's own input event, which sends the whole form back through its
 // phx-change. `push_event(socket, "phoenix_kit:set_input", %{id:, value:})`.
+//
+// A field with `phx-debounce="blur"` holds that change until it loses focus,
+// and the person who clicked the hint is no longer in it: a blur is fired too,
+// so the change goes now instead of at the submit.
 // ---------------------------------------------------------------------------
 if (typeof window !== "undefined") {
   window.addEventListener("phx:phoenix_kit:set_input", function (event) {
@@ -7093,6 +7097,9 @@ if (typeof window !== "undefined") {
     if (!el || !("value" in el) || typeof detail.value !== "string") return;
     el.value = detail.value;
     el.dispatchEvent(new Event("input", { bubbles: true }));
+    if (el.getAttribute("phx-debounce") === "blur" && document.activeElement !== el) {
+      el.dispatchEvent(new Event("blur"));
+    }
   });
 }
 

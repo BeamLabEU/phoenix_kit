@@ -206,7 +206,7 @@ defmodule PhoenixKitWeb.Users.Registration do
 
   defp do_save(user_params, params, socket) do
     referral_code = params["referral_code"]
-    user_params = form_params(user_params, socket.assigns.account_type_mode)
+    user_params = save_params(user_params, socket.assigns.account_type_mode)
 
     # If the username was never manually edited, let the schema (re)generate it
     # from the final email rather than persisting a possibly-stale preview value.
@@ -366,13 +366,25 @@ defmodule PhoenixKitWeb.Users.Registration do
   @form_fields ~w(email username password first_name last_name account_type
                   organization_name user_timezone remember_me return_to)
 
-  defp form_params(user_params, mode) when is_map(user_params) do
+  # While the visitor types, LiveView's `_unused_<field>` markers pass too: they
+  # are how the form knows which fields have not been touched yet, to keep their
+  # errors hidden (`PhoenixKitWeb.Components.Core.Input.field_errors/1`).
+  # Nothing casts them.
+  @form_keys @form_fields ++ Enum.map(@form_fields, &"_unused_#{&1}")
+
+  defp form_params(user_params, mode, keys \\ @form_keys)
+
+  defp form_params(user_params, mode, keys) when is_map(user_params) do
     user_params
-    |> Map.take(@form_fields)
+    |> Map.take(keys)
     |> Auth.enforce_registration_account_type(mode)
   end
 
-  defp form_params(other, _mode), do: other
+  defp form_params(other, _mode, _keys), do: other
+
+  # A browser submit carries no `_unused_` markers; one sent anyway must not hide
+  # the errors of the save it failed.
+  defp save_params(user_params, mode), do: form_params(user_params, mode, @form_fields)
 
   # The site policy, with one local override: a visitor arriving on an
   # organization invitation is joining an organization that already exists.

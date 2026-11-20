@@ -176,4 +176,49 @@ defmodule PhoenixKitWeb.Components.Core.CheckboxTest do
       refute html =~ ~s(value="true")
     end
   end
+
+  describe "the field's errors" do
+    defp terms_form(params) do
+      {%{}, %{terms: :boolean, email: :string}}
+      |> Ecto.Changeset.cast(params, [:terms, :email])
+      |> Ecto.Changeset.validate_acceptance(:terms)
+      |> Map.put(:action, :validate)
+      |> to_form(as: "user")
+    end
+
+    test "show under a field-bound checkbox" do
+      # Regression: the field clause never read `field.errors`, so a refused
+      # checkbox showed nothing even after a failed submit.
+      assigns = %{form: terms_form(%{"terms" => "false", "email" => "a@b.c"})}
+
+      html =
+        render(~H"""
+        <.checkbox field={@form[:terms]} label="I agree" />
+        """)
+
+      assert html =~ "must be accepted"
+    end
+
+    test "wait while LiveView reports the checkbox unused" do
+      assigns = %{form: terms_form(%{"terms" => "false", "_unused_terms" => "", "email" => "a"})}
+
+      html =
+        render(~H"""
+        <.checkbox field={@form[:terms]} label="I agree" />
+        """)
+
+      refute html =~ "must be accepted"
+    end
+
+    test "a list given by the caller wins, an empty one included" do
+      assigns = %{form: terms_form(%{"terms" => "false", "email" => "a@b.c"})}
+
+      html =
+        render(~H"""
+        <.checkbox field={@form[:terms]} label="I agree" errors={[]} />
+        """)
+
+      refute html =~ "must be accepted"
+    end
+  end
 end
