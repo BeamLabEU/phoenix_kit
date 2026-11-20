@@ -81,6 +81,7 @@ defmodule PhoenixKit.Notifications.Types do
 
   @type t :: %{
           optional(:example) => String.t(),
+          optional(:visible) => {module(), atom()},
           key: String.t(),
           label: String.t(),
           description: String.t(),
