@@ -138,7 +138,8 @@ defmodule PhoenixKit.Notifications.Types do
   rescue
     _ -> false
   catch
-    :exit, _ -> false
+    # A throw too: no answer is "no" (codex, 2026-11-20).
+    _kind, _reason -> false
   end
 
   def still_visible?(_type_key, _notification, _user), do: true

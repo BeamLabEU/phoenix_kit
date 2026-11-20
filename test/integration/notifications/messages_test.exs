@@ -75,18 +75,28 @@ defmodule PhoenixKit.Integration.Notifications.MessagesTest do
     test "a subject is one line; the version guards an older copy" do
       o = owner()
 
-      assert {:ok, %{"subject" => "A B", "version" => 1}} =
+      assert {:ok, %{"subject" => "A B", "version" => v1}} =
                Messages.save(o, "*", "email", "en", email_parts("A\r\nB", "{{text}}"))
 
       assert {:error, :stale} =
                Messages.save(o, "*", "email", "en", email_parts("C", "{{text}}"), version: 0)
 
-      assert {:ok, %{"version" => 2}} =
-               Messages.save(o, "*", "email", "en", email_parts("C", "{{text}}"), version: 1)
+      assert {:ok, %{"version" => v2}} =
+               Messages.save(o, "*", "email", "en", email_parts("C", "{{text}}"), version: v1)
 
+      assert v2 != v1
+
+      # A reset from the older copy is refused too; from the current one it works.
+      assert {:error, :stale} = Messages.reset(o, "*", "email", "en", version: v1)
       assert Messages.edited_locales("*", "email") == ["en"]
-      assert :ok = Messages.reset(o, "*", "email", "en")
+      assert :ok = Messages.reset(o, "*", "email", "en", version: v2)
       assert Messages.edited_locales("*", "email") == []
+
+      # A new save after the reset never reuses the version an open editor holds.
+      assert {:ok, %{"version" => v3}} =
+               Messages.save(o, "*", "email", "en", email_parts("D", "{{text}}"))
+
+      refute v3 in [v1, v2]
     end
   end
 
@@ -109,6 +119,10 @@ defmodule PhoenixKit.Integration.Notifications.MessagesTest do
       # reach a Russian reader.
       assert Messages.for_message(type, "email", "ru") == %{}
       assert Messages.for_message(type, "email", "en")["subject"] == "Everyone"
+
+      # `pt_BR` and `pt-BR` are one language.
+      {:ok, _} = Messages.save(o, "*", "email", "pt-BR", email_parts("Todos", ""))
+      assert Messages.for_message(type, "email", "pt_BR")["subject"] == "Todos"
     end
   end
 

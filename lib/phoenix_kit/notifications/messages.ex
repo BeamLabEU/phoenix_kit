@@ -20,11 +20,14 @@ defmodule PhoenixKit.Notifications.Messages do
 
   ## How a message is chosen
 
-  Part by part, the first that has the part:
+  Part by part, the first that has the part — the type first, then the
+  language:
 
-    1. the type's own wording, in the reader's language;
-    2. the same, in its base language (an `en` edit covers `en-GB`);
-    3. the `"*"` wording, in the reader's language, then its base language;
+    1. the type's own wording, in the reader's language (`pt_BR` and
+       `pt-BR` are one), then in its base language (an `en` edit covers
+       `en-GB`);
+    2. for a sub-type, its base type's, the same way;
+    3. the `"*"` wording ("Every notification"), the same way;
     4. what there was before: a host's file, then the translated default.
 
   A language nobody edited keeps its translated default: an English edit
@@ -44,8 +47,10 @@ defmodule PhoenixKit.Notifications.Messages do
   `"notification_message:<type>:<channel>:<language>"`, value
   `%{"subject", "markdown" | "text", "version", "default_hash",
   "updated_by"}`. A save goes through the settings history (who, before,
-  after); a reset is logged in the activity feed. `version` refuses a save
-  made from an older copy ("someone else saved this meanwhile").
+  after); a reset is logged in the activity feed. `version` (a token, never
+  reused) refuses a save or a reset made from an older copy ("someone else
+  saved this meanwhile"); it is checked and the row written under the row's
+  lock.
   `default_hash` is the default the wording was written against, so the
   editor can say when the default changed since.
 
@@ -57,6 +62,7 @@ defmodule PhoenixKit.Notifications.Messages do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.Email.CoreTemplates
+  alias PhoenixKit.RepoHelper
   alias PhoenixKit.Notifications.Types
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.Scope
@@ -113,8 +119,13 @@ defmodule PhoenixKit.Notifications.Messages do
   @doc "A hash of the default a wording is written against."
   @spec default_hash(String.t(), String.t() | nil) :: String.t()
   def default_hash(channel, locale) do
+    # The labels the default puts in ("Open", "Change") are translated, so
+    # a changed translation is a changed default too (codex, 2026-11-20).
+    labels = RecipientLocale.in_locale(locale, fn -> [gettext("Open"), gettext("Change")] end)
+
     channel
     |> default_parts(locale)
+    |> Map.put("labels", labels)
     |> Enum.sort()
     |> :erlang.term_to_binary()
     |> then(&:crypto.hash(:sha256, &1))
@@ -166,9 +177,11 @@ defmodule PhoenixKit.Notifications.Messages do
 
   defp type_chain(_type_key), do: [@all]
 
+  # `pt_BR` and `pt-BR` are one language (codex, 2026-11-20).
   defp locale_chain(locale) when is_binary(locale) and locale != "" do
-    base = locale |> String.split(["-", "_"], parts: 2) |> hd()
-    Enum.uniq([locale, base])
+    dashed = String.replace(locale, "_", "-")
+    base = dashed |> String.split("-", parts: 2) |> hd()
+    Enum.uniq([locale, dashed, base])
   end
 
   defp locale_chain(_locale), do: []
@@ -221,52 +234,92 @@ defmodule PhoenixKit.Notifications.Messages do
          :ok <- known_type(type_key),
          :ok <- known_channel(channel),
          :ok <- good_locale(locale),
-         {:ok, clean} <- clean_parts(channel, parts),
-         :ok <- fresh(type_key, channel, locale, opts[:version]) do
-      previous = entry(type_key, channel, locale)
+         {:ok, clean} <- clean_parts(channel, parts) do
       actor = Keyword.get(opts, :actor_uuid) || scope_user_uuid(scope)
+      key = key(type_key, channel, locale)
 
-      value =
-        Map.merge(clean, %{
-          "version" => ((previous && previous["version"]) || 0) + 1,
-          "default_hash" => default_hash(channel, locale),
-          "updated_by" => actor
-        })
+      # The version is checked and the row written under the row's lock, so
+      # two saves from the same copy cannot both pass (codex, 2026-11-20).
+      # A first save has no row to lock; a second insert of the same key
+      # fails on its unique key instead.
+      locked(key, opts[:version], fn _current ->
+        value =
+          Map.merge(clean, %{
+            "version" => new_version(),
+            "default_hash" => default_hash(channel, locale),
+            "updated_by" => actor
+          })
 
-      case Settings.update_json_setting_with_module(
-             key(type_key, channel, locale),
-             value,
-             "notifications",
-             actor_uuid: actor,
-             source: "settings"
-           ) do
-        {:ok, _setting} ->
-          log("notifications.message_saved", actor, type_key, channel, locale)
-          {:ok, value}
-
-        {:error, _} = error ->
-          error
-      end
+        case Settings.update_json_setting_with_module(key, value, "notifications",
+               actor_uuid: actor,
+               source: "settings"
+             ) do
+          {:ok, _setting} -> {:ok, value}
+          {:error, _} = error -> error
+        end
+      end)
+      |> tap(fn
+        {:ok, _} -> log("notifications.message_saved", actor, type_key, channel, locale)
+        _ -> :ok
+      end)
     end
   end
 
-  @doc "Removes the saved wording: the message falls back again. Same rights as `save/6`."
-  @spec reset(Scope.t() | nil, String.t(), String.t(), String.t()) :: :ok | {:error, term()}
-  def reset(scope, type_key, channel, locale) do
+  # Runs `fun` with the entry as it is under the row's lock, after checking
+  # `version` against it (nil: no check). `{:error, :stale}` otherwise.
+  defp locked(key, version, fun) do
+    RepoHelper.repo().transaction(fn ->
+      current =
+        case PhoenixKit.Settings.History.lock_current(key) do
+          %{value_json: %{} = entry} -> entry
+          _ -> nil
+        end
+
+      with :ok <- fresh(current, version),
+           {:ok, result} <- fun.(current) do
+        result
+      else
+        {:error, reason} -> RepoHelper.repo().rollback(reason)
+      end
+    end)
+  end
+
+  # A version is a token, never reused: a reset and a new save must not
+  # hand out the number an open editor still holds (codex, 2026-11-20).
+  defp new_version, do: System.os_time(:microsecond)
+
+  @doc """
+  Removes the saved wording: the message falls back again. Same rights as
+  `save/6`; `:version` refuses a reset from an older copy, as a save.
+  """
+  @spec reset(Scope.t() | nil, String.t(), String.t(), String.t(), keyword()) ::
+          :ok | {:error, term()}
+  def reset(scope, type_key, channel, locale, opts \\ []) do
     with :ok <- allowed(scope),
          :ok <- known_type(type_key),
          :ok <- known_channel(channel),
          :ok <- good_locale(locale) do
-      case Settings.delete_setting(key(type_key, channel, locale)) do
-        {:ok, _} ->
+      key = key(type_key, channel, locale)
+
+      result =
+        locked(key, opts[:version], fn _current ->
+          case Settings.delete_setting(key) do
+            {:ok, _} -> {:ok, :deleted}
+            {:error, :not_found} -> {:ok, :none}
+            other -> other
+          end
+        end)
+
+      case result do
+        {:ok, :deleted} ->
           log("notifications.message_reset", scope_user_uuid(scope), type_key, channel, locale)
           :ok
 
-        {:error, :not_found} ->
+        {:ok, :none} ->
           :ok
 
-        other ->
-          other
+        {:error, _} = error ->
+          error
       end
     end
   end
@@ -299,11 +352,11 @@ defmodule PhoenixKit.Notifications.Messages do
 
   defp good_locale(_), do: {:error, :bad_locale}
 
-  defp fresh(_type_key, _channel, _locale, nil), do: :ok
+  defp fresh(_current, nil), do: :ok
 
-  defp fresh(type_key, channel, locale, version) do
-    current = (entry(type_key, channel, locale) || %{})["version"] || 0
-    if to_int(version) == current, do: :ok, else: {:error, :stale}
+  defp fresh(current, version) do
+    held = (current || %{})["version"] || 0
+    if to_int(version) == held, do: :ok, else: {:error, :stale}
   end
 
   defp to_int(v) when is_integer(v), do: v

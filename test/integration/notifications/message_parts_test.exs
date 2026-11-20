@@ -176,6 +176,75 @@ defmodule PhoenixKit.Integration.Notifications.MessagePartsTest do
       assert body["reply_markup"]["inline_keyboard"]
     end
 
+    test "a line at the limit never takes the message over 4,096, and the link survives",
+         %{user: user, config: config} do
+      telegram_answers(fn conn, _body -> ok(conn) end)
+
+      long = String.duplicate("a", 4_096)
+
+      env = envelope(user, %{title: nil, text: long, quote: "q", reason: nil, reason_url: nil})
+      assert :ok = Channel.deliver(env, config)
+      assert_received {:telegram, body}
+      assert Channel.utf16_length(body["text"]) <= 4_096
+
+      # With no button (refused), the link is kept and the line cut instead.
+      telegram_answers(fn conn, body ->
+        if Map.has_key?(body, "reply_markup") do
+          conn
+          |> Plug.Conn.put_status(400)
+          |> Req.Test.json(%{"ok" => false, "description" => "Bad Request: BUTTON_URL_INVALID"})
+        else
+          ok(conn)
+        end
+      end)
+
+      assert :ok = Channel.deliver(%{env | quote: nil}, config)
+      assert_received {:telegram, %{"reply_markup" => _}}
+      assert_received {:telegram, second}
+      assert Channel.utf16_length(second["text"]) <= 4_096
+      assert second["text"] =~ "https://site.example.test/projects/ACME/tasks?task=ACME-12"
+    end
+
+    test "a rate limit that mentions a URL is not taken for a refused button",
+         %{user: user, config: config} do
+      telegram_answers(fn conn, _body ->
+        conn
+        |> Plug.Conn.put_status(429)
+        |> Req.Test.json(%{
+          "ok" => false,
+          "description" => "Too Many Requests: retry after 5 (URL requests)",
+          "parameters" => %{"retry_after" => 5}
+        })
+      end)
+
+      refute :ok == Channel.deliver(envelope(user, %{}), config)
+      assert_received {:telegram, %{"reply_markup" => _}}
+      refute_received {:telegram, _}
+    end
+
+    test "a saved text that comes out empty sends the default layout",
+         %{user: user, config: config} do
+      telegram_answers(fn conn, _body -> ok(conn) end)
+
+      owner = %PhoenixKit.Users.Auth.Scope{
+        user: %PhoenixKit.Users.Auth.User{uuid: Ecto.UUID.generate()},
+        authenticated?: true,
+        cached_roles: ["Owner"],
+        cached_permissions: MapSet.new()
+      }
+
+      {:ok, _} =
+        PhoenixKit.Notifications.Messages.save(owner, "*", "telegram", "en", %{
+          "text" => "{{quote}}"
+        })
+
+      assert :ok =
+               Channel.deliver(envelope(user, %{locale: "en", type_key: nil, quote: nil}), config)
+
+      assert_received {:telegram, body}
+      assert body["text"] =~ "Fit the doors (ACME-12) can be started"
+    end
+
     test "with no link there is no button", %{user: user, config: config} do
       telegram_answers(fn conn, _body -> ok(conn) end)
 

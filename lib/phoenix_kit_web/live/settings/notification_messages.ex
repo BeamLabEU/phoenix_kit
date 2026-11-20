@@ -92,25 +92,53 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessages do
 
   defp first_locale(socket), do: socket.assigns.locales |> List.first() |> elem(0)
 
-  # The saved wording of exactly this type, channel and language, or — with
-  # none — what a reader gets today, as the editor's starting text.
+  # Each part as a reader of this type and language gets it today: its own
+  # saved wording, else what it inherits (its base language, its base
+  # type, "Every notification"), else the default — and where it came from,
+  # so a save keeps only what was changed and an untouched inherited part
+  # goes on inheriting (codex, 2026-11-20).
   defp load(socket) do
     %{type: type, channel: channel, locale: locale} = socket.assigns
     entry = Messages.entry(type, channel, locale)
+    inherited = Messages.for_message(type, channel, locale)
     defaults = Messages.default_parts(channel, locale)
 
-    fields =
-      for part <- Messages.parts(channel), into: %{} do
-        {part, (entry && entry[part]) || defaults[part] || ""}
-      end
+    {fields, sources} =
+      Messages.parts(channel)
+      |> Enum.map(fn part ->
+        cond do
+          own?(entry, part) -> {{part, entry[part]}, {part, :own}}
+          is_binary(inherited[part]) -> {{part, inherited[part]}, {part, :inherited}}
+          true -> {{part, defaults[part] || ""}, {part, :default}}
+        end
+      end)
+      |> Enum.unzip()
+
+    fields = Map.new(fields)
 
     socket
     |> assign(:entry, entry)
     |> assign(:fields, fields)
+    |> assign(:start, fields)
+    |> assign(:sources, Map.new(sources))
     |> assign(:defaults, defaults)
     |> assign(:edited, Messages.edited_locales(type, channel))
     |> assign(:drifted?, drifted?(entry, channel, locale))
     |> assign_preview()
+  end
+
+  defp own?(%{} = entry, part), do: is_binary(entry[part]) and String.trim(entry[part]) != ""
+  defp own?(_entry, _part), do: false
+
+  # What a save stores: the parts this type has of its own, and any other
+  # part the editor changed. An untouched inherited or default part is left
+  # blank, so it keeps falling back.
+  defp to_store(fields, socket) do
+    %{start: start, sources: sources} = socket.assigns
+
+    Map.new(fields, fn {part, value} ->
+      if sources[part] != :own and value == start[part], do: {part, ""}, else: {part, value}
+    end)
   end
 
   defp drifted?(nil, _channel, _locale), do: false
@@ -142,9 +170,14 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessages do
     %{type: type, channel: channel, locale: locale} = socket.assigns
     scope = socket.assigns[:phoenix_kit_current_scope]
 
-    case Messages.save(scope, type, channel, locale, fields, version: params["version"]) do
+    stored = fields |> Map.take(Messages.parts(channel)) |> to_store(socket)
+
+    case Messages.save(scope, type, channel, locale, stored, version: params["version"]) do
       {:ok, _} ->
         {:noreply, socket |> load() |> put_flash(:info, gettext("Saved."))}
+
+      {:error, :empty} when is_nil(socket.assigns.entry) ->
+        {:noreply, put_flash(socket, :info, gettext("Nothing changed."))}
 
       {:error, reason} ->
         {:noreply,
@@ -159,8 +192,10 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessages do
 
   def handle_event("reset", _params, socket) do
     %{type: type, channel: channel, locale: locale} = socket.assigns
+    version = (socket.assigns.entry || %{})["version"] || 0
+    scope = socket.assigns[:phoenix_kit_current_scope]
 
-    case Messages.reset(socket.assigns[:phoenix_kit_current_scope], type, channel, locale) do
+    case Messages.reset(scope, type, channel, locale, version: version) do
       :ok -> {:noreply, socket |> load() |> put_flash(:info, gettext("Back to the default."))}
       {:error, reason} -> {:noreply, assign(socket, :notice, error_text(reason))}
     end
@@ -381,6 +416,16 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessages do
             <%= if @type != Messages.all_types() do %>
               {gettext("Without its own wording, this type uses “Every notification”'s.")}
             <% end %>
+          </p>
+
+          <p
+            :if={Enum.any?(@sources, fn {_part, source} -> source == :inherited end)}
+            id="notification-messages-inherited"
+            class="text-sm text-info"
+          >
+            {gettext(
+              "Some of this is inherited, not this type's own. Leave it as it is to keep inheriting; what you change here becomes this type's own."
+            )}
           </p>
 
           <div :if={@drifted?} id="notification-messages-drift" class="alert alert-warning text-sm">

@@ -129,7 +129,7 @@ msgstr ""
 #: lib/phoenix_kit/notifications/channels/email.ex:42
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:200
 #: lib/phoenix_kit_web/live/components/library_settings.ex:2600
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:290
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:325
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:233
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:700
 #: lib/phoenix_kit_web/live/users/users.html.heex:328
@@ -1576,7 +1576,8 @@ msgstr ""
 
 #: lib/modules/storage/web/libraries_component.ex:632
 #: lib/phoenix_kit/notifications/channels/email.ex:136
-#: lib/phoenix_kit/notifications/channels/telegram.ex:212
+#: lib/phoenix_kit/notifications/channels/telegram.ex:215
+#: lib/phoenix_kit/notifications/messages.ex:124
 #: lib/phoenix_kit_web/components/core/preview_card.ex:305
 #: lib/phoenix_kit_web/components/core/preview_card.ex:339
 #: lib/phoenix_kit_web/live/components/library_settings.ex:1373
@@ -1930,7 +1931,7 @@ msgstr ""
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:256
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:306
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:356
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:464
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:509
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:143
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:316
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:375
@@ -3791,7 +3792,7 @@ msgstr ""
 msgid "Accept"
 msgstr ""
 
-#: lib/phoenix_kit/notifications/types.ex:292
+#: lib/phoenix_kit/notifications/types.ex:293
 #: lib/phoenix_kit/users/table_columns.ex:314
 #: lib/phoenix_kit_web/components/profile_settings_tabs.ex:349
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:249
@@ -5500,8 +5501,8 @@ msgstr ""
 msgid "Body Saved"
 msgstr ""
 
-#: lib/phoenix_kit/notifications/types.ex:334
-#: lib/phoenix_kit/notifications/types.ex:358
+#: lib/phoenix_kit/notifications/types.ex:335
+#: lib/phoenix_kit/notifications/types.ex:359
 #: lib/phoenix_kit/users/auth.ex:3760
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:1011
 #: lib/phoenix_kit_web/live/modules.ex:200
@@ -5914,7 +5915,7 @@ msgstr ""
 
 #: lib/modules/sitemap/web/settings.html.heex:135
 #: lib/modules/sitemap/web/settings.html.heex:315
-#: lib/phoenix_kit/notifications/types.ex:318
+#: lib/phoenix_kit/notifications/types.ex:319
 #: lib/phoenix_kit/users/auth.ex:3758
 #: lib/phoenix_kit_web/live/modules.ex:212
 #, elixir-autogen
@@ -7182,7 +7183,7 @@ msgstr ""
 #: lib/phoenix_kit_web/components/media_gallery.html.heex:58
 #: lib/phoenix_kit_web/components/media_gallery.html.heex:59
 #: lib/phoenix_kit_web/live/settings/email_sending.html.heex:218
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:470
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:515
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:383
 #, elixir-autogen, elixir-format
 msgid "Preview"
@@ -7718,8 +7719,8 @@ msgstr ""
 #: lib/phoenix_kit_web/live/activity/show.html.heex:112
 #: lib/phoenix_kit_web/live/settings/email_preview.ex:157
 #: lib/phoenix_kit_web/live/settings/email_preview.html.heex:76
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:294
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:478
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:329
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:523
 #, elixir-autogen, elixir-format
 msgid "Subject"
 msgstr ""
@@ -8710,10 +8711,11 @@ msgid "Cannot edit a folder outside the allowed scope"
 msgstr ""
 
 #: lib/phoenix_kit/notifications/channels/email.ex:144
+#: lib/phoenix_kit/notifications/messages.ex:124
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:248
 #: lib/phoenix_kit_web/components/tree_picker.ex:253
 #: lib/phoenix_kit_web/live/notifications/inbox.ex:370
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:241
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:276
 #, elixir-autogen, elixir-format
 msgid "Change"
 msgstr ""
@@ -8930,7 +8932,7 @@ msgstr ""
 #: lib/phoenix_kit_web/components/account_menu.ex:129
 #: lib/phoenix_kit_web/components/core/file_details_fields.ex:61
 #: lib/phoenix_kit_web/live/settings/email_preview.html.heex:48
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:365
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:400
 #: lib/phoenix_kit_web/oauth/pages.ex:408
 #, elixir-autogen, elixir-format
 msgid "Language"
@@ -11204,7 +11206,7 @@ msgstr ""
 #: lib/phoenix_kit/integrations/providers.ex:1494
 #: lib/phoenix_kit/notifications/channels/telegram.ex:62
 #: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:341
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:291
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:326
 #, elixir-autogen, elixir-format
 msgid "Telegram"
 msgstr ""
@@ -14335,7 +14337,7 @@ msgid "Let users with several roles act as one role at a time"
 msgstr ""
 
 #: lib/phoenix_kit_web/live/components/user_settings.ex:619
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:147
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:177
 #, elixir-autogen, elixir-format
 msgid "Saved."
 msgstr ""
@@ -15803,7 +15805,7 @@ msgstr ""
 msgid "Role changed"
 msgstr ""
 
-#: lib/phoenix_kit/notifications/types.ex:275
+#: lib/phoenix_kit/notifications/types.ex:276
 #: lib/phoenix_kit_web/components/profile_settings_tabs.ex:350
 #, elixir-autogen, elixir-format
 msgid "Security"
@@ -16822,7 +16824,7 @@ msgid "HTML body"
 msgstr ""
 
 #: lib/phoenix_kit_web/live/settings/email_preview.html.heex:91
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:489
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:534
 #, elixir-autogen, elixir-format
 msgid "HTML version of the email"
 msgstr ""
@@ -17003,7 +17005,7 @@ msgid "Source"
 msgstr ""
 
 #: lib/phoenix_kit_web/live/settings/email_preview.html.heex:101
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:296
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:331
 #, elixir-autogen, elixir-format
 msgid "Text"
 msgstr ""
@@ -21973,73 +21975,73 @@ msgstr ""
 msgid "The connection check gave an unexpected answer"
 msgstr ""
 
-#: lib/phoenix_kit/notifications/types.ex:294
+#: lib/phoenix_kit/notifications/types.ex:295
 #, elixir-autogen, elixir-format
 msgid "Password, email, role, timezone and profile changes made to your account"
 msgstr ""
 
-#: lib/phoenix_kit/notifications/types.ex:319
+#: lib/phoenix_kit/notifications/types.ex:320
 #, elixir-autogen, elixir-format
 msgid "Likes, comments, mentions, and shares on your posts"
 msgstr ""
 
-#: lib/phoenix_kit/notifications/types.ex:327
+#: lib/phoenix_kit/notifications/types.ex:328
 #, elixir-autogen, elixir-format
 msgid "Likes"
 msgstr ""
 
-#: lib/phoenix_kit/notifications/types.ex:328
+#: lib/phoenix_kit/notifications/types.ex:329
 #, elixir-autogen, elixir-format
 msgid "Likes on your posts"
 msgstr ""
 
-#: lib/phoenix_kit/notifications/types.ex:335
+#: lib/phoenix_kit/notifications/types.ex:336
 #, elixir-autogen, elixir-format
 msgid "Comments on your posts"
 msgstr ""
 
-#: lib/phoenix_kit/notifications/types.ex:342
-#: lib/phoenix_kit/notifications/types.ex:386
+#: lib/phoenix_kit/notifications/types.ex:343
+#: lib/phoenix_kit/notifications/types.ex:387
 #, elixir-autogen, elixir-format
 msgid "Mentions"
 msgstr ""
 
-#: lib/phoenix_kit/notifications/types.ex:343
+#: lib/phoenix_kit/notifications/types.ex:344
 #, elixir-autogen, elixir-format
 msgid "Mentions of you in posts"
 msgstr ""
 
-#: lib/phoenix_kit/notifications/types.ex:349
+#: lib/phoenix_kit/notifications/types.ex:350
 #, elixir-autogen, elixir-format
 msgid "Shares"
 msgstr ""
 
-#: lib/phoenix_kit/notifications/types.ex:350
+#: lib/phoenix_kit/notifications/types.ex:351
 #, elixir-autogen, elixir-format
 msgid "Shares of your posts"
 msgstr ""
 
-#: lib/phoenix_kit/notifications/types.ex:359
+#: lib/phoenix_kit/notifications/types.ex:360
 #, elixir-autogen, elixir-format
 msgid "Replies and reactions to your comments"
 msgstr ""
 
-#: lib/phoenix_kit/notifications/types.ex:365
+#: lib/phoenix_kit/notifications/types.ex:366
 #, elixir-autogen, elixir-format
 msgid "Replies"
 msgstr ""
 
-#: lib/phoenix_kit/notifications/types.ex:366
+#: lib/phoenix_kit/notifications/types.ex:367
 #, elixir-autogen, elixir-format
 msgid "Replies to your comments"
 msgstr ""
 
-#: lib/phoenix_kit/notifications/types.ex:373
+#: lib/phoenix_kit/notifications/types.ex:374
 #, elixir-autogen, elixir-format
 msgid "Reactions"
 msgstr ""
 
-#: lib/phoenix_kit/notifications/types.ex:374
+#: lib/phoenix_kit/notifications/types.ex:375
 #, elixir-autogen, elixir-format
 msgid "Likes and reactions to your comments"
 msgstr ""
@@ -26823,7 +26825,7 @@ msgstr ""
 msgid "Hi {{user_email}},\n\nWe noticed a login to your account from a new device or location:\n\n- Time: {{login_time}}\n- IP address: {{ip_address}}\n- Location: {{location}}\n- Device: {{browser_os}}\n\n{{failed_attempts}}\n\nIf this was you, no action is needed.\n\nIf you don't recognize this activity, secure your account:\n\n[Review account security]({{security_url}})\n\nIf the button doesn't work, open this link: [{{security_url}}]({{security_url}})\n"
 msgstr ""
 
-#: lib/phoenix_kit/notifications/types.ex:277
+#: lib/phoenix_kit/notifications/types.ex:278
 #, elixir-autogen, elixir-format
 msgid "New sign-ins to your account from a new device or country, and sessions opened on your account by someone else"
 msgstr ""
@@ -27100,7 +27102,7 @@ msgstr ""
 msgid "You were mentioned."
 msgstr ""
 
-#: lib/phoenix_kit/notifications/types.ex:387
+#: lib/phoenix_kit/notifications/types.ex:388
 #, elixir-autogen, elixir-format
 msgid "When someone mentions you with @"
 msgstr ""
@@ -28449,17 +28451,17 @@ msgstr ""
 msgid "Add me"
 msgstr ""
 
-#: lib/phoenix_kit/notifications/types.ex:295
+#: lib/phoenix_kit/notifications/types.ex:296
 #, elixir-autogen, elixir-format
 msgid "An administrator gave you the Editor role."
 msgstr ""
 
-#: lib/phoenix_kit/notifications/types.ex:336
+#: lib/phoenix_kit/notifications/types.ex:337
 #, elixir-autogen, elixir-format
 msgid "Anna commented on your post “Spring update”."
 msgstr ""
 
-#: lib/phoenix_kit/notifications/types.ex:367
+#: lib/phoenix_kit/notifications/types.ex:368
 #, elixir-autogen, elixir-format
 msgid "Anna replied to your comment."
 msgstr ""
@@ -28491,7 +28493,7 @@ msgstr ""
 msgid "For example: %{example}"
 msgstr ""
 
-#: lib/phoenix_kit/notifications/types.ex:388
+#: lib/phoenix_kit/notifications/types.ex:389
 #, elixir-autogen, elixir-format
 msgid "Max wrote “@Anna, can you check this?” in a comment."
 msgstr ""
@@ -28541,7 +28543,7 @@ msgstr ""
 msgid "You get this because “Comments” is on."
 msgstr ""
 
-#: lib/phoenix_kit/notifications/types.ex:280
+#: lib/phoenix_kit/notifications/types.ex:281
 #, elixir-autogen, elixir-format
 msgid "You signed in from a new phone in Tallinn."
 msgstr ""
@@ -28771,54 +28773,54 @@ msgstr ""
 msgid "When buckets or copy counts change, files are copied or moved in the background. Follow progress on the Health tab."
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:233
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:234
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:268
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:269
 #, elixir-autogen, elixir-format
 msgid "ACME-12 can be started"
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:236
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:271
 #, elixir-autogen, elixir-format
 msgid "Anna: Please measure wall A again before you start."
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:164
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:199
 #, elixir-autogen, elixir-format
 msgid "Back to the default."
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:295
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:330
 #, elixir-autogen, elixir-format
 msgid "Body (Markdown)"
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:188
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:223
 #, elixir-autogen, elixir-format
 msgid "Could not save the message."
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:458
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:503
 #, elixir-autogen, elixir-format
 msgid "Delete this wording and use the default again?"
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:375
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:410
 #, elixir-autogen, elixir-format
 msgid "Every language uses the default."
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:249
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:260
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:284
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:295
 #, elixir-autogen, elixir-format
 msgid "Every notification"
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:235
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:270
 #, elixir-autogen, elixir-format
 msgid "Fit the doors (ACME-12) can be started"
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:475
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:520
 #, elixir-autogen, elixir-format
 msgid "No preview."
 msgstr ""
@@ -28829,7 +28831,7 @@ msgstr ""
 msgid "Notification messages"
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:334
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:369
 #, elixir-autogen, elixir-format
 msgid "Notification types"
 msgstr ""
@@ -28839,47 +28841,47 @@ msgstr ""
 msgid "Notification wording"
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:238
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:273
 #, elixir-autogen, elixir-format
 msgid "Open task"
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:377
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:412
 #, elixir-autogen, elixir-format
 msgid "Own wording in: %{languages}. The others use the default."
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:447
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:492
 #, elixir-autogen, elixir-format
 msgid "Plain text. The “Open” button under the message stays as it is."
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:472
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:517
 #, elixir-autogen, elixir-format
 msgid "Preview, with sample values"
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:461
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:506
 #, elixir-autogen, elixir-format
 msgid "Reset to default"
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:173
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:208
 #, elixir-autogen, elixir-format
 msgid "Someone else saved this message meanwhile. Reload the page to see their version."
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:493
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:538
 #, elixir-autogen, elixir-format
 msgid "Text version"
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:388
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:433
 #, elixir-autogen, elixir-format
 msgid "The default changed since this wording was saved. Compare it with the default below, then save again or reset."
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:429
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:474
 #, elixir-autogen, elixir-format
 msgid "The default now"
 msgstr ""
@@ -28889,103 +28891,113 @@ msgstr ""
 msgid "The wording of notification emails and Telegram messages, in each language"
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:176
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:211
 #, elixir-autogen, elixir-format
 msgid "Three braces insert raw HTML; use two: {{text}}."
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:183
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:218
 #, elixir-autogen, elixir-format
 msgid "Unknown variables: %{names}. Use those listed beside the editor."
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:443
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:488
 #, elixir-autogen, elixir-format
 msgid "Values are shown as written, never as Markdown. The site's logo and colours, the button and the setting line's link stay as they are."
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:435
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:480
 #, elixir-autogen, elixir-format
 msgid "Variables"
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:382
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:417
 #, elixir-autogen, elixir-format
 msgid "Without its own wording, this type uses “Every notification”'s."
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:175
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:210
 #, elixir-autogen, elixir-format
 msgid "Write something, or reset to the default."
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:239
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:274
 #, elixir-autogen, elixir-format
 msgid "You get this because “A task of yours can be started” is on."
 msgstr ""
 
 #: lib/phoenix_kit_web/live/settings/notification_messages.ex:74
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:187
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:222
 #, elixir-autogen, elixir-format
 msgid "You may not change notification wording."
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:304
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:339
 #, elixir-autogen, elixir-format
 msgid "the button's label"
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:302
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:337
 #, elixir-autogen, elixir-format
 msgid "the comment it carries, with its writer"
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:303
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:338
 #, elixir-autogen, elixir-format
 msgid "the link to what it is about"
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:301
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:336
 #, elixir-autogen, elixir-format
 msgid "the notification's line"
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:300
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:335
 #, elixir-autogen, elixir-format
 msgid "the short title, when the module gives one"
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:309
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:344
 #, elixir-autogen, elixir-format
 msgid "the site's accent colour"
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:308
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:343
 #, elixir-autogen, elixir-format
 msgid "the site's logo"
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:299
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:334
 #, elixir-autogen, elixir-format
 msgid "the title, or the start of the line"
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:306
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:341
 #, elixir-autogen, elixir-format
 msgid "where the reader changes that setting"
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:305
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:340
 #, elixir-autogen, elixir-format
 msgid "which setting sent it"
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:179
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:214
 #, elixir-autogen, elixir-format
 msgid "“%{part}” is too long."
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:307
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:342
 #, elixir-autogen, elixir-format
 msgid "“Change”"
+msgstr ""
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:180
+#, elixir-autogen, elixir-format
+msgid "Nothing changed."
+msgstr ""
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:426
+#, elixir-autogen, elixir-format
+msgid "Some of this is inherited, not this type's own. Leave it as it is to keep inheriting; what you change here becomes this type's own."
 msgstr ""

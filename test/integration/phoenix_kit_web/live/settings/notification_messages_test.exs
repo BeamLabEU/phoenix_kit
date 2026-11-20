@@ -75,8 +75,10 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessagesTest do
     )
     |> render_submit(%{"version" => "0"})
 
-    assert %{"subject" => "News: {{subject}}", "version" => 1} =
+    assert %{"subject" => "News: {{subject}}", "version" => version} =
              Messages.entry("*", "email", "en")
+
+    assert is_integer(version)
 
     # An older copy (version 0 again) is refused, nothing overwritten.
     html =
@@ -111,5 +113,36 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessagesTest do
     assert has_element?(view, "#notification-messages-text")
     refute has_element?(view, "#notification-messages-subject")
     assert has_element?(view, "#notification-messages-preview-text", "Fit the doors (ACME-12)")
+  end
+
+  test "a type shows what it inherits, and a save keeps only what was changed", %{conn: conn} do
+    owner = %PhoenixKit.Users.Auth.Scope{
+      user: %PhoenixKit.Users.Auth.User{uuid: Ecto.UUID.generate()},
+      authenticated?: true,
+      cached_roles: ["Owner"],
+      cached_permissions: MapSet.new()
+    }
+
+    {:ok, _} =
+      Messages.save(owner, "*", "email", "en", %{
+        "subject" => "Operations notice",
+        "markdown" => "{{text}}"
+      })
+
+    [type | _] = PhoenixKit.Notifications.Types.all_pref_keys()
+    {:ok, view, _html} = live(editor(conn), @path <> "?type=#{type}&channel=email&lang=en")
+
+    assert has_element?(view, "#notification-messages-subject[value='Operations notice']")
+    assert has_element?(view, "#notification-messages-inherited")
+
+    # Only the body changed: the subject goes on inheriting.
+    render_submit(view, "save", %{
+      "version" => "0",
+      "message" => %{"subject" => "Operations notice", "markdown" => "{{text}} (own)"}
+    })
+
+    entry = Messages.entry(type, "email", "en")
+    assert entry["markdown"] == "{{text}} (own)"
+    assert entry["subject"] == ""
   end
 end

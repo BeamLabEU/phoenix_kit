@@ -125,7 +125,7 @@ msgstr "创建新账户"
 #: lib/phoenix_kit/notifications/channels/email.ex:42
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:200
 #: lib/phoenix_kit_web/live/components/library_settings.ex:2600
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:290
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:325
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:233
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:700
 #: lib/phoenix_kit_web/live/users/users.html.heex:328
@@ -1570,7 +1570,8 @@ msgstr "只有所有者可以编辑管理员权限"
 
 #: lib/modules/storage/web/libraries_component.ex:632
 #: lib/phoenix_kit/notifications/channels/email.ex:136
-#: lib/phoenix_kit/notifications/channels/telegram.ex:212
+#: lib/phoenix_kit/notifications/channels/telegram.ex:215
+#: lib/phoenix_kit/notifications/messages.ex:124
 #: lib/phoenix_kit_web/components/core/preview_card.ex:305
 #: lib/phoenix_kit_web/components/core/preview_card.ex:339
 #: lib/phoenix_kit_web/live/components/library_settings.ex:1373
@@ -1924,7 +1925,7 @@ msgstr "SWIFT/BIC"
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:256
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:306
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:356
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:464
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:509
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:143
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:316
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:375
@@ -3785,7 +3786,7 @@ msgstr "API 密钥"
 msgid "Accept"
 msgstr "接受"
 
-#: lib/phoenix_kit/notifications/types.ex:292
+#: lib/phoenix_kit/notifications/types.ex:293
 #: lib/phoenix_kit/users/table_columns.ex:314
 #: lib/phoenix_kit_web/components/profile_settings_tabs.ex:349
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:249
@@ -5494,8 +5495,8 @@ msgstr "可用"
 msgid "Body Saved"
 msgstr "正文已保存"
 
-#: lib/phoenix_kit/notifications/types.ex:334
-#: lib/phoenix_kit/notifications/types.ex:358
+#: lib/phoenix_kit/notifications/types.ex:335
+#: lib/phoenix_kit/notifications/types.ex:359
 #: lib/phoenix_kit/users/auth.ex:3760
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:1011
 #: lib/phoenix_kit_web/live/modules.ex:200
@@ -5904,7 +5905,7 @@ msgstr "实体"
 
 #: lib/modules/sitemap/web/settings.html.heex:135
 #: lib/modules/sitemap/web/settings.html.heex:315
-#: lib/phoenix_kit/notifications/types.ex:318
+#: lib/phoenix_kit/notifications/types.ex:319
 #: lib/phoenix_kit/users/auth.ex:3758
 #: lib/phoenix_kit_web/live/modules.ex:212
 #, elixir-autogen
@@ -7156,7 +7157,7 @@ msgstr "未找到媒体文件"
 #: lib/phoenix_kit_web/components/media_gallery.html.heex:58
 #: lib/phoenix_kit_web/components/media_gallery.html.heex:59
 #: lib/phoenix_kit_web/live/settings/email_sending.html.heex:218
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:470
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:515
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:383
 #, elixir-autogen, elixir-format
 msgid "Preview"
@@ -7691,8 +7692,8 @@ msgstr "人员"
 #: lib/phoenix_kit_web/live/activity/show.html.heex:112
 #: lib/phoenix_kit_web/live/settings/email_preview.ex:157
 #: lib/phoenix_kit_web/live/settings/email_preview.html.heex:76
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:294
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:478
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:329
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:523
 #, elixir-autogen, elixir-format
 msgid "Subject"
 msgstr "主题"
@@ -8681,10 +8682,11 @@ msgid "Cannot edit a folder outside the allowed scope"
 msgstr "无法编辑允许范围之外的文件夹"
 
 #: lib/phoenix_kit/notifications/channels/email.ex:144
+#: lib/phoenix_kit/notifications/messages.ex:124
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:248
 #: lib/phoenix_kit_web/components/tree_picker.ex:253
 #: lib/phoenix_kit_web/live/notifications/inbox.ex:370
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:241
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:276
 #, elixir-autogen, elixir-format
 msgid "Change"
 msgstr "更改"
@@ -8901,7 +8903,7 @@ msgstr "如果您的账户属于多个组织，密钥的作用范围限定于创
 #: lib/phoenix_kit_web/components/account_menu.ex:129
 #: lib/phoenix_kit_web/components/core/file_details_fields.ex:61
 #: lib/phoenix_kit_web/live/settings/email_preview.html.heex:48
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:365
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:400
 #: lib/phoenix_kit_web/oauth/pages.ex:408
 #, elixir-autogen, elixir-format
 msgid "Language"
@@ -11174,7 +11176,7 @@ msgstr "标签"
 #: lib/phoenix_kit/integrations/providers.ex:1494
 #: lib/phoenix_kit/notifications/channels/telegram.ex:62
 #: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:341
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:291
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:326
 #, elixir-autogen, elixir-format
 msgid "Telegram"
 msgstr "Telegram"
@@ -14304,7 +14306,7 @@ msgid "Let users with several roles act as one role at a time"
 msgstr "允许拥有多个角色的用户一次以一个角色操作"
 
 #: lib/phoenix_kit_web/live/components/user_settings.ex:619
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:147
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:177
 #, elixir-autogen, elixir-format
 msgid "Saved."
 msgstr "已保存。"
@@ -15767,7 +15769,7 @@ msgstr "私有链接有效期（小时）"
 msgid "Role changed"
 msgstr "角色已更改"
 
-#: lib/phoenix_kit/notifications/types.ex:275
+#: lib/phoenix_kit/notifications/types.ex:276
 #: lib/phoenix_kit_web/components/profile_settings_tabs.ex:350
 #, elixir-autogen, elixir-format
 msgid "Security"
@@ -16778,7 +16780,7 @@ msgid "HTML body"
 msgstr "HTML 正文"
 
 #: lib/phoenix_kit_web/live/settings/email_preview.html.heex:91
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:489
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:534
 #, elixir-autogen, elixir-format
 msgid "HTML version of the email"
 msgstr "邮件的 HTML 版本"
@@ -16959,7 +16961,7 @@ msgid "Source"
 msgstr "来源"
 
 #: lib/phoenix_kit_web/live/settings/email_preview.html.heex:101
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:296
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:331
 #, elixir-autogen, elixir-format
 msgid "Text"
 msgstr "文本"
@@ -21986,73 +21988,73 @@ msgstr "审批与限制"
 msgid "The connection check gave an unexpected answer"
 msgstr "连接检查返回了意外的结果"
 
-#: lib/phoenix_kit/notifications/types.ex:294
+#: lib/phoenix_kit/notifications/types.ex:295
 #, elixir-autogen, elixir-format
 msgid "Password, email, role, timezone and profile changes made to your account"
 msgstr "对您账户所做的密码、邮箱、角色、时区和个人资料更改"
 
-#: lib/phoenix_kit/notifications/types.ex:319
+#: lib/phoenix_kit/notifications/types.ex:320
 #, elixir-autogen, elixir-format
 msgid "Likes, comments, mentions, and shares on your posts"
 msgstr "您的帖子收到的点赞、评论、提及和分享"
 
-#: lib/phoenix_kit/notifications/types.ex:327
+#: lib/phoenix_kit/notifications/types.ex:328
 #, elixir-autogen, elixir-format
 msgid "Likes"
 msgstr "点赞"
 
-#: lib/phoenix_kit/notifications/types.ex:328
+#: lib/phoenix_kit/notifications/types.ex:329
 #, elixir-autogen, elixir-format
 msgid "Likes on your posts"
 msgstr "您的帖子收到的点赞"
 
-#: lib/phoenix_kit/notifications/types.ex:335
+#: lib/phoenix_kit/notifications/types.ex:336
 #, elixir-autogen, elixir-format
 msgid "Comments on your posts"
 msgstr "您的帖子收到的评论"
 
-#: lib/phoenix_kit/notifications/types.ex:342
-#: lib/phoenix_kit/notifications/types.ex:386
+#: lib/phoenix_kit/notifications/types.ex:343
+#: lib/phoenix_kit/notifications/types.ex:387
 #, elixir-autogen, elixir-format
 msgid "Mentions"
 msgstr "提及"
 
-#: lib/phoenix_kit/notifications/types.ex:343
+#: lib/phoenix_kit/notifications/types.ex:344
 #, elixir-autogen, elixir-format
 msgid "Mentions of you in posts"
 msgstr "帖子中对您的提及"
 
-#: lib/phoenix_kit/notifications/types.ex:349
+#: lib/phoenix_kit/notifications/types.ex:350
 #, elixir-autogen, elixir-format
 msgid "Shares"
 msgstr "分享"
 
-#: lib/phoenix_kit/notifications/types.ex:350
+#: lib/phoenix_kit/notifications/types.ex:351
 #, elixir-autogen, elixir-format
 msgid "Shares of your posts"
 msgstr "您的帖子被分享"
 
-#: lib/phoenix_kit/notifications/types.ex:359
+#: lib/phoenix_kit/notifications/types.ex:360
 #, elixir-autogen, elixir-format
 msgid "Replies and reactions to your comments"
 msgstr "对您评论的回复和回应"
 
-#: lib/phoenix_kit/notifications/types.ex:365
+#: lib/phoenix_kit/notifications/types.ex:366
 #, elixir-autogen, elixir-format
 msgid "Replies"
 msgstr "回复"
 
-#: lib/phoenix_kit/notifications/types.ex:366
+#: lib/phoenix_kit/notifications/types.ex:367
 #, elixir-autogen, elixir-format
 msgid "Replies to your comments"
 msgstr "对您评论的回复"
 
-#: lib/phoenix_kit/notifications/types.ex:373
+#: lib/phoenix_kit/notifications/types.ex:374
 #, elixir-autogen, elixir-format
 msgid "Reactions"
 msgstr "回应"
 
-#: lib/phoenix_kit/notifications/types.ex:374
+#: lib/phoenix_kit/notifications/types.ex:375
 #, elixir-autogen, elixir-format
 msgid "Likes and reactions to your comments"
 msgstr "对您评论的点赞和回应"
@@ -26855,7 +26857,7 @@ msgstr ""
 "\n"
 "如果按钮无法使用，请打开此链接：[{{security_url}}]({{security_url}})\n"
 
-#: lib/phoenix_kit/notifications/types.ex:277
+#: lib/phoenix_kit/notifications/types.ex:278
 #, elixir-autogen, elixir-format
 msgid "New sign-ins to your account from a new device or country, and sessions opened on your account by someone else"
 msgstr "来自新设备或新国家/地区的新登录，以及他人在您账户上开启的会话"
@@ -27131,7 +27133,7 @@ msgstr "%{name} 提到了你。"
 msgid "You were mentioned."
 msgstr "有人提到了你。"
 
-#: lib/phoenix_kit/notifications/types.ex:387
+#: lib/phoenix_kit/notifications/types.ex:388
 #, elixir-autogen, elixir-format
 msgid "When someone mentions you with @"
 msgstr "有人用 @ 提到你时"
@@ -28480,17 +28482,17 @@ msgstr "Acme Ltd：“请把发票寄到新地址。”"
 msgid "Add me"
 msgstr "添加我"
 
-#: lib/phoenix_kit/notifications/types.ex:295
+#: lib/phoenix_kit/notifications/types.ex:296
 #, elixir-autogen, elixir-format
 msgid "An administrator gave you the Editor role."
 msgstr "管理员授予了你“编辑”角色。"
 
-#: lib/phoenix_kit/notifications/types.ex:336
+#: lib/phoenix_kit/notifications/types.ex:337
 #, elixir-autogen, elixir-format
 msgid "Anna commented on your post “Spring update”."
 msgstr "Anna 评论了你的帖子“春季更新”。"
 
-#: lib/phoenix_kit/notifications/types.ex:367
+#: lib/phoenix_kit/notifications/types.ex:368
 #, elixir-autogen, elixir-format
 msgid "Anna replied to your comment."
 msgstr "Anna 回复了你的评论。"
@@ -28522,7 +28524,7 @@ msgstr "无法保存——开关显示的是已保存的状态。"
 msgid "For example: %{example}"
 msgstr "例如：%{example}"
 
-#: lib/phoenix_kit/notifications/types.ex:388
+#: lib/phoenix_kit/notifications/types.ex:389
 #, elixir-autogen, elixir-format
 msgid "Max wrote “@Anna, can you check this?” in a comment."
 msgstr "Max 在评论中写道：“@Anna，你能看一下吗？”"
@@ -28572,7 +28574,7 @@ msgstr "你收到此通知，是因为“%{line}”已开启。"
 msgid "You get this because “Comments” is on."
 msgstr "你收到此通知，是因为“评论”已开启。"
 
-#: lib/phoenix_kit/notifications/types.ex:280
+#: lib/phoenix_kit/notifications/types.ex:281
 #, elixir-autogen, elixir-format
 msgid "You signed in from a new phone in Tallinn."
 msgstr "你在塔林用一部新手机登录了。"

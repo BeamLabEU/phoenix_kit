@@ -131,7 +131,7 @@ msgstr "Créer un nouveau compte"
 #: lib/phoenix_kit/notifications/channels/email.ex:42
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:200
 #: lib/phoenix_kit_web/live/components/library_settings.ex:2600
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:290
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:325
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:233
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:700
 #: lib/phoenix_kit_web/live/users/users.html.heex:328
@@ -1576,7 +1576,8 @@ msgstr "Seul le Propriétaire peut modifier les permissions Admin"
 
 #: lib/modules/storage/web/libraries_component.ex:632
 #: lib/phoenix_kit/notifications/channels/email.ex:136
-#: lib/phoenix_kit/notifications/channels/telegram.ex:212
+#: lib/phoenix_kit/notifications/channels/telegram.ex:215
+#: lib/phoenix_kit/notifications/messages.ex:124
 #: lib/phoenix_kit_web/components/core/preview_card.ex:305
 #: lib/phoenix_kit_web/components/core/preview_card.ex:339
 #: lib/phoenix_kit_web/live/components/library_settings.ex:1373
@@ -1930,7 +1931,7 @@ msgstr "SWIFT/BIC"
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:256
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:306
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:356
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:464
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:509
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:143
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:316
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:375
@@ -3791,7 +3792,7 @@ msgstr "Clé API"
 msgid "Accept"
 msgstr "Accepter"
 
-#: lib/phoenix_kit/notifications/types.ex:292
+#: lib/phoenix_kit/notifications/types.ex:293
 #: lib/phoenix_kit/users/table_columns.ex:314
 #: lib/phoenix_kit_web/components/profile_settings_tabs.ex:349
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:249
@@ -5500,8 +5501,8 @@ msgstr "Disponible"
 msgid "Body Saved"
 msgstr "Corps enregistré"
 
-#: lib/phoenix_kit/notifications/types.ex:334
-#: lib/phoenix_kit/notifications/types.ex:358
+#: lib/phoenix_kit/notifications/types.ex:335
+#: lib/phoenix_kit/notifications/types.ex:359
 #: lib/phoenix_kit/users/auth.ex:3760
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:1011
 #: lib/phoenix_kit_web/live/modules.ex:200
@@ -5914,7 +5915,7 @@ msgstr "Entités"
 
 #: lib/modules/sitemap/web/settings.html.heex:135
 #: lib/modules/sitemap/web/settings.html.heex:315
-#: lib/phoenix_kit/notifications/types.ex:318
+#: lib/phoenix_kit/notifications/types.ex:319
 #: lib/phoenix_kit/users/auth.ex:3758
 #: lib/phoenix_kit_web/live/modules.ex:212
 #, elixir-autogen
@@ -7182,7 +7183,7 @@ msgstr "Aucun fichier média trouvé"
 #: lib/phoenix_kit_web/components/media_gallery.html.heex:58
 #: lib/phoenix_kit_web/components/media_gallery.html.heex:59
 #: lib/phoenix_kit_web/live/settings/email_sending.html.heex:218
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:470
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:515
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:383
 #, elixir-autogen, elixir-format
 msgid "Preview"
@@ -7718,8 +7719,8 @@ msgstr "Personnes"
 #: lib/phoenix_kit_web/live/activity/show.html.heex:112
 #: lib/phoenix_kit_web/live/settings/email_preview.ex:157
 #: lib/phoenix_kit_web/live/settings/email_preview.html.heex:76
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:294
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:478
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:329
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:523
 #, elixir-autogen, elixir-format
 msgid "Subject"
 msgstr "Sujet"
@@ -8710,10 +8711,11 @@ msgid "Cannot edit a folder outside the allowed scope"
 msgstr "Impossible de modifier un dossier en dehors du périmètre autorisé"
 
 #: lib/phoenix_kit/notifications/channels/email.ex:144
+#: lib/phoenix_kit/notifications/messages.ex:124
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:248
 #: lib/phoenix_kit_web/components/tree_picker.ex:253
 #: lib/phoenix_kit_web/live/notifications/inbox.ex:370
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:241
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:276
 #, elixir-autogen, elixir-format
 msgid "Change"
 msgstr "Modifier"
@@ -8930,7 +8932,7 @@ msgstr "Si votre compte appartient à plusieurs organisations, les clés sont li
 #: lib/phoenix_kit_web/components/account_menu.ex:129
 #: lib/phoenix_kit_web/components/core/file_details_fields.ex:61
 #: lib/phoenix_kit_web/live/settings/email_preview.html.heex:48
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:365
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:400
 #: lib/phoenix_kit_web/oauth/pages.ex:408
 #, elixir-autogen, elixir-format
 msgid "Language"
@@ -11204,7 +11206,7 @@ msgstr "Tags"
 #: lib/phoenix_kit/integrations/providers.ex:1494
 #: lib/phoenix_kit/notifications/channels/telegram.ex:62
 #: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:341
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:291
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:326
 #, elixir-autogen, elixir-format
 msgid "Telegram"
 msgstr "Telegram"
@@ -14335,7 +14337,7 @@ msgid "Let users with several roles act as one role at a time"
 msgstr "Permettre aux utilisateurs ayant plusieurs rôles d'agir avec un seul rôle à la fois"
 
 #: lib/phoenix_kit_web/live/components/user_settings.ex:619
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:147
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:177
 #, elixir-autogen, elixir-format
 msgid "Saved."
 msgstr "Enregistré."
@@ -15803,7 +15805,7 @@ msgstr "Durée des liens privés (heures)"
 msgid "Role changed"
 msgstr "Rôle modifié"
 
-#: lib/phoenix_kit/notifications/types.ex:275
+#: lib/phoenix_kit/notifications/types.ex:276
 #: lib/phoenix_kit_web/components/profile_settings_tabs.ex:350
 #, elixir-autogen, elixir-format
 msgid "Security"
@@ -16822,7 +16824,7 @@ msgid "HTML body"
 msgstr "Corps HTML"
 
 #: lib/phoenix_kit_web/live/settings/email_preview.html.heex:91
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:489
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:534
 #, elixir-autogen, elixir-format
 msgid "HTML version of the email"
 msgstr "Version HTML de l'e-mail"
@@ -17003,7 +17005,7 @@ msgid "Source"
 msgstr "Source"
 
 #: lib/phoenix_kit_web/live/settings/email_preview.html.heex:101
-#: lib/phoenix_kit_web/live/settings/notification_messages.ex:296
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:331
 #, elixir-autogen, elixir-format
 msgid "Text"
 msgstr "Texte"
@@ -21973,73 +21975,73 @@ msgstr "Approbations et limites"
 msgid "The connection check gave an unexpected answer"
 msgstr "La vérification de la connexion a donné une réponse inattendue"
 
-#: lib/phoenix_kit/notifications/types.ex:294
+#: lib/phoenix_kit/notifications/types.ex:295
 #, elixir-autogen, elixir-format
 msgid "Password, email, role, timezone and profile changes made to your account"
 msgstr "Modifications du mot de passe, de l'adresse e-mail, du rôle, du fuseau horaire et du profil apportées à votre compte"
 
-#: lib/phoenix_kit/notifications/types.ex:319
+#: lib/phoenix_kit/notifications/types.ex:320
 #, elixir-autogen, elixir-format
 msgid "Likes, comments, mentions, and shares on your posts"
 msgstr "J'aime, commentaires, mentions et partages sur vos publications"
 
-#: lib/phoenix_kit/notifications/types.ex:327
+#: lib/phoenix_kit/notifications/types.ex:328
 #, elixir-autogen, elixir-format
 msgid "Likes"
 msgstr "J'aime"
 
-#: lib/phoenix_kit/notifications/types.ex:328
+#: lib/phoenix_kit/notifications/types.ex:329
 #, elixir-autogen, elixir-format
 msgid "Likes on your posts"
 msgstr "J'aime sur vos publications"
 
-#: lib/phoenix_kit/notifications/types.ex:335
+#: lib/phoenix_kit/notifications/types.ex:336
 #, elixir-autogen, elixir-format
 msgid "Comments on your posts"
 msgstr "Commentaires sur vos publications"
 
-#: lib/phoenix_kit/notifications/types.ex:342
-#: lib/phoenix_kit/notifications/types.ex:386
+#: lib/phoenix_kit/notifications/types.ex:343
+#: lib/phoenix_kit/notifications/types.ex:387
 #, elixir-autogen, elixir-format
 msgid "Mentions"
 msgstr "Mentions"
 
-#: lib/phoenix_kit/notifications/types.ex:343
+#: lib/phoenix_kit/notifications/types.ex:344
 #, elixir-autogen, elixir-format
 msgid "Mentions of you in posts"
 msgstr "Mentions de vous dans des publications"
 
-#: lib/phoenix_kit/notifications/types.ex:349
+#: lib/phoenix_kit/notifications/types.ex:350
 #, elixir-autogen, elixir-format
 msgid "Shares"
 msgstr "Partages"
 
-#: lib/phoenix_kit/notifications/types.ex:350
+#: lib/phoenix_kit/notifications/types.ex:351
 #, elixir-autogen, elixir-format
 msgid "Shares of your posts"
 msgstr "Partages de vos publications"
 
-#: lib/phoenix_kit/notifications/types.ex:359
+#: lib/phoenix_kit/notifications/types.ex:360
 #, elixir-autogen, elixir-format
 msgid "Replies and reactions to your comments"
 msgstr "Réponses et réactions à vos commentaires"
 
-#: lib/phoenix_kit/notifications/types.ex:365
+#: lib/phoenix_kit/notifications/types.ex:366
 #, elixir-autogen, elixir-format
 msgid "Replies"
 msgstr "Réponses"
 
-#: lib/phoenix_kit/notifications/types.ex:366
+#: lib/phoenix_kit/notifications/types.ex:367
 #, elixir-autogen, elixir-format
 msgid "Replies to your comments"
 msgstr "Réponses à vos commentaires"
 
-#: lib/phoenix_kit/notifications/types.ex:373
+#: lib/phoenix_kit/notifications/types.ex:374
 #, elixir-autogen, elixir-format
 msgid "Reactions"
 msgstr "Réactions"
 
-#: lib/phoenix_kit/notifications/types.ex:374
+#: lib/phoenix_kit/notifications/types.ex:375
 #, elixir-autogen, elixir-format
 msgid "Likes and reactions to your comments"
 msgstr "J'aime et réactions à vos commentaires"
@@ -26832,7 +26834,7 @@ msgstr "Envoyer un e-mail aux utilisateurs lors d'une connexion depuis un nouvea
 msgid "Hi {{user_email}},\n\nWe noticed a login to your account from a new device or location:\n\n- Time: {{login_time}}\n- IP address: {{ip_address}}\n- Location: {{location}}\n- Device: {{browser_os}}\n\n{{failed_attempts}}\n\nIf this was you, no action is needed.\n\nIf you don't recognize this activity, secure your account:\n\n[Review account security]({{security_url}})\n\nIf the button doesn't work, open this link: [{{security_url}}]({{security_url}})\n"
 msgstr "Bonjour {{user_email}},\n\nNous avons remarqué une connexion à votre compte depuis un nouvel appareil ou un nouveau lieu :\n\n- Heure : {{login_time}}\n- Adresse IP : {{ip_address}}\n- Lieu : {{location}}\n- Appareil : {{browser_os}}\n\n{{failed_attempts}}\n\nSi c'était vous, aucune action n'est nécessaire.\n\nSi vous ne reconnaissez pas cette activité, sécurisez votre compte :\n\n[Vérifier la sécurité du compte]({{security_url}})\n\nSi le bouton ne fonctionne pas, ouvrez ce lien : [{{security_url}}]({{security_url}})\n"
 
-#: lib/phoenix_kit/notifications/types.ex:277
+#: lib/phoenix_kit/notifications/types.ex:278
 #, elixir-autogen, elixir-format
 msgid "New sign-ins to your account from a new device or country, and sessions opened on your account by someone else"
 msgstr "Nouvelles connexions à votre compte depuis un nouvel appareil ou un nouveau pays, et sessions ouvertes sur votre compte par quelqu'un d'autre"
@@ -27109,7 +27111,7 @@ msgstr "%{name} vous a mentionné."
 msgid "You were mentioned."
 msgstr "Vous avez été mentionné."
 
-#: lib/phoenix_kit/notifications/types.ex:387
+#: lib/phoenix_kit/notifications/types.ex:388
 #, elixir-autogen, elixir-format
 msgid "When someone mentions you with @"
 msgstr "Quand quelqu’un vous mentionne avec @"
@@ -28458,17 +28460,17 @@ msgstr "Acme Ltd : « Merci d’envoyer la facture à la nouvelle adresse. »"
 msgid "Add me"
 msgstr "M’ajouter"
 
-#: lib/phoenix_kit/notifications/types.ex:295
+#: lib/phoenix_kit/notifications/types.ex:296
 #, elixir-autogen, elixir-format
 msgid "An administrator gave you the Editor role."
 msgstr "Un administrateur vous a attribué le rôle Éditeur."
 
-#: lib/phoenix_kit/notifications/types.ex:336
+#: lib/phoenix_kit/notifications/types.ex:337
 #, elixir-autogen, elixir-format
 msgid "Anna commented on your post “Spring update”."
 msgstr "Anna a commenté votre publication « Nouveautés du printemps »."
 
-#: lib/phoenix_kit/notifications/types.ex:367
+#: lib/phoenix_kit/notifications/types.ex:368
 #, elixir-autogen, elixir-format
 msgid "Anna replied to your comment."
 msgstr "Anna a répondu à votre commentaire."
@@ -28500,7 +28502,7 @@ msgstr "Impossible d’enregistrer — les interrupteurs montrent ce qui est enr
 msgid "For example: %{example}"
 msgstr "Par exemple : %{example}"
 
-#: lib/phoenix_kit/notifications/types.ex:388
+#: lib/phoenix_kit/notifications/types.ex:389
 #, elixir-autogen, elixir-format
 msgid "Max wrote “@Anna, can you check this?” in a comment."
 msgstr "Max a écrit « @Anna, peux-tu vérifier ceci ? » dans un commentaire."
@@ -28550,7 +28552,7 @@ msgstr "Vous recevez ceci parce que « %{line} » est activé."
 msgid "You get this because “Comments” is on."
 msgstr "Vous recevez ceci parce que « Commentaires » est activé."
 
-#: lib/phoenix_kit/notifications/types.ex:280
+#: lib/phoenix_kit/notifications/types.ex:281
 #, elixir-autogen, elixir-format
 msgid "You signed in from a new phone in Tallinn."
 msgstr "Vous vous êtes connecté depuis un nouveau téléphone à Tallinn."
