@@ -27,11 +27,18 @@ defmodule PhoenixKitWeb.Components.PeoplePicker.Source do
         user: %User{} | nil,       # optional: drawn with core's `user_avatar`
         name: "Anna Kask",         # optional: the name the avatar's letters come from
         faces: [%User{}],          # optional: a group's members, drawn as a stack
-        member?: true              # optional: indented under the group before it
+        member?: true,             # optional: indented under the group before it
+        id: "team-…-person-…"      # optional: the row's own id in the list
       }
 
   A key is `{kind, uuid}`, both strings. What the picker posts and sends to
   its parent is a list of keys.
+
+  A list may show the same key more than once — a person under each team
+  that matched a search. Give such rows an `:id` of their own (unique in the
+  list): the picker keys each row of a list on it, so every copy shows.
+  Without one, a row is keyed on its key, and a second copy replaces the
+  first.
   """
 
   @type ctx :: %{required(:viewer_uuid) => String.t() | nil, optional(atom()) => term()}
@@ -45,7 +52,8 @@ defmodule PhoenixKitWeb.Components.PeoplePicker.Source do
           optional(:user) => map() | nil,
           optional(:name) => String.t() | nil,
           optional(:faces) => [map()],
-          optional(:member?) => boolean()
+          optional(:member?) => boolean(),
+          optional(:id) => String.t()
         }
   @type group :: %{key: String.t(), label: String.t()}
   @type view :: {:group, String.t()} | {:search, String.t()}

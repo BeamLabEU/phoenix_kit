@@ -29,6 +29,14 @@ defmodule PhoenixKitWeb.Components.PeoplePickerTest do
     def page({:group, "person"}, cursor, limit, _ctx), do: slice(@people, cursor, limit)
     def page({:group, "team"}, cursor, limit, _ctx), do: slice(@teams, cursor, limit)
 
+    # One person under two teams: two rows of one key, each with its own id.
+    def page({:search, "Twice"}, _cursor, _limit, _ctx),
+      do:
+        {[
+           %{kind: "person", uuid: "p5", label: "Twice in Kitchen", id: "team-t1-person-p5"},
+           %{kind: "person", uuid: "p5", label: "Twice in Garden", id: "team-t2-person-p5"}
+         ], nil}
+
     def page({:search, text}, cursor, limit, _ctx),
       do: slice(Enum.filter(@people ++ @teams, &String.contains?(&1.label, text)), cursor, limit)
 
@@ -66,7 +74,9 @@ defmodule PhoenixKitWeb.Components.PeoplePickerTest do
     def mount(_params, session, socket) do
       {:ok,
        Phoenix.Component.assign(socket,
-         keys: [],
+         keys: session["keys"] || [],
+         can_edit: Map.get(session, "can_edit", true),
+         can_remove: session["can_remove"] || false,
          max: session["max"],
          changes: 0,
          tags: %{{"person", "p1"} => ["You", %{label: "Project owner", tone: :info}]}
@@ -85,6 +95,8 @@ defmodule PhoenixKitWeb.Components.PeoplePickerTest do
           source={PhoenixKitWeb.Components.PeoplePickerTest.FakeSource}
           name="thing[people][]"
           max={@max}
+          can_edit={@can_edit}
+          can_remove={@can_remove}
           tags={@tags}
           viewer_uuid="viewer"
         />
@@ -123,6 +135,38 @@ defmodule PhoenixKitWeb.Components.PeoplePickerTest do
     assert keys(view) == "person:p2,team:t1"
     assert has_element?(view, "#pp-chip-person-p2", "Person 2")
     assert has_element?(view, ~s(input[type="hidden"][name="thing[people][]"][value="team:t1"]))
+  end
+
+  test "with can_remove, a chip can be taken off but nobody added", %{conn: conn} do
+    {:ok, view, _html} =
+      open(conn, %{
+        "keys" => [{"person", "p2"}, {"person", "p3"}],
+        "can_edit" => false,
+        "can_remove" => true
+      })
+
+    refute has_element?(view, "#pp-q")
+    view |> element("#pp-remove-person-p2") |> render_click()
+    assert keys(view) == "person:p3"
+
+    # A crafted add is refused all the same.
+    view |> with_target("#pp") |> render_click("toggle", %{"kind" => "person", "uuid" => "p4"})
+    assert keys(view) == "person:p3"
+  end
+
+  test "without can_edit or can_remove, a chip has no ×", %{conn: conn} do
+    {:ok, view, _html} = open(conn, %{"keys" => [{"person", "p2"}], "can_edit" => false})
+
+    refute has_element?(view, "#pp-remove-person-p2")
+  end
+
+  test "a person under two teams shows in both rows of a search", %{conn: conn} do
+    {:ok, view, _html} = open(conn)
+    focus(view)
+    view |> element("#pp-q") |> render_keyup(%{"value" => "Twice"})
+
+    assert has_element?(view, "#pp-options", "Twice in Kitchen")
+    assert has_element?(view, "#pp-options", "Twice in Garden")
   end
 
   test "× and a second press take a pick off", %{conn: conn} do
