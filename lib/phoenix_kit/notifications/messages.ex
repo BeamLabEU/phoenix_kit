@@ -269,6 +269,10 @@ defmodule PhoenixKit.Notifications.Messages do
   # `version` against it (nil: no check). `{:error, :stale}` otherwise.
   defp locked(key, version, fun) do
     RepoHelper.repo().transaction(fn ->
+      # A first save has no row to lock: the key's advisory lock serialises
+      # it too (codex, 2026-11-20).
+      RepoHelper.repo().query!("SELECT pg_advisory_xact_lock(hashtext($1))", ["pkmsg:" <> key])
+
       current =
         case PhoenixKit.Settings.History.lock_current(key) do
           %{value_json: %{} = entry} -> entry
@@ -286,7 +290,7 @@ defmodule PhoenixKit.Notifications.Messages do
 
   # A version is a token, never reused: a reset and a new save must not
   # hand out the number an open editor still holds (codex, 2026-11-20).
-  defp new_version, do: System.os_time(:microsecond)
+  defp new_version, do: System.os_time(:microsecond) * 1_000 + :rand.uniform(999)
 
   @doc """
   Removes the saved wording: the message falls back again. Same rights as

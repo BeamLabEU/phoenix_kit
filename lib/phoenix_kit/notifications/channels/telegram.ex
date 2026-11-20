@@ -224,7 +224,10 @@ defmodule PhoenixKit.Notifications.Channels.Telegram do
   # (a rate limit can; codex, 2026-11-20).
   defp button_refused?(desc) do
     down = String.downcase(desc)
-    String.contains?(down, "button") or String.contains?(down, "wrong http url")
+
+    not String.contains?(down, "too many requests") and
+      (String.contains?(down, "button_url") or String.contains?(down, "wrong http url") or
+         (String.contains?(down, "button") and String.contains?(down, ["invalid", "wrong"])))
   end
 
   defp transient?({:error, reason}),
@@ -282,11 +285,18 @@ defmodule PhoenixKit.Notifications.Channels.Telegram do
   defp keep_link(filled, nil), do: cut_utf16(filled, @telegram_max)
 
   defp keep_link(filled, url) do
-    if String.contains?(filled, url) and utf16_length(filled) <= @telegram_max do
+    # The link itself, not a longer one it is the start of (codex).
+    exact = ~r/#{Regex.escape(url)}(?=$|[\s)\]>"'])/u
+
+    if Regex.match?(exact, filled) and utf16_length(filled) <= @telegram_max do
       filled
     else
-      body = String.replace(filled, url, "") |> String.trim()
-      cut_utf16(body, max(@telegram_max - utf16_length(url) - 2, 0)) <> "\n\n" <> url
+      body = exact |> Regex.replace(filled, "") |> String.trim()
+      room = @telegram_max - utf16_length(url) - 2
+
+      if room > 0,
+        do: cut_utf16(body, room) <> "\n\n" <> url,
+        else: cut_utf16(url, @telegram_max)
     end
   end
 
@@ -323,7 +333,13 @@ defmodule PhoenixKit.Notifications.Channels.Telegram do
         tail_text = join.(tail)
         reserve = if tail_text == "", do: 0, else: utf16_length(tail_text) + 2
         head_text = cut_utf16(join.(head), max(@telegram_max - reserve, 0))
-        join.([head_text, if(tail_text != "", do: tail_text)])
+
+        # Whatever is left over the limit (a tail longer than the message)
+        # is cut too: never more than 4,096 (codex).
+        [head_text, if(tail_text != "", do: tail_text)]
+        |> Enum.reject(&(&1 in [nil, ""]))
+        |> Enum.join("\n\n")
+        |> cut_utf16(@telegram_max)
     end
   end
 

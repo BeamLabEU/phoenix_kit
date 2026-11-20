@@ -145,4 +145,29 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessagesTest do
     assert entry["markdown"] == "{{text}} (own)"
     assert entry["subject"] == ""
   end
+
+  test "clearing a type's last own part is the same as a reset", %{conn: conn} do
+    owner = %PhoenixKit.Users.Auth.Scope{
+      user: %PhoenixKit.Users.Auth.User{uuid: Ecto.UUID.generate()},
+      authenticated?: true,
+      cached_roles: ["Owner"],
+      cached_permissions: MapSet.new()
+    }
+
+    [type | _] = PhoenixKit.Notifications.Types.all_pref_keys()
+    {:ok, _} = Messages.save(owner, type, "email", "en", %{"subject" => "Own", "markdown" => ""})
+
+    {:ok, view, _html} = live(editor(conn), @path <> "?type=#{type}&channel=email&lang=en")
+    version = Messages.entry(type, "email", "en")["version"]
+
+    # The body is the default, untouched (sent with Windows line endings).
+    default_body = Messages.default_parts("email", "en")["markdown"]
+
+    render_submit(view, "save", %{
+      "version" => to_string(version),
+      "message" => %{"subject" => "", "markdown" => String.replace(default_body, "\n", "\r\n")}
+    })
+
+    assert Messages.entry(type, "email", "en") == nil
+  end
 end

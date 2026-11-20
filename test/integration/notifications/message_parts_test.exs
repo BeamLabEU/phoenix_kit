@@ -245,6 +245,40 @@ defmodule PhoenixKit.Integration.Notifications.MessagePartsTest do
       assert body["text"] =~ "Fit the doors (ACME-12) can be started"
     end
 
+    test "a reason longer than the message is cut too",
+         %{user: user, config: config} do
+      telegram_answers(fn conn, _body -> ok(conn) end)
+
+      env =
+        envelope(user, %{
+          title: "T",
+          text: "x",
+          quote: nil,
+          url: nil,
+          reason: String.duplicate("r", 5_000)
+        })
+
+      assert :ok = Channel.deliver(env, config)
+      assert_received {:telegram, body}
+      assert Channel.utf16_length(body["text"]) <= 4_096
+    end
+
+    test "a rate limit that mentions buttons is not taken for a refused button",
+         %{user: user, config: config} do
+      telegram_answers(fn conn, _body ->
+        conn
+        |> Plug.Conn.put_status(429)
+        |> Req.Test.json(%{
+          "ok" => false,
+          "description" => "Too Many Requests: retry after 30 for messages with buttons"
+        })
+      end)
+
+      refute :ok == Channel.deliver(envelope(user, %{}), config)
+      assert_received {:telegram, %{"reply_markup" => _}}
+      refute_received {:telegram, _}
+    end
+
     test "with no link there is no button", %{user: user, config: config} do
       telegram_answers(fn conn, _body -> ok(conn) end)
 

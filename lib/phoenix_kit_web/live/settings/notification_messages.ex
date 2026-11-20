@@ -136,10 +136,20 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessages do
   defp to_store(fields, socket) do
     %{start: start, sources: sources} = socket.assigns
 
+    # A textarea hands back `\n` for `\r\n`: the same text (codex).
+    same? = fn a, b -> normalize(a) == normalize(b) end
+
     Map.new(fields, fn {part, value} ->
-      if sources[part] != :own and value == start[part], do: {part, ""}, else: {part, value}
+      if sources[part] != :own and same?.(value, start[part]),
+        do: {part, ""},
+        else: {part, value}
     end)
   end
+
+  defp normalize(text) when is_binary(text),
+    do: text |> String.replace("\r\n", "\n") |> String.trim()
+
+  defp normalize(_), do: ""
 
   defp drifted?(nil, _channel, _locale), do: false
 
@@ -170,14 +180,24 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessages do
     %{type: type, channel: channel, locale: locale} = socket.assigns
     scope = socket.assigns[:phoenix_kit_current_scope]
 
-    stored = fields |> Map.take(Messages.parts(channel)) |> to_store(socket)
+    # Every part, the submitted ones over what the editor holds: a partial
+    # payload never drops a part (codex). The version always goes: an
+    # editor never saves unchecked.
+    stored =
+      socket.assigns.fields
+      |> Map.merge(Map.take(fields, Messages.parts(channel)))
+      |> to_store(socket)
 
-    case Messages.save(scope, type, channel, locale, stored, version: params["version"]) do
+    case Messages.save(scope, type, channel, locale, stored, version: params["version"] || "0") do
       {:ok, _} ->
         {:noreply, socket |> load() |> put_flash(:info, gettext("Saved."))}
 
       {:error, :empty} when is_nil(socket.assigns.entry) ->
         {:noreply, put_flash(socket, :info, gettext("Nothing changed."))}
+
+      # Every own part cleared: the same as a reset (codex).
+      {:error, :empty} ->
+        handle_event("reset", %{}, socket)
 
       {:error, reason} ->
         {:noreply,
