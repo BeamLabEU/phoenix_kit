@@ -121,11 +121,11 @@ defmodule PhoenixKitWeb.CoreOwnedDestinationsTest do
     test "Confirmation.mount assigns a destination that resolves" do
       # Anonymous mount with a probe token; `destination` is computed from
       # params/session and stored in assigns. The token's validity is irrelevant
-      # here — the DB check only happens in `handle_event("confirm_account", ...)`.
+      # here — the DB check only happens on the CONNECTED mount, and this socket
+      # is not connected.
       params = %{"token" => "probe_token"}
 
-      {:ok, socket, _opts} =
-        Confirmation.mount(params, %{}, lv_socket())
+      {:ok, socket} = Confirmation.mount(params, %{}, lv_socket())
 
       destination = socket.assigns.destination
 

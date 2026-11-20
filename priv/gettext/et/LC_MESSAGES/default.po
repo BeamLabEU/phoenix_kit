@@ -1130,7 +1130,7 @@ msgid "Edit in General"
 msgstr "Muuda üldistes seadetes"
 
 #: lib/phoenix_kit_web/live/users/profile_settings.ex:51
-#: lib/phoenix_kit_web/users/confirm_email_change.ex:60
+#: lib/phoenix_kit_web/users/confirm_email_change.ex:66
 #, elixir-autogen, elixir-format
 msgid "Email change link is invalid or it has expired."
 msgstr "E-posti muutmise link on kehtetu või aegunud."
@@ -1417,7 +1417,6 @@ msgid "Line Break"
 msgstr "Reavahe"
 
 #: lib/phoenix_kit_web/components/user_dashboard_nav.ex:353
-#: lib/phoenix_kit_web/users/confirmation.html.heex:33
 #: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:141
 #: lib/phoenix_kit_web/users/forgot_password.html.heex:33
 #: lib/phoenix_kit_web/users/login.ex:22
@@ -7290,11 +7289,6 @@ msgstr "URL-i käitumise seade uuendamine ebaõnnestus"
 msgid "When on, the primary language drops its locale segment in every URL (e.g. /admin/users instead of /en/admin/users, /blog/post instead of /en/blog/post). Other languages always keep their prefix."
 msgstr "Kui sisse lülitatud, eemaldab põhikeel oma keelesegmendi igast URL-ist (nt /en/admin/users asemel /admin/users, /en/blog/post asemel /blog/post). Teised keeled säilitavad alati oma prefiksi."
 
-#: lib/phoenix_kit_web/users/confirmation.html.heex:10
-#, elixir-autogen, elixir-format
-msgid "Account Confirmation"
-msgstr "Konto kinnitamine"
-
 #: lib/phoenix_kit_web/users/registration.html.heex:255
 #, elixir-autogen, elixir-format
 msgid "Already have an account?"
@@ -7336,23 +7330,13 @@ msgstr "Lõpeta registreerimine"
 msgid "Complete your profile"
 msgstr "Täida oma profiil"
 
-#: lib/phoenix_kit_web/users/confirmation.html.heex:7
-#, elixir-autogen, elixir-format
-msgid "Confirm Account"
-msgstr "Kinnita konto"
-
-#: lib/phoenix_kit_web/users/confirmation.html.heex:17
-#, elixir-autogen, elixir-format
-msgid "Confirm my account"
-msgstr "Kinnita minu konto"
-
 #: lib/phoenix_kit_web/users/reset_password.html.heex:32
 #, elixir-autogen, elixir-format
 msgid "Confirm new password"
 msgstr "Kinnita uus parool"
 
-#: lib/phoenix_kit_web/users/confirm_email_change.html.heex:17
-#: lib/phoenix_kit_web/users/confirmation.html.heex:14
+#: lib/phoenix_kit_web/users/confirm_email_change.html.heex:15
+#: lib/phoenix_kit_web/users/confirmation.html.heex:11
 #, elixir-autogen, elixir-format
 msgid "Confirming..."
 msgstr "Kinnitamine..."
@@ -7457,7 +7441,6 @@ msgstr "Eelistad parooli?"
 msgid "Referral Code"
 msgstr "Soovituskood"
 
-#: lib/phoenix_kit_web/users/confirmation.html.heex:26
 #: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:134
 #: lib/phoenix_kit_web/users/registration.ex:27
 #: lib/phoenix_kit_web/users/reset_password.html.heex:51
@@ -12588,12 +12571,12 @@ msgstr "Liiga palju sisselogimiskatseid. Palun proovige hiljem uuesti."
 msgid "Unknown OAuth provider: %{provider}"
 msgstr "Tundmatu OAuth teenusepakkuja: %{provider}"
 
-#: lib/phoenix_kit_web/users/confirmation.ex:70
+#: lib/phoenix_kit_web/users/confirmation.ex:83
 #, elixir-autogen, elixir-format
 msgid "User confirmation link is invalid or it has expired."
 msgstr "Kasutaja kinnituslink on kehtetu või aegunud."
 
-#: lib/phoenix_kit_web/users/confirmation.ex:52
+#: lib/phoenix_kit_web/users/confirmation.ex:66
 #, elixir-autogen, elixir-format
 msgid "User confirmed successfully."
 msgstr "Kasutaja kinnitatud edukalt."
@@ -13682,7 +13665,7 @@ msgid "Complete your registration"
 msgstr "Lõpetage oma registreerimine"
 
 #: lib/phoenix_kit/email/core_templates.ex:289
-#: lib/phoenix_kit_web/users/confirmation.ex:18
+#: lib/phoenix_kit_web/users/confirmation.ex:27
 #, elixir-autogen, elixir-format
 msgid "Confirm your account"
 msgstr "Kinnitage oma konto"
@@ -14054,28 +14037,12 @@ msgstr "Automaatne"
 msgid "Change Email"
 msgstr "Muuda e-posti"
 
-#: lib/phoenix_kit_web/users/confirm_email_change.ex:26
-#: lib/phoenix_kit_web/users/confirm_email_change.html.heex:13
+#: lib/phoenix_kit_web/users/confirm_email_change.ex:28
 #, elixir-autogen, elixir-format
 msgid "Confirm Email Change"
 msgstr "Kinnita e-posti muutmine"
 
-#: lib/phoenix_kit_web/users/confirm_email_change.html.heex:20
-#, elixir-autogen, elixir-format
-msgid "Confirm email change"
-msgstr "Kinnita e-posti muutmine"
-
-#: lib/phoenix_kit_web/users/confirm_email_change.html.heex:7
-#, elixir-autogen, elixir-format
-msgid "Confirm your new email"
-msgstr "Kinnita oma uus e-post"
-
-#: lib/phoenix_kit_web/users/confirm_email_change.html.heex:9
-#, elixir-autogen, elixir-format
-msgid "Confirming also completes your account confirmation."
-msgstr "Kinnitamine lõpetab ühtlasi ka sinu konto kinnitamise."
-
-#: lib/phoenix_kit_web/users/confirm_email_change.ex:48
+#: lib/phoenix_kit_web/users/confirm_email_change.ex:55
 #, elixir-autogen, elixir-format
 msgid "Email changed and confirmed. Welcome!"
 msgstr "E-post on muudetud ja kinnitatud. Tere tulemast!"
@@ -28554,7 +28521,7 @@ msgstr "Logisite sisse uue telefoniga Tallinnas."
 msgid "QR code"
 msgstr "QR-kood"
 
-#: lib/phoenix_kit_web/components/auth_methods.ex:33
+#: lib/phoenix_kit_web/components/auth_methods.ex:35
 #, elixir-autogen, elixir-format
 msgid "or"
 msgstr "või"
