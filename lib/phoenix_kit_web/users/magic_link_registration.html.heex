@@ -5,7 +5,7 @@
   current_path={assigns[:url_path] || "/users/register"}
 >
   <h1 class="text-2xl font-bold text-center mb-2">{gettext("Complete Your Registration")}</h1>
-  <p class="text-center text-base-content/60 text-sm mb-6">
+  <p class="text-center text-base-content/60 text-sm mb-4">
     {gettext("Email:")} <strong>{@email}</strong>
   </p>
 
@@ -27,7 +27,7 @@
       <%!-- Username Field --%>
       <div phx-feedback-for="user[username]">
         <label class="label" for="user_username">
-          <span class="fieldset-legend">{gettext("Username")}</span>
+          <span class="fieldset-legend py-1">{gettext("Username")}</span>
         </label>
         <.input field={@form[:username]} type="text" autocomplete="username">
           <:icon>
@@ -39,7 +39,7 @@
       <%!-- Password Field --%>
       <div phx-feedback-for="user[password]">
         <label class="label" for="user_password">
-          <span class="fieldset-legend">{gettext("Password")}</span>
+          <span class="fieldset-legend py-1">{gettext("Password")}</span>
         </label>
         <.input
           field={@form[:password]}
@@ -62,7 +62,7 @@
       <%= if @account_type_mode == "organization" do %>
         <div phx-feedback-for="user[organization_name]">
           <label class="label" for="user_organization_name">
-            <span class="fieldset-legend">{gettext("Organization Name")}</span>
+            <span class="fieldset-legend py-1">{gettext("Organization Name")}</span>
           </label>
           <.input field={@form[:organization_name]} type="text" required>
             <:icon>
@@ -79,7 +79,7 @@
         <%!-- First Name Field (optional) --%>
         <div phx-feedback-for="user[first_name]">
           <label class="label" for="user_first_name">
-            <span class="fieldset-legend">
+            <span class="fieldset-legend py-1">
               {gettext("First Name")}
               <span class="text-base-content/50 font-normal">({gettext("optional")})</span>
             </span>
@@ -95,7 +95,7 @@
         <%!-- Last Name Field (optional) --%>
         <div phx-feedback-for="user[last_name]">
           <label class="label" for="user_last_name">
-            <span class="fieldset-legend">
+            <span class="fieldset-legend py-1">
               {gettext("Last Name")}
               <span class="text-base-content/50 font-normal">({gettext("optional")})</span>
             </span>

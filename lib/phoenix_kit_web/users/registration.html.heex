@@ -5,10 +5,9 @@
   current_path={assigns[:url_path] || "/users/register"}
   dev_mailbox_message={gettext("confirmation emails")}
 >
-  <h1 class="text-2xl font-bold text-center mb-2">{gettext("Create account")}</h1>
-  <p class="text-center text-base-content/60 text-sm mb-6">
+  <h1 class="text-2xl font-bold text-center mb-4">
     {gettext("Join %{project_title} today", project_title: @project_title)}
-  </p>
+  </h1>
 
   <%!-- Invitation banner: shown when user arrives via org invitation link --%>
   <%= if @pending_invitation do %>
@@ -29,6 +28,25 @@
       </span>
     </div>
   <% end %>
+
+  <%!-- The other ways in, first: see `AuthMethods`. --%>
+  <% oauth_providers = PhoenixKitWeb.Components.OAuthButtons.enabled_providers() %>
+  <PhoenixKitWeb.Components.AuthMethods.auth_methods :if={
+    @magic_link_registration_enabled or oauth_providers != []
+  }>
+    <.link
+      :if={@magic_link_registration_enabled}
+      navigate={Routes.path("/users/register/magic-link") <> Routes.return_to_query(@return_to)}
+      class="btn btn-outline w-full gap-2"
+    >
+      <PhoenixKitWeb.Components.Core.Icons.icon_email class="w-5 h-5" />
+      {gettext("Magic link")}
+    </.link>
+    <PhoenixKitWeb.Components.OAuthButtons.provider_links
+      providers={oauth_providers}
+      return_to={@return_to}
+    />
+  </PhoenixKitWeb.Components.AuthMethods.auth_methods>
 
   <.form
     for={@form}
@@ -58,25 +76,33 @@
     <fieldset class="fieldset min-w-0">
       <legend class="fieldset-legend sr-only">{gettext("Account Information")}</legend>
 
-      <div phx-feedback-for="user[email]">
+      <div class={[
+        @email_left && @email_errors != [] && "[&_label.input]:border-error"
+      ]}>
         <label class="label" for="user_email">
-          <span class="fieldset-legend">{gettext("Email")}</span>
+          <span class="fieldset-legend py-1">{gettext("Email")}</span>
         </label>
-        <%!-- Checked when the person leaves the field, not on every keystroke:
-             "must have the @ sign" while they are still typing it reads as
-             a scolding. The username fills in from it then. --%>
+        <%!-- Sent while typed, so the username below follows it live; its
+             error waits until the person leaves the field (`email_left`):
+             "must have the @ sign" while they are still typing it reads as a
+             scolding. The error is rendered below, not by the input: see
+             `email_field/1`. --%>
         <.input
-          field={@form[:email]}
+          field={email_field(@form)}
           type="email"
           autocomplete="email"
           required
-          phx-debounce="blur"
+          phx-debounce="200"
+          phx-blur="email_left"
         >
           <:icon>
             <PhoenixKitWeb.Components.Core.Icons.icon_email class="h-[1em] w-[1em] opacity-50" />
           </:icon>
         </.input>
-        <p :if={@email_suggestion} id="email-suggestion" class="mt-1 text-sm">
+        <div :if={@email_left} id="user_email-errors">
+          <.error :for={msg <- @email_errors}>{msg}</.error>
+        </div>
+        <p :if={@email_suggestion && @email_left} id="email-suggestion" class="mt-1 text-sm">
           {gettext("Did you mean")}
           <button
             type="button"
@@ -93,16 +119,13 @@
       <%= if @show_username do %>
         <div phx-feedback-for="user[username]">
           <label class="label" for="user_username">
-            <span class="fieldset-legend">{gettext("Username")}</span>
+            <span class="fieldset-legend py-1">{gettext("Username")}</span>
           </label>
           <.input field={@form[:username]} type="text" autocomplete="username">
             <:icon>
               <PhoenixKitWeb.Components.Core.Icons.icon_user_profile class="h-[1em] w-[1em] opacity-50" />
             </:icon>
           </.input>
-          <div class="text-xs text-base-content/60 mt-1">
-            {gettext("Auto-filled from your email — edit it to choose your own")}
-          </div>
         </div>
       <% end %>
 
@@ -143,7 +166,7 @@
       <%= if @account_type_selectable do %>
         <div phx-feedback-for="user[account_type]">
           <label class="label" for="user_account_type">
-            <span class="fieldset-legend">{gettext("Account Type")}</span>
+            <span class="fieldset-legend py-1">{gettext("Account Type")}</span>
           </label>
           <select
             id="user_account_type"
@@ -172,7 +195,7 @@
       <%= if Phoenix.HTML.Form.input_value(@form, :account_type) == "organization" do %>
         <div phx-feedback-for="user[organization_name]">
           <label class="label" for="user_organization_name">
-            <span class="fieldset-legend">{gettext("Organization Name")}</span>
+            <span class="fieldset-legend py-1">{gettext("Organization Name")}</span>
           </label>
           <.input field={@form[:organization_name]} type="text" required>
             <:icon>
@@ -184,7 +207,7 @@
 
       <div phx-feedback-for="user[password]">
         <label class="label" for="user_password">
-          <span class="fieldset-legend">{gettext("Password")}</span>
+          <span class="fieldset-legend py-1">{gettext("Password")}</span>
         </label>
         <.input
           field={@form[:password]}
@@ -204,7 +227,7 @@
            without the persistent cookie the session rides a browser-session
            cookie that phones drop overnight. Users can untick it, and the
            site can change the default (or forbid persistence) in settings. --%>
-      <div :if={@remember_me_available} class="fieldset mt-4">
+      <div :if={@remember_me_available} class="mt-3">
         <.checkbox
           id="user_remember_me"
           name="user[remember_me]"
@@ -213,11 +236,11 @@
         />
       </div>
 
-      <.turnstile_widget id="registration-turnstile" />
+      <.turnstile_widget id="registration-turnstile" class="mt-3" />
 
       <button
         type="submit"
-        class="btn btn-primary w-full mt-4 transition-all hover:scale-[1.02] active:scale-[0.98]"
+        class="btn btn-primary w-full mt-3 transition-all hover:scale-[1.02] active:scale-[0.98]"
       >
         <PhoenixKitWeb.Components.Core.Icons.icon_user_add class="w-5 h-5 mr-2" /> {gettext(
           "Create account"
@@ -227,41 +250,8 @@
     </fieldset>
   </.form>
 
-  <%!-- Alternative registration methods --%>
-  <%!-- Only show this section if at least one alternative method is available --%>
-  <%= if @magic_link_registration_enabled or PhoenixKit.Users.OAuthAvailability.oauth_available?() do %>
-    <div class="mt-6">
-      <div class="relative">
-        <div class="absolute inset-0 flex items-center">
-          <div class="w-full border-t border-base-300" />
-        </div>
-        <div class="relative flex justify-center text-sm">
-          <span class="px-2 bg-base-100 text-base-content/60">{gettext("Or continue with")}</span>
-        </div>
-      </div>
-
-      <div class="mt-4 space-y-2">
-        <%!-- Magic Link Registration --%>
-        <%= if @magic_link_registration_enabled do %>
-          <.link
-            navigate={Routes.path("/users/register/magic-link") <> Routes.return_to_query(@return_to)}
-            class="btn btn-outline w-full transition-all hover:scale-[1.02] active:scale-[0.98] hover:shadow-lg"
-          >
-            <PhoenixKitWeb.Components.Core.Icons.icon_email class="w-5 h-5 mr-2" />
-            {gettext("Register with Magic Link")}
-          </.link>
-        <% end %>
-        <%!-- OAuth authentication --%>
-        <PhoenixKitWeb.Components.OAuthButtons.oauth_buttons
-          show_divider={false}
-          return_to={@return_to}
-        />
-      </div>
-    </div>
-  <% end %>
-
   <%!-- Login link --%>
-  <div class="text-center mt-4 text-sm">
+  <div class="text-center mt-3 text-sm">
     <span>{gettext("Already have an account?")}</span>
     <.link
       navigate={Routes.path("/users/log-in") <> Routes.return_to_query(@return_to)}

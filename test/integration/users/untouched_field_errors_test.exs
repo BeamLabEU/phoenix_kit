@@ -34,6 +34,9 @@ defmodule PhoenixKitWeb.Integration.Users.UntouchedFieldErrorsTest do
           "user" => %{"email" => "a", "password" => "", "_unused_password" => ""}
         })
 
+      refute html =~ @blank
+
+      html = view |> element("#user_email") |> render_blur()
       assert html =~ "must have the @ sign"
       refute html =~ @blank
     end
@@ -49,11 +52,91 @@ defmodule PhoenixKitWeb.Integration.Users.UntouchedFieldErrorsTest do
       assert html =~ @blank
     end
 
-    test "email and password are checked when the person leaves them", %{conn: conn} do
+    test "the password is checked when the person leaves it", %{conn: conn} do
       {:ok, _view, html} = live(conn, Routes.path("/users/register"))
 
-      assert debounce(html, "user[email]") == ["blur"]
       assert debounce(html, "user[password]") == ["blur"]
+    end
+
+    test "the email is sent while typed, its error waits until the field is left",
+         %{conn: conn} do
+      {:ok, view, html} = live(conn, Routes.path("/users/register"))
+      assert debounce(html, "user[email]") == ["200"]
+
+      html =
+        render_change(view, "validate", %{"user" => %{"email" => "maarja@", "password" => ""}})
+
+      refute html =~ "must have the @ sign"
+
+      html = view |> element("#user_email") |> render_blur()
+      assert html =~ "must have the @ sign"
+    end
+
+    test "the username follows the email from its first letters", %{conn: conn} do
+      {:ok, view, _html} = live(conn, Routes.path("/users/register"))
+
+      # Before the "@": a preview from what is typed.
+      html =
+        render_change(view, "validate", %{
+          "_target" => ["user", "email"],
+          "user" => %{"email" => "maarja.tamm", "username" => ""}
+        })
+
+      assert username_value(html) == ["maarja_tamm"]
+
+      # A name the person typed is theirs: the email no longer changes it.
+      render_change(view, "validate", %{
+        "_target" => ["user", "username"],
+        "user" => %{"email" => "maarja.tamm", "username" => "mine"}
+      })
+
+      html =
+        render_change(view, "validate", %{
+          "_target" => ["user", "email"],
+          "user" => %{"email" => "other", "username" => "mine"}
+        })
+
+      assert username_value(html) == ["mine"]
+    end
+  end
+
+  describe "the sign-in methods (sign-up and log-in)" do
+    setup do
+      {:ok, _} =
+        PhoenixKit.Settings.update_boolean_setting("magic_link_registration_enabled", true)
+
+      {:ok, _} = PhoenixKit.Settings.update_boolean_setting("magic_link_login_enabled", true)
+      :ok
+    end
+
+    test "come first, named by the method alone", %{conn: conn} do
+      for {path, form_id} <- [
+            {"/users/register", "registration_form"},
+            {"/users/log-in", "login_form"}
+          ] do
+        html = conn |> get(Routes.path(path)) |> html_response(200)
+
+        {methods, _} = :binary.match(html, ~s(id="auth-methods"))
+        {form, _} = :binary.match(html, ~s(id="#{form_id}"))
+        assert methods < form, path
+        assert html =~ "Magic link", path
+        refute html =~ "with Magic Link", path
+      end
+    end
+  end
+
+  describe "the page around the form" do
+    test "no card without a background of the site's own", %{conn: conn} do
+      html = conn |> get(Routes.path("/users/log-in")) |> html_response(200)
+      refute html =~ "card-body"
+    end
+
+    test "a card over the site's background colour", %{conn: conn} do
+      {:ok, _} = PhoenixKit.Settings.update_setting("auth_background_color", "#123456")
+      on_exit(fn -> PhoenixKit.Settings.update_setting("auth_background_color", "") end)
+
+      html = conn |> get(Routes.path("/users/log-in")) |> html_response(200)
+      assert html =~ "card-body"
     end
   end
 
@@ -211,6 +294,13 @@ defmodule PhoenixKitWeb.Integration.Users.UntouchedFieldErrorsTest do
       html = render_change(view, "validate", %{"dimension" => %{"width" => "300", "name" => ""}})
       assert name_marked?(html, "dimension[name]")
     end
+  end
+
+  defp username_value(html) do
+    html
+    |> LazyHTML.from_document()
+    |> LazyHTML.query(~s(input[name="user[username]"]))
+    |> LazyHTML.attribute("value")
   end
 
   # The `phx-debounce` of the input called `name`.

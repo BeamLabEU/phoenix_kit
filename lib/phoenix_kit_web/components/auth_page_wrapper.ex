@@ -70,7 +70,10 @@ defmodule PhoenixKitWeb.Components.AuthPageWrapper do
         Languages.enabled?() and length(Languages.get_enabled_languages()) > 1
       end)
 
-    assigns = assign(assigns, :bg_style_tag, bg_style_tag(assigns))
+    assigns =
+      assigns
+      |> assign(:bg_style_tag, bg_style_tag(assigns))
+      |> assign(:custom_bg?, custom_bg?(assigns))
 
     ~H"""
     <LayoutWrapper.auth_layout
@@ -91,11 +94,22 @@ defmodule PhoenixKitWeb.Components.AuthPageWrapper do
             parent's height comes from `auth_layout`'s `min-h-dvh`.
             The old `-my-8` / `-mx-[calc(50vw-50%)]` compensated for a chrome
             wrapper that auth no longer renders inside. --%>
-      <div class="auth-bg min-h-full w-full flex items-center justify-center px-4 py-8">
-        <div class="card bg-base-100 w-full max-w-sm shadow-2xl">
-          <div class="card-body">
+      <%!-- The form starts near the top instead of the middle of the screen,
+            which left a tall empty band above it on a big screen. It sits on
+            the page itself; a card (a box with a shadow) is drawn only over a
+            site's own background image or colour, where the form needs a
+            surface of its own to stay readable. --%>
+      <div class={[
+        "auth-bg min-h-full w-full flex justify-center px-4 py-6 sm:py-12",
+        !@custom_bg? && "bg-base-100"
+      ]}>
+        <div class={[
+          "w-full max-w-sm",
+          @custom_bg? && "card bg-base-100 shadow-lg self-start"
+        ]}>
+          <div class={if @custom_bg?, do: "card-body p-6", else: "flex flex-col"}>
             <%= if @auth_logo_url != "" do %>
-              <div class="flex justify-center mb-6">
+              <div class="flex justify-center mb-4">
                 <img src={@auth_logo_url} alt={@project_title} class="h-20 object-contain" />
               </div>
             <% end %>
@@ -138,6 +152,11 @@ defmodule PhoenixKitWeb.Components.AuthPageWrapper do
       end
 
     "<style>.auth-bg { #{desktop} background-size: cover; background-position: center; } #{mobile}</style>"
+  end
+
+  defp custom_bg?(assigns) do
+    bg_css(CssValue.url(assigns.auth_bg_image), CssValue.color(assigns.auth_bg_color)) != "" or
+      CssValue.url(assigns.auth_bg_image_mobile) != ""
   end
 
   defp bg_css("", ""), do: ""

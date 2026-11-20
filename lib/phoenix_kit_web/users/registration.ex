@@ -18,6 +18,7 @@ defmodule PhoenixKitWeb.Users.Registration do
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.Components.Core.Input, as: CoreInput
   alias PhoenixKitWeb.Users.Auth, as: WebAuth
   alias PhoenixKitWeb.Users.AuthSEO
   alias PhoenixKitWeb.Users.BotCheck
@@ -93,6 +94,9 @@ defmodule PhoenixKitWeb.Users.Registration do
         socket
         |> assign(trigger_submit: false, check_errors: false)
         |> assign(username_edited: false)
+        # Whether the visitor has left the email field (or submitted): its
+        # error and the "Did you mean" hint wait until then (`email_field/2`).
+        |> assign(email_left: false, email_errors: [])
         |> assign(project_title: project_title)
         |> assign(canonical_url: seo.canonical_url)
         |> assign(hreflang_links: seo.hreflang_links)
@@ -130,7 +134,15 @@ defmodule PhoenixKitWeb.Users.Registration do
   # and the address's domain is asked for in DNS.
   @public_door [site_wide: true, check_email_domain: true]
 
+  # The email is sent while typed, so the username made from it follows live;
+  # its error waits until the visitor leaves the field.
+  def handle_event("email_left", _params, socket) do
+    {:noreply, assign(socket, :email_left, true)}
+  end
+
   def handle_event("save", %{"user" => user_params} = params, socket) do
+    socket = assign(socket, :email_left, true)
+
     if Settings.get_boolean_setting("allow_registration", true) do
       case BotCheck.run(socket, params, socket.assigns[:user_ip_address]) do
         {:ok, socket} -> do_save(user_params, params, socket)
@@ -172,7 +184,11 @@ defmodule PhoenixKitWeb.Users.Registration do
     # Track whether the user owns the username field, then keep it in sync with
     # the email while it's still auto-managed.
     username_edited = username_manually_edited?(socket, params, user_params)
-    user_params = maybe_sync_username(user_params, username_edited)
+
+    user_params =
+      user_params
+      |> maybe_sync_username(username_edited)
+      |> maybe_preview_username(username_edited)
 
     # The form re-renders on every change, so the checkbox has to be driven by
     # what the user actually left it at — otherwise unticking it would snap
@@ -301,6 +317,15 @@ defmodule PhoenixKitWeb.Users.Registration do
   # into the username field claims it (auto-sync stops); clearing it releases
   # ownership so auto-sync from email resumes. Any other field leaves the current
   # ownership state untouched.
+  @doc false
+  # The email input carries no errors of its own: they are `@email_errors`,
+  # shown under it once the visitor has left the field or submitted, so "must
+  # have the @ sign" does not scold an address still being typed. They live in
+  # an assign of their own because the form is a temporary assign (it holds the
+  # typed password): leaving the field re-renders the error, never the input,
+  # which could not be rebuilt without the form.
+  def email_field(form), do: %{form[:email] | errors: []}
+
   defp username_manually_edited?(socket, params, user_params) do
     case params["_target"] do
       ["user", "username"] -> String.trim(user_params["username"] || "") != ""
@@ -316,6 +341,22 @@ defmodule PhoenixKitWeb.Users.Registration do
   defp maybe_sync_username(user_params, false = _username_edited),
     do: Map.put(user_params, "username", "")
 
+  # While typing only: the changeset makes the username once the address has
+  # its "@" (it must not mint one from a half-typed address it saves), so until
+  # then the field shows the name the typed part would give, and it fills in
+  # from the first letter. The save regenerates it from the final email.
+  defp maybe_preview_username(%{"username" => ""} = user_params, false = _username_edited) do
+    email = user_params["email"]
+
+    if is_binary(email) and email != "" and not String.contains?(email, "@") do
+      Map.put(user_params, "username", User.generate_username_from_email(email) || "")
+    else
+      user_params
+    end
+  end
+
+  defp maybe_preview_username(user_params, _username_edited), do: user_params
+
   defp assign_form(socket, %Ecto.Changeset{} = changeset) do
     form = to_form(changeset, as: "user")
 
@@ -327,6 +368,8 @@ defmodule PhoenixKitWeb.Users.Registration do
         :email_suggestion,
         EmailDomain.suggestion(Ecto.Changeset.get_field(changeset, :email))
       )
+
+    socket = assign(socket, :email_errors, CoreInput.field_errors(form[:email]))
 
     if changeset.valid? do
       assign(socket, form: form, check_errors: false)

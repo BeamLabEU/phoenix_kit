@@ -5,10 +5,50 @@
   current_path={assigns[:url_path] || "/users/log-in"}
   dev_mailbox_message={gettext("confirmation emails")}
 >
-  <h1 class="text-2xl font-bold text-center mb-2">
+  <h1 class="text-2xl font-bold text-center mb-4">
     {gettext("Sign in to %{project_title}", project_title: @project_title)}
   </h1>
-  <p class="text-center text-base-content/60 text-sm mb-6">{gettext("Welcome back")}</p>
+
+  <%!-- The other ways in, first: see `AuthMethods`. --%>
+  <% oauth_providers = PhoenixKitWeb.Components.OAuthButtons.enabled_providers() %>
+  <PhoenixKitWeb.Components.AuthMethods.auth_methods :if={
+    @passkey_enabled or @magic_link_enabled or @qr_login_enabled or oauth_providers != []
+  }>
+    <%!-- Passkey: the button for the browser's prompt. The same hook also
+         starts the passkey suggestions in the email field as the page loads. --%>
+    <div
+      :if={@passkey_enabled}
+      id="passkey-sign-in"
+      phx-hook="PasskeySignIn"
+      data-remember-me="#user_remember_me"
+    >
+      <button type="button" data-passkey-sign-in class="btn btn-outline w-full gap-2">
+        <.icon name="hero-finger-print" class="w-5 h-5" />
+        {gettext("Passkey")}
+      </button>
+    </div>
+    <.link
+      :if={@magic_link_enabled}
+      navigate={Routes.path("/users/magic-link") <> Routes.return_to_query(@return_to)}
+      class="btn btn-outline w-full gap-2"
+    >
+      <PhoenixKitWeb.Components.Core.Icons.icon_email class="w-5 h-5" />
+      {gettext("Magic link")}
+    </.link>
+    <.link
+      :if={@qr_login_enabled}
+      navigate={Routes.path("/users/qr-login") <> Routes.return_to_query(@return_to)}
+      class="btn btn-outline w-full gap-2"
+    >
+      <PhoenixKitWeb.Components.Core.Icons.icon_qr_code class="w-5 h-5" />
+      {gettext("QR code")}
+    </.link>
+    <PhoenixKitWeb.Components.OAuthButtons.provider_links
+      providers={oauth_providers}
+      return_to={@return_to}
+    />
+  </PhoenixKitWeb.Components.AuthMethods.auth_methods>
+
   <.form
     for={@form}
     id="login_form"
@@ -20,7 +60,7 @@
       <legend class="fieldset-legend sr-only">{gettext("Login with Password")}</legend>
 
       <label class="label" for="user_email_or_username">
-        <span class="fieldset-legend">{gettext("Email or Username")}</span>
+        <span class="fieldset-legend py-1">{gettext("Email or Username")}</span>
       </label>
       <.input
         type="text"
@@ -36,7 +76,7 @@
       </.input>
 
       <label class="label" for="user_password">
-        <span class="fieldset-legend">{gettext("Password")}</span>
+        <span class="fieldset-legend py-1">{gettext("Password")}</span>
       </label>
       <.input
         type="password"
@@ -54,7 +94,7 @@
 
       <%!-- Checked by default (site-configurable); users can untick it for a
            session-only login, and the site can forbid persistence entirely. --%>
-      <div :if={@remember_me_available} class="fieldset mt-4">
+      <div :if={@remember_me_available} class="mt-3">
         <.checkbox
           id="user_remember_me"
           name="user[remember_me]"
@@ -75,7 +115,7 @@
       <button
         type="submit"
         phx-disable-with={gettext("Logging in...")}
-        class="btn btn-primary w-full mt-4 transition-all hover:scale-[1.02] active:scale-[0.98]"
+        class="btn btn-primary w-full mt-3 transition-all hover:scale-[1.02] active:scale-[0.98]"
       >
         <PhoenixKitWeb.Components.Core.Icons.icon_login class="w-5 h-5 mr-2" /> {gettext("Log in")}
         <span aria-hidden="true">→</span>
@@ -83,10 +123,8 @@
     </fieldset>
   </.form>
 
-  <%!-- Registration link: right under the button, above the alternative
-       sign-in methods, which can run to a screen of provider buttons. --%>
   <%= if @allow_registration do %>
-    <div class="text-center mt-4 text-sm">
+    <div class="text-center mt-3 text-sm">
       <span>{gettext("New to %{project_title}?", project_title: @project_title)}</span>
       <.link
         navigate={Routes.path("/users/register") <> Routes.return_to_query(@return_to)}
@@ -94,68 +132,6 @@
       >
         {gettext("Create an account")}
       </.link>
-    </div>
-  <% end %>
-
-  <%!-- Alternative authentication methods --%>
-  <%!-- Only show this section if at least one alternative method is available --%>
-  <%= if @passkey_enabled or @magic_link_enabled or @qr_login_enabled or PhoenixKit.Users.OAuthAvailability.oauth_available?() do %>
-    <div class="mt-6">
-      <div class="relative">
-        <div class="absolute inset-0 flex items-center">
-          <div class="w-full border-t border-base-300" />
-        </div>
-        <div class="relative flex justify-center text-sm">
-          <span class="px-2 bg-base-100 text-base-content/60">
-            {gettext("Or continue with")}
-          </span>
-        </div>
-      </div>
-
-      <div class="mt-4 space-y-2">
-        <%!-- Passkey: the button for the browser's prompt. The same hook also
-             starts the passkey suggestions in the email field as the page loads. --%>
-        <div
-          :if={@passkey_enabled}
-          id="passkey-sign-in"
-          phx-hook="PasskeySignIn"
-          data-remember-me="#user_remember_me"
-        >
-          <button
-            type="button"
-            data-passkey-sign-in
-            class="btn btn-outline w-full transition-all hover:scale-[1.02] active:scale-[0.98] hover:shadow-lg"
-          >
-            <.icon name="hero-finger-print" class="w-5 h-5 mr-2" />
-            {gettext("Sign in with passkey")}
-          </button>
-        </div>
-        <%!-- Magic Link authentication --%>
-        <%= if @magic_link_enabled do %>
-          <.link
-            navigate={Routes.path("/users/magic-link") <> Routes.return_to_query(@return_to)}
-            class="btn btn-outline w-full transition-all hover:scale-[1.02] active:scale-[0.98] hover:shadow-lg"
-          >
-            <PhoenixKitWeb.Components.Core.Icons.icon_email class="w-5 h-5 mr-2" />
-            {gettext("Sign in with Magic Link")}
-          </.link>
-        <% end %>
-        <%!-- QR code sign-in --%>
-        <%= if @qr_login_enabled do %>
-          <.link
-            navigate={Routes.path("/users/qr-login") <> Routes.return_to_query(@return_to)}
-            class="btn btn-outline w-full transition-all hover:scale-[1.02] active:scale-[0.98] hover:shadow-lg"
-          >
-            <PhoenixKitWeb.Components.Core.Icons.icon_qr_code class="w-5 h-5 mr-2" />
-            {gettext("Sign in with QR code")}
-          </.link>
-        <% end %>
-        <%!-- OAuth authentication --%>
-        <PhoenixKitWeb.Components.OAuthButtons.oauth_buttons
-          show_divider={false}
-          return_to={@return_to}
-        />
-      </div>
     </div>
   <% end %>
 </PhoenixKitWeb.Components.AuthPageWrapper.auth_page_wrapper>

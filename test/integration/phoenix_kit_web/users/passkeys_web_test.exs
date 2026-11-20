@@ -63,7 +63,7 @@ defmodule PhoenixKitWeb.Integration.Users.PasskeysWebTest do
     test "offers the passkey button and the email-field suggestions", %{conn: conn} do
       {:ok, _view, html} = live(conn, Routes.path("/users/log-in"))
 
-      assert html =~ "Sign in with passkey"
+      assert html =~ "data-passkey-sign-in"
       assert html =~ ~s(phx-hook="PasskeySignIn")
       assert html =~ ~s(autocomplete="username webauthn")
     end
@@ -72,7 +72,7 @@ defmodule PhoenixKitWeb.Integration.Users.PasskeysWebTest do
       {:ok, _} = Settings.update_setting("passkey_login_enabled", "false")
       {:ok, view, html} = live(conn, Routes.path("/users/log-in"))
 
-      refute html =~ "Sign in with passkey"
+      refute html =~ "data-passkey-sign-in"
       refute html =~ "webauthn"
       render_hook(view, "passkey_options", %{})
       assert_reply(view, reply)
