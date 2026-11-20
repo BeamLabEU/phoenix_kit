@@ -7158,9 +7158,12 @@ if (typeof window !== "undefined") {
       loadTurnstile().then(function (turnstile) {
         // The page may have been left while the script was loading.
         if (self.gone || !self.el.isConnected) return;
+        // "flexible": as wide as the form (at least 300px) instead of the
+        // widget's fixed 300px, which left it short of every field above it.
         self.widgetId = turnstile.render(self.el, {
           sitekey: self.el.dataset.sitekey,
-          theme: "auto"
+          theme: "auto",
+          size: "flexible"
         });
       }).catch(function () {
         if (self.gone || !self.el.isConnected) return;

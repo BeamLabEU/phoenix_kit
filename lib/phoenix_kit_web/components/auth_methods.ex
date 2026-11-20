@@ -30,7 +30,9 @@ defmodule PhoenixKitWeb.Components.AuthMethods do
       <div class="grid grid-cols-2 gap-2 [&>*:last-child:nth-child(odd)]:col-span-2">
         {render_slot(@inner_block)}
       </div>
-      <div class="divider my-3 text-sm text-base-content/60">{gettext("or")}</div>
+      <%!-- mb-1: the form below adds its fieldset's and the first label's own
+           padding, so this evens the space on both sides of the line. --%>
+      <div class="divider mt-3 mb-1 text-sm text-base-content/60">{gettext("or")}</div>
     </div>
     """
   end

@@ -120,7 +120,7 @@ defmodule PhoenixKitWeb.Components.Core.Checkbox do
       <label
         title={@title}
         class={[
-          "flex gap-4 text-sm leading-6 text-base-content",
+          "flex gap-2.5 text-sm leading-6 text-base-content",
           (has_description? && "items-start") || "items-center",
           (@disabled && "cursor-not-allowed opacity-70") || "cursor-pointer",
           @wrapper_class
