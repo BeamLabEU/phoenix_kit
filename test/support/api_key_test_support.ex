@@ -166,17 +166,28 @@ defmodule PhoenixKit.API.KeyTestSupport do
     |> Repo.update!()
   end
 
-  # The one line a settings write logs when the test runs no `:settings`
-  # cache (the registry runs, the cache does not).
-  @expected_cache_warning ~r/\A\d\d:\d\d:\d\d\.\d{3} \[warning\] Cache settings could not be invalidated: \{:noproc/
+  # The lines a settings write logs when the test runs no `:settings` cache
+  # (the registry runs, the cache does not), plus the same "cache absent"
+  # warnings other processes can log into the capture window while the
+  # registry is down between tests: "could not be invalidated" (the write's
+  # own `invalidate_now/2` call), "unavailable" (a read whose registry is
+  # gone) and "not started" (the write's own `invalidate/2` cast). All three
+  # mean the same thing — no `:settings` cache in this test — so they are
+  # expected; anything else still fails the test.
+  @expected_cache_warnings [
+    ~r/\A\d\d:\d\d:\d\d\.\d{3} \[warning\] Cache settings could not be invalidated: \{:noproc/,
+    ~r/\A\d\d:\d\d:\d\d\.\d{3} \[warning\] Cache settings unavailable: /,
+    ~r/\A\d\d:\d\d:\d\d\.\d{3} \[warning\] Cache settings not started/
+  ]
 
   @doc """
   Runs a settings write, `fun`, which must return `{:ok, _}`, and returns `:ok`.
 
-  Most tests run no `:settings` cache, so every settings write logs "Cache
-  settings could not be invalidated: {:noproc, ...}". That one warning is
-  captured so it stays out of the test output. Any other line the write logs
-  fails the test: nothing else is hidden.
+  Most tests run no `:settings` cache, so every settings write logs a "cache
+  absent" warning ("Cache settings could not be invalidated: {:noproc, ...}",
+  or "unavailable" / "not started" when the registry itself is down). Those
+  warnings are captured so they stay out of the test output. Any other line
+  the write logs fails the test: nothing else is hidden.
   """
   def write_setting(fun) when is_function(fun, 0) do
     {{:ok, _setting}, log} = with_log(fun)
@@ -197,7 +208,7 @@ defmodule PhoenixKit.API.KeyTestSupport do
   defp unexpected_lines(log) do
     ~r/\n(?=\d\d:\d\d:\d\d\.\d{3} \[)/
     |> Regex.split(String.trim(log))
-    |> Enum.reject(&(&1 == "" or &1 =~ @expected_cache_warning))
+    |> Enum.reject(&(&1 == "" or Enum.any?(@expected_cache_warnings, fn re -> &1 =~ re end)))
   end
 
   @doc "Sets a setting the way the admin page would, as a string. See `write_setting/1`."

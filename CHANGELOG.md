@@ -1,4 +1,4 @@
-## Unreleased
+## 3.7.0 - 2026-11-20
 
 ### Added
 
@@ -72,6 +72,16 @@
   shape by shape. A shape with a comment thread is never deleted by an offline device. Core serves
   Etcher's service worker at `/assets/etcher-offline-sw.js`. Signing out does not yet clear the
   device's copies, so don't turn it on for shared computers.
+- **A modal the person can resize by its edges and corners** (#1048): `<.resizable_modal>`
+  (`PhoenixKitWeb.Components.Core.ResizableModal`) takes the same attributes as `<.modal>` plus
+  `height`, `min_width` and `min_height`; the `PkResizable` hook in `phoenix_kit.js` drags the box,
+  clamps it to the viewport and to the configured minimums, and keeps the chosen size under the
+  modal's `id`.
+- **A `PkFitHeight` hook for overlays that hang over the page** (#1049): with
+  `phx-hook="PkFitHeight"` an element's `max-height` is the room between its top and the bottom of
+  its nearest scrolling ancestor (or of the viewport), re-measured on patch, reveal and scroll,
+  with `data-fit-margin` / `data-fit-min` overrides. A menu or list inside a dialog stays in the
+  dialog instead of giving it a scrollbar.
 
 ### Changed
 
@@ -83,6 +93,15 @@
 - **Opening a row menu closes any other open row menu** (#1046).
 - **Dependencies:** fresco `~> 0.17.0`, etcher `~> 0.29.0`, tessera `~> 0.3.12`, leaf admits
   `~> 0.13.0` (#1045); mint `~> 1.11` (#1041).
+- **The sign-in and sign-up pages put the other sign-in methods first and are tighter** (#1050):
+  an even divider, a full-width Turnstile widget, a closer checkbox; the username field fills in
+  live from the address being typed (the save still regenerates it from the final email).
+- **Form errors wait for the field to be touched** (#1050): typing in one field no longer marks
+  the others red, and a LiveView reconnect (form recovery) shows no errors before a submit. Core's
+  form components read LiveView's `_unused_<field>` markers (`Core.Input.field_untouched?/2`).
+- **Confirming an email refreshes the account's open pages** (#1050): the confirmation broadcasts
+  a scope refresh (`ScopeNotifier.broadcast_account_changed/1`), so a "check your email" notice
+  disappears in every tab without a reload.
 
 ### Fixed
 
@@ -95,6 +114,24 @@
   regeneration off it returns `:disabled` at once, otherwise it waits until the Oban instance is
   registered (up to 60 s) and then runs the check; if Oban never comes up it logs a warning and
   returns `:oban_unavailable`.
+- **Provider sign-in buttons are offered only when the provider has credentials** (#1050): a
+  provider whose switches are on but whose client id or secret is missing — or undecryptable — no
+  longer shows on sign-in or sign-up, in the account menu, or in the profile's connect list; all
+  four use the same configured-provider check.
+- **Opening a confirmation link no longer spends the token on its own** (#1050): a
+  JavaScript-capable preview of the emailed link could confirm the account before the person read
+  it, so the page is back to an explicit "Confirm" submit (a plain fetch, like a mail scanner,
+  never ran the page's JavaScript and never spent the token either way).
+- **The library notice tells a stale copy of the install facts apart from missing facts** (#1037):
+  the page reports missing facts at once and refines to "stale" only when it ran a copy of
+  `phoenix_kit_modules.js` that lacks the file.
+- **Image-set cover tiles no longer download the full-width image** (#1038): gallery thumbnails
+  use the tile sizes, cropped tiles no longer stretch wide pictures, and an aspect ratio whose
+  quotient is unrepresentable falls back to natural image widths instead of raising.
+- **Local media storage probes no longer wait behind a stalled file server**: a thumbnail copy
+  occupying the Erlang file server could time out another size's existence check and leave that
+  size out of the linked copy; local existence checks now read the filesystem directly
+  (`File.exists?/2` with `[:raw]`).
 
 ## 3.6.1 - 2026-11-16
 

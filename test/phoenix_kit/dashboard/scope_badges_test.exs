@@ -92,6 +92,12 @@ defmodule PhoenixKit.Dashboard.ScopeBadgesTest do
     refute_received {:badges_called, _}
   end
 
+  test "a visitor with no scope asks nothing" do
+    Application.put_env(:phoenix_kit, :scope_badges, Host)
+    assert ScopeBadges.put_badges(tabs(), nil) == tabs()
+    refute_received {:badges_called, _}
+  end
+
   test "a key naming no tab is ignored" do
     Application.put_env(:phoenix_kit, :scope_badges, Host)
     Process.put(:scope_badges_answer, %{nowhere: Badge.count(1), orders: Badge.count(2)})

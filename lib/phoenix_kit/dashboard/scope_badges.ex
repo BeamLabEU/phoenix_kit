@@ -87,6 +87,8 @@ defmodule PhoenixKit.Dashboard.ScopeBadges do
   """
   @spec put_badges([Tab.t()], Scope.t() | nil) :: [Tab.t()]
   def put_badges([], _scope), do: []
+  # No viewer, no scope: nothing is computed for a visitor who gets no menu.
+  def put_badges(tabs, nil), do: tabs
 
   def put_badges(tabs, scope) do
     case loader() do
