@@ -78,6 +78,7 @@ defmodule PhoenixKit.Notifications.DeliveryWorker do
          true <- deliverable?(channel, user, config, type_key),
          {:ok, notification} <- load_source(args) do
       envelope = build_envelope(notification, user, recipient, type_key)
+      envelope = if visible?(type_key, notification, user), do: envelope, else: line_only(envelope)
       handle(channel.deliver(envelope, config), user, channel_key)
     else
       # Channel/user/source gone, or the user turned the channel/type off
@@ -190,7 +191,8 @@ defmodule PhoenixKit.Notifications.DeliveryWorker do
       notification_uuid: Map.get(notification, :uuid),
       locale: locale,
       icon: rendered.icon,
-      title: nil,
+      title: Map.get(rendered, :title),
+      action_label: Map.get(rendered, :action),
       text: rendered.text,
       url: absolutize(rendered.link),
       reason: why && why.text,
@@ -198,6 +200,13 @@ defmodule PhoenixKit.Notifications.DeliveryWorker do
       quote: Render.quote_text(quoted, quote_author(quoted))
     }
   end
+
+  # Asked when the job runs, not when it was queued: a reader who lost
+  # access since gets the line only, never the comment (codex, 2026-11-19).
+  defp visible?(type_key, notification, user),
+    do: PhoenixKit.Notifications.Types.still_visible?(type_key, notification, user)
+
+  defp line_only(envelope), do: %{envelope | quote: nil}
 
   # The quote's writer as the reader sees them: their display name, else the
   # name the module stored.

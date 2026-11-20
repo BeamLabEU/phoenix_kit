@@ -174,8 +174,50 @@ defmodule PhoenixKit.Notifications.Channels.Telegram do
     end
   end
 
+  # Plain text with an "Open" button (Max and the boss, 2026-11-20). No
+  # preview card: a link in a comment is never fetched and unfurled. A
+  # button Telegram refuses (an address it calls invalid — a dev box's
+  # `localhost`) is sent again without it, the link written in the text as
+  # before, rather than switching the person's Telegram off.
   defp send(uuid, chat_id, owner, envelope) do
-    Client.send_message(uuid, chat_id, body(envelope), owner: owner)
+    case button(envelope) do
+      nil ->
+        Client.send_message(uuid, chat_id, body(envelope, true), owner: owner, link_preview: false)
+
+      markup ->
+        case Client.send_message(uuid, chat_id, body(envelope, false),
+               owner: owner,
+               link_preview: false,
+               reply_markup: markup
+             ) do
+          {:error, desc} = error when is_binary(desc) ->
+            if button_refused?(desc),
+              do:
+                Client.send_message(uuid, chat_id, body(envelope, true),
+                  owner: owner,
+                  link_preview: false
+                ),
+              else: error
+
+          other ->
+            other
+        end
+    end
+  end
+
+  defp button(envelope) do
+    with url when is_binary(url) <- present(envelope[:url]),
+         true <- String.starts_with?(url, ["https://", "http://"]) do
+      label = present(envelope[:action_label]) || gettext("Open")
+      %{inline_keyboard: [[%{text: String.slice(label, 0, 60), url: url}]]}
+    else
+      _ -> nil
+    end
+  end
+
+  defp button_refused?(desc) do
+    down = String.downcase(desc)
+    String.contains?(down, "button") or String.contains?(down, "url")
   end
 
   defp transient?({:error, reason}),
@@ -186,11 +228,54 @@ defmodule PhoenixKit.Notifications.Channels.Telegram do
   defp transient?(_), do: false
 
   # Plain text (no parse_mode) so notification content can't break Telegram
-  # markup. The deep-link goes on its own line.
-  defp body(%{text: text} = envelope) do
-    [text, present(envelope[:quote]), present(envelope[:url]), reason_line(envelope)]
-    |> Enum.reject(&is_nil/1)
-    |> Enum.join("\n\n")
+  # markup: the title, the line, the quoted comment, then the setting line
+  # that sent it. The link is the button, or — with no button — its own
+  # line. Held to Telegram's 4,096 characters, counted as Telegram counts
+  # them (UTF-16 code units, so an emoji is two), the quote cut first.
+  @telegram_max 4_096
+
+  defp body(%{text: text} = envelope, link_in_text?) do
+    title = present(envelope[:title])
+    title = if title && title != text, do: title
+
+    head = Enum.reject([title, text], &is_nil/1)
+    url = if link_in_text?, do: present(envelope[:url])
+    tail = Enum.reject([url, reason_line(envelope)], &is_nil/1)
+
+    fit(head, present(envelope[:quote]), tail)
+  end
+
+  defp fit(head, quote, tail) do
+    join = fn parts -> parts |> Enum.reject(&is_nil/1) |> Enum.join("\n\n") end
+    whole = join.(head ++ [quote] ++ tail)
+
+    if utf16_length(whole) <= @telegram_max or is_nil(quote) do
+      cut_utf16(whole, @telegram_max)
+    else
+      more = "… " <> gettext("(open it to read the rest)")
+      room = @telegram_max - utf16_length(join.(head ++ ["", more] ++ tail)) - 2
+      join.(head ++ [cut_utf16(quote, max(room, 0)) <> " " <> more] ++ tail)
+    end
+  end
+
+  @doc false
+  def utf16_length(text), do: div(byte_size(:unicode.characters_to_binary(text, :utf8, :utf16)), 2)
+
+  # The longest start of `text` within `max` UTF-16 units, never cutting a
+  # character (or a grapheme) in two.
+  @doc false
+  def cut_utf16(text, max) do
+    if utf16_length(text) <= max do
+      text
+    else
+      text
+      |> String.graphemes()
+      |> Enum.reduce_while({"", 0}, fn g, {acc, n} ->
+        len = utf16_length(g)
+        if n + len > max, do: {:halt, {acc, n}}, else: {:cont, {acc <> g, n + len}}
+      end)
+      |> elem(0)
+    end
   end
 
   # The setting line that sent it, and where to change it.

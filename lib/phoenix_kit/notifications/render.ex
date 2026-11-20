@@ -2,8 +2,16 @@ defmodule PhoenixKit.Notifications.Render do
   @moduledoc """
   Human-readable rendering for notifications.
 
-  Maps `{activity.action, activity.metadata}` → `%{icon, text, link, actor_uuid}`
-  so the bell dropdown and inbox page don't need to know the action taxonomy.
+  Maps `{activity.action, activity.metadata}` → `%{icon, text, link, title,
+  action, actor_uuid}` so the bell dropdown and inbox page don't need to know
+  the action taxonomy.
+
+  A module writes its own parts in the metadata, already in the reader's
+  language: `notification_text` (the line; required for a module's own
+  wording), and optionally `notification_title` (a short title — the email's
+  subject, Telegram's first line), `notification_action` (the button's label,
+  "Open task"; core's "Open" otherwise), `notification_link` and
+  `notification_icon`. `title` and `action` are `nil` when not given.
 
   Unknown actions fall back to the raw action string with a generic icon, so a
   new action that hasn't been mapped yet still displays safely.
@@ -24,6 +32,8 @@ defmodule PhoenixKit.Notifications.Render do
           icon: String.t(),
           text: String.t(),
           link: String.t() | nil,
+          title: String.t() | nil,
+          action: String.t() | nil,
           actor_uuid: String.t() | nil
         }
 
@@ -60,6 +70,8 @@ defmodule PhoenixKit.Notifications.Render do
       icon: meta_string(meta, "notification_icon") || default_icon,
       text: meta_string(meta, "notification_text") || default_text,
       link: meta_string(meta, "notification_link") || link_for(activity, locale),
+      title: meta_string(meta, "notification_title"),
+      action: meta_string(meta, "notification_action"),
       actor_uuid: activity.actor_uuid
     }
   end
@@ -78,6 +90,8 @@ defmodule PhoenixKit.Notifications.Render do
       icon: meta_string(meta, "notification_icon") || "hero-bell",
       text: meta_string(meta, "notification_text") || gettext("You have a new notification."),
       link: meta_string(meta, "notification_link"),
+      title: meta_string(meta, "notification_title"),
+      action: meta_string(meta, "notification_action"),
       actor_uuid: nil
     }
   end

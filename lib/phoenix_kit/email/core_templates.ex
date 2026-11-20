@@ -275,11 +275,32 @@ defmodule PhoenixKit.Email.CoreTemplates do
   language.
   """
   @spec notification_defaults() :: PhoenixKit.Templates.defaults()
-  def notification_defaults do
-    %{
-      subject: "{{subject}}",
-      text: "{{text}}\n\n{{quote}}\n\n{{url}}\n\n{{reason}} {{settings_url}}"
-    }
+  def notification_defaults, do: notification_defaults(link: true, reason: true)
+
+  @doc """
+  The `notification` default with only the paragraphs a notice has:
+  `link: false` leaves out the button, `reason: false` the setting line —
+  an empty button would otherwise leave an empty paragraph behind (the
+  "blank paragraph" rule covers plain text only). `/0` is the full form,
+  for the preview.
+  """
+  @spec notification_defaults(keyword()) :: PhoenixKit.Templates.defaults()
+  def notification_defaults(opts) do
+    # Markdown, so the HTML version has a real button and the text version
+    # says the same (the boss, 2026-11-18: "how it looks"). Every value is
+    # substituted after rendering and escaped (`PhoenixKit.Email.Markdown`),
+    # so a quoted comment is shown as written, never as markup. A blank
+    # `{{quote}}` paragraph is left out of both bodies.
+    paragraphs =
+      [
+        "{{text}}",
+        "{{quote}}",
+        Keyword.get(opts, :link, true) && "[{{action_label}}]({{url}})",
+        Keyword.get(opts, :reason, true) && "{{reason}} [{{settings_label}}]({{settings_url}})"
+      ]
+      |> Enum.filter(& &1)
+
+    %{subject: "{{subject}}", markdown: Enum.join(paragraphs, "\n\n") <> "\n"}
   end
 
   @doc "Default copy of the account confirmation email (`register`)."

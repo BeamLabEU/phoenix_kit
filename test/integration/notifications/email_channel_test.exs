@@ -50,14 +50,15 @@ defmodule PhoenixKit.Integration.Notifications.EmailChannelTest do
       assert email.to == [{"", user.email}]
       assert email.subject == "Acme Ltd commented on <your> order"
 
+      # The link is a button now; the text version names it (2026-11-20).
       assert email.text_body ==
-               "Acme Ltd commented on <your> order\n\nhttps://shop.example.test/orders/1"
+               "Acme Ltd commented on <your> order\n\nOpen: https://shop.example.test/orders/1"
 
       assert email.html_body =~ "<!DOCTYPE html>"
       assert email.html_body =~ "Acme Ltd commented on &lt;your&gt; order"
 
-      assert email.html_body =~
-               ~s(<a href="https://shop.example.test/orders/1">https://shop.example.test/orders/1</a>)
+      # A button in the accent colour, labelled "Open".
+      assert email.html_body =~ ~r{<a[^>]*href="https://shop.example.test/orders/1"[^>]*>\s*Open\s*</a>}
     end)
   end
 
