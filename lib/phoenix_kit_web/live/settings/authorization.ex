@@ -399,6 +399,7 @@ defmodule PhoenixKitWeb.Live.Settings.Authorization do
     }
   end
 
+  defp turnstile_form_label("password_login"), do: gettext("Password sign-in")
   defp turnstile_form_label("registration"), do: gettext("Sign-up")
   defp turnstile_form_label("registration_link"), do: gettext("Registration link request")
   defp turnstile_form_label("password_reset"), do: gettext("Password reset request")

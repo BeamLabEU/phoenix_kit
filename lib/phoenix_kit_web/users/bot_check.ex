@@ -25,6 +25,32 @@ defmodule PhoenixKitWeb.Users.BotCheck do
 
   @reset_event "phoenix_kit:turnstile_reset"
 
+  # Issued only after the LiveView creates the account or changes its password.
+  # Authorizes skipping a second challenge for that email and operation.
+  # The controller still checks the password and applies the login rate limit.
+  @handoff_salt "PhoenixKit password sign-in Turnstile handoff"
+
+  def sign_handoff(socket, action, email) when action in [:registered, :password_updated] do
+    if Turnstile.enabled?("password_login") do
+      Phoenix.Token.sign(socket.endpoint, @handoff_salt, {action, email})
+    end
+  end
+
+  def check_password_login(conn, params, action, identifier, ip) do
+    cond do
+      not Turnstile.enabled?("password_login") -> :ok
+      valid_handoff?(conn, params["login_handoff"], action, identifier) -> :ok
+      true -> Turnstile.verify(params[Turnstile.response_field()], ip)
+    end
+  end
+
+  defp valid_handoff?(conn, token, action, identifier)
+       when is_binary(token) and action in [:registered, :password_updated] do
+    Phoenix.Token.verify(conn, @handoff_salt, token, max_age: 60) == {:ok, {action, identifier}}
+  end
+
+  defp valid_handoff?(_, _, _, _), do: false
+
   @spec run(Phoenix.LiveView.Socket.t(), map(), String.t() | nil, String.t() | nil) ::
           {:ok, Phoenix.LiveView.Socket.t()} | {:error, Phoenix.LiveView.Socket.t()}
   def run(socket, params, ip_address, form \\ nil) when is_map(params) do

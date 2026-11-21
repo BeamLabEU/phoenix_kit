@@ -296,7 +296,14 @@ defmodule PhoenixKitWeb.Users.Registration do
             })
 
             changeset = Auth.change_user_registration(user)
-            {:noreply, socket |> assign(trigger_submit: true) |> assign_form(changeset)}
+
+            {:noreply,
+             socket
+             |> assign(
+               trigger_submit: true,
+               login_handoff: BotCheck.sign_handoff(socket, :registered, user.email)
+             )
+             |> assign_form(changeset)}
 
           {:error, %Ecto.Changeset{} = changeset} ->
             {:noreply, socket |> assign(check_errors: true) |> assign_form(changeset)}

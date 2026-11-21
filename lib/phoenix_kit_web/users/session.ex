@@ -25,6 +25,7 @@ defmodule PhoenixKitWeb.Users.Session do
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Users.Auth, as: UserAuth
+  alias PhoenixKitWeb.Users.BotCheck
   alias PhoenixKitWeb.Users.MultiSession
 
   def create(conn, %{"_action" => "registered"} = params) do
@@ -76,13 +77,29 @@ defmodule PhoenixKitWeb.Users.Session do
 
   defp stash_destination(conn, _), do: conn
 
-  defp create(conn, %{"user" => user_params}, info, action) do
+  defp create(conn, %{"user" => user_params} = params, info, action) do
     %{"password" => password} = user_params
     # Support both old "email" field and new "email_or_username" field for backwards compatibility
     email_or_username = user_params["email_or_username"] || user_params["email"]
     ip_address = IpAddress.extract_from_conn(conn)
 
-    case Auth.get_user_by_email_or_username_and_password(email_or_username, password, ip_address) do
+    result =
+      with :ok <-
+             BotCheck.check_password_login(conn, params, action, email_or_username, ip_address) do
+        Auth.get_user_by_email_or_username_and_password(email_or_username, password, ip_address)
+      end
+
+    case result do
+      {:error, reason} when reason in [:missing, :rejected] ->
+        conn
+        |> put_flash(
+          :error,
+          gettext("Please complete the verification and try signing in again.")
+        )
+        |> redirect(
+          to: Routes.path("/users/log-in") <> Routes.return_to_query(user_params["return_to"])
+        )
+
       {:ok, %Auth.User{is_active: false} = user} ->
         # Valid credentials but account is inactive. The most interesting of
         # the three outcomes to record: somebody has the password.

@@ -11,6 +11,7 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistration do
   alias PhoenixKit.Users.Referrals
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Users.Auth, as: WebAuth
+  alias PhoenixKitWeb.Users.BotCheck
 
   @impl true
   def mount(%{"token" => token}, _session, socket) do
@@ -161,7 +162,14 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistration do
              ) do
           {:ok, user} ->
             changeset = Auth.change_user_registration(user)
-            {:noreply, socket |> assign(trigger_submit: true) |> assign_form(changeset)}
+
+            {:noreply,
+             socket
+             |> assign(
+               trigger_submit: true,
+               login_handoff: BotCheck.sign_handoff(socket, :registered, user.email)
+             )
+             |> assign_form(changeset)}
 
           {:error, %Ecto.Changeset{} = changeset} ->
             {:noreply, socket |> assign(check_errors: true) |> assign_form(changeset)}

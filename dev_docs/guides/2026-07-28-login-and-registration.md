@@ -378,8 +378,7 @@ off for good.
 
 Add and test a Cloudflare Turnstile widget under Settings → Integrations.
 Under Settings → Authorization → Abuse protection, select the verified website
-connection and choose the protected auth forms. All five forms are selected
-by default. The master switch preserves the selection while off and can
+connection and choose the protected auth forms. The five email forms are selected by default. Password sign-in is a separate opt-in. The master switch preserves the selection while off and can
 be turned off independently of other features using the connection. Existing
 installations can continue using their previously saved auth keys.
 
@@ -397,7 +396,7 @@ installations can continue using their previously saved auth keys.
   verdict lets the request through with a warning: the rate limits are still in
   front. A rejected secret or an unavailable selected connection refuses the submit.
 - The widget's script is loaded by the `Turnstile` hook in `phoenix_kit.js`, on
-  the first page that shows a widget. The sign-in form has no widget.
+  the first page that shows a widget. With Password sign-in selected, the email/username and password form shows the widget and its POST verifies the token before checking credentials. A completed registration or password change carries a short-lived signed handoff for that account so it can finish without another challenge.
 - Tests: `config :phoenix_kit, :turnstile_req_options, plug: fn conn -> … end`
   stands in for Cloudflare (`test/integration/users/turnstile_test.exs`); the
   token is passed as the extra `cf-turnstile-response` param of `render_submit`.

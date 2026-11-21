@@ -14,7 +14,9 @@ defmodule PhoenixKit.Users.Turnstile do
   @site_key "turnstile_site_key"
   @secret_key "turnstile_secret_key"
 
-  @forms ~w(registration registration_link password_reset magic_link confirmation_resend)
+  @default_forms ~w(registration registration_link password_reset magic_link confirmation_resend)
+
+  @forms ["password_login" | @default_forms]
 
   def forms, do: @forms
 
@@ -26,7 +28,7 @@ defmodule PhoenixKit.Users.Turnstile do
       Settings.get_json_setting_cached(@auth_key) ||
         %{"enabled" => Settings.get_boolean_setting(@enabled_key, false), "connection" => ""}
 
-    Map.put_new(saved, "forms", @forms)
+    Map.put_new(saved, "forms", @default_forms)
   end
 
   @doc "Verified website connections available to protect the auth forms."

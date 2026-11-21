@@ -18,6 +18,12 @@
     action={Routes.path("/users/log-in?_action=registered")}
     method="post"
   >
+    <input
+      :if={assigns[:login_handoff]}
+      type="hidden"
+      name="login_handoff"
+      value={@login_handoff}
+    />
     <%!-- Hidden email field for session controller --%>
     <input type="hidden" name="user[email]" value={@email} />
 

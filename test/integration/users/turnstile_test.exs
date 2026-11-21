@@ -256,7 +256,9 @@ defmodule PhoenixKit.Integration.Users.TurnstileTest do
       switch_on()
       {:ok, view, _} = protection(conn)
 
-      for form <- Turnstile.forms() do
+      refute has_element?(view, "#turnstile-form-password_login[checked]")
+
+      for form <- Turnstile.forms() -- ["password_login"] do
         assert has_element?(view, "#turnstile-form-#{form}[checked]")
       end
 
@@ -323,6 +325,69 @@ defmodule PhoenixKit.Integration.Users.TurnstileTest do
                ),
                "no widget on #{path}"
       end
+    end
+
+    test "password sign-in is opt-in and the controller checks the challenge", %{conn: conn} do
+      switch_on()
+      path = Routes.path("/users/log-in")
+      refute conn |> get(path) |> html_response(200) =~ "password-login-turnstile"
+
+      {:ok, _} =
+        Turnstile.save_selection(%{"enabled" => "true", "forms" => ["password_login"]}, [])
+
+      {:ok, login, _} = live(conn, path)
+      assert has_element?(login, "#login_form #password-login-turnstile")
+
+      {:ok, user} = Auth.register_user(%{email: unique_email(), password: @password})
+      params = %{"user" => %{"email_or_username" => user.email, "password" => @password}}
+
+      for action <- ["login", "registered", "password_updated"] do
+        refused = post(conn, path, Map.put(params, "_action", action))
+        refute get_session(refused, :user_token)
+        assert redirected_to(refused) == path
+      end
+
+      rejected = post(conn, path, Map.put(params, @field, "spent-token"))
+      refute get_session(rejected, :user_token)
+      accepted = post(conn, path, Map.put(params, @field, "good-token"))
+      assert get_session(accepted, :user_token)
+    end
+
+    test "a completed registration can finish sign-in without a second challenge", %{conn: conn} do
+      switch_on()
+
+      {:ok, _} =
+        Turnstile.save_selection(
+          %{"enabled" => "true", "forms" => ["registration", "password_login"]},
+          []
+        )
+
+      email = unique_email()
+      user_params = %{"email" => email, "password" => @password}
+      {:ok, register, _} = live(conn, Routes.path("/users/register"))
+
+      html = render_submit(register, "save", %{"user" => user_params, @field => "good-token"})
+
+      [handoff] =
+        html
+        |> Floki.parse_fragment!()
+        |> Floki.find("input[name=login_handoff]")
+        |> Floki.attribute("value")
+
+      params = %{"user" => user_params, "_action" => "registered", "login_handoff" => handoff}
+      path = Routes.path("/users/log-in")
+
+      {:ok, other} = Auth.register_user(%{email: unique_email(), password: @password})
+
+      refute conn
+             |> post(path, put_in(params, ["user", "email"], other.email))
+             |> get_session(:user_token)
+
+      refute conn
+             |> post(path, Map.put(params, "_action", "password_updated"))
+             |> get_session(:user_token)
+
+      assert conn |> post(path, params) |> get_session(:user_token)
     end
 
     test "only the selected form renders and requires a token", %{conn: conn} do

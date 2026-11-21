@@ -87,6 +87,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
   alias PhoenixKitWeb.Components.Core.Input, as: CoreInput
   alias PhoenixKitWeb.Components.MediaCanvasViewer
   alias PhoenixKitWeb.Components.ProfileSettingsTabs
+  alias PhoenixKitWeb.Users.BotCheck
 
   # `:integrations` deliberately NOT in the default list — unlike every
   # other section it needs the independent `integrations` permission the
@@ -402,7 +403,11 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
 
         socket =
           socket
-          |> assign(trigger_submit: true, password_form: password_form)
+          |> assign(
+            trigger_submit: true,
+            password_form: password_form,
+            login_handoff: BotCheck.sign_handoff(socket, :password_updated, user.email)
+          )
           |> assign(:password_success_message, gettext("Password changed successfully."))
 
         {:noreply, socket}
@@ -1476,6 +1481,12 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                 phx-trigger-action={@trigger_submit}
                 phx-target={@myself}
               >
+                <input
+                  :if={assigns[:login_handoff]}
+                  type="hidden"
+                  name="login_handoff"
+                  value={@login_handoff}
+                />
                 <input
                   name={@password_form[:email].name}
                   type="hidden"

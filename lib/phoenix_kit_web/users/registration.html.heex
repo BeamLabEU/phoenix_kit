@@ -56,6 +56,12 @@
     action={Routes.path("/users/log-in?_action=registered")}
     method="post"
   >
+    <input
+      :if={assigns[:login_handoff]}
+      type="hidden"
+      name="login_handoff"
+      value={@login_handoff}
+    />
     <input :if={@return_to} type="hidden" name="user[return_to]" value={@return_to} />
 
     <%!-- Silently captures the browser's UTC offset so new accounts start
