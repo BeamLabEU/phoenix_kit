@@ -26,7 +26,16 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
   use PhoenixKitWeb, :live_component
 
   alias PhoenixKit.Modules.Storage
-  alias PhoenixKit.Modules.Storage.{Bucket, KeyLayout, ProfileBucket, Profiles, StorageProfile}
+
+  alias PhoenixKit.Modules.Storage.{
+    Bucket,
+    CDNSource,
+    KeyLayout,
+    ProfileBucket,
+    Profiles,
+    StorageProfile
+  }
+
   alias PhoenixKitWeb.Live.Modules.Storage.BucketUsage
 
   import PhoenixKitWeb.Components.Core.Input, only: [translate_error: 1]
@@ -60,7 +69,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
     |> assign(:buckets, buckets)
     |> assign(
       :cdn_sources,
-      PhoenixKit.Modules.Storage.CDNSource.mappings(Enum.map(buckets, & &1.uuid))
+      CDNSource.mappings(Enum.map(buckets, & &1.uuid))
     )
     |> assign(:bucket_usage, Profiles.bucket_usage(Enum.map(buckets, & &1.uuid)))
     |> assign(:in_use, Map.new(profiles, &{&1.uuid, Profiles.libraries_using(&1.uuid)}))
@@ -776,7 +785,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
                     :if={row.role != "backup" && row.bucket.enabled}
                     navigate={
                       PhoenixKit.Utils.Routes.path(
-                        PhoenixKit.Modules.Storage.CDNSource.setup_path(
+                        CDNSource.setup_path(
                           row.bucket_uuid,
                           @cdn_sources[row.bucket_uuid]
                         )

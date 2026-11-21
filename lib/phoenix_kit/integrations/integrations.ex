@@ -79,6 +79,7 @@ defmodule PhoenixKit.Integrations do
   alias PhoenixKit.Integrations.Providers
   alias PhoenixKit.Integrations.Validators
   alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.CDNSource
   alias PhoenixKit.Modules.Storage.IntegrationCredentials
   alias PhoenixKit.Settings
   alias PhoenixKit.Settings.Queries
@@ -401,13 +402,13 @@ defmodule PhoenixKit.Integrations do
             undecryptable_fields: undecryptable_fields
           }} <-
            resolve_uuid(uuid, owner),
-         :ok <- PhoenixKit.Modules.Storage.CDNSource.validate(base_provider, uuid, owner, attrs),
+         :ok <- CDNSource.validate(base_provider, uuid, owner, attrs),
          :ok <- validate_storage_edit(uuid, base_provider, existing, attrs, prepared) do
       provider = Providers.get(base_provider)
 
       data =
         existing
-        |> PhoenixKit.Modules.Storage.CDNSource.reset_check(attrs)
+        |> CDNSource.reset_check(attrs)
         |> Map.merge(attrs)
         |> Map.put("provider", base_provider)
         |> Map.put("name", name)

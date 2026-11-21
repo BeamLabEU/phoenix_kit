@@ -36,7 +36,17 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
 
   alias PhoenixKit.Integrations
   alias PhoenixKit.Integrations.ObjectStorageServices
-  alias PhoenixKit.Modules.Storage.{Libraries, Library, LibraryMember, Profiles, VariantSets}
+  alias PhoenixKit.Integrations.Providers
+
+  alias PhoenixKit.Modules.Storage.{
+    CDNSource,
+    Libraries,
+    Library,
+    LibraryMember,
+    Profiles,
+    VariantSets
+  }
+
   alias PhoenixKit.Modules.Storage.Libraries.MembershipHistory
   alias PhoenixKit.Modules.Storage.Reconciler
   alias PhoenixKit.Users.Auth.Scope
@@ -1095,11 +1105,11 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
           do: row.bucket.uuid
 
     if ids != [] and Scope.has_module_access?(scope, "integrations") do
-      mappings = PhoenixKit.Modules.Storage.CDNSource.mappings(ids)
+      mappings = CDNSource.mappings(ids)
 
       offered =
         Enum.any?(
-          PhoenixKit.Integrations.Providers.personal_offered(),
+          Providers.personal_offered(),
           &(:cdn_delivery in (&1[:capabilities] || []))
         )
 
@@ -1109,7 +1119,7 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
             do: "new?service=cdn_delivery&source_bucket_uuid=" <> id,
             else: mapping.uuid
 
-        {id, PhoenixKit.Utils.Routes.path("/profile/settings/integrations/" <> suffix)}
+        {id, Routes.path("/profile/settings/integrations/" <> suffix)}
       end
     else
       %{}

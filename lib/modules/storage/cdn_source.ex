@@ -3,6 +3,7 @@ defmodule PhoenixKit.Modules.Storage.CDNSource do
   import Ecto.Query
   alias PhoenixKit.Integrations
   alias PhoenixKit.Integrations.BunnyCDN
+  alias PhoenixKit.Integrations.ConnectionLock
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.Bucket
   alias PhoenixKit.Modules.Storage.Providers.{Local, S3}
@@ -70,30 +71,31 @@ defmodule PhoenixKit.Modules.Storage.CDNSource do
          %Bucket{enabled: true} = bucket <- RepoHelper.repo().get(Bucket, id),
          true <- bucket_owner(bucket) == owner,
          {:ok, base} <- BunnyCDN.check_origin(uuid, owner, data["source_origin"]),
-         true <- Regex.match?(~r|\Ahttps://[a-z0-9-]+\.b-cdn\.net\z|i, base) do
-      with :ok <- probe(bucket, base, uuid, owner) do
-        PhoenixKit.Integrations.ConnectionLock.run(uuid, fn ->
-          case Integrations.get_integration_by_uuid(uuid, owner) do
-            {:ok, %{data: ^data}} ->
-              case Integrations.save_setup(
-                     uuid,
-                     %{"source_checked_at" => DateTime.to_iso8601(DateTime.utc_now())},
-                     nil,
-                     owner: owner
-                   ) do
-                {:ok, _} -> :ok
-                error -> error
-              end
-
-            _ ->
-              {:error, :configuration_changed}
-          end
-        end)
-      end
+         true <- Regex.match?(~r|\Ahttps://[a-z0-9-]+\.b-cdn\.net\z|i, base),
+         :ok <- probe(bucket, base, uuid, owner) do
+      record_check(uuid, owner, data)
     else
       {:error, _} = err -> err
       _ -> {:error, :invalid_cdn_source}
     end
+  end
+
+  defp record_check(uuid, owner, expected) do
+    ConnectionLock.run(uuid, fn ->
+      with {:ok, %{data: ^expected}} <- Integrations.get_integration_by_uuid(uuid, owner),
+           {:ok, _} <-
+             Integrations.save_setup(
+               uuid,
+               %{"source_checked_at" => DateTime.to_iso8601(DateTime.utc_now())},
+               nil,
+               owner: owner
+             ) do
+        :ok
+      else
+        {:error, _} = error -> error
+        _ -> {:error, :configuration_changed}
+      end
+    end)
   end
 
   # Only a random, disposable file under the dedicated delivery prefix is exposed.

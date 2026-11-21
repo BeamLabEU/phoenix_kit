@@ -27,7 +27,6 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrationForm do
       integration_error: 1
     ]
 
-  alias PhoenixKitWeb.Components.Core.IntegrationsUI
   alias PhoenixKit.Integrations
   alias PhoenixKit.Integrations.Providers
   alias PhoenixKit.Integrations.Telegram
@@ -37,6 +36,7 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrationForm do
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.Components.Core.IntegrationsUI
 
   @impl true
   def mount(_params, _session, socket) do
@@ -241,19 +241,19 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrationForm do
     provider_key = socket.assigns.selected_provider
     name = String.trim(params["name"] || "")
 
-    with {:ok, %{uuid: uuid}} <-
-           Integrations.add_configured_connection(
-             provider_key,
-             name,
-             setup_attrs(params, socket.assigns.provider),
-             socket.assigns.user_uuid,
-             owner: owner(socket)
-           ) do
-      {:noreply,
-       socket
-       |> put_flash(:info, gettext("Integration added"))
-       |> push_navigate(to: Routes.path("/profile/settings/integrations/#{uuid}"))}
-    else
+    case Integrations.add_configured_connection(
+           provider_key,
+           name,
+           setup_attrs(params, socket.assigns.provider),
+           socket.assigns.user_uuid,
+           owner: owner(socket)
+         ) do
+      {:ok, %{uuid: uuid}} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, gettext("Integration added"))
+         |> push_navigate(to: Routes.path("/profile/settings/integrations/#{uuid}"))}
+
       {:error, :empty_name} ->
         {:noreply, put_flash(socket, :error, gettext("Please enter a name"))}
 

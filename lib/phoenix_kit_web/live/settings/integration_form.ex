@@ -20,7 +20,6 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
 
   require Logger
 
-  alias PhoenixKitWeb.Components.Core.IntegrationsUI
   alias PhoenixKit.Integrations
   alias PhoenixKit.Integrations.Events
   alias PhoenixKit.Integrations.OAuth
@@ -31,6 +30,7 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Actor
+  alias PhoenixKitWeb.Components.Core.IntegrationsUI
 
   @impl true
   def mount(_params, _session, socket) do
