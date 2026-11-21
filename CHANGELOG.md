@@ -1,3 +1,10 @@
+## 3.9.0 - 2026-11-21
+
+### Added
+
+- Media settings can select a verified CDN connection and save public rendition preferences per profile. Libraries can persist owner-scoped overrides. Delivery preferences start off on existing installations.
+- `mix phoenix_kit.cdn.check_origin` checks a Bunny pull zone against an expected HTTPS origin and the hostname covered by per-object withdrawal.
+
 ## 3.8.0 - 2026-11-21
 
 ### Added

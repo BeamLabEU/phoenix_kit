@@ -28572,3 +28572,27 @@ msgstr "Bunny CDN ha restituito il codice HTTP %{status}"
 #, elixir-autogen, elixir-format
 msgid "Could not reach Bunny CDN"
 msgstr "Impossibile raggiungere Bunny CDN"
+
+#, elixir-autogen, elixir-format
+msgid "Could not save CDN preferences"
+msgstr "Impossibile salvare le preferenze CDN"
+
+#, elixir-autogen, elixir-format
+msgid "Default CDN connection"
+msgstr "Connessione CDN predefinita"
+
+#, elixir-autogen, elixir-format
+msgid "Delivery currently uses library storage."
+msgstr "I file vengono attualmente distribuiti dallo spazio di archiviazione della raccolta."
+
+#, elixir-autogen, elixir-format
+msgid "Requires access checks at the CDN"
+msgstr "Richiede controlli di accesso sulla CDN"
+
+#, elixir-autogen, elixir-format
+msgid "Signed-in only"
+msgstr "Solo utenti autenticati"
+
+#, elixir-autogen, elixir-format
+msgid "Unavailable"
+msgstr "Non disponibile"

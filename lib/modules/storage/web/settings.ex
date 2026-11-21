@@ -142,6 +142,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
       %{id: "renditions", label: gettext("Rendition profiles"), icon: "hero-arrows-pointing-out"},
       %{id: "libraries", label: gettext("Libraries"), icon: "hero-rectangle-stack"},
       %{id: "health", label: gettext("Health"), icon: "hero-heart"},
+      %{id: "cdn", label: gettext("CDN"), icon: "hero-globe-alt"},
       %{id: "configuration", label: gettext("Configuration"), icon: "hero-cog-6-tooth"},
       %{id: "tools", label: gettext("Tools"), icon: "hero-wrench-screwdriver"},
       %{id: "history", label: gettext("History"), icon: "hero-clock"},

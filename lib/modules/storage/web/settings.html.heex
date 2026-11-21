@@ -392,6 +392,13 @@
       />
     </div>
 
+    <.live_component
+      :if={@active_tab == "cdn"}
+      module={PhoenixKitWeb.Live.Modules.Storage.CDNSettings}
+      id="media-tab-cdn"
+      scope={@phoenix_kit_current_scope}
+    />
+
     <div id="media-tab-configuration" class={@active_tab != "configuration" && "hidden"}>
       <%!-- Media Configuration --%>
       <div class="card bg-base-100 shadow-xl mb-6 mt-6">

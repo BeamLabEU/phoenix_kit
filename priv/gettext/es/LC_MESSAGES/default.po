@@ -28581,3 +28581,27 @@ msgstr "Bunny CDN devolvió el estado HTTP %{status}"
 #, elixir-autogen, elixir-format
 msgid "Could not reach Bunny CDN"
 msgstr "No se pudo conectar con Bunny CDN"
+
+#, elixir-autogen, elixir-format
+msgid "Could not save CDN preferences"
+msgstr "No se pudieron guardar las preferencias de CDN"
+
+#, elixir-autogen, elixir-format
+msgid "Default CDN connection"
+msgstr "Conexión CDN predeterminada"
+
+#, elixir-autogen, elixir-format
+msgid "Delivery currently uses library storage."
+msgstr "Actualmente los archivos se sirven desde el almacenamiento de la biblioteca."
+
+#, elixir-autogen, elixir-format
+msgid "Requires access checks at the CDN"
+msgstr "Requiere controles de acceso en la CDN"
+
+#, elixir-autogen, elixir-format
+msgid "Signed-in only"
+msgstr "Solo usuarios con sesión iniciada"
+
+#, elixir-autogen, elixir-format
+msgid "Unavailable"
+msgstr "No disponible"

@@ -26,6 +26,41 @@ defmodule PhoenixKit.Integrations.BunnyCDN do
     end
   end
 
+  @doc """
+  Checks that a public pull zone uses the expected HTTPS origin and has only its
+  system hostname, which is the hostname covered by `purge/3`. Compares Bunny's
+  management metadata without requesting the supplied origin. Cache behavior
+  and withdrawal still need an end-to-end check with a pilot object.
+  """
+  @spec check_origin(String.t(), Integrations.owner(), String.t()) ::
+          {:ok, String.t()} | {:error, term()}
+  def check_origin(uuid, owner, expected) do
+    with {:ok, expected_origin} <- origin(expected),
+         {:ok, data} <- credentials(uuid, owner),
+         {:ok, zone} <- zone(data),
+         {:ok, base} <- public_base(zone),
+         [%{"IsSystemHostname" => true}] <- zone["Hostnames"],
+         {:ok, actual} <- origin(zone["OriginUrl"]) do
+      if actual == expected_origin, do: {:ok, base}, else: {:error, :origin_mismatch}
+    else
+      {:error, _} = error -> error
+      _ -> {:error, :additional_hostnames}
+    end
+  end
+
+  defp origin(value) when is_binary(value) do
+    case URI.new(value) do
+      {:ok, %URI{scheme: "https", host: host, userinfo: nil, query: nil, fragment: nil} = uri}
+      when is_binary(host) and host != "" ->
+        {:ok, {String.downcase(host), uri.port, String.trim_trailing(uri.path || "", "/")}}
+
+      _ ->
+        {:error, :invalid_origin}
+    end
+  end
+
+  defp origin(_), do: {:error, :invalid_origin}
+
   @doc "Purges one object on the connection's default delivery hostname."
   @spec purge(String.t(), Integrations.owner(), String.t()) :: :ok | {:error, term()}
   def purge(uuid, owner, key) do

@@ -28594,3 +28594,27 @@ msgstr "Bunny CDN 返回了 HTTP %{status}"
 #, elixir-autogen, elixir-format
 msgid "Could not reach Bunny CDN"
 msgstr "无法连接到 Bunny CDN"
+
+#, elixir-autogen, elixir-format
+msgid "Could not save CDN preferences"
+msgstr "无法保存 CDN 偏好设置"
+
+#, elixir-autogen, elixir-format
+msgid "Default CDN connection"
+msgstr "默认 CDN 连接"
+
+#, elixir-autogen, elixir-format
+msgid "Delivery currently uses library storage."
+msgstr "目前从媒体库的存储空间分发文件。"
+
+#, elixir-autogen, elixir-format
+msgid "Requires access checks at the CDN"
+msgstr "需要在 CDN 端检查访问权限"
+
+#, elixir-autogen, elixir-format
+msgid "Signed-in only"
+msgstr "仅限已登录用户"
+
+#, elixir-autogen, elixir-format
+msgid "Unavailable"
+msgstr "不可用"

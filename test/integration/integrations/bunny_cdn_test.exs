@@ -40,6 +40,7 @@ defmodule PhoenixKit.Integration.BunnyCDNTest do
           Req.Test.json(conn, %{
             "Id" => 42,
             "Name" => "photos",
+            "OriginUrl" => "https://origin.example/derived/",
             "Enabled" => true,
             "Suspended" => false,
             "ZoneSecurityEnabled" => secured,
@@ -70,6 +71,39 @@ defmodule PhoenixKit.Integration.BunnyCDNTest do
     assert {:error, :not_configured} = BunnyCDN.public_base_url(uuid, :system)
     assert {:error, :not_configured} = BunnyCDN.public_base_url(uuid, {:user, UUIDv7.generate()})
     assert {:error, :not_configured} = BunnyCDN.public_base_url(uuid, :any)
+  end
+
+  test "pilot check compares the exact origin path and rejects additional hostnames", %{
+    uuid: uuid,
+    owner: owner
+  } do
+    stub_zone(false)
+
+    assert {:ok, "https://photos.b-cdn.net"} =
+             BunnyCDN.check_origin(uuid, owner, "https://origin.example/derived")
+
+    assert {:error, :origin_mismatch} =
+             BunnyCDN.check_origin(uuid, owner, "https://origin.example")
+
+    assert {:error, :invalid_origin} = BunnyCDN.check_origin(uuid, owner, "http://origin.example")
+
+    Req.Test.stub(__MODULE__, fn conn ->
+      Req.Test.json(conn, %{
+        "Id" => 42,
+        "Name" => "photos",
+        "Enabled" => true,
+        "Suspended" => false,
+        "ZoneSecurityEnabled" => false,
+        "OriginUrl" => "https://origin.example/derived",
+        "Hostnames" => [
+          %{"Value" => "photos.b-cdn.net", "IsSystemHostname" => true, "HasCertificate" => true},
+          %{"Value" => "cdn.example", "IsSystemHostname" => false}
+        ]
+      })
+    end)
+
+    assert {:error, :additional_hostnames} =
+             BunnyCDN.check_origin(uuid, owner, "https://origin.example/derived")
   end
 
   test "a secured zone still permits withdrawal of previously public objects", %{

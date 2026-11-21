@@ -28563,3 +28563,27 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "Could not reach Bunny CDN"
 msgstr ""
+
+#, elixir-autogen, elixir-format
+msgid "Could not save CDN preferences"
+msgstr ""
+
+#, elixir-autogen, elixir-format
+msgid "Default CDN connection"
+msgstr ""
+
+#, elixir-autogen, elixir-format
+msgid "Delivery currently uses library storage."
+msgstr ""
+
+#, elixir-autogen, elixir-format
+msgid "Requires access checks at the CDN"
+msgstr ""
+
+#, elixir-autogen, elixir-format
+msgid "Signed-in only"
+msgstr ""
+
+#, elixir-autogen, elixir-format
+msgid "Unavailable"
+msgstr ""

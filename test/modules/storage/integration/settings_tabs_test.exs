@@ -53,6 +53,19 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.SettingsTabsTest do
     assert tab_visible?(html, "media-tab-tools")
   end
 
+  test "CDN defaults can be saved per rendition profile and reject unknown connections", %{
+    conn: conn
+  } do
+    alias PhoenixKit.Modules.Storage.{CDN, VariantSets}
+    {:ok, view, _} = live(admin_conn(conn), @media_settings_path <> "?tab=cdn")
+    profile = VariantSets.default_variant_set()
+    assert has_element?(view, "#site-cdn-connection")
+    view |> form("#cdn-profile-#{profile.uuid}", public: ["original"]) |> render_submit()
+    assert CDN.site_renditions(profile.uuid) == ["original"]
+    render_submit(element(view, "#site-cdn-connection"), %{"connection" => Ecto.UUID.generate()})
+    assert has_element?(view, "#media-tab-cdn [role=status]", "Could not save CDN preferences")
+  end
+
   test "an unknown tab opens Buckets", %{conn: conn} do
     {:ok, _view, html} = live(admin_conn(conn), @media_settings_path <> "?tab=nope")
 

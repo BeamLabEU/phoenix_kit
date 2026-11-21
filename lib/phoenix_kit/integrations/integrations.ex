@@ -750,6 +750,24 @@ defmodule PhoenixKit.Integrations do
     |> Enum.sort_by(fn %{name: name} -> String.downcase(name) end)
   end
 
+  @doc "Verified connection IDs and labels for a capability, scoped to one owner. Credentials stay in storage."
+  def connected_choices(capability, owner)
+      when owner == :system or
+             (is_tuple(owner) and tuple_size(owner) == 2 and elem(owner, 0) == :user and
+                is_binary(elem(owner, 1))) do
+    keys = Enum.map(Providers.with_capability(capability), & &1.key)
+
+    from(s in Setting,
+      where:
+        s.module == ^@settings_module and fragment("?->>'provider' = ANY(?)", s.value_json, ^keys) and
+          fragment("?->>'status' = 'connected'", s.value_json),
+      select: {s.uuid, fragment("?->>'name'", s.value_json)},
+      order_by: [asc: fragment("lower(?->>'name')", s.value_json), asc: s.uuid]
+    )
+    |> owner_where(owner)
+    |> PhoenixKit.RepoHelper.repo().all()
+  end
+
   defp to_connection_map(%Setting{uuid: uuid, value_json: data, date_added: date_added}) do
     decrypted = Encryption.decrypt_fields(data || %{})
 
