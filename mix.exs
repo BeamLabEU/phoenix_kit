@@ -92,10 +92,10 @@ defmodule PhoenixKit.MixProject do
       {:postgrex, "~> 0.22"},
 
       # Phoenix web layer
-      {:phoenix, "~> 1.8.1"},
+      {:phoenix, "~> 1.8.17"},
       {:phoenix_ecto, "~> 4.6"},
       {:phoenix_html, "~> 4.0"},
-      {:phoenix_live_view, "~> 1.1"},
+      {:phoenix_live_view, "~> 1.1.34 or ~> 1.2 and >= 1.2.14"},
 
       # Web functionality
       {:gettext, "~> 1.0"},

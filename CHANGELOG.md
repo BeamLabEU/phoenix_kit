@@ -90,6 +90,10 @@
 
 ### Changed
 
+- Upgrades require Phoenix 1.8.17 or later in the 1.8 series and a patched LiveView
+  (1.1.34+ on 1.1, or 1.2.14+ on the later 1.x line). These versions fix upstream
+  advisories affecting Presence, channel broadcasts and LiveView session hooks.
+
 - The session menu shows the current language. Hover, click or tap it to open a scrollable
   menu of the other enabled languages, each listed under its own name.
 
