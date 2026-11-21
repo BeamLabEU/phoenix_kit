@@ -4,10 +4,6 @@
 
 - Bunny CDN connections for site and personal integrations. Each named connection validates one existing pull zone. Hosts can resolve its public delivery hostname and purge individual objects through `PhoenixKit.Integrations.BunnyCDN`.
 
-## 3.7.0 - 2026-11-20
-
-### Added
-
 - **A host application can put its own per-person numbers on admin menu entries.**
   `config :phoenix_kit, :scope_badges, MyApp.MenuBadges` names a module implementing
   `PhoenixKit.Dashboard.ScopeBadges`: its `badges(scope)` returns
@@ -62,7 +58,9 @@
   searches people through a `PeoplePicker.Source`, shows chips with faces and caller-supplied
   tags, the viewer's Recent picks and "Add me", and confirms inline when the source asks first. The
   default `UserSource` offers active, confirmed accounts, never service users, and shows no email.
-  A module passes its own source for teams, departments or staff records.
+  A module passes its own source for teams, departments or staff records. The picker also supports
+  remove-only lists with `can_edit: false` and `can_remove: true` (#1051). When a person appears
+  under several groups, selecting or clearing them updates every visible row.
 - **Every notification says which setting sent it** (#1046), with a link to that line:
   `Render.reason/3`, shown in the inbox, as `{{reason}}` / `{{settings_url}}` in the
   `notification` email, and as a last line on Telegram. A notification type can declare an
@@ -87,7 +85,8 @@
   `phx-hook="PkFitHeight"` an element's `max-height` is the room between its top and the bottom of
   its nearest scrolling ancestor (or of the viewport), re-measured on patch, reveal and scroll,
   with `data-fit-margin` / `data-fit-min` overrides. A menu or list inside a dialog stays in the
-  dialog instead of giving it a scrollbar.
+  dialog instead of giving it a scrollbar. The measurement accounts for padding and borders on
+  content-box overlays.
 
 ### Changed
 

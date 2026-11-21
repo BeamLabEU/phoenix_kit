@@ -30,7 +30,9 @@ defmodule PhoenixKit.Modules.Storage.StripMetadataTest do
   end
 
   defp identify(path, format) do
-    {out, 0} = System.cmd("identify", ["-format", format, path <> "[0]"], stderr_to_stdout: true)
+    {out, 0} =
+      System.cmd("identify", ["-quiet", "-format", format, path <> "[0]"], stderr_to_stdout: true)
+
     String.trim(out)
   end
 

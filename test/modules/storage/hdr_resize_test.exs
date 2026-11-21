@@ -24,7 +24,11 @@ defmodule PhoenixKit.Modules.Storage.HdrResizeTest do
   end
 
   defp dims(path) do
-    {out, 0} = System.cmd("identify", ["-format", "%wx%h", path <> "[0]"], stderr_to_stdout: true)
+    {out, 0} =
+      System.cmd("identify", ["-quiet", "-format", "%wx%h", path <> "[0]"],
+        stderr_to_stdout: true
+      )
+
     out
   end
 
