@@ -52,7 +52,7 @@ const ADMIN = `SortableGrid MediaImageZoom MarkdownEditor InstantViewer ViewerKe
   AnnotationBurn EtcherTooltipActions AnnotationComposerPosition ListFilter TreePickerSearch CrumbSwitcher
   TableFit TableCardView RowMenu RowMenuAuto EmailCharts IntegrationPickerSearch MediaDragDrop EtcherReset
   ViewerSwipe ViewerGallery ViewerHiresLoading UploadResume UploadManager FolderDropUpload RemovalModal StackMemory StackExpand
-  WaveformPlayer SearchPicker ContextMenu AvatarCrop ImageEditor NavTabsOverflow`.split(/\s+/);
+  WaveformPlayer SearchPicker ContextMenu AvatarCrop ImageEditor NavTabsOverflow PkPush`.split(/\s+/);
 
 const ADMIN_FILE = path.join(ASSETS, "phoenix_kit_admin.js");
 const PUBLIC_FILE = path.join(ASSETS, "phoenix_kit.js");
@@ -78,9 +78,9 @@ const plain = (v) => JSON.parse(JSON.stringify(v));
 
 // ── The inventory ──────────────────────────────────────────────────────────
 
-test("the two lists are disjoint and together are the 81 hooks the bundle has", () => {
+test("the two lists are disjoint and together are the 82 hooks the bundle has", () => {
   assert.equal(PUBLIC.length, 40);
-  assert.equal(ADMIN.length, 41);
+  assert.equal(ADMIN.length, 42);
   assert.deepEqual(PUBLIC.filter((n) => ADMIN.includes(n)), []);
 });
 

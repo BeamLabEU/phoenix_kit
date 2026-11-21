@@ -186,7 +186,11 @@ defmodule PhoenixKit.Notifications.DeliveryWorker do
   defp build_envelope(notification, user, recipient, type_key, locale) do
     rendered = Render.render(notification, locale)
     why = Render.reason(notification, user, locale)
-    quoted = if Types.still_visible?(type_key, notification, user), do: Render.quote(notification)
+    # Asked when the job runs: a reader who lost access since gets the line
+    # only, never the comment, and `visible: false` tells a channel so (push
+    # sends nothing then).
+    visible = Types.still_visible?(type_key, notification, user)
+    quoted = if visible, do: Render.quote(notification)
 
     %{
       recipient_uuid: recipient,
@@ -201,7 +205,8 @@ defmodule PhoenixKit.Notifications.DeliveryWorker do
       url: absolutize(rendered.link),
       reason: why && why.text,
       reason_url: why && absolutize(why.link),
-      quote: Render.quote_text(quoted, quote_author(quoted))
+      quote: Render.quote_text(quoted, quote_author(quoted)),
+      visible: visible
     }
   end
 

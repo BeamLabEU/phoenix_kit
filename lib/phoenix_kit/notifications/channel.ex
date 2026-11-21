@@ -55,6 +55,7 @@ defmodule PhoenixKit.Notifications.Channel do
   """
   @type envelope :: %{
           optional(:content_locale) => String.t(),
+          optional(:visible) => boolean(),
           optional(:action_label) => String.t() | nil,
           optional(:reason) => String.t() | nil,
           optional(:quote) => String.t() | nil,

@@ -132,9 +132,7 @@ defmodule PhoenixKit.Notifications.Push.WebPush do
     header = b64(Jason.encode!(%{typ: "JWT", alg: "ES256"}))
 
     claims =
-      b64(
-        Jason.encode!(%{aud: aud, exp: System.system_time(:second) + 12 * 3600, sub: subject})
-      )
+      b64(Jason.encode!(%{aud: aud, exp: System.system_time(:second) + 12 * 3600, sub: subject}))
 
     input = header <> "." <> claims
     der = :crypto.sign(:ecdsa, :sha256, input, [priv, :prime256v1])
@@ -209,7 +207,7 @@ defmodule PhoenixKit.Notifications.Push.WebPush do
     case URI.parse(endpoint) do
       %URI{scheme: "https", host: host, userinfo: nil} when is_binary(host) and host != "" ->
         known_host?(String.downcase(host)) and
-          (Keyword.get(opts, :resolve, true) == false or public_host?(host))
+          (not resolve?(opts) or public_host?(host))
 
       _ ->
         false
@@ -217,6 +215,14 @@ defmodule PhoenixKit.Notifications.Push.WebPush do
   end
 
   def endpoint_ok?(_endpoint, _opts), do: false
+
+  # `resolve: false` (the subscribe form's shape check), or
+  # `config :phoenix_kit, :push_resolve_endpoints, false` (a test suite with
+  # no DNS) skips the lookup. On by default.
+  defp resolve?(opts) do
+    Keyword.get(opts, :resolve, true) and
+      Application.get_env(:phoenix_kit, :push_resolve_endpoints, true) != false
+  end
 
   defp known_host?(host) do
     hosts = @push_hosts ++ Application.get_env(:phoenix_kit, :push_service_hosts, [])
