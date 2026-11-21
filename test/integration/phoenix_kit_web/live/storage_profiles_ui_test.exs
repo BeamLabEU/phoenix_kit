@@ -34,9 +34,51 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
     view
   end
 
-  defp view_html(conn), do: conn |> settings() |> render()
+  defp open_profile(view, uuid) do
+    view |> element("#media-profiles-summary-#{uuid} a") |> render_click()
+    view
+  end
+
+  defp editor(conn, uuid \\ Profiles.default_uuid()), do: conn |> settings() |> open_profile(uuid)
+
+  defp view_html(conn), do: conn |> editor() |> render()
 
   describe "the Storage profiles tab" do
+    test "the overview opens one editor and returning discards its draft", ctx do
+      {:ok, other} = Profiles.create_profile(%{name: "Second profile"})
+      default = Profiles.default_uuid()
+      view = settings(ctx.conn)
+
+      assert has_element?(view, "#media-profiles-summary-#{other.uuid}", other.name)
+      refute has_element?(view, "#media-profiles form")
+      open_profile(view, other.uuid)
+      assert_patch(view, Routes.path("/admin/settings/media?tab=profiles&profile=#{other.uuid}"))
+      assert has_element?(view, "#media-profiles-layout-#{other.uuid} summary")
+      refute has_element?(view, "#media-profiles-layout-#{other.uuid}[open]")
+      refute has_element?(view, "#media-profiles-form-#{default}")
+
+      view
+      |> form("#media-profiles-form-#{other.uuid}", %{profile: %{key_levels: "2"}})
+      |> render_change()
+
+      view |> element("#media-profiles a[data-confirm]", "Storage profiles") |> render_click()
+      assert_patch(view, Routes.path("/admin/settings/media?tab=profiles"))
+      open_profile(view, default)
+      refute has_element?(view, "#media-profiles-form-#{other.uuid}")
+      refute has_element?(view, "#media-profiles a[data-confirm]")
+      assert Profiles.get_profile(other.uuid).key_levels == other.key_levels
+    end
+
+    test "a direct link opens a site profile and an unknown id shows the list", ctx do
+      path = Routes.path("/admin/settings/media?tab=profiles")
+      default = Profiles.default_uuid()
+      {:ok, view, _html} = live(ctx.conn, path <> "&profile=#{default}")
+      assert has_element?(view, "#media-profiles-form-#{default}")
+      render_patch(view, path <> "&profile=missing")
+      assert has_element?(view, "#media-profiles-summary-#{default}")
+      refute has_element?(view, "#media-profiles form")
+    end
+
     test "creates a profile, adds a bucket, changes its row and deletes it", ctx do
       view = settings(ctx.conn)
 
@@ -92,6 +134,7 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
       |> render_click()
 
       refute Profiles.get_profile(profile.uuid)
+      assert has_element?(view, "#media-profiles-summary-#{Profiles.default_uuid()}")
     end
 
     test "a backup row can keep originals only; other rows do not offer it", ctx do
@@ -99,11 +142,11 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
       {:ok, _} = Profiles.put_bucket(profile, ctx.bucket.uuid, %{role: "primary"})
       stores = "#media-profiles-stores-#{profile.uuid}-#{ctx.bucket.uuid}"
 
-      view = settings(ctx.conn)
+      view = editor(ctx.conn, profile.uuid)
       refute has_element?(view, stores)
 
       {:ok, _} = Profiles.put_bucket(profile, ctx.bucket.uuid, %{role: "backup"})
-      view = settings(ctx.conn)
+      view = editor(ctx.conn, profile.uuid)
       assert has_element?(view, stores, "Originals only")
 
       view
@@ -120,7 +163,7 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
       {:ok, profile} =
         Profiles.create_profile(%{name: "Layouts #{System.unique_integer([:positive])}"})
 
-      view = settings(ctx.conn)
+      view = editor(ctx.conn, profile.uuid)
 
       # Stored layout 1: ten million files leave 39,063 folders in the busiest one.
       html = render(view)
@@ -205,7 +248,7 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
       na = fn bucket -> "#media-profiles-order-na-#{default}-#{bucket}" end
 
       {:ok, _} = Profiles.update_profile(Profiles.default_profile(), %{"copies_local" => "1"})
-      view = settings(ctx.conn)
+      view = editor(ctx.conn)
       assert has_element?(view, order.(ctx.bucket.uuid))
       refute has_element?(view, na.(ctx.bucket.uuid))
 
@@ -213,7 +256,7 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
       {:ok, _} =
         Profiles.update_profile(Profiles.default_profile(), %{"copies_local" => "#{count}"})
 
-      view = settings(ctx.conn)
+      view = editor(ctx.conn)
       refute has_element?(view, order.(ctx.bucket.uuid))
       assert has_element?(view, na.(ctx.bucket.uuid))
     end
@@ -224,18 +267,18 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
       default = Profiles.default_profile()
       {:ok, _} = Profiles.put_bucket(default, ctx.bucket.uuid, %{role: "replica"})
 
-      view = settings(ctx.conn)
+      view = editor(ctx.conn)
       assert render(view) =~ "Not used at this copy count: #{ctx.bucket.name}"
 
       {:ok, _} = Profiles.update_profile(Profiles.default_profile(), %{"copies_local" => "2"})
-      refute settings(ctx.conn) |> render() =~ "Not used at this copy count"
+      refute editor(ctx.conn) |> render() =~ "Not used at this copy count"
     end
 
     test "the cloud count is for a profile that has a cloud bucket", ctx do
       default = Profiles.default_uuid()
       cloud_input = "#media-profiles-form-#{default} input[name='profile[copies_cloud]']"
 
-      view = settings(ctx.conn)
+      view = editor(ctx.conn)
       assert has_element?(view, cloud_input <> "[disabled]")
 
       assert has_element?(
@@ -256,7 +299,7 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
 
       {:ok, _} = Profiles.put_bucket(Profiles.default_profile(), cloud.uuid, %{})
 
-      view = settings(ctx.conn)
+      view = editor(ctx.conn)
       assert has_element?(view, cloud_input)
       refute has_element?(view, cloud_input <> "[disabled]")
 
@@ -274,7 +317,7 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
     test "cloud copies can be cleared after the last cloud bucket is removed", ctx do
       {:ok, profile} = Profiles.create_profile(%{name: "Removed cloud", copies_cloud: 1})
       {:ok, _} = Profiles.put_bucket(profile, ctx.bucket.uuid, %{})
-      view = settings(ctx.conn)
+      view = editor(ctx.conn, profile.uuid)
       selector = "#media-profiles-form-#{profile.uuid}"
       refute has_element?(view, selector <> " input[name='profile[copies_cloud]'][disabled]")
       view |> form(selector, %{"profile" => %{"copies_cloud" => "0"}}) |> render_submit()
@@ -282,7 +325,7 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
     end
 
     test "the upload minimum can increase together with the copy counts", ctx do
-      view = settings(ctx.conn)
+      view = editor(ctx.conn)
       selector = "#media-profiles-form-#{Profiles.default_uuid()}"
 
       assert has_element?(
@@ -298,7 +341,7 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
     end
 
     test "the profile's own form saves on its Save button, with a sign of it", ctx do
-      view = settings(ctx.conn)
+      view = editor(ctx.conn)
       default = Profiles.default_uuid()
       form = "#media-profiles-form-#{default}"
 
@@ -314,7 +357,7 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
     end
 
     test "a bucket used by another profile says so in the picker, the flash and both rows", ctx do
-      view = settings(ctx.conn)
+      view = editor(ctx.conn)
       default = Profiles.default_uuid()
       bucket = ctx.bucket
       default_badge = "#media-profiles-shared-#{default}-#{bucket.uuid}"
@@ -322,6 +365,7 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
       # Alone in the Default, nothing is shared.
       refute has_element?(view, default_badge)
 
+      view |> element("#media-profiles a", "Storage profiles") |> render_click()
       view |> element("#media-profiles button", "New profile") |> render_click()
 
       view
@@ -346,11 +390,13 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
              |> element("#media-profiles-shared-#{profile.uuid}-#{bucket.uuid}")
              |> render() =~ "Also in Default"
 
+      view |> element("#media-profiles a", "Storage profiles") |> render_click()
+      open_profile(view, default)
       assert view |> element(default_badge) |> render() =~ "Also in Archive"
     end
 
     test "a reconnect replays the forms without calling them unsaved", ctx do
-      view = settings(ctx.conn)
+      view = editor(ctx.conn)
       default = Profiles.default_uuid()
       form = "#media-profiles-form-#{default}"
 
@@ -400,7 +446,7 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
     end
 
     test "the Default profile lists the buckets and cannot be deleted", ctx do
-      view = settings(ctx.conn)
+      view = editor(ctx.conn)
       default = Profiles.default_uuid()
 
       assert has_element?(view, "#media-profiles-#{default}-#{ctx.bucket.uuid}")

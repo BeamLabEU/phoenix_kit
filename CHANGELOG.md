@@ -1,3 +1,9 @@
+## 3.8.1 - 2026-11-21
+
+### Changed
+
+- The Storage profiles tab lists each profile’s bucket, library and copy counts. Each profile opens in its own editor, with folder layout details available on demand.
+
 ## 3.8.0 - 2026-11-21
 
 ### Added

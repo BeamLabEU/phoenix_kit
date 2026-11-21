@@ -350,7 +350,9 @@
 
     <div id="media-tab-profiles" class={@active_tab != "profiles" && "hidden"}>
       <.live_component
+        :if={@active_tab == "profiles"}
         module={PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent}
+        profile_uuid={@storage_profile}
         id="media-profiles"
         scope={assigns[:phoenix_kit_current_scope]}
       />

@@ -28758,3 +28758,18 @@ msgstr "Privaatse S3 lähtekoha puhul ava Bunny tõmbetsoonis Security → S3 Au
 #, elixir-autogen, elixir-format
 msgid "Configured bucket region: %{region}"
 msgstr "Ämbri seadetes määratud piirkond: %{region}"
+
+#: lib/modules/storage/web/profiles_component.ex:535
+#, elixir-autogen
+msgid "Profiles set where libraries keep their files and how many copies they store."
+msgstr "Profiil määrab, kus teegi faile hoitakse ja mitu koopiat neist säilitatakse."
+
+#: lib/modules/storage/web/profiles_component.ex:615
+#, elixir-autogen
+msgid "Discard unsaved changes?"
+msgstr "Kas loobuda salvestamata muudatustest?"
+
+#: lib/modules/storage/web/profiles_component.ex:773
+#, elixir-autogen
+msgid "When buckets or copy counts change, files are copied or moved in the background. Follow progress on the Health tab."
+msgstr "Bucketite või koopiate arvu muutmisel kopeeritakse või teisaldatakse faile taustal. Edenemist näeb vahekaardil „Seisund“."

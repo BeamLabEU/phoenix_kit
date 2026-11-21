@@ -36,6 +36,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
     StorageProfile
   }
 
+  alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Live.Modules.Storage.BucketUsage
 
   import PhoenixKitWeb.Components.Core.Input, only: [translate_error: 1]
@@ -46,33 +47,54 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
     {:ok,
      assign(socket,
        profiles: nil,
-       scope: nil,
-       creating: false,
-       dirty: MapSet.new(),
-       saved: MapSet.new(),
-       layout: %{}
+       profile_uuid: nil,
+       scope: nil
      )}
   end
 
   @impl true
   def update(assigns, socket) do
+    changed_profile? = socket.assigns.profile_uuid != assigns.profile_uuid
     socket = assign(socket, assigns)
-    {:ok, if(socket.assigns.profiles, do: socket, else: load(socket))}
+
+    if changed_profile? or is_nil(socket.assigns.profiles) do
+      {:ok,
+       socket
+       |> assign(creating: false, dirty: MapSet.new(), saved: MapSet.new(), layout: nil)
+       |> load()}
+    else
+      {:ok, socket}
+    end
   end
+
+  defp list_path, do: Routes.path("/admin/settings/media?tab=profiles")
+
+  defp edit_path(profile),
+    do: Routes.path("/admin/settings/media?tab=profiles&profile=#{profile.uuid}")
 
   defp load(socket) do
     profiles = Profiles.list_profiles()
-    buckets = Storage.list_buckets()
+    profile = Enum.find(profiles, &(&1.uuid == socket.assigns.profile_uuid))
 
-    socket
-    |> assign(:profiles, profiles)
-    |> assign(:buckets, buckets)
-    |> assign(
-      :cdn_sources,
-      CDNSource.mappings(Enum.map(buckets, & &1.uuid))
-    )
-    |> assign(:bucket_usage, Profiles.bucket_usage(Enum.map(buckets, & &1.uuid)))
-    |> assign(:in_use, Map.new(profiles, &{&1.uuid, Profiles.libraries_using(&1.uuid)}))
+    socket =
+      assign(socket,
+        profiles: profiles,
+        profile: profile,
+        in_use: Map.new(profiles, &{&1.uuid, Profiles.libraries_using(&1.uuid)})
+      )
+
+    if profile do
+      buckets = Storage.list_buckets()
+      uuids = Enum.map(buckets, & &1.uuid)
+
+      assign(socket,
+        buckets: buckets,
+        cdn_sources: CDNSource.mappings(uuids),
+        bucket_usage: Profiles.bucket_usage(uuids)
+      )
+    else
+      socket
+    end
   end
 
   # A form changed (`phx-change`): its Save button comes alive and says so. The
@@ -102,8 +124,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
       {:ok, profile} ->
         {:noreply,
          socket
-         |> assign(:creating, false)
-         |> load()
+         |> push_patch(to: edit_path(profile))
          |> flash(:info, gettext("Storage profile \"%{name}\" created", name: profile.name))}
 
       {:error, changeset} ->
@@ -116,7 +137,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
          {:ok, _} <- Profiles.update_profile(profile, params, actor(socket)) do
       {:noreply,
        socket
-       |> assign(:layout, Map.delete(socket.assigns.layout, uuid))
+       |> assign(:layout, nil)
        |> load()
        |> mark_saved(profile_key(uuid))
        |> flash(:info, gettext("Storage profile saved"))}
@@ -129,7 +150,8 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
   def handle_event("delete_profile", %{"uuid" => uuid}, socket) do
     with %StorageProfile{} = profile <- find(socket, uuid),
          {:ok, _} <- Profiles.delete_profile(profile, actor(socket)) do
-      {:noreply, socket |> load() |> flash(:info, gettext("Storage profile deleted"))}
+      {:noreply,
+       socket |> push_patch(to: list_path()) |> flash(:info, gettext("Storage profile deleted"))}
     else
       nil ->
         {:noreply, socket}
@@ -190,6 +212,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
             {:noreply,
              socket
              |> load()
+             |> assign(:dirty, MapSet.delete(socket.assigns.dirty, row_key(uuid, bucket_uuid)))
              |> flash(
                :info,
                gettext(
@@ -215,17 +238,12 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
   defp remember_layout(socket, %{"uuid" => uuid, "profile" => %{"key_levels" => levels}})
        when is_binary(uuid) and is_binary(levels) do
     case Integer.parse(levels) do
-      {n, ""} -> if KeyLayout.valid?(n), do: put_layout(socket, uuid, n), else: socket
+      {n, ""} -> if KeyLayout.valid?(n), do: assign(socket, :layout, n), else: socket
       _ -> socket
     end
   end
 
   defp remember_layout(socket, _params), do: socket
-
-  defp put_layout(socket, uuid, n),
-    do: assign(socket, :layout, Map.put(socket.assigns.layout, uuid, n))
-
-  defp shown_levels(layout, profile), do: Map.get(layout, profile.uuid, profile.key_levels)
 
   defp levels_label(0), do: gettext("Flat")
   defp levels_label(n), do: ngettext("%{count} level", "%{count} levels", n)
@@ -247,7 +265,6 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
     )
   end
 
-  # Only a profile this tab listed: the uuid arrives from the client.
   # Who is acting, for the history (`Storage.Audit`).
   defp actor(socket), do: PhoenixKitWeb.Actor.opts(socket.assigns.scope)
 
@@ -269,7 +286,8 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
     )
   end
 
-  defp find(socket, uuid), do: Enum.find(socket.assigns.profiles, &(to_string(&1.uuid) == uuid))
+  defp find(%{assigns: %{profile: %StorageProfile{uuid: uuid} = profile}}, uuid), do: profile
+  defp find(_socket, _uuid), do: nil
 
   defp next_serve_order(profile),
     do: (profile.buckets |> Enum.map(& &1.serve_order) |> Enum.max(fn -> 0 end)) + 1
@@ -496,8 +514,8 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
   @impl true
   def render(assigns) do
     ~H"""
-    <div id={@id}>
-      <div class="card bg-base-100 shadow-xl mb-6 mt-6">
+    <div id={@id} class="my-6">
+      <div :if={is_nil(@profile)} class="card bg-base-100 shadow-xl">
         <div class="card-body">
           <div class="flex flex-wrap justify-between items-center gap-2 mb-2">
             <h2 class="card-title text-lg">
@@ -514,9 +532,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
             </button>
           </div>
           <p class="text-sm text-base-content/70">
-            {gettext(
-              "A storage profile says where a library's files are kept: which buckets, how many copies of each file, and which copy is served. A library without a profile of its own uses the Default. When the buckets, their roles or the copy counts change, files are copied or moved in the background; the Health page shows what is left."
-            )}
+            {gettext("Profiles set where libraries keep their files and how many copies they store.")}
           </p>
 
           <form
@@ -532,6 +548,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
               id={"#{@id}-new-name"}
               class="input input-sm w-64"
               placeholder={gettext("Profile name")}
+              aria-label={gettext("Profile name")}
               maxlength="255"
               required
               autofocus
@@ -541,59 +558,131 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
               {gettext("Cancel")}
             </button>
           </form>
+          <div class="mt-3">
+            <div
+              class="hidden sm:grid sm:grid-cols-[minmax(8rem,2fr)_repeat(4,minmax(0,1fr))_4rem] gap-3 border-b border-base-300 px-2 py-2 text-xs font-semibold text-base-content/70"
+              aria-hidden="true"
+            >
+              <span>{gettext("Profile")}</span>
+              <span>{gettext("Buckets")}</span>
+              <span>{gettext("Libraries")}</span>
+              <span>{gettext("Local copies")}</span>
+              <span>{gettext("Cloud copies")}</span>
+            </div>
+            <ul class="divide-y divide-base-200">
+              <li
+                :for={profile <- @profiles}
+                id={"#{@id}-summary-#{profile.uuid}"}
+                class="grid grid-cols-2 sm:grid-cols-[minmax(8rem,2fr)_repeat(4,minmax(0,1fr))_4rem] items-center gap-x-3 gap-y-1 px-2 py-3"
+              >
+                <div class="flex flex-wrap items-center gap-2 min-w-0">
+                  <span class="font-semibold break-all">{profile.name}</span>
+                  <span :if={profile.is_default} class="badge badge-sm badge-ghost">{gettext(
+                    "Default"
+                  )}</span>
+                </div>
+                <span
+                  :for={
+                    {label, value} <- [
+                      {gettext("Buckets"), length(profile.buckets)},
+                      {gettext("Libraries"), @in_use[profile.uuid]},
+                      {gettext("Local copies"), profile.copies_local},
+                      {gettext("Cloud copies"), profile.copies_cloud}
+                    ]
+                  }
+                  class="text-sm tabular-nums"
+                >
+                  <span class="text-base-content/70 sm:sr-only">{label}</span>
+                  {value}
+                </span>
+                <.link
+                  patch={edit_path(profile)}
+                  class="btn btn-sm btn-outline col-start-2 row-start-1 justify-self-end sm:col-start-6"
+                >
+                  {gettext("Edit")} <span class="sr-only">{profile.name}</span>
+                </.link>
+              </li>
+            </ul>
+          </div>
         </div>
       </div>
 
-      <div
-        :for={profile <- @profiles}
-        id={"#{@id}-#{profile.uuid}"}
-        class="card bg-base-100 shadow-xl mb-6"
-      >
+      <div :if={@profile} id={"#{@id}-#{@profile.uuid}"} class="card bg-base-100 shadow-xl">
         <div class="card-body">
+          <.link
+            patch={list_path()}
+            class="link link-hover inline-flex items-center gap-1 text-sm w-fit"
+            data-confirm={MapSet.size(@dirty) > 0 && gettext("Discard unsaved changes?")}
+          >
+            <.icon name="hero-arrow-left" class="size-4" /> {gettext("Storage profiles")}
+          </.link>
+          <div class="flex flex-wrap items-center gap-2 my-2">
+            <h2 class="card-title break-all">{@profile.name}</h2>
+            <span :if={@profile.is_default} class="badge badge-ghost">{gettext("Default")}</span>
+            <span class="text-sm text-base-content/60">
+              {ngettext(
+                "Used by %{count} library.",
+                "Used by %{count} libraries.",
+                Map.get(@in_use, @profile.uuid, 0)
+              )}
+            </span>
+            <button
+              :if={not @profile.is_default}
+              type="button"
+              class="btn btn-sm btn-ghost text-error ml-auto"
+              disabled={Map.get(@in_use, @profile.uuid, 0) > 0}
+              phx-click="delete_profile"
+              phx-value-uuid={@profile.uuid}
+              phx-target={@myself}
+              data-confirm={gettext("Delete this storage profile?")}
+            >
+              <.icon name="hero-trash" class="w-4 h-4" /> {gettext("Delete")}
+            </button>
+          </div>
           <form
-            id={"#{@id}-form-#{profile.uuid}"}
+            id={"#{@id}-form-#{@profile.uuid}"}
             phx-change="dirty"
             phx-auto-recover="recover"
             phx-submit="save_profile"
             phx-target={@myself}
             class="flex flex-wrap items-end gap-4"
           >
-            <input type="hidden" name="uuid" value={profile.uuid} />
-            <input type="hidden" name="key" value={profile_key(profile.uuid)} />
-            <label class="form-control">
+            <input type="hidden" name="uuid" value={@profile.uuid} />
+            <input type="hidden" name="key" value={profile_key(@profile.uuid)} />
+            <label class="flex flex-col gap-1">
               <span class="label-text text-sm">{gettext("Name")}</span>
               <input
                 type="text"
                 name="profile[name]"
-                value={profile.name}
+                value={@profile.name}
                 maxlength="255"
                 required
                 class="input input-sm input-bordered w-56"
               />
             </label>
-            <label class="form-control">
+            <label class="flex flex-col gap-1">
               <span class="label-text text-sm">{gettext("Local copies")}</span>
               <input
                 type="number"
                 name="profile[copies_local]"
                 min="0"
                 max="5"
-                value={profile.copies_local}
+                value={@profile.copies_local}
                 title={gettext("How many copies of each file are kept on this server's own disks.")}
                 class="input input-sm input-bordered w-24"
               />
             </label>
-            <label class="form-control">
+            <label class="flex flex-col gap-1">
               <span class="label-text text-sm">{gettext("Cloud copies")}</span>
               <input
                 type="number"
                 name="profile[copies_cloud]"
                 min="0"
                 max="5"
-                value={profile.copies_cloud}
-                disabled={profile.copies_cloud == 0 and not cloud_available?(profile)}
+                value={@profile.copies_cloud}
+                disabled={@profile.copies_cloud == 0 and not cloud_available?(@profile)}
                 title={
-                  if cloud_available?(profile),
+                  if cloud_available?(@profile),
                     do:
                       gettext(
                         "How many copies of each file are kept in the cloud, so a file survives the server."
@@ -603,118 +692,109 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
                 class="input input-sm input-bordered w-24"
               />
             </label>
-            <label class="form-control">
+            <label class="flex flex-col gap-1">
               <span class="label-text text-sm">{gettext("Copies needed to accept an upload")}</span>
               <input
                 type="number"
                 name="profile[min_copies_on_write]"
                 min="1"
                 max="5"
-                value={profile.min_copies_on_write}
+                value={@profile.min_copies_on_write}
                 class="input input-sm input-bordered w-24"
               />
             </label>
-            <label class="form-control">
-              <span class="label-text text-sm">{gettext("Folder levels")}</span>
-              <select
-                name="profile[key_levels]"
-                class="select select-sm select-bordered w-36"
-                title={gettext("How many hash folders new files are spread over on a local disk.")}
-              >
-                <option
-                  :for={n <- KeyLayout.levels()}
-                  value={n}
-                  selected={n == shown_levels(@layout, profile)}
-                >
-                  {levels_label(n)}
-                </option>
-              </select>
-            </label>
-            <.save_button
-              dirty={MapSet.member?(@dirty, profile_key(profile.uuid))}
-              saved={MapSet.member?(@saved, profile_key(profile.uuid))}
-            />
-            <span :if={profile.is_default} class="badge badge-ghost">{gettext("Default")}</span>
-            <span class="text-sm text-base-content/60">
-              {ngettext(
-                "Used by %{count} library.",
-                "Used by %{count} libraries.",
-                Map.get(@in_use, profile.uuid, 0)
-              )}
-            </span>
-            <button
-              :if={not profile.is_default}
-              type="button"
-              class="btn btn-sm btn-ghost text-error ml-auto"
-              disabled={Map.get(@in_use, profile.uuid, 0) > 0}
-              phx-click="delete_profile"
-              phx-value-uuid={profile.uuid}
-              phx-target={@myself}
-              data-confirm={gettext("Delete this storage profile?")}
+
+            <% levels = @layout || @profile.key_levels %>
+            <details
+              id={"#{@id}-layout-#{@profile.uuid}"}
+              class="basis-full rounded-box bg-base-200 px-3 py-2 text-sm space-y-2"
             >
-              <.icon name="hero-trash" class="w-4 h-4" /> {gettext("Delete")}
-            </button>
+              <summary class="cursor-pointer font-medium">
+                {gettext("Folder layout for new files")}
+              </summary>
+              <label class="flex flex-col gap-1">
+                <span class="label-text text-sm">{gettext("Folder levels")}</span>
+                <select
+                  name="profile[key_levels]"
+                  class="select select-sm select-bordered w-36"
+                  title={gettext("How many hash folders new files are spread over on a local disk.")}
+                >
+                  <option
+                    :for={n <- KeyLayout.levels()}
+                    value={n}
+                    selected={n == levels}
+                  >
+                    {levels_label(n)}
+                  </option>
+                </select>
+              </label>
+              <p class="text-xs text-base-content/70">
+                {gettext(
+                  "On a local disk a file lives in a folder named after its content, inside hash folders. Spread over more levels, no folder gets crowded in a large library. Files already stored stay where they are; a cloud bucket has no folders and does not care."
+                )}
+              </p>
+              <code class="text-xs break-all">
+                {KeyLayout.path("lib-1a2b3c", "22e8b907…", levels)}/…
+              </code>
+              <table class="table table-xs w-auto">
+                <thead>
+                  <tr>
+                    <th>{gettext("Files in a library")}</th>
+                    <th>{gettext("Folders in the busiest folder")}</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr :for={{files, per, rating} <- KeyLayout.table(levels)}>
+                    <td>{count_label(files)}</td>
+                    <td>{count_label(per)}</td>
+                    <td>
+                      <% {tone, label} = rating_badge(rating) %>
+                      <span class={["badge badge-sm", tone]}>{label}</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <p class="text-xs text-base-content/60">
+                {gettext("Comfortable up to about %{files} files in a library.",
+                  files: count_label(KeyLayout.comfortable_up_to(levels))
+                )}
+              </p>
+            </details>
+            <.save_button
+              dirty={MapSet.member?(@dirty, profile_key(@profile.uuid))}
+              saved={MapSet.member?(@saved, profile_key(@profile.uuid))}
+            />
           </form>
 
-          <% levels = shown_levels(@layout, profile) %>
-          <div
-            id={"#{@id}-layout-#{profile.uuid}"}
-            class="mt-3 rounded-box bg-base-200 px-3 py-3 text-sm space-y-2"
-          >
-            <div class="font-medium">{gettext("Folder layout for new files")}</div>
-            <p class="text-xs text-base-content/70">
-              {gettext(
-                "On a local disk a file lives in a folder named after its content, inside hash folders. Spread over more levels, no folder gets crowded in a large library. Files already stored stay where they are; a cloud bucket has no folders and does not care."
-              )}
-            </p>
-            <code class="text-xs break-all">
-              {KeyLayout.path("lib-1a2b3c", "22e8b907…", levels)}/…
-            </code>
-            <table class="table table-xs w-auto">
-              <thead>
-                <tr>
-                  <th>{gettext("Files in a library")}</th>
-                  <th>{gettext("Folders in the busiest folder")}</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr :for={{files, per, rating} <- KeyLayout.table(levels)}>
-                  <td>{count_label(files)}</td>
-                  <td>{count_label(per)}</td>
-                  <td>
-                    <% {tone, label} = rating_badge(rating) %>
-                    <span class={["badge badge-sm", tone]}>{label}</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-            <p class="text-xs text-base-content/60">
-              {gettext("Comfortable up to about %{files} files in a library.",
-                files: count_label(KeyLayout.comfortable_up_to(levels))
-              )}
-            </p>
-          </div>
-
+          <h3 class="mt-5 text-base font-semibold">{gettext("Buckets")}</h3>
+          <p class="text-sm text-base-content/70">
+            {gettext(
+              "When buckets or copy counts change, files are copied or moved in the background. Follow progress on the Health tab."
+            )}
+          </p>
           <p
-            :for={{severity, text} <- copies_hints(profile)}
-            :if={profile.buckets != []}
+            :for={{severity, text} <- copies_hints(@profile)}
+            :if={@profile.buckets != []}
             class={["text-sm mt-3", hint_class(severity)]}
           >
             {text}
           </p>
 
-          <% advice = Profiles.copies_advice(profile) %>
-          <% idle = idle_buckets(profile) %>
+          <% advice = Profiles.copies_advice(@profile) %>
+          <% idle = idle_buckets(@profile) %>
           <div
             :if={idle != []}
-            id={"#{@id}-advice-#{profile.uuid}"}
+            id={"#{@id}-advice-#{@profile.uuid}"}
             class="mt-2 rounded-box bg-base-200 px-3 py-2 text-sm"
           >
             {gettext("Not used at this copy count: %{names}.", names: Enum.join(idle, ", "))}
           </div>
 
-          <div class="overflow-x-auto mt-4">
+          <p :if={@profile.buckets == []} class="rounded-box bg-base-200 px-3 py-2 text-sm">
+            {gettext("No buckets yet: uploads to a library on this profile fail.")}
+          </p>
+          <div :if={@profile.buckets != []} class="overflow-x-auto mt-4">
             <div class="min-w-[52rem]">
               <div class={[
                 columns(),
@@ -755,27 +835,20 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
                 <span></span>
               </div>
 
-              <p
-                :if={profile.buckets == []}
-                class="border-t border-base-200 py-3 px-2 text-sm text-base-content/60"
-              >
-                {gettext("No buckets yet: uploads to a library on this profile fail.")}
-              </p>
-
               <form
-                :for={row <- profile.buckets}
-                id={"#{@id}-row-#{profile.uuid}-#{row.bucket_uuid}"}
+                :for={row <- @profile.buckets}
+                id={"#{@id}-row-#{@profile.uuid}-#{row.bucket_uuid}"}
                 phx-change="dirty"
                 phx-auto-recover="recover"
                 phx-submit="save_row"
                 phx-target={@myself}
                 class={[columns(), "items-center border-t border-base-200 px-2 py-2"]}
               >
-                <input type="hidden" name="uuid" value={profile.uuid} />
+                <input type="hidden" name="uuid" value={@profile.uuid} />
                 <input type="hidden" name="bucket_uuid" value={row.bucket_uuid} />
-                <input type="hidden" name="key" value={row_key(profile.uuid, row.bucket_uuid)} />
+                <input type="hidden" name="key" value={row_key(@profile.uuid, row.bucket_uuid)} />
 
-                <div id={"#{@id}-#{profile.uuid}-#{row.bucket_uuid}"} class="min-w-0">
+                <div id={"#{@id}-#{@profile.uuid}-#{row.bucket_uuid}"} class="min-w-0">
                   <span class="font-medium break-words">{row.bucket.name}</span>
                   <span class="badge badge-ghost badge-sm ml-1">{row.bucket.provider}</span>
                   <span :if={not row.bucket.enabled} class="badge badge-error badge-sm ml-1">
@@ -795,10 +868,10 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
                   >{if @cdn_sources[row.bucket_uuid],
                     do: @cdn_sources[row.bucket_uuid].name,
                     else: gettext("Configure CDN")}</.link>
-                  <% others = used_elsewhere(@bucket_usage, row.bucket_uuid, profile.uuid) %>
+                  <% others = used_elsewhere(@bucket_usage, row.bucket_uuid, @profile.uuid) %>
                   <div :if={others != []} class="mt-1">
                     <span
-                      id={"#{@id}-shared-#{profile.uuid}-#{row.bucket_uuid}"}
+                      id={"#{@id}-shared-#{@profile.uuid}-#{row.bucket_uuid}"}
                       class="badge badge-warning badge-sm h-auto gap-1 whitespace-normal text-left"
                       title={shared_note(others)}
                     >
@@ -820,7 +893,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
                   </select>
                   <label
                     :if={row.role == "backup"}
-                    id={"#{@id}-stores-#{profile.uuid}-#{row.bucket_uuid}"}
+                    id={"#{@id}-stores-#{@profile.uuid}-#{row.bucket_uuid}"}
                     class="flex cursor-pointer items-center gap-2 text-xs"
                     title={
                       gettext(
@@ -850,7 +923,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
                 />
                 <span
                   :if={not upload_order_matters?(advice, row)}
-                  id={"#{@id}-order-na-#{profile.uuid}-#{row.bucket_uuid}"}
+                  id={"#{@id}-order-na-#{@profile.uuid}-#{row.bucket_uuid}"}
                   class="tooltip tooltip-bottom text-center text-base-content/40"
                   data-tip={
                     gettext("Every writable bucket gets a copy, so the order does not matter.")
@@ -876,8 +949,8 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
                 </select>
                 <div class={actions_cell()}>
                   <.save_button
-                    dirty={MapSet.member?(@dirty, row_key(profile.uuid, row.bucket_uuid))}
-                    saved={MapSet.member?(@saved, row_key(profile.uuid, row.bucket_uuid))}
+                    dirty={MapSet.member?(@dirty, row_key(@profile.uuid, row.bucket_uuid))}
+                    saved={MapSet.member?(@saved, row_key(@profile.uuid, row.bucket_uuid))}
                   />
                   <button
                     type="button"
@@ -885,7 +958,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
                     title={gettext("Remove from profile")}
                     aria-label={gettext("Remove from profile")}
                     phx-click="remove_bucket"
-                    phx-value-uuid={profile.uuid}
+                    phx-value-uuid={@profile.uuid}
                     phx-value-bucket_uuid={row.bucket_uuid}
                     phx-target={@myself}
                     data-confirm={
@@ -902,16 +975,16 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
           </div>
 
           <form
-            :if={not_in(profile, @buckets) != []}
-            id={"#{@id}-add-#{profile.uuid}"}
+            :if={not_in(@profile, @buckets) != []}
+            id={"#{@id}-add-#{@profile.uuid}"}
             phx-submit="add_bucket"
             phx-target={@myself}
             class="flex flex-wrap items-center gap-2 mt-2"
           >
-            <input type="hidden" name="uuid" value={profile.uuid} />
+            <input type="hidden" name="uuid" value={@profile.uuid} />
             <select name="bucket_uuid" class="select select-sm select-bordered">
               <option
-                :for={{uuid, label} <- add_options(profile, @buckets, @bucket_usage)}
+                :for={{uuid, label} <- add_options(@profile, @buckets, @bucket_usage)}
                 value={uuid}
               >
                 {label}
@@ -923,8 +996,8 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
             <p
               :if={
                 Enum.any?(
-                  not_in(profile, @buckets),
-                  &(used_elsewhere(@bucket_usage, &1.uuid, profile.uuid) != [])
+                  not_in(@profile, @buckets),
+                  &(used_elsewhere(@bucket_usage, &1.uuid, @profile.uuid) != [])
                 )
               }
               class="basis-full text-xs text-warning"

@@ -122,7 +122,12 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     active_tab = UrlTabs.active(params, tabs())
 
     # The Renditions tab names its rendition profile in the URL (`&set=<uuid>`).
-    socket = assign(socket, active_tab: active_tab, rendition_set: params["set"])
+    socket =
+      assign(socket,
+        active_tab: active_tab,
+        rendition_set: params["set"],
+        storage_profile: params["profile"]
+      )
 
     {:noreply, if(active_tab == "buckets", do: load_bucket_usage(socket), else: socket)}
   end

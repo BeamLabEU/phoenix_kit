@@ -28605,3 +28605,18 @@ msgstr "Solo usuarios con sesión iniciada"
 #, elixir-autogen, elixir-format
 msgid "Unavailable"
 msgstr "No disponible"
+
+#: lib/modules/storage/web/profiles_component.ex:535
+#, elixir-autogen
+msgid "Profiles set where libraries keep their files and how many copies they store."
+msgstr "Los perfiles determinan dónde se guardan los archivos de las bibliotecas y cuántas copias se conservan."
+
+#: lib/modules/storage/web/profiles_component.ex:615
+#, elixir-autogen
+msgid "Discard unsaved changes?"
+msgstr "¿Descartar los cambios sin guardar?"
+
+#: lib/modules/storage/web/profiles_component.ex:773
+#, elixir-autogen
+msgid "When buckets or copy counts change, files are copied or moved in the background. Follow progress on the Health tab."
+msgstr "Al cambiar los buckets o el número de copias, los archivos se copian o se mueven en segundo plano. Puedes seguir el progreso en la pestaña «Estado de salud»."
