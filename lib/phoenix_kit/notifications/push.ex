@@ -124,7 +124,8 @@ defmodule PhoenixKit.Notifications.Push do
           bind(installation, user)
           installation
         else
-          {:error, reason} -> RepoHelper.repo().rollback(reason)
+          {:error, reason} when is_atom(reason) -> RepoHelper.repo().rollback(reason)
+          {:error, _changeset} -> RepoHelper.repo().rollback(:try_again)
         end
       end)
       |> tap(fn
@@ -361,12 +362,20 @@ defmodule PhoenixKit.Notifications.Push do
   def forget_account(user_uuid) when is_binary(user_uuid) do
     repo = RepoHelper.repo()
 
-    ids =
-      from(b in Binding, where: b.user_uuid == ^user_uuid, select: b.installation_uuid)
-      |> repo.all()
+    # The same lock a subscribe takes: no binding can be added meanwhile.
+    {:ok, ids} =
+      repo.transaction(fn ->
+        repo.query!("SELECT pg_advisory_xact_lock(hashtext($1))", ["pk_push:" <> user_uuid])
 
-    from(b in Binding, where: b.user_uuid == ^user_uuid) |> repo.delete_all()
-    from(p in Pending, where: p.user_uuid == ^user_uuid) |> repo.delete_all()
+        ids =
+          from(b in Binding, where: b.user_uuid == ^user_uuid, select: b.installation_uuid)
+          |> repo.all()
+
+        from(b in Binding, where: b.user_uuid == ^user_uuid) |> repo.delete_all()
+        from(p in Pending, where: p.user_uuid == ^user_uuid) |> repo.delete_all()
+        ids
+      end)
+
     Enum.each(ids, &drop_if_unbound/1)
     :ok
   rescue

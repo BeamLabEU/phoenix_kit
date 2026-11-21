@@ -41,16 +41,7 @@ defmodule PhoenixKit.Notifications.Push.GroupWorker do
     repo.transaction(fn ->
       case Push.take_pending(user_uuid) do
         {:ok, payload} ->
-          json = Jason.encode!(payload)
-
-          from(b in Binding, where: b.user_uuid == ^user_uuid, select: b.installation_uuid)
-          |> repo.all()
-          |> Enum.each(fn installation_uuid ->
-            case SendWorker.enqueue(installation_uuid, user_uuid, json, Push.topic(user_uuid)) do
-              {:ok, _job} -> :ok
-              {:error, reason} -> repo.rollback(reason)
-            end
-          end)
+          enqueue_sends(repo, user_uuid, Jason.encode!(payload))
 
         :none ->
           :ok
@@ -63,6 +54,19 @@ defmodule PhoenixKit.Notifications.Push.GroupWorker do
   end
 
   def perform(_job), do: :ok
+
+  defp enqueue_sends(repo, user_uuid, json) do
+    from(b in Binding, where: b.user_uuid == ^user_uuid, select: b.installation_uuid)
+    |> repo.all()
+    |> Enum.each(&enqueue_send(repo, &1, user_uuid, json))
+  end
+
+  defp enqueue_send(repo, installation_uuid, user_uuid, json) do
+    case SendWorker.enqueue(installation_uuid, user_uuid, json, Push.topic(user_uuid)) do
+      {:ok, _job} -> :ok
+      {:error, reason} -> repo.rollback(reason)
+    end
+  end
 end
 
 defmodule PhoenixKit.Notifications.Push.SendWorker do
