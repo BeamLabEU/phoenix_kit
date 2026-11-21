@@ -49,6 +49,7 @@ defmodule PhoenixKit.Notifications.Push do
 
   import Ecto.Query
 
+  alias PhoenixKit.Email.Branding
   alias PhoenixKit.Integrations.Encryption
   alias PhoenixKit.Notifications.ChannelConfig
   alias PhoenixKit.Notifications.Push.{Binding, GroupWorker, Installation, Pending, WebPush}
@@ -471,7 +472,7 @@ defmodule PhoenixKit.Notifications.Push do
   end
 
   defp icon_url do
-    PhoenixKit.Email.Branding.logo_url()
+    Branding.logo_url()
   rescue
     _ -> nil
   end

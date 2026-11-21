@@ -116,7 +116,7 @@ defmodule PhoenixKitWeb.PushOpenController do
   defp account_label(%User{} = user) do
     name = User.display_name(user)
     email = User.delivery_email(user)
-    if name && name != email, do: "#{name} (#{email})", else: email || name
+    if is_binary(email) and name != email, do: "#{name} (#{email})", else: name
   end
 
   defp generic(conn) do

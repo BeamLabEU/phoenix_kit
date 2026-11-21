@@ -5,6 +5,7 @@ defmodule PhoenixKit.Migrations.Postgres.V235Test do
   """
   use PhoenixKit.DataCase, async: false
 
+  alias PhoenixKit.API.KeyTestSupport
   alias PhoenixKit.Migrations.ExpectedSchema
   alias PhoenixKit.Migrations.Postgres.V235
   alias PhoenixKit.Test.Repo
@@ -66,7 +67,7 @@ defmodule PhoenixKit.Migrations.Postgres.V235Test do
   end
 
   test "an endpoint is one installation; a binding is one per account; both cascade" do
-    user = PhoenixKit.API.KeyTestSupport.register_user!()
+    user = KeyTestSupport.register_user!()
     hash = :crypto.strong_rand_bytes(32)
 
     insert = fn ->

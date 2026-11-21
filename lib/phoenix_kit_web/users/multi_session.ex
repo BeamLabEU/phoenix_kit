@@ -63,6 +63,7 @@ defmodule PhoenixKitWeb.Users.MultiSession do
 
   import Plug.Conn
 
+  alias PhoenixKit.Notifications.Push
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.ActiveRole
   alias PhoenixKit.Users.Auth
@@ -899,7 +900,7 @@ defmodule PhoenixKitWeb.Users.MultiSession do
   defp forget_push(conn, token) do
     case Auth.get_user_by_session_token(token) do
       %Auth.User{uuid: uuid} ->
-        PhoenixKit.Notifications.Push.forget_browser(uuid, push_browser_id(conn))
+        Push.forget_browser(uuid, push_browser_id(conn))
 
       _ ->
         :ok

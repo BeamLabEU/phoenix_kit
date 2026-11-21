@@ -29092,3 +29092,210 @@ msgstr "Osa sellest on päritud, mitte selle liigi oma. Jäta see nii, et pärim
 #, elixir-autogen, elixir-format
 msgid "(open it to read the rest)"
 msgstr "(ava, et lugeda edasi)"
+
+
+#: lib/phoenix_kit/notifications/push.ex:439
+#, elixir-autogen, elixir-format
+msgid "%{count} notification pending"
+msgid_plural "%{count} notifications pending"
+msgstr[0] "%{count} ootel teavitus"
+msgstr[1] "%{count} ootel teavitust"
+
+#: lib/phoenix_kit/notifications/push.ex:426
+#, elixir-autogen, elixir-format
+msgid "%{count} notification pending — latest: %{line}"
+msgid_plural "%{count} notifications pending — latest: %{line}"
+msgstr[0] "%{count} ootel teavitus — viimane: %{line}"
+msgstr[1] "%{count} ootel teavitust — viimane: %{line}"
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:216
+#, elixir-autogen, elixir-format
+msgid "A browser"
+msgstr "Brauser"
+
+#: lib/phoenix_kit_web/controllers/push_controller.ex:139
+#, elixir-autogen, elixir-format
+msgid "Back to the notification settings"
+msgstr "Tagasi teavituste seadetesse"
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:136
+#, elixir-autogen, elixir-format
+msgid "Browser notifications are off on this site."
+msgstr "Brauseri teavitused on sellel saidil välja lülitatud."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:515
+#, elixir-autogen, elixir-format
+msgid "Browser push notifications"
+msgstr "Brauseri tõuketeavitused"
+
+#: lib/phoenix_kit_web/controllers/push_controller.ex:132
+#, elixir-autogen, elixir-format
+msgid "Choose “Add to Home Screen”, then “Add”."
+msgstr "Vali „Lisa avakuvale“, siis „Lisa“."
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:213
+#, elixir-autogen, elixir-format
+msgid "Devices"
+msgstr "Seadmed"
+
+#: lib/phoenix_kit_web/controllers/push_controller.ex:124
+#, elixir-autogen, elixir-format
+msgid "Get notifications on this iPhone"
+msgstr "Saa teavitusi sellesse iPhone'i"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:543
+#, elixir-autogen, elixir-format
+msgid "Group notifications that arrive within"
+msgstr "Ühenda üheks teavitused, mis saabuvad"
+
+#: lib/phoenix_kit_web/controllers/push_open_controller.ex:175
+#, elixir-autogen, elixir-format
+msgid "Home"
+msgstr "Avaleht"
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:188
+#, elixir-autogen, elixir-format
+msgid "How to"
+msgstr "Kuidas"
+
+#: lib/phoenix_kit_web/controllers/push_open_controller.ex:156
+#, elixir-autogen, elixir-format
+msgid "It is for %{target}."
+msgstr "See on kasutajale %{target}."
+
+#: lib/phoenix_kit_web/controllers/push_open_controller.ex:169
+#, elixir-autogen, elixir-format
+msgid "It may be for another account, or it is too old. Sign in with the account it is for to see it."
+msgstr "See võib olla teisele kontole või liiga vana. Selle nägemiseks logi sisse kontoga, kellele see on."
+
+#: lib/phoenix_kit/notifications/push.ex:424
+#: lib/phoenix_kit/notifications/push.ex:437
+#, elixir-autogen, elixir-format
+msgid "New notification"
+msgstr "Uus teavitus"
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:192
+#, elixir-autogen, elixir-format
+msgid "Notifications are blocked for this site in this browser. Allow them in the browser's site settings, then reload this page."
+msgstr "Selle saidi teavitused on selles brauseris blokeeritud. Luba need brauseri saidiseadetes ja laadi see leht uuesti."
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:89
+#, elixir-autogen, elixir-format
+msgid "Notifications are on in this browser."
+msgstr "Teavitused on selles brauseris sees."
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:98
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:202
+#, elixir-autogen, elixir-format
+msgid "Notifications can't be turned on here."
+msgstr "Teavitusi ei saa siin sisse lülitada."
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:128
+#, elixir-autogen, elixir-format
+msgid "Notifications can't be turned on while you act as someone else."
+msgstr "Teavitusi ei saa sisse lülitada, kui tegutsed kellegi teisena."
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:137
+#, elixir-autogen, elixir-format
+msgid "Notifications could not be turned on. Try again."
+msgstr "Teavitusi ei õnnestunud sisse lülitada. Proovi uuesti."
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:166
+#, elixir-autogen, elixir-format
+msgid "Notifications on this computer or phone, even when the site isn't open. Choose which ones in the Browser column above."
+msgstr "Teavitused sellesse arvutisse või telefoni ka siis, kui sait pole avatud. Milliseid, vali ülal veerus „Brauser“."
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:187
+#, elixir-autogen, elixir-format
+msgid "On iPhone and iPad, add the site to your Home Screen first."
+msgstr "iPhone'is ja iPadis lisa sait kõigepealt avakuvale."
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:198
+#, elixir-autogen, elixir-format
+msgid "On in this browser."
+msgstr "Selles brauseris sees."
+
+#: lib/phoenix_kit_web/controllers/push_controller.ex:134
+#, elixir-autogen, elixir-format
+msgid "Open %{name} from the Home Screen and turn on notifications in its settings."
+msgstr "Ava %{name} avakuvalt ja lülita selle seadetes teavitused sisse."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:525
+#, elixir-autogen, elixir-format
+msgid "People can turn on notifications in their browser"
+msgstr "Inimesed saavad teavitused oma brauseris sisse lülitada"
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:131
+#, elixir-autogen, elixir-format
+msgid "Remove a device first: the limit is reached."
+msgstr "Eemalda kõigepealt mõni seade: piir on täis."
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:116
+#, elixir-autogen, elixir-format
+msgid "Removed."
+msgstr "Eemaldatud."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:537
+#, elixir-autogen, elixir-format
+msgid "Show what happened on a locked screen (otherwise only “New notification” or “3 notifications pending”)"
+msgstr "Näita lukustatud ekraanil, mis juhtus (muidu ainult „Uus teavitus“ või „3 ootel teavitust“)"
+
+#: lib/phoenix_kit_web/controllers/push_open_controller.ex:163
+#, elixir-autogen, elixir-format
+msgid "Stay"
+msgstr "Jää"
+
+#: lib/phoenix_kit_web/controllers/push_open_controller.ex:162
+#, elixir-autogen, elixir-format
+msgid "Switch and open"
+msgstr "Vaheta ja ava"
+
+#: lib/phoenix_kit_web/controllers/push_controller.ex:131
+#, elixir-autogen, elixir-format
+msgid "Tap the Share button at the bottom of Safari."
+msgstr "Puuduta Safari allosas jagamisnuppu."
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:130
+#, elixir-autogen, elixir-format
+msgid "This account can't get browser notifications."
+msgstr "See konto ei saa brauseri teavitusi."
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:184
+#, elixir-autogen, elixir-format
+msgid "This browser can't show notifications from websites."
+msgstr "See brauser ei saa veebisaitide teavitusi näidata."
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:134
+#, elixir-autogen, elixir-format
+msgid "This browser's notification service isn't supported."
+msgstr "Selle brauseri teavitusteenust ei toetata."
+
+#: lib/phoenix_kit_web/controllers/push_open_controller.ex:167
+#, elixir-autogen, elixir-format
+msgid "This notification can't be opened here"
+msgstr "Seda teavitust ei saa siin avada"
+
+#: lib/phoenix_kit_web/controllers/push_open_controller.ex:154
+#, elixir-autogen, elixir-format
+msgid "This notification is for another account"
+msgstr "See teavitus on teisele kontole"
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:207
+#, elixir-autogen, elixir-format
+msgid "Turn on in this browser"
+msgstr "Lülita selles brauseris sisse"
+
+#: lib/phoenix_kit_web/controllers/push_open_controller.ex:157
+#, elixir-autogen, elixir-format
+msgid "You're using %{current}."
+msgstr "Kasutad praegu kontot %{current}."
+
+#: lib/phoenix_kit_web/controllers/push_controller.ex:126
+#, elixir-autogen, elixir-format
+msgid "iPhone and iPad show a website's notifications only once it is on the Home Screen."
+msgstr "iPhone ja iPad näitavad veebisaidi teavitusi alles siis, kui see on avakuval."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:552
+#, elixir-autogen, elixir-format
+msgid "seconds into one"
+msgstr "sekundi jooksul"

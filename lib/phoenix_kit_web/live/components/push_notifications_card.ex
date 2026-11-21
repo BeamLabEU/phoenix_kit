@@ -149,91 +149,88 @@ defmodule PhoenixKitWeb.Live.Components.PushNotificationsCard do
       )
 
     ~H"""
-    <div>
-      <section
-        :if={@enabled}
-        id={@id}
-        phx-hook="PkPush"
-        phx-target={@myself}
-        data-key={@key}
-        data-worker={@worker}
-        class="card bg-base-200/40 mt-4"
-      >
-        <div class="card-body p-4 gap-3">
-          <h3 class="font-semibold flex items-center gap-2">
-            <.icon name="hero-computer-desktop" class="w-5 h-5 text-primary" />
-            {gettext("Browser")}
-          </h3>
-          <p class="text-sm text-base-content/70">
-            {gettext(
-              "Notifications on this computer or phone, even when the site isn't open. Choose which ones in the Browser column above."
-            )}
-          </p>
+    <section
+      id={@id}
+      phx-hook={@enabled && "PkPush"}
+      phx-target={@myself}
+      data-key={@key}
+      data-worker={@worker}
+      class={["card bg-base-200/40 mt-4", !@enabled && "hidden"]}
+    >
+      <div :if={@enabled} class="card-body p-4 gap-3">
+        <h3 class="font-semibold flex items-center gap-2">
+          <.icon name="hero-computer-desktop" class="w-5 h-5 text-primary" />
+          {gettext("Browser")}
+        </h3>
+        <p class="text-sm text-base-content/70">
+          {gettext(
+            "Notifications on this computer or phone, even when the site isn't open. Choose which ones in the Browser column above."
+          )}
+        </p>
 
-          <div
-            :if={@message}
-            class={[
-              "alert text-sm",
-              elem(@message, 0) == :error && "alert-error",
-              elem(@message, 0) == :info && "alert-success"
-            ]}
-          >
-            {elem(@message, 1)}
-          </div>
-
-          <%= cond do %>
-            <% @browser_state == "unsupported" -> %>
-              <p class="text-sm">{gettext("This browser can't show notifications from websites.")}</p>
-            <% @browser_state == "ios_install" -> %>
-              <p class="text-sm">
-                {gettext("On iPhone and iPad, add the site to your Home Screen first.")}
-                <a href={@install} class="link link-primary">{gettext("How to")}</a>
-              </p>
-            <% @browser_state == "denied" -> %>
-              <p class="text-sm">
-                {gettext(
-                  "Notifications are blocked for this site in this browser. Allow them in the browser's site settings, then reload this page."
-                )}
-              </p>
-            <% @here_on? -> %>
-              <p class="text-sm text-success flex items-center gap-1">
-                <.icon name="hero-check-circle" class="w-4 h-4" /> {gettext("On in this browser.")}
-              </p>
-            <% not allowed?(assigns) -> %>
-              <p class="text-sm text-base-content/70">
-                {gettext("Notifications can't be turned on here.")}
-              </p>
-            <% true -> %>
-              <div>
-                <button type="button" data-push-enable class="btn btn-primary btn-sm">
-                  {gettext("Turn on in this browser")}
-                </button>
-              </div>
-          <% end %>
-
-          <div :if={@devices != []}>
-            <p class="text-sm font-medium mb-1">{gettext("Devices")}</p>
-            <ul class="flex flex-col gap-1">
-              <li :for={device <- @devices} class="flex items-center gap-2 text-sm">
-                <span class="flex-1 truncate">{device.label || gettext("A browser")}</span>
-                <span :if={device.endpoint_hash == @this_hash} class="badge badge-sm badge-primary">
-                  {gettext("This device")}
-                </span>
-                <button
-                  type="button"
-                  phx-click="push_remove"
-                  phx-value-uuid={device.uuid}
-                  phx-target={@myself}
-                  class="btn btn-ghost btn-xs"
-                >
-                  {gettext("Remove")}
-                </button>
-              </li>
-            </ul>
-          </div>
+        <div
+          :if={@message}
+          class={[
+            "alert text-sm",
+            elem(@message, 0) == :error && "alert-error",
+            elem(@message, 0) == :info && "alert-success"
+          ]}
+        >
+          {elem(@message, 1)}
         </div>
-      </section>
-    </div>
+
+        <%= cond do %>
+          <% @browser_state == "unsupported" -> %>
+            <p class="text-sm">{gettext("This browser can't show notifications from websites.")}</p>
+          <% @browser_state == "ios_install" -> %>
+            <p class="text-sm">
+              {gettext("On iPhone and iPad, add the site to your Home Screen first.")}
+              <a href={@install} class="link link-primary">{gettext("How to")}</a>
+            </p>
+          <% @browser_state == "denied" -> %>
+            <p class="text-sm">
+              {gettext(
+                "Notifications are blocked for this site in this browser. Allow them in the browser's site settings, then reload this page."
+              )}
+            </p>
+          <% @here_on? -> %>
+            <p class="text-sm text-success flex items-center gap-1">
+              <.icon name="hero-check-circle" class="w-4 h-4" /> {gettext("On in this browser.")}
+            </p>
+          <% not allowed?(assigns) -> %>
+            <p class="text-sm text-base-content/70">
+              {gettext("Notifications can't be turned on here.")}
+            </p>
+          <% true -> %>
+            <div>
+              <button type="button" data-push-enable class="btn btn-primary btn-sm">
+                {gettext("Turn on in this browser")}
+              </button>
+            </div>
+        <% end %>
+
+        <div :if={@devices != []}>
+          <p class="text-sm font-medium mb-1">{gettext("Devices")}</p>
+          <ul class="flex flex-col gap-1">
+            <li :for={device <- @devices} class="flex items-center gap-2 text-sm">
+              <span class="flex-1 truncate">{device.label || gettext("A browser")}</span>
+              <span :if={device.endpoint_hash == @this_hash} class="badge badge-sm badge-primary">
+                {gettext("This device")}
+              </span>
+              <button
+                type="button"
+                phx-click="push_remove"
+                phx-value-uuid={device.uuid}
+                phx-target={@myself}
+                class="btn btn-ghost btn-xs"
+              >
+                {gettext("Remove")}
+              </button>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
     """
   end
 end

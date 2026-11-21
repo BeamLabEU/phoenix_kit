@@ -26,8 +26,10 @@ defmodule PhoenixKit.Notifications.Push.WebPush do
   require Logger
 
   alias PhoenixKit.Integrations.Encryption
+  alias PhoenixKit.Mailer
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.PublicAddress
+  alias PhoenixKit.Utils.Routes
 
   @key_setting "push_vapid_key"
 
@@ -264,14 +266,7 @@ defmodule PhoenixKit.Notifications.Push.WebPush do
     with true <- endpoint_ok?(endpoint) || {:error, :endpoint_refused},
          {:ok, key} <- vapid_key(),
          {:ok, body} <- encrypt(payload, p256dh, auth) do
-      headers =
-        [
-          {"authorization", authorization(endpoint, key, subject())},
-          {"content-encoding", "aes128gcm"},
-          {"content-type", "application/octet-stream"},
-          {"ttl", to_string(Keyword.get(opts, :ttl, 7 * 24 * 3600))},
-          {"urgency", Keyword.get(opts, :urgency, "normal")}
-        ] ++ topic(opts[:topic])
+      headers = request_headers(endpoint, key, opts)
 
       request =
         [url: endpoint, body: body, headers: headers]
@@ -285,6 +280,20 @@ defmodule PhoenixKit.Notifications.Push.WebPush do
 
       request |> Req.post() |> result()
     end
+  end
+
+  @doc false
+  # The headers of a send. (A test reads them here: Req's test adapter takes
+  # `content-encoding` for compression it should undo and drops it, which a
+  # real request never does.)
+  def request_headers(endpoint, key, opts) do
+    [
+      {"authorization", authorization(endpoint, key, subject())},
+      {"content-encoding", "aes128gcm"},
+      {"content-type", "application/octet-stream"},
+      {"ttl", to_string(Keyword.get(opts, :ttl, 7 * 24 * 3600))},
+      {"urgency", Keyword.get(opts, :urgency, "normal")}
+    ] ++ topic(opts[:topic])
   end
 
   defp topic(nil), do: []
@@ -313,12 +322,12 @@ defmodule PhoenixKit.Notifications.Push.WebPush do
 
   # The VAPID `sub`: who to contact about this sender.
   defp subject do
-    case PhoenixKit.Mailer.get_from_email() do
+    case Mailer.get_from_email() do
       email when is_binary(email) and email != "" -> "mailto:" <> email
-      _ -> PhoenixKit.Utils.Routes.base_url()
+      _ -> Routes.base_url()
     end
   rescue
-    _ -> PhoenixKit.Utils.Routes.base_url()
+    _ -> Routes.base_url()
   end
 
   defp hmac(key, data), do: :crypto.mac(:hmac, :sha256, key, data)

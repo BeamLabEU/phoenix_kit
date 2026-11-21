@@ -29012,3 +29012,212 @@ msgstr "Część tego jest dziedziczona, nie należy do tego rodzaju. Zostaw ją
 #, elixir-autogen, elixir-format
 msgid "(open it to read the rest)"
 msgstr "(otwórz, aby przeczytać resztę)"
+
+
+#: lib/phoenix_kit/notifications/push.ex:439
+#, elixir-autogen, elixir-format
+msgid "%{count} notification pending"
+msgid_plural "%{count} notifications pending"
+msgstr[0] "%{count} oczekujące powiadomienie"
+msgstr[1] "%{count} oczekujące powiadomienia"
+msgstr[2] "%{count} oczekujących powiadomień"
+
+#: lib/phoenix_kit/notifications/push.ex:426
+#, elixir-autogen, elixir-format
+msgid "%{count} notification pending — latest: %{line}"
+msgid_plural "%{count} notifications pending — latest: %{line}"
+msgstr[0] "%{count} oczekujące powiadomienie — ostatnie: %{line}"
+msgstr[1] "%{count} oczekujące powiadomienia — ostatnie: %{line}"
+msgstr[2] "%{count} oczekujących powiadomień — ostatnie: %{line}"
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:216
+#, elixir-autogen, elixir-format
+msgid "A browser"
+msgstr "Przeglądarka"
+
+#: lib/phoenix_kit_web/controllers/push_controller.ex:139
+#, elixir-autogen, elixir-format
+msgid "Back to the notification settings"
+msgstr "Wróć do ustawień powiadomień"
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:136
+#, elixir-autogen, elixir-format
+msgid "Browser notifications are off on this site."
+msgstr "Powiadomienia w przeglądarce są wyłączone w tej witrynie."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:515
+#, elixir-autogen, elixir-format
+msgid "Browser push notifications"
+msgstr "Powiadomienia push w przeglądarce"
+
+#: lib/phoenix_kit_web/controllers/push_controller.ex:132
+#, elixir-autogen, elixir-format
+msgid "Choose “Add to Home Screen”, then “Add”."
+msgstr "Wybierz „Do ekranu początkowego”, a potem „Dodaj”."
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:213
+#, elixir-autogen, elixir-format
+msgid "Devices"
+msgstr "Urządzenia"
+
+#: lib/phoenix_kit_web/controllers/push_controller.ex:124
+#, elixir-autogen, elixir-format
+msgid "Get notifications on this iPhone"
+msgstr "Otrzymuj powiadomienia na tym iPhonie"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:543
+#, elixir-autogen, elixir-format
+msgid "Group notifications that arrive within"
+msgstr "Grupuj powiadomienia, które przyjdą w ciągu"
+
+#: lib/phoenix_kit_web/controllers/push_open_controller.ex:175
+#, elixir-autogen, elixir-format
+msgid "Home"
+msgstr "Strona główna"
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:188
+#, elixir-autogen, elixir-format
+msgid "How to"
+msgstr "Jak to zrobić"
+
+#: lib/phoenix_kit_web/controllers/push_open_controller.ex:156
+#, elixir-autogen, elixir-format
+msgid "It is for %{target}."
+msgstr "Jest dla %{target}."
+
+#: lib/phoenix_kit_web/controllers/push_open_controller.ex:169
+#, elixir-autogen, elixir-format
+msgid "It may be for another account, or it is too old. Sign in with the account it is for to see it."
+msgstr "Może być dla innego konta albo jest zbyt stare. Zaloguj się na konto, dla którego jest, aby je zobaczyć."
+
+#: lib/phoenix_kit/notifications/push.ex:424
+#: lib/phoenix_kit/notifications/push.ex:437
+#, elixir-autogen, elixir-format
+msgid "New notification"
+msgstr "Nowe powiadomienie"
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:192
+#, elixir-autogen, elixir-format
+msgid "Notifications are blocked for this site in this browser. Allow them in the browser's site settings, then reload this page."
+msgstr "Powiadomienia z tej witryny są zablokowane w tej przeglądarce. Zezwól na nie w ustawieniach witryny w przeglądarce, a potem odśwież tę stronę."
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:89
+#, elixir-autogen, elixir-format
+msgid "Notifications are on in this browser."
+msgstr "Powiadomienia są włączone w tej przeglądarce."
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:98
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:202
+#, elixir-autogen, elixir-format
+msgid "Notifications can't be turned on here."
+msgstr "Nie można tu włączyć powiadomień."
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:128
+#, elixir-autogen, elixir-format
+msgid "Notifications can't be turned on while you act as someone else."
+msgstr "Nie można włączyć powiadomień, gdy działasz jako ktoś inny."
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:137
+#, elixir-autogen, elixir-format
+msgid "Notifications could not be turned on. Try again."
+msgstr "Nie udało się włączyć powiadomień. Spróbuj ponownie."
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:166
+#, elixir-autogen, elixir-format
+msgid "Notifications on this computer or phone, even when the site isn't open. Choose which ones in the Browser column above."
+msgstr "Powiadomienia na tym komputerze lub telefonie, nawet gdy witryna nie jest otwarta. Wybierz, które, w kolumnie „Przeglądarka” powyżej."
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:187
+#, elixir-autogen, elixir-format
+msgid "On iPhone and iPad, add the site to your Home Screen first."
+msgstr "Na iPhonie i iPadzie najpierw dodaj witrynę do ekranu początkowego."
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:198
+#, elixir-autogen, elixir-format
+msgid "On in this browser."
+msgstr "Włączone w tej przeglądarce."
+
+#: lib/phoenix_kit_web/controllers/push_controller.ex:134
+#, elixir-autogen, elixir-format
+msgid "Open %{name} from the Home Screen and turn on notifications in its settings."
+msgstr "Otwórz %{name} z ekranu początkowego i włącz powiadomienia w ustawieniach."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:525
+#, elixir-autogen, elixir-format
+msgid "People can turn on notifications in their browser"
+msgstr "Użytkownicy mogą włączyć powiadomienia w przeglądarce"
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:131
+#, elixir-autogen, elixir-format
+msgid "Remove a device first: the limit is reached."
+msgstr "Najpierw usuń urządzenie: osiągnięto limit."
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:116
+#, elixir-autogen, elixir-format
+msgid "Removed."
+msgstr "Usunięto."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:537
+#, elixir-autogen, elixir-format
+msgid "Show what happened on a locked screen (otherwise only “New notification” or “3 notifications pending”)"
+msgstr "Pokazuj na zablokowanym ekranie, co się stało (inaczej tylko „Nowe powiadomienie” lub „3 oczekujące powiadomienia”)"
+
+#: lib/phoenix_kit_web/controllers/push_open_controller.ex:163
+#, elixir-autogen, elixir-format
+msgid "Stay"
+msgstr "Zostań"
+
+#: lib/phoenix_kit_web/controllers/push_open_controller.ex:162
+#, elixir-autogen, elixir-format
+msgid "Switch and open"
+msgstr "Przełącz i otwórz"
+
+#: lib/phoenix_kit_web/controllers/push_controller.ex:131
+#, elixir-autogen, elixir-format
+msgid "Tap the Share button at the bottom of Safari."
+msgstr "Stuknij przycisk Udostępnij na dole Safari."
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:130
+#, elixir-autogen, elixir-format
+msgid "This account can't get browser notifications."
+msgstr "To konto nie może otrzymywać powiadomień w przeglądarce."
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:184
+#, elixir-autogen, elixir-format
+msgid "This browser can't show notifications from websites."
+msgstr "Ta przeglądarka nie może wyświetlać powiadomień z witryn."
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:134
+#, elixir-autogen, elixir-format
+msgid "This browser's notification service isn't supported."
+msgstr "Usługa powiadomień tej przeglądarki nie jest obsługiwana."
+
+#: lib/phoenix_kit_web/controllers/push_open_controller.ex:167
+#, elixir-autogen, elixir-format
+msgid "This notification can't be opened here"
+msgstr "Tego powiadomienia nie można tu otworzyć"
+
+#: lib/phoenix_kit_web/controllers/push_open_controller.ex:154
+#, elixir-autogen, elixir-format
+msgid "This notification is for another account"
+msgstr "To powiadomienie jest dla innego konta"
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:207
+#, elixir-autogen, elixir-format
+msgid "Turn on in this browser"
+msgstr "Włącz w tej przeglądarce"
+
+#: lib/phoenix_kit_web/controllers/push_open_controller.ex:157
+#, elixir-autogen, elixir-format
+msgid "You're using %{current}."
+msgstr "Używasz konta %{current}."
+
+#: lib/phoenix_kit_web/controllers/push_controller.ex:126
+#, elixir-autogen, elixir-format
+msgid "iPhone and iPad show a website's notifications only once it is on the Home Screen."
+msgstr "iPhone i iPad pokazują powiadomienia witryny dopiero wtedy, gdy jest na ekranie początkowym."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:552
+#, elixir-autogen, elixir-format
+msgid "seconds into one"
+msgstr "sekund, w jedno"

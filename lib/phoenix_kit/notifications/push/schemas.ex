@@ -11,6 +11,8 @@ defmodule PhoenixKit.Notifications.Push.Installation do
   @primary_key {:uuid, UUIDv7, autogenerate: true}
   @timestamps_opts [type: :naive_datetime]
 
+  @type t :: %__MODULE__{}
+
   schema "phoenix_kit_push_installations" do
     field :endpoint, :string
     field :endpoint_hash, :binary

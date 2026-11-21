@@ -65,6 +65,7 @@ defmodule PhoenixKitWeb.Users.Auth do
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Maintenance
+  alias PhoenixKit.Notifications.Push
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.{Scope, User}
   alias PhoenixKit.Users.FormatCountry
@@ -478,7 +479,7 @@ defmodule PhoenixKitWeb.Users.Auth do
       [user && user.uuid | users]
       |> Enum.reject(&is_nil/1)
       |> Enum.uniq()
-      |> Enum.each(&PhoenixKit.Notifications.Push.forget_browser(&1, browser))
+      |> Enum.each(&Push.forget_browser(&1, browser))
     end
 
     :ok

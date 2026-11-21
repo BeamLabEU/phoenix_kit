@@ -28952,3 +28952,208 @@ msgstr "部分内容为继承，并非此类型自有。保持不变即继续继
 #, elixir-autogen, elixir-format
 msgid "(open it to read the rest)"
 msgstr "（打开以阅读全文）"
+
+
+#: lib/phoenix_kit/notifications/push.ex:439
+#, elixir-autogen, elixir-format
+msgid "%{count} notification pending"
+msgid_plural "%{count} notifications pending"
+msgstr[0] "%{count} 条待处理通知"
+
+#: lib/phoenix_kit/notifications/push.ex:426
+#, elixir-autogen, elixir-format
+msgid "%{count} notification pending — latest: %{line}"
+msgid_plural "%{count} notifications pending — latest: %{line}"
+msgstr[0] "%{count} 条待处理通知，最新：%{line}"
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:216
+#, elixir-autogen, elixir-format
+msgid "A browser"
+msgstr "一个浏览器"
+
+#: lib/phoenix_kit_web/controllers/push_controller.ex:139
+#, elixir-autogen, elixir-format
+msgid "Back to the notification settings"
+msgstr "返回通知设置"
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:136
+#, elixir-autogen, elixir-format
+msgid "Browser notifications are off on this site."
+msgstr "此网站已关闭浏览器通知。"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:515
+#, elixir-autogen, elixir-format
+msgid "Browser push notifications"
+msgstr "浏览器推送通知"
+
+#: lib/phoenix_kit_web/controllers/push_controller.ex:132
+#, elixir-autogen, elixir-format
+msgid "Choose “Add to Home Screen”, then “Add”."
+msgstr "选择“添加到主屏幕”，然后点“添加”。"
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:213
+#, elixir-autogen, elixir-format
+msgid "Devices"
+msgstr "设备"
+
+#: lib/phoenix_kit_web/controllers/push_controller.ex:124
+#, elixir-autogen, elixir-format
+msgid "Get notifications on this iPhone"
+msgstr "在此 iPhone 上接收通知"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:543
+#, elixir-autogen, elixir-format
+msgid "Group notifications that arrive within"
+msgstr "将在"
+
+#: lib/phoenix_kit_web/controllers/push_open_controller.ex:175
+#, elixir-autogen, elixir-format
+msgid "Home"
+msgstr "首页"
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:188
+#, elixir-autogen, elixir-format
+msgid "How to"
+msgstr "操作方法"
+
+#: lib/phoenix_kit_web/controllers/push_open_controller.ex:156
+#, elixir-autogen, elixir-format
+msgid "It is for %{target}."
+msgstr "它是发给 %{target} 的。"
+
+#: lib/phoenix_kit_web/controllers/push_open_controller.ex:169
+#, elixir-autogen, elixir-format
+msgid "It may be for another account, or it is too old. Sign in with the account it is for to see it."
+msgstr "它可能是发给另一个账户的，或已过期。请使用对应账户登录后查看。"
+
+#: lib/phoenix_kit/notifications/push.ex:424
+#: lib/phoenix_kit/notifications/push.ex:437
+#, elixir-autogen, elixir-format
+msgid "New notification"
+msgstr "新通知"
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:192
+#, elixir-autogen, elixir-format
+msgid "Notifications are blocked for this site in this browser. Allow them in the browser's site settings, then reload this page."
+msgstr "此浏览器已阻止本网站的通知。请在浏览器的网站设置中允许通知，然后重新加载此页面。"
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:89
+#, elixir-autogen, elixir-format
+msgid "Notifications are on in this browser."
+msgstr "此浏览器已开启通知。"
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:98
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:202
+#, elixir-autogen, elixir-format
+msgid "Notifications can't be turned on here."
+msgstr "无法在此开启通知。"
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:128
+#, elixir-autogen, elixir-format
+msgid "Notifications can't be turned on while you act as someone else."
+msgstr "以他人身份操作时无法开启通知。"
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:137
+#, elixir-autogen, elixir-format
+msgid "Notifications could not be turned on. Try again."
+msgstr "无法开启通知，请重试。"
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:166
+#, elixir-autogen, elixir-format
+msgid "Notifications on this computer or phone, even when the site isn't open. Choose which ones in the Browser column above."
+msgstr "即使未打开网站，也会在此电脑或手机上收到通知。在上方的“浏览器”列中选择接收哪些。"
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:187
+#, elixir-autogen, elixir-format
+msgid "On iPhone and iPad, add the site to your Home Screen first."
+msgstr "在 iPhone 和 iPad 上，请先将网站添加到主屏幕。"
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:198
+#, elixir-autogen, elixir-format
+msgid "On in this browser."
+msgstr "已在此浏览器开启。"
+
+#: lib/phoenix_kit_web/controllers/push_controller.ex:134
+#, elixir-autogen, elixir-format
+msgid "Open %{name} from the Home Screen and turn on notifications in its settings."
+msgstr "从主屏幕打开 %{name}，并在其设置中开启通知。"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:525
+#, elixir-autogen, elixir-format
+msgid "People can turn on notifications in their browser"
+msgstr "用户可以在浏览器中开启通知"
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:131
+#, elixir-autogen, elixir-format
+msgid "Remove a device first: the limit is reached."
+msgstr "请先移除一台设备：已达上限。"
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:116
+#, elixir-autogen, elixir-format
+msgid "Removed."
+msgstr "已移除。"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:537
+#, elixir-autogen, elixir-format
+msgid "Show what happened on a locked screen (otherwise only “New notification” or “3 notifications pending”)"
+msgstr "在锁屏上显示发生了什么（否则只显示“新通知”或“3 条待处理通知”）"
+
+#: lib/phoenix_kit_web/controllers/push_open_controller.ex:163
+#, elixir-autogen, elixir-format
+msgid "Stay"
+msgstr "留在此处"
+
+#: lib/phoenix_kit_web/controllers/push_open_controller.ex:162
+#, elixir-autogen, elixir-format
+msgid "Switch and open"
+msgstr "切换并打开"
+
+#: lib/phoenix_kit_web/controllers/push_controller.ex:131
+#, elixir-autogen, elixir-format
+msgid "Tap the Share button at the bottom of Safari."
+msgstr "轻点 Safari 底部的“分享”按钮。"
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:130
+#, elixir-autogen, elixir-format
+msgid "This account can't get browser notifications."
+msgstr "此账户无法接收浏览器通知。"
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:184
+#, elixir-autogen, elixir-format
+msgid "This browser can't show notifications from websites."
+msgstr "此浏览器无法显示网站通知。"
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:134
+#, elixir-autogen, elixir-format
+msgid "This browser's notification service isn't supported."
+msgstr "不支持此浏览器的通知服务。"
+
+#: lib/phoenix_kit_web/controllers/push_open_controller.ex:167
+#, elixir-autogen, elixir-format
+msgid "This notification can't be opened here"
+msgstr "无法在此打开此通知"
+
+#: lib/phoenix_kit_web/controllers/push_open_controller.ex:154
+#, elixir-autogen, elixir-format
+msgid "This notification is for another account"
+msgstr "此通知属于另一个账户"
+
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex:207
+#, elixir-autogen, elixir-format
+msgid "Turn on in this browser"
+msgstr "在此浏览器中开启"
+
+#: lib/phoenix_kit_web/controllers/push_open_controller.ex:157
+#, elixir-autogen, elixir-format
+msgid "You're using %{current}."
+msgstr "你正在使用 %{current}。"
+
+#: lib/phoenix_kit_web/controllers/push_controller.ex:126
+#, elixir-autogen, elixir-format
+msgid "iPhone and iPad show a website's notifications only once it is on the Home Screen."
+msgstr "iPhone 和 iPad 只有在网站添加到主屏幕后才会显示其通知。"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:552
+#, elixir-autogen, elixir-format
+msgid "seconds into one"
+msgstr "秒内到达的通知合并为一条"

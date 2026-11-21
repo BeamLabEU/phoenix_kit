@@ -35,6 +35,7 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessages do
   alias PhoenixKit.Notifications.Push
   alias PhoenixKit.Notifications.Types
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.RecipientLocale
   alias PhoenixKit.Utils.Routes
 
@@ -227,7 +228,7 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessages do
   # Browser push, site-wide (`PhoenixKit.Notifications.Push`): on or off,
   # the line on a locked screen or not, the grouping window.
   def handle_event("push_settings", %{"push" => push} = _params, socket) when is_map(push) do
-    actor = socket.assigns[:phoenix_kit_current_scope] |> PhoenixKit.Users.Auth.Scope.user_uuid()
+    actor = socket.assigns[:phoenix_kit_current_scope] |> Scope.user_uuid()
     opts = [actor_uuid: actor, source: "settings"]
 
     seconds =
