@@ -25,6 +25,41 @@ defmodule PhoenixKitWeb.Components.MediaViewer do
   - `current_user` — required for the composer / comments thread to
     render. nil-tolerant (lightbox falls back to view-only).
   - `notify` — optional `{module, id}`; see Close below
+  - `can_annotate` — default `true`. `false` makes the drawings read-only for
+    everyone: shapes arrive locked, the drawing tools are gone, and the server
+    refuses every drawing write (see `MediaCanvasViewer`).
+  - `own_files_only` — default `nil`; a user uuid. On a file someone else
+    uploaded the viewer is read-only: shapes locked, tools gone, and the server
+    refuses drawing, changing, deleting, Reply and a shape's title, and any
+    write to the file's own row. On a file that user uploaded everything the
+    viewer offers stays. The comments thread under the picture is not a write
+    to the file and is switched off by `comments`, not by this.
+  - `write_scope` — default `nil`; a folder uuid. A write to the file's own row
+    needs the file's HOME folder inside it (`Storage.within_scope?/2`); a file
+    merely linked into the folder is not written.
+  - `comments` — default `true`. `false` takes the discussion out of the
+    lightbox: no comments thread, no reply popup, no comment count, preview or
+    badge on the shapes, and the server refuses Reply.
+
+  The lightbox never offers the viewer's other writes: no title/description
+  editor, no persisted rotation, no "Edit image", no trash buttons, no
+  featured or pick buttons — it passes none of `details_path`, `edit_target`,
+  `persist_rotation`, `can_trash`, `featured` or `pick` — and Download stays as
+  it is.
+
+  ## Embedding for an outside person
+  To show a few files to someone who is not staff, pass
+  `own_files_only={user.uuid} write_scope={folder.uuid} comments={false}`:
+  on files that person uploaded they keep the drawing tools and everything
+  else the viewer offers; on every other file they only look. It does not
+  decide WHAT they see. `files` is trusted host data: the lightbox shows a uuid
+  from that list and nothing else (a seed or a step outside it, or a uuid
+  carried by a client event, is never opened), skipping a file that is gone,
+  in the trash or system-managed, but it does not check that the person may
+  read each file in the list. Build the list from what that person may see.
+  A file of a private library is signed with a time-window token, like
+  `Storage.authorized_url/4` does, never with the permanent one the file route
+  refuses.
 
   ## Close
   On close, if `notify: {module, id}` is set:
@@ -48,8 +83,17 @@ defmodule PhoenixKitWeb.Components.MediaViewer do
       |> assign_new(:current_uuid, fn -> assigns[:current] end)
       |> assign(:notify, assigns[:notify])
       |> assign(:current_user, assigns[:current_user])
+      |> assign(:can_annotate, assigns[:can_annotate] != false)
+      |> assign(:own_files_only, assigns[:own_files_only])
+      |> assign(:write_scope, assigns[:write_scope])
+      |> assign(:comments, assigns[:comments] != false)
 
-    {:ok, assign(socket, :current_file, curate_file(socket.assigns.current_uuid))}
+    {:ok,
+     assign(
+       socket,
+       :current_file,
+       curate_file(socket.assigns.current_uuid, socket.assigns.files)
+     )}
   end
 
   @impl true
@@ -77,6 +121,13 @@ defmodule PhoenixKitWeb.Components.MediaViewer do
 
   def handle_event("viewer_keydown", _params, socket), do: {:noreply, socket}
 
+  # The only events the lightbox owns are the three above. The canvas viewer
+  # also posts `viewer_pick`, `trash_file`, `restore_file`, `delete_file` and
+  # `set_featured` / `unset_featured` to its parent, but only for a host that
+  # asked for those buttons, and the lightbox asks for none. A client can push
+  # any event at a component, so anything else is ignored, not a crash.
+  def handle_event(_event, _params, socket), do: {:noreply, socket}
+
   # ── private ──────────────────────────────────────────────────────────
 
   defp close(socket) do
@@ -86,60 +137,91 @@ defmodule PhoenixKitWeb.Components.MediaViewer do
     end
   end
 
+  # One step in `direction`, over any file that cannot be shown (gone, trashed,
+  # system-managed) to the next one that can. Stays put at either end.
   defp step_viewer(socket, direction) do
-    current = socket.assigns.current_uuid
     list = socket.assigns.files
 
-    with idx when is_integer(idx) <- Enum.find_index(list, &(&1 == current)),
-         next_idx <- if(direction == :prev, do: idx - 1, else: idx + 1),
-         true <- next_idx >= 0 and next_idx < length(list),
-         uuid when is_binary(uuid) <- Enum.at(list, next_idx) do
+    with idx when is_integer(idx) <-
+           Enum.find_index(list, &(&1 == socket.assigns.current_uuid)),
+         {uuid, file} <- next_showable(list, idx, direction) do
       socket
       |> assign(:current_uuid, uuid)
-      |> assign(:current_file, curate_file(uuid))
+      |> assign(:current_file, file)
     else
       _ -> socket
     end
   end
 
+  defp next_showable(list, idx, direction) do
+    next_idx = if direction == :prev, do: idx - 1, else: idx + 1
+
+    with true <- next_idx >= 0 and next_idx < length(list),
+         uuid when is_binary(uuid) <- Enum.at(list, next_idx) do
+      case curate_file(uuid, list) do
+        nil -> next_showable(list, next_idx, direction)
+        file -> {uuid, file}
+      end
+    else
+      _ -> nil
+    end
+  end
+
+  @doc false
+  # Whether a file may be shown by a lightbox at all: a system-managed file
+  # (a tile chunk, an edited image's hidden original) is never served, and the
+  # file route refuses a trashed one to all but a `media` holder.
+  def servable?(%Storage.File{system_managed: true}), do: false
+  def servable?(%Storage.File{status: "trashed"}), do: false
+  def servable?(%Storage.File{}), do: true
+
   # Build the curated file map MediaCanvasViewer expects. Slim version
   # of MediaBrowser's `enrich_files/1` — same shape minus the
   # folder_path (lightbox doesn't show folder breadcrumbs). One File
   # row + one FileInstance query per current file open; the prev/next
-  # navigation re-resolves on each step.
-  defp curate_file(nil), do: nil
+  # navigation re-resolves on each step. Only a uuid the host put in `files`
+  # is ever opened: `current` is a seed and a step comes from the list, but
+  # nothing is trusted to stay in it.
+  defp curate_file(nil, _files), do: nil
 
-  defp curate_file(file_uuid) when is_binary(file_uuid) do
-    case safe(fn -> Storage.get_file(file_uuid) end, nil) do
-      nil ->
-        nil
-
-      file ->
-        instances = safe(fn -> Storage.list_file_instances(file_uuid) end, [])
-        original = Enum.find(instances, &(&1.variant_name == "original"))
-
-        private? = Libraries.private_file?(file)
-
-        urls =
-          file_uuid
-          |> signed_urls(instances, private?)
-          |> URLSigner.put_dzi_url(file_uuid, file.mime_type,
-            version: original,
-            private: private?
-          )
-
-        %{
-          file_uuid: file.uuid,
-          filename: file.original_file_name || file.file_name || "Unknown",
-          file_type: file.file_type,
-          mime_type: file.mime_type,
-          size: file.size || 0,
-          inserted_at: file.inserted_at,
-          width: file.width,
-          height: file.height,
-          urls: urls
-        }
+  defp curate_file(file_uuid, files) when is_binary(file_uuid) do
+    with true <- file_uuid in files,
+         %Storage.File{} = file <- safe(fn -> Storage.get_file(file_uuid) end, nil),
+         true <- servable?(file) do
+      curate(file)
+    else
+      _ -> nil
     end
+  end
+
+  defp curate_file(_file_uuid, _files), do: nil
+
+  defp curate(%Storage.File{} = file) do
+    file_uuid = file.uuid
+    instances = safe(fn -> Storage.list_file_instances(file_uuid) end, [])
+    original = Enum.find(instances, &(&1.variant_name == "original"))
+
+    private? = Libraries.private_file?(file)
+
+    urls =
+      file_uuid
+      |> signed_urls(instances, private?)
+      |> URLSigner.put_dzi_url(file_uuid, file.mime_type,
+        version: original,
+        private: private?
+      )
+
+    %{
+      file_uuid: file.uuid,
+      filename: file.original_file_name || file.file_name || "Unknown",
+      file_type: file.file_type,
+      mime_type: file.mime_type,
+      size: file.size || 0,
+      inserted_at: file.inserted_at,
+      width: file.width,
+      height: file.height,
+      urls: urls
+    }
   end
 
   defp signed_urls(file_uuid, instances, private?) do
