@@ -55,7 +55,8 @@ defmodule PhoenixKit.Integrations.Telegram do
   Sends a text message via a stored Telegram connection.
 
   Opts: `:parse_mode` (`"MarkdownV2"` / `"HTML"`), `:silent` (no notification
-  sound), `:reply_markup` (inline/keyboard map), and `:owner` for the credential
+  sound), `:reply_markup` (inline/keyboard map), `:link_preview` (`false`: no
+  preview card for a link in the text), and `:owner` for the credential
   lookup (`:system` default, or `{type, id}`). Returns `{:ok, message}` (the
   sent Message object) or `{:error, reason}`.
   """
@@ -73,6 +74,10 @@ defmodule PhoenixKit.Integrations.Telegram do
     |> maybe_put(:parse_mode, opts[:parse_mode])
     |> maybe_put(:disable_notification, opts[:silent])
     |> maybe_put(:reply_markup, opts[:reply_markup])
+    |> maybe_put(
+      :link_preview_options,
+      if(opts[:link_preview] == false, do: %{is_disabled: true})
+    )
     |> then(&request(token, "sendMessage", &1))
   end
 

@@ -52,6 +52,7 @@ defmodule PhoenixKit.Notifications.Channels.Telegram do
   alias PhoenixKit.Integrations
   alias PhoenixKit.Integrations.Telegram, as: Client
   alias PhoenixKit.Integrations.Telegram.SiteBot
+  alias PhoenixKit.Notifications.Messages
   alias PhoenixKit.Utils.Routes
 
   @impl true
@@ -174,8 +175,59 @@ defmodule PhoenixKit.Notifications.Channels.Telegram do
     end
   end
 
+  # Plain text with an "Open" button (Max and the boss, 2026-11-20). No
+  # preview card: a link in a comment is never fetched and unfurled. A
+  # button Telegram refuses (an address it calls invalid — a dev box's
+  # `localhost`) is sent again without it, the link written in the text as
+  # before, rather than switching the person's Telegram off.
   defp send(uuid, chat_id, owner, envelope) do
-    Client.send_message(uuid, chat_id, body(envelope), owner: owner)
+    case button(envelope) do
+      nil ->
+        Client.send_message(uuid, chat_id, body(envelope, true),
+          owner: owner,
+          link_preview: false
+        )
+
+      markup ->
+        case Client.send_message(uuid, chat_id, body(envelope, false),
+               owner: owner,
+               link_preview: false,
+               reply_markup: markup
+             ) do
+          {:error, desc} = error when is_binary(desc) ->
+            if button_refused?(desc),
+              do:
+                Client.send_message(uuid, chat_id, body(envelope, true),
+                  owner: owner,
+                  link_preview: false
+                ),
+              else: error
+
+          other ->
+            other
+        end
+    end
+  end
+
+  defp button(envelope) do
+    with url when is_binary(url) <- present(envelope[:url]),
+         true <- String.starts_with?(url, ["https://", "http://"]) do
+      label = present(envelope[:action_label]) || gettext("Open")
+      %{inline_keyboard: [[%{text: String.slice(label, 0, 60), url: url}]]}
+    else
+      _ -> nil
+    end
+  end
+
+  # Telegram's refusal of the button itself ("BUTTON_URL_INVALID", "wrong
+  # HTTP URL specified" for a button) — not any error that mentions a URL
+  # (a rate limit can; codex, 2026-11-20).
+  defp button_refused?(desc) do
+    down = String.downcase(desc)
+
+    not String.contains?(down, "too many requests") and
+      (String.contains?(down, "button_url") or String.contains?(down, "wrong http url") or
+         (String.contains?(down, "button") and String.contains?(down, ["invalid", "wrong"])))
   end
 
   defp transient?({:error, reason}),
@@ -186,11 +238,130 @@ defmodule PhoenixKit.Notifications.Channels.Telegram do
   defp transient?(_), do: false
 
   # Plain text (no parse_mode) so notification content can't break Telegram
-  # markup. The deep-link goes on its own line.
-  defp body(%{text: text} = envelope) do
-    [text, present(envelope[:quote]), present(envelope[:url]), reason_line(envelope)]
-    |> Enum.reject(&is_nil/1)
-    |> Enum.join("\n\n")
+  # markup: the title, the line, the quoted comment, then the setting line
+  # that sent it. The link is the button, or — with no button — its own
+  # line. Held to Telegram's 4,096 characters, counted as Telegram counts
+  # them (UTF-16 code units, so an emoji is two), the quote cut first.
+  @telegram_max 4_096
+
+  defp body(envelope, link_in_text?) do
+    case Messages.for_message(envelope[:type_key], "telegram", envelope[:locale]) do
+      %{"text" => template} -> saved_body(template, envelope, link_in_text?)
+      _ -> default_body(envelope, link_in_text?)
+    end
+  end
+
+  # Wording an operator saved (`PhoenixKit.Notifications.Messages`): their
+  # template, every value put in as plain text in one pass, so a comment
+  # holding `{{title}}` stays as written. Blank lines a missing value leaves
+  # are closed up; the link is still the button (or its own line).
+  defp saved_body(template, envelope, link_in_text?) do
+    case fill_saved(template, envelope) do
+      # Nothing left (a template of `{{quote}}` with no quote): the default
+      # layout, never an empty message (codex, 2026-11-20).
+      "" -> default_body(envelope, link_in_text?)
+      filled -> keep_link(filled, if(link_in_text?, do: present(envelope[:url])))
+    end
+  end
+
+  defp fill_saved(template, envelope) do
+    values = %{
+      "title" => envelope[:title] || "",
+      "text" => envelope[:text] || "",
+      "quote" => envelope[:quote] || "",
+      "url" => envelope[:url] || "",
+      "reason" => envelope[:reason] || "",
+      "settings_url" => envelope[:reason_url] || ""
+    }
+
+    ~r/\{\{\s*([a-z_]+)\s*\}\}/
+    |> Regex.replace(template, fn _whole, name -> Map.get(values, name, "") end)
+    |> String.replace(~r/\n{3,}/, "\n\n")
+    |> String.trim()
+  end
+
+  # The link, when it is in the text, survives the cut: the text is cut to
+  # leave room for it (codex, 2026-11-20).
+  defp keep_link(filled, nil), do: cut_utf16(filled, @telegram_max)
+
+  defp keep_link(filled, url) do
+    # The link itself, not a longer one it is the start of (codex).
+    exact = ~r/#{Regex.escape(url)}(?=$|[\s)\]>"'])/u
+
+    if Regex.match?(exact, filled) and utf16_length(filled) <= @telegram_max do
+      filled
+    else
+      body = exact |> Regex.replace(filled, "") |> String.trim()
+      room = @telegram_max - utf16_length(url) - 2
+
+      if room > 0,
+        do: cut_utf16(body, room) <> "\n\n" <> url,
+        else: cut_utf16(url, @telegram_max)
+    end
+  end
+
+  defp default_body(%{text: text} = envelope, link_in_text?) do
+    title = present(envelope[:title])
+    title = if title && title != text, do: title
+
+    head = Enum.reject([title, text], &is_nil/1)
+    url = if link_in_text?, do: present(envelope[:url])
+    tail = Enum.reject([url, reason_line(envelope)], &is_nil/1)
+
+    fit(head, present(envelope[:quote]), tail)
+  end
+
+  # The tail (the link, the setting line) is always kept whole; the quote is
+  # cut first, then the line itself — never past 4,096 (codex, 2026-11-20).
+  defp fit(head, quote, tail) do
+    join = fn parts -> parts |> Enum.reject(&is_nil/1) |> Enum.join("\n\n") end
+    whole = join.(head ++ [quote] ++ tail)
+
+    cond do
+      utf16_length(whole) <= @telegram_max ->
+        whole
+
+      is_binary(quote) ->
+        more = "… " <> gettext("(open it to read the rest)")
+        room = @telegram_max - utf16_length(join.(head ++ ["", more] ++ tail)) - 2
+
+        if room > 0,
+          do: join.(head ++ [cut_utf16(quote, room) <> " " <> more] ++ tail),
+          else: fit(head, nil, tail)
+
+      true ->
+        tail_text = join.(tail)
+        reserve = if tail_text == "", do: 0, else: utf16_length(tail_text) + 2
+        head_text = cut_utf16(join.(head), max(@telegram_max - reserve, 0))
+
+        # Whatever is left over the limit (a tail longer than the message)
+        # is cut too: never more than 4,096 (codex).
+        [head_text, if(tail_text != "", do: tail_text)]
+        |> Enum.reject(&(&1 in [nil, ""]))
+        |> Enum.join("\n\n")
+        |> cut_utf16(@telegram_max)
+    end
+  end
+
+  @doc false
+  def utf16_length(text),
+    do: div(byte_size(:unicode.characters_to_binary(text, :utf8, :utf16)), 2)
+
+  # The longest start of `text` within `max` UTF-16 units, never cutting a
+  # character (or a grapheme) in two.
+  @doc false
+  def cut_utf16(text, max) do
+    if utf16_length(text) <= max do
+      text
+    else
+      text
+      |> String.graphemes()
+      |> Enum.reduce_while({"", 0}, fn g, {acc, n} ->
+        len = utf16_length(g)
+        if n + len > max, do: {:halt, {acc, n}}, else: {:cont, {acc <> g, n + len}}
+      end)
+      |> elem(0)
+    end
   end
 
   # The setting line that sent it, and where to change it.

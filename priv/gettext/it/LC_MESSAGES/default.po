@@ -28611,3 +28611,237 @@ msgstr "Scartare le modifiche non salvate?"
 #, elixir-autogen
 msgid "When buckets or copy counts change, files are copied or moved in the background. Follow progress on the Health tab."
 msgstr "Quando cambiano i bucket o il numero di copie, i file vengono copiati o spostati in background. Puoi seguire l’avanzamento nella scheda «Integrità»."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:288
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:289
+#, elixir-autogen, elixir-format
+msgid "ACME-12 can be started"
+msgstr "ACME-12 può iniziare"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:291
+#, elixir-autogen, elixir-format
+msgid "Anna: Please measure wall A again before you start."
+msgstr "Anna: Per favore misura di nuovo la parete A prima di iniziare."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:219
+#, elixir-autogen, elixir-format
+msgid "Back to the default."
+msgstr "Tornato al predefinito."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:350
+#, elixir-autogen, elixir-format
+msgid "Body (Markdown)"
+msgstr "Corpo (Markdown)"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:243
+#, elixir-autogen, elixir-format
+msgid "Could not save the message."
+msgstr "Impossibile salvare il messaggio."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:523
+#, elixir-autogen, elixir-format
+msgid "Delete this wording and use the default again?"
+msgstr "Eliminare questo testo e usare di nuovo quello predefinito?"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:430
+#, elixir-autogen, elixir-format
+msgid "Every language uses the default."
+msgstr "Tutte le lingue usano il predefinito."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:304
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:315
+#, elixir-autogen, elixir-format
+msgid "Every notification"
+msgstr "Tutte le notifiche"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:290
+#, elixir-autogen, elixir-format
+msgid "Fit the doors (ACME-12) can be started"
+msgstr "Montare le porte (ACME-12) può iniziare"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:540
+#, elixir-autogen, elixir-format
+msgid "No preview."
+msgstr "Nessuna anteprima."
+
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:474
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:47
+#, elixir-autogen, elixir-format
+msgid "Notification messages"
+msgstr "Messaggi di notifica"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:389
+#, elixir-autogen, elixir-format
+msgid "Notification types"
+msgstr "Tipi di notifica"
+
+#: lib/phoenix_kit/users/permissions.ex:193
+#, elixir-autogen, elixir-format
+msgid "Notification wording"
+msgstr "Testo delle notifiche"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:293
+#, elixir-autogen, elixir-format
+msgid "Open task"
+msgstr "Apri attività"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:432
+#, elixir-autogen, elixir-format
+msgid "Own wording in: %{languages}. The others use the default."
+msgstr "Testo proprio in: %{languages}. Le altre usano il predefinito."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:512
+#, elixir-autogen, elixir-format
+msgid "Plain text. The “Open” button under the message stays as it is."
+msgstr "Testo semplice. Il pulsante «Apri» sotto il messaggio resta com’è."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:537
+#, elixir-autogen, elixir-format
+msgid "Preview, with sample values"
+msgstr "Anteprima, con valori di esempio"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:526
+#, elixir-autogen, elixir-format
+msgid "Reset to default"
+msgstr "Ripristina predefinito"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:228
+#, elixir-autogen, elixir-format
+msgid "Someone else saved this message meanwhile. Reload the page to see their version."
+msgstr "Qualcun altro ha salvato questo messaggio nel frattempo. Ricarica la pagina per vedere la sua versione."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:558
+#, elixir-autogen, elixir-format
+msgid "Text version"
+msgstr "Versione testo"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:453
+#, elixir-autogen, elixir-format
+msgid "The default changed since this wording was saved. Compare it with the default below, then save again or reset."
+msgstr "Il predefinito è cambiato da quando questo testo è stato salvato. Confrontalo con il predefinito qui sotto, poi salva di nuovo o ripristina."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:494
+#, elixir-autogen, elixir-format
+msgid "The default now"
+msgstr "Il predefinito attuale"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:50
+#, elixir-autogen, elixir-format
+msgid "The wording of notification emails and Telegram messages, in each language"
+msgstr "Il testo delle email di notifica e dei messaggi Telegram, in ogni lingua"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:231
+#, elixir-autogen, elixir-format
+msgid "Three braces insert raw HTML; use two: {{text}}."
+msgstr "Tre parentesi graffe inseriscono HTML grezzo; usane due: {{text}}."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:238
+#, elixir-autogen, elixir-format
+msgid "Unknown variables: %{names}. Use those listed beside the editor."
+msgstr "Variabili sconosciute: %{names}. Usa quelle elencate accanto all’editor."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:508
+#, elixir-autogen, elixir-format
+msgid "Values are shown as written, never as Markdown. The site's logo and colours, the button and the setting line's link stay as they are."
+msgstr "I valori sono mostrati come scritti, mai come Markdown. Logo e colori del sito, il pulsante e il link della riga delle impostazioni restano come sono."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:500
+#, elixir-autogen, elixir-format
+msgid "Variables"
+msgstr "Variabili"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:437
+#, elixir-autogen, elixir-format
+msgid "Without its own wording, this type uses “Every notification”'s."
+msgstr "Senza un testo proprio, questo tipo usa quello di «Tutte le notifiche»."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:230
+#, elixir-autogen, elixir-format
+msgid "Write something, or reset to the default."
+msgstr "Scrivi qualcosa o ripristina il predefinito."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:294
+#, elixir-autogen, elixir-format
+msgid "You get this because “A task of yours can be started” is on."
+msgstr "Ricevi questo perché «Una tua attività può iniziare» è attivo."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:74
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:242
+#, elixir-autogen, elixir-format
+msgid "You may not change notification wording."
+msgstr "Non puoi modificare il testo delle notifiche."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:359
+#, elixir-autogen, elixir-format
+msgid "the button's label"
+msgstr "l’etichetta del pulsante"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:357
+#, elixir-autogen, elixir-format
+msgid "the comment it carries, with its writer"
+msgstr "il commento che porta, con il suo autore"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:358
+#, elixir-autogen, elixir-format
+msgid "the link to what it is about"
+msgstr "il link a ciò di cui si tratta"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:356
+#, elixir-autogen, elixir-format
+msgid "the notification's line"
+msgstr "la riga della notifica"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:355
+#, elixir-autogen, elixir-format
+msgid "the short title, when the module gives one"
+msgstr "il titolo breve, quando il modulo ne fornisce uno"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:364
+#, elixir-autogen, elixir-format
+msgid "the site's accent colour"
+msgstr "il colore d’accento del sito"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:363
+#, elixir-autogen, elixir-format
+msgid "the site's logo"
+msgstr "il logo del sito"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:354
+#, elixir-autogen, elixir-format
+msgid "the title, or the start of the line"
+msgstr "il titolo, o l’inizio della riga"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:361
+#, elixir-autogen, elixir-format
+msgid "where the reader changes that setting"
+msgstr "dove il lettore cambia questa impostazione"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:360
+#, elixir-autogen, elixir-format
+msgid "which setting sent it"
+msgstr "quale impostazione l’ha inviata"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:234
+#, elixir-autogen, elixir-format
+msgid "“%{part}” is too long."
+msgstr "«%{part}» è troppo lungo."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:362
+#, elixir-autogen, elixir-format
+msgid "“Change”"
+msgstr "«Modifica»"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:196
+#, elixir-autogen, elixir-format
+msgid "Nothing changed."
+msgstr "Nessuna modifica."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:446
+#, elixir-autogen, elixir-format
+msgid "Some of this is inherited, not this type's own. Leave it as it is to keep inheriting; what you change here becomes this type's own."
+msgstr "Parte di questo è ereditato, non proprio di questo tipo. Lascialo com’è per continuare a ereditare; ciò che modifichi qui diventa proprio di questo tipo."
+
+#: lib/phoenix_kit/notifications/channels/telegram.ex:325
+#, elixir-autogen, elixir-format
+msgid "(open it to read the rest)"
+msgstr "(aprilo per leggere il resto)"

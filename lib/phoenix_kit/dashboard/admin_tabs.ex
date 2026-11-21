@@ -470,6 +470,15 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
         "settings"
       ),
       admin_subtab(
+        :admin_settings_notification_messages,
+        gettext_noop("Notification messages"),
+        "hero-chat-bubble-bottom-center-text",
+        "notification-messages",
+        918,
+        :admin_settings,
+        "settings.messages"
+      ),
+      admin_subtab(
         :admin_settings_emails_bulk,
         gettext_noop("Emails Bulk"),
         "hero-adjustments-horizontal",

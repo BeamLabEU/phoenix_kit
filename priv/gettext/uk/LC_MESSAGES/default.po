@@ -28687,3 +28687,237 @@ msgstr "Відхилити незбережені зміни?"
 #, elixir-autogen
 msgid "When buckets or copy counts change, files are copied or moved in the background. Follow progress on the Health tab."
 msgstr "Після зміни бакетів або кількості копій файли копіюються чи переміщуються у фоновому режимі. За перебігом роботи можна стежити на вкладці «Стан»."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:288
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:289
+#, elixir-autogen, elixir-format
+msgid "ACME-12 can be started"
+msgstr "ACME-12 можна починати"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:291
+#, elixir-autogen, elixir-format
+msgid "Anna: Please measure wall A again before you start."
+msgstr "Анна: Будь ласка, переміряйте стіну A перед початком."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:219
+#, elixir-autogen, elixir-format
+msgid "Back to the default."
+msgstr "Знову текст за замовчуванням."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:350
+#, elixir-autogen, elixir-format
+msgid "Body (Markdown)"
+msgstr "Текст (Markdown)"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:243
+#, elixir-autogen, elixir-format
+msgid "Could not save the message."
+msgstr "Не вдалося зберегти повідомлення."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:523
+#, elixir-autogen, elixir-format
+msgid "Delete this wording and use the default again?"
+msgstr "Видалити цей текст і знову використовувати текст за замовчуванням?"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:430
+#, elixir-autogen, elixir-format
+msgid "Every language uses the default."
+msgstr "У всіх мовах текст за замовчуванням."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:304
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:315
+#, elixir-autogen, elixir-format
+msgid "Every notification"
+msgstr "Усі сповіщення"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:290
+#, elixir-autogen, elixir-format
+msgid "Fit the doors (ACME-12) can be started"
+msgstr "«Встановити двері» (ACME-12) можна починати"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:540
+#, elixir-autogen, elixir-format
+msgid "No preview."
+msgstr "Попереднього перегляду немає."
+
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:474
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:47
+#, elixir-autogen, elixir-format
+msgid "Notification messages"
+msgstr "Тексти сповіщень"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:389
+#, elixir-autogen, elixir-format
+msgid "Notification types"
+msgstr "Типи сповіщень"
+
+#: lib/phoenix_kit/users/permissions.ex:193
+#, elixir-autogen, elixir-format
+msgid "Notification wording"
+msgstr "Формулювання сповіщень"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:293
+#, elixir-autogen, elixir-format
+msgid "Open task"
+msgstr "Відкрити завдання"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:432
+#, elixir-autogen, elixir-format
+msgid "Own wording in: %{languages}. The others use the default."
+msgstr "Власний текст мовами: %{languages}. Інші — за замовчуванням."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:512
+#, elixir-autogen, elixir-format
+msgid "Plain text. The “Open” button under the message stays as it is."
+msgstr "Звичайний текст. Кнопка «Відкрити» під повідомленням лишається як є."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:537
+#, elixir-autogen, elixir-format
+msgid "Preview, with sample values"
+msgstr "Попередній перегляд із прикладами значень"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:526
+#, elixir-autogen, elixir-format
+msgid "Reset to default"
+msgstr "Скинути до типового"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:228
+#, elixir-autogen, elixir-format
+msgid "Someone else saved this message meanwhile. Reload the page to see their version."
+msgstr "Хтось інший тим часом зберіг це повідомлення. Оновіть сторінку, щоб побачити його версію."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:558
+#, elixir-autogen, elixir-format
+msgid "Text version"
+msgstr "Текстова версія"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:453
+#, elixir-autogen, elixir-format
+msgid "The default changed since this wording was saved. Compare it with the default below, then save again or reset."
+msgstr "Текст за замовчуванням змінився відтоді, як цей текст було збережено. Порівняйте його з текстом за замовчуванням нижче, потім збережіть знову або скиньте."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:494
+#, elixir-autogen, elixir-format
+msgid "The default now"
+msgstr "Поточний текст за замовчуванням"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:50
+#, elixir-autogen, elixir-format
+msgid "The wording of notification emails and Telegram messages, in each language"
+msgstr "Тексти листів-сповіщень і повідомлень у Telegram кожною мовою"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:231
+#, elixir-autogen, elixir-format
+msgid "Three braces insert raw HTML; use two: {{text}}."
+msgstr "Три фігурні дужки вставляють сирий HTML; використовуйте дві: {{text}}."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:238
+#, elixir-autogen, elixir-format
+msgid "Unknown variables: %{names}. Use those listed beside the editor."
+msgstr "Невідомі змінні: %{names}. Використовуйте перелічені поруч із редактором."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:508
+#, elixir-autogen, elixir-format
+msgid "Values are shown as written, never as Markdown. The site's logo and colours, the button and the setting line's link stay as they are."
+msgstr "Значення показуються як написані, ніколи як Markdown. Логотип і кольори сайту, кнопка та посилання рядка налаштувань лишаються як є."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:500
+#, elixir-autogen, elixir-format
+msgid "Variables"
+msgstr "Змінні"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:437
+#, elixir-autogen, elixir-format
+msgid "Without its own wording, this type uses “Every notification”'s."
+msgstr "Без власного тексту цей тип використовує текст «Усі сповіщення»."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:230
+#, elixir-autogen, elixir-format
+msgid "Write something, or reset to the default."
+msgstr "Напишіть щось або скиньте до типового."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:294
+#, elixir-autogen, elixir-format
+msgid "You get this because “A task of yours can be started” is on."
+msgstr "Ви отримуєте це, бо ввімкнено «Ваше завдання можна починати»."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:74
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:242
+#, elixir-autogen, elixir-format
+msgid "You may not change notification wording."
+msgstr "Ви не можете змінювати тексти сповіщень."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:359
+#, elixir-autogen, elixir-format
+msgid "the button's label"
+msgstr "напис на кнопці"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:357
+#, elixir-autogen, elixir-format
+msgid "the comment it carries, with its writer"
+msgstr "доданий коментар з автором"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:358
+#, elixir-autogen, elixir-format
+msgid "the link to what it is about"
+msgstr "посилання на те, про що йдеться"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:356
+#, elixir-autogen, elixir-format
+msgid "the notification's line"
+msgstr "рядок сповіщення"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:355
+#, elixir-autogen, elixir-format
+msgid "the short title, when the module gives one"
+msgstr "короткий заголовок, якщо модуль його дає"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:364
+#, elixir-autogen, elixir-format
+msgid "the site's accent colour"
+msgstr "акцентний колір сайту"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:363
+#, elixir-autogen, elixir-format
+msgid "the site's logo"
+msgstr "логотип сайту"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:354
+#, elixir-autogen, elixir-format
+msgid "the title, or the start of the line"
+msgstr "заголовок або початок рядка"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:361
+#, elixir-autogen, elixir-format
+msgid "where the reader changes that setting"
+msgstr "де читач змінює це налаштування"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:360
+#, elixir-autogen, elixir-format
+msgid "which setting sent it"
+msgstr "яке налаштування його надіслало"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:234
+#, elixir-autogen, elixir-format
+msgid "“%{part}” is too long."
+msgstr "«%{part}» задовгий."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:362
+#, elixir-autogen, elixir-format
+msgid "“Change”"
+msgstr "«Змінити»"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:196
+#, elixir-autogen, elixir-format
+msgid "Nothing changed."
+msgstr "Нічого не змінилося."
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:446
+#, elixir-autogen, elixir-format
+msgid "Some of this is inherited, not this type's own. Leave it as it is to keep inheriting; what you change here becomes this type's own."
+msgstr "Частину цього успадковано, а не задано для цього типу. Залиште як є, щоб і далі успадковувати; те, що ви зміните тут, стане власним текстом цього типу."
+
+#: lib/phoenix_kit/notifications/channels/telegram.ex:325
+#, elixir-autogen, elixir-format
+msgid "(open it to read the rest)"
+msgstr "(відкрийте, щоб прочитати повністю)"

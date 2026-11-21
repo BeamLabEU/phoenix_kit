@@ -125,6 +125,7 @@ defmodule PhoenixKit.Email.Content do
   alias PhoenixKit.Email.Layout
   alias PhoenixKit.Email.Markdown
   alias PhoenixKit.Templates
+  alias PhoenixKit.Templates.Substitution
   alias PhoenixKit.Utils.RecipientLocale
 
   require Logger
@@ -216,6 +217,13 @@ defmodule PhoenixKit.Email.Content do
     * `:layout` — `false` skips the shared layout (see "The layout" above);
       a group name (`"billing"`) wraps the message in that group's layout,
       over whatever the email's `layout` part names. Defaults to `true`.
+    * `:overrides` — `%{"subject" => …, "markdown" => …}`, wording an
+      operator saved for this message (`PhoenixKit.Notifications.Messages`):
+      the top layer, over host files and defaults, part by part. A saved
+      `subject` is substituted as a host file's is (unescaped, one line).
+      A saved `markdown` is the body of BOTH versions — a host's `html` or
+      `text` file would otherwise outrank it in one of them and the two
+      would say different things. Blank values count as none.
   """
   @spec resolve(String.t(), term(), map(), (-> Templates.defaults()), keyword()) :: resolved()
   def resolve(name, recipient, variables, defaults, opts \\ [])
@@ -239,7 +247,8 @@ defmodule PhoenixKit.Email.Content do
     resolve_files(name, variables, RecipientLocale.in_locale(locale, defaults),
       locale: locale,
       paths: paths,
-      layout: Keyword.get(opts, :layout, true)
+      layout: Keyword.get(opts, :layout, true),
+      overrides: Keyword.get(opts, :overrides) || %{}
     )
   end
 
@@ -257,6 +266,7 @@ defmodule PhoenixKit.Email.Content do
 
     rendered = Templates.render(name, defaults, variables, template_opts)
     found = Templates.sources(name, defaults, template_opts)
+    {rendered, found} = saved_layer(rendered, found, opts[:overrides] || %{}, variables)
 
     # A blank part (an empty override file) is no part, with or without the
     # layout, so whether a message exists never depends on the layout.
@@ -294,6 +304,36 @@ defmodule PhoenixKit.Email.Content do
       |> Map.merge(chrome)
 
     {%{subject: rendered.subject, text: text, html: html}, sources}
+  end
+
+  # The operator's saved wording, over everything else (see `:overrides`).
+  # It ranks as a host file does, so the body order treats it like one.
+  @saved_source {:file, "(saved in Settings → Notifications → Messages)"}
+
+  defp saved_layer(rendered, found, overrides, variables) do
+    {rendered, found} =
+      case present(overrides["subject"]) do
+        nil ->
+          {rendered, found}
+
+        subject ->
+          line =
+            subject
+            |> Substitution.substitute(variables, escape: false)
+            |> String.replace(~r/\s*[\r\n]+\s*/u, " ")
+            |> String.trim()
+
+          {Map.put(rendered, :subject, line), Map.put(found, :subject, @saved_source)}
+      end
+
+    case present(overrides["markdown"]) do
+      nil ->
+        {rendered, found}
+
+      markdown ->
+        {rendered |> Map.merge(%{markdown: markdown, html: nil, text: nil}),
+         found |> Map.merge(%{markdown: @saved_source, html: nil, text: nil})}
+    end
   end
 
   # A body from the first entry of the order whose part was found in that

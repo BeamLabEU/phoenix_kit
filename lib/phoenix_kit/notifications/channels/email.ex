@@ -12,12 +12,14 @@ defmodule PhoenixKit.Notifications.Channels.Email do
   it is sent in the shared layout with the site's branding, can be rewritten
   with override files like any other email, and shows in the admin preview.
   Its variables are `{{subject}}` (the notification's title, or the start of
-  its text), `{{text}}`, `{{quote}}` (the message it carries, with its
-  writer's name — a comment, a reason — empty when none), `{{url}}` (empty when the notification has no
-  link), `{{reason}}` (the setting line that sent it, "You get this because
-  “…” is on.") and `{{settings_url}}` (where the reader changes it) — all
-  already rendered in the reader's language; the last two empty when no
-  line owns the notification.
+  its text, on one line), `{{text}}`, `{{quote}}` (the message it carries,
+  with its writer's name — a comment, a reason — empty when none), `{{url}}`
+  and `{{action_label}}` (the button: the module's label or "Open"; both
+  empty when the notification has no link), `{{reason}}` (the setting line
+  that sent it, "You get this because “…” is on."), `{{settings_url}}` and
+  `{{settings_label}}` ("Change") — all already rendered in the reader's
+  language; the last three empty when no line owns the notification. The
+  default is Markdown: a button, and the same words in the text version.
   """
 
   @behaviour PhoenixKit.Notifications.Channel
@@ -29,6 +31,7 @@ defmodule PhoenixKit.Notifications.Channels.Email do
   alias PhoenixKit.Email.Content
   alias PhoenixKit.Email.CoreTemplates
   alias PhoenixKit.Mailer
+  alias PhoenixKit.Notifications.Messages
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
 
@@ -79,10 +82,25 @@ defmodule PhoenixKit.Notifications.Channels.Email do
           "text" => envelope.text,
           "quote" => Map.get(envelope, :quote) || "",
           "url" => envelope.url || "",
+          "action_label" => action_label(envelope),
           "reason" => Map.get(envelope, :reason) || "",
-          "settings_url" => Map.get(envelope, :reason_url) || ""
+          "settings_url" => Map.get(envelope, :reason_url) || "",
+          "settings_label" => settings_label(envelope)
         },
-        &CoreTemplates.notification_defaults/0
+        fn ->
+          CoreTemplates.notification_defaults(
+            link: action_label(envelope) != "",
+            reason: settings_label(envelope) != ""
+          )
+        end,
+        # What an operator saved in Settings → Notifications → Messages,
+        # for this type and the reader's language, over everything else.
+        overrides:
+          Messages.for_message(
+            Map.get(envelope, :type_key),
+            "email",
+            Map.get(envelope, :locale)
+          )
       )
 
     email =
@@ -103,8 +121,29 @@ defmodule PhoenixKit.Notifications.Channels.Email do
     end
   end
 
-  defp subject_for(%{title: title}) when is_binary(title) and title != "", do: title
-  defp subject_for(%{text: text}), do: String.slice(text, 0, 120)
+  # One line, never more: a line break in a subject is a header injection
+  # waiting to happen, and mail clients show only the first line anyway.
+  defp subject_for(%{title: title}) when is_binary(title) and title != "", do: one_line(title)
+  defp subject_for(%{text: text}), do: text |> one_line() |> String.slice(0, 120)
+
+  defp one_line(text), do: text |> String.replace(~r/\s+/u, " ") |> String.trim()
+
+  # The button's label: the module's ("Open task"), else "Open"; empty with
+  # no link, so the button's paragraph is left out.
+  defp action_label(%{url: url} = envelope) when is_binary(url) and url != "" do
+    case Map.get(envelope, :action_label) do
+      label when is_binary(label) and label != "" -> label
+      _ -> gettext("Open")
+    end
+  end
+
+  defp action_label(_envelope), do: ""
+
+  defp settings_label(envelope) do
+    if is_binary(Map.get(envelope, :reason_url)) and envelope.reason_url != "",
+      do: gettext("Change"),
+      else: ""
+  end
 
   # A notification without a link leaves the default's `{{url}}` line empty.
   # An empty variable (no quote, no reason) leaves its blank lines behind.

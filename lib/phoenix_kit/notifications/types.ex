@@ -41,6 +41,13 @@ defmodule PhoenixKit.Notifications.Types do
         ]
       }
 
+  `visible` (optional, on a base type: `{Module, :function}`) is asked when a
+  notification of the type is delivered by email or Telegram, as
+  `Module.function(notification, user)`: `false` (or a raise) means the
+  reader can no longer see what it is about, so it goes out with its line
+  only — no quoted comment, which may have been written when they still
+  could (codex, 2026-11-19). Without one, a notification goes out whole.
+
   `example` (optional, on a type and on each sub-type) is one concrete case
   the line covers, shown under its description on the settings page, so a
   reader can tell which line sent a given notification ("Fit the doors" is
@@ -74,6 +81,7 @@ defmodule PhoenixKit.Notifications.Types do
 
   @type t :: %{
           optional(:example) => String.t(),
+          optional(:visible) => {module(), atom()},
           key: String.t(),
           label: String.t(),
           description: String.t(),
@@ -112,6 +120,30 @@ defmodule PhoenixKit.Notifications.Types do
 
     core ++ extras
   end
+
+  @doc """
+  Whether the reader may still see what a notification is about, by its
+  type's `visible` check (see "Shape"). A sub-type's key asks its base. No
+  check: `true`. A check that raises or exits: `false` — the safe answer
+  when the module cannot say.
+  """
+  @spec still_visible?(String.t() | nil, term(), term()) :: boolean()
+  def still_visible?(type_key, notification, user) when is_binary(type_key) do
+    case find(parent_type_key(type_key) || type_key) do
+      %{visible: {mod, fun}} when is_atom(mod) and is_atom(fun) ->
+        apply(mod, fun, [notification, user]) == true
+
+      _ ->
+        true
+    end
+  rescue
+    _ -> false
+  catch
+    # A throw too: no answer is "no" (codex, 2026-11-20).
+    _kind, _reason -> false
+  end
+
+  def still_visible?(_type_key, _notification, _user), do: true
 
   @doc "Look up a base type by its key. Returns `nil` when not registered (base keys only)."
   @spec find(String.t()) :: t() | nil

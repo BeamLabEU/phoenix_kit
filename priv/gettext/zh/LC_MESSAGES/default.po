@@ -28633,3 +28633,237 @@ msgstr "放弃未保存的更改？"
 #, elixir-autogen
 msgid "When buckets or copy counts change, files are copied or moved in the background. Follow progress on the Health tab."
 msgstr "更改存储桶或副本数量后，系统会在后台复制或移动文件。可在“健康状态”选项卡中查看进度。"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:288
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:289
+#, elixir-autogen, elixir-format
+msgid "ACME-12 can be started"
+msgstr "ACME-12 可以开始"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:291
+#, elixir-autogen, elixir-format
+msgid "Anna: Please measure wall A again before you start."
+msgstr "Anna：开始前请重新测量 A 墙。"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:219
+#, elixir-autogen, elixir-format
+msgid "Back to the default."
+msgstr "已恢复默认。"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:350
+#, elixir-autogen, elixir-format
+msgid "Body (Markdown)"
+msgstr "正文（Markdown）"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:243
+#, elixir-autogen, elixir-format
+msgid "Could not save the message."
+msgstr "无法保存该消息。"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:523
+#, elixir-autogen, elixir-format
+msgid "Delete this wording and use the default again?"
+msgstr "删除此措辞并恢复使用默认内容？"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:430
+#, elixir-autogen, elixir-format
+msgid "Every language uses the default."
+msgstr "所有语言均使用默认内容。"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:304
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:315
+#, elixir-autogen, elixir-format
+msgid "Every notification"
+msgstr "所有通知"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:290
+#, elixir-autogen, elixir-format
+msgid "Fit the doors (ACME-12) can be started"
+msgstr "安装门（ACME-12）可以开始"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:540
+#, elixir-autogen, elixir-format
+msgid "No preview."
+msgstr "无预览。"
+
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:474
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:47
+#, elixir-autogen, elixir-format
+msgid "Notification messages"
+msgstr "通知消息"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:389
+#, elixir-autogen, elixir-format
+msgid "Notification types"
+msgstr "通知类型"
+
+#: lib/phoenix_kit/users/permissions.ex:193
+#, elixir-autogen, elixir-format
+msgid "Notification wording"
+msgstr "通知措辞"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:293
+#, elixir-autogen, elixir-format
+msgid "Open task"
+msgstr "打开任务"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:432
+#, elixir-autogen, elixir-format
+msgid "Own wording in: %{languages}. The others use the default."
+msgstr "自定义措辞：%{languages}。其他语言使用默认内容。"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:512
+#, elixir-autogen, elixir-format
+msgid "Plain text. The “Open” button under the message stays as it is."
+msgstr "纯文本。消息下方的“打开”按钮保持不变。"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:537
+#, elixir-autogen, elixir-format
+msgid "Preview, with sample values"
+msgstr "预览（示例值）"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:526
+#, elixir-autogen, elixir-format
+msgid "Reset to default"
+msgstr "恢复默认"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:228
+#, elixir-autogen, elixir-format
+msgid "Someone else saved this message meanwhile. Reload the page to see their version."
+msgstr "其他人已同时保存了此消息。请刷新页面查看其版本。"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:558
+#, elixir-autogen, elixir-format
+msgid "Text version"
+msgstr "纯文本版本"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:453
+#, elixir-autogen, elixir-format
+msgid "The default changed since this wording was saved. Compare it with the default below, then save again or reset."
+msgstr "自保存此措辞以来，默认内容已更改。请与下方的默认内容比较，然后重新保存或恢复默认。"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:494
+#, elixir-autogen, elixir-format
+msgid "The default now"
+msgstr "当前默认内容"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:50
+#, elixir-autogen, elixir-format
+msgid "The wording of notification emails and Telegram messages, in each language"
+msgstr "通知邮件和 Telegram 消息的措辞（各语言）"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:231
+#, elixir-autogen, elixir-format
+msgid "Three braces insert raw HTML; use two: {{text}}."
+msgstr "三个花括号会插入原始 HTML；请使用两个：{{text}}。"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:238
+#, elixir-autogen, elixir-format
+msgid "Unknown variables: %{names}. Use those listed beside the editor."
+msgstr "未知变量：%{names}。请使用编辑器旁列出的变量。"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:508
+#, elixir-autogen, elixir-format
+msgid "Values are shown as written, never as Markdown. The site's logo and colours, the button and the setting line's link stay as they are."
+msgstr "值按原样显示，绝不作为 Markdown 处理。网站的标志和颜色、按钮以及设置行的链接保持不变。"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:500
+#, elixir-autogen, elixir-format
+msgid "Variables"
+msgstr "变量"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:437
+#, elixir-autogen, elixir-format
+msgid "Without its own wording, this type uses “Every notification”'s."
+msgstr "若无自定义措辞，此类型使用“所有通知”的措辞。"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:230
+#, elixir-autogen, elixir-format
+msgid "Write something, or reset to the default."
+msgstr "请填写内容，或恢复默认。"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:294
+#, elixir-autogen, elixir-format
+msgid "You get this because “A task of yours can be started” is on."
+msgstr "您收到此消息是因为“您的任务可以开始”已开启。"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:74
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:242
+#, elixir-autogen, elixir-format
+msgid "You may not change notification wording."
+msgstr "您无权更改通知措辞。"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:359
+#, elixir-autogen, elixir-format
+msgid "the button's label"
+msgstr "按钮的文字"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:357
+#, elixir-autogen, elixir-format
+msgid "the comment it carries, with its writer"
+msgstr "附带的评论及其作者"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:358
+#, elixir-autogen, elixir-format
+msgid "the link to what it is about"
+msgstr "指向相关内容的链接"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:356
+#, elixir-autogen, elixir-format
+msgid "the notification's line"
+msgstr "通知的正文行"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:355
+#, elixir-autogen, elixir-format
+msgid "the short title, when the module gives one"
+msgstr "简短标题（模块提供时）"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:364
+#, elixir-autogen, elixir-format
+msgid "the site's accent colour"
+msgstr "网站的强调色"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:363
+#, elixir-autogen, elixir-format
+msgid "the site's logo"
+msgstr "网站的标志"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:354
+#, elixir-autogen, elixir-format
+msgid "the title, or the start of the line"
+msgstr "标题，或正文行的开头"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:361
+#, elixir-autogen, elixir-format
+msgid "where the reader changes that setting"
+msgstr "读者更改该设置的位置"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:360
+#, elixir-autogen, elixir-format
+msgid "which setting sent it"
+msgstr "由哪个设置发送"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:234
+#, elixir-autogen, elixir-format
+msgid "“%{part}” is too long."
+msgstr "“%{part}”过长。"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:362
+#, elixir-autogen, elixir-format
+msgid "“Change”"
+msgstr "“更改”"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:196
+#, elixir-autogen, elixir-format
+msgid "Nothing changed."
+msgstr "没有更改。"
+
+#: lib/phoenix_kit_web/live/settings/notification_messages.ex:446
+#, elixir-autogen, elixir-format
+msgid "Some of this is inherited, not this type's own. Leave it as it is to keep inheriting; what you change here becomes this type's own."
+msgstr "部分内容为继承，并非此类型自有。保持不变即继续继承；在此更改的内容将成为此类型自有。"
+
+#: lib/phoenix_kit/notifications/channels/telegram.ex:325
+#, elixir-autogen, elixir-format
+msgid "(open it to read the rest)"
+msgstr "（打开以阅读全文）"
