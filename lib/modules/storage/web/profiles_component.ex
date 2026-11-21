@@ -37,7 +37,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
   }
 
   alias PhoenixKit.Utils.Routes
-  alias PhoenixKitWeb.Live.Modules.Storage.BucketUsage
+  alias PhoenixKitWeb.Live.Modules.Storage.{BucketInfo, BucketUsage}
 
   import PhoenixKitWeb.Components.Core.Input, only: [translate_error: 1]
   import PhoenixKitWeb.Components.Core.SaveButton, only: [save_button: 1]
@@ -560,7 +560,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
           </form>
           <div class="mt-3">
             <div
-              class="hidden sm:grid sm:grid-cols-[minmax(8rem,2fr)_repeat(4,minmax(0,1fr))_4rem] gap-3 border-b border-base-300 px-2 py-2 text-xs font-semibold text-base-content/70"
+              class="hidden sm:grid sm:grid-cols-[minmax(0,1.4fr)_minmax(0,2.6fr)_repeat(3,minmax(0,0.8fr))_4rem] gap-3 border-b border-base-300 px-2 py-2 text-xs font-semibold text-base-content/70"
               aria-hidden="true"
             >
               <span>{gettext("Profile")}</span>
@@ -573,7 +573,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
               <li
                 :for={profile <- @profiles}
                 id={"#{@id}-summary-#{profile.uuid}"}
-                class="grid grid-cols-2 sm:grid-cols-[minmax(8rem,2fr)_repeat(4,minmax(0,1fr))_4rem] items-center gap-x-3 gap-y-1 px-2 py-3"
+                class="grid grid-cols-2 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,2.6fr)_repeat(3,minmax(0,0.8fr))_4rem] items-center gap-x-3 gap-y-1 px-2 py-3"
               >
                 <div class="flex flex-wrap items-center gap-2 min-w-0">
                   <span class="font-semibold break-all">{profile.name}</span>
@@ -581,10 +581,38 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
                     "Default"
                   )}</span>
                 </div>
+                <div class="col-span-2 min-w-0 sm:col-span-1">
+                  <div class="flex items-baseline gap-2">
+                    <span class="shrink-0 text-sm tabular-nums text-base-content/70">
+                      <span class="sm:sr-only">{gettext("Buckets")}</span>
+                      {length(profile.buckets)}
+                    </span>
+                    <ul :if={profile.buckets != []} class="min-w-0 space-y-1.5 text-sm">
+                      <li :for={row <- profile.buckets} class="leading-snug">
+                        <.pk_link
+                          navigate={"/admin/settings/media/buckets/#{row.bucket_uuid}"}
+                          class="link link-hover font-medium wrap-anywhere"
+                        >{row.bucket.name}</.pk_link>
+                        <div class="text-xs text-base-content/70">
+                          {BucketInfo.service(row.bucket, @bucket_connections) ||
+                            BucketInfo.type(row.bucket)} · {role_label(row.role)}
+                          <span :if={row.role == "backup" && row.stores == "originals"}>
+                            · {gettext("Originals only")}
+                          </span>
+                          <span :if={not row.bucket.enabled} class="text-error">
+                            · {gettext("Disabled")}
+                          </span>
+                          <span :if={row.status != "active"} class="text-warning">
+                            · {status_label(row.status)}
+                          </span>
+                        </div>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
                 <span
                   :for={
                     {label, value} <- [
-                      {gettext("Buckets"), length(profile.buckets)},
                       {gettext("Libraries"), @in_use[profile.uuid]},
                       {gettext("Local copies"), profile.copies_local},
                       {gettext("Cloud copies"), profile.copies_cloud}

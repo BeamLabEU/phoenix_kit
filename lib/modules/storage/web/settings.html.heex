@@ -353,6 +353,7 @@
         :if={@active_tab == "profiles"}
         module={PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent}
         profile_uuid={@storage_profile}
+        bucket_connections={@bucket_connections}
         id="media-profiles"
         scope={assigns[:phoenix_kit_current_scope]}
       />

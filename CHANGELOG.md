@@ -1,3 +1,9 @@
+## 3.8.2 - 2026-11-21
+
+### Changed
+
+- Storage profile summaries link to each bucket and show its storage service, role in the profile, and any restrictions on its use.
+
 ## 3.8.1 - 2026-11-21
 
 ### Changed

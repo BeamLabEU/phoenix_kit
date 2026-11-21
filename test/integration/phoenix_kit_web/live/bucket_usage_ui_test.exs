@@ -250,7 +250,7 @@ defmodule PhoenixKitWeb.Live.BucketUsageUITest do
       view = settings(ctx.conn)
       render_patch(view, Routes.path("/admin/settings/media?tab=profiles"))
 
-      view |> element("#media-profiles-summary-#{profile.uuid} a") |> render_click()
+      view |> element("#media-profiles-summary-#{profile.uuid} a", "Edit") |> render_click()
 
       view
       |> with_target("#media-profiles")

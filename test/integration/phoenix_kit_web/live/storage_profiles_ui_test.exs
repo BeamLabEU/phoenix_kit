@@ -35,7 +35,7 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
   end
 
   defp open_profile(view, uuid) do
-    view |> element("#media-profiles-summary-#{uuid} a") |> render_click()
+    view |> element("#media-profiles-summary-#{uuid} a", "Edit") |> render_click()
     view
   end
 
@@ -44,6 +44,32 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
   defp view_html(conn), do: conn |> editor() |> render()
 
   describe "the Storage profiles tab" do
+    test "the overview names each bucket and describes its role in that profile", ctx do
+      {:ok, archive} = Profiles.create_profile(%{name: "Archive"})
+      {:ok, empty} = Profiles.create_profile(%{name: "Empty"})
+
+      {:ok, _} =
+        Profiles.put_bucket(archive, ctx.bucket.uuid, %{
+          role: "backup",
+          stores: "originals",
+          status: "read_only"
+        })
+
+      view = settings(ctx.conn)
+      default_row = "#media-profiles-summary-#{Profiles.default_uuid()}"
+      archive_row = "#media-profiles-summary-#{archive.uuid}"
+      bucket_link = "a[href='#{Routes.path("/admin/settings/media/buckets/#{ctx.bucket.uuid}")}']"
+
+      assert has_element?(view, "#{default_row} #{bucket_link}", ctx.bucket.name)
+      assert has_element?(view, "#{archive_row} #{bucket_link}", ctx.bucket.name)
+      assert has_element?(view, "#{default_row} li", "Primary")
+      assert has_element?(view, "#{archive_row} li", "Local")
+      assert has_element?(view, "#{archive_row} li", "Backup")
+      assert has_element?(view, "#{archive_row} li", "Originals only")
+      assert has_element?(view, "#{archive_row} li", "Read-only")
+      refute has_element?(view, "#media-profiles-summary-#{empty.uuid} #{bucket_link}")
+    end
+
     test "the overview opens one editor and returning discards its draft", ctx do
       {:ok, other} = Profiles.create_profile(%{name: "Second profile"})
       default = Profiles.default_uuid()
