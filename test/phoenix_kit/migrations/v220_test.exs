@@ -179,29 +179,23 @@ defmodule PhoenixKit.Migrations.Postgres.V220Test do
   end
 
   describe "the stuck-operation sweep index" do
-    test "is partial on the running statuses, and the sweep's filter can use it" do
-      assert [[predicate]] =
+    test "indexes updated_at for the running statuses" do
+      assert [["updated_at", predicate]] =
+               query("""
+               SELECT pg_get_indexdef(indexrelid, 1, true), pg_get_expr(indpred, indrelid)
+               FROM pg_index
+               WHERE indexrelid = 'public.phoenix_kit_api_confirmations_active_updated_at_index'::regclass
+                 AND indrelid = 'public.phoenix_kit_api_confirmations'::regclass
+                 AND indisvalid AND indisready AND indnkeyatts = 1
+               """)
+
+      statuses = ~w(unused used expired pending approved executing executed failed rejected stale)
+
+      assert [["approved"], ["executing"]] =
                query(
-                 "SELECT pg_get_expr(indpred, indrelid) FROM pg_index WHERE indexrelid = 'public.phoenix_kit_api_confirmations_active_updated_at_index'::regclass"
+                 "SELECT status FROM unnest($1::text[]) AS states(status) WHERE #{predicate} ORDER BY status",
+                 [statuses]
                )
-
-      assert predicate =~ "'approved'" and predicate =~ "'executing'"
-      refute predicate =~ "'pending'"
-
-      plan =
-        Repo.transaction(fn ->
-          Repo.query!("SET LOCAL enable_seqscan = off")
-
-          Repo.query!("""
-          EXPLAIN SELECT uuid FROM phoenix_kit_api_confirmations
-          WHERE kind = 'approval' AND status IN ('approved', 'executing') AND updated_at < now()
-          """).rows
-          |> List.flatten()
-          |> Enum.join("\n")
-        end)
-
-      assert {:ok, text} = plan
-      assert text =~ "phoenix_kit_api_confirmations_active_updated_at_index"
     end
   end
 

@@ -1,0 +1,9 @@
+# PhoenixKit 3.7.0 release review
+
+The upgrade from the published 3.6.1 includes migrations V233 and V234. The November 20 release reviews cover the changes through the 3.7.0 preparation commit. This pass checked the subsequent account-menu, picker, overlay and Bunny CDN changes through `a71ac17b3`.
+
+- **Release notes.** The 3.7.0 entry covers the full upgrade from 3.6.1, including Bunny CDN, remove-only picker mode, repeated rows and content-box overlay sizing.
+- **Test reliability.** HDR unit and database-backed rendition assertions compared the merged output of ImageMagick's metadata probe to a single value. On ImageMagick 7.1.1-43 the probe returned the expected dimensions, camera make or orientation on stdout and an XML parser warning on stderr. The tests now use the same quiet probe option as the production image processor. They still require a successful exit and check the returned metadata.
+- **Bunny CDN.** The integration tests exercise credential ownership, zone identity, secured-zone handling and single-object purge through an HTTP stub. The methods, paths, parameters and response fields agree with Bunny's published management API. A real account and delivery zone are outside this check.
+- **BUG - HIGH.** Dependency resolution flagged two high-severity Phoenix advisories (GHSA-pvfx-rx4x-phrr and GHSA-5vmc-qgf8-rw36) and a LiveView access-control advisory (GHSA-v4p7-3pm2-wq6c). The package now requires a patched release on both supported LiveView lines and Phoenix 1.8.17+. The lockfile selects Phoenix 1.8.17 and LiveView 1.2.15.
+- **Test reliability.** The previously reported V220 index test failed on one fresh database when PostgreSQL chose a competing index on the empty table. The test now checks the active index's table, validity, key and predicate against all ten supported statuses. The focused HDR and migration run completed with 125 tests, zero failures and 17 skips.

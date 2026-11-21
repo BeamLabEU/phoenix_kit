@@ -1,19 +1,17 @@
-## 3.9.0 - 2026-11-21
-
-### Added
-
-- Media settings can select a verified CDN connection and save public rendition preferences per profile. Libraries can persist owner-scoped overrides. Delivery preferences start off on existing installations.
-- `mix phoenix_kit.cdn.check_origin` checks a Bunny pull zone against an expected HTTPS origin and the hostname covered by per-object withdrawal.
-
 ## 3.8.0 - 2026-11-21
 
 ### Added
 
-- Bunny CDN connections for site and personal integrations. Each named connection validates one existing pull zone. Hosts can resolve its public delivery hostname and purge individual objects through `PhoenixKit.Integrations.BunnyCDN`.
+- Map a site or personal CDN connection to a serving bucket. The Bunny source check verifies a cold read, a cache hit after origin deletion, and withdrawal after purge. The setup form includes instructions for private S3-compatible origins.
+- Filter integration providers by service. Bucket setup opens the CDN picker and preserves the bucket while selecting a provider.
+- Save site and library preferences for public CDN renditions. Delivery defaults to off. The source check uses disposable objects, and photo URLs continue to use existing storage delivery.
+- Check a Bunny zone’s configured origin and hostname with `mix phoenix_kit.cdn.check_origin`.
 
-## 3.7.0 - 2026-11-20
+## 3.7.0 - 2026-11-21
 
 ### Added
+
+- Bunny CDN connections for site and personal integrations. Each named connection validates one existing pull zone. Hosts can resolve its public delivery hostname and purge individual objects through `PhoenixKit.Integrations.BunnyCDN`.
 
 - **A host application can put its own per-person numbers on admin menu entries.**
   `config :phoenix_kit, :scope_badges, MyApp.MenuBadges` names a module implementing
@@ -69,7 +67,9 @@
   searches people through a `PeoplePicker.Source`, shows chips with faces and caller-supplied
   tags, the viewer's Recent picks and "Add me", and confirms inline when the source asks first. The
   default `UserSource` offers active, confirmed accounts, never service users, and shows no email.
-  A module passes its own source for teams, departments or staff records.
+  A module passes its own source for teams, departments or staff records. The picker also supports
+  remove-only lists with `can_edit: false` and `can_remove: true` (#1051). When a person appears
+  under several groups, selecting or clearing them updates every visible row.
 - **Every notification says which setting sent it** (#1046), with a link to that line:
   `Render.reason/3`, shown in the inbox, as `{{reason}}` / `{{settings_url}}` in the
   `notification` email, and as a last line on Telegram. A notification type can declare an
@@ -94,9 +94,14 @@
   `phx-hook="PkFitHeight"` an element's `max-height` is the room between its top and the bottom of
   its nearest scrolling ancestor (or of the viewport), re-measured on patch, reveal and scroll,
   with `data-fit-margin` / `data-fit-min` overrides. A menu or list inside a dialog stays in the
-  dialog instead of giving it a scrollbar.
+  dialog instead of giving it a scrollbar. The measurement accounts for padding and borders on
+  content-box overlays.
 
 ### Changed
+
+- Upgrades require Phoenix 1.8.17 or later in the 1.8 series and a patched LiveView
+  (1.1.34+ on 1.1, or 1.2.14+ on the later 1.x line). These versions fix upstream
+  advisories affecting Presence, channel broadcasts and LiveView session hooks.
 
 - The session menu shows the current language. Hover, click or tap it to open a scrollable
   menu of the other enabled languages, each listed under its own name.

@@ -147,7 +147,7 @@ defmodule PhoenixKit.Modules.Storage.HdrSynthTest do
       {:ok, _} = HdrSynth.make(source(ctx), out, map_size: 100)
 
       {dims, 0} =
-        System.cmd("identify", ["-format", "%wx%h", gain_map_of(ctx, out)],
+        System.cmd("identify", ["-quiet", "-format", "%wx%h", gain_map_of(ctx, out)],
           stderr_to_stdout: true
         )
 
@@ -159,7 +159,7 @@ defmodule PhoenixKit.Modules.Storage.HdrSynthTest do
       {:ok, _} = HdrSynth.make(source(ctx), out, map_size: 4096)
 
       {dims, 0} =
-        System.cmd("identify", ["-format", "%wx%h", gain_map_of(ctx, out)],
+        System.cmd("identify", ["-quiet", "-format", "%wx%h", gain_map_of(ctx, out)],
           stderr_to_stdout: true
         )
 
@@ -171,7 +171,7 @@ defmodule PhoenixKit.Modules.Storage.HdrSynthTest do
       {:ok, _} = HdrSynth.make(source(ctx, orientation: 6), out, map_size: 100)
 
       {orient, 0} =
-        System.cmd("identify", ["-format", "%[orientation]", out <> "[0]"],
+        System.cmd("identify", ["-quiet", "-format", "%[orientation]", out <> "[0]"],
           stderr_to_stdout: true
         )
 
@@ -179,7 +179,7 @@ defmodule PhoenixKit.Modules.Storage.HdrSynthTest do
 
       # stored 400x300, so the map is 100x75 whatever the orientation says
       {dims, 0} =
-        System.cmd("identify", ["-format", "%wx%h", gain_map_of(ctx, out)],
+        System.cmd("identify", ["-quiet", "-format", "%wx%h", gain_map_of(ctx, out)],
           stderr_to_stdout: true
         )
 
