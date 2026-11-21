@@ -28630,3 +28630,27 @@ msgstr "Kod QR"
 #, elixir-autogen, elixir-format
 msgid "or"
 msgstr "lub"
+
+#, elixir-autogen, elixir-format
+msgid "Content delivery through a bunny.net pull zone"
+msgstr "Dostarczanie treści przez strefę pull bunny.net"
+
+#, elixir-autogen, elixir-format
+msgid "Use the bunny.net account API key."
+msgstr "Użyj klucza API konta bunny.net."
+
+#, elixir-autogen, elixir-format
+msgid "Pull zone ID"
+msgstr "Identyfikator strefy pull"
+
+#, elixir-autogen, elixir-format
+msgid "Invalid pull zone"
+msgstr "Nieprawidłowa strefa pull"
+
+#, elixir-autogen, elixir-format
+msgid "Bunny CDN returned HTTP %{status}"
+msgstr "Bunny CDN zwrócił kod HTTP %{status}"
+
+#, elixir-autogen, elixir-format
+msgid "Could not reach Bunny CDN"
+msgstr "Nie udało się połączyć z Bunny CDN"

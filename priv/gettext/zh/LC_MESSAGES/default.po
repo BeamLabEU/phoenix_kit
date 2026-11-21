@@ -28570,3 +28570,27 @@ msgstr "二维码"
 #, elixir-autogen, elixir-format
 msgid "or"
 msgstr "或"
+
+#, elixir-autogen, elixir-format
+msgid "Content delivery through a bunny.net pull zone"
+msgstr "通过 bunny.net 拉取区域分发内容"
+
+#, elixir-autogen, elixir-format
+msgid "Use the bunny.net account API key."
+msgstr "使用 bunny.net 账户的 API 密钥。"
+
+#, elixir-autogen, elixir-format
+msgid "Pull zone ID"
+msgstr "拉取区域 ID"
+
+#, elixir-autogen, elixir-format
+msgid "Invalid pull zone"
+msgstr "无效的拉取区域"
+
+#, elixir-autogen, elixir-format
+msgid "Bunny CDN returned HTTP %{status}"
+msgstr "Bunny CDN 返回了 HTTP %{status}"
+
+#, elixir-autogen, elixir-format
+msgid "Could not reach Bunny CDN"
+msgstr "无法连接到 Bunny CDN"

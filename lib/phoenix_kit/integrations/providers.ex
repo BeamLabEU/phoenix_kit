@@ -306,6 +306,7 @@ defmodule PhoenixKit.Integrations.Providers do
       amazon_bedrock(),
       aws_ses(),
       object_storage(),
+      bunny_cdn(),
       smtp(),
       brevo_api(),
       telegram(),
@@ -1195,6 +1196,40 @@ defmodule PhoenixKit.Integrations.Providers do
             gettext(
               "This connection stores the credential. Which connection sends, and the delivery-event pipeline (configuration set, SNS topic, SQS queues), are set in Settings → Emails Transactional."
             )
+        }
+      ]
+    }
+  end
+
+  defp bunny_cdn do
+    %{
+      key: "bunny_cdn",
+      scopes: [:system, :personal],
+      name: "Bunny CDN",
+      description: gettext("Content delivery through a bunny.net pull zone"),
+      icon: "hero-globe-alt",
+      auth_type: :api_key,
+      oauth_config: nil,
+      capabilities: [:cdn_delivery],
+      validation: %{strategy: :module, module: PhoenixKit.Integrations.BunnyCDN},
+      setup_fields: [
+        %{
+          key: "api_key",
+          label: gettext("API Key"),
+          type: :password,
+          required: true,
+          placeholder: nil,
+          help: gettext("Use the bunny.net account API key."),
+          options: nil
+        },
+        %{
+          key: "pull_zone_id",
+          label: gettext("Pull zone ID"),
+          type: :text,
+          required: true,
+          placeholder: "12345",
+          help: nil,
+          options: nil
         }
       ]
     }

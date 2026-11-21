@@ -28539,3 +28539,27 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "or"
 msgstr ""
+
+#, elixir-autogen, elixir-format
+msgid "Content delivery through a bunny.net pull zone"
+msgstr "Content delivery through a bunny.net pull zone"
+
+#, elixir-autogen, elixir-format
+msgid "Use the bunny.net account API key."
+msgstr "Use the bunny.net account API key."
+
+#, elixir-autogen, elixir-format
+msgid "Pull zone ID"
+msgstr "Pull zone ID"
+
+#, elixir-autogen, elixir-format
+msgid "Invalid pull zone"
+msgstr "Invalid pull zone"
+
+#, elixir-autogen, elixir-format
+msgid "Bunny CDN returned HTTP %{status}"
+msgstr "Bunny CDN returned HTTP %{status}"
+
+#, elixir-autogen, elixir-format
+msgid "Could not reach Bunny CDN"
+msgstr "Could not reach Bunny CDN"

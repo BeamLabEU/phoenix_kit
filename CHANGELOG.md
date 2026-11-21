@@ -1,3 +1,9 @@
+## 3.8.0 - 2026-11-21
+
+### Added
+
+- Bunny CDN connections for site and personal integrations. Each named connection validates one existing pull zone. Hosts can resolve its public delivery hostname and purge individual objects through `PhoenixKit.Integrations.BunnyCDN`.
+
 ## 3.7.0 - 2026-11-20
 
 ### Added
