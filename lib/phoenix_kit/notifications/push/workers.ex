@@ -150,7 +150,11 @@ defmodule PhoenixKit.Notifications.Push.SendWorker do
     end
   end
 
-  defp same_subscription(%Installation{uuid: uuid, endpoint_hash: hash}) do
-    from(i in Installation, where: i.uuid == ^uuid and i.endpoint_hash == ^hash)
+  # The row still holds the subscription the push went to: same endpoint
+  # and same keys (a rotation may keep the endpoint and change the keys).
+  defp same_subscription(%Installation{uuid: uuid, endpoint_hash: hash, auth: auth}) do
+    from(i in Installation,
+      where: i.uuid == ^uuid and i.endpoint_hash == ^hash and i.auth == ^auth
+    )
   end
 end

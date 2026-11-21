@@ -269,6 +269,10 @@ defmodule PhoenixKit.Integration.Notifications.PushTest do
       assert String.ends_with?(cut, "…")
     end
 
+    test "a tiny limit gives nothing rather than more than asked" do
+      assert Push.cut_bytes("abcdef", 2) == ""
+    end
+
     test "a long emoji label fits its column" do
       a = user!()
       b = browser()
@@ -285,7 +289,9 @@ defmodule PhoenixKit.Integration.Notifications.PushTest do
       on_exit(fn -> Settings.update_boolean_setting("push_show_line", false) end)
 
       a = user!()
-      long = String.duplicate("👨‍👩‍👧‍👦", 400)
+
+      long =
+        String.duplicate("👨‍👩‍👧‍👦", 400) <> String.duplicate(<<1>>, 600) <> String.duplicate("\"", 600)
 
       :ok =
         Push.queue(

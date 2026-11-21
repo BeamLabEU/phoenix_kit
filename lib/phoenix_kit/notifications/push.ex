@@ -188,7 +188,7 @@ defmodule PhoenixKit.Notifications.Push do
       endpoint_hash: hash(endpoint),
       p256dh: p256dh,
       auth: auth,
-      label: cut_bytes(opts[:label] |> to_string(), 160),
+      label: opts[:label] |> plain() |> cut_bytes(160),
       browser_id: clean_browser_id(opts[:browser_id]),
       vapid_key_id: WebPush.vapid_key_id() || "unknown",
       inserted_at: now,
@@ -202,9 +202,10 @@ defmodule PhoenixKit.Notifications.Push do
 
     installation =
       from(i in Installation, where: i.endpoint_hash == ^hash, lock: "FOR UPDATE")
-      |> RepoHelper.repo().one!()
+      |> RepoHelper.repo().one()
 
-    if Plug.Crypto.secure_compare(installation.p256dh, p256dh) and
+    # (nil: a clean-up removed it between the two statements; try again.)
+    if (installation && Plug.Crypto.secure_compare(installation.p256dh, p256dh)) and
          Plug.Crypto.secure_compare(installation.auth, auth) do
       installation
       |> Ecto.Changeset.change(
@@ -214,7 +215,7 @@ defmodule PhoenixKit.Notifications.Push do
       )
       |> RepoHelper.repo().update()
     else
-      {:error, :bad_subscription}
+      if installation, do: {:error, :bad_subscription}, else: {:error, :try_again}
     end
   end
 
@@ -331,20 +332,22 @@ defmodule PhoenixKit.Notifications.Push do
 
   def forget_browser(_user_uuid, _browser_id), do: :ok
 
-  # One statement: never deletes an installation someone is bound to.
+  # The installation is locked first: a binding being added takes a key
+  # lock on it (its foreign key), so the check that follows, in its own
+  # statement, sees that binding once it is committed (codex).
   defp drop_if_unbound(installation_uuid) do
-    from(i in Installation,
-      as: :installation,
-      where:
-        i.uuid == ^installation_uuid and
-          not exists(
-            from(b in Binding,
-              where: b.installation_uuid == parent_as(:installation).uuid,
-              select: 1
-            )
-          )
-    )
-    |> RepoHelper.repo().delete_all()
+    repo = RepoHelper.repo()
+
+    repo.transaction(fn ->
+      locked =
+        from(i in Installation, where: i.uuid == ^installation_uuid, lock: "FOR UPDATE")
+        |> repo.one()
+
+      if locked &&
+           not repo.exists?(from(b in Binding, where: b.installation_uuid == ^installation_uuid)) do
+        repo.delete(locked)
+      end
+    end)
 
     :ok
   end
@@ -504,15 +507,42 @@ defmodule PhoenixKit.Notifications.Push do
         end
 
       %{
-        "title" => cut_bytes(title, 300),
-        "body" => cut_bytes(body, 1_200),
+        "title" => title |> plain() |> cut_bytes(300),
+        "body" => body |> plain() |> cut_bytes(1_200),
         "url" => open_url(user.uuid, latest.link, count > 1),
         "tag" => "pk-" <> short_id(user.uuid),
         "count" => count,
         "icon" => icon_url()
       }
+      |> fit()
     end)
   end
+
+  # Measured as sent (JSON escapes quotes and backslashes): the body, then
+  # the title, are shortened until the push fits what a service takes.
+  defp fit(payload) do
+    if byte_size(Jason.encode!(payload)) <= WebPush.max_plaintext() do
+      payload
+    else
+      body = payload["body"]
+      title = payload["title"]
+
+      cond do
+        byte_size(body) > 40 ->
+          fit(%{payload | "body" => cut_bytes(body, div(byte_size(body), 2))})
+
+        byte_size(title) > 40 ->
+          fit(%{payload | "title" => cut_bytes(title, div(byte_size(title), 2))})
+
+        true ->
+          %{payload | "body" => "", "title" => cut_bytes(title, 40)}
+      end
+    end
+  end
+
+  # Text without control characters (a line break becomes a space).
+  defp plain(text) when is_binary(text), do: String.replace(text, ~r/[\x00-\x1F\x7F]+/u, " ")
+  defp plain(_), do: ""
 
   @doc "The push service `Topic` of a user's pushes: their id without dashes, 32 characters."
   def topic(user_uuid), do: short_id(user_uuid)
@@ -539,6 +569,8 @@ defmodule PhoenixKit.Notifications.Push do
   # in any script).
   @doc false
   def cut_bytes(text, max) when is_binary(text) and byte_size(text) <= max, do: text
+
+  def cut_bytes(_text, max) when max < 4, do: ""
 
   def cut_bytes(text, max) when is_binary(text) do
     text
