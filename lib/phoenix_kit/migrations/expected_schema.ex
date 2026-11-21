@@ -202,6 +202,12 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   # access to; the real-database integration suite re-ran clean against a DB
   # migrated through V196, which is the property s7/s8 exist to prove.
   #
+  # V235 (2026-11-21, browser push notifications) adds a generated overlay, `ExpectedSchema.V235`
+  # (dev_docs/squash/generate_v235_manifest.exs: the catalog diff V234 -> V235 in a scratch
+  # schema), merged after `V234`: the tables `phoenix_kit_push_installations`,
+  # `phoenix_kit_push_bindings` and `phoenix_kit_push_pending`. No seed rows. Kept honest by
+  # `PhoenixKit.Migrations.Postgres.V235Test`. `chain_hash` restamped.
+  #
   # V234 (2026-11-17, approval of an OAuth connection) adds a generated overlay, `ExpectedSchema.V234`
   # (dev_docs/squash/generate_v234_manifest.exs: the catalog diff V233 -> V234 in a scratch
   # schema), merged after `V233`: the nullable `approved_at` column of `phoenix_kit_api_oauth_grants`.
@@ -717,12 +723,13 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   alias PhoenixKit.Migrations.ExpectedSchema.V232
   alias PhoenixKit.Migrations.ExpectedSchema.V233
   alias PhoenixKit.Migrations.ExpectedSchema.V234
+  alias PhoenixKit.Migrations.ExpectedSchema.V235
   alias PhoenixKit.Migrations.Postgres.Helpers
 
   @schema_token "__SCHEMA__"
   @name_marker_exempt "__PK_NAME_EXEMPT__"
   @name_marker_always "__PK_NAME_ALWAYS__"
-  @chain_hash "541259580b9e5536a7c4525ae9d084a984ac52e16a4f3366268a8caf4ee0c667"
+  @chain_hash "e3c73ec24b9a32c611053bfa8059b05d1c7cc6453a7cd59f4aef5b5eb160cf33"
 
   def objects(prefix) do
     prefix = normalize_prefix!(prefix)
@@ -737,6 +744,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
     |> V232.merge()
     |> V233.merge()
     |> V234.merge()
+    |> V235.merge()
     |> Enum.reject(&module_owned_object?/1)
     |> Enum.map(&materialize_object(&1, prefix))
   end
@@ -801,6 +809,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
       |> V232.merge()
       |> V233.merge()
       |> V234.merge()
+      |> V235.merge()
 
     for %{class: :table, check: {:catalog, %{name: name}}} <- objects,
         into: MapSet.new(),

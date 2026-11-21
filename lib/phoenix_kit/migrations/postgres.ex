@@ -7,7 +7,14 @@ defmodule PhoenixKit.Migrations.Postgres do
 
   ## Migration Versions
 
-  ### V234 - Approval of an OAuth connection ⚡ LATEST
+  ### V235 - Browser push notifications ⚡ LATEST
+
+  Three tables for push (`PhoenixKit.Notifications.Push`): `phoenix_kit_push_installations` (a browser or device
+  that turned push on: its endpoint, keys and the VAPID key it was made with; unique by the endpoint's SHA-256),
+  `phoenix_kit_push_bindings` (an account opted in on an installation, unique per pair) and
+  `phoenix_kit_push_pending` (notifications waiting for a user's next grouped push). Additive, no backfill.
+
+  ### V234 - Approval of an OAuth connection
 
   `phoenix_kit_api_oauth_grants.approved_at` (nullable): a connection waits for an owner's approval while it is
   `NULL`. The connections that exist are counted as approved in the same step; `down` first ends the ones that
@@ -1100,7 +1107,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   alias PhoenixKit.Migrations.Repair.Environment
 
   @initial_version 135
-  @current_version 234
+  @current_version 235
 
   # Core 3.0 no longer creates or changes any module's table (plan
   # `dev_docs/plans/2026-10-25-module-table-ownership.md`, step 8): V135..V225

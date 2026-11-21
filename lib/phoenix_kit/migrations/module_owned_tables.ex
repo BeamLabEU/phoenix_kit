@@ -258,6 +258,9 @@ defmodule PhoenixKit.Migrations.ModuleOwnedTables do
     phoenix_kit_organization_invitations
     phoenix_kit_organization_manager_roles
     phoenix_kit_organization_managers
+    phoenix_kit_push_bindings
+    phoenix_kit_push_installations
+    phoenix_kit_push_pending
     phoenix_kit_relationship_types
     phoenix_kit_role_permissions
     phoenix_kit_scheduled_jobs
