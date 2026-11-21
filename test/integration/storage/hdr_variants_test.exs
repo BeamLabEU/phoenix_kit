@@ -168,7 +168,9 @@ defmodule PhoenixKit.Modules.Storage.HdrVariantsTest do
 
     make = fn name ->
       {out, 0} =
-        System.cmd("identify", ["-format", "%[EXIF:Make]", stored(ctx, file, name) <> "[0]"],
+        System.cmd(
+          "identify",
+          ["-quiet", "-format", "%[EXIF:Make]", stored(ctx, file, name) <> "[0]"],
           stderr_to_stdout: true
         )
 

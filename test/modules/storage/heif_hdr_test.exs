@@ -24,7 +24,11 @@ defmodule PhoenixKit.Modules.Storage.HeifHdrTest do
   defp dest(ctx), do: Path.join(ctx.tmp_dir, "out.jpg")
 
   defp dims(path) do
-    {out, 0} = System.cmd("identify", ["-format", "%wx%h", path <> "[0]"], stderr_to_stdout: true)
+    {out, 0} =
+      System.cmd("identify", ["-quiet", "-format", "%wx%h", path <> "[0]"],
+        stderr_to_stdout: true
+      )
+
     out
   end
 
@@ -82,7 +86,7 @@ defmodule PhoenixKit.Modules.Storage.HeifHdrTest do
 
     gain = gain_map_of(ctx, dest(ctx))
     assert dims(gain) == "80x60"
-    {info, 0} = System.cmd("identify", ["-format", "%[colorspace]", gain])
+    {info, 0} = System.cmd("identify", ["-quiet", "-format", "%[colorspace]", gain])
     assert info == "Gray"
   end
 
