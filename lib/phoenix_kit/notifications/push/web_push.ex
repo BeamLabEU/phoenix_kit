@@ -125,6 +125,8 @@ defmodule PhoenixKit.Notifications.Push.WebPush do
   @spec authorization(String.t(), map(), String.t()) :: String.t()
   def authorization(endpoint, %{public: pub, private: priv}, subject) do
     %URI{scheme: scheme, host: host, port: port} = URI.parse(endpoint)
+    # An origin's host is lowercase (RFC 6454), and a strict service compares.
+    host = String.downcase(host)
 
     aud =
       if port in [nil, 443] and scheme == "https",

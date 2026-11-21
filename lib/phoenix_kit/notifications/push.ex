@@ -115,9 +115,14 @@ defmodule PhoenixKit.Notifications.Push do
          :ok <- if(WebPush.endpoint_ok?(endpoint), do: :ok, else: {:error, :endpoint_refused}),
          :ok <- device_room(user, endpoint) do
       RepoHelper.repo().transaction(fn ->
-        installation = upsert_installation(endpoint, p256dh, auth, opts)
-        bind(installation, user)
-        installation
+        case upsert_installation(endpoint, p256dh, auth, opts) do
+          {:ok, installation} ->
+            bind(installation, user)
+            installation
+
+          {:error, reason} ->
+            RepoHelper.repo().rollback(reason)
+        end
       end)
       |> tap(fn
         {:ok, _} -> start_with_email_types(user)
@@ -166,8 +171,14 @@ defmodule PhoenixKit.Notifications.Push do
     if count < @max_devices, do: :ok, else: {:error, :too_many_devices}
   end
 
+  # A browser's subscription is its endpoint with its keys, which never
+  # change while the endpoint lives: a known endpoint is joined only with
+  # the keys it already has. Anything else would let whoever learnt an
+  # endpoint swap the keys of another person's browser (and its `auth`, the
+  # proof `resubscribe/3` asks for) and take its pushes (codex).
   defp upsert_installation(endpoint, p256dh, auth, opts) do
     now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+    hash = hash(endpoint)
 
     attrs = %{
       endpoint: endpoint,
@@ -181,15 +192,27 @@ defmodule PhoenixKit.Notifications.Push do
       updated_at: now
     }
 
-    {1, [installation]} =
-      RepoHelper.repo().insert_all(Installation, [attrs],
-        on_conflict:
-          {:replace, [:endpoint, :p256dh, :auth, :label, :browser_id, :vapid_key_id, :updated_at]},
-        conflict_target: :endpoint_hash,
-        returning: true
-      )
+    RepoHelper.repo().insert_all(Installation, [attrs],
+      on_conflict: :nothing,
+      conflict_target: :endpoint_hash
+    )
 
-    installation
+    installation =
+      from(i in Installation, where: i.endpoint_hash == ^hash, lock: "FOR UPDATE")
+      |> RepoHelper.repo().one!()
+
+    if Plug.Crypto.secure_compare(installation.p256dh, p256dh) and
+         Plug.Crypto.secure_compare(installation.auth, auth) do
+      installation
+      |> Ecto.Changeset.change(
+        label: attrs.label,
+        browser_id: attrs.browser_id || installation.browser_id,
+        updated_at: now
+      )
+      |> RepoHelper.repo().update()
+    else
+      {:error, :bad_subscription}
+    end
   end
 
   defp bind(installation, user) do
@@ -526,25 +549,38 @@ defmodule PhoenixKit.Notifications.Push do
   def read_handle(_), do: :error
 
   # Only a path on this site, never another origin: an absolute link is cut
-  # to its path when it is this site's, refused otherwise.
+  # to its path when it is this site's, refused otherwise. What comes out
+  # passes `Routes.local_path?/1` (the redirect guard: `//`, `/\\`, control
+  # characters), and is at most 1 KB, so the handle keeps the push under the
+  # size a push service takes (a longer link opens the site instead).
+  @max_link 1_024
+
   @doc false
-  def same_site_link(link) when is_binary(link) do
+  def same_site_link(link) when is_binary(link) and byte_size(link) <= 2 * @max_link do
     base = URI.parse(Routes.base_url())
 
-    case URI.parse(link) do
-      %URI{scheme: nil, host: nil, path: "/" <> _ = path} = uri ->
-        if String.starts_with?(path, "//"), do: nil, else: path_of(uri)
+    path =
+      case URI.parse(link) do
+        %URI{scheme: nil, host: nil, path: "/" <> _} = uri ->
+          path_of(uri)
 
-      %URI{scheme: scheme, host: host} = uri when scheme in ["http", "https"] ->
-        if host == base.host, do: path_of(uri), else: nil
+        %URI{scheme: scheme, host: host} = uri when scheme in ["http", "https"] ->
+          if is_binary(host) and String.downcase(host) == String.downcase(base.host || ""),
+            do: path_of(uri)
 
-      _ ->
-        nil
-    end
+        _ ->
+          nil
+      end
+
+    if is_binary(path) and byte_size(path) <= @max_link and Routes.local_path?(path),
+      do: path
+  rescue
+    _ -> nil
   end
 
   def same_site_link(_), do: nil
 
+  defp path_of(%URI{path: nil}), do: nil
   defp path_of(%URI{path: path, query: nil}), do: path
   defp path_of(%URI{path: path, query: query}), do: path <> "?" <> query
 end

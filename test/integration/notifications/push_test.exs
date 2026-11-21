@@ -170,6 +170,28 @@ defmodule PhoenixKit.Integration.Notifications.PushTest do
       refute Repo.get(Installation, installation.uuid)
     end
 
+    test "a known endpoint is joined only with its own keys, never re-keyed by another" do
+      victim = user!()
+      attacker = user!()
+      b = browser()
+      installation = subscribe!(victim, b)
+
+      other = browser()
+      forged = Map.put(other.json, "endpoint", b.json["endpoint"])
+
+      assert {:error, :bad_subscription} =
+               Push.subscribe(attacker, forged, impersonated: false)
+
+      kept = Repo.get(Installation, installation.uuid)
+      assert kept.auth == b.json["keys"]["auth"]
+      assert kept.p256dh == b.json["keys"]["p256dh"]
+      refute Push.any_device?(attacker.uuid)
+
+      # Nor can the attacker now pass the resubscribe proof.
+      assert {:error, :not_found} =
+               Push.resubscribe(b.json["endpoint"], other.json["keys"]["auth"], browser().json)
+    end
+
     test "a rotated subscription is taken only with the old one's secret" do
       a = user!()
       old = browser()
@@ -231,6 +253,10 @@ defmodule PhoenixKit.Integration.Notifications.PushTest do
       assert Push.same_site_link("https://evil.example/steal") == nil
       assert Push.same_site_link("//evil.example/steal") == nil
       assert Push.same_site_link("/admin/x?y=1") == "/admin/x?y=1"
+      assert Push.same_site_link("/\\evil.example/steal") == nil
+      assert Push.same_site_link("/\t/evil.example") == nil
+      assert Push.same_site_link("javascript:alert(1)") == nil
+      assert Push.same_site_link("/" <> String.duplicate("a", 1_100)) == nil
     end
   end
 
@@ -296,6 +322,19 @@ defmodule PhoenixKit.Integration.Notifications.PushTest do
       Process.put(:push_status, 410)
       assert :ok = SendWorker.perform(%Oban.Job{args: args})
       refute Repo.get(Installation, installation.uuid)
+    end
+
+    test "a 410 for a subscription rotated mid-send keeps the new one" do
+      a = user!()
+      b = browser()
+      installation = subscribe!(a, b)
+      stale = Repo.get(Installation, installation.uuid)
+      new = browser()
+      :ok = Push.resubscribe(b.json["endpoint"], b.json["keys"]["auth"], new.json)
+
+      Process.put(:push_status, 410)
+      assert :ok = SendWorker.send_to(stale, "{}", nil)
+      assert Repo.get(Installation, installation.uuid)
     end
 
     test "a device whose account logged out there gets nothing" do

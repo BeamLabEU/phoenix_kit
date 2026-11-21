@@ -104,31 +104,42 @@ defmodule PhoenixKit.Notifications.Push.SendWorker do
                where: b.installation_uuid == ^installation_uuid and b.user_uuid == ^user_uuid
              )
            ) do
-      case WebPush.send(installation, payload, ttl: Push.ttl(), topic: args["topic"]) do
-        :ok ->
-          installation
-          |> Ecto.Changeset.change(
-            last_success_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
-          )
-          |> repo.update()
-
-          :ok
-
-        {:gone, _status} ->
-          repo.delete(installation)
-          :ok
-
-        {:retry, _after} ->
-          {:error, :push_service_busy}
-
-        {:error, reason} ->
-          Logger.warning("[Push] a device refused the push: #{inspect(reason)}")
-          :ok
-      end
+      send_to(installation, payload, args["topic"])
     else
       _ -> :ok
     end
   end
 
   def perform(_job), do: :ok
+
+  # One send to the installation as it was read (a test passes a stale one).
+  @doc false
+  def send_to(%Installation{} = installation, payload, topic) do
+    repo = RepoHelper.repo()
+
+    case WebPush.send(installation, payload, ttl: Push.ttl(), topic: topic) do
+      :ok ->
+        now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+
+        repo.update_all(same_subscription(installation), set: [last_success_at: now])
+        :ok
+
+      # Only the subscription this push went to: a row rotated (resubscribe)
+      # while the request was out keeps its new subscription.
+      {:gone, _status} ->
+        repo.delete_all(same_subscription(installation))
+        :ok
+
+      {:retry, _after} ->
+        {:error, :push_service_busy}
+
+      {:error, reason} ->
+        Logger.warning("[Push] a device refused the push: #{inspect(reason)}")
+        :ok
+    end
+  end
+
+  defp same_subscription(%Installation{uuid: uuid, endpoint_hash: hash}) do
+    from(i in Installation, where: i.uuid == ^uuid and i.endpoint_hash == ^hash)
+  end
 end
