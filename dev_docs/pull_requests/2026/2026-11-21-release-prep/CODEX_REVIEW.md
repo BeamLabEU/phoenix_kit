@@ -7,3 +7,13 @@ The upgrade from the published 3.6.1 includes migrations V233 and V234. The Nove
 - **Bunny CDN.** The integration tests exercise credential ownership, zone identity, secured-zone handling and single-object purge through an HTTP stub. The methods, paths, parameters and response fields agree with Bunny's published management API. A real account and delivery zone are outside this check.
 - **BUG - HIGH.** Dependency resolution flagged two high-severity Phoenix advisories (GHSA-pvfx-rx4x-phrr and GHSA-5vmc-qgf8-rw36) and a LiveView access-control advisory (GHSA-v4p7-3pm2-wq6c). The package now requires a patched release on both supported LiveView lines and Phoenix 1.8.17+. The lockfile selects Phoenix 1.8.17 and LiveView 1.2.15.
 - **Test reliability.** The previously reported V220 index test failed on one fresh database when PostgreSQL chose a competing index on the empty table. The test now checks the active index's table, validity, key and predicate against all ten supported statuses. The focused HDR and migration run completed with 125 tests, zero failures and 17 skips.
+
+## Storage and integrations recheck
+
+Reviewed the six commits after `ea711fa41` through `0c624fdc4`.
+
+- **Release metadata.** The merge and storage profile updates advanced the version to 3.8.2. Restored 3.7.0 and consolidated the unpublished entries under its heading.
+- **BUG - MEDIUM.** The bucket picker discovered CDN providers by capability, but both setup forms, attribute extraction, write validation and the mapping query assumed Bunny. A second registered CDN can now save and reopen its own mapping. Reads use the connection owner, and a provider may supply an adapter for the verification probe. A LiveView regression registers an external provider and follows the bucket shortcut through save and reopen.
+- **BUG - MEDIUM.** A media manager could change CDN preferences on a managed system library. The writer now checks the managed-library guard inside the transaction. The bucket and storage profile screens also gate integration setup links on the viewer’s integration-management permission.
+
+The storage preferences and the Bunny probe are separate from file serving. The probe test uses a local bucket and a simulated Bunny management API and edge. Production origin credentials, cache rules and withdrawal require verification on the intended deployment.

@@ -28637,24 +28637,24 @@ msgid "Checking the saved mapping…"
 msgstr "Checking the saved mapping…"
 
 #, elixir-autogen, elixir-format
-msgid "Verified. Bunny served the test file and stopped serving it after deletion and purge."
-msgstr "Verified. Bunny served the test file and stopped serving it after deletion and purge."
+msgid "Verified. The CDN served the test file and stopped serving it after deletion and purge."
+msgstr "Verified. The CDN served the test file and stopped serving it after deletion and purge."
 
 #, elixir-autogen, elixir-format
-msgid "Bunny could not read the test file. Check the origin folder and its read permissions."
-msgstr "Bunny could not read the test file. Check the origin folder and its read permissions."
+msgid "The CDN could not read the test file. Check the origin folder and its read permissions."
+msgstr "The CDN could not read the test file. Check the origin folder and its read permissions."
 
 #, elixir-autogen, elixir-format
-msgid "The file was delivered, but withdrawal could not be confirmed. Check the pull zone’s purge access."
-msgstr "The file was delivered, but withdrawal could not be confirmed. Check the pull zone’s purge access."
+msgid "The file was delivered, but withdrawal could not be confirmed. Check purge access."
+msgstr "The file was delivered, but withdrawal could not be confirmed. Check purge access."
 
 #, elixir-autogen, elixir-format
-msgid "The pull zone’s origin differs from the saved Origin URL. Check both the hostname and the folder."
-msgstr "The pull zone’s origin differs from the saved Origin URL. Check both the hostname and the folder."
+msgid "The CDN origin differs from the saved Origin URL. Check both the hostname and the folder."
+msgstr "The CDN origin differs from the saved Origin URL. Check both the hostname and the folder."
 
 #, elixir-autogen, elixir-format
-msgid "The storage or Bunny request failed. Check the origin and read permissions."
-msgstr "The storage or Bunny request failed. Check the origin and read permissions."
+msgid "The storage or CDN request failed. Check the origin and read permissions."
+msgstr "The storage or CDN request failed. Check the origin and read permissions."
 
 #, elixir-autogen, elixir-format
 msgid "Source check failed (%{reason})."
@@ -28713,8 +28713,8 @@ msgid "Choose an enabled bucket without another CDN mapping and enter its HTTPS 
 msgstr "Choose an enabled bucket without another CDN mapping and enter its HTTPS origin URL."
 
 #, elixir-autogen, elixir-format
-msgid "Bunny fetched the file, but a second request missed the cache. Check the pull zone’s cache settings."
-msgstr "Bunny fetched the file, but a second request missed the cache. Check the pull zone’s cache settings."
+msgid "The CDN fetched the file, but a second request missed the cache. Check the cache settings."
+msgstr "The CDN fetched the file, but a second request missed the cache. Check the cache settings."
 
 #, elixir-autogen, elixir-format
 msgid "All services"

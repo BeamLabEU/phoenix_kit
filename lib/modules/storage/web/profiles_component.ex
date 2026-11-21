@@ -36,6 +36,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
     StorageProfile
   }
 
+  alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Live.Modules.Storage.{BucketInfo, BucketUsage}
 
@@ -883,7 +884,10 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
                     {gettext("Disabled")}
                   </span>
                   <.link
-                    :if={row.role != "backup" && row.bucket.enabled}
+                    :if={
+                      row.role != "backup" && row.bucket.enabled &&
+                        Scope.has_module_access?(@scope, "integrations_system")
+                    }
                     navigate={
                       PhoenixKit.Utils.Routes.path(
                         CDNSource.setup_path(

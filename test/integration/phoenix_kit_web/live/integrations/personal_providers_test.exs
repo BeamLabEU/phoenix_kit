@@ -157,7 +157,7 @@ defmodule PhoenixKitWeb.Live.Integrations.PersonalProvidersTest do
 
     assert has_element?(
              existing,
-             "#bunny-delivery-source option[value='#{bucket.uuid}'][selected]"
+             "#cdn-delivery-source option[value='#{bucket.uuid}'][selected]"
            )
 
     assert CDNSource.mapping(bucket.uuid) == nil
@@ -168,7 +168,7 @@ defmodule PhoenixKitWeb.Live.Integrations.PersonalProvidersTest do
     render_click(view, "select_provider", %{"provider" => "bunny_cdn"})
     assert_patch(view)
     origin = "https://photos.hel1.your-objectstorage.com/cdn-pilot/"
-    assert has_element?(view, "#bunny-delivery-source option[value='#{bucket.uuid}'][selected]")
+    assert has_element?(view, "#cdn-delivery-source option[value='#{bucket.uuid}'][selected]")
     assert has_element?(view, "input[name=source_origin][value='#{origin}']")
     assert render(view) =~ "Security → S3 Authentication"
     assert render(view) =~ "Configured bucket region: hel1"
@@ -184,7 +184,54 @@ defmodule PhoenixKitWeb.Live.Integrations.PersonalProvidersTest do
     %{uuid: uuid} = CDNSource.mapping(bucket.uuid)
     assert_patch(view, Routes.path("/admin/settings/integrations/#{uuid}"))
     {:ok, edit, _} = live(conn, Routes.path(CDNSource.setup_path(bucket.uuid)))
-    assert has_element?(edit, "#bunny-delivery-source button", "Verify saved bucket mapping")
+    assert has_element?(edit, "#cdn-delivery-source button", "Verify saved bucket mapping")
+  end
+
+  defmodule SecondCDN do
+    @moduledoc false
+    def integration_providers do
+      [
+        %{
+          key: "second_cdn",
+          name: "Second CDN",
+          description: "External delivery provider",
+          icon: "hero-globe-alt",
+          auth_type: :credentials,
+          oauth_config: nil,
+          setup_fields: [],
+          capabilities: [:cdn_delivery],
+          scopes: [:system]
+        }
+      ]
+    end
+  end
+
+  test "a registered CDN can be selected, mapped and reopened from a site bucket", %{conn: conn} do
+    alias PhoenixKit.Modules.Storage.{Bucket, CDNSource}
+
+    PhoenixKit.ModuleRegistry.register(SecondCDN)
+    on_exit(fn -> PhoenixKit.ModuleRegistry.unregister(SecondCDN) end)
+    bucket = Repo.insert!(%Bucket{name: "External CDN source", provider: "local"})
+    conn = admin(conn)
+    {:ok, view, _} = live(conn, Routes.path(CDNSource.setup_path(bucket.uuid)))
+    assert has_element?(view, "button[phx-value-provider=second_cdn]")
+    render_click(view, "select_provider", %{"provider" => "second_cdn"})
+    assert_patch(view)
+
+    view
+    |> form("#integration-setup-form",
+      name: "Other edge",
+      source_bucket_uuid: bucket.uuid,
+      source_origin: "https://origin.example/media/"
+    )
+    |> render_submit()
+
+    %{uuid: uuid, name: "Other edge"} = CDNSource.mapping(bucket.uuid)
+    assert_patch(view, Routes.path(CDNSource.setup_path(bucket.uuid)))
+    {:ok, edit, _} = live(conn, Routes.path("/admin/settings/integrations/#{uuid}"))
+    assert has_element?(edit, "#cdn-delivery-source option[value='#{bucket.uuid}'][selected]")
+    refute has_element?(edit, "button", "Verify saved bucket mapping")
+    assert CDNSource.mappings([bucket.uuid], {:user, UUIDv7.generate()}) == %{}
   end
 
   describe "the personal picker" do

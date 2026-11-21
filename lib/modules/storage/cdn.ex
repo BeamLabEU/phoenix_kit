@@ -6,7 +6,7 @@ defmodule PhoenixKit.Modules.Storage.CDN do
   """
   import Ecto.Query
   alias PhoenixKit.Integrations
-  alias PhoenixKit.Modules.Storage.{Library, VariantSets}
+  alias PhoenixKit.Modules.Storage.{Libraries, Library, VariantSets}
   alias PhoenixKit.RepoHelper
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.Scope
@@ -82,7 +82,8 @@ defmodule PhoenixKit.Modules.Storage.CDN do
     repo.transaction(fn ->
       library = repo.one(from l in Library, where: l.uuid == ^library_uuid, lock: "FOR UPDATE")
 
-      with true <- owner?(scope, library),
+      with :ok <- Libraries.check_managed(library),
+           true <- owner?(scope, library),
            %{"connection" => selection, "mode" => mode} when mode in ["inherit", "custom"] <-
              attrs,
            true <- selection in ["off", "inherit", "bucket"],
@@ -98,6 +99,7 @@ defmodule PhoenixKit.Modules.Storage.CDN do
         |> Ecto.Changeset.change(settings: Map.put(library.settings || %{}, @library_key, policy))
         |> repo.update!()
       else
+        {:error, :managed} -> repo.rollback(:managed)
         _ -> repo.rollback(:invalid_selection)
       end
     end)

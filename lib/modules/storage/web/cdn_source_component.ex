@@ -1,5 +1,5 @@
 defmodule PhoenixKitWeb.Live.Modules.Storage.CDNSourceComponent do
-  @moduledoc "Bucket selection and origin guidance inside a Bunny CDN connection form."
+  @moduledoc "Bucket selection and origin guidance inside a CDN connection form."
   use Phoenix.LiveComponent
   use Gettext, backend: PhoenixKitWeb.Gettext
   alias PhoenixKit.Modules.Storage.CDNSource
@@ -48,31 +48,31 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.CDNSourceComponent do
       case result do
         :ok ->
           gettext(
-            "Verified. Bunny served the test file and stopped serving it after deletion and purge."
+            "Verified. The CDN served the test file and stopped serving it after deletion and purge."
           )
 
         {:error, :test_object_unreadable} ->
           gettext(
-            "Bunny could not read the test file. Check the origin folder and its read permissions."
+            "The CDN could not read the test file. Check the origin folder and its read permissions."
           )
 
         {:error, :withdrawal_failed} ->
           gettext(
-            "The file was delivered, but withdrawal could not be confirmed. Check the pull zone’s purge access."
+            "The file was delivered, but withdrawal could not be confirmed. Check purge access."
           )
 
         {:error, :cache_miss} ->
           gettext(
-            "Bunny fetched the file, but a second request missed the cache. Check the pull zone’s cache settings."
+            "The CDN fetched the file, but a second request missed the cache. Check the cache settings."
           )
 
         {:error, :origin_mismatch} ->
           gettext(
-            "The pull zone’s origin differs from the saved Origin URL. Check both the hostname and the folder."
+            "The CDN origin differs from the saved Origin URL. Check both the hostname and the folder."
           )
 
         {:error, reason} when is_binary(reason) ->
-          gettext("The storage or Bunny request failed. Check the origin and read permissions.")
+          gettext("The storage or CDN request failed. Check the origin and read permissions.")
 
         {:error, reason} ->
           gettext("Source check failed (%{reason}).", reason: reason)
@@ -131,12 +131,14 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.CDNSourceComponent do
           "Copied!"
         )}</span>
       </button>
-      <p :if={@selected}>
+      <p :if={@selected && @adapter == PhoenixKit.Integrations.BunnyCDN}>
         {gettext(
           "Point the Bunny pull zone at an HTTPS address serving the cdn-pilot/ folder of this bucket. Save the connection, then verify it with a temporary test file."
         )}
       </p>
-      <div :if={@selected && @selected.provider != "local"}>
+      <div :if={
+        @selected && @adapter == PhoenixKit.Integrations.BunnyCDN && @selected.provider != "local"
+      }>
         <p>
           {gettext(
             "For a private S3 origin, open the pull zone in Bunny and go to Security → S3 Authentication. Turn on Enable AWS S3 Authentication. Enter the access key ID and secret from your storage provider and the bucket’s signing region. Use a dedicated key with read access limited to the delivery folder."
@@ -152,7 +154,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.CDNSourceComponent do
         )}
       </p>
       <button
-        :if={@uuid && @selected && @selected.uuid == @persisted_bucket}
+        :if={@adapter && @uuid && @selected && @selected.uuid == @persisted_bucket}
         type="button"
         phx-click="verify"
         phx-target={@myself}

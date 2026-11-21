@@ -1,14 +1,14 @@
 defmodule PhoenixKit.Modules.Storage.CDNSource do
-  @moduledoc "The storage bucket and HTTPS origin of a Bunny pull zone."
+  @moduledoc "Storage bucket mappings and end-to-end checks for CDN integrations."
   import Ecto.Query
   alias PhoenixKit.Integrations
-  alias PhoenixKit.Integrations.BunnyCDN
   alias PhoenixKit.Integrations.ConnectionLock
+  alias PhoenixKit.Integrations.Providers
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.Bucket
+  alias PhoenixKit.Modules.Storage.Endpoint
   alias PhoenixKit.Modules.Storage.Providers.{Local, S3}
   alias PhoenixKit.RepoHelper
-  alias PhoenixKit.Settings.Setting
 
   def choices(owner) do
     buckets =
@@ -45,34 +45,19 @@ defmodule PhoenixKit.Modules.Storage.CDNSource do
 
   def setup_path(_, %{uuid: uuid}), do: "/admin/settings/integrations/" <> uuid
 
-  def mappings([]), do: %{}
-
-  def mappings(ids) do
-    from(s in Setting,
-      where:
-        s.module == "integrations" and fragment("?->>'provider' = 'bunny_cdn'", s.value_json) and
-          fragment(
-            "?->>'source_bucket_uuid' = ANY(?)",
-            s.value_json,
-            type(^ids, {:array, :string})
-          ),
-      select:
-        {fragment("?->>'source_bucket_uuid'", s.value_json),
-         %{uuid: s.uuid, name: fragment("?->>'name'", s.value_json)}}
-    )
-    |> RepoHelper.repo().all()
-    |> Map.new()
-  end
+  def mappings(ids, owner \\ :system), do: Integrations.cdn_bucket_mappings(ids, owner)
 
   def verify(uuid, owner) do
-    with {:ok, %{provider: "bunny_cdn", data: data}} <-
+    with {:ok, %{provider: provider, data: data}} <-
            Integrations.get_integration_by_uuid(uuid, owner),
+         %{cdn_adapter: adapter} <- Providers.get(provider),
          {:ok, id} <- Ecto.UUID.cast(data["source_bucket_uuid"]),
          %Bucket{enabled: true} = bucket <- RepoHelper.repo().get(Bucket, id),
          true <- bucket_owner(bucket) == owner,
-         {:ok, base} <- BunnyCDN.check_origin(uuid, owner, data["source_origin"]),
-         true <- Regex.match?(~r|\Ahttps://[a-z0-9-]+\.b-cdn\.net\z|i, base),
-         :ok <- probe(bucket, base, uuid, owner) do
+         {:ok, base} <- adapter.check_origin(uuid, owner, data["source_origin"]),
+         %{scheme: "https"} = endpoint <- Endpoint.parse(base),
+         :ok <- Endpoint.check(endpoint, :personal, resolve: true),
+         :ok <- probe(bucket, base, uuid, owner, adapter) do
       record_check(uuid, owner, data)
     else
       {:error, _} = err -> err
@@ -100,7 +85,7 @@ defmodule PhoenixKit.Modules.Storage.CDNSource do
 
   # Only a random, disposable file under the dedicated delivery prefix is exposed.
   # No management key or origin credentials go to the edge.
-  defp probe(bucket, base, uuid, owner) do
+  defp probe(bucket, base, uuid, owner, adapter) do
     key = "check-" <> UUIDv7.generate() <> ".txt"
     body = Base.url_encode64(:crypto.strong_rand_bytes(32), padding: false)
     store = if bucket.provider == "local", do: Local, else: S3
@@ -116,7 +101,7 @@ defmodule PhoenixKit.Modules.Storage.CDNSource do
           with :ok <- store.delete_file(bucket, path) do
             # An exact second read after origin deletion proves this edge cached it.
             warm = if cold == :ok, do: check_bytes(url, body), else: cold
-            purge = BunnyCDN.purge(uuid, owner, key)
+            purge = adapter.purge(uuid, owner, key)
 
             cond do
               cold != :ok ->
@@ -164,15 +149,11 @@ defmodule PhoenixKit.Modules.Storage.CDNSource do
     Req.get(url, [redirect: false, retry: false, receive_timeout: 8_000, into: into] ++ test_opts)
   end
 
-  def reset_check(%{"provider" => "bunny_cdn"} = data, attrs) do
-    fields = ~w(source_bucket_uuid source_origin api_key pull_zone_id)
-
-    if Enum.any?(fields, &(Map.has_key?(attrs, &1) and data[&1] != attrs[&1])),
+  def reset_check(data, attrs) do
+    if data["source_checked_at"] && Enum.any?(attrs, fn {key, value} -> data[key] != value end),
       do: Map.delete(data, "source_checked_at"),
       else: data
   end
-
-  def reset_check(data, _attrs), do: data
 
   def mapping(bucket_uuid) do
     Map.get(mappings([bucket_uuid]), bucket_uuid)
@@ -180,7 +161,16 @@ defmodule PhoenixKit.Modules.Storage.CDNSource do
 
   # Called inside the integration's write transaction. Serializing on the target
   # bucket prevents two different connections from claiming it at the same time.
-  def validate("bunny_cdn", uuid, owner, %{"source_bucket_uuid" => id} = attrs) do
+  def validate(provider, uuid, owner, %{"source_bucket_uuid" => id} = attrs) do
+    if Providers.cdn_delivery?(Providers.get(provider)),
+      do: validate_bucket(uuid, owner, id, attrs),
+      else: {:error, :invalid_cdn_source}
+  end
+
+  def validate(_, _, _, %{"source_origin" => _}), do: {:error, :invalid_cdn_source}
+  def validate(_, _, _, _), do: :ok
+
+  defp validate_bucket(uuid, owner, id, attrs) do
     if id == "" and attrs["source_origin"] in [nil, ""] do
       :ok
     else
@@ -190,16 +180,13 @@ defmodule PhoenixKit.Modules.Storage.CDNSource do
              RepoHelper.repo().one(from b in Bucket, where: b.uuid == ^id, lock: "FOR UPDATE"),
            true <- owner == bucket_owner(bucket),
            true <- valid_origin?(attrs["source_origin"]),
-           existing when is_nil(existing) or existing.uuid == uuid <- mapping(id) do
+           existing when is_nil(existing) or existing.uuid == uuid <- mappings([id], owner)[id] do
         :ok
       else
         _ -> {:error, :invalid_cdn_source}
       end
     end
   end
-
-  def validate("bunny_cdn", _, _, %{"source_origin" => _}), do: {:error, :invalid_cdn_source}
-  def validate(_, _, _, _), do: :ok
 
   defp bucket_owner(%Bucket{owner_uuid: nil}), do: :system
   defp bucket_owner(%Bucket{owner_uuid: id}), do: {:user, id}

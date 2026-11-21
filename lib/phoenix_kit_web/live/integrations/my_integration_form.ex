@@ -733,9 +733,10 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrationForm do
                   )}
                 </p>
                 <.live_component
-                  :if={@selected_provider == "bunny_cdn"}
+                  :if={Providers.cdn_delivery?(@provider)}
+                  adapter={@provider[:cdn_adapter]}
                   module={PhoenixKitWeb.Live.Modules.Storage.CDNSourceComponent}
-                  id="bunny-delivery-source"
+                  id="cdn-delivery-source"
                   checked_at={@data["source_checked_at"]}
                   persisted_bucket={@data["source_bucket_uuid"]}
                   uuid={@uuid}

@@ -41,7 +41,11 @@ defmodule PhoenixKit.Integrations.BunnyCDN do
          {:ok, base} <- public_base(zone),
          [%{"IsSystemHostname" => true}] <- zone["Hostnames"],
          {:ok, actual} <- origin(zone["OriginUrl"]) do
-      if actual == expected_origin, do: {:ok, base}, else: {:error, :origin_mismatch}
+      cond do
+        actual != expected_origin -> {:error, :origin_mismatch}
+        Regex.match?(~r|\Ahttps://[a-z0-9-]+\.b-cdn\.net\z|i, base) -> {:ok, base}
+        true -> {:error, :invalid_cdn_source}
+      end
     else
       {:error, _} = error -> error
       _ -> {:error, :additional_hostnames}

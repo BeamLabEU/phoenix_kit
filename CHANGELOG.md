@@ -1,27 +1,11 @@
-## 3.8.2 - 2026-11-21
-
-### Changed
-
-- Storage profile summaries link to each bucket and show its storage service, role in the profile, and any restrictions on its use.
-
-## 3.8.1 - 2026-11-21
-
-### Changed
-
-- The Storage profiles tab lists each profile’s bucket, library and copy counts. Each profile opens in its own editor, with folder layout details available on demand.
-
-## 3.8.0 - 2026-11-21
+## 3.7.0 - 2026-11-21
 
 ### Added
 
 - Map a site or personal CDN connection to a serving bucket. The Bunny source check verifies a cold read, a cache hit after origin deletion, and withdrawal after purge. The setup form includes instructions for private S3-compatible origins.
 - Filter integration providers by service. Bucket setup opens the CDN picker and preserves the bucket while selecting a provider.
-- Save site and library preferences for public CDN renditions. Delivery defaults to off. The source check uses disposable objects, and photo URLs continue to use existing storage delivery.
+- Configure site preferences in Media settings and save per-library overrides through the storage API for public CDN renditions. Delivery defaults to off. The source check uses disposable objects, and photo URLs continue to use existing storage delivery.
 - Check a Bunny zone’s configured origin and hostname with `mix phoenix_kit.cdn.check_origin`.
-
-## 3.7.0 - 2026-11-21
-
-### Added
 
 - Bunny CDN connections for site and personal integrations. Each named connection validates one existing pull zone. Hosts can resolve its public delivery hostname and purge individual objects through `PhoenixKit.Integrations.BunnyCDN`.
 
@@ -110,6 +94,9 @@
   content-box overlays.
 
 ### Changed
+
+- Storage profile summaries link to each bucket and show its storage service, role in the profile, and any restrictions on its use.
+- The Storage profiles tab lists each profile’s bucket, library and copy counts. Each profile opens in its own editor, with folder layout details available on demand.
 
 - Upgrades require Phoenix 1.8.17 or later in the 1.8 series and a patched LiveView
   (1.1.34+ on 1.1, or 1.2.14+ on the later 1.x line). These versions fix upstream

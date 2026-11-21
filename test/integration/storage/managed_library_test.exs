@@ -118,6 +118,17 @@ defmodule PhoenixKit.Modules.Storage.ManagedLibraryTest do
     upload!(ctx.uploader, image!(ctx.tmp, "#{color}.jpg", color), library_uuid: ctx.library.uuid)
   end
 
+  test "a media manager cannot change a managed library’s CDN preferences", ctx do
+    scope = scope(ctx.editor)
+    assert Scope.has_module_access?(scope, "media.manage")
+
+    assert {:error, :managed} =
+             Storage.CDN.save_library(scope, ctx.library.uuid, %{
+               "connection" => "bucket",
+               "mode" => "inherit"
+             })
+  end
+
   describe "creating and changing the listing" do
     test "a hidden library is born with what it asks for", ctx do
       assert Libraries.media_listing(ctx.library) == :uploaders

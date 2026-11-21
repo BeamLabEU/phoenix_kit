@@ -90,6 +90,7 @@ defmodule PhoenixKit.Integrations.Providers do
           # or `:sending`: the form shows those `PhoenixKit.AWS.IamPolicy`
           # documents under the section's steps.
           optional(:instructions) => [map()],
+          optional(:cdn_adapter) => module(),
           # A module that shapes the setup form from what has been typed so far
           # (`setup_fields/2`, `setup_attrs/2`, `setup_changed/3`,
           # `setup_saved/3` below call it). `setup_fields` stays the provider's
@@ -1215,6 +1216,7 @@ defmodule PhoenixKit.Integrations.Providers do
       auth_type: :api_key,
       oauth_config: nil,
       capabilities: [:cdn_delivery],
+      cdn_adapter: PhoenixKit.Integrations.BunnyCDN,
       validation: %{strategy: :module, module: PhoenixKit.Integrations.BunnyCDN},
       setup_fields: [
         %{
@@ -1939,22 +1941,30 @@ defmodule PhoenixKit.Integrations.Providers do
   must clear.
   """
   @spec setup_attrs(provider() | nil, map()) :: map()
-  def setup_attrs(%{key: "bunny_cdn"} = provider, params) do
-    params =
-      if params["source_bucket_uuid"] == "",
-        do: Map.put(params, "source_origin", ""),
-        else: params
+  def setup_attrs(provider, params) do
+    attrs = provider_attrs(provider, params)
 
-    provider
-    |> Map.delete(:key)
-    |> setup_attrs(params)
-    |> Map.merge(Map.take(params, ["source_bucket_uuid", "source_origin"]))
+    if cdn_delivery?(provider) do
+      source = Map.take(params, ["source_bucket_uuid", "source_origin"])
+
+      source =
+        if source["source_bucket_uuid"] == "",
+          do: Map.put(source, "source_origin", ""),
+          else: source
+
+      Map.merge(attrs, source)
+    else
+      attrs
+    end
   end
 
-  def setup_attrs(%{setup_module: module}, params) when is_atom(module),
+  def cdn_delivery?(%{capabilities: capabilities}), do: :cdn_delivery in capabilities
+  def cdn_delivery?(_), do: false
+
+  defp provider_attrs(%{setup_module: module}, params) when is_atom(module),
     do: module.attrs(params)
 
-  def setup_attrs(%{setup_fields: fields}, params) when is_list(fields) do
+  defp provider_attrs(%{setup_fields: fields}, params) when is_list(fields) do
     Enum.reduce(fields, %{}, fn field, acc ->
       value = params[field.key] |> to_string() |> String.trim()
 
@@ -1964,7 +1974,7 @@ defmodule PhoenixKit.Integrations.Providers do
     end)
   end
 
-  def setup_attrs(_provider, _params), do: %{}
+  defp provider_attrs(_provider, _params), do: %{}
 
   @doc """
   The typed values once `incoming` (the form as just sent, declared keys only)

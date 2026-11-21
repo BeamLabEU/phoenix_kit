@@ -29,7 +29,7 @@
           <.icon name="hero-pencil" class="w-4 h-4" /> {gettext("Edit bucket")}
         </.pk_link_button>
         <.pk_link_button
-          :if={@bucket.enabled}
+          :if={@bucket.enabled && can_manage_integrations?(assigns)}
           navigate={PhoenixKit.Modules.Storage.CDNSource.setup_path(@bucket.uuid)}
           variant="outline"
           class="btn-sm"

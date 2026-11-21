@@ -771,6 +771,29 @@ defmodule PhoenixKit.Integrations do
     |> PhoenixKit.RepoHelper.repo().all()
   end
 
+  def cdn_bucket_mappings([], _owner), do: %{}
+
+  def cdn_bucket_mappings(ids, owner) do
+    keys = Enum.map(Providers.with_capability(:cdn_delivery), & &1.key)
+
+    from(s in Setting,
+      where:
+        s.module == @settings_module and
+          fragment("?->>'provider' = ANY(?)", s.value_json, type(^keys, {:array, :string})) and
+          fragment(
+            "?->>'source_bucket_uuid' = ANY(?)",
+            s.value_json,
+            type(^ids, {:array, :string})
+          ),
+      select:
+        {fragment("?->>'source_bucket_uuid'", s.value_json),
+         %{uuid: s.uuid, name: fragment("?->>'name'", s.value_json)}}
+    )
+    |> owner_where(owner)
+    |> PhoenixKit.RepoHelper.repo().all()
+    |> Map.new()
+  end
+
   @doc "Saved connections available to map to a bucket, scoped to the picker’s eligible providers and owner."
   def unmapped_cdn_connections(keys, owner) do
     from(s in Setting,

@@ -1105,7 +1105,7 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
           do: row.bucket.uuid
 
     if ids != [] and Scope.has_module_access?(scope, "integrations") do
-      mappings = CDNSource.mappings(ids)
+      mappings = CDNSource.mappings(ids, {:user, Scope.user_uuid(scope)})
 
       offered =
         Enum.any?(
