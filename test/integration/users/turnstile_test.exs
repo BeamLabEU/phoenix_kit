@@ -13,11 +13,15 @@ defmodule PhoenixKit.Integration.Users.TurnstileTest do
 
   import Swoosh.TestAssertions
 
+  alias PhoenixKit.Integrations
+  alias PhoenixKit.Integrations.Turnstile, as: Adapter
   alias PhoenixKit.Settings
   alias PhoenixKit.Settings.Setting
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
+  alias PhoenixKit.Users.Permissions
   alias PhoenixKit.Users.RateLimiter
+  alias PhoenixKit.Users.Roles
   alias PhoenixKit.Users.Turnstile
   alias PhoenixKit.Utils.Routes
 
@@ -209,39 +213,54 @@ defmodule PhoenixKit.Integration.Users.TurnstileTest do
     defp protection(conn),
       do: live(conn, Routes.path("/admin/settings/authorization?tab=protection"))
 
-    test "saves the switch and the keys; the secret is never rendered", %{conn: conn} do
-      {:ok, view, html} = protection(conn)
-      refute html =~ ~s(id="turnstile-enabled" checked)
+    test "the website integration picker opens the Turnstile setup fields", %{conn: conn} do
+      admin = Roles.get_role_by_name("Admin")
+      {:ok, _} = Permissions.grant_permission(admin.uuid, "integrations_system")
+      {:ok, view, _} = live(conn, Routes.path("/admin/settings/integrations/new"))
 
-      html =
-        view
-        |> form("#turnstile-settings-form", %{
-          turnstile: %{enabled: "true", site_key: "0x4AAAA-site", secret_key: @secret}
-        })
-        |> render_submit()
-
-      assert html =~ "Turnstile settings saved."
-      assert html =~ "0x4AAAA-site"
-      assert html =~ "Saved. Leave blank to keep it"
-      refute html =~ @secret
-      assert Turnstile.enabled?()
-
-      # A fresh page still holds no secret.
-      {:ok, _view, html} = protection(conn)
-      refute html =~ @secret
+      view |> element(~s(button[phx-value-provider="cloudflare_turnstile"])) |> render_click()
+      assert has_element?(view, "input[name=site_key]")
+      assert has_element?(view, "input[name=secret_key]")
     end
 
-    test "a wrong secret is refused with a message", %{conn: conn} do
-      {:ok, view, _html} = protection(conn)
+    test "auth selects a website connection and switches independently", %{conn: conn} do
+      {:ok, %{uuid: uuid}} = Integrations.add_connection("cloudflare_turnstile", "Public forms")
+
+      {:ok, _} =
+        Integrations.save_setup(uuid, %{"site_key" => "public-key", "secret_key" => @secret})
+
+      assert :ok = verdict = Integrations.validate_connection(uuid)
+      assert :ok = Integrations.record_validation(uuid, verdict)
+
+      {:ok, view, html} = protection(conn)
+      assert html =~ "Public forms"
+      refute html =~ @secret
+      refute has_element?(view, "#turnstile-secret-key")
+
+      for enabled <- ["true", "false"] do
+        html =
+          view
+          |> form("#turnstile-settings-form", %{turnstile: %{enabled: enabled, connection: uuid}})
+          |> render_submit()
+
+        assert html =~ "Turnstile settings saved."
+        assert Turnstile.enabled?() == (enabled == "true")
+        assert Turnstile.widget_site_key() == if(enabled == "true", do: "public-key")
+        assert Turnstile.verify(nil) == if(enabled == "true", do: {:error, :missing}, else: :ok)
+        assert Adapter.site_key(uuid) == "public-key"
+        assert :ok = Adapter.verify(uuid, "good-token")
+      end
+    end
+
+    test "a submitted UUID must identify a verified Turnstile connection", %{conn: conn} do
+      {:ok, view, _} = protection(conn)
 
       html =
-        view
-        |> form("#turnstile-settings-form", %{
-          turnstile: %{enabled: "true", site_key: "0x4AAAA-site", secret_key: "typo"}
+        render_submit(view, "save_turnstile", %{
+          "turnstile" => %{"enabled" => "true", "connection" => Ecto.UUID.generate()}
         })
-        |> render_submit()
 
-      assert html =~ "Cloudflare does not recognise this secret key"
+      assert html =~ "Choose a verified Turnstile connection"
       refute Turnstile.enabled?()
     end
 

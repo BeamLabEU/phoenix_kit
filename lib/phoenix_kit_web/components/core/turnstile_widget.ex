@@ -4,10 +4,10 @@ defmodule PhoenixKitWeb.Components.Core.TurnstileWidget do
 
       <.turnstile_widget id="registration-turnstile" />
 
-  Renders nothing while Turnstile is off (`PhoenixKit.Users.Turnstile`). Put it
-  INSIDE the form: the widget adds the hidden `cf-turnstile-response` field
-  next to itself, and that is what the submit carries. The LiveView checks it
-  with `PhoenixKitWeb.Users.BotCheck.run/3`.
+  Put the widget inside the form so the submit includes `cf-turnstile-response`.
+  Auth forms use the Authorization settings and `PhoenixKitWeb.Users.BotCheck.run/3`.
+  Other forms pass their selected connection’s public `site_key` and check the token
+  with `PhoenixKit.Integrations.Turnstile.verify/3`. A nil key hides the widget.
 
   The element is `phx-update="ignore"`: Cloudflare's script owns what is in it.
   """
@@ -17,10 +17,14 @@ defmodule PhoenixKitWeb.Components.Core.TurnstileWidget do
   alias PhoenixKit.Users.Turnstile
 
   attr :id, :string, required: true
+
+  attr :site_key, :string,
+    doc: "Public key for a selected connection. Defaults to the auth form configuration."
+
   attr :class, :string, default: "mt-4"
 
   def turnstile_widget(assigns) do
-    assigns = assign(assigns, :site_key, Turnstile.widget_site_key())
+    assigns = assign_new(assigns, :site_key, &Turnstile.widget_site_key/0)
 
     ~H"""
     <div

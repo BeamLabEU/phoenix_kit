@@ -376,13 +376,11 @@ off for good.
 
 ## Cloudflare Turnstile
 
-`PhoenixKit.Users.Turnstile`, off by default; the switch and the two keys are on
-Settings → Authorization → Abuse protection (`turnstile_enabled`,
-`turnstile_site_key`, `turnstile_secret_key`; every `turnstile_*` key is a
-`settings.security` key, and the secret is restricted). The tab's Turnstile
-form is its own `<form>` with its own event (`save_turnstile` →
-`Turnstile.save_config/2`): the keys are not `Settings.form_setting_keys/0`, so
-no settings form can write them.
+Add and test a Cloudflare Turnstile widget under Settings → Integrations.
+Under Settings → Authorization → Abuse protection, select the verified website
+connection and enable Turnstile for auth. The switch defaults to off and can
+be turned off independently of other features using the connection. Existing
+installations can continue using their previously saved auth keys.
 
 - **The five forms that send mail on an anonymous request** (sign-up,
   registration link, password reset, magic link, confirmation resend) render
@@ -396,8 +394,7 @@ no settings form can write them.
   on the page (a validation error) has a fresh one.
 - **No verdict is not a refusal.** A timeout, a 5xx or a body that is not a
   verdict lets the request through with a warning: the rate limits are still in
-  front. A refused SECRET is a refusal, logged as an error; `save_config/2`
-  probes the secret before storing it so that cannot be saved by mistake.
+  front. A rejected secret or an unavailable selected connection refuses the submit.
 - The widget's script is loaded by the `Turnstile` hook in `phoenix_kit.js`, on
   the first page that shows a widget. The sign-in form has no widget.
 - Tests: `config :phoenix_kit, :turnstile_req_options, plug: fn conn -> … end`

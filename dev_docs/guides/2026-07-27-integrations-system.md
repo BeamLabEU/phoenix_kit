@@ -62,6 +62,17 @@ network validation asynchronous and disable removal while usage is present.
 
 A provider declaring `:cdn_delivery` appears in its owner’s bucket picker and can save a bucket and HTTPS origin. To offer the temporary-object verification as well, declare `:cdn_adapter` on the provider. Its `check_origin(uuid, owner, expected_origin)` must verify the saved origin and return `{:ok, base}` for a trusted HTTPS delivery hostname belonging to that connection. Its `purge(uuid, owner, key)` withdraws the single object and returns `:ok`. Both callbacks may return `{:error, reason}`.
 
+**Cloudflare Turnstile** (`cloudflare_turnstile`, website-wide). Create a named
+connection with the widget’s public site key and secret key, then test it.
+Features can list verified widgets with `Integrations.connected_choices(:turnstile, :system)`
+and store their selected UUID. Pass `PhoenixKit.Integrations.Turnstile.site_key(uuid)`
+as the `site_key` attribute of `<.turnstile_widget>`. On submit, call
+`PhoenixKit.Integrations.Turnstile.verify(uuid, params["cf-turnstile-response"], ip)`
+with the UUID chosen by the feature. Verification returns `:ok` or
+`{:error, :missing | :rejected | :unavailable | :not_configured}`. Reset the widget
+after a check if the form stays open by pushing `phoenix_kit:turnstile_reset`.
+The Authorization switch applies only to auth forms.
+
 **Bunny CDN** (`bunny_cdn`, `:cdn_delivery`, system and personal). Add one named connection per pull zone with its numeric ID and the bunny.net account API key. For private S3 origins, open Security → S3 Authentication on the pull zone, enable AWS S3 Authentication, and enter the storage provider’s read credentials and bucket signing region. Test Connection uses the separate Bunny account API key to read the zone from Bunny's management API. The site administrator can offer Bunny in Personal integrations. A server-side consumer selects the connection UUID and supplies either `:system` or `{:user, owner_uuid}` to `PhoenixKit.Integrations.BunnyCDN.public_base_url/2` and `purge/3`. Resolve the delivery hostname once per batch of authorized public objects. Purge takes an unescaped object key on that hostname. A successful connection check verifies read access to that zone. The admin and personal forms map the zone to one enabled bucket belonging to the same owner. The source verifier compares the origin, reads a random temporary file through the edge, deletes the source, purges the URL and checks withdrawal. Rendition authorization belongs to the consuming feature. [Bunny management API](https://bunny.net/docs/api-reference/core/openapi.json)
 
 **Events (PubSub):** topic `"phoenix_kit:integrations"`. Events: `integration_setup_saved`, `integration_connected`, `integration_disconnected`, `integration_validated`, `integration_connection_added/removed/renamed`.

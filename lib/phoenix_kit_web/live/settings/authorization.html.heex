@@ -954,6 +954,7 @@
           </form>
 
           <form
+            :if={@active_tab == "protection"}
             id="turnstile-settings-form"
             phx-submit="save_turnstile"
             class="fieldset w-full mt-8"
@@ -971,8 +972,8 @@
             <.checkbox
               id="turnstile-enabled"
               name="turnstile[enabled]"
-              checked={@turnstile.enabled}
-              label={gettext("Enable Cloudflare Turnstile")}
+              checked={@turnstile["enabled"]}
+              label={gettext("Enable Turnstile on auth forms")}
             >
               <:description>
                 {gettext(
@@ -982,35 +983,28 @@
             </.checkbox>
 
             <div class="mt-3 grid gap-3 max-w-xl">
-              <.input
-                id="turnstile-site-key"
-                type="text"
-                name="turnstile[site_key]"
-                value={@turnstile.site_key}
-                label={gettext("Site key")}
-                autocomplete="off"
-              />
-              <.input
-                id="turnstile-secret-key"
-                type="password"
-                name="turnstile[secret_key]"
-                value=""
-                label={gettext("Secret key")}
-                placeholder={
-                  if @turnstile.secret_set?,
-                    do: gettext("Saved. Leave blank to keep it"),
-                    else: gettext("Not set")
-                }
-                autocomplete="new-password"
+              <.select
+                id="turnstile-connection"
+                name="turnstile[connection]"
+                value={@turnstile["connection"]}
+                options={@turnstile_options}
+                label={gettext("Turnstile connection")}
               />
             </div>
 
             <div class="mt-3 space-y-2 text-sm text-base-content/70">
-              <p>
-                {gettext(
-                  "Both keys come from the Cloudflare dashboard: Turnstile, Add widget, with this site's domain. The secret key is checked with Cloudflare when you save and is never shown again."
-                )}
-              </p>
+              <.pk_link
+                :if={
+                  PhoenixKit.Users.Auth.Scope.can?(
+                    @phoenix_kit_current_scope,
+                    "integrations_system"
+                  )
+                }
+                navigate="/admin/settings/integrations"
+                class="link"
+              >
+                {gettext("Manage website integrations")}
+              </.pk_link>
               <p>
                 {gettext(
                   "If Cloudflare cannot be reached, the forms keep working on the request limits alone."

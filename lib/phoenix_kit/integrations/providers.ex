@@ -308,6 +308,7 @@ defmodule PhoenixKit.Integrations.Providers do
       aws_ses(),
       object_storage(),
       bunny_cdn(),
+      cloudflare_turnstile(),
       smtp(),
       brevo_api(),
       telegram(),
@@ -1197,6 +1198,50 @@ defmodule PhoenixKit.Integrations.Providers do
             gettext(
               "This connection stores the credential. Which connection sends, and the delivery-event pipeline (configuration set, SNS topic, SQS queues), are set in Settings → Emails Transactional."
             )
+        }
+      ]
+    }
+  end
+
+  defp cloudflare_turnstile do
+    %{
+      key: "cloudflare_turnstile",
+      name: "Cloudflare Turnstile",
+      description: gettext("Verify visitors submitting forms on your website."),
+      icon: "hero-shield-check",
+      scopes: [:system],
+      auth_type: :key_secret,
+      oauth_config: nil,
+      capabilities: [:turnstile],
+      validation: %{strategy: :module, module: PhoenixKit.Integrations.Turnstile},
+      instructions: [
+        %{
+          title: gettext("Create a Turnstile widget"),
+          steps: [
+            {gettext(
+               "In the Cloudflare dashboard, open Turnstile and add a widget for your website’s hostname. Copy its site key and secret key here."
+             ), nil}
+          ]
+        }
+      ],
+      setup_fields: [
+        %{
+          key: "site_key",
+          label: gettext("Site key"),
+          type: :text,
+          required: true,
+          placeholder: nil,
+          help: nil,
+          options: nil
+        },
+        %{
+          key: "secret_key",
+          label: gettext("Secret key"),
+          type: :password,
+          required: true,
+          placeholder: nil,
+          help: nil,
+          options: nil
         }
       ]
     }

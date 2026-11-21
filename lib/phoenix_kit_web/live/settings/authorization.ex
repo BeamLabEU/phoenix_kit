@@ -49,8 +49,7 @@ defmodule PhoenixKitWeb.Live.Settings.Authorization do
     current_settings = Settings.list_all_settings()
     defaults = Settings.get_defaults()
 
-    # Turnstile's secret belongs to its own form below and is never needed
-    # here: kept out of the assigns altogether.
+    # Keep legacy Turnstile credentials out of the page assigns.
     merged_settings =
       defaults |> Map.merge(current_settings) |> Map.delete("turnstile_secret_key")
 
@@ -91,8 +90,7 @@ defmodule PhoenixKitWeb.Live.Settings.Authorization do
       # Read on every tab change, so the counters are those of the moment the
       # tab was opened. Configuration and in-memory counters; no database.
       |> assign(:request_limits, RateLimiter.overview())
-      # The switch, the site key and whether a secret is saved; never the secret.
-      |> assign(:turnstile, Turnstile.config())
+      |> load_turnstile()
       |> assign(:email_domain_check, email_domain_check_state())
 
     {:noreply, socket}
@@ -107,29 +105,34 @@ defmodule PhoenixKitWeb.Live.Settings.Authorization do
     ]
   end
 
-  # Its own form and its own keys (`turnstile_*`, `settings.security` like the
-  # rest of this page: `SecurityGate` re-checks on every event). The secret is
-  # in the event's params only; it is never assigned.
+  defp load_turnstile(%{assigns: %{active_tab: "protection"}} = socket) do
+    selection = Turnstile.selection()
+    choices = Enum.map(Turnstile.choices(), fn {uuid, name} -> {name, uuid} end)
+    current = selection["connection"]
+
+    blank =
+      if Turnstile.legacy_configured?(),
+        do: gettext("Previously saved auth keys"),
+        else: gettext("Choose a connection")
+
+    options =
+      if current != "" and not Enum.any?(choices, fn {_, id} -> id == current end),
+        do: [{gettext("Unavailable connection"), current} | choices],
+        else: choices
+
+    assign(socket, turnstile: selection, turnstile_options: [{blank, ""} | options])
+  end
+
+  defp load_turnstile(socket), do: socket
+
   def handle_event("save_turnstile", %{"turnstile" => params}, socket) when is_map(params) do
-    result = Turnstile.save_config(params, actor_uuid: Actor.uuid(socket), source: "settings")
-    socket = assign(socket, :turnstile, Turnstile.config())
-
-    case result do
-      {:ok, :saved} ->
-        {:noreply, put_flash(socket, :info, gettext("Turnstile settings saved."))}
-
-      {:ok, :unverified} ->
+    case Turnstile.save_selection(params, actor_uuid: Actor.uuid(socket), source: "settings") do
+      {:ok, _} ->
         {:noreply,
-         put_flash(
-           socket,
-           :warning,
-           gettext(
-             "Turnstile settings saved, but Cloudflare could not be reached to check the secret key."
-           )
-         )}
+         socket |> load_turnstile() |> put_flash(:info, gettext("Turnstile settings saved."))}
 
-      {:error, reason} ->
-        {:noreply, put_flash(socket, :error, turnstile_error(reason))}
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, gettext("Choose a verified Turnstile connection."))}
     end
   end
 
@@ -392,17 +395,6 @@ defmodule PhoenixKitWeb.Live.Settings.Authorization do
       overridden: Application.get_env(:phoenix_kit, :email_domain_check, true) == false
     }
   end
-
-  defp turnstile_error(:site_key_required),
-    do: gettext("Enter the site key before switching Turnstile on.")
-
-  defp turnstile_error(:secret_key_required),
-    do: gettext("Enter the secret key before switching Turnstile on.")
-
-  defp turnstile_error(:invalid_secret),
-    do: gettext("Cloudflare does not recognise this secret key. Nothing was saved.")
-
-  defp turnstile_error(_reason), do: gettext("The Turnstile settings could not be saved.")
 
   @doc false
   def request_limit_label(:login), do: gettext("Sign-in (failed attempts)")
