@@ -20,10 +20,12 @@
         id={"media-canvas-viewer-" <> @current_uuid}
         file={@current_file}
         current_user={@current_user}
-        can_annotate={@can_annotate}
+        can_annotate={can_annotate_here?(@can_annotate, @annotate_only, @current_file)}
         own_files_only={@own_files_only}
         write_scope={@write_scope}
         comments={@comments}
+        details={@details}
+        authors={@authors}
         parent_id={@id}
         has_prev={has_prev}
         has_next={has_next}

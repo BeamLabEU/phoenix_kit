@@ -40,6 +40,31 @@ defmodule PhoenixKitWeb.Components.MediaViewer do
   - `comments` — default `true`. `false` takes the discussion out of the
     lightbox: no comments thread, no reply popup, no comment count, preview or
     badge on the shapes, and the server refuses Reply.
+  - `annotate_only` — default `nil`: `can_annotate` applies to every file. A
+    list or `MapSet` of file uuids: a file in it gets `can_annotate` as the
+    host passed it, any other file is read-only (shapes locked, tools gone, and
+    the server refuses drawing, changing, deleting, Reply and a shape's title).
+    `can_annotate={false}` still wins over the set; an empty set means no file
+    may be drawn on; a value that is neither nil, a list nor a `MapSet` is
+    treated as empty. `own_files_only` lets the uploader draw on his own upload
+    wherever it lies and `write_scope` does not reach drawings, so this is how a
+    host says "draw only on these files". The canvas viewer's id carries the
+    file uuid, so stepping to another file asks the question again.
+  - `details` — default `true`. `false` cuts the sidebar down to the file's name
+    and its Download controls: no title, description, alt text or tags, no type,
+    MIME type, size, dimensions or dates, no status, uploader or uuid, no EXIF
+    panel, no link to a details page. The name is the file's translated title
+    when it has one, else the name it was uploaded under. A display rule, not a
+    boundary for the bytes: the host chose the files, and Download hands over the
+    file itself (under the name it was uploaded with).
+  - `authors` — default `true`. `false` keeps every name that says who drew a
+    shape or wrote a comment out of the browser: the marker byline is dropped
+    from the shapes' payload and from every patch pushed to them, so the tooltip
+    header is the shape's label or its kind. The drawings and their labels stay.
+    The comments thread names each commenter, so it is not rendered under
+    `authors={false}` (with `comments` on, a shape's tooltip still previews the
+    first comment's text and offers Reply — pass `comments={false}` as well to
+    take the discussion out altogether).
 
   The lightbox never offers the viewer's other writes: no title/description
   editor, no persisted rotation, no "Edit image", no trash buttons, no
@@ -49,10 +74,12 @@ defmodule PhoenixKitWeb.Components.MediaViewer do
 
   ## Embedding for an outside person
   To show a few files to someone who is not staff, pass
-  `own_files_only={user.uuid} write_scope={folder.uuid} comments={false}`:
-  on files that person uploaded they keep the drawing tools and everything
-  else the viewer offers; on every other file they only look. It does not
-  decide WHAT they see. `files` is trusted host data: the lightbox shows a uuid
+  `own_files_only={user.uuid} write_scope={folder.uuid}
+  annotate_only={their_own_file_uuids} comments={false} details={false}
+  authors={false}`: they see each file and its name, with Download, and the
+  drawings on it with their labels but not who made them or any discussion;
+  on the files in `annotate_only` they keep the drawing tools, on every other
+  file they only look. It does not decide WHAT they see. `files` is trusted host data: the lightbox shows a uuid
   from that list and nothing else (a seed or a step outside it, or a uuid
   carried by a client event, is never opened), skipping a file that is gone,
   in the trash or system-managed, but it does not check that the person may
@@ -60,6 +87,16 @@ defmodule PhoenixKitWeb.Components.MediaViewer do
   A file of a private library is signed with a time-window token, like
   `Storage.authorized_url/4` does, never with the permanent one the file route
   refuses.
+
+  Two things the options do not reach, said plainly:
+
+    * The burn route `POST /api/files/:uuid/burn` is an HTTP route that follows
+      the user's own rights, not the host's options: an uploader may re-render
+      his own file's thumbnails there whatever the lightbox offered.
+    * The drawing toolbar's "Insert image" stores the picture as a `data:` URL
+      inside the annotation, with no size cap, so someone who may draw on a file
+      can store bytes in the annotations of that file. Limit `annotate_only` to
+      files where that is acceptable.
 
   ## Close
   On close, if `notify: {module, id}` is set:
@@ -87,6 +124,9 @@ defmodule PhoenixKitWeb.Components.MediaViewer do
       |> assign(:own_files_only, assigns[:own_files_only])
       |> assign(:write_scope, assigns[:write_scope])
       |> assign(:comments, assigns[:comments] != false)
+      |> assign(:annotate_only, annotate_only(assigns[:annotate_only]))
+      |> assign(:details, assigns[:details] != false)
+      |> assign(:authors, assigns[:authors] != false)
 
     {:ok,
      assign(
@@ -129,6 +169,21 @@ defmodule PhoenixKitWeb.Components.MediaViewer do
   def handle_event(_event, _params, socket), do: {:noreply, socket}
 
   # ── private ──────────────────────────────────────────────────────────
+
+  # `annotate_only`: nil (every file), or the uuids that may be drawn on. Anything
+  # that is not a list or a MapSet closes the gate rather than opening it.
+  defp annotate_only(nil), do: nil
+  defp annotate_only(%MapSet{} = uuids), do: uuids
+  defp annotate_only(uuids) when is_list(uuids), do: MapSet.new(uuids)
+  defp annotate_only(_other), do: MapSet.new()
+
+  # What `can_annotate` the canvas viewer gets for the file it shows: the
+  # host's own flag, and the set when there is one. The child's id carries the
+  # file uuid, so stepping to another file mounts a new child and this is
+  # worked out again; the child refuses every drawing write when it is false.
+  defp can_annotate_here?(false, _annotate_only, _file), do: false
+  defp can_annotate_here?(true, nil, _file), do: true
+  defp can_annotate_here?(true, %MapSet{} = uuids, %{file_uuid: uuid}), do: uuid in uuids
 
   defp close(socket) do
     case socket.assigns.notify do

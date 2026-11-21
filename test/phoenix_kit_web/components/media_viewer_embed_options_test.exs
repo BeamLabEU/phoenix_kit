@@ -72,6 +72,8 @@ defmodule PhoenixKitWeb.Components.MediaViewerEmbedOptionsTest do
       assert child.comments == true
       assert child.own_files_only == nil
       assert child.write_scope == nil
+      assert child.details == true
+      assert child.authors == true
     end
 
     test "the options are not added when the host passes none to the lightbox" do
@@ -81,6 +83,9 @@ defmodule PhoenixKitWeb.Components.MediaViewerEmbedOptionsTest do
       assert socket.assigns.comments == true
       assert socket.assigns.own_files_only == nil
       assert socket.assigns.write_scope == nil
+      assert socket.assigns.annotate_only == nil
+      assert socket.assigns.details == true
+      assert socket.assigns.authors == true
     end
   end
 
@@ -121,6 +126,93 @@ defmodule PhoenixKitWeb.Components.MediaViewerEmbedOptionsTest do
       for key <- [:details_path, :edit_target, :persist_rotation, :can_trash, :featured, :pick] do
         refute Map.get(child, key), "#{key} must not reach the canvas viewer"
       end
+    end
+  end
+
+  describe "details and authors reach the canvas viewer" do
+    test "details: false" do
+      assert child_assigns(assigns_with_file(%{details: false})).details == false
+    end
+
+    test "authors: false" do
+      assert child_assigns(assigns_with_file(%{authors: false})).authors == false
+    end
+
+    test "anything but false is the default" do
+      child = child_assigns(assigns_with_file(%{details: nil, authors: nil}))
+      assert {child.details, child.authors} == {true, true}
+    end
+  end
+
+  describe "annotate_only: which files may be drawn on" do
+    # The canvas viewer's id carries the file uuid, so stepping to another
+    # file mounts a fresh child whose `can_annotate` is worked out from what
+    # the lightbox hands it for THAT file. Each assertion below is one file.
+    defp on_file(assigns, uuid) do
+      %{assigns | current_uuid: uuid, current_file: %{assigns.current_file | file_uuid: uuid}}
+    end
+
+    defp can_annotate_on(uuid, opts) do
+      opts |> assigns_with_file() |> on_file(uuid) |> child_assigns() |> Map.fetch!(:can_annotate)
+    end
+
+    test "nil (the default): can_annotate applies to every file, as before" do
+      for uuid <- [@u1, @u2, @u3], do: assert(can_annotate_on(uuid, %{}) == true)
+
+      for uuid <- [@u1, @u2, @u3],
+          do: assert(can_annotate_on(uuid, %{annotate_only: nil}) == true)
+    end
+
+    test "a list: a file in it keeps the drawing tools, any other file is read-only" do
+      opts = %{annotate_only: [@u2]}
+
+      assert can_annotate_on(@u2, opts) == true
+      assert can_annotate_on(@u1, opts) == false
+      assert can_annotate_on(@u3, opts) == false
+    end
+
+    test "a MapSet works the same" do
+      opts = %{annotate_only: MapSet.new([@u1, @u3])}
+
+      assert can_annotate_on(@u1, opts) == true
+      assert can_annotate_on(@u2, opts) == false
+      assert can_annotate_on(@u3, opts) == true
+    end
+
+    test "can_annotate: false wins over the set" do
+      opts = %{can_annotate: false, annotate_only: [@u1, @u2, @u3]}
+
+      for uuid <- [@u1, @u2, @u3], do: assert(can_annotate_on(uuid, opts) == false)
+    end
+
+    test "an empty set means nobody may draw" do
+      assert can_annotate_on(@u1, %{annotate_only: []}) == false
+      assert can_annotate_on(@u1, %{annotate_only: MapSet.new()}) == false
+    end
+
+    test "a value that is neither nil, a list nor a MapSet closes the gate" do
+      for odd <- [@u1, %{@u1 => true}, 42, :all, true] do
+        assert can_annotate_on(@u1, %{annotate_only: odd}) == false
+      end
+    end
+
+    test "stepping to a file outside the set flips it, and the child is a new one" do
+      opts = %{annotate_only: [@u1]}
+      first = opts |> assigns_with_file() |> on_file(@u1) |> child_assigns()
+      second = opts |> assigns_with_file() |> on_file(@u2) |> child_assigns()
+
+      assert {first.can_annotate, second.can_annotate} == {true, false}
+      assert first.id == "media-canvas-viewer-" <> @u1
+      assert second.id == "media-canvas-viewer-" <> @u2
+    end
+
+    test "the set does not change what the other options pass" do
+      child =
+        %{annotate_only: [@u1], own_files_only: @u2, write_scope: @u3, comments: false}
+        |> assigns_with_file()
+        |> child_assigns()
+
+      assert {child.own_files_only, child.write_scope, child.comments} == {@u2, @u3, false}
     end
   end
 
@@ -236,7 +328,10 @@ defmodule PhoenixKitWeb.Components.MediaViewerEmbedOptionsTest do
       can_annotate: true,
       comments: true,
       own_files_only: nil,
-      write_scope: nil
+      write_scope: nil,
+      annotate_only: nil,
+      details: true,
+      authors: true
     }
   end
 end
