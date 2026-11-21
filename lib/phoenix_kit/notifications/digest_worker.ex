@@ -97,7 +97,7 @@ defmodule PhoenixKit.Notifications.DigestWorker do
         # The inbox row freezes its text at write time, so it needs the
         # recipient's locale exactly as the channel envelope does.
         Notifications.create_inapp(user.uuid, %{
-          text: digest_body(user, type_key, count, cadence),
+          text: digest_body(RecipientLocale.for_rendering(user), type_key, count, cadence),
           icon: "hero-bell",
           link: Routes.path("/admin/notifications")
         })
@@ -132,7 +132,9 @@ defmodule PhoenixKit.Notifications.DigestWorker do
     if count > 0 do
       envelope = digest_envelope(user, type_key, count, cadence)
 
-      case channel.deliver(envelope, config) do
+      case RecipientLocale.in_locale(envelope.content_locale, fn ->
+             channel.deliver(envelope, config)
+           end) do
         :ok -> :ok
         # A failed digest just waits for the next window — no retry state to keep.
         other -> Logger.info("[DigestWorker] #{channel.key()} digest deferred: #{inspect(other)}")
@@ -193,20 +195,20 @@ defmodule PhoenixKit.Notifications.DigestWorker do
     |> Enum.find_value([], fn {key, actions} -> if key == type_key, do: actions end)
   end
 
-  # Public for testability; @doc false. Pure — no repo access — so the
-  # recipient-locale rendering below can be asserted without a database.
+  # Public for testing the envelope and its locale contract.
   @doc false
   def digest_envelope(user, type_key, count, cadence) do
-    locale = RecipientLocale.base(user)
+    locale = RecipientLocale.for_rendering(user)
 
     %{
       recipient_uuid: user.uuid,
       type_key: type_key,
       notification_uuid: nil,
-      locale: locale,
+      locale: RecipientLocale.base(user),
+      content_locale: locale,
       icon: "hero-bell",
       title: nil,
-      text: digest_body(user, type_key, count, cadence),
+      text: digest_body(locale, type_key, count, cadence),
       url: Routes.base_url() <> Routes.path("/admin/notifications")
     }
   end
@@ -218,8 +220,8 @@ defmodule PhoenixKit.Notifications.DigestWorker do
   # at write time, so both build it here, inside the recipient's locale.
   # (`%{label}` goes through `Types.translate/2`, so it is in the recipient's
   # locale too.)
-  defp digest_body(user, type_key, count, cadence) do
-    RecipientLocale.in_locale(RecipientLocale.base(user), fn ->
+  defp digest_body(locale, type_key, count, cadence) do
+    RecipientLocale.in_locale(locale, fn ->
       digest_text(count, type_label(type_key), cadence)
     end)
   end

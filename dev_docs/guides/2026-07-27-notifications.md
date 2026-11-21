@@ -56,6 +56,15 @@ someone who reaches the admin area, else to the profile settings'
 Notifications section. The inbox shows it under each entry; email carries it
 as `{{reason}} {{settings_url}}`, Telegram as a last line. `Notifications.Prefs.user_wants?/2` is **fail-open** — unknown actions, missing prefs, or lookup errors return `true`.
 
+**Notification wording.** Settings → Notification messages edits email subjects,
+Markdown bodies and Telegram text for each type and language. A role needs
+`settings.messages`. The historical settings backfill grants only
+`settings.security`. Delivery tries the recipient’s dialect and its base
+language for each type in turn, then the host template and core default.
+Readers without a locale preference use the site content language. The editor
+previews with sample values, and delivery preserves the record and settings
+links when custom wording omits them.
+
 **Custom display:** `Render.render/1` honors three metadata keys before falling back:
 
 ```elixir

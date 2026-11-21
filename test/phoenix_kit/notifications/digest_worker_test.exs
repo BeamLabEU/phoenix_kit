@@ -27,6 +27,7 @@ defmodule PhoenixKit.Notifications.DigestWorkerTest do
       envelope = DigestWorker.digest_envelope(user("ru-RU"), "comments", 1, "hourly")
 
       assert envelope.locale == "ru"
+      assert envelope.content_locale == "ru-RU"
       refute envelope.text =~ "You have"
     end
 
@@ -34,6 +35,7 @@ defmodule PhoenixKit.Notifications.DigestWorkerTest do
       envelope = DigestWorker.digest_envelope(user(nil), "comments", 2, "weekly")
 
       assert envelope.locale == nil
+      assert envelope.content_locale == "en"
       assert envelope.text =~ "You have"
     end
 

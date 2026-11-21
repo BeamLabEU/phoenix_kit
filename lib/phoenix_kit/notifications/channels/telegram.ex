@@ -245,11 +245,21 @@ defmodule PhoenixKit.Notifications.Channels.Telegram do
   @telegram_max 4_096
 
   defp body(envelope, link_in_text?) do
-    case Messages.for_message(envelope[:type_key], "telegram", envelope[:locale]) do
-      %{"text" => template} -> saved_body(template, envelope, link_in_text?)
-      _ -> default_body(envelope, link_in_text?)
-    end
+    overrides =
+      Messages.for_message(
+        envelope[:type_key],
+        "telegram",
+        envelope[:content_locale] || envelope[:locale]
+      )
+
+    render_body(envelope, overrides, link_in_text?)
   end
+
+  @doc false
+  def render_body(envelope, %{"text" => template}, link_in_text?),
+    do: saved_body(template, envelope, link_in_text?)
+
+  def render_body(envelope, _overrides, link_in_text?), do: default_body(envelope, link_in_text?)
 
   # Wording an operator saved (`PhoenixKit.Notifications.Messages`): their
   # template, every value put in as plain text in one pass, so a comment
@@ -259,8 +269,12 @@ defmodule PhoenixKit.Notifications.Channels.Telegram do
     case fill_saved(template, envelope) do
       # Nothing left (a template of `{{quote}}` with no quote): the default
       # layout, never an empty message (codex, 2026-11-20).
-      "" -> default_body(envelope, link_in_text?)
-      filled -> keep_link(filled, if(link_in_text?, do: present(envelope[:url])))
+      "" ->
+        default_body(envelope, link_in_text?)
+
+      filled ->
+        links = [if(link_in_text?, do: present(envelope[:url])), present(envelope[:reason_url])]
+        keep_links(filled, links |> Enum.reject(&is_nil/1) |> Enum.uniq())
     end
   end
 
@@ -282,21 +296,22 @@ defmodule PhoenixKit.Notifications.Channels.Telegram do
 
   # The link, when it is in the text, survives the cut: the text is cut to
   # leave room for it (codex, 2026-11-20).
-  defp keep_link(filled, nil), do: cut_utf16(filled, @telegram_max)
+  defp keep_links(filled, links) do
+    patterns =
+      Enum.map(links, fn url ->
+        {url, ~r/(?:^|(?<=[\s(\[<"']))#{Regex.escape(url)}(?=$|[\s)\]>"'])/u}
+      end)
 
-  defp keep_link(filled, url) do
-    # The link itself, not a longer one it is the start of (codex).
-    exact = ~r/#{Regex.escape(url)}(?=$|[\s)\]>"'])/u
+    missing = for {url, pattern} <- patterns, not Regex.match?(pattern, filled), do: url
+    whole = Enum.join([filled | missing], "\n\n")
 
-    if Regex.match?(exact, filled) and utf16_length(filled) <= @telegram_max do
-      filled
+    if utf16_length(whole) <= @telegram_max do
+      whole
     else
-      body = exact |> Regex.replace(filled, "") |> String.trim()
-      room = @telegram_max - utf16_length(url) - 2
+      body =
+        Enum.reduce(patterns, filled, fn {_, pattern}, acc -> Regex.replace(pattern, acc, "") end)
 
-      if room > 0,
-        do: cut_utf16(body, room) <> "\n\n" <> url,
-        else: cut_utf16(url, @telegram_max)
+      fit([String.trim(body)], nil, links)
     end
   end
 
@@ -308,7 +323,13 @@ defmodule PhoenixKit.Notifications.Channels.Telegram do
     url = if link_in_text?, do: present(envelope[:url])
     tail = Enum.reject([url, reason_line(envelope)], &is_nil/1)
 
-    fit(head, present(envelope[:quote]), tail)
+    tail_text = Enum.join(tail, "\n\n")
+
+    if utf16_length(tail_text) > @telegram_max do
+      keep_links(tail_text, Enum.reject([url, present(envelope[:reason_url])], &is_nil/1))
+    else
+      fit(head, present(envelope[:quote]), tail)
+    end
   end
 
   # The tail (the link, the setting line) is always kept whole; the quote is

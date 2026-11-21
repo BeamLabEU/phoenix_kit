@@ -134,6 +134,8 @@ defmodule PhoenixKit.Email.Content do
   # part outranks every default, so a host that rewrote only `text.txt` is not
   # sent an HTML version built from the caller's Markdown (or html) default
   # that says something else. Markdown feeds both bodies.
+  @saved_source {:file, "(saved in Settings → Notifications → Messages)"}
+
   @html_order [
     {:file, :html},
     {:file, :markdown},
@@ -266,18 +268,13 @@ defmodule PhoenixKit.Email.Content do
 
     rendered = Templates.render(name, defaults, variables, template_opts)
     found = Templates.sources(name, defaults, template_opts)
-    {rendered, found} = saved_layer(rendered, found, opts[:overrides] || %{}, variables)
-
-    # A blank part (an empty override file) is no part, with or without the
-    # layout, so whether a message exists never depends on the layout.
-    parts = Map.new([:html, :text, :markdown, :layout], &{&1, present(Map.get(rendered, &1))})
-
+    overrides = opts[:overrides] || %{}
+    {rendered, found} = saved_subject(rendered, found, overrides["subject"], variables)
     wrap? = opts[:layout] != false
-    {text, text_from} = first_body(@text_order, parts, found, &text_body(&1, parts, variables))
-    {group, group_from} = group(opts[:layout], parts.layout, found)
+    {group, group_from} = group(opts[:layout], present(rendered[:layout]), found)
 
-    {html, html_from} =
-      first_body(@html_order, parts, found, &html_body(&1, parts, wrap?, variables))
+    {html, text, html_from, text_from, found} =
+      resolve_bodies(name, rendered, found, present(overrides["markdown"]), variables, wrap?)
 
     {html, chrome} =
       wrap(html, rendered.subject, wrap?,
@@ -306,34 +303,72 @@ defmodule PhoenixKit.Email.Content do
     {%{subject: rendered.subject, text: text, html: html}, sources}
   end
 
-  # The operator's saved wording, over everything else (see `:overrides`).
-  # It ranks as a host file does, so the body order treats it like one.
-  @saved_source {:file, "(saved in Settings → Notifications → Messages)"}
+  defp saved_subject(rendered, found, subject, variables) do
+    line =
+      (present(subject) || "")
+      |> Substitution.substitute(variables, escape: false)
+      |> String.replace(~r/\s*[\r\n]+\s*/u, " ")
+      |> String.trim()
 
-  defp saved_layer(rendered, found, overrides, variables) do
-    {rendered, found} =
-      case present(overrides["subject"]) do
-        nil ->
-          {rendered, found}
+    if line == "",
+      do: {rendered, found},
+      else: {Map.put(rendered, :subject, line), Map.put(found, :subject, @saved_source)}
+  end
 
-        subject ->
-          line =
-            subject
-            |> Substitution.substitute(variables, escape: false)
-            |> String.replace(~r/\s*[\r\n]+\s*/u, " ")
-            |> String.trim()
+  defp resolve_bodies(name, rendered, found, markdown, variables, wrap?)
+       when is_binary(markdown) do
+    html = present(Markdown.to_html(markdown, variables))
+    text = present(Markdown.to_text(markdown, variables))
 
-          {Map.put(rendered, :subject, line), Map.put(found, :subject, @saved_source)}
-      end
+    if is_nil(html) and is_nil(text) do
+      # A template consisting of an optional quote can disappear for this
+      # particular notification. Fall through to the host or core body.
+      resolve_bodies(name, rendered, found, nil, variables, wrap?)
+    else
+      {html, text} =
+        if name == "notification",
+          do: ensure_notification_links(html, text, variables),
+          else: {html, text}
 
-    case present(overrides["markdown"]) do
-      nil ->
-        {rendered, found}
-
-      markdown ->
-        {rendered |> Map.merge(%{markdown: markdown, html: nil, text: nil}),
-         found |> Map.merge(%{markdown: @saved_source, html: nil, text: nil})}
+      {html, text, :markdown, :markdown,
+       Map.merge(found, %{markdown: @saved_source, html: nil, text: nil})}
     end
+  end
+
+  defp resolve_bodies(_name, rendered, found, nil, variables, wrap?) do
+    parts = Map.new([:html, :text, :markdown], &{&1, present(Map.get(rendered, &1))})
+    {text, text_from} = first_body(@text_order, parts, found, &text_body(&1, parts, variables))
+
+    {html, html_from} =
+      first_body(@html_order, parts, found, &html_body(&1, parts, wrap?, variables))
+
+    {html, text, html_from, text_from, found}
+  end
+
+  # Inspect the rendered anchors: a URL in a quote or code block is not a
+  # button. Render any missing links separately so unfinished Markdown in the
+  # operator's copy cannot swallow the footer.
+  defp ensure_notification_links(html, text, variables) do
+    links = [
+      {"url", "[{{action_label}}]({{url}})"},
+      {"settings_url", "{{reason}} [{{settings_label}}]({{settings_url}})"}
+    ]
+
+    Enum.reduce(links, {html, text}, fn {key, markdown}, {html, text} ->
+      url = variables[key]
+
+      if is_binary(url) and url != "" and not linked?(html, url) do
+        {Enum.join([html, Markdown.to_html(markdown, variables)]),
+         Enum.join(Enum.reject([text, Markdown.to_text(markdown, variables)], &is_nil/1), "\n\n")}
+      else
+        {html, text}
+      end
+    end)
+  end
+
+  defp linked?(html, url) do
+    escaped = url |> Phoenix.HTML.html_escape() |> Phoenix.HTML.safe_to_string()
+    String.contains?(html || "", ~s(href="#{escaped}"))
   end
 
   # A body from the first entry of the order whose part was found in that
@@ -436,6 +471,7 @@ defmodule PhoenixKit.Email.Content do
     present? = present(Map.get(rendered, part)) != nil
 
     case Map.get(found, part) do
+      @saved_source -> @saved_source
       {:file, path} when not present? -> {:blank_file, path}
       :default when not present? -> nil
       source -> source

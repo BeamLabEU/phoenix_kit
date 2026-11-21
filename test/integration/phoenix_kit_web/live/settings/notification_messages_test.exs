@@ -93,8 +93,45 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessagesTest do
     assert html =~ "Someone else saved this message meanwhile."
     assert Messages.entry("*", "email", "en")["subject"] == "News: {{subject}}"
 
+    # Clearing every part is also a write from this submitted version.
+    html =
+      render_submit(view, "save", %{
+        "version" => "0",
+        "message" => %{"subject" => "", "markdown" => ""}
+      })
+
+    assert html =~ "Someone else saved this message meanwhile."
+    assert Messages.entry("*", "email", "en")["version"] == version
+
     view |> element("#notification-messages-reset") |> render_click()
     assert Messages.entry("*", "email", "en") == nil
+  end
+
+  @tag :tmp_dir
+  test "preview retains host files until the operator overrides that part", %{
+    conn: conn,
+    tmp_dir: root
+  } do
+    dir = Path.join(root, "notification")
+    File.mkdir_p!(dir)
+    File.write!(Path.join(dir, "subject.txt"), "Host subject")
+    File.write!(Path.join(dir, "text.txt"), "Host body")
+    previous = Application.fetch_env(:phoenix_kit, :template_paths)
+    Application.put_env(:phoenix_kit, :template_paths, [root])
+
+    on_exit(fn ->
+      case previous do
+        {:ok, paths} -> Application.put_env(:phoenix_kit, :template_paths, paths)
+        :error -> Application.delete_env(:phoenix_kit, :template_paths)
+      end
+    end)
+
+    {:ok, view, _} = live(editor(conn), @path)
+    assert has_element?(view, "#notification-messages-preview-subject", "Host subject")
+    assert has_element?(view, "#notification-messages-preview-text", "Host body")
+    render_change(view, "change", %{"message" => %{"subject" => "New subject"}})
+    assert has_element?(view, "#notification-messages-preview-subject", "New subject")
+    assert has_element?(view, "#notification-messages-preview-text", "Host body")
   end
 
   test "an unknown variable is refused and named", %{conn: conn} do

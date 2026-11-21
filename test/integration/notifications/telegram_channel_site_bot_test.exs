@@ -14,6 +14,7 @@ defmodule PhoenixKit.Integration.Notifications.TelegramChannelSiteBotTest do
   alias PhoenixKit.Notifications.ChannelConfig
   alias PhoenixKit.Notifications.Channels.Telegram, as: Channel
   alias PhoenixKit.Notifications.DeliveryWorker
+  alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
 
   @stub __MODULE__.Telegram
@@ -207,6 +208,25 @@ defmodule PhoenixKit.Integration.Notifications.TelegramChannelSiteBotTest do
     end
 
     defp channel_state(user), do: ChannelConfig.for_channel(Auth.get_user!(user.uuid), "telegram")
+
+    test "wording follows the site language and then the recipient's exact dialect", %{
+      user: user,
+      job: job
+    } do
+      for {lang, text} <- [{"en", "Site wording"}, {"en-GB", "British wording"}] do
+        {:ok, _} =
+          Settings.update_json_setting("notification_message:*:telegram:" <> lang, %{
+            "text" => text
+          })
+      end
+
+      assert :ok = DeliveryWorker.perform(job)
+      assert_received {:telegram, _, %{"text" => "Site wording"}}
+
+      {:ok, _} = Auth.update_user_locale_preference(user, "en-GB")
+      assert :ok = DeliveryWorker.perform(job)
+      assert_received {:telegram, _, %{"text" => "British wording"}}
+    end
 
     test "a bot-level failure retries and leaves every user connected", %{user: user, job: job} do
       telegram_says(401, "Unauthorized")

@@ -243,6 +243,8 @@ defmodule PhoenixKit.Email.CoreTemplates do
             "subject" => gettext("Acme Ltd commented on your order"),
             "text" => gettext("Acme Ltd commented on your order"),
             "url" => Routes.url("/admin/notifications"),
+            "action_label" => gettext("Open"),
+            "settings_label" => gettext("Change"),
             "quote" => gettext("Acme Ltd: “Please send the invoice to the new address.”"),
             "reason" => gettext("You get this because “Comments” is on."),
             "settings_url" => Routes.url("/admin/notifications/settings") <> "#notif-comments"

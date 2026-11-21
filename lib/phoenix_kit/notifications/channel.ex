@@ -18,10 +18,9 @@ defmodule PhoenixKit.Notifications.Channel do
     channel never reaches into the notification/activity schema and every channel
     gets the same well-formed input. Channels that need more structure (email
     wants subject + HTML) read the extra envelope fields; simple ones use `:text`.
-    The recipient's locale rides along in `:locale` for channels that localize,
-    but the core's built-in rendering is English today (i18n of the rendered
-    strings is not wired yet) — so treat `:locale` as a hint, not a guarantee
-    the `:text` is already translated.
+    The recipient's base preference rides in `:locale`. Use `:content_locale`
+    for wording lookup. It carries the full dialect or the site's language
+    when the recipient has no saved preference.
   - **Results carry a permanent/transient taxonomy.** `deliver/2` returns
     `t:result/0` so the delivery worker can decide retry-vs-give-up generically,
     instead of every channel leaking its own retry policy (e.g. "bot blocked" is
@@ -55,6 +54,8 @@ defmodule PhoenixKit.Notifications.Channel do
   shows it under `:text`.
   """
   @type envelope :: %{
+          optional(:content_locale) => String.t(),
+          optional(:action_label) => String.t() | nil,
           optional(:reason) => String.t() | nil,
           optional(:quote) => String.t() | nil,
           optional(:reason_url) => String.t() | nil,

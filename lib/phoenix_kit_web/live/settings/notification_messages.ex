@@ -30,6 +30,7 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessages do
   alias PhoenixKit.Email.Content
   alias PhoenixKit.Email.CoreTemplates
   alias PhoenixKit.Modules.Languages
+  alias PhoenixKit.Notifications.Channels.Telegram
   alias PhoenixKit.Notifications.Messages
   alias PhoenixKit.Notifications.Types
   alias PhoenixKit.Settings
@@ -100,7 +101,7 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessages do
   defp load(socket) do
     %{type: type, channel: channel, locale: locale} = socket.assigns
     entry = Messages.entry(type, channel, locale)
-    inherited = Messages.for_message(type, channel, locale)
+    inherited = Messages.for_message(type, channel, locale, inherited_only: true)
     defaults = Messages.default_parts(channel, locale)
 
     {fields, sources} =
@@ -117,6 +118,7 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessages do
     fields = Map.new(fields)
 
     socket
+    |> assign(:inherited, inherited)
     |> assign(:entry, entry)
     |> assign(:fields, fields)
     |> assign(:start, fields)
@@ -146,6 +148,12 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessages do
     end)
   end
 
+  defp submitted_parts(fields, channel) do
+    fields
+    |> Map.take(Messages.parts(channel))
+    |> Map.filter(fn {_part, value} -> is_binary(value) end)
+  end
+
   defp normalize(text) when is_binary(text),
     do: text |> String.replace("\r\n", "\n") |> String.trim()
 
@@ -170,7 +178,7 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessages do
   end
 
   def handle_event("change", %{"message" => fields}, socket) when is_map(fields) do
-    fields = Map.take(fields, Messages.parts(socket.assigns.channel))
+    fields = submitted_parts(fields, socket.assigns.channel)
 
     {:noreply,
      socket |> assign(:fields, Map.merge(socket.assigns.fields, fields)) |> assign_preview()}
@@ -185,7 +193,7 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessages do
     # editor never saves unchecked.
     stored =
       socket.assigns.fields
-      |> Map.merge(Map.take(fields, Messages.parts(channel)))
+      |> Map.merge(submitted_parts(fields, channel))
       |> to_store(socket)
 
     case Messages.save(scope, type, channel, locale, stored, version: params["version"] || "0") do
@@ -197,22 +205,27 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessages do
 
       # Every own part cleared: the same as a reset (codex).
       {:error, :empty} ->
-        handle_event("reset", %{}, socket)
+        reset(socket, params["version"] || "0")
 
       {:error, reason} ->
         {:noreply,
          socket
          |> assign(
            :fields,
-           Map.merge(socket.assigns.fields, Map.take(fields, Messages.parts(channel)))
+           Map.merge(socket.assigns.fields, submitted_parts(fields, channel))
          )
          |> assign(:notice, error_text(reason))}
     end
   end
 
   def handle_event("reset", _params, socket) do
+    reset(socket, (socket.assigns.entry || %{})["version"] || 0)
+  end
+
+  def handle_event(_event, _params, socket), do: {:noreply, socket}
+
+  defp reset(socket, version) do
     %{type: type, channel: channel, locale: locale} = socket.assigns
-    version = (socket.assigns.entry || %{})["version"] || 0
     scope = socket.assigns[:phoenix_kit_current_scope]
 
     case Messages.reset(scope, type, channel, locale, version: version) do
@@ -220,8 +233,6 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessages do
       {:error, reason} -> {:noreply, assign(socket, :notice, error_text(reason))}
     end
   end
-
-  def handle_event(_event, _params, socket), do: {:noreply, socket}
 
   defp error_text(:stale),
     do:
@@ -244,12 +255,23 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessages do
 
   # ── Preview ───────────────────────────────────────────────────────────
 
+  defp preview_overrides(socket) do
+    edits =
+      socket.assigns.fields
+      |> to_store(socket)
+      |> Map.reject(fn {_part, value} ->
+        normalize(value) == "" or String.contains?(value, "{{{")
+      end)
+
+    Map.merge(socket.assigns.inherited, edits)
+  end
+
   defp assign_preview(%{assigns: %{channel: "email"}} = socket) do
-    %{fields: fields, locale: locale} = socket.assigns
+    locale = socket.assigns.locale
 
     # The editor's own text as the top layer; empty parts fall back as a
     # send's would. A raw `{{{…}}}` is never previewed (it is refused).
-    overrides = Map.reject(fields, fn {_k, v} -> String.contains?(v || "", "{{{") end)
+    overrides = preview_overrides(socket)
 
     content =
       Content.resolve(
@@ -268,13 +290,17 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessages do
 
   defp assign_preview(%{assigns: %{channel: "telegram"}} = socket) do
     values = sample_values(socket.assigns.locale)
-    template = socket.assigns.fields["text"] || ""
 
-    text =
-      ~r/\{\{\s*([a-z_]+)\s*\}\}/
-      |> Regex.replace(template, fn _whole, name -> Map.get(values, name, "") end)
-      |> String.replace(~r/\n{3,}/, "\n\n")
-      |> String.trim()
+    envelope = %{
+      title: values["title"],
+      text: values["text"],
+      quote: values["quote"],
+      url: values["url"],
+      reason: values["reason"],
+      reason_url: values["settings_url"]
+    }
+
+    text = Telegram.render_body(envelope, preview_overrides(socket), false)
 
     assign(socket, :preview, %{text: text, button: values["action_label"]})
   end

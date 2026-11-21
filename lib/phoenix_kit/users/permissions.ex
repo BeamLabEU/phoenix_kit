@@ -1970,13 +1970,18 @@ defmodule PhoenixKit.Users.Permissions do
     result
   end
 
+  defp historical_sub_permissions("settings"), do: ["settings.security"]
+  defp historical_sub_permissions("media"), do: ["media.view_all", "media.manage"]
+
   defp run_backfill(base, flag, what, opts) do
     # Read from the row, like `auto_grant_to_admin_roles/1`'s flag: through
     # `Settings.get_setting/1` it reads nil with `update_mode` on.
     if match?(%{value: "true"}, SettingsQueries.get_setting_by_key(flag)) do
       :ok
     else
-      subs = Enum.map(@core_sub_permissions[base], & &1.key)
+      # These one-time grants restore the rights each base provided before it
+      # was split. Later sub-permissions require their own grant decision.
+      subs = historical_sub_permissions(base)
 
       # A failed read of who holds the base is a failure, not "nobody": the
       # flag must not be set on a pass that granted nothing for that reason.

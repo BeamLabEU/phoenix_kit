@@ -89,6 +89,7 @@ defmodule PhoenixKit.Integration.Users.SettingsSecurityPermissionTest do
       assert :ok = Permissions.backfill_settings_sub_permissions()
       assert Settings.get_setting(@flag) == "true"
       assert "settings.security" in held(holder)
+      refute "settings.messages" in held(holder)
       refute "settings.security" in held(other)
 
       :ok = Permissions.revoke_permission(holder.uuid, "settings.security")

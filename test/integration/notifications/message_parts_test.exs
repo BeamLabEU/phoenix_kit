@@ -174,7 +174,8 @@ defmodule PhoenixKit.Integration.Notifications.MessagePartsTest do
       assert_received {:telegram, body}
 
       assert body["text"] ==
-               "Fit the doors (ACME-12) can be started\n\nsays {{title}} literally\n\n— ACME-12 can be started"
+               "Fit the doors (ACME-12) can be started\n\nsays {{title}} literally\n\n— ACME-12 can be started\n\n" <>
+                 env.reason_url
 
       # The button stays the renderer's.
       assert body["reply_markup"]["inline_keyboard"]
@@ -265,6 +266,7 @@ defmodule PhoenixKit.Integration.Notifications.MessagePartsTest do
       assert :ok = Channel.deliver(env, config)
       assert_received {:telegram, body}
       assert Channel.utf16_length(body["text"]) <= 4_096
+      assert body["text"] =~ env.reason_url
     end
 
     test "a rate limit that mentions buttons is not taken for a refused button",

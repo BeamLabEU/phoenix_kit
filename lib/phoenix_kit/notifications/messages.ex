@@ -67,6 +67,8 @@ defmodule PhoenixKit.Notifications.Messages do
   alias PhoenixKit.RepoHelper
   alias PhoenixKit.Settings
   alias PhoenixKit.Settings.History
+  alias PhoenixKit.Settings.Queries
+  alias PhoenixKit.Settings.Setting
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.RecipientLocale
 
@@ -142,13 +144,22 @@ defmodule PhoenixKit.Notifications.Messages do
   reader in `locale`, part by part (see "How a message is chosen"). `%{}`
   when nothing was changed. Never raises: a read that fails is no edit.
   """
-  @spec for_message(String.t() | nil, String.t(), String.t() | nil) :: map()
-  def for_message(type_key, channel, locale) do
-    candidates =
-      for type <- type_chain(type_key), loc <- locale_chain(locale), uniq: true, do: {type, loc}
+  @spec for_message(String.t() | nil, String.t(), String.t() | nil, keyword()) :: map()
+  def for_message(type_key, channel, locale, opts \\ []) do
+    own = key(type_key, channel, locale)
+
+    keys =
+      for type <- type_chain(type_key),
+          loc <- locale_chain(locale),
+          k = key(type, channel, loc),
+          opts[:inherited_only] != true or k != own,
+          uniq: true,
+          do: k
+
+    entries = Settings.get_json_settings_cached(keys)
 
     Enum.reduce(parts(channel), %{}, fn part, acc ->
-      case Enum.find_value(candidates, fn {type, loc} -> part_of(type, channel, loc, part) end) do
+      case Enum.find_value(keys, &part_of(entries[&1], part)) do
         nil -> acc
         value -> Map.put(acc, part, value)
       end
@@ -159,18 +170,12 @@ defmodule PhoenixKit.Notifications.Messages do
     :exit, _ -> %{}
   end
 
-  defp part_of(type, channel, locale, part) do
-    case Settings.get_json_setting_cached(key(type, channel, locale), nil) do
-      %{} = entry ->
-        case entry[part] do
-          value when is_binary(value) -> if String.trim(value) == "", do: nil, else: value
-          _ -> nil
-        end
-
-      _ ->
-        nil
-    end
+  defp part_of(%{} = entry, part) do
+    value = entry[part]
+    if is_binary(value) and String.trim(value) != "", do: value
   end
+
+  defp part_of(_, _), do: nil
 
   # A sub-type's own wording, its base type's, then everyone's.
   defp type_chain(type_key) when is_binary(type_key) and type_key != "" do
@@ -181,9 +186,9 @@ defmodule PhoenixKit.Notifications.Messages do
 
   # `pt_BR` and `pt-BR` are one language (codex, 2026-11-20).
   defp locale_chain(locale) when is_binary(locale) and locale != "" do
-    dashed = String.replace(locale, "_", "-")
+    dashed = normalize_locale(locale)
     base = dashed |> String.split("-", parts: 2) |> hd()
-    Enum.uniq([locale, dashed, base])
+    Enum.uniq([dashed, base])
   end
 
   defp locale_chain(_locale), do: []
@@ -240,30 +245,30 @@ defmodule PhoenixKit.Notifications.Messages do
       actor = Keyword.get(opts, :actor_uuid) || scope_user_uuid(scope)
       key = key(type_key, channel, locale)
 
-      # The version is checked and the row written under the row's lock, so
-      # two saves from the same copy cannot both pass (codex, 2026-11-20).
-      # A first save has no row to lock; a second insert of the same key
-      # fails on its unique key instead.
-      locked(key, opts[:version], fn _current ->
-        value =
-          Map.merge(clean, %{
-            "version" => new_version(),
-            "default_hash" => default_hash(channel, locale),
-            "updated_by" => actor
-          })
+      value =
+        Map.merge(clean, %{
+          "version" => new_version(),
+          "default_hash" => default_hash(channel, locale),
+          "updated_by" => actor
+        })
 
-        case Settings.update_json_setting_with_module(key, value, "notifications",
-               actor_uuid: actor,
-               source: "settings"
-             ) do
-          {:ok, _setting} -> {:ok, value}
-          {:error, _} = error -> error
-        end
-      end)
-      |> tap(fn
-        {:ok, _} -> log("notifications.message_saved", actor, type_key, channel, locale)
-        _ -> :ok
-      end)
+      result =
+        locked(key, opts[:version], fn before ->
+          attrs = %{key: key, value: nil, value_json: value, module: "notifications"}
+          changeset = Setting.changeset(before || %Setting{}, attrs)
+
+          with {:ok, setting} <- RepoHelper.repo().insert_or_update(changeset, log: false),
+               {:ok, history} <-
+                 History.record(before, setting, actor_uuid: actor, source: "settings") do
+            {:ok, {setting, history}}
+          end
+        end)
+
+      with {:ok, pair} <- result do
+        Queries.announce_committed([pair])
+        log("notifications.message_saved", actor, type_key, channel, locale)
+        {:ok, value}
+      end
     end
   end
 
@@ -275,13 +280,9 @@ defmodule PhoenixKit.Notifications.Messages do
       # it too (codex, 2026-11-20).
       RepoHelper.repo().query!("SELECT pg_advisory_xact_lock(hashtext($1))", ["pkmsg:" <> key])
 
-      current =
-        case History.lock_current(key) do
-          %{value_json: %{} = entry} -> entry
-          _ -> nil
-        end
+      current = History.lock_current(key)
 
-      with :ok <- fresh(current, version),
+      with :ok <- fresh(current && current.value_json, version),
            {:ok, result} <- fun.(current) do
         result
       else
@@ -292,7 +293,7 @@ defmodule PhoenixKit.Notifications.Messages do
 
   # A version is a token, never reused: a reset and a new save must not
   # hand out the number an open editor still holds (codex, 2026-11-20).
-  defp new_version, do: System.os_time(:microsecond) * 1_000 + :rand.uniform(999)
+  defp new_version, do: :crypto.strong_rand_bytes(16) |> :binary.decode_unsigned()
 
   @doc """
   Removes the saved wording: the message falls back again. Same rights as
@@ -308,16 +309,14 @@ defmodule PhoenixKit.Notifications.Messages do
       key = key(type_key, channel, locale)
 
       result =
-        locked(key, opts[:version], fn _current ->
-          case Settings.delete_setting(key) do
-            {:ok, _} -> {:ok, :deleted}
-            {:error, :not_found} -> {:ok, :none}
-            other -> other
-          end
+        locked(key, opts[:version], fn
+          nil -> {:ok, :none}
+          setting -> RepoHelper.repo().delete(setting, log: false)
         end)
 
       case result do
-        {:ok, :deleted} ->
+        {:ok, %Setting{}} ->
+          Settings.announce_deleted(key)
           log("notifications.message_reset", scope_user_uuid(scope), type_key, channel, locale)
           :ok
 
@@ -351,7 +350,7 @@ defmodule PhoenixKit.Notifications.Messages do
     do: if(Map.has_key?(@parts, channel), do: :ok, else: {:error, :unknown_channel})
 
   defp good_locale(locale) when is_binary(locale) do
-    if Regex.match?(~r/\A[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})?\z/, locale),
+    if Regex.match?(~r/\A[a-z]{2,3}(?:[-_][A-Za-z0-9]{2,8})*\z/, locale),
       do: :ok,
       else: {:error, :bad_locale}
   end
@@ -429,7 +428,11 @@ defmodule PhoenixKit.Notifications.Messages do
 
   # ── Helpers ───────────────────────────────────────────────────────────
 
-  defp key(type_key, channel, locale), do: "#{@prefix}#{type_key}:#{channel}:#{locale}"
+  defp key(type_key, channel, locale),
+    do: "#{@prefix}#{type_key}:#{channel}:#{normalize_locale(locale)}"
+
+  defp normalize_locale(locale) when is_binary(locale), do: String.replace(locale, "_", "-")
+  defp normalize_locale(_), do: ""
 
   defp scope_user_uuid(%Scope{} = scope), do: Scope.user_uuid(scope)
   defp scope_user_uuid(_), do: nil

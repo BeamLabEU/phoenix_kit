@@ -78,12 +78,12 @@ defmodule PhoenixKit.Notifications.DeliveryWorker do
          config = ChannelConfig.for_channel(user, channel_key),
          true <- deliverable?(channel, user, config, type_key),
          {:ok, notification} <- load_source(args) do
-      envelope = build_envelope(notification, user, recipient, type_key)
+      locale = RecipientLocale.for_rendering(user)
 
-      envelope =
-        if visible?(type_key, notification, user), do: envelope, else: line_only(envelope)
-
-      handle(channel.deliver(envelope, config), user, channel_key)
+      RecipientLocale.in_locale(locale, fn ->
+        envelope = build_envelope(notification, user, recipient, type_key, locale)
+        handle(channel.deliver(envelope, config), user, channel_key)
+      end)
     else
       # Channel/user/source gone, or the user turned the channel/type off
       # between enqueue and run — discard, don't retry.
@@ -183,17 +183,17 @@ defmodule PhoenixKit.Notifications.DeliveryWorker do
 
   defp load_source(_), do: :error
 
-  defp build_envelope(notification, user, recipient, type_key) do
-    locale = RecipientLocale.base(user)
+  defp build_envelope(notification, user, recipient, type_key, locale) do
     rendered = Render.render(notification, locale)
     why = Render.reason(notification, user, locale)
-    quoted = Render.quote(notification)
+    quoted = if Types.still_visible?(type_key, notification, user), do: Render.quote(notification)
 
     %{
       recipient_uuid: recipient,
       type_key: type_key,
       notification_uuid: Map.get(notification, :uuid),
-      locale: locale,
+      locale: RecipientLocale.base(user),
+      content_locale: locale,
       icon: rendered.icon,
       title: Map.get(rendered, :title),
       action_label: Map.get(rendered, :action),
@@ -204,13 +204,6 @@ defmodule PhoenixKit.Notifications.DeliveryWorker do
       quote: Render.quote_text(quoted, quote_author(quoted))
     }
   end
-
-  # Asked when the job runs, not when it was queued: a reader who lost
-  # access since gets the line only, never the comment (codex, 2026-11-19).
-  defp visible?(type_key, notification, user),
-    do: Types.still_visible?(type_key, notification, user)
-
-  defp line_only(envelope), do: %{envelope | quote: nil}
 
   # The quote's writer as the reader sees them: their display name, else the
   # name the module stored.

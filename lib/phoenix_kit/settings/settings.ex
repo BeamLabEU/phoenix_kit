@@ -1180,14 +1180,19 @@ defmodule PhoenixKit.Settings do
 
     case result do
       {:ok, _} ->
-        PhoenixKit.Cache.invalidate_now(@cache_name, [key])
-        Queries.announce(fn -> Events.broadcast_setting_deleted(key) end)
+        announce_deleted(key)
 
       _ ->
         :ok
     end
 
     result
+  end
+
+  @doc false
+  def announce_deleted(key) do
+    PhoenixKit.Cache.invalidate_now(@cache_name, [key])
+    Queries.announce(fn -> Events.broadcast_setting_deleted(key) end)
   end
 
   @doc """

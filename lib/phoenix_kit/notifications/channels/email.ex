@@ -34,6 +34,7 @@ defmodule PhoenixKit.Notifications.Channels.Email do
   alias PhoenixKit.Notifications.Messages
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
+  alias PhoenixKit.Utils.RecipientLocale
 
   @impl true
   def key, do: "email"
@@ -73,6 +74,8 @@ defmodule PhoenixKit.Notifications.Channels.Email do
   # --- Internals ------------------------------------------------------------
 
   defp send_email(user, address, envelope) do
+    locale = envelope[:content_locale] || envelope[:locale] || RecipientLocale.for_rendering(user)
+
     content =
       Content.resolve(
         "notification",
@@ -95,11 +98,12 @@ defmodule PhoenixKit.Notifications.Channels.Email do
         end,
         # What an operator saved in Settings → Notifications → Messages,
         # for this type and the reader's language, over everything else.
+        locale: locale,
         overrides:
           Messages.for_message(
             Map.get(envelope, :type_key),
             "email",
-            Map.get(envelope, :locale)
+            locale
           )
       )
 

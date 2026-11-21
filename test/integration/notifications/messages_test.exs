@@ -124,6 +124,9 @@ defmodule PhoenixKit.Integration.Notifications.MessagesTest do
       # `pt_BR` and `pt-BR` are one language.
       {:ok, _} = Messages.save(o, "*", "email", "pt-BR", email_parts("Todos", ""))
       assert Messages.for_message(type, "email", "pt_BR")["subject"] == "Todos"
+      assert Messages.entry("*", "email", "pt_BR")["subject"] == "Todos"
+      assert :ok = Messages.reset(o, "*", "email", "pt_BR")
+      assert Messages.entry("*", "email", "pt-BR") == nil
     end
   end
 
@@ -137,6 +140,20 @@ defmodule PhoenixKit.Integration.Notifications.MessagesTest do
 
       {:ok, user} = Auth.admin_confirm_user(user)
       user
+    end
+
+    test "empty substituted subject and body fall back to the notification" do
+      {:ok, _} = Messages.save(owner(), "*", "email", "en", email_parts("{{quote}}", "{{quote}}"))
+      user = reader()
+
+      assert :ok =
+               Email.deliver(%{recipient_uuid: user.uuid, text: "Account updated", url: nil}, %{})
+
+      assert_email_sent(fn email ->
+        assert email.subject == "Account updated"
+        assert email.text_body =~ "Account updated"
+        assert email.html_body =~ "Account updated"
+      end)
     end
 
     test "an email takes the saved subject and body; values stay escaped" do
@@ -157,13 +174,21 @@ defmodule PhoenixKit.Integration.Notifications.MessagesTest do
         locale: "en",
         title: "Fit the doors",
         text: "<b>Fit</b> the doors",
-        url: "https://site.example.test/t/1"
+        url: "https://site.example.test/t/1",
+        reason: "Comments are enabled.",
+        reason_url: "https://site.example.test/settings"
       }
 
       assert :ok = Email.deliver(envelope, %{})
 
       assert_email_sent(fn email ->
         assert email.subject == "New: Fit the doors"
+
+        for url <- [envelope.url, envelope.reason_url] do
+          assert email.text_body =~ url
+          assert email.html_body =~ ~s(href="#{url}")
+        end
+
         assert email.html_body =~ "<strong>&lt;b&gt;Fit&lt;/b&gt; the doors</strong>"
       end)
     end
