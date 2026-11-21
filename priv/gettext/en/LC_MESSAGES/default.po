@@ -28587,3 +28587,155 @@ msgstr "Signed-in only"
 #, elixir-autogen, elixir-format
 msgid "Unavailable"
 msgstr "Unavailable"
+
+#, elixir-autogen, elixir-format
+msgid "CDN, storage, video streaming and edge computing. This connection manages a CDN pull zone."
+msgstr "CDN, storage, video streaming and edge computing. This connection manages a CDN pull zone."
+
+#, elixir-autogen, elixir-format
+msgid "Choose a pull zone and origin"
+msgstr "Choose a pull zone and origin"
+
+#, elixir-autogen, elixir-format
+msgid "Open the [Bunny dashboard](https://dash.bunny.net) and choose + Add → Add Pull Zone, or open an existing zone dedicated to this project."
+msgstr "Open the [Bunny dashboard](https://dash.bunny.net) and choose + Add → Add Pull Zone, or open an existing zone dedicated to this project."
+
+#, elixir-autogen, elixir-format
+msgid "Choose a unique name using letters and numbers, such as myprojectdevthumbs. The name becomes the first part of the b-cdn.net hostname."
+msgstr "Choose a unique name using letters and numbers, such as myprojectdevthumbs. The name becomes the first part of the b-cdn.net hostname."
+
+#, elixir-autogen, elixir-format
+msgid "For Amazon S3, Backblaze B2 or another S3-compatible service, choose Origin URL. Find the HTTPS download URL of a test thumbnail in your own bucket. Remove the filename and any signed query, keeping the bucket and delivery folder. For a private origin, configure read access for Bunny separately. For Bunny Storage, choose Storage Zone."
+msgstr "For Amazon S3, Backblaze B2 or another S3-compatible service, choose Origin URL. Find the HTTPS download URL of a test thumbnail in your own bucket. Remove the filename and any signed query, keeping the bucket and delivery folder. For a private origin, configure read access for Bunny separately. For Bunny Storage, choose Storage Zone."
+
+#, elixir-autogen, elixir-format
+msgid "Leave the host header at its default, choose Standard for thumbnails, and create the pull zone. See the [pull zone quickstart](https://bunny.net/docs/cdn/quickstart)."
+msgstr "Leave the host header at its default, choose Standard for thumbnails, and create the pull zone. See the [pull zone quickstart](https://bunny.net/docs/cdn/quickstart)."
+
+#, elixir-autogen, elixir-format
+msgid "Connect the pull zone"
+msgstr "Connect the pull zone"
+
+#, elixir-autogen, elixir-format
+msgid "Open the pull zone in the dashboard and copy its numeric ID into Pull zone ID. Name the connection after the bucket it serves so you can recognize it in the storage plan."
+msgstr "Open the pull zone in the dashboard and copy its numeric ID into Pull zone ID. Name the connection after the bucket it serves so you can recognize it in the storage plan."
+
+#, elixir-autogen, elixir-format
+msgid "Enter the API key from your [Bunny account settings](https://dash.bunny.net/account) here. Test Connection checks access to the pull zone. After saving, choose Verify saved bucket mapping to check origin access, caching and purge."
+msgstr "Enter the API key from your [Bunny account settings](https://dash.bunny.net/account) here. Test Connection checks access to the pull zone. After saving, choose Verify saved bucket mapping to check origin access, caching and purge."
+
+#, elixir-autogen, elixir-format
+msgid "This site's pilot"
+msgstr "This site's pilot"
+
+#, elixir-autogen, elixir-format
+msgid "Suggested zone name: %{zone}. Choose Origin URL and enter %{origin}. Place a public test thumbnail in that prefix before testing through the CDN."
+msgstr "Suggested zone name: %{zone}. Choose Origin URL and enter %{origin}. Place a public test thumbnail in that prefix before testing through the CDN."
+
+#, elixir-autogen, elixir-format
+msgid "Checking the saved mapping…"
+msgstr "Checking the saved mapping…"
+
+#, elixir-autogen, elixir-format
+msgid "Verified. Bunny served the test file and stopped serving it after deletion and purge."
+msgstr "Verified. Bunny served the test file and stopped serving it after deletion and purge."
+
+#, elixir-autogen, elixir-format
+msgid "Bunny could not read the test file. Check the origin folder and its read permissions."
+msgstr "Bunny could not read the test file. Check the origin folder and its read permissions."
+
+#, elixir-autogen, elixir-format
+msgid "The file was delivered, but withdrawal could not be confirmed. Check the pull zone’s purge access."
+msgstr "The file was delivered, but withdrawal could not be confirmed. Check the pull zone’s purge access."
+
+#, elixir-autogen, elixir-format
+msgid "The pull zone’s origin differs from the saved Origin URL. Check both the hostname and the folder."
+msgstr "The pull zone’s origin differs from the saved Origin URL. Check both the hostname and the folder."
+
+#, elixir-autogen, elixir-format
+msgid "The storage or Bunny request failed. Check the origin and read permissions."
+msgstr "The storage or Bunny request failed. Check the origin and read permissions."
+
+#, elixir-autogen, elixir-format
+msgid "Source check failed (%{reason})."
+msgstr "Source check failed (%{reason})."
+
+#, elixir-autogen, elixir-format
+msgid "Could not finish the source check."
+msgstr "Could not finish the source check."
+
+#, elixir-autogen, elixir-format
+msgid "Delivery source"
+msgstr "Delivery source"
+
+#, elixir-autogen, elixir-format
+msgid "Storage bucket"
+msgstr "Storage bucket"
+
+#, elixir-autogen, elixir-format
+msgid "No bucket mapped"
+msgstr "No bucket mapped"
+
+#, elixir-autogen, elixir-format
+msgid "Origin URL for this bucket"
+msgstr "Origin URL for this bucket"
+
+#, elixir-autogen, elixir-format
+msgid "Point the Bunny pull zone at an HTTPS address serving the cdn-pilot/ folder of this bucket. Save the connection, then verify it with a temporary test file."
+msgstr "Point the Bunny pull zone at an HTTPS address serving the cdn-pilot/ folder of this bucket. Save the connection, then verify it with a temporary test file."
+
+#, elixir-autogen, elixir-format
+msgid "Configure your web server to serve that folder over HTTPS. Keep the rest of the local storage directory private."
+msgstr "Configure your web server to serve that folder over HTTPS. Keep the rest of the local storage directory private."
+
+#, elixir-autogen, elixir-format
+msgid "Verify saved bucket mapping"
+msgstr "Verify saved bucket mapping"
+
+#, elixir-autogen, elixir-format
+msgid "Last verified: %{time}"
+msgstr "Last verified: %{time}"
+
+#, elixir-autogen, elixir-format
+msgid "Configure CDN"
+msgstr "Configure CDN"
+
+#, elixir-autogen, elixir-format
+msgid "Default CDN delivery"
+msgstr "Default CDN delivery"
+
+#, elixir-autogen, elixir-format
+msgid "Use bucket mappings"
+msgstr "Use bucket mappings"
+
+#, elixir-autogen, elixir-format
+msgid "Choose an enabled bucket without another CDN mapping and enter its HTTPS origin URL."
+msgstr "Choose an enabled bucket without another CDN mapping and enter its HTTPS origin URL."
+
+#, elixir-autogen, elixir-format
+msgid "Bunny fetched the file, but a second request missed the cache. Check the pull zone’s cache settings."
+msgstr "Bunny fetched the file, but a second request missed the cache. Check the pull zone’s cache settings."
+
+#, elixir-autogen, elixir-format
+msgid "All services"
+msgstr "All services"
+
+#, elixir-autogen, elixir-format
+msgid "Choose a CDN provider"
+msgstr "Choose a CDN provider"
+
+#, elixir-autogen, elixir-format
+msgid "No providers are available for this service."
+msgstr "No providers are available for this service."
+
+#, elixir-autogen, elixir-format
+msgid "Use an existing connection"
+msgstr "Use an existing connection"
+
+#, elixir-autogen, elixir-format
+msgid "For a private S3 origin, open the pull zone in Bunny and go to Security → S3 Authentication. Turn on Enable AWS S3 Authentication. Enter the access key ID and secret from your storage provider and the bucket’s signing region. Use a dedicated key with read access limited to the delivery folder."
+msgstr "For a private S3 origin, open the pull zone in Bunny and go to Security → S3 Authentication. Turn on Enable AWS S3 Authentication. Enter the access key ID and secret from your storage provider and the bucket’s signing region. Use a dedicated key with read access limited to the delivery folder."
+
+#, elixir-autogen, elixir-format
+msgid "Configured bucket region: %{region}"
+msgstr "Configured bucket region: %{region}"

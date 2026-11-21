@@ -28,6 +28,14 @@
         >
           <.icon name="hero-pencil" class="w-4 h-4" /> {gettext("Edit bucket")}
         </.pk_link_button>
+        <.pk_link_button
+          :if={@bucket.enabled}
+          navigate={PhoenixKit.Modules.Storage.CDNSource.setup_path(@bucket.uuid)}
+          variant="outline"
+          class="btn-sm"
+        >
+          {gettext("Configure CDN")}
+        </.pk_link_button>
         <button id="bucket-toggle" type="button" phx-click="toggle" class="btn btn-outline btn-sm">
           <.icon
             name={if @bucket.enabled, do: "hero-eye-slash", else: "hero-eye"}

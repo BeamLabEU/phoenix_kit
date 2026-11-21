@@ -4,6 +4,12 @@
 
 **Topic guides** — read when working in that area: [core UI components](dev_docs/guides/2026-09-11-core-components.md) · [external module packages](dev_docs/guides/2026-09-11-external-module-development.md) · [login & registration](dev_docs/guides/2026-07-28-login-and-registration.md) · [activity feed](dev_docs/guides/2026-09-11-activity-feed.md) · [notifications](dev_docs/guides/2026-07-27-notifications.md) · [integrations](dev_docs/guides/2026-07-27-integrations-system.md) · [prefix-safe migrations](dev_docs/guides/2026-07-27-prefix-safe-migrations.md) · [admin path & label](dev_docs/guides/2026-09-11-admin-path-and-label.md) · [active role](dev_docs/guides/2026-09-13-active-role.md) · [machine API](dev_docs/guides/2026-10-11-machine-api.md)
 
+## Design for every installation
+
+Never hardcode a choice that can vary by installation, environment, library, or user. Read the choice from the settings of the site or person who owns it. Discover available options from the registry and each integration’s declared capabilities, respecting ownership and permissions. Keep vendor-specific behavior inside its adapter.
+
+For example, a bucket’s **Configure CDN** action opens the CDN-capable integrations available to its owner, even when only one provider qualifies. Registering a second compatible provider should make it available without editing the bucket screen.
+
 ## Workflow
 
 0. **First clone only:** `git config core.hooksPath .githooks` — enables the tracked pre-commit hook (a clone must not run code on checkout, so git won't do this for you). `mix phoenix_kit.doctor` reports it under "Git Hooks".

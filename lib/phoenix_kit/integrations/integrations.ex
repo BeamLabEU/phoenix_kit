@@ -401,11 +401,13 @@ defmodule PhoenixKit.Integrations do
             undecryptable_fields: undecryptable_fields
           }} <-
            resolve_uuid(uuid, owner),
+         :ok <- PhoenixKit.Modules.Storage.CDNSource.validate(base_provider, uuid, owner, attrs),
          :ok <- validate_storage_edit(uuid, base_provider, existing, attrs, prepared) do
       provider = Providers.get(base_provider)
 
       data =
         existing
+        |> PhoenixKit.Modules.Storage.CDNSource.reset_check(attrs)
         |> Map.merge(attrs)
         |> Map.put("provider", base_provider)
         |> Map.put("name", name)
@@ -768,6 +770,20 @@ defmodule PhoenixKit.Integrations do
     |> PhoenixKit.RepoHelper.repo().all()
   end
 
+  @doc "Saved connections available to map to a bucket, scoped to the picker’s eligible providers and owner."
+  def unmapped_cdn_connections(keys, owner) do
+    from(s in Setting,
+      where:
+        s.module == ^@settings_module and
+          fragment("?->>'provider' = ANY(?)", s.value_json, type(^keys, {:array, :string})) and
+          fragment("COALESCE(?->>'source_bucket_uuid', '') = ''", s.value_json),
+      select: {s.uuid, fragment("?->>'name'", s.value_json)},
+      order_by: [asc: fragment("lower(?->>'name')", s.value_json), asc: s.uuid]
+    )
+    |> owner_where(owner)
+    |> PhoenixKit.RepoHelper.repo().all()
+  end
+
   defp to_connection_map(%Setting{uuid: uuid, value_json: data, date_added: date_added}) do
     decrypted = Encryption.decrypt_fields(data || %{})
 
@@ -902,6 +918,20 @@ defmodule PhoenixKit.Integrations do
             error
         end
     end
+  end
+
+  @doc "Creates a named connection and saves its submitted configuration in a single transaction."
+  def add_configured_connection(provider, name, attrs, actor, opts) do
+    repo = PhoenixKit.RepoHelper.repo()
+
+    repo.transaction(fn ->
+      with {:ok, %{uuid: uuid}} <- add_connection(provider, name, actor, opts),
+           {:ok, data} <- save_setup(uuid, attrs, actor, opts) do
+        %{uuid: uuid, data: data}
+      else
+        {:error, reason} -> repo.rollback(reason)
+      end
+    end)
   end
 
   # Row-birth path: generate a UUIDv7, use it as both the primary key

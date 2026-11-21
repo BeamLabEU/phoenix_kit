@@ -30,24 +30,7 @@
 
     <%!-- Step 1: Provider picker (new mode, no provider selected yet) --%>
     <div :if={@live_action == :new && @selected_provider == nil} class="max-w-4xl mx-auto">
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <button
-          :for={provider <- @providers}
-          phx-click="select_provider"
-          phx-value-provider={provider.key}
-          class="card bg-base-100 shadow-sm border border-base-300 hover:border-primary transition-colors cursor-pointer"
-        >
-          <div class="card-body p-4 flex-row items-center gap-3">
-            <span class="w-10 h-10 flex items-center justify-center bg-base-200 rounded-lg">
-              <.icon name={provider.icon} class="w-5 h-5" />
-            </span>
-            <div class="text-left">
-              <div class="font-semibold">{provider.name}</div>
-              <div class="text-xs text-base-content/60">{provider.description}</div>
-            </div>
-          </div>
-        </button>
-      </div>
+      <.provider_picker providers={@providers} picker={@picker} />
     </div>
 
     <%!-- Step 2: Setup form (provider selected in new mode, or edit mode) --%>
@@ -251,6 +234,17 @@
                 "Create a new integration to use another service."
               )}
             </p>
+            <.live_component
+              :if={@selected_provider == "bunny_cdn"}
+              module={PhoenixKitWeb.Live.Modules.Storage.CDNSourceComponent}
+              id="bunny-delivery-source"
+              checked_at={@data["source_checked_at"]}
+              persisted_bucket={@data["source_bucket_uuid"]}
+              uuid={@uuid}
+              owner={:system}
+              bucket_uuid={@form_values["source_bucket_uuid"] || @data["source_bucket_uuid"]}
+              origin={@form_values["source_origin"] || @data["source_origin"]}
+            />
             <% saved = Providers.setup_saved(@provider, @data, @form_values) %>
             <input
               :if={@live_action == :edit and Providers.storage_service_locked?(@provider, @data)}

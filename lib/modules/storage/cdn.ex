@@ -14,13 +14,15 @@ defmodule PhoenixKit.Modules.Storage.CDN do
   @site_key "storage_cdn_connection"
   @library_key "cdn_delivery"
 
-  def site_connection, do: Settings.get_setting(@site_key, "off")
+  def site_connection do
+    if Settings.get_setting(@site_key, "off") == "bucket", do: "bucket", else: "off"
+  end
 
   def connections(owner), do: Integrations.connected_choices(:cdn_delivery, owner)
 
   def save_site(scope, selection) do
     with :ok <- manage_site(scope),
-         true <- selection == "off" or List.keymember?(connections(:system), selection, 0) do
+         true <- selection in ["off", "bucket"] do
       Settings.update_setting(@site_key, selection, actor_uuid: Scope.user_uuid(scope))
     else
       false -> {:error, :invalid_connection}
@@ -57,6 +59,10 @@ defmodule PhoenixKit.Modules.Storage.CDN do
       %{"connection" => "inherit", "mode" => "inherit", "public" => []},
       (settings || %{})[@library_key] || %{}
     )
+    |> Map.update!("connection", fn
+      mode when mode in ["inherit", "bucket", "off"] -> mode
+      _legacy_zone -> "off"
+    end)
   end
 
   def owner?(scope, %Library{owner_uuid: id, trashed_at: nil}) when is_binary(id),
@@ -79,9 +85,7 @@ defmodule PhoenixKit.Modules.Storage.CDN do
       with true <- owner?(scope, library),
            %{"connection" => selection, "mode" => mode} when mode in ["inherit", "custom"] <-
              attrs,
-           true <-
-             selection in ["off", "inherit"] or
-               List.keymember?(personal_connections(library), selection, 0),
+           true <- selection in ["off", "inherit", "bucket"],
            {:ok, ids} <-
              validate_ids(VariantSets.set_uuid_for(library), Map.get(attrs, "public", [])) do
         policy = %{

@@ -10,6 +10,7 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
 
   import PhoenixKitWeb.Components.Core.IntegrationsUI,
     only: [
+      provider_picker: 1,
       setup_field: 1,
       validation_note_style: 1,
       connection_usage: 1,
@@ -19,6 +20,7 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
 
   require Logger
 
+  alias PhoenixKitWeb.Components.Core.IntegrationsUI
   alias PhoenixKit.Integrations
   alias PhoenixKit.Integrations.Events
   alias PhoenixKit.Integrations.OAuth
@@ -41,7 +43,7 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
       |> assign(:page_title, gettext("Add Integration"))
       |> assign(:project_title, project_title)
       |> assign(:current_path, Routes.path("/admin/settings/integrations"))
-      |> assign(:providers, Providers.all())
+      |> assign(:providers, Providers.for_scope(:system))
       |> assign(:selected_provider, nil)
       |> assign(:provider, nil)
       |> assign(:name, nil)
@@ -76,7 +78,7 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
           nil
       end
 
-    socket = assign(socket, :redirect_uri, redirect_uri)
+    socket = assign(socket, redirect_uri: redirect_uri, url_path: URI.parse(url).path)
     socket = apply_action(socket, socket.assigns.live_action, params)
     {:noreply, socket}
   end
@@ -85,15 +87,33 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
     # `?provider=key` opens the form on that provider (another page links here,
     # e.g. the storage bucket form's "Add a connection"). Only a provider a
     # website-wide connection may use is taken; anything else shows the picker.
-    provider = preselected_provider(params["provider"])
+    picker =
+      IntegrationsUI.picker_state(
+        Providers.for_scope(:system),
+        params,
+        :system,
+        socket.assigns.url_path
+      )
+
+    key =
+      if is_binary(params["provider"]), do: hd(String.split(params["provider"], ":", parts: 2))
+
+    provider = Enum.find(picker.providers, &(&1.key == key))
 
     socket
+    |> assign(:picker, picker)
+    |> assign(:providers, picker.providers)
     |> assign(:page_title, gettext("Add Integration"))
     |> assign(:selected_provider, provider && provider.key)
     |> assign(:provider, provider)
     |> assign(:name, nil)
+    |> assign(:new_name, "")
+    |> assign(:uuid, nil)
+    |> assign(:success, nil)
+    |> assign(:warning, nil)
+    |> assign(:error, nil)
     |> assign(:data, %{})
-    |> assign(:form_values, %{})
+    |> assign(:form_values, Map.take(params, ["source_bucket_uuid"]))
   end
 
   defp apply_action(socket, :edit, %{"uuid" => uuid} = params) do
@@ -122,7 +142,7 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
           # Values typed on /new (a dry-run Test) are saved by now. Kept, they
           # would be rendered as typed — a secret included — on the edit page
           # that Create patches to.
-          |> assign(:form_values, %{})
+          |> assign(:form_values, IntegrationsUI.source_prefill(data, params))
 
         # Handle OAuth callback (code in query params).
         # Only process during live WebSocket connection — during dead
@@ -189,38 +209,52 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
     )
   end
 
-  defp preselected_provider(key) when is_binary(key) do
-    case Providers.get(key) do
-      %{} = provider -> if :system in Providers.scopes_of(provider), do: provider
-      _ -> nil
-    end
-  end
-
-  defp preselected_provider(_key), do: nil
-
   # ---------------------------------------------------------------------------
   # Events — provider selection (new mode)
   # ---------------------------------------------------------------------------
 
   @impl true
   def handle_event(event, _params, %{assigns: %{live_action: :edit}} = socket)
-      when event in ["select_provider", "back_to_providers"], do: {:noreply, socket}
+      when event in ["select_provider", "back_to_providers", "filter_service"],
+      do: {:noreply, socket}
+
+  def handle_event("filter_service", %{"service" => service}, socket) do
+    picker = socket.assigns.picker
+
+    if !picker.context["source_bucket_uuid"] and (service == "" or service in picker.services) do
+      {:noreply,
+       push_patch(socket,
+         to:
+           IntegrationsUI.picker_path(socket.assigns.url_path, picker.context, %{
+             "service" => service
+           })
+       )}
+    else
+      {:noreply, socket}
+    end
+  end
 
   def handle_event("select_provider", %{"provider" => provider_key}, socket) do
-    provider = Providers.get(provider_key)
+    case Enum.find(socket.assigns.providers, &(&1.key == provider_key)) do
+      nil ->
+        {:noreply, socket}
 
-    {:noreply,
-     socket
-     |> assign(:selected_provider, provider_key)
-     |> assign(:provider, provider)
-     |> assign(:new_name, "")}
+      provider ->
+        {:noreply,
+         push_patch(socket,
+           to:
+             IntegrationsUI.picker_path(socket.assigns.url_path, socket.assigns.picker.context, %{
+               "provider" => provider.key
+             })
+         )}
+    end
   end
 
   def handle_event("back_to_providers", _params, socket) do
     {:noreply,
-     socket
-     |> assign(:selected_provider, nil)
-     |> assign(:provider, nil)}
+     push_patch(socket,
+       to: IntegrationsUI.picker_path(socket.assigns.url_path, socket.assigns.picker.context, %{})
+     )}
   end
 
   # ---------------------------------------------------------------------------
@@ -231,9 +265,19 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
     provider_key = socket.assigns.selected_provider
     name = String.trim(name)
 
-    case Integrations.add_connection(provider_key, name, Actor.uuid(socket), owner: :system) do
-      {:ok, %{uuid: uuid}} ->
-        save_and_redirect(uuid, provider_key, name, params, socket)
+    case Integrations.add_configured_connection(
+           provider_key,
+           name,
+           extract_setup_attrs(provider_key, params),
+           Actor.uuid(socket),
+           owner: :system
+         ) do
+      {:ok, %{uuid: uuid, data: data}} ->
+        {:noreply,
+         socket
+         |> assign(name: name, uuid: uuid, data: data, error: nil)
+         |> push_patch(to: Routes.path("/admin/settings/integrations/#{uuid}"))
+         |> apply_save_outcome(data)}
 
       {:error, :empty_name} ->
         {:noreply,
@@ -247,7 +291,7 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
          socket
          |> assign(:new_name, name)
          |> assign(:form_values, extract_setup_attrs(provider_key, params))
-         |> assign(:error, "Failed: #{inspect(reason)}")}
+         |> assign(:error, integration_error(reason))}
     end
   end
 
@@ -642,29 +686,6 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
 
   defp save_form_with_rename(params, socket) do
     save_setup_fields(socket.assigns.uuid, socket.assigns.selected_provider, params, socket)
-  end
-
-  defp save_and_redirect(uuid, provider_key, name, params, socket) do
-    attrs = extract_setup_attrs(provider_key, params)
-
-    case Integrations.save_setup(uuid, attrs, Actor.uuid(socket)) do
-      {:ok, data} ->
-        edit_path = Routes.path("/admin/settings/integrations/#{uuid}")
-
-        socket =
-          socket
-          |> assign(:name, name)
-          |> assign(:uuid, uuid)
-          |> assign(:data, data)
-          |> assign(:error, nil)
-          |> push_patch(to: edit_path)
-          |> apply_save_outcome(data)
-
-        {:noreply, socket}
-
-      {:error, reason} ->
-        {:noreply, assign(socket, :error, integration_error(reason))}
-    end
   end
 
   defp save_setup_fields(uuid, provider_key, params, socket) do

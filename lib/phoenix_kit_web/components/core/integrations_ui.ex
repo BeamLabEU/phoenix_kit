@@ -167,6 +167,12 @@ defmodule PhoenixKitWeb.Components.Core.IntegrationsUI do
         "The connection or its storage usage changed during testing. Refresh and try again."
       )
 
+  def integration_error(:invalid_cdn_source),
+    do:
+      gettext(
+        "Choose an enabled bucket without another CDN mapping and enter its HTTPS origin URL."
+      )
+
   def integration_error(:empty_name), do: gettext("Please enter a connection name.")
 
   def integration_error(:service_immutable),
@@ -191,15 +197,110 @@ defmodule PhoenixKitWeb.Components.Core.IntegrationsUI do
   def integration_error(_),
     do: gettext("The integration could not be updated. Refresh and try again.")
 
+  @doc false
+  def picker_state(offered, params, owner, path) do
+    context =
+      case Ecto.UUID.cast(params["source_bucket_uuid"]) do
+        {:ok, id} -> %{"source_bucket_uuid" => id, "service" => "cdn_delivery"}
+        _ -> if is_binary(params["service"]), do: Map.take(params, ["service"]), else: %{}
+      end
+
+    services =
+      offered
+      |> Enum.flat_map(&(&1[:capabilities] || []))
+      |> Enum.map(&to_string/1)
+      |> Enum.uniq()
+      |> Enum.sort()
+
+    service = context["service"]
+
+    providers =
+      if service in [nil, ""],
+        do: offered,
+        else:
+          Enum.filter(offered, fn p ->
+            Enum.any?(p[:capabilities] || [], &(to_string(&1) == service))
+          end)
+
+    existing =
+      if context["source_bucket_uuid"] && is_nil(params["provider"]) do
+        for {id, name} <-
+              PhoenixKit.Integrations.unmapped_cdn_connections(
+                Enum.map(providers, & &1.key),
+                owner
+              ) do
+          {name,
+           picker_path(
+             Path.join(Path.dirname(path), id),
+             Map.take(context, ["source_bucket_uuid"]),
+             %{}
+           )}
+        end
+      else
+        []
+      end
+
+    %{context: context, services: services, providers: providers, existing: existing}
+  end
+
+  def source_prefill(data, params) do
+    if data["source_bucket_uuid"] in [nil, ""],
+      do: Map.take(params, ["source_bucket_uuid"]),
+      else: %{}
+  end
+
+  def picker_path(path, context, extra) do
+    query =
+      context
+      |> Map.merge(extra)
+      |> Map.reject(fn {_, value} -> value in [nil, ""] end)
+      |> URI.encode_query()
+
+    if query == "", do: path, else: path <> "?" <> query
+  end
+
+  defp service_name("cdn_delivery"), do: gettext("CDN")
+  defp service_name("object_storage"), do: gettext("Object Storage")
+  defp service_name(service), do: Phoenix.Naming.humanize(service)
+
   @doc """
   Provider picker — a card grid, one card per provider. Clicking a card
   pushes `event` (default `"select_provider"`) with `phx-value-provider`.
   """
   attr :providers, :list, required: true
   attr :event, :string, default: "select_provider"
+  attr :picker, :map, required: true
 
   def provider_picker(assigns) do
     ~H"""
+    <form
+      :if={!@picker.context["source_bucket_uuid"]}
+      id="integration-service-filter"
+      phx-change="filter_service"
+      class="fieldset mb-4"
+    >
+      <label>
+        {gettext("Service")}
+        <select name="service" class="select">
+          <option value="">{gettext("All services")}</option>
+          <option
+            :for={key <- @picker.services}
+            value={key}
+            selected={@picker.context["service"] == key}
+          >
+            {service_name(key)}
+          </option>
+        </select>
+      </label>
+    </form>
+    <h2 :if={@picker.context["source_bucket_uuid"]} class="text-lg font-semibold mb-4">
+      {gettext("Choose a CDN provider")}
+    </h2>
+    <div :if={@picker.existing != []} class="mb-4">
+      <h3 class="font-medium">{gettext("Use an existing connection")}</h3>
+      <.link :for={{name, path} <- @picker.existing} navigate={path} class="link block">{name}</.link>
+    </div>
+    <p :if={@providers == []}>{gettext("No providers are available for this service.")}</p>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <button
         :for={provider <- @providers}

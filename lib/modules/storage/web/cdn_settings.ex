@@ -16,7 +16,6 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.CDNSettings do
 
     assign(socket,
       profiles: profiles,
-      connections: CDN.connections(:system),
       current: CDN.site_connection()
     )
   end
@@ -44,19 +43,11 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.CDNSettings do
       <div class="card-body">
         <form id="site-cdn-connection" phx-submit="connection" phx-target={@myself}>
           <label class="fieldset">
-            <span>{gettext("Default CDN connection")}</span>
+            <span>{gettext("Default CDN delivery")}</span>
             <select name="connection" class="select">
               <option value="off" selected={@current == "off"}>{gettext("Off")}</option>
-              <option
-                :if={@current != "off" and not List.keymember?(@connections, @current, 0)}
-                value={@current}
-                selected
-                disabled
-              >
-                {gettext("Unavailable")}
-              </option>
-              <option :for={{id, name} <- @connections} value={id} selected={id == @current}>
-                {name}
+              <option value="bucket" selected={@current == "bucket"}>
+                {gettext("Use bucket mappings")}
               </option>
             </select>
           </label>

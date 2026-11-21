@@ -58,6 +58,10 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
     socket
     |> assign(:profiles, profiles)
     |> assign(:buckets, buckets)
+    |> assign(
+      :cdn_sources,
+      PhoenixKit.Modules.Storage.CDNSource.mappings(Enum.map(buckets, & &1.uuid))
+    )
     |> assign(:bucket_usage, Profiles.bucket_usage(Enum.map(buckets, & &1.uuid)))
     |> assign(:in_use, Map.new(profiles, &{&1.uuid, Profiles.libraries_using(&1.uuid)}))
   end
@@ -768,6 +772,20 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
                   <span :if={not row.bucket.enabled} class="badge badge-error badge-sm ml-1">
                     {gettext("Disabled")}
                   </span>
+                  <.link
+                    :if={row.role != "backup" && row.bucket.enabled}
+                    navigate={
+                      PhoenixKit.Utils.Routes.path(
+                        PhoenixKit.Modules.Storage.CDNSource.setup_path(
+                          row.bucket_uuid,
+                          @cdn_sources[row.bucket_uuid]
+                        )
+                      )
+                    }
+                    class="link text-xs"
+                  >{if @cdn_sources[row.bucket_uuid],
+                    do: @cdn_sources[row.bucket_uuid].name,
+                    else: gettext("Configure CDN")}</.link>
                   <% others = used_elsewhere(@bucket_usage, row.bucket_uuid, profile.uuid) %>
                   <div :if={others != []} class="mt-1">
                     <span

@@ -1206,7 +1206,11 @@ defmodule PhoenixKit.Integrations.Providers do
       key: "bunny_cdn",
       scopes: [:system, :personal],
       name: "Bunny CDN",
-      description: gettext("Content delivery through a bunny.net pull zone"),
+      description:
+        gettext(
+          "CDN, storage, video streaming and edge computing. This connection manages a CDN pull zone."
+        ),
+      instructions: bunny_instructions(),
       icon: "hero-globe-alt",
       auth_type: :api_key,
       oauth_config: nil,
@@ -1233,6 +1237,41 @@ defmodule PhoenixKit.Integrations.Providers do
         }
       ]
     }
+  end
+
+  defp bunny_instructions do
+    [
+      %{
+        title: gettext("Choose a pull zone and origin"),
+        steps: [
+          {gettext(
+             "Open the [Bunny dashboard](https://dash.bunny.net) and choose + Add → Add Pull Zone, or open an existing zone dedicated to this project."
+           ), nil},
+          {gettext(
+             "Choose a unique name using letters and numbers, such as myprojectdevthumbs. The name becomes the first part of the b-cdn.net hostname."
+           ), nil},
+          {gettext(
+             "For Amazon S3, Backblaze B2 or another S3-compatible service, choose Origin URL. Find the HTTPS download URL of a test thumbnail in your own bucket. Remove the filename and any signed query, keeping the bucket and delivery folder. For a private origin, configure read access for Bunny separately. For Bunny Storage, choose Storage Zone."
+           ), nil},
+          {gettext(
+             "Leave the host header at its default, choose Standard for thumbnails, and create the pull zone. See the [pull zone quickstart](https://bunny.net/docs/cdn/quickstart)."
+           ), nil}
+        ]
+      }
+    ] ++
+      [
+        %{
+          title: gettext("Connect the pull zone"),
+          steps: [
+            {gettext(
+               "Open the pull zone in the dashboard and copy its numeric ID into Pull zone ID. Name the connection after the bucket it serves so you can recognize it in the storage plan."
+             ), nil},
+            {gettext(
+               "Enter the API key from your [Bunny account settings](https://dash.bunny.net/account) here. Test Connection checks access to the pull zone. After saving, choose Verify saved bucket mapping to check origin access, caching and purge."
+             ), nil}
+          ]
+        }
+      ]
   end
 
   # Deliberately separate from `aws_ses` even though both are `:key_secret`
@@ -1900,6 +1939,18 @@ defmodule PhoenixKit.Integrations.Providers do
   must clear.
   """
   @spec setup_attrs(provider() | nil, map()) :: map()
+  def setup_attrs(%{key: "bunny_cdn"} = provider, params) do
+    params =
+      if params["source_bucket_uuid"] == "",
+        do: Map.put(params, "source_origin", ""),
+        else: params
+
+    provider
+    |> Map.delete(:key)
+    |> setup_attrs(params)
+    |> Map.merge(Map.take(params, ["source_bucket_uuid", "source_origin"]))
+  end
+
   def setup_attrs(%{setup_module: module}, params) when is_atom(module),
     do: module.attrs(params)
 

@@ -27,6 +27,7 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrationForm do
       integration_error: 1
     ]
 
+  alias PhoenixKitWeb.Components.Core.IntegrationsUI
   alias PhoenixKit.Integrations
   alias PhoenixKit.Integrations.Providers
   alias PhoenixKit.Integrations.Telegram
@@ -87,9 +88,20 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrationForm do
     # `?provider=key` opens the form on that provider (another page links here,
     # e.g. the Media tab's "Add a connection"). Only a provider offered to
     # users is taken; anything else shows the picker.
-    provider = Enum.find(socket.assigns.providers, &(&1.key == params["provider"]))
+    picker =
+      IntegrationsUI.picker_state(
+        Providers.personal_offered(),
+        params,
+        owner(socket),
+        socket.assigns.url_path
+      )
+
+    key = params["provider"]
+    provider = Enum.find(picker.providers, &(&1.key == key))
 
     socket
+    |> assign(:picker, picker)
+    |> assign(:providers, picker.providers)
     |> assign(:page_title, gettext("Add Integration"))
     |> assign(:selected_provider, provider && provider.key)
     |> assign(:provider, provider)
@@ -97,10 +109,10 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrationForm do
     |> assign(:name, nil)
     |> assign(:data, %{})
     |> assign(:new_name, "")
-    |> assign(:form_values, %{})
+    |> assign(:form_values, Map.take(params, ["source_bucket_uuid"]))
   end
 
-  defp apply_action(socket, :edit, %{"uuid" => uuid}) do
+  defp apply_action(socket, :edit, %{"uuid" => uuid} = params) do
     # Owner-scoped load — a personal uuid belonging to another user (or a
     # system row) fails closed and redirects, never rendering credentials.
     case Integrations.get_integration_by_uuid(uuid, owner(socket)) do
@@ -114,6 +126,7 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrationForm do
         |> assign(:data, data)
         |> assign(:selected_provider, provider_key)
         |> assign(:provider, Providers.get(provider_key))
+        |> assign(:form_values, IntegrationsUI.source_prefill(data, params))
 
       {:error, _} ->
         socket
@@ -127,7 +140,24 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrationForm do
   # list is what a site admin chose (`Providers.personal_offered/0`), not whatever
   # a hand-made event names.
   def handle_event(event, _params, %{assigns: %{live_action: :edit}} = socket)
-      when event in ["select_provider", "back_to_providers"], do: {:noreply, socket}
+      when event in ["select_provider", "back_to_providers", "filter_service"],
+      do: {:noreply, socket}
+
+  def handle_event("filter_service", %{"service" => service}, socket) do
+    picker = socket.assigns.picker
+
+    if !picker.context["source_bucket_uuid"] and (service == "" or service in picker.services) do
+      {:noreply,
+       push_patch(socket,
+         to:
+           IntegrationsUI.picker_path(socket.assigns.url_path, picker.context, %{
+             "service" => service
+           })
+       )}
+    else
+      {:noreply, socket}
+    end
+  end
 
   def handle_event("select_provider", %{"provider" => key}, socket) do
     case Enum.find(socket.assigns.providers, &(&1.key == key)) do
@@ -136,12 +166,12 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrationForm do
 
       provider ->
         {:noreply,
-         socket
-         |> assign(:selected_provider, key)
-         |> assign(:provider, provider)
-         |> assign(:data, %{})
-         |> assign(:new_name, "")
-         |> assign(:form_values, %{})}
+         push_patch(socket,
+           to:
+             IntegrationsUI.picker_path(socket.assigns.url_path, socket.assigns.picker.context, %{
+               "provider" => provider.key
+             })
+         )}
     end
   end
 
@@ -175,7 +205,9 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrationForm do
 
   def handle_event("back_to_providers", _params, socket) do
     {:noreply,
-     assign(socket, selected_provider: nil, provider: nil, new_name: "", form_values: %{})}
+     push_patch(socket,
+       to: IntegrationsUI.picker_path(socket.assigns.url_path, socket.assigns.picker.context, %{})
+     )}
   end
 
   # Pre-save dry-run: probe the provider with the values currently typed, no
@@ -210,11 +242,11 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrationForm do
     name = String.trim(params["name"] || "")
 
     with {:ok, %{uuid: uuid}} <-
-           Integrations.add_connection(provider_key, name, socket.assigns.user_uuid,
-             owner: owner(socket)
-           ),
-         {:ok, _} <-
-           Integrations.save_setup(uuid, setup_attrs(params, socket.assigns.provider), nil,
+           Integrations.add_configured_connection(
+             provider_key,
+             name,
+             setup_attrs(params, socket.assigns.provider),
+             socket.assigns.user_uuid,
              owner: owner(socket)
            ) do
       {:noreply,
@@ -224,6 +256,9 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrationForm do
     else
       {:error, :empty_name} ->
         {:noreply, put_flash(socket, :error, gettext("Please enter a name"))}
+
+      {:error, :invalid_cdn_source} ->
+        {:noreply, put_flash(socket, :error, integration_error(:invalid_cdn_source))}
 
       {:error, :scope_not_allowed} ->
         {:noreply, put_flash(socket, :error, gettext("This provider can't be added here"))}
@@ -646,7 +681,7 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrationForm do
         />
         <%!-- Step 1: Provider picker (new mode, no provider selected yet) --%>
         <div :if={@live_action == :new && @selected_provider == nil} class="max-w-4xl mx-auto">
-          <.provider_picker providers={@providers} />
+          <.provider_picker providers={@providers} picker={@picker} />
         </div>
 
         <%!-- Step 2: Setup form (provider selected in new mode, or edit mode) --%>
@@ -697,6 +732,17 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrationForm do
                     "Create a new integration to use another service."
                   )}
                 </p>
+                <.live_component
+                  :if={@selected_provider == "bunny_cdn"}
+                  module={PhoenixKitWeb.Live.Modules.Storage.CDNSourceComponent}
+                  id="bunny-delivery-source"
+                  checked_at={@data["source_checked_at"]}
+                  persisted_bucket={@data["source_bucket_uuid"]}
+                  uuid={@uuid}
+                  owner={{:user, @user_uuid}}
+                  bucket_uuid={@form_values["source_bucket_uuid"] || @data["source_bucket_uuid"]}
+                  origin={@form_values["source_origin"] || @data["source_origin"]}
+                />
                 <% saved = Providers.setup_saved(@provider, @data, @form_values) %>
                 <input
                   :if={@live_action == :edit and Providers.storage_service_locked?(@provider, @data)}

@@ -127,6 +127,7 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
     |> assign(:connections, connections)
     |> assign(:own_storage, own_storage)
     |> assign(:storage_rows, storage_rows)
+    |> assign(:cdn_paths, personal_cdn_paths(storage_rows, scope))
     |> assign(:bucket_usage, usage)
     |> assign(
       :storage_progress,
@@ -1085,6 +1086,36 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
     gettext("%{project}'s storage", project: PhoenixKit.Settings.get_project_title())
   end
 
+  defp personal_cdn_paths(rows, scope) do
+    ids =
+      for row <- rows,
+          row.role != "backup",
+          row.bucket.enabled,
+          row.bucket.owner_uuid == Scope.user_uuid(scope),
+          do: row.bucket.uuid
+
+    if ids != [] and Scope.has_module_access?(scope, "integrations") do
+      mappings = PhoenixKit.Modules.Storage.CDNSource.mappings(ids)
+
+      offered =
+        Enum.any?(
+          PhoenixKit.Integrations.Providers.personal_offered(),
+          &(:cdn_delivery in (&1[:capabilities] || []))
+        )
+
+      for id <- ids, mapping = mappings[id] || :new, mapping != :new or offered, into: %{} do
+        suffix =
+          if mapping == :new,
+            do: "new?service=cdn_delivery&source_bucket_uuid=" <> id,
+            else: mapping.uuid
+
+        {id, PhoenixKit.Utils.Routes.path("/profile/settings/integrations/" <> suffix)}
+      end
+    else
+      %{}
+    end
+  end
+
   defp own_storage_label(%{role: "primary", bucket: bucket}),
     do: gettext("Your bucket: %{name}", name: bucket.bucket_name)
 
@@ -1690,6 +1721,11 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
                 </div>
                 <.icon name="hero-link" class="ml-auto size-5 shrink-0 text-base-content/40" />
               </div>
+              <.link
+                :if={@cdn_paths[row.bucket.uuid]}
+                navigate={@cdn_paths[row.bucket.uuid]}
+                class="link text-sm"
+              >{gettext("Configure CDN")}</.link>
               <% counts =
                 get_in(@storage_progress, [
                   to_string(@dialog_library.uuid),
