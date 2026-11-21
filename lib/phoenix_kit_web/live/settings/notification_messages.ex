@@ -232,7 +232,7 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessages do
     opts = [actor_uuid: actor, source: "settings"]
 
     seconds =
-      case Integer.parse(to_string(push["group_seconds"] || "")) do
+      case Integer.parse(if is_binary(push["group_seconds"]), do: push["group_seconds"], else: "") do
         {n, ""} -> n |> max(5) |> min(600)
         _ -> Push.group_seconds()
       end

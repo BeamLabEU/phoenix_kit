@@ -33,21 +33,32 @@ defmodule PhoenixKit.Notifications.Push.GroupWorker do
   end
 
   @impl Oban.Worker
+  # Taking the notices and queuing the sends are one transaction: a failed
+  # insert puts the notices back for the retry instead of losing them (zai).
   def perform(%Oban.Job{args: %{"user_uuid" => user_uuid}}) when is_binary(user_uuid) do
-    case Push.take_pending(user_uuid) do
-      {:ok, payload} ->
-        json = Jason.encode!(payload)
+    repo = RepoHelper.repo()
 
-        from(b in Binding, where: b.user_uuid == ^user_uuid, select: b.installation_uuid)
-        |> RepoHelper.repo().all()
-        |> Enum.each(fn installation_uuid ->
-          SendWorker.enqueue(installation_uuid, user_uuid, json, Push.topic(user_uuid))
-        end)
+    repo.transaction(fn ->
+      case Push.take_pending(user_uuid) do
+        {:ok, payload} ->
+          json = Jason.encode!(payload)
 
-        :ok
+          from(b in Binding, where: b.user_uuid == ^user_uuid, select: b.installation_uuid)
+          |> repo.all()
+          |> Enum.each(fn installation_uuid ->
+            case SendWorker.enqueue(installation_uuid, user_uuid, json, Push.topic(user_uuid)) do
+              {:ok, _job} -> :ok
+              {:error, reason} -> repo.rollback(reason)
+            end
+          end)
 
-      :none ->
-        :ok
+        :none ->
+          :ok
+      end
+    end)
+    |> case do
+      {:ok, _} -> :ok
+      {:error, reason} -> {:error, reason}
     end
   end
 

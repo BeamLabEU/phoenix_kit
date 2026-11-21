@@ -112,16 +112,19 @@ defmodule PhoenixKit.Notifications.Push do
          :ok <- if(opts[:impersonated] == false, do: :ok, else: {:error, :impersonated}),
          :ok <- allowed_account(user),
          {:ok, endpoint, p256dh, auth} <- parse_subscription(subscription),
-         :ok <- if(WebPush.endpoint_ok?(endpoint), do: :ok, else: {:error, :endpoint_refused}),
-         :ok <- device_room(user, endpoint) do
+         :ok <- if(WebPush.endpoint_ok?(endpoint), do: :ok, else: {:error, :endpoint_refused}) do
       RepoHelper.repo().transaction(fn ->
-        case upsert_installation(endpoint, p256dh, auth, opts) do
-          {:ok, installation} ->
-            bind(installation, user)
-            installation
+        # One subscribe per account at a time, so the device cap holds.
+        RepoHelper.repo().query!("SELECT pg_advisory_xact_lock(hashtext($1))", [
+          "pk_push:" <> user.uuid
+        ])
 
-          {:error, reason} ->
-            RepoHelper.repo().rollback(reason)
+        with :ok <- device_room(user, endpoint),
+             {:ok, installation} <- upsert_installation(endpoint, p256dh, auth, opts) do
+          bind(installation, user)
+          installation
+        else
+          {:error, reason} -> RepoHelper.repo().rollback(reason)
         end
       end)
       |> tap(fn
@@ -185,7 +188,7 @@ defmodule PhoenixKit.Notifications.Push do
       endpoint_hash: hash(endpoint),
       p256dh: p256dh,
       auth: auth,
-      label: opts[:label] |> to_string() |> String.slice(0, 160),
+      label: cut_bytes(opts[:label] |> to_string(), 160),
       browser_id: clean_browser_id(opts[:browser_id]),
       vapid_key_id: WebPush.vapid_key_id() || "unknown",
       inserted_at: now,
@@ -328,15 +331,46 @@ defmodule PhoenixKit.Notifications.Push do
 
   def forget_browser(_user_uuid, _browser_id), do: :ok
 
+  # One statement: never deletes an installation someone is bound to.
   defp drop_if_unbound(installation_uuid) do
-    repo = RepoHelper.repo()
-
-    unless repo.exists?(from(b in Binding, where: b.installation_uuid == ^installation_uuid)) do
-      from(i in Installation, where: i.uuid == ^installation_uuid) |> repo.delete_all()
-    end
+    from(i in Installation,
+      as: :installation,
+      where:
+        i.uuid == ^installation_uuid and
+          not exists(
+            from(b in Binding,
+              where: b.installation_uuid == parent_as(:installation).uuid,
+              select: 1
+            )
+          )
+    )
+    |> RepoHelper.repo().delete_all()
 
     :ok
   end
+
+  @doc """
+  An account is being deleted: its bindings go, and every installation no
+  one else is bound to goes with them (its endpoint and keys are a way to
+  reach that device; nothing would ever clean them up after).
+  """
+  @spec forget_account(String.t()) :: :ok
+  def forget_account(user_uuid) when is_binary(user_uuid) do
+    repo = RepoHelper.repo()
+
+    ids =
+      from(b in Binding, where: b.user_uuid == ^user_uuid, select: b.installation_uuid)
+      |> repo.all()
+
+    from(b in Binding, where: b.user_uuid == ^user_uuid) |> repo.delete_all()
+    from(p in Pending, where: p.user_uuid == ^user_uuid) |> repo.delete_all()
+    Enum.each(ids, &drop_if_unbound/1)
+    :ok
+  rescue
+    _ -> :ok
+  end
+
+  def forget_account(_), do: :ok
 
   @doc """
   A browser's subscription changed (`pushsubscriptionchange`): the old one is
@@ -438,7 +472,7 @@ defmodule PhoenixKit.Notifications.Push do
     latest = List.last(rows)
     site = site_name()
 
-    RecipientLocale.in_locale(RecipientLocale.base(user), fn ->
+    RecipientLocale.in_locale(RecipientLocale.for_rendering(user), fn ->
       {title, body} =
         if show_line?() do
           title = present(latest.title) || site
@@ -470,8 +504,8 @@ defmodule PhoenixKit.Notifications.Push do
         end
 
       %{
-        "title" => String.slice(title, 0, 120),
-        "body" => String.slice(body, 0, 400),
+        "title" => cut_bytes(title, 300),
+        "body" => cut_bytes(body, 1_200),
         "url" => open_url(user.uuid, latest.link, count > 1),
         "tag" => "pk-" <> short_id(user.uuid),
         "count" => count,
@@ -498,6 +532,23 @@ defmodule PhoenixKit.Notifications.Push do
     Branding.logo_url()
   rescue
     _ -> nil
+  end
+
+  # At most `max` bytes, cut at a character boundary: the push has a byte
+  # budget (with a 1 KB link, 300 + 1 200 bytes of text stay well under it
+  # in any script).
+  @doc false
+  def cut_bytes(text, max) when is_binary(text) and byte_size(text) <= max, do: text
+
+  def cut_bytes(text, max) when is_binary(text) do
+    text
+    |> String.graphemes()
+    |> Enum.reduce_while({[], 0}, fn g, {acc, size} ->
+      if size + byte_size(g) + 3 <= max,
+        do: {:cont, {[g | acc], size + byte_size(g)}},
+        else: {:halt, {acc, size}}
+    end)
+    |> then(fn {acc, _} -> (acc |> Enum.reverse() |> Enum.join()) <> "…" end)
   end
 
   defp present(value) when is_binary(value) and value != "", do: value

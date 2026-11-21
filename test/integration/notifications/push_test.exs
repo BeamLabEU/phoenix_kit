@@ -260,6 +260,58 @@ defmodule PhoenixKit.Integration.Notifications.PushTest do
     end
   end
 
+  describe "limits and clean-up" do
+    test "text is cut by bytes at a character boundary" do
+      assert Push.cut_bytes("short", 10) == "short"
+      cut = Push.cut_bytes(String.duplicate("👨‍👩‍👧‍👦", 20), 100)
+      assert byte_size(cut) <= 100
+      assert String.valid?(cut)
+      assert String.ends_with?(cut, "…")
+    end
+
+    test "a long emoji label fits its column" do
+      a = user!()
+      b = browser()
+
+      assert {:ok, _} =
+               Push.subscribe(a, b.json,
+                 impersonated: false,
+                 label: String.duplicate("👨‍👩‍👧‍👦", 40)
+               )
+    end
+
+    test "a push stays within the service's size in any script" do
+      Settings.update_boolean_setting("push_show_line", true)
+      on_exit(fn -> Settings.update_boolean_setting("push_show_line", false) end)
+
+      a = user!()
+      long = String.duplicate("👨‍👩‍👧‍👦", 400)
+
+      :ok =
+        Push.queue(
+          envelope(a, %{title: long, text: long, url: "/" <> String.duplicate("a", 1_000)})
+        )
+
+      {:ok, payload} = Push.take_pending(a.uuid)
+      assert byte_size(Jason.encode!(payload)) <= 3_993
+    end
+
+    test "deleting an account takes the devices only it used" do
+      a = user!()
+      c = user!()
+      shared = browser()
+      own = browser()
+      s = subscribe!(a, shared)
+      subscribe!(c, shared)
+      o = subscribe!(a, own)
+
+      :ok = Push.forget_account(a.uuid)
+      refute Repo.get(Installation, o.uuid)
+      assert Repo.get(Installation, s.uuid)
+      assert Push.any_device?(c.uuid)
+    end
+  end
+
   describe "sending" do
     setup do
       test_pid = self()

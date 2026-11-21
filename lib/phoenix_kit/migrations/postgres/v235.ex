@@ -85,7 +85,8 @@ defmodule PhoenixKit.Migrations.Postgres.V235 do
       )
       """,
       "CREATE INDEX IF NOT EXISTS phoenix_kit_push_pending_user_uuid_index ON #{p}phoenix_kit_push_pending (user_uuid, inserted_at)",
-      "COMMENT ON TABLE #{p}phoenix_kit IS '235'"
+      "COMMENT ON TABLE #{p}phoenix_kit IS '235'",
+      "RESET lock_timeout"
     ]
   end
 
@@ -99,7 +100,8 @@ defmodule PhoenixKit.Migrations.Postgres.V235 do
       "DROP TABLE IF EXISTS #{p}phoenix_kit_push_pending",
       "DROP TABLE IF EXISTS #{p}phoenix_kit_push_bindings",
       "DROP TABLE IF EXISTS #{p}phoenix_kit_push_installations",
-      "COMMENT ON TABLE #{p}phoenix_kit IS '234'"
+      "COMMENT ON TABLE #{p}phoenix_kit IS '234'",
+      "RESET lock_timeout"
     ]
   end
 end

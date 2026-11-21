@@ -10358,8 +10358,15 @@
       var standalone = window.navigator.standalone === true ||
         (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
 
+      // An iPhone or iPad tab gets push only once the site is on the Home
+      // Screen: say that first, whatever the tab exposes.
+      if (ios && !standalone) {
+        this.report("ios_install", null);
+        return;
+      }
+
       if (!supported) {
-        this.report(ios && !standalone ? "ios_install" : "unsupported", null);
+        this.report("unsupported", null);
         return;
       }
 
@@ -10405,9 +10412,11 @@
 
     // Asked inside the click: the permission prompt first, nothing awaited
     // before it, then the subscription.
+    // A click before the worker's registration has finished waits for it,
+    // after the prompt (which must stay inside the click).
     enable: function () {
       var self = this;
-      if (!this.registration || !this.el.dataset.key) return;
+      if (!this.ready || !this.el.dataset.key) return;
 
       Notification.requestPermission().then(function (permission) {
         if (permission !== "granted") {
@@ -10415,7 +10424,9 @@
           return;
         }
 
-        return self.registration.pushManager
+        return self.ready.then(function () {
+          if (!self.registration) throw new Error("no registration");
+          return self.registration.pushManager
           .subscribe({ userVisibleOnly: true, applicationServerKey: self.key() })
           .then(function (subscription) {
             self.pushEventTo(self.el, "push_subscribe", {
@@ -10424,6 +10435,7 @@
               label: self.label()
             });
           });
+        });
       }).catch(function () {
         self.report("unsupported", null);
       });

@@ -152,6 +152,7 @@ defmodule PhoenixKit.Settings do
     billing_razorpay_key_secret
     billing_razorpay_webhook_secret
     billing_everypay_api_secret
+    push_vapid_key
   )
 
   # The explicit ALLOW list `list_public_settings/0` reads from. Deliberately

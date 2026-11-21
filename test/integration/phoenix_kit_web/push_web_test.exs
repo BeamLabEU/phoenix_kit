@@ -213,5 +213,25 @@ defmodule PhoenixKitWeb.PushWebTest do
 
       assert Push.devices(user.uuid) == []
     end
+
+    test "forged events: another account's device stays; a service user is refused", %{
+      conn: conn
+    } do
+      owner = user!()
+      {:ok, other} = Push.subscribe(owner, subscription(), impersonated: false)
+      user = user!()
+
+      {:ok, view, _html} =
+        conn |> login(user) |> live(Routes.path("/profile/settings/notifications"))
+
+      view
+      |> with_target("#push-notifications-card")
+      |> render_hook("push_remove", %{"uuid" => other.uuid})
+
+      assert [_] = Push.devices(owner.uuid)
+
+      service = %{user!() | api_only: true}
+      assert {:error, :not_allowed} = Push.subscribe(service, subscription(), impersonated: false)
+    end
   end
 end
