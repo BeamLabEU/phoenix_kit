@@ -84,7 +84,7 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistrationRequest do
 
   def handle_event("send_magic_link", %{"email" => _} = params, socket) do
     if Settings.get_boolean_setting("allow_registration", true) do
-      case BotCheck.run(socket, params, socket.assigns[:ip_address]) do
+      case BotCheck.run(socket, params, socket.assigns[:ip_address], "registration_link") do
         {:ok, socket} -> request_link(params, socket)
         {:error, socket} -> {:noreply, socket}
       end

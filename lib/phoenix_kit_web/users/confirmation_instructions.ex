@@ -101,7 +101,7 @@ defmodule PhoenixKitWeb.Users.ConfirmationInstructions do
   end
 
   def handle_event("send_instructions", %{"user" => %{"email" => _}} = params, socket) do
-    case BotCheck.run(socket, params, socket.assigns[:ip_address]) do
+    case BotCheck.run(socket, params, socket.assigns[:ip_address], "confirmation_resend") do
       {:ok, socket} -> send_instructions(params, socket)
       {:error, socket} -> {:noreply, socket}
     end

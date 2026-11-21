@@ -131,8 +131,11 @@ defmodule PhoenixKitWeb.Live.Settings.Authorization do
         {:noreply,
          socket |> load_turnstile() |> put_flash(:info, gettext("Turnstile settings saved."))}
 
-      {:error, _} ->
+      {:error, :invalid_connection} ->
         {:noreply, put_flash(socket, :error, gettext("Choose a verified Turnstile connection."))}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, gettext("Could not save the Turnstile settings."))}
     end
   end
 
@@ -395,6 +398,12 @@ defmodule PhoenixKitWeb.Live.Settings.Authorization do
       overridden: Application.get_env(:phoenix_kit, :email_domain_check, true) == false
     }
   end
+
+  defp turnstile_form_label("registration"), do: gettext("Sign-up")
+  defp turnstile_form_label("registration_link"), do: gettext("Registration link request")
+  defp turnstile_form_label("password_reset"), do: gettext("Password reset request")
+  defp turnstile_form_label("magic_link"), do: gettext("Magic link sign-in request")
+  defp turnstile_form_label("confirmation_resend"), do: gettext("Confirmation email resend")
 
   @doc false
   def request_limit_label(:login), do: gettext("Sign-in (failed attempts)")

@@ -974,13 +974,21 @@
               name="turnstile[enabled]"
               checked={@turnstile["enabled"]}
               label={gettext("Enable Turnstile on auth forms")}
-            >
-              <:description>
-                {gettext(
-                  "Shown on the sign-up, registration link, password reset, magic link and confirmation resend forms. A request without a passed check is refused before it counts against any limit above."
-                )}
-              </:description>
-            </.checkbox>
+            />
+
+            <fieldset class="mt-3 space-y-2">
+              <legend class="fieldset-legend">{gettext("Protected auth forms")}</legend>
+              <input type="hidden" name="turnstile[forms][]" value="" />
+              <.checkbox
+                :for={form <- Turnstile.forms()}
+                id={"turnstile-form-#{form}"}
+                name="turnstile[forms][]"
+                value={form}
+                unchecked_value={nil}
+                checked={form in @turnstile["forms"]}
+                label={turnstile_form_label(form)}
+              />
+            </fieldset>
 
             <div class="mt-3 grid gap-3 max-w-xl">
               <.select

@@ -378,15 +378,16 @@ off for good.
 
 Add and test a Cloudflare Turnstile widget under Settings → Integrations.
 Under Settings → Authorization → Abuse protection, select the verified website
-connection and enable Turnstile for auth. The switch defaults to off and can
+connection and choose the protected auth forms. All five forms are selected
+by default. The master switch preserves the selection while off and can
 be turned off independently of other features using the connection. Existing
 installations can continue using their previously saved auth keys.
 
 - **The five forms that send mail on an anonymous request** (sign-up,
   registration link, password reset, magic link, confirmation resend) render
-  `<.turnstile_widget id="…" />` inside the form and start their submit with
-  `PhoenixKitWeb.Users.BotCheck.run(socket, params, ip)`. ⚠️ A new form of that
-  kind does both, and the check goes BEFORE the rate limiter and the lookup: a
+  `<.turnstile_widget id="…" auth_form="registration" />` inside the form and start their submit with
+  `PhoenixKitWeb.Users.BotCheck.run(socket, params, ip, "registration")`. ⚠️ A new form of that
+  kind uses the same server-defined form key in both places, and the check goes BEFORE the rate limiter and the lookup: a
   refused bot must not spend an address's or the site's allowance, and the
   answer must not depend on the address typed.
 - A token is good for one verification. `BotCheck` tells the widget to start

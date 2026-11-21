@@ -252,6 +252,28 @@ defmodule PhoenixKit.Integration.Users.TurnstileTest do
       end
     end
 
+    test "the form saves individual locations, including clearing the last one", %{conn: conn} do
+      switch_on()
+      {:ok, view, _} = protection(conn)
+
+      for form <- Turnstile.forms() do
+        assert has_element?(view, "#turnstile-form-#{form}[checked]")
+      end
+
+      for forms <- [["password_reset"], []] do
+        html =
+          view
+          |> form("#turnstile-settings-form", %{"turnstile" => %{"forms" => ["" | forms]}})
+          |> render_submit()
+
+        assert html =~ "Turnstile settings saved."
+        assert Turnstile.selection()["forms"] == forms
+        {:ok, reloaded, _} = protection(conn)
+        assert has_element?(reloaded, "#turnstile-form-password_reset[checked]") == (forms != [])
+        refute has_element?(reloaded, "#turnstile-form-registration[checked]")
+      end
+    end
+
     test "a submitted UUID must identify a verified Turnstile connection", %{conn: conn} do
       {:ok, view, _} = protection(conn)
 
@@ -301,6 +323,24 @@ defmodule PhoenixKit.Integration.Users.TurnstileTest do
                ),
                "no widget on #{path}"
       end
+    end
+
+    test "only the selected form renders and requires a token", %{conn: conn} do
+      switch_on()
+
+      {:ok, _} =
+        Turnstile.save_selection(%{"enabled" => "true", "forms" => ["password_reset"]}, [])
+
+      {:ok, register, _} = live(conn, Routes.path("/users/register"))
+      refute has_element?(register, "#registration-turnstile")
+      email = unique_email()
+      render_submit(register, "save", %{"user" => %{"email" => email, "password" => @password}})
+      assert Auth.get_user_by_email(email)
+
+      {:ok, reset, _} = live(conn, Routes.path("/users/reset-password"))
+      assert has_element?(reset, "#reset-password-turnstile")
+      html = render_submit(reset, "send_email", %{"user" => %{"email" => email}, "forms" => []})
+      assert html =~ "Please wait for the verification to finish"
     end
 
     test "sign-up: refused without a passed check, before anything is counted", %{conn: conn} do

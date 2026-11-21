@@ -146,7 +146,7 @@ defmodule PhoenixKitWeb.Users.Registration do
     socket = assign(socket, :email_left, true)
 
     if Settings.get_boolean_setting("allow_registration", true) do
-      case BotCheck.run(socket, params, socket.assigns[:user_ip_address]) do
+      case BotCheck.run(socket, params, socket.assigns[:user_ip_address], "registration") do
         {:ok, socket} -> do_save(user_params, params, socket)
         {:error, socket} -> {:noreply, socket}
       end

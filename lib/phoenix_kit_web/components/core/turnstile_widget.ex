@@ -2,10 +2,10 @@ defmodule PhoenixKitWeb.Components.Core.TurnstileWidget do
   @moduledoc """
   The Cloudflare Turnstile widget of a public form.
 
-      <.turnstile_widget id="registration-turnstile" />
+      <.turnstile_widget id="registration-turnstile" auth_form="registration" />
 
   Put the widget inside the form so the submit includes `cf-turnstile-response`.
-  Auth forms use the Authorization settings and `PhoenixKitWeb.Users.BotCheck.run/3`.
+  Auth forms use the Authorization settings and `PhoenixKitWeb.Users.BotCheck.run/4`.
   Other forms pass their selected connection’s public `site_key` and check the token
   with `PhoenixKit.Integrations.Turnstile.verify/3`. A nil key hides the widget.
 
@@ -21,10 +21,15 @@ defmodule PhoenixKitWeb.Components.Core.TurnstileWidget do
   attr :site_key, :string,
     doc: "Public key for a selected connection. Defaults to the auth form configuration."
 
+  attr :auth_form, :string,
+    default: nil,
+    doc: "Auth form whose protection setting controls the widget."
+
   attr :class, :string, default: "mt-4"
 
   def turnstile_widget(assigns) do
-    assigns = assign_new(assigns, :site_key, &Turnstile.widget_site_key/0)
+    assigns =
+      assign_new(assigns, :site_key, fn -> Turnstile.widget_site_key(assigns.auth_form) end)
 
     ~H"""
     <div

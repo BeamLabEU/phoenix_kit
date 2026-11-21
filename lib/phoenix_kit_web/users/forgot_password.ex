@@ -31,7 +31,7 @@ defmodule PhoenixKitWeb.Users.ForgotPassword do
   end
 
   def handle_event("send_email", %{"user" => %{"email" => _}} = params, socket) do
-    case BotCheck.run(socket, params, socket.assigns[:ip_address]) do
+    case BotCheck.run(socket, params, socket.assigns[:ip_address], "password_reset") do
       {:ok, socket} -> send_email(params, socket)
       {:error, socket} -> {:noreply, socket}
     end

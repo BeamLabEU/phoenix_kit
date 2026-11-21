@@ -85,7 +85,7 @@ defmodule PhoenixKitWeb.Users.MagicLink do
 
   @impl true
   def handle_event("send_magic_link", %{"magic_link" => %{"email" => _}} = params, socket) do
-    case BotCheck.run(socket, params, socket.assigns[:ip_address]) do
+    case BotCheck.run(socket, params, socket.assigns[:ip_address], "magic_link") do
       {:ok, socket} -> request_magic_link(params, socket)
       {:error, socket} -> {:noreply, socket}
     end

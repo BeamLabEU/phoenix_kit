@@ -3,7 +3,7 @@ defmodule PhoenixKitWeb.Users.BotCheck do
   The Turnstile check of a public form's submit, for a LiveView.
 
       def handle_event("save", params, socket) do
-        case BotCheck.run(socket, params, socket.assigns[:ip_address]) do
+        case BotCheck.run(socket, params, socket.assigns[:ip_address], "registration") do
           {:ok, socket} -> ...the submit as before...
           {:error, socket} -> {:noreply, socket}
         end
@@ -25,10 +25,10 @@ defmodule PhoenixKitWeb.Users.BotCheck do
 
   @reset_event "phoenix_kit:turnstile_reset"
 
-  @spec run(Phoenix.LiveView.Socket.t(), map(), String.t() | nil) ::
+  @spec run(Phoenix.LiveView.Socket.t(), map(), String.t() | nil, String.t() | nil) ::
           {:ok, Phoenix.LiveView.Socket.t()} | {:error, Phoenix.LiveView.Socket.t()}
-  def run(socket, params, ip_address) when is_map(params) do
-    if Turnstile.enabled?() do
+  def run(socket, params, ip_address, form \\ nil) when is_map(params) do
+    if Turnstile.enabled?(form) do
       case Turnstile.verify(params[Turnstile.response_field()], ip_address) do
         :ok ->
           {:ok, push_event(socket, @reset_event, %{})}

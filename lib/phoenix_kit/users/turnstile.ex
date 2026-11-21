@@ -14,12 +14,19 @@ defmodule PhoenixKit.Users.Turnstile do
   @site_key "turnstile_site_key"
   @secret_key "turnstile_secret_key"
 
+  @forms ~w(registration registration_link password_reset magic_link confirmation_resend)
+
+  def forms, do: @forms
+
   defdelegate response_field(), to: Adapter
   defdelegate check_secret(secret), to: Adapter
 
   def selection do
-    Settings.get_json_setting_cached(@auth_key) ||
-      %{"enabled" => Settings.get_boolean_setting(@enabled_key, false), "connection" => ""}
+    saved =
+      Settings.get_json_setting_cached(@auth_key) ||
+        %{"enabled" => Settings.get_boolean_setting(@enabled_key, false), "connection" => ""}
+
+    Map.put_new(saved, "forms", @forms)
   end
 
   @doc "Verified website connections available to protect the auth forms."
@@ -37,17 +44,34 @@ defmodule PhoenixKit.Users.Turnstile do
         true -> Enum.any?(choices(), fn {id, _} -> id == uuid end)
       end
 
-    if valid? do
-      Settings.update_json_setting(@auth_key, %{"enabled" => enabled, "connection" => uuid}, opts)
-    else
-      {:error, :invalid_connection}
+    with true <- valid? || {:error, :invalid_connection},
+         {:ok, forms} <- selected_forms(params) do
+      Settings.update_json_setting(
+        @auth_key,
+        %{"enabled" => enabled, "connection" => uuid, "forms" => forms},
+        opts
+      )
     end
   end
 
+  defp selected_forms(%{"forms" => forms}) when is_list(forms) do
+    if Enum.all?(forms, &(&1 in ["" | @forms])),
+      do: {:ok, Enum.filter(@forms, &(&1 in forms))},
+      else: {:error, :invalid_forms}
+  end
+
+  defp selected_forms(%{"forms" => _}), do: {:error, :invalid_forms}
+  defp selected_forms(_params), do: {:ok, selection()["forms"]}
+
   def legacy_configured?, do: legacy_site_key() != nil and secret() != nil
 
-  def enabled? do
-    case selection() do
+  def enabled?(form \\ nil) do
+    selection = selection()
+    (is_nil(form) or form in selection["forms"]) and enabled_selection?(selection)
+  end
+
+  defp enabled_selection?(selection) do
+    case selection do
       %{"enabled" => true, "connection" => ""} -> legacy_configured?()
       %{"enabled" => enabled} -> enabled
     end
@@ -63,8 +87,7 @@ defmodule PhoenixKit.Users.Turnstile do
   defp legacy_site_key, do: present(Settings.get_setting_cached(@site_key, nil))
 
   @doc "The site key for a page to render the widget with, or `nil` while off."
-  @spec widget_site_key() :: String.t() | nil
-  def widget_site_key, do: if(enabled?(), do: site_key())
+  def widget_site_key(form \\ nil), do: if(enabled?(form), do: site_key())
 
   @doc """
   What the settings page shows: the switch, the site key and WHETHER a secret
