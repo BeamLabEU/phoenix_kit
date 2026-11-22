@@ -24,7 +24,8 @@ defmodule PhoenixKit.Users.Sessions.Revocation do
   until their next authorization check or reconnect.
 
   A deletion of session tokens also deletes the unused cross-domain handoffs of their accounts
-  (`PhoenixKit.Handoff.revoke_for_users/1`), in the same transaction.
+  (`PhoenixKit.Handoff.revoke_for_users/1`), in the same transaction; a host that has not run
+  migration V236 yet has no such table, and the session is deleted all the same.
 
   These are system primitives, not authorization APIs. A request-driven caller
   authorizes before invoking them. Manager lifecycle callers must also hold

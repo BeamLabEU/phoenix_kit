@@ -499,6 +499,12 @@ defmodule PhoenixKit.Handoff do
   Deletes the unused handoffs of the accounts `user_uuids`. Called, in the same transaction, by
   every deletion of a session token (`PhoenixKit.Users.Sessions.Revocation`): a handoff in flight
   must not outlive the sessions of the account it signs in. Returns how many.
+
+  A host that runs this code before migration V236 has no table to delete from, and a session must
+  end whatever the migration state: the delete then answers `0`. Postgres aborts a transaction on
+  an error, so the delete runs in a savepoint (`mode: :savepoint`), which the error rolls back
+  alone, and the surrounding transaction (the session deletion) stays usable. Any other error is
+  raised.
   """
   @spec revoke_for_users([String.t()]) :: non_neg_integer()
   def revoke_for_users([]), do: 0
@@ -507,11 +513,23 @@ defmodule PhoenixKit.Handoff do
     {count, _} =
       RepoHelper.repo().delete_all(
         from(t in Token, where: t.user_uuid in ^user_uuids and is_nil(t.used_at)),
-        log: false
+        log: false,
+        mode: :savepoint
       )
 
     count
+  rescue
+    error in Postgrex.Error ->
+      if table_missing?(error) do
+        Logger.debug("[Handoff] no handoff table yet (migration V236 pending), nothing to revoke")
+        0
+      else
+        reraise error, __STACKTRACE__
+      end
   end
+
+  defp table_missing?(%Postgrex.Error{postgres: %{code: :undefined_table}}), do: true
+  defp table_missing?(_error), do: false
 
   defp now, do: DateTime.utc_now() |> DateTime.truncate(:second)
 
