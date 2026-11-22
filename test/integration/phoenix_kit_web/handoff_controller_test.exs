@@ -1751,7 +1751,8 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
 
     test "a session younger than the window is still fresh on the target, until the source is not" do
       user = user!()
-      session = aged_session(user, 60)
+      # One minute short of the window: fresh now, and stale two minutes on.
+      session = aged_session(user, (Passkeys.fresh_session_minutes() - 1) * 60)
       source = session[:user_token]
       assert :ok = may_add_passkey(user, source)
 
@@ -1760,8 +1761,9 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
       target = get_session(redeem, :user_token)
       assert :ok = may_add_passkey(user, target)
 
-      # The window closes for both at once.
-      pass_time(user, Passkeys.fresh_session_minutes() * 60)
+      # The window closes for both at once: the target is not "two minutes old", it is as old as
+      # the source.
+      pass_time(user, 120)
       assert {:error, :stale_session} = may_add_passkey(user, source)
       assert {:error, :stale_session} = may_add_passkey(user, target)
     end
