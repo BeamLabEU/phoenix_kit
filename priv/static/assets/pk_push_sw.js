@@ -27,12 +27,22 @@
     event.waitUntil(self.clients.claim());
   });
 
+  // The worker lives at <prefix>/push/sw.js. A refused or missing click
+  // target opens the kit's root, not the host's, when the kit is mounted
+  // under a prefix.
+  function appHome() {
+    var path = self.location.pathname;
+    var at = path.lastIndexOf("/push/");
+    var root = at >= 0 ? path.slice(0, at) : "";
+    return self.location.origin + root + "/";
+  }
+
   function sameOrigin(url) {
     try {
       var parsed = new URL(url, self.location.origin);
-      return parsed.origin === self.location.origin ? parsed.href : self.location.origin + "/";
+      return parsed.origin === self.location.origin ? parsed.href : appHome();
     } catch (_e) {
-      return self.location.origin + "/";
+      return appHome();
     }
   }
 
@@ -48,7 +58,7 @@
       body: typeof data.body === "string" ? data.body : "",
       tag: typeof data.tag === "string" ? data.tag : "pk",
       renotify: false,
-      data: { url: sameOrigin(data.url || "/") }
+      data: { url: sameOrigin(data.url || appHome()) }
     };
     if (typeof data.icon === "string" && data.icon) options.icon = data.icon;
 
@@ -67,7 +77,7 @@
 
   self.addEventListener("notificationclick", function (event) {
     event.notification.close();
-    var url = sameOrigin((event.notification.data || {}).url || "/");
+    var url = sameOrigin((event.notification.data || {}).url || appHome());
 
     var clear = Promise.resolve();
     if (self.navigator && typeof self.navigator.clearAppBadge === "function") {

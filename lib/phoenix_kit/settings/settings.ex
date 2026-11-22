@@ -2030,6 +2030,11 @@ defmodule PhoenixKit.Settings do
   Returns `{:ok, results}` on success, where results is a list of results.
   Returns `{:error, reason}` on transaction error.
 
+  `module:` (a binary) stamps every written row with that module. The cache
+  drop and the change broadcast run only after the transaction commits —
+  a caller that wraps single-key writes in its own transaction announces
+  each one when that write's savepoint releases, which is too early.
+
   ## Examples
 
       iex> settings = %{"aws_region" => "eu-north-1", "aws_access_key_id" => "AKIAIOSFODNN7EXAMPLE"}
@@ -2099,6 +2104,15 @@ defmodule PhoenixKit.Settings do
       # Convert nil to empty string
       stored_value = value || ""
 
+      attrs =
+        case Keyword.get(opts, :module) do
+          module when is_binary(module) and module != "" ->
+            %{value: stored_value, module: module}
+
+          _ ->
+            %{value: stored_value}
+        end
+
       # The row as it is NOW, locked for the transaction — the "before" the
       # history records, read inside the transaction rather than from the
       # pre-read map so a concurrent writer cannot make it stale.
@@ -2113,12 +2127,12 @@ defmodule PhoenixKit.Settings do
         case Map.get(existing_settings, key) do
           %Setting{} = setting ->
             # Update existing setting
-            changeset = Setting.update_changeset(setting, %{value: stored_value})
+            changeset = Setting.update_changeset(setting, attrs)
             {{:update, key}, Ecto.Multi.update(acc, {:update, key}, changeset, log: false)}
 
           nil ->
             # Create new setting
-            changeset = Setting.changeset(%Setting{}, %{key: key, value: stored_value})
+            changeset = Setting.changeset(%Setting{}, Map.put(attrs, :key, key))
             {{:insert, key}, Ecto.Multi.insert(acc, {:insert, key}, changeset, log: false)}
         end
 

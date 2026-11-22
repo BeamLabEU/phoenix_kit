@@ -8,7 +8,9 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessagesTest do
   use PhoenixKitWeb.ConnCase, async: false
 
   alias PhoenixKit.Notifications.Messages
+  alias PhoenixKit.Notifications.Push
   alias PhoenixKit.Notifications.Types
+  alias PhoenixKit.Settings
   alias PhoenixKit.Users.{Auth, Permissions}
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.Auth.User
@@ -43,6 +45,31 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessagesTest do
 
     assert {:error, {_kind, %{to: to}}} = live(conn, @path)
     refute to =~ "notification-messages"
+  end
+
+  test "browser push settings save together and stay on the notifications module", %{conn: conn} do
+    on_exit(fn ->
+      Settings.update_boolean_setting("push_enabled", true)
+      Settings.update_boolean_setting("push_show_line", false)
+      Settings.update_setting("push_group_seconds", "30")
+    end)
+
+    {:ok, view, _html} = live(editor(conn), @path)
+
+    view
+    |> form("#notification-messages-push", %{
+      "push" => %{"enabled" => "false", "show_line" => "true", "group_seconds" => "45"}
+    })
+    |> render_submit()
+
+    assert render(view) =~ "Saved."
+    refute Push.enabled?()
+    assert Push.show_line?()
+    assert Push.group_seconds() == 45
+
+    for key <- ~w(push_enabled push_show_line push_group_seconds) do
+      assert Repo.get_by!(Settings.Setting, key: key).module == "notifications"
+    end
   end
 
   test "opens on every notification's email, starting from the default", %{conn: conn} do

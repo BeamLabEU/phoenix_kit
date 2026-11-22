@@ -303,15 +303,22 @@ defmodule PhoenixKit.Notifications.Push.WebPush do
       request =
         [url: endpoint, body: body, headers: headers]
         |> Keyword.merge(
-          retry: false,
-          redirect: false,
-          receive_timeout: 10_000,
-          connect_options: [timeout: 5_000]
+          request_options(Application.get_env(:phoenix_kit, :push_req_options, []))
         )
-        |> Keyword.merge(Application.get_env(:phoenix_kit, :push_req_options, []))
 
       request |> Req.post() |> result()
     end
+  end
+
+  @doc false
+  # Host options (`config :phoenix_kit, :push_req_options`, the test plug
+  # among them) may set timeouts and adapters. They may not turn redirects
+  # or Req's retries back on: a redirect would POST the encrypted body to
+  # whatever a push service answers with, past `endpoint_ok?/1`.
+  def request_options(extra) when is_list(extra) do
+    [receive_timeout: 10_000, connect_options: [timeout: 5_000]]
+    |> Keyword.merge(extra)
+    |> Keyword.merge(retry: false, redirect: false)
   end
 
   @doc false

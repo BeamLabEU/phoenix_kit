@@ -83,12 +83,18 @@ defmodule PhoenixKitWeb.PushWebTest do
       assert conn.resp_body =~ "self.PK_PUSH = "
       assert conn.resp_body =~ Push.WebPush.public_key_b64()
       assert conn.resp_body =~ "addEventListener(\"push\""
+      assert conn.resp_body =~ "lastIndexOf(\"/push/\")"
     end
 
     test "the manifest names the site; the install page links it", %{conn: conn} do
       manifest = conn |> get(Routes.path("/push/manifest.webmanifest")) |> json_response(200)
       assert manifest["display"] == "standalone"
-      assert manifest["start_url"] =~ "/profile/settings/notifications"
+
+      assert manifest["start_url"] ==
+               Routes.path("/profile/settings/notifications", locale: :none)
+
+      assert manifest["scope"] == Routes.path("/", locale: :none)
+      assert String.starts_with?(manifest["id"], String.trim_trailing(manifest["scope"], "/"))
 
       page = build_conn() |> get(Routes.path("/push/install")) |> html_response(200)
       assert page =~ ~s(rel="manifest")
@@ -158,6 +164,7 @@ defmodule PhoenixKitWeb.PushWebTest do
       assert page =~ "This notification is for another account"
       assert page =~ owner.email
       assert page =~ "Switch and open"
+      assert page =~ ~s(href="#{Routes.path("/")}")
 
       switched = post(conn, open_path(h))
       assert redirected_to(switched) == "/admin/projects?for=owner"

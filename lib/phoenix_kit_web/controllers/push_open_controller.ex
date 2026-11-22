@@ -127,7 +127,10 @@ defmodule PhoenixKitWeb.PushOpenController do
   end
 
   defp render_page(conn, page, assigns) do
-    assigns = Map.merge(assigns, %{page: page, style: @style})
+    assigns =
+      assigns
+      |> Map.put_new(:home, Routes.path("/"))
+      |> Map.merge(%{page: page, style: @style})
 
     conn
     |> put_resp_header("cache-control", "no-store")
@@ -160,7 +163,7 @@ defmodule PhoenixKitWeb.PushOpenController do
             <input type="hidden" name="_csrf_token" value={@csrf_token} />
             <div class="actions">
               <button type="submit">{gettext("Switch and open")}</button>
-              <a href="/">{gettext("Stay")}</a>
+              <a href={@home}>{gettext("Stay")}</a>
             </div>
           </form>
         <% else %>

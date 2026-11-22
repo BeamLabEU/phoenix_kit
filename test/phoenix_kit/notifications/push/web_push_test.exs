@@ -54,6 +54,22 @@ defmodule PhoenixKit.Notifications.Push.WebPushTest do
              "hello" <> <<2>>
   end
 
+  test "host request options cannot turn redirects or retries back on" do
+    opts =
+      WebPush.request_options(
+        plug: :test_adapter,
+        redirect: true,
+        retry: :safe,
+        receive_timeout: 1
+      )
+
+    assert opts[:redirect] == false
+    assert opts[:retry] == false
+    assert opts[:plug] == :test_adapter
+    assert opts[:receive_timeout] == 1
+    assert opts[:connect_options] == [timeout: 5_000]
+  end
+
   test "a payload over one record, or a malformed key, is refused" do
     assert {:error, :payload_too_large} =
              WebPush.encrypt(

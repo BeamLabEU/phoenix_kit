@@ -34,7 +34,6 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessages do
   alias PhoenixKit.Notifications.Messages
   alias PhoenixKit.Notifications.Push
   alias PhoenixKit.Notifications.Types
-  alias PhoenixKit.RepoHelper
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.RecipientLocale
@@ -238,36 +237,32 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessages do
         _ -> Push.group_seconds()
       end
 
+    # `update_settings_batch/2` commits the three keys together and announces
+    # them only afterwards. An outer `transact` around
+    # `update_setting_with_module/4` does not: each write's own transaction
+    # is a savepoint, and it broadcasts and drops the cache when that
+    # savepoint releases — before this function commits. A reader in that
+    # window caches the old value for the settings TTL, and a later failure
+    # has already told subscribers about rows that then roll back.
     result =
-      RepoHelper.repo().transact(fn ->
-        with {:ok, _} <-
-               Settings.update_boolean_setting_with_module(
-                 "push_enabled",
-                 push["enabled"] == "true",
-                 "notifications",
-                 opts
-               ),
-             {:ok, _} <-
-               Settings.update_boolean_setting_with_module(
-                 "push_show_line",
-                 push["show_line"] == "true",
-                 "notifications",
-                 opts
-               ) do
-          Settings.update_setting_with_module(
-            "push_group_seconds",
-            Integer.to_string(seconds),
-            "notifications",
-            opts
-          )
-        end
-      end)
+      Settings.update_settings_batch(
+        %{
+          "push_enabled" => if(push["enabled"] == "true", do: "true", else: "false"),
+          "push_show_line" => if(push["show_line"] == "true", do: "true", else: "false"),
+          "push_group_seconds" => Integer.to_string(seconds)
+        },
+        Keyword.merge(opts, module: "notifications")
+      )
 
     socket = assign_push_settings(socket)
 
     case result do
-      {:ok, _} -> {:noreply, put_flash(socket, :info, gettext("Saved."))}
-      {:error, _} -> {:noreply, put_flash(socket, :error, gettext("Failed to save settings"))}
+      {:ok, _} ->
+        {:noreply, put_flash(socket, :info, gettext("Saved."))}
+
+      # A failed batch is `{:error, operation, value, changes}`, not a pair.
+      _ ->
+        {:noreply, put_flash(socket, :error, gettext("Failed to save settings"))}
     end
   end
 

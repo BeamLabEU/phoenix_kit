@@ -55,8 +55,10 @@ defmodule PhoenixKitWeb.PushController do
         id: Routes.path("/push/app", locale: :none),
         name: name,
         short_name: String.slice(name, 0, 12),
-        start_url: Routes.path("/profile/settings/notifications"),
-        scope: "/",
+        start_url: Routes.path("/profile/settings/notifications", locale: :none),
+        # The installed app's navigation scope is the kit's own root. `"/"`
+        # would claim the whole origin when the kit is mounted under a prefix.
+        scope: Routes.path("/", locale: :none),
         display: "standalone",
         theme_color: accent(),
         background_color: "#ffffff",
@@ -82,7 +84,7 @@ defmodule PhoenixKitWeb.PushController do
       icon: logo(),
       accent: accent(),
       manifest: Routes.path("/push/manifest.webmanifest", locale: :none),
-      settings: Routes.path("/profile/settings/notifications")
+      settings: Routes.path("/profile/settings/notifications", locale: :none)
     }
 
     conn
