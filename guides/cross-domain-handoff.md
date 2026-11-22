@@ -177,7 +177,7 @@ hand over to:
 - **Not carried, on purpose:** an impersonated session, a session acting for an
   organization, and an account that may not sign in (inactive, service user,
   organization: `PhoenixKit.Users.Auth.sign_in_refusal/1`, the one rule
-  `log_in_user/3` also uses). Such a visitor is simply sent on, signed out, or
+  `log_in_user` also uses). Such a visitor is simply sent on, signed out, or
   sent to `/`.
 - **Any failure** at any step (an unknown host or parameter, an expired, used
   or foreign token, a rate limit, a missing or forged cookie) is a `302` to `/`
@@ -216,6 +216,9 @@ normal one).
   expired in the meantime, however it went (it does not matter whether a
   revocation hook ran). No timing is involved: a revocation that commits at any
   moment before the redeem ends the handoff.
+- `mint` refuses an account whose session it cannot find (it went between the
+  pipeline and the insert), and `Handoff.mint/1` refuses an account with no
+  session to name: a row for an account always continues one.
 - A **guest** has no session and a guest's row names none; nothing is inherited.
 - The sessions list shows the handed-over session with the date of the original
   sign-in (it is the same sign-in), so the source and the target rows share it.
@@ -249,7 +252,10 @@ That gives:
   database, with one indexed existence query on `source_proof_hash`, whether the
   proof already has a row, **before it asks the host resolver or any module**, so a
   replay (on another node, after a restart, after the limiter forgot it) is
-  refused there and costs no snapshot round; one `mint` per proof per minute (per
+  refused there and costs no snapshot round. (The session token has been looked
+  up by then, by the pipeline's own `fetch_phoenix_kit_current_user` ahead of the
+  controller; what a replay skips is building the scope, the resolver and every
+  module's snapshot.) one `mint` per proof per minute (per
   node, in memory); and, **for a guest and a signed-in account alike**, 60 mints a
   minute per address. What a client with one genuine cookie can cost is therefore
   one row and, at most, the snapshot rounds of the requests that arrive before the
