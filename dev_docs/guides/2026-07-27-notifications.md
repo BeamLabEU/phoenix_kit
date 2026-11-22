@@ -220,9 +220,16 @@ are computed + enqueued independently, so "Telegram on, inbox off" works with
     this browser holds and may switch to (`MultiSession.gate_allowed?/1`, not a
     borrowed one) it asks "Switch and open" (a CSRF POST); anything else gets a
     page that names no one.
-  - **Clean-up** — logging out (and removing an account from the switcher)
-    drops that account's binding in this browser (cookie `pk_push_browser`), and
-    the last binding takes the installation. A rotated subscription is reported
+  - **Clean-up** — logging out (and removing an account from the switcher, or
+    logging out an added one) drops that account's binding in this browser
+    (cookie `pk_push_browser`), and the last binding takes the installation.
+    Whatever ends a linked Telegram chat ends every device of the account
+    (`Push.forget_account/1`; `forget_account!/1` inside a caller's
+    transaction): deactivation, a password change or reset, an external-proof
+    confirmation, signing out everywhere or the other sessions (this browser's
+    too: a binding names no session), conversion to a managed organization,
+    deletion. A new path of that kind calls it too. `take_pending/1` builds
+    nothing for an account `subscribe/3` would refuse. A rotated subscription is reported
     by the worker to `POST <prefix>/push/resubscribe`, proven by the old
     subscription's `auth` secret.
   - **Host notes** — the service worker is served by core at

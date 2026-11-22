@@ -1,20 +1,62 @@
-## Unreleased
-
-### Fixed
-
-- **`mix igniter.install phoenix_kit` no longer hangs at "Run migration?".** Igniter runs
-  the queued `phoenix_kit.post_install` task through `Mix.shell().cmd/1`, whose child
-  inherits `TERM` but gets no keyboard input, so the prompt there could never be answered.
-  The installer now asks "Run the migration after installing?" itself, before "Proceed
-  with changes?", and passes the answer on (`--migrate` / `--no-migrate`). An explicit
-  `--yes` runs the migration; with no terminal and no `--yes` nothing is asked and the
-  "run `mix ecto.migrate`" note is printed. `post_install` run by hand asks only when
-  standard input is a real terminal (`MigrationStrategy.interactive_terminal?/0`), not
-  whenever `TERM` is set.
-
-## 3.7.0 - 2026-11-21
+## 3.7.0 - 2026-11-22
 
 ### Added
+
+- **Browser push notifications** (#1053, migration V235). "Browser" is a notification channel
+  next to email and Telegram, built in core on Web Push (RFC 8030/8291/8292) with no new
+  dependency. A person turns it on per browser or phone from the Browser card of their
+  notification settings (at most 10 devices) and chooses its types there. The first time, the
+  types they get by email are ticked. A borrowed session, a managed organization and a service
+  user can't turn it on.
+  - **One push per window.** Notices are grouped per account for `push_group_seconds`
+    (default 30, 5–600) into one push per device: "New notification" or "N notifications
+    pending". By default a locked screen shows nothing else. `push_show_line` (default off) shows
+    the notification's line. The quoted comment is never pushed, and neither is a notice the
+    reader can no longer see. All three settings, with `push_enabled` (default on), are on
+    Settings → Notification messages.
+  - **A click opens an encrypted handle** (`<prefix>/notifications/open/<handle>`, valid 7 days).
+    The account in use goes straight to the notification. For another account this browser holds
+    and may switch to, the page offers "Switch and open". Anything else gets a page that names no
+    one.
+  - **Devices end with the account's access.** Logging out drops the binding, and so does
+    removing an account from the switcher or logging out an added account. Deactivation, a
+    password change or reset, signing out everywhere or the other sessions, conversion to a
+    managed organization and deletion end all of the account's devices, as they end a linked
+    Telegram chat. A device the push service reports gone (404/410) is deleted.
+  - **For hosts.** The site's VAPID key is made on first use (`push_vapid_key`, a restricted,
+    encrypted setting), so push needs a working encryption key. Endpoints must belong to a known
+    push service (FCM, Mozilla, Apple, Windows, plus `config :phoenix_kit, :push_service_hosts`)
+    on a public address. The service worker is served at `<prefix>/push/sw.js`, scoped to
+    `<prefix>/push/`, with no fetch handler. A Content Security Policy needs `worker-src 'self'`
+    and `manifest-src 'self'`. iPhone and iPad get push only from a site on the Home Screen; the
+    card links `<prefix>/push/install`, which carries its own manifest. Jobs run on the existing
+    `:notifications` queue. Run `mix phoenix_kit.update` for V235.
+- **Settings → Notification messages: edit the wording per type and language** (#1052). For all
+  notifications or one type, edit the email subject and Markdown body, or the Telegram text, in one
+  language at a time. The editor starts from what readers get today, lists the channel's
+  variables, and previews live with sample values (the email in a sandboxed iframe). It also has
+  Reset to default, a notice when the default changed since the wording was saved, and a list of
+  languages with their own wording. A save from an older copy is refused, and so is `{{{raw}}}`.
+  Delivery tries the type's wording in the reader's dialect, then its base language, then the
+  wording for all types, then the host's file and the translated default. Saved wording is stored
+  in settings (`PhoenixKit.Notifications.Messages`), with history. The page needs the new
+  sub-permission `settings.messages`: Admin gets it at boot, and it is not backfilled to other
+  `settings` holders.
+- **Notifications are sent as parts: a title, a button, the quote** (#1052). A module may set
+  `notification_title` (the email subject, Telegram's first line) and `notification_action` (the
+  button's label, e.g. "Open task"; "Open" otherwise) in an activity's metadata. A notification
+  type may declare `visible: {Mod, :fun}`. If the reader can no longer see the record when the
+  message is sent, it goes out with its line only, without the comment.
+- **Cloudflare Turnstile is a website integration** (`cloudflare_turnstile`). Add and test a
+  widget under Settings → Integrations, then select it under Settings → Authorization → Abuse
+  protection. Installations keep working with the keys they saved before. Other features can use
+  the same connections: `Integrations.connected_choices(:turnstile, :system)`,
+  `PhoenixKit.Integrations.Turnstile.site_key/1` and `verify/3`.
+- **Turnstile per auth form, and on password sign-in.** Abuse protection lists the protected
+  forms. The five email forms are selected by default; password sign-in is a separate opt-in that
+  verifies the token before checking credentials. The master switch keeps the selection while it
+  is off. A form passes its server-defined key to both `<.turnstile_widget auth_form="…">` and
+  `BotCheck.run/4`.
 
 - Map a site or personal CDN connection to a serving bucket. The Bunny source check verifies a cold read, a cache hit after origin deletion, and withdrawal after purge. The setup form includes instructions for private S3-compatible origins.
 - Filter integration providers by service. Bucket setup opens the CDN picker and preserves the bucket while selecting a provider.
@@ -136,9 +178,23 @@
 - **Confirming an email refreshes the account's open pages** (#1050): the confirmation broadcasts
   a scope refresh (`ScopeNotifier.broadcast_account_changed/1`), so a "check your email" notice
   disappears in every tab without a reload.
+- **The default `notification` email is Markdown** (#1052): the line, the quoted comment, a
+  button, and the setting line with a "Change" link, with only the paragraphs a notice has. Every
+  value is substituted after rendering and escaped, and the subject is always one line. Telegram
+  sends plain text with an inline button and no link preview, within 4,096 characters, cutting the
+  quote first. A button Telegram refuses is sent again as a link in the text, and Telegram stays on.
 
 ### Fixed
 
+- **`mix igniter.install phoenix_kit` no longer hangs at "Run migration?".** Igniter runs
+  the queued `phoenix_kit.post_install` task through `Mix.shell().cmd/1`, whose child
+  inherits `TERM` but gets no keyboard input, so the prompt there could never be answered.
+  The installer now asks "Run the migration after installing?" itself, before "Proceed
+  with changes?", and passes the answer on (`--migrate` / `--no-migrate`). An explicit
+  `--yes` runs the migration; with no terminal and no `--yes` nothing is asked and the
+  "run `mix ecto.migrate`" note is printed. `post_install` run by hand asks only when
+  standard input is a real terminal (`MigrationStrategy.interactive_terminal?/0`), not
+  whenever `TERM` is set.
 - **A Turnstile connection that can no longer verify does not lock the doors.** The
   widget was hidden while every protected submit, including password sign-in, was
   refused. The check is now off until the connection can verify, and Settings →
@@ -188,6 +244,8 @@
 
 - **Turnstile settings and the password sign-in check** are in the catalogues: the
   flash when the check is missing, the form list, and the connection picker.
+- **Notification messages and browser push** are translated in all nine catalogues: the
+  editor (43 strings), the Browser card, the install page, the click pages and the pushes.
 
 ## 3.6.1 - 2026-11-16
 
