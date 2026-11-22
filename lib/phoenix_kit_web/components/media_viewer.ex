@@ -53,18 +53,21 @@ defmodule PhoenixKitWeb.Components.MediaViewer do
   - `details` — default `true`. `false` cuts the sidebar down to the file's name
     and its Download controls: no title, description, alt text or tags, no type,
     MIME type, size, dimensions or dates, no status, uploader or uuid, no EXIF
-    panel, no link to a details page. The name is the file's translated title
-    when it has one, else the name it was uploaded under. A display rule, not a
-    boundary for the bytes: the host chose the files, and Download hands over the
-    file itself (under the name it was uploaded with).
+    panel, no link to a details page. The name shown is always the one the file
+    was uploaded under, never its translated title, and Download lists the file's
+    variants by name. A display rule, not a boundary for the bytes: the host
+    chose the files, and Download hands over the file itself (under the name it
+    was uploaded with).
   - `authors` — default `true`. `false` keeps every name that says who drew a
     shape or wrote a comment out of the browser: the marker byline is dropped
     from the shapes' payload and from every patch pushed to them, so the tooltip
     header is the shape's label or its kind. The drawings and their labels stay.
     The comments thread names each commenter, so it is not rendered under
-    `authors={false}` (with `comments` on, a shape's tooltip still previews the
-    first comment's text and offers Reply — pass `comments={false}` as well to
-    take the discussion out altogether).
+    `authors={false}`. With `comments` on, a shape's tooltip still previews the
+    first comment's text and offers Reply and View: Reply is refused on the
+    server (a comment its writer could not read back) and View has no thread to
+    scroll to. Pass `comments={false}` as well to take the discussion out
+    altogether.
 
   The lightbox never offers the viewer's other writes: no title/description
   editor, no persisted rotation, no "Edit image", no trash buttons, no
@@ -91,8 +94,13 @@ defmodule PhoenixKitWeb.Components.MediaViewer do
   Two things the options do not reach, said plainly:
 
     * The burn route `POST /api/files/:uuid/burn` is an HTTP route that follows
-      the user's own rights, not the host's options: an uploader may re-render
-      his own file's thumbnails there whatever the lightbox offered.
+      the user's own rights, not the host's options. It writes the file's
+      `thumbnail`, `burned` and `burned_large` renditions, and `burned_large` is
+      the picture this lightbox opens on. So the uploader, and anyone with edit
+      rights on the file, can replace what everyone else sees first on that file,
+      whatever `annotate_only`, `can_annotate` or `own_files_only` said. The
+      images are re-encoded on the way in, so it is substitution on that one
+      file, not a wider write.
     * The drawing toolbar's "Insert image" stores the picture as a `data:` URL
       inside the annotation, with no size cap, so someone who may draw on a file
       can store bytes in the annotations of that file. Limit `annotate_only` to
@@ -128,12 +136,14 @@ defmodule PhoenixKitWeb.Components.MediaViewer do
       |> assign(:details, assigns[:details] != false)
       |> assign(:authors, assigns[:authors] != false)
 
-    {:ok,
-     assign(
-       socket,
-       :current_file,
-       curate_file(socket.assigns.current_uuid, socket.assigns.files)
-     )}
+    socket =
+      assign(
+        socket,
+        :current_file,
+        curate_file(socket.assigns.current_uuid, socket.assigns.files)
+      )
+
+    {:ok, assign_neighbours(socket)}
   end
 
   @impl true
@@ -165,8 +175,12 @@ defmodule PhoenixKitWeb.Components.MediaViewer do
   # also posts `viewer_pick`, `trash_file`, `restore_file`, `delete_file` and
   # `set_featured` / `unset_featured` to its parent, but only for a host that
   # asked for those buttons, and the lightbox asks for none. A client can push
-  # any event at a component, so anything else is ignored, not a crash.
-  def handle_event(_event, _params, socket), do: {:noreply, socket}
+  # any event at a component, so anything else is ignored, not a crash. The
+  # debug line is there to make a host's mistyped `phx-target` findable.
+  def handle_event(event, _params, socket) do
+    Logger.debug("MediaViewer: ignored event #{inspect(event)}")
+    {:noreply, socket}
+  end
 
   # ── private ──────────────────────────────────────────────────────────
 
@@ -202,24 +216,50 @@ defmodule PhoenixKitWeb.Components.MediaViewer do
          {uuid, file} <- next_showable(list, idx, direction) do
       socket
       |> assign(:current_uuid, uuid)
-      |> assign(:current_file, file)
+      |> assign(:current_file, curate(file))
+      |> assign_neighbours()
     else
       _ -> socket
     end
   end
 
-  defp next_showable(list, idx, direction) do
-    next_idx = if direction == :prev, do: idx - 1, else: idx + 1
+  # Whether a prev / next arrow has anywhere to go: the same walk stepping does,
+  # so an arrow is live only when a click would show a file. Worked out when the
+  # file changes (update / step), not on every render. Nothing is looked up when
+  # no file is open.
+  defp assign_neighbours(%{assigns: %{current_file: nil}} = socket),
+    do: socket |> assign(:has_prev, false) |> assign(:has_next, false)
 
-    with true <- next_idx >= 0 and next_idx < length(list),
-         uuid when is_binary(uuid) <- Enum.at(list, next_idx) do
-      case curate_file(uuid, list) do
-        nil -> next_showable(list, next_idx, direction)
+  defp assign_neighbours(socket) do
+    list = socket.assigns.files
+
+    case Enum.find_index(list, &(&1 == socket.assigns.current_uuid)) do
+      nil ->
+        socket |> assign(:has_prev, false) |> assign(:has_next, false)
+
+      idx ->
+        socket
+        |> assign(:has_prev, next_showable(list, idx, :prev) != nil)
+        |> assign(:has_next, next_showable(list, idx, :next) != nil)
+    end
+  end
+
+  # The first file after (or before) position `idx` that may be shown, as
+  # `{uuid, file row}`. One lookup per file passed over; a long run of trashed
+  # files costs one read each.
+  defp next_showable(list, idx, direction) do
+    candidates =
+      case direction do
+        :prev -> list |> Enum.take(idx) |> Enum.reverse()
+        :next -> Enum.drop(list, idx + 1)
+      end
+
+    Enum.find_value(candidates, fn uuid ->
+      case fetch_showable(uuid) do
+        nil -> nil
         file -> {uuid, file}
       end
-    else
-      _ -> nil
-    end
+    end)
   end
 
   @doc false
@@ -241,8 +281,7 @@ defmodule PhoenixKitWeb.Components.MediaViewer do
 
   defp curate_file(file_uuid, files) when is_binary(file_uuid) do
     with true <- file_uuid in files,
-         %Storage.File{} = file <- safe(fn -> Storage.get_file(file_uuid) end, nil),
-         true <- servable?(file) do
+         %Storage.File{} = file <- fetch_showable(file_uuid) do
       curate(file)
     else
       _ -> nil
@@ -250,6 +289,20 @@ defmodule PhoenixKitWeb.Components.MediaViewer do
   end
 
   defp curate_file(_file_uuid, _files), do: nil
+
+  # The file row for a uuid that may be shown, else nil (not found, trashed,
+  # system-managed, or the lookup failed). Callers vouch that the uuid is in
+  # `files`.
+  defp fetch_showable(file_uuid) when is_binary(file_uuid) do
+    with %Storage.File{} = file <- safe(fn -> Storage.get_file(file_uuid) end, nil),
+         true <- servable?(file) do
+      file
+    else
+      _ -> nil
+    end
+  end
+
+  defp fetch_showable(_file_uuid), do: nil
 
   defp curate(%Storage.File{} = file) do
     file_uuid = file.uuid

@@ -198,6 +198,18 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerEmbedOptionsTest do
       assert socket.assigns.replying_annotation_uuid == nil
       assert socket.assigns.reply_parent_uuid == nil
     end
+
+    test "authors off refuses it as well: the thread is not shown, a reply could not be read back" do
+      {:noreply, socket} =
+        MediaCanvasViewer.handle_event(
+          "annotation_reply",
+          %{"uuid" => @shape_uuid},
+          reply_socket(%{comments: true, authors: false})
+        )
+
+      assert socket.assigns.replying_annotation_uuid == nil
+      assert socket.assigns.reply_parent_uuid == nil
+    end
   end
 
   describe "annotation_row_writable?/2 under own_files_only" do
@@ -365,7 +377,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerEmbedOptionsTest do
     end
 
     # Stored fields of the file row and its instances the sidebar prints.
-    @stored ~w(DescUniq AltUniq TagUniq UploaderUniq ExtraUniq CameraUniq 0190ffff-0000-7000-8000-00000000f11e)
+    @stored ~w(TitleUniq DescUniq AltUniq TagUniq UploaderUniq ExtraUniq CameraUniq 0190ffff-0000-7000-8000-00000000f11e)
 
     test "default: the sidebar prints every one of them (the control)" do
       html = sidebar(%{})
@@ -402,7 +414,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerEmbedOptionsTest do
         refute html =~ label, "#{label} is still in the sidebar"
       end
 
-      assert text_of(html, "h2") =~ "TitleUniq"
+      assert text_of(html, "h2") =~ "test.jpg"
       assert html =~ ~s(href="/f/original.jpg")
       assert html =~ "Download"
     end
@@ -422,11 +434,28 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerEmbedOptionsTest do
       assert html =~ ~s(href="/f/original.jpg")
     end
 
-    test "the name is the translated title when there is one, else the original file name" do
-      assert text_of(sidebar(%{details: false}), "h2") =~ "TitleUniq"
+    test "the name is the uploaded one, with or without a title: the title is never the name" do
+      for meta <- [
+            %{title: "TitleUniq", alt: "", description: ""},
+            %{title: "", alt: "", description: ""}
+          ] do
+        html = sidebar(%{details: false, media_meta: meta})
 
-      blank = %{title: "", alt: "", description: ""}
-      assert text_of(sidebar(%{details: false, media_meta: blank}), "h2") =~ "test.jpg"
+        assert text_of(html, "h2") =~ "test.jpg"
+        refute html =~ "TitleUniq"
+      end
+    end
+
+    test "an audio card and a PDF frame carry the uploaded name, not the title" do
+      audio = %{render_assigns(%{}).file | mime_type: "audio/mpeg", file_type: "audio"}
+      pdf = %{render_assigns(%{}).file | mime_type: "application/pdf", file_type: "document"}
+
+      for file <- [audio, pdf] do
+        html = sidebar(%{file: file, details: false})
+
+        refute html =~ "TitleUniq"
+        assert html =~ "test.jpg"
+      end
     end
 
     test "update/2 keeps the flag, and the default is on" do
@@ -441,11 +470,15 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerEmbedOptionsTest do
       assert html =~ ~s(download="test.jpg")
     end
 
-    test "a file the viewer cannot preview: the card prints no MIME type" do
+    test "a file the viewer cannot preview: the card prints no type and no MIME type" do
       file = %{render_assigns(%{}).file | mime_type: "application/zip", file_type: "archive"}
 
       assert sidebar(%{file: file}) =~ "application/zip"
-      refute sidebar(%{file: file, details: false}) =~ "application/zip"
+      assert sidebar(%{file: file}) =~ "ARCHIVE"
+
+      html = sidebar(%{file: file, details: false})
+      refute html =~ "application/zip"
+      refute html =~ "ARCHIVE"
     end
   end
 
@@ -476,13 +509,6 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerEmbedOptionsTest do
       {_canvas, shape} = built(true)
 
       assert shape["metadata"]["comment_author"] == @author
-    end
-
-    test "the canvas built with the default arity is the default" do
-      file = render_assigns(%{}).file
-
-      assert MediaCanvasViewer.build_viewer_canvas(file, [@stamped], false) ==
-               MediaCanvasViewer.build_viewer_canvas(file, [@stamped], false, true)
     end
 
     test "the shape's payload has no author, and keeps the label and the rest" do

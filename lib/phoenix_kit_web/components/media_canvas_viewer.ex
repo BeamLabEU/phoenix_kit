@@ -92,11 +92,10 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       name and its Download controls. Not printed: the title, alt text,
       description and tags, the type, MIME type, size, dimensions, dates, status,
       uploader and uuid, the rows other modules add, the EXIF panel, and the
-      "Storage" link. The name is the file's translated title when it has one
-      (`FileDetails.translated_title/2`), else the name it was uploaded under;
-      the Download links keep the uploaded name. A display rule, not a boundary
-      for the bytes: the host chose which files to open, and the download is
-      the file itself.
+      "Storage" link. The name shown is always the one the file was uploaded
+      under, never its translated title; Download offers the file's variants by
+      name. A display rule, not a boundary for the bytes: the host chose which
+      files to open, and the download is the file itself.
     * `:authors` (default `true`) — `false` keeps every name that says WHO drew
       a shape or wrote a comment out of the browser: the marker byline
       (`metadata.comment_author`) is dropped from the shapes' payload and from
@@ -104,6 +103,9 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       shape's label, then its kind. The comments thread names each commenter and
       cannot be made anonymous from here, so it is not rendered. The drawings
       and their labels are untouched. The server keeps the byline on the row.
+      With `:comments` on, a shape's tooltip still previews the first comment
+      and offers Reply and View: View has no thread to scroll to, and Reply is
+      refused on the server (pass `comments={false}` to take both away).
     * `:details_path` (default `nil`) — when set, the sidebar shows an
       "Open details page" button navigating to this path. Admin-context
       hosts (`MediaBrowser` with `admin={true}`) pass the file's
@@ -616,6 +618,11 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   # Comments off: the popup is not rendered, and Reply would write a comment
   # (the shape's master) all the same if the event were sent from a console.
   def handle_event("annotation_reply", _params, %{assigns: %{comments: false}} = socket),
+    do: {:noreply, socket}
+
+  # Authors off: the thread is not rendered, so a reply would be a comment its
+  # writer can never read back. The tooltip still offers Reply; this refuses it.
+  def handle_event("annotation_reply", _params, %{assigns: %{authors: false}} = socket),
     do: {:noreply, socket}
 
   def handle_event("annotation_reply", %{"uuid" => uuid}, socket) do
@@ -1143,13 +1150,6 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
     query = URI.decode_query(uri.query || "") |> Map.put("dl", "1") |> URI.encode_query()
     URI.to_string(%{uri | query: query})
   end
-
-  # The file's name on screen. `details` off swaps the name it was uploaded under
-  # for the title it has been given (the one the sidebar's "Title & description"
-  # section reads: `FileDetails.translated_title/2`, in this language, falling
-  # back to the primary one); with no title, or `details` on, it is the file name.
-  defp display_name(_f, false, %{title: title}) when is_binary(title) and title != "", do: title
-  defp display_name(f, _details?, _media_meta), do: f.filename
 
   defp download_variants(urls) do
     urls
@@ -2142,8 +2142,6 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   end
 
   @doc false
-  def build_viewer_canvas(file, annotations, locked?, authors? \\ true)
-
   def build_viewer_canvas(nil, _annotations, _locked?, _authors?), do: nil
 
   def build_viewer_canvas(file, annotations, locked?, authors?) when is_map(file) do

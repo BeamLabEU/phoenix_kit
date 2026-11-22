@@ -144,6 +144,28 @@ defmodule PhoenixKitWeb.Components.MediaViewerEmbedOptionsTest do
     end
   end
 
+  describe "the prev / next arrows" do
+    # What a step would land on is worked out in `update/2` and on each step
+    # (it needs the files, so see the integration file); the template hands
+    # that to the canvas viewer, not a guess from the list position.
+    test "come from the lightbox's own assigns, not from where the file sits in the list" do
+      middle = %{assigns_with_file(%{}) | current_uuid: @u2}
+
+      for {prev, next} <- [{false, false}, {true, false}, {false, true}, {true, true}] do
+        child = child_assigns(%{middle | has_prev: prev, has_next: next})
+        assert {child.has_prev, child.has_next} == {prev, next}
+      end
+    end
+
+    test "are off when no file is open (a seed outside `files`), and nothing is looked up" do
+      {:ok, socket} =
+        MediaViewer.update(%{id: "v1", files: [@u1, @u2, @u3], current: @outside}, fresh_socket())
+
+      assert socket.assigns.current_file == nil
+      assert {socket.assigns.has_prev, socket.assigns.has_next} == {false, false}
+    end
+  end
+
   describe "annotate_only: which files may be drawn on" do
     # The canvas viewer's id carries the file uuid, so stepping to another
     # file mounts a fresh child whose `can_annotate` is worked out from what

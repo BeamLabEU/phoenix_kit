@@ -4,12 +4,16 @@ defmodule PhoenixKitWeb.Components.MediaViewerEmbedOptionsIntegrationTest do
   file, and a file in the trash or a system-managed one (a tile chunk, an
   edited image's hidden original) is shown as unavailable even when the host
   passed its uuid — the file route would refuse both. Stepping goes over such
-  a file to the next one that can be shown, and stays where it is when there
-  is none.
+  a file, and over a uuid that has no file row at all, to the next one that can
+  be shown, and stays where it is when there is none; the prev / next arrows
+  are live only where a step would land. A file of a private library is signed
+  with a time-window token.
   """
   use PhoenixKit.DataCase, async: false
 
   alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.Library
+  alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Users.Auth
   alias PhoenixKitWeb.Components.MediaViewer
 
@@ -49,10 +53,14 @@ defmodule PhoenixKitWeb.Components.MediaViewerEmbedOptionsIntegrationTest do
     file
   end
 
+  # A file row, or a bare uuid that has no row.
+  defp uuid_of(%{uuid: uuid}), do: uuid
+  defp uuid_of(uuid) when is_binary(uuid), do: uuid
+
   defp socket(files, current) do
     {:ok, socket} =
       MediaViewer.update(
-        %{id: "v1", files: Enum.map(files, & &1.uuid), current: current.uuid},
+        %{id: "v1", files: Enum.map(files, &uuid_of/1), current: uuid_of(current)},
         %Phoenix.LiveView.Socket{assigns: %{__changed__: %{}}}
       )
 
@@ -63,6 +71,13 @@ defmodule PhoenixKitWeb.Components.MediaViewerEmbedOptionsIntegrationTest do
     {:noreply, socket} = MediaViewer.handle_event("step_viewer", %{"dir" => dir}, socket)
     socket
   end
+
+  defp key(socket, key) do
+    {:noreply, socket} = MediaViewer.handle_event("viewer_keydown", %{"key" => key}, socket)
+    socket
+  end
+
+  defp token_of(url), do: url |> String.split("?") |> hd() |> String.split("/") |> List.last()
 
   setup do
     user = user!()
@@ -113,5 +128,120 @@ defmodule PhoenixKitWeb.Components.MediaViewerEmbedOptionsIntegrationTest do
 
     assert stayed.assigns.current_uuid == first.uuid
     assert stayed.assigns.current_file.file_uuid == first.uuid
+  end
+
+  describe "stepping between ordinary files" do
+    test "next advances to the next file and prev goes back", %{user: user} do
+      [a, b, c] = files = for _ <- 1..3, do: file!(user)
+
+      forward = step(socket(files, a), "next")
+      assert forward.assigns.current_uuid == b.uuid
+      assert forward.assigns.current_file.file_uuid == b.uuid
+
+      assert step(socket(files, c), "prev").assigns.current_uuid == b.uuid
+    end
+
+    test "ArrowRight steps forward, ArrowLeft steps back", %{user: user} do
+      [a, b, _c] = files = for _ <- 1..3, do: file!(user)
+
+      assert key(socket(files, a), "ArrowRight").assigns.current_uuid == b.uuid
+      assert key(socket(files, b), "ArrowLeft").assigns.current_uuid == a.uuid
+    end
+  end
+
+  describe "a uuid with no file row" do
+    test "is shown as unavailable, and stepping goes over it", %{user: user} do
+      first = file!(user)
+      ghost = Ecto.UUID.generate()
+      last = file!(user)
+      files = [first, ghost, last]
+
+      assert socket(files, ghost).assigns.current_file == nil
+
+      forward = step(socket(files, first), "next")
+      assert forward.assigns.current_uuid == last.uuid
+
+      assert step(forward, "prev").assigns.current_uuid == first.uuid
+    end
+  end
+
+  describe "the prev / next arrows" do
+    test "are live only where a step would land", %{user: user} do
+      first = file!(user)
+      trashed = file!(user, %{status: "trashed"})
+      ghost = Ecto.UUID.generate()
+      last = file!(user)
+
+      only_dead_after = socket([first, trashed, ghost], first).assigns
+      assert {only_dead_after.has_prev, only_dead_after.has_next} == {false, false}
+
+      files = [first, trashed, ghost, last]
+      at_first = socket(files, first).assigns
+      assert {at_first.has_prev, at_first.has_next} == {false, true}
+
+      at_last = step(socket(files, first), "next").assigns
+      assert at_last.current_uuid == last.uuid
+      assert {at_last.has_prev, at_last.has_next} == {true, false}
+    end
+  end
+
+  describe "signing" do
+    defp private_file!(user) do
+      n = System.unique_integer([:positive])
+
+      {:ok, library} =
+        %Library{}
+        |> Library.create_user_changeset(%{
+          name: "Private #{n}",
+          owner_uuid: user.uuid,
+          key_prefix: "viewer#{n}",
+          slug: "viewer-#{n}",
+          is_default: true
+        })
+        |> Repo.insert()
+
+      file = file!(user, %{library_uuid: library.uuid})
+      original!(file)
+      file
+    end
+
+    defp original!(file) do
+      {:ok, _instance} =
+        Storage.create_file_instance(%{
+          variant_name: "original",
+          file_name: file.file_path,
+          mime_type: "image/png",
+          ext: "png",
+          checksum: String.duplicate("a", 64),
+          size: 1,
+          processing_status: "completed",
+          file_uuid: file.uuid
+        })
+    end
+
+    test "a file of a private library gets a time-window token, not the permanent one",
+         %{user: user} do
+      file = private_file!(user)
+      url = socket([file], file).assigns.current_file.urls["original"]
+
+      assert URLSigner.private_token?(token_of(url))
+    end
+
+    test "a file of the Media library keeps the permanent token", %{user: user} do
+      file = file!(user)
+      original!(file)
+      url = socket([file], file).assigns.current_file.urls["original"]
+
+      refute URLSigner.private_token?(token_of(url))
+    end
+
+    test "stepping to a private file signs it the same way", %{user: user} do
+      first = file!(user)
+      private = private_file!(user)
+
+      url = step(socket([first, private], first), "next").assigns.current_file.urls["original"]
+
+      assert URLSigner.private_token?(token_of(url))
+    end
   end
 end

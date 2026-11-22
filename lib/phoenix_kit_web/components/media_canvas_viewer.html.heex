@@ -34,9 +34,6 @@
     <%!-- No file and no (valid) board: nothing to show. --%>
     <%= if @file do %>
       <% f = @file %>
-      <%!-- What the file is called on screen: its own name, or with `details`  --%>
-      <%!-- off the translated title it has been given.                       --%>
-      <% display_name = display_name(f, assigns[:details] != false, @media_meta) %>
       <%!-- Close button — top-right of modal-box. Suppressed in viewer_only --%>
       <%!-- mode (standalone-page hosts provide their own back navigation).  --%>
       <button
@@ -450,7 +447,7 @@
                 id={viewer_dom_id(assigns, "pk-pdf-" <> f.file_uuid)}
                 src={f.urls["original"]}
                 class="w-full h-full rounded border-0"
-                title={display_name}
+                title={f.filename}
               ></iframe>
             <% audio?(f) -> %>
               <%!-- WaveformPlayer lazy-loads WaveSurfer (only when an audio file is
@@ -467,7 +464,7 @@
               >
                 <div class="flex items-center gap-2">
                   <.icon name="hero-musical-note" class="w-5 h-5 text-base-content/50 shrink-0" />
-                  <p class="text-sm font-semibold truncate">{display_name}</p>
+                  <p class="text-sm font-semibold truncate">{f.filename}</p>
                 </div>
                 <div class="flex items-center gap-4">
                   <button
@@ -498,7 +495,7 @@
             <% true -> %>
               <div class="flex flex-col items-center justify-center text-base-content/50 py-12">
                 <.icon name={file_icon(f.file_type)} class="w-32 h-32 mb-4" />
-                <p class="text-2xl font-semibold">
+                <p :if={assigns[:details] != false} class="text-2xl font-semibold">
                   {String.upcase(f.file_type || gettext("FILE"))}
                 </p>
                 <p :if={assigns[:details] != false} class="text-sm text-base-content/70 mt-2">
@@ -839,7 +836,7 @@
           </div>
 
           <h2 class="text-base font-bold break-all leading-tight">
-            {display_name}
+            {f.filename}
           </h2>
 
           <div :if={assigns[:details] != false} class="text-sm space-y-2 -mt-1">
