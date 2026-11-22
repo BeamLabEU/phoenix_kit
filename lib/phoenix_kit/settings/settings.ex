@@ -421,6 +421,10 @@ defmodule PhoenixKit.Settings do
       # its other two keys with explicit defaults). Restricted: encrypted at
       # rest, withheld from the settings history.
       "turnstile_secret_key" => "",
+      # The site's Web Push key pair (`PhoenixKit.Notifications.Push.WebPush`,
+      # JSON, made on first use, the private half encrypted). Restricted: kept
+      # out of the settings listings and their history.
+      "push_vapid_key" => "",
       # Billing-provider secrets. Written by the separate phoenix_kit_billing
       # package through this same table — core carries no other knowledge of
       # these keys, only enough to classify them (see
