@@ -17,8 +17,12 @@ defmodule PhoenixKitWeb.Components.MediaBrowserMarkTest do
   import ExUnit.CaptureLog
   import Phoenix.LiveViewTest
 
+  import PhoenixKitWeb.MediaCanvasViewerFixtures,
+    only: [file_uuid: 0, render_assigns: 1, render_html: 1]
+
   alias PhoenixKitWeb.Components.MediaBrowser
   alias PhoenixKitWeb.Components.MediaBrowser.{GridView, Helpers, ListView, StacksView}
+  alias PhoenixKitWeb.Components.MediaCanvasViewer
 
   # ---------------------------------------------------------------------------
   # Fixtures — plain maps, the shape `uploaded_files` rows have
@@ -58,7 +62,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowserMarkTest do
 
   defp mark(uuids, extra \\ []),
     do:
-      %{uuids: uuids, icon: "hero-eye", on_label: nil, off_label: nil}
+      %{uuids: uuids, icon: "hero-eye", on_label: nil, off_label: nil, unmark_label: nil}
       |> Map.merge(Map.new(extra))
 
   # What the browser hands each view: normalised once by `update/2`.
@@ -147,21 +151,52 @@ defmodule PhoenixKitWeb.Components.MediaBrowserMarkTest do
       assert MapSet.member?(a, "a")
     end
 
+    test "false is as absent as nil — `mark={cond && %{...}}` turns the feature off" do
+      assert Helpers.normalize_mark(false) == nil
+    end
+
     test "defaults: eye icon, no labels (the gettext fallbacks apply at render)" do
-      assert %{icon: "hero-eye", on_label: nil, off_label: nil, uuids: uuids} =
-               Helpers.normalize_mark(%{})
+      assert %{
+               icon: "hero-eye",
+               on_label: nil,
+               off_label: nil,
+               unmark_label: nil,
+               uuids: uuids
+             } = Helpers.normalize_mark(%{})
 
       assert MapSet.size(uuids) == 0
     end
 
+    test "a map with only `uuids` is a whole mark, as the component treats its other options" do
+      assert %{uuids: uuids, icon: "hero-eye"} = Helpers.normalize_mark(%{uuids: ["a"]})
+      assert MapSet.member?(uuids, "a")
+    end
+
+    test "something that is neither nil, false nor a map is refused, naming the attr" do
+      for bad <- [["a"], "a", MapSet.new(["a"]), true] do
+        assert_raise ArgumentError, ~r/:mark/, fn -> Helpers.normalize_mark(bad) end
+      end
+    end
+
     test "keeps the host's icon and labels" do
-      assert %{icon: "hero-check-badge", on_label: "Approved", off_label: "Approve"} =
+      assert %{
+               icon: "hero-check-badge",
+               on_label: "Approved",
+               off_label: "Approve",
+               unmark_label: "Withdraw"
+             } =
                Helpers.normalize_mark(%{
                  uuids: [],
                  icon: "hero-check-badge",
                  on_label: "Approved",
-                 off_label: "Approve"
+                 off_label: "Approve",
+                 unmark_label: "Withdraw"
                })
+    end
+
+    test "an empty label is no label: the gettext fallback applies" do
+      assert %{on_label: nil, off_label: nil, unmark_label: nil} =
+               Helpers.normalize_mark(%{on_label: "", off_label: "", unmark_label: ""})
     end
 
     test "is idempotent" do
@@ -176,6 +211,31 @@ defmodule PhoenixKitWeb.Components.MediaBrowserMarkTest do
       assert Helpers.marked?(normalized(mark(["a"])), "a")
       refute Helpers.marked?(normalized(mark(["a"])), "b")
       assert Helpers.marked?(%{uuids: ["a"]}, "a")
+    end
+  end
+
+  # The naming rule (see the moduledoc's `:mark`): a control is named for what
+  # a click DOES — `off_label` marks, `unmark_label` removes — and carries no
+  # `aria-pressed`, so the state is never stated twice. `on_label` names the
+  # STATE and is only drawn where there is no control: the passive badge.
+  describe "mark_label/2 and mark_state_label/1" do
+    test "the control is named for its action, the host's wording first" do
+      m =
+        normalized(mark([], off_label: "Approve", unmark_label: "Withdraw", on_label: "Approved"))
+
+      assert Helpers.mark_label(m, false) == "Approve"
+      assert Helpers.mark_label(m, true) == "Withdraw"
+    end
+
+    test "without the host's wording: Mark / Remove mark" do
+      m = normalized(mark([], on_label: "Approved"))
+      assert Helpers.mark_label(m, false) == "Mark"
+      assert Helpers.mark_label(m, true) == "Remove mark"
+    end
+
+    test "the state is on_label, Marked without it" do
+      assert Helpers.mark_state_label(normalized(mark([], on_label: "Approved"))) == "Approved"
+      assert Helpers.mark_state_label(normalized(mark([]))) == "Marked"
     end
   end
 
@@ -210,29 +270,34 @@ defmodule PhoenixKitWeb.Components.MediaBrowserMarkTest do
   # ---------------------------------------------------------------------------
 
   describe "mark: a map" do
-    test "marked and unmarked files carry the right role, state and wording (grid, stacks, list)" do
-      m = normalized(mark(["a"], on_label: "Approved", off_label: "Approve"))
+    test "marked and unmarked files carry the right role and an action name (grid, stacks, list)" do
+      m =
+        normalized(
+          mark(["a"], on_label: "Approved", off_label: "Approve", unmark_label: "Withdraw")
+        )
 
       each_view(%{uploaded_files: [file("a"), file("b")], mark: m}, fn name, doc ->
-        on = doc |> marks_for("a")
-        off = doc |> marks_for("b")
+        on_btn = doc |> marks_for("a") |> Enum.filter(&match?({"button", _, _}, &1))
+        off_btn = doc |> marks_for("b") |> Enum.filter(&match?({"button", _, _}, &1))
 
-        assert [{"button", _, _}] = Enum.filter(on, &match?({"button", _, _}, &1)), "#{name}"
-        on_btn = Enum.filter(on, &match?({"button", _, _}, &1))
-        off_btn = Enum.filter(off, &match?({"button", _, _}, &1))
+        assert [_] = on_btn, "#{name}"
+        assert [_] = off_btn, "#{name}"
 
         assert attr(on_btn, "data-role") == ["mark-on"], "#{name}"
-        assert attr(on_btn, "aria-pressed") == ["true"], "#{name}"
-        assert attr(on_btn, "title") == ["Approved"], "#{name}"
-        assert attr(on_btn, "aria-label") == ["Approved"], "#{name}"
+        assert attr(on_btn, "title") == ["Withdraw"], "#{name}"
+        assert attr(on_btn, "aria-label") == ["Withdraw"], "#{name}"
         assert attr(on_btn, "phx-click") == ["toggle_mark"], "#{name}"
         assert attr(on_btn, "phx-value-file-uuid") == ["a"], "#{name}"
 
         assert attr(off_btn, "data-role") == ["mark-off"], "#{name}"
-        assert attr(off_btn, "aria-pressed") == ["false"], "#{name}"
         assert attr(off_btn, "title") == ["Approve"], "#{name}"
         assert attr(off_btn, "aria-label") == ["Approve"], "#{name}"
         assert attr(off_btn, "phx-value-file-uuid") == ["b"], "#{name}"
+
+        # The name flips with the action, so the state is not stated a second
+        # time with aria-pressed.
+        assert attr(on_btn, "aria-pressed") == [], "#{name}"
+        assert attr(off_btn, "aria-pressed") == [], "#{name}"
       end)
     end
 
@@ -244,7 +309,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowserMarkTest do
                |> Enum.map(&Floki.attribute(&1, "title"))
                |> List.flatten()
                |> Enum.sort() ==
-                 ["Mark", "Marked"],
+                 ["Mark", "Remove mark"],
                "#{name}"
       end)
     end
@@ -385,7 +450,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowserMarkTest do
       assert [badge] = badges(doc), "#{name}: expected exactly one badge, for the marked file"
       assert Floki.attribute(badge, "data-mark-file") == ["a"], name
       # unmarked files show nothing at all
-      assert marks_for(doc, "b") == [], name
+      assert marks_for(doc, "b") == [], "#{name}"
       badge
     end
 
@@ -413,9 +478,18 @@ defmodule PhoenixKitWeb.Components.MediaBrowserMarkTest do
             assert [tip] = Floki.find(badge, "[title]")
             assert Floki.attribute(tip, "title") == ["Approved"]
             assert Floki.attribute(tip, "class") |> hd() =~ "pointer-events-auto"
+            # a marked file has an accessible name even with no control
+            assert Floki.attribute(badge, "role") == ["img"]
+            assert Floki.attribute(badge, "aria-label") == ["Approved"]
           end
         )
       end
+    end
+
+    test "the passive badge's name falls back to Marked" do
+      doc = grid(%{select_mode: true, uploaded_files: [file("a")], mark: normalized(mark(["a"]))})
+      assert [badge] = badges(doc)
+      assert Floki.attribute(badge, "aria-label") == ["Marked"]
     end
 
     test "a picker: grid shows the badge only, steps right of the eye, and no kebab item" do
@@ -476,22 +550,76 @@ defmodule PhoenixKitWeb.Components.MediaBrowserMarkTest do
   # ---------------------------------------------------------------------------
 
   describe "kebab item" do
-    test "every file's kebab gains one item with the on/off wording (grid, stacks, list)" do
-      m = normalized(mark(["a"], on_label: "Approved", off_label: "Approve"))
+    defp kebab_items(doc) do
+      doc
+      |> find(~s|[phx-click="toggle_mark"]:not([data-mark-file])|)
+      |> Enum.sort_by(&(&1 |> List.wrap() |> Floki.attribute("phx-value-file-uuid") |> hd()))
+    end
+
+    test "every file's kebab gains one item named for its action (grid, stacks, list)" do
+      m =
+        normalized(
+          mark(["a"], on_label: "Approved", off_label: "Approve", unmark_label: "Withdraw")
+        )
 
       each_view(%{uploaded_files: [file("a"), pdf("b")], mark: m}, fn name, doc ->
-        items =
-          find(doc, ~s|[phx-click="toggle_mark"]:not([data-mark-file])|)
-          |> Enum.sort_by(&(&1 |> List.wrap() |> Floki.attribute("phx-value-file-uuid") |> hd()))
+        items = kebab_items(doc)
 
         assert length(items) == 2, "#{name}: one kebab item per file"
 
+        # The marked file's item removes the mark, and says so — not "Approved".
         assert Enum.map(items, &(&1 |> List.wrap() |> Floki.text() |> String.trim())) ==
-                 ["Approved", "Approve"],
+                 ["Withdraw", "Approve"],
                "#{name}"
 
         assert find(items, ".hero-eye") != [], "#{name}"
       end)
+    end
+
+    test "the item is not a toggle button: no aria-pressed, so the name carries the action" do
+      each_view(%{uploaded_files: [file("a")], mark: normalized(mark(["a"]))}, fn name, doc ->
+        assert [item] = kebab_items(doc)
+        assert Floki.attribute(item, "aria-pressed") == [], "#{name}"
+      end)
+    end
+
+    test "clicking it (its own event and params, as rendered) marks, then unmarks" do
+      each_view(%{uploaded_files: [file("a"), file("b")], mark: normalized(mark(["a"]))}, fn name,
+                                                                                             doc ->
+        for {item, uuid, on?} <- Enum.zip([kebab_items(doc), ["a", "b"], [false, true]]) do
+          assert [event] = Floki.attribute(item, "phx-click"), "#{name}"
+          assert [params_uuid] = Floki.attribute(item, "phx-value-file-uuid"), "#{name}"
+          assert params_uuid == uuid
+
+          socket =
+            socket_with(%{
+              uploaded_files: [file("a"), file("b")],
+              mark: normalized(mark(["a"]))
+            })
+
+          {:noreply, socket} =
+            MediaBrowser.handle_event(event, %{"file-uuid" => params_uuid}, socket)
+
+          assert_received {MediaBrowser, "mb", {:set_mark, ^uuid, ^on?}}
+          assert MapSet.member?(socket.assigns.mark.uuids, uuid) == on?, "#{name}"
+        end
+      end)
+    end
+
+    test "readonly and the trash draw no item" do
+      for overrides <- [%{readonly: true}, %{filter_trash: true}] do
+        each_view(
+          Map.merge(%{uploaded_files: [file("a")], mark: normalized(mark(["a"]))}, overrides),
+          fn name, doc ->
+            assert kebab_items(doc) == [], "#{name} #{inspect(overrides)}"
+          end
+        )
+      end
+    end
+
+    test "a picker (always the grid) draws no item" do
+      doc = grid(%{picker: true, uploaded_files: [file("a")], mark: normalized(mark(["a"]))})
+      assert kebab_items(doc) == []
     end
   end
 
@@ -705,6 +833,154 @@ defmodule PhoenixKitWeb.Components.MediaBrowserMarkTest do
       {:ok, socket} = MediaBrowser.update(%{id: "mb", readonly: false}, socket)
 
       assert MapSet.member?(socket.assigns.mark.uuids, "u1")
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # The viewer's sidebar
+  # ---------------------------------------------------------------------------
+
+  describe "viewer sidebar button" do
+    # The sidebar's own assigns (what `update/2` seeds from the database on
+    # open), as empty as they start.
+    @sidebar_assigns %{
+      sidebar_collapsed: false,
+      media_tags: [],
+      media_meta_own: %{title: "", alt: "", description: ""},
+      media_meta_placeholders: %{title: "", alt: "", description: ""},
+      media_meta_langs: [],
+      media_meta_values: %{},
+      media_meta_status_token: 0,
+      file_row: nil,
+      file_exif: nil,
+      file_geo: {nil, nil},
+      exif_tags: nil,
+      exif_status: nil
+    }
+
+    defp sidebar(overrides),
+      do: @sidebar_assigns |> Map.merge(overrides) |> render_html() |> doc()
+
+    defp sidebar_buttons(doc), do: find(doc, ~s(button[phx-click="toggle_mark"]))
+
+    test "an unmarked file: an outline button named for the action, nothing pressed" do
+      doc = sidebar(%{mark: normalized(mark([], off_label: "Approve"))})
+
+      assert [button] = sidebar_buttons(doc)
+      assert Floki.attribute(button, "data-role") == ["mark-off"]
+
+      assert Floki.attribute(button, "data-mark-file") == [
+               file_uuid()
+             ]
+
+      assert Floki.attribute(button, "phx-target") == ["#mb-test"]
+      assert Floki.text(button) =~ "Approve"
+      assert Floki.attribute(button, "class") |> hd() =~ "btn-ghost"
+      assert Floki.attribute(button, "aria-pressed") == []
+    end
+
+    test "a marked file: primary, named for removing the mark, no aria-pressed" do
+      uuid = file_uuid()
+
+      doc =
+        sidebar(%{
+          mark: normalized(mark([uuid], on_label: "Approved", unmark_label: "Withdraw"))
+        })
+
+      assert [button] = sidebar_buttons(doc)
+      assert Floki.attribute(button, "data-role") == ["mark-on"]
+      assert Floki.attribute(button, "class") |> hd() =~ "btn-primary"
+      assert Floki.text(button) =~ "Withdraw"
+      refute Floki.text(button) =~ "Approved"
+      assert Floki.attribute(button, "aria-pressed") == []
+    end
+
+    test "the host's icon, and the gettext fallbacks" do
+      doc = sidebar(%{mark: normalized(mark([], icon: "hero-flag"))})
+      assert [button] = sidebar_buttons(doc)
+      assert find([button], ".hero-flag") != []
+      assert Floki.text(button) =~ "Mark"
+    end
+
+    test "any file type — a PDF too" do
+      pdf =
+        Map.merge(render_assigns(%{}).file, %{
+          file_type: "document",
+          mime_type: "application/pdf"
+        })
+
+      assert [_] = sidebar(%{file: pdf, mark: normalized(mark([]))}) |> sidebar_buttons()
+    end
+
+    test "never on a trashed file" do
+      file =
+        render_assigns(%{}).file
+        |> Map.put(:status, "trashed")
+
+      assert sidebar(%{file: file, mark: normalized(mark([]))}) |> sidebar_buttons() == []
+    end
+
+    test "off with mark nil" do
+      assert sidebar(%{mark: nil}) |> sidebar_buttons() == []
+    end
+
+    test "update/2 normalises what a direct user hands in: a raw uuid list, false" do
+      socket = %Phoenix.LiveView.Socket{assigns: %{__changed__: %{}}}
+      base = %{id: "v", file: nil, board: nil}
+
+      {:ok, socket_raw} =
+        MediaCanvasViewer.update(
+          Map.put(base, :mark, %{uuids: ["a"]}),
+          socket
+        )
+
+      assert %{uuids: %MapSet{}, icon: "hero-eye"} = socket_raw.assigns.mark
+
+      {:ok, socket_false} =
+        MediaCanvasViewer.update(Map.put(base, :mark, false), socket)
+
+      assert socket_false.assigns.mark == nil
+    end
+  end
+
+  describe "viewer_mark/3 — what the browser hands its viewer" do
+    test "the mark, as it is" do
+      m = normalized(mark(["a"]))
+      assert Helpers.viewer_mark(m, false, false) == m
+    end
+
+    test "nothing when readonly or a picker, whatever the mark" do
+      m = normalized(mark(["a"]))
+      assert Helpers.viewer_mark(m, true, false) == nil
+      assert Helpers.viewer_mark(m, false, true) == nil
+      assert Helpers.viewer_mark(m, true, true) == nil
+    end
+
+    test "nothing when the host never opted in" do
+      assert Helpers.viewer_mark(nil, false, false) == nil
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # A host that forgets to match the message
+  # ---------------------------------------------------------------------------
+
+  describe "handle_parent_info/2" do
+    test "a {:set_mark, _, _} the host did not handle is said in the log, not dropped silently" do
+      socket = %Phoenix.LiveView.Socket{assigns: %{__changed__: %{}}}
+
+      log =
+        capture_log(fn ->
+          assert {:noreply, ^socket} =
+                   MediaBrowser.handle_parent_info(
+                     {MediaBrowser, "mb", {:set_mark, "u1", true}},
+                     socket
+                   )
+        end)
+
+      assert log =~ "[warning]"
+      assert log =~ "id=mb"
+      assert log =~ "set_mark"
     end
   end
 end

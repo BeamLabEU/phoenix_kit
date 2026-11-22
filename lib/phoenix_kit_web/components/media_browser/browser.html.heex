@@ -1121,7 +1121,7 @@
           write_library_uuid={@library_uuid}
           viewer_uuid={@viewer_uuid}
           featured={if @readonly or @picker, do: nil, else: @featured}
-          mark={if @readonly or @picker, do: nil, else: @mark}
+          mark={MediaBrowser.Helpers.viewer_mark(@mark, @readonly, @picker)}
         />
       </div>
       <div class="modal-backdrop" phx-click="close_viewer" phx-target={@myself}></div>

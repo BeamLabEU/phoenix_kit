@@ -82,6 +82,7 @@ defmodule PhoenixKitWeb.MediaCanvasViewerFixtures do
         write_scope: nil,
         file_writable: false,
         featured: nil,
+        mark: nil,
         media_meta: %{title: "", alt: "", description: ""},
         media_meta_own: %{title: "", alt: "", description: ""},
         media_meta_placeholders: %{title: "", alt: "", description: ""},

@@ -187,8 +187,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     picker reloads it from the first page. Not read outside a picker.
 
   A picker's file menu keeps Download and Move to Trash. Rotate, Edit image,
-  the featured toggle and deleting for good (the Trash view's Delete, Empty
-  Trash) are hidden and refused: the files are someone's, opened to be chosen
+  the featured toggle, the host's `mark` and deleting for good (the Trash
+  view's Delete, Empty Trash) are hidden and refused: the files are someone's, opened to be chosen
   from.
 
   Every pick is checked on the server, whatever the click named: a file of
@@ -212,8 +212,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   and server check as a click (`:single` replaces; Deselect empties it);
   Select is disabled while `:multiple` is at `max_select`. The viewer writes
   nothing to the file — no rotation saved, no annotations, no title or
-  description, no image editor, no featured toggle, refused on the server as
-  under `readonly` — but offers Move to trash for a live file (not under
+  description, no image editor, no featured toggle, no mark, refused on the
+  server as under `readonly` — but offers Move to trash for a live file (not under
   `readonly`; `folder_actions: false` does not take it away, it is an action
   on a file). A file removed that way leaves the pick.
 
@@ -363,12 +363,14 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     attribute. Navigation, search, sorting, the modal viewer, and
     downloads keep working. When `featured` is also set, the featured
     tile's star still renders (display only) but the other tiles' star
-    toggles and the kebab's Set/Unset featured item do not.
+    toggles and the kebab's Set/Unset featured item do not; a `mark` is the
+    same: a marked file keeps its plain badge, and the toggles, the kebab
+    item and the viewer's sidebar button are gone.
 
     The hidden markup is a courtesy, not the boundary: every mutating
     `handle_event` clause (upload, rename, move, trash, new folder,
-    bulk-select entry, rotate, featured toggle, open the image editor)
-    refuses outright when `readonly` is set, because *the event is still
+    bulk-select entry, rotate, featured toggle, mark toggle, open the image
+    editor) refuses outright when `readonly` is set, because *the event is still
     reachable from a console* — same reasoning as the `only_file_type`
     lock on `set_file_filter`. The same applies one level down, inside
     the modal viewer's `MediaCanvasViewer`: readonly passes
@@ -412,30 +414,39 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     the star flips in the UI and nothing is ever persisted. The host persists the choice and, if the write is
     rejected or the pointer changes elsewhere, corrects it with a later
     `featured` assign (e.g. via `send_update`).
-  - `mark` — `nil` (default, feature off) or `%{uuids: uuids, icon: icon,
-    on_label: on_label, off_label: off_label}`: a host-defined on/off mark
-    on files, modelled on `featured` with three differences — it is a SET
-    of files, not one pointer; it applies to EVERY file type, not only
-    images; and its icon and wording are the host's. What the mark means
-    is entirely the host's ("approved", "shared with the customer", "needs
-    a retake"); the browser only draws it and relays the click.
+  - `mark` — `nil` (default, feature off; `false` reads the same) or `%{uuids:
+    uuids, icon: icon, on_label: on_label, off_label: off_label,
+    unmark_label: unmark_label}`: a host-defined on/off mark on files,
+    modelled on `featured` with three differences — it is a SET of files,
+    not one pointer; it applies to EVERY file type, not only images; and its
+    icon and wording are the host's. What the mark means is entirely the
+    host's ("approved", "shared with the customer", "needs a retake"); the
+    browser only draws it and relays the click. Every key is optional
+    (`%{uuids: [...]}` is a whole mark); a value that is neither `nil`, `false`
+    nor a map raises an `ArgumentError`.
     `uuids` is a list or a `MapSet` of the uuids of the files that carry
     it. `icon` is a Heroicon name, `"hero-eye"` when absent; write it as a
     literal in the host's own source so the host's Tailwind build finds it.
-    `on_label` is the tooltip / aria text of a marked file and `off_label`
-    that of the control on an unmarked one — plain strings, already
-    translated by the host; they fall back to gettext "Marked" / "Mark".
+    The wording is plain strings, already translated by the host; each falls
+    back to gettext when absent or empty. A control is named for what a click
+    DOES, never for the state, and carries no `aria-pressed`: `off_label` on
+    an unmarked file ("Approve", default "Mark"), `unmark_label` on a marked
+    one ("Withdraw approval", default "Remove mark") — so a screen reader
+    hears the state once, in the name, and a kebab item says what it will do.
+    `on_label` names the STATE ("Approved", default "Marked") and is drawn
+    only where there is no control: the plain badge's tooltip and accessible
+    name.
     When set, every file tile (grid and stack views) gets a round toggle
     in the top-left corner, after the featured star when both are on: the
-    primary colour on a marked file (`data-role="mark-on"`,
-    `aria-pressed="true"`), a quiet outline on the others
-    (`data-role="mark-off"`); both carry `data-mark-file={uuid}`. The list
-    view gets a narrow column with the same toggle, every file's kebab (in
-    all three views) an item worded with `on_label` / `off_label`, and the
-    modal viewer's sidebar the same toggle for any file. Folders never get
-    the mark. In select mode, the trash, a `picker` or `readonly`, there is
-    no toggle: a marked file shows its icon as a plain badge, an unmarked
-    one shows nothing.
+    primary colour on a marked file (`data-role="mark-on"`), a quiet outline
+    on the others (`data-role="mark-off"`); both carry `data-mark-file={uuid}`.
+    The list view gets a narrow column with the same toggle, every file's
+    kebab (in all three views) an item named as above, and the modal viewer's
+    sidebar the same toggle for any file. Folders never get the mark. In
+    select mode, the trash, a `picker` or `readonly`, there is no toggle: a
+    marked file shows its icon as a plain badge, an unmarked one shows
+    nothing. `readonly`, a `picker` and the trash also have no kebab item,
+    and the viewer opened from the first two has no sidebar button.
     The browser never persists anything itself: a click sends
     `{__MODULE__, id, {:set_mark, file_uuid, boolean}}` to the host
     process — the same `{MediaBrowser, id, payload}` channel
@@ -447,9 +458,9 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     purpose) and the removal guard is not asked.
     ⚠️ A host that funnels every `{MediaBrowser, _, _}` message into
     `handle_parent_info/2` **must match `{:set_mark, _, _}` before it**:
-    that function ends in a catch-all, so the choice is swallowed
-    silently — no crash, no log, the toggle flips in the UI and nothing is
-    ever persisted. The host persists the choice and, if the write is
+    the choice that reaches it is dropped — the toggle flips in the UI and
+    nothing is ever persisted — and a warning is logged, as for the picker's
+    messages. The host persists the choice and, if the write is
     rejected or the set changes elsewhere, corrects it with a later
     `mark` assign (e.g. via `send_update`), which replaces the browser's
     own copy.
@@ -2861,6 +2872,17 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       "MediaBrowser id=#{id}: the host did not handle the picker's " <>
         "#{inspect(if is_tuple(payload), do: elem(payload, 0), else: payload)} — match " <>
         "{MediaBrowser, id, _} picker messages before handle_parent_info/2"
+    )
+
+    {:noreply, socket}
+  end
+
+  # The same trap for the mark: a `{:set_mark, _, _}` that reaches this delegate
+  # was not handled (see the moduledoc's `:mark`), so the choice is lost.
+  def handle_parent_info({__MODULE__, id, {:set_mark, _file_uuid, _on?}}, socket) do
+    Logger.warning(
+      "MediaBrowser id=#{id}: the host did not handle {:set_mark, file_uuid, boolean} — " <>
+        "the choice is lost; match {MediaBrowser, id, {:set_mark, _, _}} before handle_parent_info/2"
     )
 
     {:noreply, socket}

@@ -29163,13 +29163,17 @@ msgstr "iPhone 和 iPad 只有在网站添加到主屏幕后才会显示其通�
 msgid "seconds into one"
 msgstr "秒内到达的通知合并为一条"
 
-
-#: lib/phoenix_kit_web/components/media_browser/helpers.ex:325
+#: lib/phoenix_kit_web/components/media_browser/helpers.ex:344
 #, elixir-autogen, elixir-format
 msgid "Mark"
 msgstr "标记"
 
-#: lib/phoenix_kit_web/components/media_browser/helpers.ex:324
+#: lib/phoenix_kit_web/components/media_browser/helpers.ex:345
+#, elixir-autogen, elixir-format
+msgid "Remove mark"
+msgstr "移除标记"
+
+#: lib/phoenix_kit_web/components/media_browser/helpers.ex:349
 #, elixir-autogen, elixir-format
 msgid "Marked"
 msgstr "已标记"

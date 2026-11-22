@@ -299,30 +299,54 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Helpers do
   end
 
   # Normalises the host's `:mark` attr once (see the moduledoc's `:mark`):
-  # `nil` stays `nil` (feature off); a map becomes
-  # `%{uuids: MapSet, icon: String, on_label: nil | String, off_label: nil | String}`.
-  # Labels stay `nil` here and fall back to gettext when drawn, so the locale
-  # of the render applies. Idempotent — `update/2` runs it on every assign.
-  def normalize_mark(nil), do: nil
+  # `nil` and `false` stay off (`nil`); a map becomes
+  # `%{uuids: MapSet, icon: String, on_label: nil | String, off_label: nil | String,
+  # unmark_label: nil | String}`. Labels stay `nil` here (an empty one counts as
+  # none) and fall back to gettext when drawn, so the locale of the render
+  # applies. Idempotent — `update/2` runs it on every assign.
+  def normalize_mark(mark) when mark in [nil, false], do: nil
 
-  def normalize_mark(%{} = mark) do
+  def normalize_mark(%{} = mark) when not is_struct(mark) do
     %{
       uuids: MapSet.new(Map.get(mark, :uuids) || []),
       icon: Map.get(mark, :icon) || "hero-eye",
-      on_label: Map.get(mark, :on_label),
-      off_label: Map.get(mark, :off_label)
+      on_label: mark_text(Map.get(mark, :on_label)),
+      off_label: mark_text(Map.get(mark, :off_label)),
+      unmark_label: mark_text(Map.get(mark, :unmark_label))
     }
   end
+
+  def normalize_mark(other) do
+    raise ArgumentError,
+          "the :mark attr must be nil or a map like %{uuids: [...], icon: ..., " <>
+            "on_label: ..., off_label: ..., unmark_label: ...}, got: #{inspect(other)}"
+  end
+
+  defp mark_text(text) when is_binary(text) and text != "", do: text
+  defp mark_text(_text), do: nil
+
+  # What the browser hands its viewer: the mark, except where the viewer's
+  # sidebar must not offer one — a readonly browser and a picker.
+  def viewer_mark(_mark, true, _picker), do: nil
+  def viewer_mark(_mark, _readonly, true), do: nil
+  def viewer_mark(mark, _readonly, _picker), do: mark
 
   # Whether `file_uuid` carries the host's mark. `mark` is the raw `:mark`
   # attr (nil when the host never opted in).
   def marked?(nil, _file_uuid), do: false
   def marked?(%{uuids: uuids}, file_uuid), do: file_uuid in uuids
 
-  # The tooltip / aria text of the mark's control: the host's wording for the
-  # file's state, gettext when the host gave none.
-  def mark_label(mark, true), do: mark[:on_label] || gettext("Marked")
+  # The name of the mark's CONTROL (tooltip, aria-label, kebab and sidebar
+  # text), always what a click does: the host's `off_label` marks, its
+  # `unmark_label` removes the mark; gettext "Mark" / "Remove mark" when the
+  # host gave none. The control carries no `aria-pressed` — the name already
+  # changes with the state, so a screen reader hears it once.
   def mark_label(mark, false), do: mark[:off_label] || gettext("Mark")
+  def mark_label(mark, true), do: mark[:unmark_label] || gettext("Remove mark")
+
+  # The name of the STATE of a marked file, for the passive badge where there is
+  # no control to click: the host's `on_label`, gettext "Marked" without it.
+  def mark_state_label(mark), do: mark[:on_label] || gettext("Marked")
 
   # The host's on/off mark (see the moduledoc's `:mark`) on a FILE tile, in the
   # top-left corner beside the featured star — the same round, same size.
@@ -360,7 +384,6 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Helpers do
       phx-click="toggle_mark"
       phx-target={@myself}
       phx-value-file-uuid={@file.file_uuid}
-      aria-pressed={to_string(@on)}
       aria-label={mark_label(@mark, @on)}
       title={mark_label(@mark, @on)}
       class={[
@@ -378,12 +401,14 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Helpers do
       :if={not @interactive and @on}
       data-role="mark-on"
       data-mark-file={@file.file_uuid}
+      role="img"
+      aria-label={mark_state_label(@mark)}
       class={[
         "absolute top-1.5 w-5 h-5 flex items-center justify-center rounded-full bg-primary text-primary-content pointer-events-none",
         mark_badge_left(@select_mode, @picker, @star)
       ]}
     >
-      <span class="block pointer-events-auto" title={mark_label(@mark, true)}>
+      <span class="block pointer-events-auto" title={mark_state_label(@mark)}>
         <.icon name={@mark.icon} class="w-3 h-3 block" />
       </span>
     </div>
@@ -411,7 +436,6 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Helpers do
       phx-click="toggle_mark"
       phx-target={@myself}
       phx-value-file-uuid={@file.file_uuid}
-      aria-pressed={to_string(@on)}
       aria-label={mark_label(@mark, @on)}
       title={mark_label(@mark, @on)}
       class={[
@@ -428,9 +452,11 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Helpers do
       :if={not @interactive and @on}
       data-role="mark-on"
       data-mark-file={@file.file_uuid}
+      role="img"
+      aria-label={mark_state_label(@mark)}
       class="w-5 h-5 flex items-center justify-center rounded-full bg-primary text-primary-content pointer-events-none"
     >
-      <span class="block pointer-events-auto" title={mark_label(@mark, true)}>
+      <span class="block pointer-events-auto" title={mark_state_label(@mark)}>
         <.icon name={@mark.icon} class="w-3 h-3 block" />
       </span>
     </div>

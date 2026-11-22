@@ -78,6 +78,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowserMarkIntegrationTest do
        |> set_assign(:folder_uuid, session["folder_uuid"])
        |> set_assign(:mark, session["mark"])
        |> set_assign(:viewer_uuid, session["viewer_uuid"])
+       |> set_assign(:readonly, session["readonly"] == true)
        |> set_assign(:current_user, session["current_user"])
        |> set_assign(:test_pid, session["test_pid"])}
     end
@@ -101,6 +102,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowserMarkIntegrationTest do
         id="mb"
         scope_folder_id={@folder_uuid}
         mark={@mark}
+        readonly={@readonly}
         viewer_uuid={@viewer_uuid}
         phoenix_kit_current_user={@current_user}
       />
@@ -115,6 +117,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowserMarkIntegrationTest do
           "folder_uuid" => folder.uuid,
           "mark" => mark,
           "viewer_uuid" => opts[:viewer_uuid],
+          "readonly" => opts[:readonly] == true,
           "current_user" => nil,
           "test_pid" => self()
         }
@@ -239,6 +242,20 @@ defmodule PhoenixKitWeb.Components.MediaBrowserMarkIntegrationTest do
 
       view |> element("[phx-click='toggle_trash_filter']") |> render_click()
       open_viewer(view, file)
+
+      assert has_element?(view, "#mb-viewer-modal")
+      refute has_element?(view, "#mb-viewer-modal [phx-click='toggle_mark']")
+    end
+
+    test "a readonly browser's viewer has no toggle, and the tile keeps only the plain badge" do
+      folder = create_folder!()
+      pdf = create_pdf!(folder.uuid, create_user!().uuid)
+      view = open_host(folder, mark_map([pdf.uuid]), readonly: true)
+
+      assert has_element?(view, ~s(div[data-role="mark-on"][data-mark-file="#{pdf.uuid}"]))
+      refute has_element?(view, "[phx-click='toggle_mark']")
+
+      open_viewer(view, pdf)
 
       assert has_element?(view, "#mb-viewer-modal")
       refute has_element?(view, "#mb-viewer-modal [phx-click='toggle_mark']")

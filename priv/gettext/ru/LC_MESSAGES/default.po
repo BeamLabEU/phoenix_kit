@@ -29393,13 +29393,17 @@ msgstr "iPhone и iPad показывают уведомления сайта, �
 msgid "seconds into one"
 msgstr "секунд, в одно"
 
-
-#: lib/phoenix_kit_web/components/media_browser/helpers.ex:325
+#: lib/phoenix_kit_web/components/media_browser/helpers.ex:344
 #, elixir-autogen, elixir-format
 msgid "Mark"
 msgstr "Отметить"
 
-#: lib/phoenix_kit_web/components/media_browser/helpers.ex:324
+#: lib/phoenix_kit_web/components/media_browser/helpers.ex:345
+#, elixir-autogen, elixir-format
+msgid "Remove mark"
+msgstr "Снять отметку"
+
+#: lib/phoenix_kit_web/components/media_browser/helpers.ex:349
 #, elixir-autogen, elixir-format
 msgid "Marked"
 msgstr "Отмечено"

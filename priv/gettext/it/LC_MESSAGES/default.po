@@ -29143,13 +29143,17 @@ msgstr "iPhone e iPad mostrano le notifiche di un sito web solo quando è nella 
 msgid "seconds into one"
 msgstr "secondi in una sola"
 
-
-#: lib/phoenix_kit_web/components/media_browser/helpers.ex:325
+#: lib/phoenix_kit_web/components/media_browser/helpers.ex:344
 #, elixir-autogen, elixir-format
 msgid "Mark"
 msgstr "Contrassegna"
 
-#: lib/phoenix_kit_web/components/media_browser/helpers.ex:324
+#: lib/phoenix_kit_web/components/media_browser/helpers.ex:345
+#, elixir-autogen, elixir-format
+msgid "Remove mark"
+msgstr "Rimuovi contrassegno"
+
+#: lib/phoenix_kit_web/components/media_browser/helpers.ex:349
 #, elixir-autogen, elixir-format
 msgid "Marked"
 msgstr "Contrassegnato"

@@ -29305,13 +29305,17 @@ msgstr "iPhone ja iPad näitavad veebisaidi teavitusi alles siis, kui see on ava
 msgid "seconds into one"
 msgstr "sekundi jooksul"
 
-
-#: lib/phoenix_kit_web/components/media_browser/helpers.ex:325
+#: lib/phoenix_kit_web/components/media_browser/helpers.ex:344
 #, elixir-autogen, elixir-format
 msgid "Mark"
 msgstr "Märgi"
 
-#: lib/phoenix_kit_web/components/media_browser/helpers.ex:324
+#: lib/phoenix_kit_web/components/media_browser/helpers.ex:345
+#, elixir-autogen, elixir-format
+msgid "Remove mark"
+msgstr "Eemalda märge"
+
+#: lib/phoenix_kit_web/components/media_browser/helpers.ex:349
 #, elixir-autogen, elixir-format
 msgid "Marked"
 msgstr "Märgitud"

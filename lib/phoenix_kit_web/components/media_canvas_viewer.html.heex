@@ -746,7 +746,6 @@
               phx-click="toggle_mark"
               phx-target={"##{@parent_id}"}
               phx-value-file-uuid={f.file_uuid}
-              aria-pressed={to_string(mark_on?)}
               class={["btn btn-sm gap-2", if(mark_on?, do: "btn-primary", else: "btn-ghost")]}
             >
               <.icon name={@mark.icon} class="w-4 h-4" />
