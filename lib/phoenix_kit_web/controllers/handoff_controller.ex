@@ -15,9 +15,11 @@ defmodule PhoenixKitWeb.HandoffController do
 
   ## Failure
 
-  Anything that goes wrong, at any step, is a `302` to `/` of the current host, which deletes the
-  handoff cookie the step consumes and nothing else. No page, no message, and nothing that tells a
-  used token from an unknown one or a refused host from a refused parameter.
+  Anything that goes wrong, at any step, is a `302` to `/` of the current host. No page, no
+  message, and nothing that tells a used token from an unknown one or a refused host from a refused
+  parameter. A refusal leaves the visitor's handoff cookies as they were, with one exception: a
+  `mint` whose proof matched the source cookie has spent it, whatever it was refused for after
+  that (see "Redirects and cookies").
 
   ## Who may start one, and what may load the others
 
@@ -54,10 +56,13 @@ defmodule PhoenixKitWeb.HandoffController do
   SHA-256 of its secret through `prepare` to `mint` (`s`), which compares it with its own cookie: a
   `mint` request must belong to a `start` made in the same browser.
 
-  The cookie is deleted by the response to `mint`, which a client that is not a browser ignores, so
-  the proof is single use on the server: the row stores it under a unique index
-  (`PhoenixKit.Handoff.mint/1`), which holds across nodes, and a budget of one mint per proof (per
-  node) and one per address (guests too) sit in front of it to save work.
+  The source cookie is deleted by the response to a `mint` whose proof matched it, and the nonce
+  cookie by a `redeem` that went through, never by a request refused before that: a page of another
+  site can make the visitor's browser request a `mint` or a token, and must not be able to take the
+  cookies of the visitor's own handoff. The deletion is only a `Set-Cookie`, which a client that is
+  not a browser ignores, so the proof is single use on the server: the row stores it under a
+  unique index (`PhoenixKit.Handoff.mint/1`), which holds across nodes, and a budget of one mint
+  per proof (per node) and one per address (guests too) sit in front of it to save work.
   """
 
   use PhoenixKitWeb, :controller
@@ -180,15 +185,23 @@ defmodule PhoenixKitWeb.HandoffController do
   defp do_mint(conn, params) do
     name = Handoff.source_cookie(scheme(conn))
 
-    # The cookie is read, and deleted, whatever follows. Read as a SIGNED cookie: only one this
-    # application issued (and not older than 60 seconds) counts. The deletion is only a
-    # `Set-Cookie`, which a client that is not a browser ignores: the proof is made single use on
-    # the server (the proof's budget below, and `source_proof_hash` of the row).
+    # The cookie is read as a SIGNED cookie: only one this application issued (and not older than
+    # 60 seconds) counts. It is deleted once the proof in the request has matched it, and not
+    # before: a page of another site can make the visitor's browser request a mint, and a request
+    # that does not carry the visitor's own proof must not take their cookie. The deletion is only
+    # a `Set-Cookie`, which a client that is not a browser ignores: the proof is made single use
+    # on the server (the proof's budget below, and `source_proof_hash` of the row).
     secret = signed_secret(conn, name)
-    conn = delete_handoff_cookie(conn, name)
 
-    with true <- Handoff.source_proof?(secret, params["s"]),
-         {:ok, proof_hash} <- Handoff.decode_source_proof(params["s"]),
+    if Handoff.source_proof?(secret, params["s"]) do
+      conn |> delete_handoff_cookie(name) |> mint_with_proof(params)
+    else
+      fail(conn)
+    end
+  end
+
+  defp mint_with_proof(conn, params) do
+    with {:ok, proof_hash} <- Handoff.decode_source_proof(params["s"]),
          {:ok, nonce_hash} <- Handoff.decode_nonce_hash(params["n"]),
          to when is_binary(to) <- Handoff.valid_to(params["to"]),
          host when is_binary(host) <- Handoff.host_param(params["h"]),
@@ -245,13 +258,15 @@ defmodule PhoenixKitWeb.HandoffController do
   defp do_redeem(conn, token) do
     name = Handoff.nonce_cookie(scheme(conn))
     nonce = existing_secret(conn, name)
-    conn = delete_handoff_cookie(conn, name)
 
     with {:ok, row} <- Handoff.redeem(token, conn.host, nonce, user_agent: user_agent(conn)),
          :ok <- RateLimiter.release_handoff_redeem_slot(IpAddress.extract_from_conn(conn)),
          to when is_binary(to) <- Handoff.valid_to(row.redirect_path),
          {:ok, user} <- load_user(row.user_uuid) do
-      conn = resolve_site(conn)
+      # The nonce cookie is deleted by a redeem that went through, and by nothing else: a page of
+      # another site can make the visitor's browser request any token, and a refused request must
+      # not take the nonce their own handoff needs.
+      conn = conn |> delete_handoff_cookie(name) |> resolve_site()
       locale = Handoff.language_for_host(conn.host, site(conn).languages)
       session_cookies = session_cookie_names(conn)
 

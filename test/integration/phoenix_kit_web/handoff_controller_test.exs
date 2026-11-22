@@ -852,6 +852,47 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
       assert length(tokens()) == 1
     end
 
+    test "a request that does not carry the visitor's own proof leaves the source cookie alone" do
+      session = signed_in_session(user!())
+      {browser, s} = started(new_browser(), session)
+      {n, browser} = prepared(browser, s)
+
+      # What a page of another site can make the visitor's browser request: no proof at all, a
+      # malformed one, the proof of somebody else's start. The browser takes each response, so a
+      # deletion in any of them would take the visitor's real cookie.
+      browser =
+        Enum.reduce(
+          ["#{@prefix}/mint?x=1", mint_path(n, "short"), mint_path(n, proof())],
+          browser,
+          fn
+            path, browser ->
+              {conn, browser} = visit(browser, @source, path, session: session)
+              assert_refused(conn)
+              refute Map.has_key?(conn.resp_cookies, @start_cookie)
+              browser
+          end
+        )
+
+      assert tokens() == []
+
+      {mint, _} = visit(browser, @source, mint_path(n, s), session: session)
+      assert %{host: @target} = location(mint)
+      assert_deleted(mint, @start_cookie)
+      assert length(tokens()) == 1
+    end
+
+    test "a mint refused for a reason after its proof matched spends the source cookie" do
+      session = signed_in_session(user!())
+      {browser, s} = started(new_browser(), session)
+      {n, browser} = prepared(browser, s)
+
+      {conn, browser} = visit(browser, @source, mint_path(n, s, "evil.test"), session: session)
+      assert_refused(conn)
+      assert_deleted(conn, @start_cookie)
+      refute Map.has_key?(browser.jars[@source], @start_cookie)
+      assert tokens() == []
+    end
+
     # A non-browser client ignores the Set-Cookie that deletes the cookie, so the deletion is
     # worth nothing: the proof must be single use on the SERVER. `visit/4` is given the genuine
     # cookie again on every request, which is exactly a client that ignores the deletion.
@@ -1228,6 +1269,29 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
                 get_session(unknown, "phoenix_flash")}
     end
 
+    test "a request that does not redeem leaves the nonce cookie alone" do
+      session = signed_in_session(user!())
+      {browser, _prepare, mint, _token} = minted(session)
+
+      # What a page of another site can make the visitor's browser request: a token that is no
+      # row's (well formed or not). The browser takes each response, so a deletion in any of
+      # them would take the nonce the visitor's real handoff needs.
+      browser =
+        Enum.reduce([Handoff.new_secret(), "x", "not-a-token"], browser, fn token, browser ->
+          {conn, browser} = visit(browser, @target, "#{@prefix}/#{token}")
+          assert_refused(conn)
+          refute Map.has_key?(conn.resp_cookies, @nonce_cookie)
+          browser
+        end)
+
+      assert [%Token{used_at: nil}] = tokens()
+
+      {redeem, _} = follow(browser, mint)
+      assert redirected_to(redeem, 302) == "/shop"
+      assert get_session(redeem, :user_token)
+      assert_deleted(redeem, @nonce_cookie)
+    end
+
     test "another browser does not get in, and does not burn the token" do
       session = signed_in_session(user!())
       {browser, _prepare, mint, token} = minted(session)
@@ -1239,7 +1303,7 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
       {_n, intruder} = prepared(new_browser())
       {wrong_nonce, _} = visit(intruder, @target, "#{@prefix}/#{token}")
       assert_refused(wrong_nonce)
-      assert_deleted(wrong_nonce, @nonce_cookie)
+      refute Map.has_key?(wrong_nonce.resp_cookies, @nonce_cookie)
 
       assert [%Token{used_at: nil}] = tokens()
 
@@ -1386,7 +1450,7 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
   ## Failure looks the same everywhere
 
   describe "failure" do
-    test "is a redirect to / with no message and no handoff cookie but a deleted one, at every step" do
+    test "is a redirect to / with no message and no handoff cookie, at every step" do
       failures = [
         elem(visit(new_browser(), @source, "#{@prefix}/start?lang=xx"), 0),
         elem(visit(new_browser(), @target, "#{@prefix}/prepare?return=evil.test&to=%2F"), 0),
@@ -1397,8 +1461,7 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
       for conn <- failures do
         assert_refused(conn)
         assert conn.status == 302
-
-        assert Enum.all?(handoff_cookies(conn), &(conn.resp_cookies[&1].max_age == 0))
+        assert handoff_cookies(conn) == []
       end
     end
 
