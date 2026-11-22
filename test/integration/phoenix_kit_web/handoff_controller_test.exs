@@ -926,6 +926,50 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
       assert asked_for_snapshots() == 0
     end
 
+    # The cookie's 60 seconds are enforced by the SERVER, from its signature: a client that keeps
+    # the cookie past its `Max-Age` (or one that ignores the deletion) gets nothing from it after
+    # a minute, which is what makes the proof single use once the rows are pruned.
+    defp aged_source_cookie(secret, age_seconds) do
+      Plug.Crypto.sign(@endpoint.config(:secret_key_base), @start_cookie <> "_cookie", secret,
+        signed_at: System.system_time(:second) - age_seconds,
+        max_age: 60,
+        keys: Plug.Keys
+      )
+    end
+
+    defp mint_with_cookie_aged(age_seconds) do
+      session = signed_in_session(user!())
+      secret = Handoff.new_secret()
+      s = Handoff.source_proof_param(secret)
+      {n, browser} = prepared(new_browser(), s)
+
+      {conn, _} =
+        visit(browser, @source, mint_path(n, s),
+          session: session,
+          cookies: [{@start_cookie, aged_source_cookie(secret, age_seconds)}]
+        )
+
+      conn
+    end
+
+    test "the source cookie start sets carries a 60-second limit in its signature" do
+      {browser, _s} = started(new_browser(), signed_in_session(user!()))
+      [_header, payload, _signature] = String.split(browser.jars[@source][@start_cookie], ".")
+
+      assert {_secret, signed_at_ms, 60} =
+               payload |> Base.url_decode64!(padding: false) |> :erlang.binary_to_term([:safe])
+
+      assert abs(System.system_time(:millisecond) - signed_at_ms) < 10_000
+    end
+
+    test "a source cookie is accepted just under 60 seconds old and refused just over" do
+      assert %{host: @target} = location(mint_with_cookie_aged(58))
+      assert length(tokens()) == 1
+
+      assert_refused(mint_with_cookie_aged(62))
+      assert length(tokens()) == 1
+    end
+
     test "mints are limited per address, for a guest and for a signed-in account alike" do
       limit = Keyword.fetch!(RateLimiter.get_config(), :handoff_mint_ip_limit)
 
