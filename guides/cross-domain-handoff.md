@@ -93,22 +93,46 @@ hand over to:
 - `enabled?/0` is `true` when the resolver names at least two hosts for the
   enabled languages.
 - **Put `rel="nofollow"` on every link to `start`.** The endpoint is not a page.
-- **Links to `start` must be same-site links, rendered by your own pages** (a
-  language switcher, a "continue in the German shop" button): `start` refuses a
-  request that is not a top-level navigation of the visitor's own. A link to it
-  on another site, an `<img>` or `<iframe>` that loads it, a form or script that
-  aims the visitor at it, is answered with a `302` to `/` and changes nothing.
-  The rule (`Sec-Fetch-Site` must be `same-origin`, `same-site` or `none`, and
-  `Sec-Fetch-Dest`, when sent, `document`; a browser that sends neither is let
-  through) is the answer to a page of another site that would otherwise replace
-  whoever is signed in on the target with the account signed in on the source,
-  just by sending the visitor there. It is checked **before** the rate limit, so
-  such requests cost the visitor's address no budget.
-- **Only `start` is checked, on purpose.** `prepare`, `mint` and `redeem` are
-  reached by *redirects* from another of your domains, for which the browser
-  reports `Sec-Fetch-Site: cross-site`; refusing that would refuse every
-  handoff. They are protected by what they need instead: a cookie only an earlier
-  step of the same browser sets, a proof and a nonce.
+- **Links to `start` must be same-origin links, rendered by your own pages**
+  (a language switcher, a "continue in the German shop" button): `start` refuses a
+  request that is not a top-level navigation of the visitor's own, from the
+  host's own page. A link to it on another site, a sibling subdomain, an `<img>`
+  or `<iframe>` that loads it, a form or script that aims the visitor at it, is
+  answered with a `302` to `/` and changes nothing. The rule: `Sec-Fetch-Site`
+  must be `same-origin` or `none` (typed, bookmarked), and `Sec-Fetch-Dest`, when
+  sent, `document`. It is the answer to a page of another site that would
+  otherwise replace whoever is signed in on the target with the account signed in
+  on the source, just by sending the visitor there. It is checked **before** the
+  rate limit, so such requests cost the visitor's address no budget.
+  - **`same-site` is refused.** It is what a browser reports for a request from a
+    *sibling subdomain* (`blog.shop.com` to `shop.com`), which is not the host's
+    own page and may be a dangling or a tenant-controlled one. Your links to
+    `start` are always same-origin, so nothing legitimate is lost.
+  - **A link to `start` on ANOTHER of your own domains is cross-site, and
+    refused.** The link must be on the domain the visitor is *leaving*: the
+    German link on `shop.com`'s pages points at `shop.com`'s own `start`
+    (`/phoenix_kit/handoff/start?lang=de`), never at `shop.de`'s from a page of
+    `shop.com`. `start_path/2` gives exactly that path, without a host.
+  - **What this does not cover: clients that send no fetch metadata.** A request
+    with no `Sec-Fetch-Site` and no `Sec-Fetch-Dest` cannot be told from a
+    visitor's own click, and is let through. That is: Chrome before 76, Firefox
+    before 90, Safari before 16.4, some old WebViews, sites served over plain
+    `http` (browsers send the headers only to trustworthy origins), and proxies or
+    security software that strip them. For such a client the guard does not exist:
+    a page of another site can aim it at `start`. What that buys the page is
+    limited, not nothing: the visitor must be signed in on the source or hold
+    module state, the destination is always one of your own hosts, and the
+    redeem replaces the account signed in on the target with the one signed in on
+    the source (the same swap between your own domains).
+- **The other three steps check only what is loaded, not the site.** `prepare`,
+  `mint` and `redeem` are reached by *redirects* from another of your domains, for
+  which the browser reports `Sec-Fetch-Site: cross-site`; refusing that would
+  refuse every handoff. But a `Sec-Fetch-Dest` that is present and is not
+  `document` (an `<img src=".../handoff/<token>">` on another site, an iframe, a
+  `fetch()`) is refused at each of them with a `302` to `/`, **before** the rate
+  limit, a cookie or the database: such a request takes no failed-redeem slot, burns
+  no token and deletes no cookie. What protects them beyond that is what they
+  need: a cookie only an earlier step of the same browser sets, a proof, a nonce.
 - A visitor who is anonymous, with nothing for any module to carry, is sent
   straight to `<scheme>://<target><to>`: no cookie, no database row.
 

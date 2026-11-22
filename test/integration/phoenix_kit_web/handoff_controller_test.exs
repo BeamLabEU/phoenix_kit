@@ -518,10 +518,9 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
       assert_refused_without_effects(conn)
     end
 
-    test "a same-origin, same-site or user-initiated start (and one from an older browser) goes on" do
+    test "a same-origin or user-initiated start (and one from an older browser) goes on" do
       for headers <- [
             [{"sec-fetch-site", "same-origin"}],
-            [{"sec-fetch-site", "same-site"}],
             [{"sec-fetch-site", "none"}],
             [],
             [{"sec-fetch-site", "same-origin"}, {"sec-fetch-dest", "document"}],
@@ -536,6 +535,19 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
 
         assert %{host: @target, path: @prefix <> "/prepare"} = location(conn)
         assert Map.has_key?(conn.resp_cookies, @start_cookie)
+      end
+    end
+
+    # Links to `start` are always the host's own, so same-origin: a page of a SIBLING subdomain
+    # (same-site: a dangling one, one a tenant controls) is not the host's own page.
+    test "a start from another origin of the same site is refused" do
+      for headers <- [
+            [{"sec-fetch-site", "same-site"}],
+            [{"sec-fetch-site", "same-site"}, {"sec-fetch-dest", "document"}],
+            [{"sec-fetch-site", " Same-Site "}]
+          ] do
+        {conn, _} = start_with(headers)
+        assert_refused_without_effects(conn)
       end
     end
 
@@ -616,6 +628,123 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
 
       assert redirected_to(redeem, 302) == "/shop"
       assert get_session(redeem, :user_token)
+    end
+  end
+
+  describe "prepare, mint and redeem loaded as something other than a page" do
+    # `<img src=".../handoff/<token>">` on another site is a cross-site subresource request: it
+    # must not spend the visitor's failed-redeem budget, and none of the three steps may act on a
+    # request that is not a document navigation. They are not checked for the SITE (a redirect
+    # from another of the host's domains is cross-site, by design), only for what is loaded.
+    @subresources ~w(image iframe frame embed object script style empty audio video worker)
+
+    defp subresource(dest), do: [{"sec-fetch-site", "cross-site"}, {"sec-fetch-dest", dest}]
+
+    # The handoff entries of the rate limiter that belong to this browser's address or proof.
+    defp buckets(browser, s) do
+      ip = browser.peer |> :inet.ntoa() |> to_string()
+
+      RateLimiter.Backend
+      |> :ets.tab2list()
+      |> Enum.filter(fn {{key, _bucket}, _count, _expiry} ->
+        String.starts_with?(key, "auth:handoff") and
+          (String.contains?(key, ip) or String.ends_with?(key, s))
+      end)
+      |> Enum.sort()
+    end
+
+    test "are each refused with no effect and no budget, and the real ones still work" do
+      session = signed_in_session(user!())
+      {browser, s} = started(new_browser(), session)
+      source_cookie = browser.jars[@source][@start_cookie]
+
+      # prepare
+      for dest <- @subresources do
+        {conn, _} =
+          visit(browser, @target, "#{@prefix}/prepare?return=#{@source}&to=%2Fshop&s=#{s}",
+            headers: subresource(dest)
+          )
+
+        assert_refused(conn)
+        assert handoff_cookies(conn) == []
+      end
+
+      {n, browser} = prepared(browser, s)
+
+      # mint: the source cookie is not deleted, no budget is taken, no row is written
+      before = buckets(browser, s)
+
+      for dest <- @subresources do
+        {conn, _} =
+          visit(browser, @source, mint_path(n, s), session: session, headers: subresource(dest))
+
+        assert_refused(conn)
+        assert handoff_cookies(conn) == []
+      end
+
+      assert buckets(browser, s) == before
+      assert browser.jars[@source][@start_cookie] == source_cookie
+      assert tokens() == []
+
+      # The proof's budget is one mint: had a refusal taken it, this one would be refused.
+      {mint, browser} = visit(browser, @source, mint_path(n, s), session: session)
+      assert %{host: @target, path: @prefix <> "/" <> token} = location(mint)
+      assert [%Token{used_at: nil}] = tokens()
+
+      # redeem: the failed-redeem budget is not touched, the token is not burnt, the nonce
+      # cookie stays
+      before = buckets(browser, s)
+      nonce = browser.jars[@target][@nonce_cookie]
+
+      for dest <- @subresources do
+        {conn, _} = visit(browser, @target, "#{@prefix}/#{token}", headers: subresource(dest))
+
+        assert_refused(conn)
+        assert handoff_cookies(conn) == []
+      end
+
+      assert buckets(browser, s) == before
+      assert browser.jars[@target][@nonce_cookie] == nonce
+      assert [%Token{used_at: nil}] = tokens()
+
+      {redeem, _} = follow(browser, mint, headers: [{"sec-fetch-dest", "document"}])
+      assert redirected_to(redeem, 302) == "/shop"
+      assert get_session(redeem, :user_token)
+    end
+
+    test "a flood of image loads of a redeem URL does not spend the failed-redeem budget" do
+      limit = Keyword.fetch!(RateLimiter.get_config(), :handoff_redeem_failure_limit)
+      session = signed_in_session(user!())
+      {browser, _prepare, mint, token} = minted(session)
+
+      for _ <- 1..(limit + 5) do
+        {conn, _} = visit(browser, @target, "#{@prefix}/#{token}", headers: subresource("image"))
+        assert_refused(conn)
+      end
+
+      {redeem, _} = follow(browser, mint)
+      assert redirected_to(redeem, 302) == "/shop"
+      assert get_session(redeem, :user_token)
+    end
+
+    test "a request that names a document, or no destination, is a navigation, whatever the site" do
+      session = signed_in_session(user!())
+
+      for dest <- [[{"sec-fetch-dest", "document"}], [{"sec-fetch-dest", " Document "}], []] do
+        headers = [{"sec-fetch-site", "cross-site"}] ++ dest
+
+        {[_, _, _, redeem], _} =
+          handoff(new_browser(),
+            session: session,
+            headers: [{"sec-fetch-site", "same-origin"}],
+            target_opts: [headers: headers],
+            mint_opts: [headers: headers],
+            redeem_opts: [headers: headers]
+          )
+
+        assert redirected_to(redeem, 302) == "/shop"
+        assert get_session(redeem, :user_token)
+      end
     end
   end
 
