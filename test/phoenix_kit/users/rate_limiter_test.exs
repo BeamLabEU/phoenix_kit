@@ -324,6 +324,7 @@ defmodule PhoenixKit.Users.RateLimiterTest do
     test "an address nobody knows is not limited" do
       for _ <- 1..100, address <- ["unknown", nil, ""] do
         assert :ok = RateLimiter.check_handoff_start_rate_limit(address)
+        assert :ok = RateLimiter.check_handoff_mint_ip_rate_limit(address)
         assert :ok = RateLimiter.check_handoff_redeem_rate_limit(address)
         assert :ok = RateLimiter.release_handoff_redeem_slot(address)
       end
@@ -338,6 +339,35 @@ defmodule PhoenixKit.Users.RateLimiterTest do
 
       assert {:error, :rate_limit_exceeded} = RateLimiter.check_handoff_mint_rate_limit(user)
       assert :ok = RateLimiter.check_handoff_mint_rate_limit(other)
+    end
+
+    test "mints are blocked after the limit, per address", %{unique_id: id} do
+      ip = "172.17.5.#{rem(id, 255)}"
+      other = "172.17.6.#{rem(id, 255)}"
+      limit = Keyword.fetch!(RateLimiter.get_config(), :handoff_mint_ip_limit)
+
+      assert limit >= 60
+
+      for _ <- 1..limit, do: assert(:ok = RateLimiter.check_handoff_mint_ip_rate_limit(ip))
+
+      assert {:error, :rate_limit_exceeded} = RateLimiter.check_handoff_mint_ip_rate_limit(ip)
+      assert :ok = RateLimiter.check_handoff_mint_ip_rate_limit(other)
+    end
+
+    test "a source proof is good for one mint", %{unique_id: id} do
+      proof = Base.url_encode64(:crypto.hash(:sha256, "proof-#{id}"), padding: false)
+      other = Base.url_encode64(:crypto.hash(:sha256, "other-#{id}"), padding: false)
+
+      assert :ok = RateLimiter.check_handoff_mint_proof_rate_limit(proof)
+
+      for _ <- 1..5,
+          do:
+            assert(
+              {:error, :rate_limit_exceeded} =
+                RateLimiter.check_handoff_mint_proof_rate_limit(proof)
+            )
+
+      assert :ok = RateLimiter.check_handoff_mint_proof_rate_limit(other)
     end
 
     test "a redeem counts only when it fails: success hands its slot back", %{unique_id: id} do

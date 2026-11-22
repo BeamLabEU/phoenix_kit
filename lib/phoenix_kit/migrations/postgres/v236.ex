@@ -12,9 +12,16 @@ defmodule PhoenixKit.Migrations.Postgres.V236 do
   that module's snapshot). `used_at` is set by the one statement that redeems the row; a row is
   redeemable while `used_at` is null and `expires_at` is in the future.
 
+  `source_proof_hash` (nullable, unique where set) is the SHA-256 the `start` step made of its source
+  secret and `mint` was given as `s`: the proof that a `mint` belongs to a `start`. It makes the
+  proof single use on the server, across nodes and restarts: a second `mint` with a proof that
+  already has a row hits the unique index and is refused, however the client treats the cookie it
+  was told to delete.
+
   ## Locks
 
-  A new table and its indexes. Re-runnable.
+  A new table and its indexes. Re-runnable. A database that ran the first draft of this migration
+  (without `source_proof_hash`) gets the column and its index on a re-run.
 
   ## Down
 
@@ -54,12 +61,15 @@ defmodule PhoenixKit.Migrations.Postgres.V236 do
         user_agent_hash bytea,
         expires_at timestamp(0) without time zone NOT NULL,
         used_at timestamp(0) without time zone,
-        inserted_at timestamp(0) without time zone NOT NULL DEFAULT now()
+        inserted_at timestamp(0) without time zone NOT NULL DEFAULT now(),
+        source_proof_hash bytea
       )
       """,
+      "ALTER TABLE #{p}phoenix_kit_handoff_tokens ADD COLUMN IF NOT EXISTS source_proof_hash bytea",
       "CREATE UNIQUE INDEX IF NOT EXISTS phoenix_kit_handoff_tokens_token_hash_index ON #{p}phoenix_kit_handoff_tokens (token_hash)",
       "CREATE INDEX IF NOT EXISTS phoenix_kit_handoff_tokens_user_uuid_index ON #{p}phoenix_kit_handoff_tokens (user_uuid)",
       "CREATE INDEX IF NOT EXISTS phoenix_kit_handoff_tokens_expires_at_index ON #{p}phoenix_kit_handoff_tokens (expires_at)",
+      "CREATE UNIQUE INDEX IF NOT EXISTS phoenix_kit_handoff_tokens_source_proof_hash_index ON #{p}phoenix_kit_handoff_tokens (source_proof_hash) WHERE source_proof_hash IS NOT NULL",
       "COMMENT ON TABLE #{p}phoenix_kit IS '236'"
     ]
   end

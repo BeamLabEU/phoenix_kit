@@ -13,12 +13,13 @@ link opened in any other browser is useless.
 
 ## What you configure
 
-1. **Several domains, one application, one `secret_key_base` and one session
-   configuration.** The handoff moves a visitor between domains of the *same*
-   application; it does not sign anyone in on a different application. The
-   `secret_key_base` matters twice: the session cookie of one domain must be
-   readable by the others' code, and the handoff's source cookie is a signed
-   cookie (`Plug.Conn.put_resp_cookie/4` with `sign: true`).
+1. **Several domains, one application, one session configuration.** The
+   handoff moves a visitor between domains of the *same* application; it does
+   not sign anyone in on a different application. Nothing about the
+   `secret_key_base` needs sharing between domains: the handoff's source cookie
+   is a signed cookie (`Plug.Conn.put_resp_cookie/4` with `sign: true`), but it
+   is issued and verified by the same application on the same host, and no other
+   domain ever reads it.
 2. **The host resolver**, which you may already have for canonical URLs and
    `hreflang`:
 
@@ -179,11 +180,25 @@ hash to equal `s` (a constant-time comparison); then it deletes the cookie.
 That gives:
 
 - `mint` writes a row only for a browser that holds a cookie this application
-  issued in the last minute, which only a counted `start` hands out, and the
-  response that spends it deletes it. A script that never clicked a link cannot
-  make the table grow, however it forges the cookie or the parameters. (A client
-  that ignores the deletion can send a real cookie again within its minute: the
-  per-account mint limit, the start limit and the prune bound that.)
+  issued in the last minute, which only a counted `start` hands out. A script
+  that never clicked a link cannot make the table grow, however it forges the
+  cookie or the parameters.
+- **A source cookie yields at most one row, whatever the client does.** The
+  response to `mint` deletes the cookie, but that is only a `Set-Cookie`, which a
+  client that is not a browser ignores, and within its minute the same genuine
+  cookie and the same `s` would pass the check every time. So the proof is made
+  single use **on the server**: the row stores the proof's hash
+  (`source_proof_hash`, V236) under a unique index, and a second `mint` with the
+  same proof hits it and is refused (`Handoff.mint/1` answers
+  `{:error, :proof_used}`). This is the guarantee, and it holds across nodes and
+  restarts. In front of it sit two budgets that only save work: one `mint` per
+  proof per minute (per node, in memory: a replay is refused before the session
+  is read and any module is asked) and, **for a guest and a signed-in account
+  alike**, 60 mints a minute per address. What a client with one genuine cookie
+  can cost is therefore one snapshot round and one row, then a refusal for the
+  rest of the minute; to cost more it needs more `start`s, and those are counted
+  per address. A refused request is still a request: the table is bounded, the
+  request rate is the limiter's and your proxy's.
 - A `mint` request that someone else crafts for a victim's browser is refused:
   it needs the hash of a secret that sits in an `HttpOnly` cookie of the victim.
 - A handoff with nothing to carry (no account and no snapshot) is refused at
@@ -344,10 +359,18 @@ anyone in: the sign-in is the core's, after the hooks.
   |---|---|---|
   | `handoff_start_limit`, `handoff_start_window_ms` | 60 a minute | `start`, per address (an office behind one NAT) |
   | `handoff_mint_limit`, `handoff_mint_window_ms` | 20 a minute | `mint`, per account |
+  | `handoff_mint_ip_limit`, `handoff_mint_ip_window_ms` | 60 a minute | `mint`, per address, for guests and signed-in accounts alike |
   | `handoff_redeem_failure_limit`, `handoff_redeem_failure_window_ms` | 30 a minute | `redeem`, per address, **failures only** (a good redeem hands its slot back) |
 
-  Buckets are per node. A refusal is a silent redirect to `/` and is logged at
-  debug level, not as a warning.
+  Buckets are per node (a second node has its own), which is why the one guarantee
+  that must hold across nodes, a source proof's single use, lives in the
+  database. A refusal is a silent redirect to `/` and is logged at debug level,
+  not as a warning. The windows are fixed, aligned to the clock: a count of
+  failed redeems can be one off at a window boundary (a good redeem hands its
+  slot back to the window it finds, which at the boundary may be the next one:
+  at most one extra attempt, once). A check that counted a failure only after it
+  happened would be exact but would let a parallel burst through before the
+  first failure was counted, so the slot is taken up front.
 - **Retention.** A row holds an account uuid, hashes and the modules' payload
   (at most 64 KB per module), and is refused after 60 seconds whether or not it
   has been pruned. It is deleted by `PhoenixKit.Handoff.PruneWorker`, a daily

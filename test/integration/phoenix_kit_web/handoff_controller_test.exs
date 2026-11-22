@@ -705,6 +705,117 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
       assert length(tokens()) == 1
     end
 
+    # A non-browser client ignores the Set-Cookie that deletes the cookie, so the deletion is
+    # worth nothing: the proof must be single use on the SERVER. `visit/4` is given the genuine
+    # cookie again on every request, which is exactly a client that ignores the deletion.
+    defp replay_genuine_cookie(session, times) do
+      {browser, s} = started(new_browser(), session)
+      cookie = browser.jars[@source][@start_cookie]
+
+      for _ <- 1..times do
+        n = Handoff.nonce_hash_param(Handoff.new_secret())
+
+        {conn, _} =
+          visit(browser, @source, mint_path(n, s),
+            session: session,
+            cookies: [{@start_cookie, cookie}]
+          )
+
+        conn
+      end
+    end
+
+    defp minted_mints(conns),
+      do: Enum.count(conns, &(&1.status == 302 and location(&1).host == @target))
+
+    test "a genuine source cookie replayed by a client that ignores its deletion makes one row" do
+      conns = replay_genuine_cookie(signed_in_session(user!()), 5)
+
+      assert minted_mints(conns) == 1
+      assert length(tokens()) == 1
+      for conn <- Enum.drop(conns, 1), do: assert_refused(conn)
+    end
+
+    test "so does one replayed by a guest who has only module state to carry" do
+      conns = replay_genuine_cookie([stub_cart: "cart-1"], 5)
+
+      assert minted_mints(conns) == 1
+      assert [%Token{user_uuid: nil}] = tokens()
+    end
+
+    test "the proof stays spent when the limiter has forgotten it: the database refuses the replay" do
+      session = signed_in_session(user!())
+      {browser, s} = started(new_browser(), session)
+      cookie = browser.jars[@source][@start_cookie]
+      n = Handoff.nonce_hash_param(Handoff.new_secret())
+
+      {first, _} =
+        visit(browser, @source, mint_path(n, s),
+          session: session,
+          cookies: [{@start_cookie, cookie}]
+        )
+
+      assert %{host: @target} = location(first)
+
+      # What a second node, or a restart, looks like: no counter, but the same database.
+      :ets.match_delete(
+        PhoenixKit.Users.RateLimiter.Backend,
+        {{"auth:handoff_mint:proof:" <> s, :_}, :_, :_}
+      )
+
+      {second, _} =
+        visit(browser, @source, mint_path(n, s),
+          session: session,
+          cookies: [{@start_cookie, cookie}]
+        )
+
+      assert_refused(second)
+      assert length(tokens()) == 1
+    end
+
+    test "mints are limited per address, for a guest and for a signed-in account alike" do
+      limit = Keyword.fetch!(RateLimiter.get_config(), :handoff_mint_ip_limit)
+
+      for session <- [[stub_cart: "cart-1"], signed_in_session(user!())] do
+        browser = new_browser()
+        ip = browser.peer |> :inet.ntoa() |> to_string()
+        for _ <- 1..limit, do: assert(:ok = RateLimiter.check_handoff_mint_ip_rate_limit(ip))
+
+        {[_, _, mint, _], _} = handoff(browser, session: session)
+        assert_refused(mint)
+        assert tokens() == []
+
+        # Another address is not affected.
+        {[_, _, other_mint, _], _} = handoff(new_browser(), session: session)
+        assert %{host: @target} = location(other_mint)
+        Repo.delete_all(Token)
+      end
+    end
+
+    test "a flood of guests' mints from one address stops at the address limit" do
+      limit = 5
+      previous = Application.get_env(:phoenix_kit, RateLimiter, [])
+
+      Application.put_env(
+        :phoenix_kit,
+        RateLimiter,
+        Keyword.put(previous, :handoff_mint_ip_limit, limit)
+      )
+
+      on_exit(fn -> Application.put_env(:phoenix_kit, RateLimiter, previous) end)
+
+      browser = new_browser()
+
+      mints =
+        for _ <- 1..(limit * 3) do
+          {[_, _, mint, _], _} = handoff(browser, session: [stub_cart: "cart-1"])
+          mint
+        end
+
+      assert minted_mints(mints) == limit
+      assert length(tokens()) == limit
+    end
+
     test "is refused for a source cookie the application did not issue, with a proof that matches it" do
       session = signed_in_session(user!())
       forged = Handoff.new_secret()
@@ -1530,6 +1641,73 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
         assert Enum.all?(Enum.frequencies(questions), fn {_language, times} -> times == 1 end),
                inspect(Enum.frequencies(questions))
       end
+    end
+  end
+
+  describe "the host resolver and cheap inputs" do
+    test "a prepare or a mint that fails on the shape of its parameters never asks the resolver" do
+      session = signed_in_session(user!())
+      good_n = Handoff.nonce_hash_param(Handoff.new_secret())
+      _ = asked()
+
+      bad_prepares = [
+        "return=#{@source}&to=%2Fshop&s=short",
+        "return=#{@source}&to=%2Fshop",
+        "return=#{@source}&to=https%3A%2F%2Fevil.test&s=#{proof()}",
+        "to=%2Fshop&s=#{proof()}",
+        "return=#{String.duplicate("a", 300)}&to=%2Fshop&s=#{proof()}"
+      ]
+
+      for query <- bad_prepares do
+        {conn, _} = visit(new_browser(), @target, "#{@prefix}/prepare?" <> query)
+        assert_refused(conn)
+      end
+
+      bad_mints = [
+        "n=short&h=#{@target}&to=%2Fshop&s=#{proof()}",
+        "n=#{good_n}&h=#{@target}&to=%2Fshop&s=short",
+        "n=#{good_n}&h=#{@target}&to=%2F%2Fevil.test&s=#{proof()}",
+        "n=#{good_n}&to=%2Fshop&s=#{proof()}",
+        "n=#{good_n}&h=#{String.duplicate("a", 300)}&to=%2Fshop&s=#{proof()}",
+        "n=#{good_n}&h=#{@target}&to=%2Fshop"
+      ]
+
+      for query <- bad_mints do
+        {conn, _} = visit(new_browser(), @source, "#{@prefix}/mint?" <> query, session: session)
+        assert_refused(conn)
+      end
+
+      assert asked() == []
+    end
+
+    test "a mint with no source cookie, or one that is not the application's, never asks it either" do
+      session = signed_in_session(user!())
+      n = Handoff.nonce_hash_param(Handoff.new_secret())
+      _ = asked()
+
+      {conn, _} = visit(new_browser(), @source, mint_path(n, proof()), session: session)
+      assert_refused(conn)
+
+      {conn, _} =
+        visit(new_browser(), @source, mint_path(n, proof()),
+          session: session,
+          cookies: [{@start_cookie, Handoff.new_secret()}]
+        )
+
+      assert_refused(conn)
+      assert asked() == []
+    end
+
+    test "a redeem of something that is not a token never asks it, and a start with a bad language neither" do
+      _ = asked()
+
+      {conn, _} = visit(new_browser(), @target, "#{@prefix}/not-a-token")
+      assert_refused(conn)
+
+      {conn, _} = visit(new_browser(), @source, "#{@prefix}/start?lang=../x")
+      assert_refused(conn)
+
+      assert asked() == []
     end
   end
 

@@ -14,7 +14,8 @@ defmodule PhoenixKit.Migrations.Postgres.V236Test do
   @table "phoenix_kit_handoff_tokens"
   @indexes ~w(phoenix_kit_handoff_tokens_token_hash_index
               phoenix_kit_handoff_tokens_user_uuid_index
-              phoenix_kit_handoff_tokens_expires_at_index)
+              phoenix_kit_handoff_tokens_expires_at_index
+              phoenix_kit_handoff_tokens_source_proof_hash_index)
 
   defp run(statements), do: Enum.each(statements, &Repo.query!/1)
   defp query(sql, params \\ []), do: Repo.query!(sql, params).rows
@@ -40,14 +41,15 @@ defmodule PhoenixKit.Migrations.Postgres.V236Test do
     |> Enum.sort()
   end
 
-  defp insert(hash, user_uuid \\ nil) do
+  defp insert(hash, user_uuid \\ nil, source_proof_hash \\ nil) do
     query(
       """
       INSERT INTO phoenix_kit_handoff_tokens
-        (token_hash, target_host, redirect_path, user_uuid, browser_nonce_hash, expires_at)
-      VALUES ($1, 'shop.test', '/', $2, $3, now() + interval '1 minute') RETURNING uuid
+        (token_hash, target_host, redirect_path, user_uuid, browser_nonce_hash, source_proof_hash,
+         expires_at)
+      VALUES ($1, 'shop.test', '/', $2, $3, $4, now() + interval '1 minute') RETURNING uuid
       """,
-      [hash, user_uuid, :crypto.strong_rand_bytes(32)]
+      [hash, user_uuid, :crypto.strong_rand_bytes(32), source_proof_hash]
     )
   end
 
@@ -86,6 +88,35 @@ defmodule PhoenixKit.Migrations.Postgres.V236Test do
 
     query("DELETE FROM phoenix_kit_users WHERE uuid = $1", [Ecto.UUID.dump!(user.uuid)])
     assert query("SELECT count(*) FROM phoenix_kit_handoff_tokens") == [[0]]
+  end
+
+  test "a source proof is single use: unique where set, and any number of rows have none" do
+    proof = :crypto.strong_rand_bytes(32)
+
+    assert [[_uuid]] = insert(:crypto.strong_rand_bytes(32), nil, proof)
+
+    error =
+      assert_raise Postgrex.Error, fn -> insert(:crypto.strong_rand_bytes(32), nil, proof) end
+
+    assert error.postgres.constraint == "phoenix_kit_handoff_tokens_source_proof_hash_index"
+
+    assert [[_]] = insert(:crypto.strong_rand_bytes(32), nil, :crypto.strong_rand_bytes(32))
+    assert [[_]] = insert(:crypto.strong_rand_bytes(32))
+    assert [[_]] = insert(:crypto.strong_rand_bytes(32))
+  end
+
+  test "a database that ran the first draft of V236 gets the column and its index on a re-run" do
+    run([
+      "DROP INDEX phoenix_kit_handoff_tokens_source_proof_hash_index",
+      "ALTER TABLE phoenix_kit_handoff_tokens DROP COLUMN source_proof_hash"
+    ])
+
+    run(V236.up_statements("public"))
+
+    assert indexes() == Enum.sort(@indexes)
+
+    assert [[_]] =
+             insert(:crypto.strong_rand_bytes(32), nil, :crypto.strong_rand_bytes(32))
   end
 
   test "a guest row (no account) is allowed" do

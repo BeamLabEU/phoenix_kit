@@ -16,8 +16,9 @@ defmodule PhoenixKit.Handoff do
        sends the SHA-256 of it back to the source, with the proof it was given unchanged.
     3. `mint` on the **source**: checks that its signed cookie is one this application issued and
        that the proof is its hash, asks every enabled module for a snapshot of its state, stores a
-       token row bound to the target host and to that nonce hash (refusing a handoff that carries
-       nothing: no account and no snapshot), and sends the browser to the target.
+       token row bound to the target host, to that nonce hash and to the proof, which the row's
+       unique index spends (one source cookie, one row), refusing a handoff that carries nothing
+       (no account and no snapshot), and sends the browser to the target.
     4. `redeem` on the **target**: consumes the row in one statement (`redeem/4`), lets the modules
        apply their payload, signs the account in through the normal log-in path and redirects to the
        requested path.
@@ -91,6 +92,7 @@ defmodule PhoenixKit.Handoff do
   @max_to_length 2048
   @cookie_option_keys [:max_age, :http_only, :same_site, :secure, :sign, :encrypt, :path]
   @same_site_values ["Lax", "Strict", "None"]
+  @proof_index :phoenix_kit_handoff_tokens_source_proof_hash_index
   @source_cookie "pk_handoff_src"
   @nonce_cookie "pk_handoff_nonce"
   # RFC 6265: a cookie name is an RFC 2616 token; a value is cookie-octets (printable ASCII but
@@ -226,12 +228,24 @@ defmodule PhoenixKit.Handoff do
   @spec allowed_host(term(), [String.t()] | nil) :: String.t() | nil
   def allowed_host(host, hosts \\ nil)
 
-  def allowed_host(host, hosts) when is_binary(host) and byte_size(host) <= 255 do
-    host = host |> String.trim() |> String.downcase()
-    if host != "", do: Enum.find(hosts || allowed_hosts(), &(&1 == host))
+  def allowed_host(host, hosts) do
+    if host = host_param(host), do: Enum.find(hosts || allowed_hosts(), &(&1 == host))
   end
 
-  def allowed_host(_host, _hosts), do: nil
+  @doc """
+  `host` (a request parameter, untrusted) as a candidate for `allowed_host/2`: trimmed and
+  downcased, or `nil` when it is not a binary of 1 to 255 bytes. A cheap shape check that asks no
+  resolver, so a request can be refused on it before the allow-list is read.
+  """
+  @spec host_param(term()) :: String.t() | nil
+  def host_param(host) when is_binary(host) and byte_size(host) <= 255 do
+    case host |> String.trim() |> String.downcase() do
+      "" -> nil
+      host -> host
+    end
+  end
+
+  def host_param(_host), do: nil
 
   @doc "The host name of an allow-list entry, without its port."
   @spec host_name(String.t()) :: String.t()
@@ -325,6 +339,13 @@ defmodule PhoenixKit.Handoff do
 
   def source_proof?(_secret, _param), do: false
 
+  @doc """
+  The 32-byte hash an `s` parameter carries (what `mint/1` takes as `:source_proof_hash`), or
+  `:error`. The same decoding as `decode_nonce_hash/1`.
+  """
+  @spec decode_source_proof(term()) :: {:ok, binary()} | :error
+  def decode_source_proof(param), do: decode_nonce_hash(param)
+
   @doc "The 32-byte hash a `n` parameter carries, or `:error`."
   @spec decode_nonce_hash(term()) :: {:ok, binary()} | :error
   def decode_nonce_hash(param) do
@@ -343,7 +364,13 @@ defmodule PhoenixKit.Handoff do
 
   `attrs`: `:target_host` (the host it is redeemable on, a port is dropped), `:redirect_path` (a
   local path), `:browser_nonce_hash` (the 32 bytes `decode_nonce_hash/1` gives), and optionally
-  `:user_uuid`, `:payload` (a JSON-safe map) and `:user_agent` (a header value, kept as a hash).
+  `:user_uuid`, `:payload` (a JSON-safe map), `:user_agent` (a header value, kept as a hash) and
+  `:source_proof_hash` (the 32 bytes `decode_source_proof/1` gives).
+
+  `:source_proof_hash` makes the proof of a `start` **single use**: it is stored under a unique
+  index, so a second mint with a proof that already has a row is `{:error, :proof_used}` and writes
+  nothing. That holds across nodes and restarts, which a counter in memory cannot promise. A mint
+  that is refused before the insert (a bad path, nothing to carry) does not spend it.
 
   A handoff that carries nothing, no `:user_uuid` and an empty `:payload`, is refused
   (`{:error, :nothing_to_carry}`): there is nothing to hand over, and no row is written. Each
@@ -355,12 +382,16 @@ defmodule PhoenixKit.Handoff do
              byte_size(nonce_hash) == 32 do
     cond do
       is_nil(valid_to(path)) -> {:error, :invalid_path}
+      not valid_proof_hash?(Map.get(attrs, :source_proof_hash)) -> {:error, :invalid_attrs}
       nothing_to_carry?(attrs) -> {:error, :nothing_to_carry}
       true -> insert_token(attrs, host, path, nonce_hash)
     end
   end
 
   def mint(_attrs), do: {:error, :invalid_attrs}
+
+  defp valid_proof_hash?(nil), do: true
+  defp valid_proof_hash?(hash), do: is_binary(hash) and byte_size(hash) == 32
 
   defp nothing_to_carry?(attrs) do
     is_nil(Map.get(attrs, :user_uuid)) and Map.get(attrs, :payload) in [nil, %{}]
@@ -378,16 +409,22 @@ defmodule PhoenixKit.Handoff do
       payload: Map.get(attrs, :payload) || %{},
       browser_nonce_hash: nonce_hash,
       user_agent_hash: user_agent_hash(Map.get(attrs, :user_agent)),
+      source_proof_hash: Map.get(attrs, :source_proof_hash),
       expires_at: DateTime.add(now, @ttl_seconds, :second)
     }
 
-    case RepoHelper.repo().insert(row) do
+    changeset =
+      row
+      |> Ecto.Changeset.change()
+      |> Ecto.Changeset.unique_constraint(:source_proof_hash, name: @proof_index)
+
+    case RepoHelper.repo().insert(changeset) do
       {:ok, _row} ->
         prune_a_few()
         {:ok, token}
 
-      {:error, _reason} = error ->
-        error
+      {:error, %Ecto.Changeset{errors: errors}} = error ->
+        if Keyword.has_key?(errors, :source_proof_hash), do: {:error, :proof_used}, else: error
     end
   rescue
     error ->

@@ -665,6 +665,58 @@ defmodule PhoenixKit.HandoffTest do
     end
   end
 
+  describe "mint/1 and the source proof" do
+    test "a source proof hash is single use: the second mint with it is refused and writes nothing" do
+      nonce = Handoff.new_secret()
+      proof = sha(Handoff.new_secret())
+
+      assert {:ok, token} = Handoff.mint(attrs(nonce, %{source_proof_hash: proof}))
+      assert row(token).source_proof_hash == proof
+
+      for _ <- 1..3 do
+        assert {:error, :proof_used} = Handoff.mint(attrs(nonce, %{source_proof_hash: proof}))
+      end
+
+      assert Repo.aggregate(Token, :count) == 1
+    end
+
+    test "another proof, and a mint without one, are not affected" do
+      nonce = Handoff.new_secret()
+
+      assert {:ok, _} = Handoff.mint(attrs(nonce, %{source_proof_hash: sha("a")}))
+      assert {:ok, _} = Handoff.mint(attrs(nonce, %{source_proof_hash: sha("b")}))
+      assert {:ok, _} = Handoff.mint(attrs(nonce, %{}))
+      assert {:ok, _} = Handoff.mint(attrs(nonce, %{}))
+      assert Repo.aggregate(Token, :count) == 4
+    end
+
+    test "a proof hash that is not 32 bytes is refused" do
+      assert {:error, :invalid_attrs} =
+               Handoff.mint(attrs(Handoff.new_secret(), %{source_proof_hash: "short"}))
+
+      assert Repo.aggregate(Token, :count) == 0
+    end
+
+    test "a refused mint (nothing to carry) does not spend the proof" do
+      nonce = Handoff.new_secret()
+      proof = sha("unspent")
+
+      assert {:error, :nothing_to_carry} =
+               Handoff.mint(attrs(nonce, %{source_proof_hash: proof, payload: %{}}))
+
+      assert {:ok, _} = Handoff.mint(attrs(nonce, %{source_proof_hash: proof}))
+    end
+
+    test "decode_source_proof/1 reads the 32 bytes the s parameter names" do
+      secret = Handoff.new_secret()
+      param = Handoff.source_proof_param(secret)
+
+      assert {:ok, sha(secret)} == Handoff.decode_source_proof(param)
+      assert :error = Handoff.decode_source_proof("short")
+      assert :error = Handoff.decode_source_proof(nil)
+    end
+  end
+
   describe "revoke_for_users/1" do
     test "deletes the unused handoffs of the accounts named, and nobody else's" do
       a = KeyTestSupport.register_user!()

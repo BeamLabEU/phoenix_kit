@@ -18,8 +18,8 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V236 do
         create: "CREATE TABLE IF NOT EXISTS __SCHEMA__.phoenix_kit_handoff_tokens ()",
         since: 236,
         class: :table,
-        revisions: [{236, %{}}],
         presence: :required,
+        revisions: [{236, %{}}],
         backfill: nil
       },
       %{
@@ -36,8 +36,8 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V236 do
           "ALTER TABLE __SCHEMA__.phoenix_kit_handoff_tokens ADD COLUMN IF NOT EXISTS \"browser_nonce_hash\" bytea",
         since: 236,
         class: :column,
-        revisions: [{236, %{default: nil, type: "bytea", pos: 7, not_null: true}}],
         presence: :required,
+        revisions: [{236, %{default: nil, type: "bytea", pos: 7, not_null: true}}],
         backfill: nil
       },
       %{
@@ -49,6 +49,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V236 do
           "ALTER TABLE __SCHEMA__.phoenix_kit_handoff_tokens ADD COLUMN IF NOT EXISTS \"expires_at\" timestamp(0) without time zone",
         since: 236,
         class: :column,
+        presence: :required,
         revisions: [
           {236,
            %{
@@ -58,7 +59,6 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V236 do
              not_null: true
            }}
         ],
-        presence: :required,
         backfill: nil
       },
       %{
@@ -75,6 +75,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V236 do
           "ALTER TABLE __SCHEMA__.phoenix_kit_handoff_tokens ADD COLUMN IF NOT EXISTS \"inserted_at\" timestamp(0) without time zone DEFAULT now() NOT NULL",
         since: 236,
         class: :column,
+        presence: :required,
         revisions: [
           {236,
            %{
@@ -84,7 +85,6 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V236 do
              not_null: true
            }}
         ],
-        presence: :required,
         backfill: :default
       },
       %{
@@ -96,10 +96,10 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V236 do
           "ALTER TABLE __SCHEMA__.phoenix_kit_handoff_tokens ADD COLUMN IF NOT EXISTS \"payload\" jsonb DEFAULT '{}'::jsonb NOT NULL",
         since: 236,
         class: :column,
+        presence: :required,
         revisions: [
           {236, %{default: "'{}'::jsonb", type: "jsonb", pos: 6, not_null: true}}
         ],
-        presence: :required,
         backfill: :default
       },
       %{
@@ -116,8 +116,26 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V236 do
           "ALTER TABLE __SCHEMA__.phoenix_kit_handoff_tokens ADD COLUMN IF NOT EXISTS \"redirect_path\" text",
         since: 236,
         class: :column,
-        revisions: [{236, %{default: nil, type: "text", pos: 4, not_null: true}}],
         presence: :required,
+        revisions: [{236, %{default: nil, type: "text", pos: 4, not_null: true}}],
+        backfill: nil
+      },
+      %{
+        id: "column:phoenix_kit_handoff_tokens.source_proof_hash",
+        owner: :core,
+        check:
+          {:catalog,
+           %{
+             table: "phoenix_kit_handoff_tokens",
+             column: "source_proof_hash",
+             kind: :column
+           }},
+        create:
+          "ALTER TABLE __SCHEMA__.phoenix_kit_handoff_tokens ADD COLUMN IF NOT EXISTS \"source_proof_hash\" bytea",
+        since: 236,
+        class: :column,
+        presence: :required,
+        revisions: [{236, %{default: nil, type: "bytea", pos: 12, not_null: false}}],
         backfill: nil
       },
       %{
@@ -134,8 +152,8 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V236 do
           "ALTER TABLE __SCHEMA__.phoenix_kit_handoff_tokens ADD COLUMN IF NOT EXISTS \"target_host\" text",
         since: 236,
         class: :column,
-        revisions: [{236, %{default: nil, type: "text", pos: 3, not_null: true}}],
         presence: :required,
+        revisions: [{236, %{default: nil, type: "text", pos: 3, not_null: true}}],
         backfill: nil
       },
       %{
@@ -147,8 +165,8 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V236 do
           "ALTER TABLE __SCHEMA__.phoenix_kit_handoff_tokens ADD COLUMN IF NOT EXISTS \"token_hash\" bytea",
         since: 236,
         class: :column,
-        revisions: [{236, %{default: nil, type: "bytea", pos: 2, not_null: true}}],
         presence: :required,
+        revisions: [{236, %{default: nil, type: "bytea", pos: 2, not_null: true}}],
         backfill: nil
       },
       %{
@@ -160,6 +178,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V236 do
           "ALTER TABLE __SCHEMA__.phoenix_kit_handoff_tokens ADD COLUMN IF NOT EXISTS \"used_at\" timestamp(0) without time zone",
         since: 236,
         class: :column,
+        presence: :required,
         revisions: [
           {236,
            %{
@@ -169,7 +188,6 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V236 do
              not_null: false
            }}
         ],
-        presence: :required,
         backfill: nil
       },
       %{
@@ -186,8 +204,8 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V236 do
           "ALTER TABLE __SCHEMA__.phoenix_kit_handoff_tokens ADD COLUMN IF NOT EXISTS \"user_agent_hash\" bytea",
         since: 236,
         class: :column,
-        revisions: [{236, %{default: nil, type: "bytea", pos: 8, not_null: false}}],
         presence: :required,
+        revisions: [{236, %{default: nil, type: "bytea", pos: 8, not_null: false}}],
         backfill: nil
       },
       %{
@@ -199,8 +217,8 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V236 do
           "ALTER TABLE __SCHEMA__.phoenix_kit_handoff_tokens ADD COLUMN IF NOT EXISTS \"user_uuid\" uuid",
         since: 236,
         class: :column,
-        revisions: [{236, %{default: nil, type: "uuid", pos: 5, not_null: false}}],
         presence: :required,
+        revisions: [{236, %{default: nil, type: "uuid", pos: 5, not_null: false}}],
         backfill: nil
       },
       %{
@@ -211,6 +229,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V236 do
           "ALTER TABLE __SCHEMA__.phoenix_kit_handoff_tokens ADD COLUMN IF NOT EXISTS \"uuid\" uuid DEFAULT __SCHEMA__.uuid_generate_v7() NOT NULL",
         since: 236,
         class: :column,
+        presence: :required,
         revisions: [
           {236,
            %{
@@ -220,7 +239,6 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V236 do
              not_null: true
            }}
         ],
-        presence: :required,
         backfill: :default
       },
       %{
@@ -237,6 +255,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V236 do
           "CREATE INDEX IF NOT EXISTS phoenix_kit_handoff_tokens_expires_at_index ON __SCHEMA__.phoenix_kit_handoff_tokens USING btree (expires_at)",
         since: 236,
         class: :index,
+        presence: :required,
         revisions: [
           {236,
            %{
@@ -251,7 +270,37 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V236 do
              name_template: nil
            }}
         ],
+        backfill: nil
+      },
+      %{
+        id: "index:phoenix_kit_handoff_tokens_source_proof_hash_index",
+        owner: :core,
+        check:
+          {:catalog,
+           %{
+             name: "phoenix_kit_handoff_tokens_source_proof_hash_index",
+             table: "phoenix_kit_handoff_tokens",
+             kind: :index
+           }},
+        create:
+          "CREATE UNIQUE INDEX IF NOT EXISTS phoenix_kit_handoff_tokens_source_proof_hash_index ON __SCHEMA__.phoenix_kit_handoff_tokens USING btree (source_proof_hash) WHERE (source_proof_hash IS NOT NULL)",
+        since: 236,
+        class: :index,
         presence: :required,
+        revisions: [
+          {236,
+           %{
+             table: "phoenix_kit_handoff_tokens",
+             keys: ["source_proof_hash"],
+             unique: true,
+             method: "btree",
+             definition:
+               "CREATE UNIQUE INDEX phoenix_kit_handoff_tokens_source_proof_hash_index ON __SCHEMA__.phoenix_kit_handoff_tokens USING btree (source_proof_hash) WHERE (source_proof_hash IS NOT NULL)",
+             predicate: "(source_proof_hash IS NOT NULL)",
+             opclasses: ["bytea_ops"],
+             name_template: nil
+           }}
+        ],
         backfill: nil
       },
       %{
@@ -268,6 +317,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V236 do
           "CREATE UNIQUE INDEX IF NOT EXISTS phoenix_kit_handoff_tokens_token_hash_index ON __SCHEMA__.phoenix_kit_handoff_tokens USING btree (token_hash)",
         since: 236,
         class: :index,
+        presence: :required,
         revisions: [
           {236,
            %{
@@ -282,7 +332,6 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V236 do
              name_template: nil
            }}
         ],
-        presence: :required,
         backfill: nil
       },
       %{
@@ -299,6 +348,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V236 do
           "CREATE INDEX IF NOT EXISTS phoenix_kit_handoff_tokens_user_uuid_index ON __SCHEMA__.phoenix_kit_handoff_tokens USING btree (user_uuid)",
         since: 236,
         class: :index,
+        presence: :required,
         revisions: [
           {236,
            %{
@@ -313,7 +363,6 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V236 do
              name_template: nil
            }}
         ],
-        presence: :required,
         backfill: nil
       },
       %{
@@ -330,6 +379,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V236 do
           "DO $$\nBEGIN\n  IF NOT EXISTS (\n    SELECT 1\n    FROM pg_constraint c\n    JOIN pg_class t ON t.oid = c.conrelid\n    JOIN pg_namespace n ON n.oid = t.relnamespace\n    WHERE c.conname = 'phoenix_kit_handoff_tokens_pkey'\n      AND t.relname = 'phoenix_kit_handoff_tokens'\n      AND n.nspname = '__SCHEMA__'\n  ) THEN\n    ALTER TABLE __SCHEMA__.phoenix_kit_handoff_tokens ADD CONSTRAINT phoenix_kit_handoff_tokens_pkey PRIMARY KEY (uuid);\n  END IF;\nEND\n$$",
         since: 236,
         class: :constraint,
+        presence: :required,
         revisions: [
           {236,
            %{
@@ -343,7 +393,6 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V236 do
              foreign_columns: nil
            }}
         ],
-        presence: :required,
         backfill: nil
       },
       %{
@@ -360,6 +409,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V236 do
           "DO $$\nBEGIN\n  IF NOT EXISTS (\n    SELECT 1\n    FROM pg_constraint c\n    JOIN pg_class t ON t.oid = c.conrelid\n    JOIN pg_namespace n ON n.oid = t.relnamespace\n    WHERE c.conname = 'phoenix_kit_handoff_tokens_user_uuid_fkey'\n      AND t.relname = 'phoenix_kit_handoff_tokens'\n      AND n.nspname = '__SCHEMA__'\n  ) THEN\n    ALTER TABLE __SCHEMA__.phoenix_kit_handoff_tokens ADD CONSTRAINT phoenix_kit_handoff_tokens_user_uuid_fkey FOREIGN KEY (user_uuid) REFERENCES __SCHEMA__.phoenix_kit_users(uuid) ON DELETE CASCADE;\n  END IF;\nEND\n$$",
         since: 236,
         class: :constraint,
+        presence: :required,
         revisions: [
           {236,
            %{
@@ -374,7 +424,6 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V236 do
              foreign_columns: ["uuid"]
            }}
         ],
-        presence: :required,
         backfill: nil
       }
     ]

@@ -10,7 +10,8 @@ defmodule PhoenixKitWeb.HandoffController do
   None of them needs a login (the session decides what is carried), all four answer
   `Cache-Control: no-store` and are `log: false` routes: the token is a capability. A handoff is
   counted once against the rate limit, where it starts (`start`, per address, before anything is
-  looked up); a `redeem` counts only when it fails, and a `mint` also per account.
+  looked up); a `redeem` counts only when it fails, and a `mint` per address and per source
+  proof, and also per account when there is one.
 
   ## Failure
 
@@ -43,11 +44,16 @@ defmodule PhoenixKitWeb.HandoffController do
   `__Host-` cookies (`Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/`) on `https`, and on `http` only
   the same cookies without the prefix and without `Secure`, which the prefix would forbid.
 
-  The source cookie is **signed** (`Plug.Conn.put_resp_cookie/4` with `sign: true`, so it needs the
-  application's `secret_key_base`, which every domain of the site shares) and lives 60 seconds:
-  `mint` accepts only a cookie the application itself issued. `start` also sends the SHA-256 of
-  its secret through `prepare` to `mint` (`s`), which compares it with its own cookie: a `mint`
-  request must belong to a `start` made in the same browser.
+  The source cookie is **signed** (`Plug.Conn.put_resp_cookie/4` with `sign: true`, with the
+  application's `secret_key_base`; it is issued and verified on the same host) and lives 60
+  seconds: `mint` accepts only a cookie the application itself issued. `start` also sends the
+  SHA-256 of its secret through `prepare` to `mint` (`s`), which compares it with its own cookie: a
+  `mint` request must belong to a `start` made in the same browser.
+
+  The cookie is deleted by the response to `mint`, which a client that is not a browser ignores, so
+  the proof is single use on the server: the row stores it under a unique index
+  (`PhoenixKit.Handoff.mint/1`), which holds across nodes, and a budget of one mint per proof (per
+  node) and one per address (guests too) sit in front of it to save work.
   """
 
   use PhoenixKitWeb, :controller
@@ -85,12 +91,11 @@ defmodule PhoenixKitWeb.HandoffController do
   ## Step 1
 
   defp do_start(conn, params) do
-    site = site(conn)
-
     with lang when is_binary(lang) <- language(params["lang"]),
+         conn = resolve_site(conn),
          canonical when is_binary(canonical) <- Routes.canonical_host(lang),
-         target when is_binary(target) <- Handoff.allowed_host(canonical, site.hosts),
-         source when is_binary(source) <- Handoff.own_host(conn.host, site.hosts),
+         target when is_binary(target) <- Handoff.allowed_host(canonical, site(conn).hosts),
+         source when is_binary(source) <- Handoff.own_host(conn.host, site(conn).hosts),
          false <- same_host?(target, source) do
       to = Handoff.valid_to(params["to"]) || "/"
       conn = WebAuth.fetch_phoenix_kit_current_scope(conn, [])
@@ -103,8 +108,6 @@ defmodule PhoenixKitWeb.HandoffController do
   # Nothing to carry (no signed-in account, no module with a snapshot) or nothing that may be
   # carried (an impersonated session): a plain redirect, no cookie, no row.
   defp begin_handoff(conn, source, target, to) do
-    site = site(conn)
-
     carried? =
       case Handoff.carried_user(conn.assigns[:phoenix_kit_current_scope]) do
         {:ok, %User{}} -> true
@@ -126,21 +129,23 @@ defmodule PhoenixKitWeb.HandoffController do
           )
       )
     else
-      redirect(conn, external: site.scheme <> "://" <> target <> to)
+      redirect(conn, external: scheme(conn) <> "://" <> target <> to)
     end
   end
 
   ## Step 2
 
+  # The shape of the parameters is checked first, and only then is the host resolver asked (it
+  # costs one question per enabled language, and this step is not limited).
   defp do_prepare(conn, params) do
-    site = site(conn)
-
-    with return when is_binary(return) <- Handoff.allowed_host(params["return"], site.hosts),
+    with true <- Handoff.secret?(params["s"]),
          to when is_binary(to) <- Handoff.valid_to(params["to"]),
-         true <- Handoff.secret?(params["s"]),
-         own when is_binary(own) <- Handoff.own_host(conn.host, site.hosts),
+         return when is_binary(return) <- Handoff.host_param(params["return"]),
+         conn = resolve_site(conn),
+         return when is_binary(return) <- Handoff.allowed_host(return, site(conn).hosts),
+         own when is_binary(own) <- Handoff.own_host(conn.host, site(conn).hosts),
          false <- same_host?(return, own) do
-      name = Handoff.nonce_cookie(site.scheme)
+      name = Handoff.nonce_cookie(scheme(conn))
       nonce = existing_secret(conn, name) || Handoff.new_secret()
 
       conn
@@ -161,21 +166,30 @@ defmodule PhoenixKitWeb.HandoffController do
 
   ## Step 3
 
+  # Cheap checks first (the cookie, the proof, the shape of every parameter), then the budgets,
+  # then the host resolver, the session and the database. A request that fails a cheap check asks
+  # nothing and costs nobody a slot.
   defp do_mint(conn, params) do
-    site = site(conn)
-    name = Handoff.source_cookie(site.scheme)
+    name = Handoff.source_cookie(scheme(conn))
 
-    # The cookie is read, and deleted, whatever follows: it is good for one attempt. Read as a
-    # SIGNED cookie: only one this application issued (and not older than 60 seconds) counts.
+    # The cookie is read, and deleted, whatever follows. Read as a SIGNED cookie: only one this
+    # application issued (and not older than 60 seconds) counts. The deletion is only a
+    # `Set-Cookie`, which a client that is not a browser ignores: the proof is made single use on
+    # the server (the proof's budget below, and `source_proof_hash` of the row).
     secret = signed_secret(conn, name)
     conn = delete_handoff_cookie(conn, name)
 
     with true <- Handoff.source_proof?(secret, params["s"]),
-         target when is_binary(target) <- Handoff.allowed_host(params["h"], site.hosts),
-         source when is_binary(source) <- Handoff.own_host(conn.host, site.hosts),
-         false <- same_host?(target, source),
+         {:ok, proof_hash} <- Handoff.decode_source_proof(params["s"]),
          {:ok, nonce_hash} <- Handoff.decode_nonce_hash(params["n"]),
          to when is_binary(to) <- Handoff.valid_to(params["to"]),
+         host when is_binary(host) <- Handoff.host_param(params["h"]),
+         :ok <- RateLimiter.check_handoff_mint_proof_rate_limit(params["s"]),
+         :ok <- RateLimiter.check_handoff_mint_ip_rate_limit(IpAddress.extract_from_conn(conn)),
+         conn = resolve_site(conn),
+         target when is_binary(target) <- Handoff.allowed_host(host, site(conn).hosts),
+         source when is_binary(source) <- Handoff.own_host(conn.host, site(conn).hosts),
+         false <- same_host?(target, source),
          conn = WebAuth.fetch_phoenix_kit_current_scope(conn, []),
          {:ok, user} <- Handoff.carried_user(conn.assigns[:phoenix_kit_current_scope]),
          :ok <- mint_rate_limit(user),
@@ -187,6 +201,7 @@ defmodule PhoenixKitWeb.HandoffController do
              user_uuid: user_uuid,
              payload: Handoff.snapshots(hook_context(conn, user_uuid)),
              browser_nonce_hash: nonce_hash,
+             source_proof_hash: proof_hash,
              user_agent: user_agent(conn)
            }) do
       redirect(conn, external: external_url(conn, target, "/handoff/" <> token, []))
@@ -195,14 +210,15 @@ defmodule PhoenixKitWeb.HandoffController do
     end
   end
 
+  # The address's budget is taken before this (for a guest too); an account has its own on top.
   defp mint_rate_limit(nil), do: :ok
   defp mint_rate_limit(%User{uuid: uuid}), do: RateLimiter.check_handoff_mint_rate_limit(uuid)
 
   ## Step 4
 
+  # The host resolver is asked only once the token is spent: redeeming needs no host list.
   defp do_redeem(conn, token) do
-    site = site(conn)
-    name = Handoff.nonce_cookie(site.scheme)
+    name = Handoff.nonce_cookie(scheme(conn))
     nonce = existing_secret(conn, name)
     conn = delete_handoff_cookie(conn, name)
 
@@ -210,7 +226,8 @@ defmodule PhoenixKitWeb.HandoffController do
          :ok <- RateLimiter.release_handoff_redeem_slot(IpAddress.extract_from_conn(conn)),
          to when is_binary(to) <- Handoff.valid_to(row.redirect_path),
          {:ok, user} <- load_user(row.user_uuid) do
-      locale = Handoff.language_for_host(conn.host, site.languages)
+      conn = resolve_site(conn)
+      locale = Handoff.language_for_host(conn.host, site(conn).languages)
       session_cookies = session_cookie_names(conn)
 
       effects =
@@ -218,7 +235,7 @@ defmodule PhoenixKitWeb.HandoffController do
         |> hook_context(row.user_uuid)
         |> Map.merge(%{host: conn.host, locale: locale})
         |> Handoff.apply_payload(row.payload || %{}, nil,
-          scheme: site.scheme,
+          scheme: scheme(conn),
           reserved_cookies: Handoff.auth_cookie_names(session_cookies)
         )
 
@@ -306,7 +323,13 @@ defmodule PhoenixKitWeb.HandoffController do
   defp session_cookie_names(conn),
     do: conn |> Phoenix.Controller.endpoint_module() |> Handoff.session_cookie_names()
 
-  # What the request needs to know about the site, read once per request.
+  # The scheme is a cheap read, set on every request; the hosts and the languages cost one
+  # question of the host resolver per enabled language, so a request asks (`resolve_site/1`) only
+  # when it got past the checks that need no host, and once.
+  defp scheme(conn), do: conn.private.handoff_scheme
+
+  defp resolve_site(conn), do: put_private(conn, :handoff_site, Handoff.resolve())
+
   defp site(conn), do: conn.private.handoff_site
 
   defp guarded(conn, step, fun) do
@@ -338,7 +361,7 @@ defmodule PhoenixKitWeb.HandoffController do
 
   defp limited(conn, _step, fun), do: run(conn, fun)
 
-  defp run(conn, fun), do: conn |> put_private(:handoff_site, Handoff.resolve()) |> fun.()
+  defp run(conn, fun), do: conn |> put_private(:handoff_scheme, Handoff.scheme()) |> fun.()
 
   defp fail(conn), do: redirect(secure(conn), to: "/")
 
@@ -394,7 +417,7 @@ defmodule PhoenixKitWeb.HandoffController do
   defp same_host?(a, b), do: Handoff.host_name(a) == Handoff.host_name(b)
 
   defp external_url(conn, host, path, query) do
-    base = site(conn).scheme <> "://" <> host <> Routes.path(path)
+    base = scheme(conn) <> "://" <> host <> Routes.path(path)
     if query == [], do: base, else: base <> "?" <> URI.encode_query(query)
   end
 
@@ -411,7 +434,7 @@ defmodule PhoenixKitWeb.HandoffController do
     if Handoff.secret?(value), do: value
   end
 
-  defp cookie_options(conn), do: [{:secure, site(conn).scheme == "https"} | @cookie_options]
+  defp cookie_options(conn), do: [{:secure, scheme(conn) == "https"} | @cookie_options]
 
   defp put_handoff_cookie(conn, name, value),
     do: put_resp_cookie(conn, name, value, [{:max_age, @cookie_max_age} | cookie_options(conn)])
@@ -419,7 +442,7 @@ defmodule PhoenixKitWeb.HandoffController do
   defp put_source_cookie(conn, secret) do
     put_resp_cookie(
       conn,
-      Handoff.source_cookie(site(conn).scheme),
+      Handoff.source_cookie(scheme(conn)),
       secret,
       [{:sign, true}, {:max_age, @cookie_max_age} | cookie_options(conn)]
     )

@@ -84,6 +84,9 @@ defmodule PhoenixKit.Users.RateLimiter do
   alias PhoenixKit.Users.RateLimiter.Backend
   alias PhoenixKit.Utils.IpAddress
 
+  # The lifetime of the handoff's source cookie, which the proof of a `start` is bound to.
+  @handoff_proof_window_ms 60_000
+
   @default_config [
     # Login: 5 attempts per minute per email
     login_limit: 5,
@@ -167,12 +170,15 @@ defmodule PhoenixKit.Users.RateLimiter do
     passkey_login_window_ms: 60_000,
     # Cross-domain handoff (`PhoenixKit.Handoff`). A handoff is counted once, where it starts:
     # 60 starts a minute per address leaves room for an office behind one NAT. The mint, which
-    # reads the session and writes a row, also counts per account: 20 a minute. A redeem counts
-    # only when it FAILS, 30 a minute per address (a wrong or replayed link, a guessing client).
+    # reads the session and writes a row, counts per account (20 a minute) and per address (60 a
+    # minute, as many as starts: a guest has no account to count). A redeem counts only when it
+    # FAILS, 30 a minute per address (a wrong or replayed link, a guessing client).
     handoff_start_limit: 60,
     handoff_start_window_ms: 60_000,
     handoff_mint_limit: 20,
     handoff_mint_window_ms: 60_000,
+    handoff_mint_ip_limit: 60,
+    handoff_mint_ip_window_ms: 60_000,
     handoff_redeem_failure_limit: 30,
     handoff_redeem_failure_window_ms: 60_000,
     manager_invitation_limit: 10,
@@ -543,6 +549,49 @@ defmodule PhoenixKit.Users.RateLimiter do
       limit,
       "handoff mint",
       "user:#{user_uuid}"
+    )
+  end
+
+  @doc """
+  Checks if an address may have another handoff minted (`PhoenixKit.Handoff`, the `mint` step),
+  for a guest and a signed-in account alike: a guest has no account for
+  `check_handoff_mint_rate_limit/1` to count.
+
+  Returns `:ok` if the request is allowed, or `{:error, :rate_limit_exceeded}`. As many a minute as
+  `handoff_start_limit` allows starts, since a mint follows a start from the same address. An
+  unknown address (`nil`, `""`, `"unknown"`) is not limited. A refusal is logged at debug level.
+  """
+  def check_handoff_mint_ip_rate_limit(ip_address) when ip_address in [nil, "", "unknown"],
+    do: :ok
+
+  def check_handoff_mint_ip_rate_limit(ip_address) when is_binary(ip_address) do
+    config = get_config()
+
+    ip = IpAddress.network(ip_address)
+    limit = Keyword.get(config, :handoff_mint_ip_limit)
+    window = Keyword.get(config, :handoff_mint_ip_window_ms)
+
+    handoff_hit("auth:handoff_mint:ip:#{ip}", window, limit, "handoff mint", "ip:#{ip}")
+  end
+
+  @doc """
+  Takes the one mint a source proof (the `s` of a mint request, which `start` issued) is good for,
+  per minute: the lifetime of the source cookie.
+
+  A client that ignores the `Set-Cookie` which deletes that cookie can send it again within its
+  minute, so the proof is also made single use in the database (the unique `source_proof_hash` of
+  `PhoenixKit.Handoff.mint/1`). This bucket is the cheap first fence, **per node**: it refuses a
+  replay before the session is read and the snapshots are taken, but it is neither shared between
+  nodes nor exact (a fixed window, so a replay across the minute boundary is let through to the
+  database, which refuses it). Returns `:ok` or `{:error, :rate_limit_exceeded}`.
+  """
+  def check_handoff_mint_proof_rate_limit(proof) when is_binary(proof) do
+    handoff_hit(
+      "auth:handoff_mint:proof:#{proof}",
+      @handoff_proof_window_ms,
+      1,
+      "handoff mint",
+      "a source proof"
     )
   end
 

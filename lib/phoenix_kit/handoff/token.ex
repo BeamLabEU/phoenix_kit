@@ -5,6 +5,8 @@ defmodule PhoenixKit.Handoff.Token do
   The raw token is never stored: `token_hash` is its SHA-256. The row is redeemable on
   `target_host` only, by the browser whose nonce hashes to `browser_nonce_hash`, until
   `expires_at`, once (`used_at`). `payload` maps a module's key to that module's snapshot.
+  `source_proof_hash` is the proof of the `start` the row was minted for (unique where set, so a
+  source cookie yields one row, whatever the client does with it).
   """
   use Ecto.Schema
   use PhoenixKit.SchemaPrefix
@@ -22,6 +24,7 @@ defmodule PhoenixKit.Handoff.Token do
     field :payload, :map, default: %{}
     field :browser_nonce_hash, :binary
     field :user_agent_hash, :binary
+    field :source_proof_hash, :binary
     field :expires_at, :utc_datetime
     field :used_at, :utc_datetime
 

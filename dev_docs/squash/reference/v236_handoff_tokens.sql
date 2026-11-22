@@ -20,7 +20,10 @@ CREATE TABLE __SCHEMA__.phoenix_kit_handoff_tokens (
     user_agent_hash bytea,
     expires_at timestamp(0) without time zone NOT NULL,
     used_at timestamp(0) without time zone,
-    inserted_at timestamp(0) without time zone DEFAULT now() NOT NULL
+    inserted_at timestamp(0) without time zone DEFAULT now() NOT NULL,
+    source_proof_hash bytea
 );
+
+CREATE UNIQUE INDEX phoenix_kit_handoff_tokens_source_proof_hash_index ON __SCHEMA__.phoenix_kit_handoff_tokens USING btree (source_proof_hash) WHERE (source_proof_hash IS NOT NULL);
 
 CREATE UNIQUE INDEX phoenix_kit_handoff_tokens_token_hash_index ON __SCHEMA__.phoenix_kit_handoff_tokens USING btree (token_hash);
