@@ -280,7 +280,7 @@ up and checked to be a guest's, never trusted because it arrived here).
   lines). A module derives what it needs from what it is handed: the `:host` and
   `:locale` (at apply), the `session` and the `cookies`.
 - **A hook killed at the deadline may leave effects that are not in the
-  database.** Its open database transaction is rolled back, but a message it sent,
+  database.** Its open database transaction is rolled back (the connection is dropped), but a message it sent,
   a request it made, a file it wrote or a cache entry it set stays. Keep a
   snapshot free of side effects (it must change nothing), and make an apply
   idempotent or tolerant of having run partly.
@@ -394,6 +394,9 @@ anyone in: the sign-in is the core's, after the hooks.
   | `handoff_mint_limit`, `handoff_mint_window_ms` | 20 a minute | `mint`, per account |
   | `handoff_mint_ip_limit`, `handoff_mint_ip_window_ms` | 60 a minute | `mint`, per address, for guests and signed-in accounts alike |
   | `handoff_redeem_failure_limit`, `handoff_redeem_failure_window_ms` | 30 a minute | `redeem`, per address, **failures only** (a good redeem hands its slot back) |
+
+  The one-mint-per-source-proof budget has no setting: it is the lifetime of the
+  source cookie.
 
   Buckets are per node (a second node has its own), which is why the one guarantee
   that must hold across nodes, a source proof's single use, lives in the

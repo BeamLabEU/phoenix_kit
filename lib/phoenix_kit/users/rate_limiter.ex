@@ -603,6 +603,13 @@ defmodule PhoenixKit.Users.RateLimiter do
   burst, and the caller hands it back with `release_handoff_redeem_slot/1` when the redeem
   succeeds: only failures stay counted. Returns `:ok` or `{:error, :rate_limit_exceeded}`; an
   unknown address is not limited. A refusal is logged at debug level.
+
+  The count is exact except at a window boundary: the windows are fixed, so a slot taken in one
+  window and handed back after the clock rolled to the next lowers the new window's count by one
+  (never below zero), which is at most one extra failed attempt, once. Counting a failure only
+  after it happened (a peek before, an increment after) would be exact, but every request of a
+  parallel burst would read the same empty bucket before the first failure was counted, which is
+  what taking the slot up front prevents; that is the worse error, so the slot stays up front.
   """
   def check_handoff_redeem_rate_limit(ip_address) when ip_address in [nil, "", "unknown"],
     do: :ok
