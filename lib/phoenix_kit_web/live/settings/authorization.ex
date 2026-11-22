@@ -120,7 +120,11 @@ defmodule PhoenixKitWeb.Live.Settings.Authorization do
         do: [{gettext("Unavailable connection"), current} | choices],
         else: choices
 
-    assign(socket, turnstile: selection, turnstile_options: [{blank, ""} | options])
+    assign(socket,
+      turnstile: selection,
+      turnstile_options: [{blank, ""} | options],
+      turnstile_protecting: Turnstile.enabled?()
+    )
   end
 
   defp load_turnstile(socket), do: socket

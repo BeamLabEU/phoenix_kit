@@ -51,6 +51,15 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcherLocaleContractTest do
                "/phoenix_kit/fr/some/page"
     end
 
+    test "a served sibling segment is stripped instead of stacked" do
+      LanguageSettings.put_languages(~w(en-US en-GB de))
+
+      # The public switcher links by base language. en-GB is that base's
+      # sibling URL, and switching away must not leave it in the path.
+      assert LanguageSwitcher.locale_path("/phoenix_kit/en-gb/some/page", "de") ==
+               "/phoenix_kit/de/some/page"
+    end
+
     test "matches the links the dropdown renders" do
       assigns = %{languages: two_languages()}
 

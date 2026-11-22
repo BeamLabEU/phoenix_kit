@@ -131,6 +131,18 @@ defmodule PhoenixKit.Notifications.RenderTest do
       link = Render.render(notif("user.note_created", %{"notification_link" => ""}), "en").link
       assert link == Routes.user_settings_path(locale: "en")
     end
+
+    test "an off-site override is dropped" do
+      for link <- ["@evil.example", ".evil.example", "https://evil.example", "//evil.example"] do
+        rendered = Render.render(notif("user.note_created", %{"notification_link" => link}), "en")
+        assert rendered.link == Routes.user_settings_path(locale: "en")
+
+        standalone =
+          Render.render(%Notification{activity: nil, metadata: %{"notification_link" => link}})
+
+        assert standalone.link == nil
+      end
+    end
   end
 
   describe "render/2 link — standalone notification (no activity)" do

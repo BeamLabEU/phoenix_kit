@@ -461,41 +461,60 @@ defmodule PhoenixKitWeb.Users.Session do
 
   def add_account(conn, %{"user" => %{"password" => password} = user_params} = params) do
     email_or_username = user_params["email_or_username"] || user_params["email"]
+    ip_address = IpAddress.extract_from_conn(conn)
 
     with_gate(conn, params, fn conn ->
-      case MultiSession.add_account(conn, email_or_username, password) do
-        {:ok, conn} ->
-          conn |> put_flash(:info, gettext("Account added.")) |> redirect_back(params)
-
-        {:error, :stack_full} ->
-          conn
-          |> put_flash(:error, gettext("Maximum number of accounts reached."))
-          |> redirect_back(params)
-
-        {:error, :already_in_stack} ->
-          conn
-          |> put_flash(:error, gettext("That account is already in your session."))
-          |> redirect_back(params)
-
-        {:error, :acting_organization} ->
+      # The same check as the sign-in form. This POST is a password attempt
+      # too; skipping it left password sign-in protection with a second door.
+      # `:login` cannot satisfy the registration or password-change handoff.
+      case BotCheck.check_password_login(conn, params, :login, email_or_username, ip_address) do
+        {:error, reason} when reason in [:missing, :rejected] ->
           conn
           |> put_flash(
             :error,
-            gettext("Return to your own account before adding another account.")
+            gettext("Please complete the verification and try signing in again.")
           )
           |> redirect_back(params)
 
-        {:error, reason} ->
-          # Same three outcomes as the login form. `:stack_full` and
-          # `:already_in_stack` above are not failed sign-ins — the
-          # credentials checked out.
-          record_failed_sign_in(conn, email_or_username, reason)
-
-          conn
-          |> put_flash(:error, gettext("Invalid email/username or password."))
-          |> redirect_back(params)
+        :ok ->
+          add_account_password(conn, params, email_or_username, password)
       end
     end)
+  end
+
+  defp add_account_password(conn, params, email_or_username, password) do
+    case MultiSession.add_account(conn, email_or_username, password) do
+      {:ok, conn} ->
+        conn |> put_flash(:info, gettext("Account added.")) |> redirect_back(params)
+
+      {:error, :stack_full} ->
+        conn
+        |> put_flash(:error, gettext("Maximum number of accounts reached."))
+        |> redirect_back(params)
+
+      {:error, :already_in_stack} ->
+        conn
+        |> put_flash(:error, gettext("That account is already in your session."))
+        |> redirect_back(params)
+
+      {:error, :acting_organization} ->
+        conn
+        |> put_flash(
+          :error,
+          gettext("Return to your own account before adding another account.")
+        )
+        |> redirect_back(params)
+
+      {:error, reason} ->
+        # Same three outcomes as the login form. `:stack_full` and
+        # `:already_in_stack` above are not failed sign-ins — the
+        # credentials checked out.
+        record_failed_sign_in(conn, email_or_username, reason)
+
+        conn
+        |> put_flash(:error, gettext("Invalid email/username or password."))
+        |> redirect_back(params)
+    end
   end
 
   # A map rather than function clauses with a catch-all. Dialyzer can prove

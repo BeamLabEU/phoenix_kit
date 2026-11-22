@@ -7251,30 +7251,66 @@ if (typeof window !== "undefined") {
     return loading;
   }
 
+  // A daisyUI modal keeps its contents in the DOM while closed. Rendering
+  // into that box sizes the widget at nothing and it fails. Wait until the
+  // toggle that opens the modal is checked. A widget that is already on
+  // screen renders immediately.
+  function closedModalToggle(el) {
+    var modal = el.closest(".modal");
+    if (!modal || !modal.previousElementSibling) return null;
+    var toggle = modal.previousElementSibling;
+    if (toggle.classList && toggle.classList.contains("modal-toggle") && !toggle.checked) {
+      return toggle;
+    }
+    return null;
+  }
+
+  function renderWidget(self, turnstile) {
+    self.widgetId = turnstile.render(self.el, {
+      sitekey: self.el.dataset.sitekey,
+      theme: "auto",
+      size: "flexible"
+    });
+  }
+
+  function markFailed(el) {
+    el.setAttribute("data-turnstile-failed", "");
+    var text = el.dataset.failedText;
+    if (text) {
+      el.setAttribute("role", "alert");
+      el.textContent = text;
+    }
+  }
+
   var Turnstile = {
     mounted() {
       var self = this;
       this.widgetId = null;
       this.gone = false;
+      this._openToggle = null;
+      this._onOpen = null;
 
       loadTurnstile().then(function (turnstile) {
         // The page may have been left while the script was loading.
         if (self.gone || !self.el.isConnected) return;
+        var toggle = closedModalToggle(self.el);
+        if (toggle) {
+          self._openToggle = toggle;
+          self._onOpen = function () {
+            if (!toggle.checked || self.gone || !self.el.isConnected || self.widgetId !== null) return;
+            toggle.removeEventListener("change", self._onOpen);
+            self._onOpen = null;
+            renderWidget(self, turnstile);
+          };
+          toggle.addEventListener("change", self._onOpen);
+          return;
+        }
         // "flexible": as wide as the form (at least 300px) instead of the
         // widget's fixed 300px, which left it short of every field above it.
-        self.widgetId = turnstile.render(self.el, {
-          sitekey: self.el.dataset.sitekey,
-          theme: "auto",
-          size: "flexible"
-        });
+        renderWidget(self, turnstile);
       }).catch(function () {
         if (self.gone || !self.el.isConnected) return;
-        self.el.setAttribute("data-turnstile-failed", "");
-        var text = self.el.dataset.failedText;
-        if (text) {
-          self.el.setAttribute("role", "alert");
-          self.el.textContent = text;
-        }
+        markFailed(self.el);
       });
 
       this.handleEvent("phoenix_kit:turnstile_reset", function () {
@@ -7286,6 +7322,11 @@ if (typeof window !== "undefined") {
 
     destroyed() {
       this.gone = true;
+      if (this._onOpen && this._openToggle) {
+        this._openToggle.removeEventListener("change", this._onOpen);
+      }
+      this._onOpen = null;
+      this._openToggle = null;
       if (this.widgetId !== null && window.turnstile) {
         try { window.turnstile.remove(this.widgetId); } catch (_err) { /* already gone */ }
       }

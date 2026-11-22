@@ -82,19 +82,37 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistrationRequest do
     end
   end
 
-  def handle_event("send_magic_link", %{"email" => _} = params, socket) do
-    if Settings.get_boolean_setting("allow_registration", true) do
-      case BotCheck.run(socket, params, socket.assigns[:ip_address], "registration_link") do
-        {:ok, socket} -> request_link(params, socket)
-        {:error, socket} -> {:noreply, socket}
-      end
-    else
-      {:noreply,
-       socket
-       |> put_flash(:error, gettext("User registration is currently disabled."))
-       |> redirect(to: Routes.path("/users/log-in"))}
+  def handle_event("send_magic_link", %{"email" => email} = params, socket) do
+    cond do
+      not Settings.get_boolean_setting("allow_registration", true) ->
+        {:noreply,
+         socket
+         |> put_flash(:error, gettext("User registration is currently disabled."))
+         |> redirect(to: Routes.path("/users/log-in"))}
+
+      # The success screen has no widget: the first submit already passed the
+      # check for this address, and the send is still rate-limited. A different
+      # address goes through the check, which refuses it — there is nothing on
+      # that screen to solve.
+      resend_of_sent?(socket, email) ->
+        request_link(params, socket)
+
+      true ->
+        case BotCheck.run(socket, params, socket.assigns[:ip_address], "registration_link") do
+          {:ok, socket} -> request_link(params, socket)
+          {:error, socket} -> {:noreply, socket}
+        end
     end
   end
+
+  defp resend_of_sent?(socket, email) when is_binary(email) do
+    sent = socket.assigns[:email]
+
+    socket.assigns[:email_sent] == true and is_binary(sent) and sent != "" and
+      String.downcase(String.trim(email)) == String.downcase(sent)
+  end
+
+  defp resend_of_sent?(_socket, _email), do: false
 
   defp request_link(%{"email" => email}, socket) do
     # Send in the background via start_async so the `@loading` spinner

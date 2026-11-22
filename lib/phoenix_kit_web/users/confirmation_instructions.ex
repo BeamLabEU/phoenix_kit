@@ -125,7 +125,13 @@ defmodule PhoenixKitWeb.Users.ConfirmationInstructions do
 
   def handle_event("update_email", params, socket) do
     if socket.assigns.awaiting_confirmation? do
-      {:noreply, do_update_email(params, socket)}
+      # Same check as the resend beside this form. A refused bot must not
+      # spend the mail allowance, and must not learn whether the password
+      # (when the form asks for one) was right.
+      case BotCheck.run(socket, params, socket.assigns[:ip_address], "confirmation_resend") do
+        {:ok, socket} -> {:noreply, do_update_email(params, socket)}
+        {:error, socket} -> {:noreply, socket}
+      end
     else
       {:noreply, socket}
     end
@@ -192,6 +198,33 @@ defmodule PhoenixKitWeb.Users.ConfirmationInstructions do
   defp do_update_email(%{"email_change" => user_params} = params, socket) do
     user = socket.assigns.phoenix_kit_current_user
 
+    # The new address is unproven, and each submit mails it. The address
+    # bucket stops one recipient being hammered; the IP and site-wide buckets
+    # of the same confirmation-resend limit stop a spray of different
+    # addresses. Charged before the password check and the send.
+    case charge_email_change(user_params["email"], socket.assigns[:ip_address]) do
+      :ok ->
+        apply_and_send_email_change(socket, user, params, user_params)
+
+      {:error, :rate_limit_exceeded} ->
+        put_flash(
+          socket,
+          :error,
+          gettext(
+            "You've asked for this a few times already — please wait a few minutes and try again."
+          )
+        )
+    end
+  end
+
+  defp charge_email_change(email, ip) when is_binary(email) do
+    RateLimiter.check_confirmation_resend_rate_limit(String.trim(email), ip)
+  end
+
+  # No address to mail. The changeset below reports it; nothing was sent.
+  defp charge_email_change(_email, _ip), do: :ok
+
+  defp apply_and_send_email_change(socket, user, params, user_params) do
     case apply_email_change(socket, user, params["current_password"], user_params) do
       {:ok, applied_user} ->
         Auth.deliver_user_update_email_instructions(

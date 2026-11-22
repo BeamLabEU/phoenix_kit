@@ -95,36 +95,93 @@ defmodule PhoenixKit.Modules.Storage.CDNSource do
       try do
         with :ok <- File.write(tmp, body),
              {:ok, _} <- store.store_file(bucket, tmp, path, content_type: "text/plain") do
-          url = base <> "/" <> key
-          cold = check_bytes(url, body)
+          # The LiveView task that runs this probe dies when the page is left,
+          # which skips the rest of this function. The watcher is not linked to
+          # it, so it still deletes the object and asks the edge to forget it.
+          watcher = watch_pilot(store, bucket, path, adapter, uuid, owner, key)
 
-          with :ok <- store.delete_file(bucket, path) do
-            # An exact second read after origin deletion proves this edge cached it.
-            warm = if cold == :ok, do: check_bytes(url, body), else: cold
-            purge = adapter.purge(uuid, owner, key)
-
-            cond do
-              cold != :ok ->
-                cold
-
-              purge != :ok ->
-                {:error, :withdrawal_failed}
-
-              warm != :ok ->
-                {:error, :cache_miss}
-
-              true ->
-                case edge_get(url, byte_size(body)) do
-                  {:ok, %{status: status}} when status in [403, 404, 410] -> :ok
-                  _ -> {:error, :withdrawal_failed}
-                end
-            end
+          try do
+            conclude_probe(store, bucket, adapter, uuid, owner, %{
+              path: path,
+              base: base,
+              key: key,
+              body: body
+            })
+          after
+            # Idempotent. Covers an exception before the delete above. The
+            # watcher covers the process being killed, when this does not run.
+            remove_pilot(store, bucket, path, adapter, uuid, owner, key)
+            send(watcher, {:pilot_done, self()})
           end
         end
       after
         File.rm(tmp)
       end
     end
+  end
+
+  defp conclude_probe(store, bucket, adapter, uuid, owner, pilot) do
+    %{path: path, base: base, key: key, body: body} = pilot
+    url = base <> "/" <> key
+    cold = check_bytes(url, body)
+    removed = store.delete_file(bucket, path)
+    # An exact second read after origin deletion proves this edge cached it.
+    warm = if cold == :ok and removed == :ok, do: check_bytes(url, body), else: cold
+    purge = adapter.purge(uuid, owner, key)
+
+    cond do
+      cold != :ok ->
+        cold
+
+      removed != :ok or purge != :ok ->
+        {:error, :withdrawal_failed}
+
+      warm != :ok ->
+        {:error, :cache_miss}
+
+      true ->
+        case edge_get(url, byte_size(body)) do
+          {:ok, %{status: status}} when status in [403, 404, 410] -> :ok
+          _ -> {:error, :withdrawal_failed}
+        end
+    end
+  end
+
+  # Not linked to the probe. A linked task would die with it and skip the
+  # cleanup. The app supervisor keeps this one running after that, and the
+  # task still sees the call that started the check.
+  defp watch_pilot(store, bucket, path, adapter, uuid, owner, key) do
+    parent = self()
+
+    work = fn ->
+      ref = Process.monitor(parent)
+
+      receive do
+        {:DOWN, ^ref, :process, ^parent, _} ->
+          remove_pilot(store, bucket, path, adapter, uuid, owner, key)
+
+        {:pilot_done, ^parent} ->
+          Process.demonitor(ref, [:flush])
+          :ok
+      end
+    end
+
+    case Process.whereis(PhoenixKit.TaskSupervisor) do
+      nil ->
+        spawn(work)
+
+      supervisor ->
+        case Task.Supervisor.start_child(supervisor, work) do
+          {:ok, pid} -> pid
+          {:error, _} -> spawn(work)
+        end
+    end
+  end
+
+  defp remove_pilot(store, bucket, path, adapter, uuid, owner, key) do
+    _ = store.delete_file(bucket, path)
+    _ = adapter.purge(uuid, owner, key)
+    :ok
   end
 
   defp check_bytes(url, expected) do

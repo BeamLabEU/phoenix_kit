@@ -216,8 +216,13 @@ defmodule PhoenixKit.Notifications.DeliveryWorker do
     end
   end
 
-  # A notification `link` is already url-/locale-prefixed (or nil). Prepend the
-  # bare base; never pass it back through `Routes.url/1` (double-prefix).
-  defp absolutize(nil), do: nil
-  defp absolutize(link) when is_binary(link), do: Routes.base_url() <> link
+  # A notification `link` is a local path (or nil). Prepend the bare base;
+  # never pass it back through `Routes.url/1` (double-prefix). A value that is
+  # not a local path is dropped: `base <> "@evil.com"` is an off-site URL, and
+  # `base <> ".evil.com"` is another host.
+  defp absolutize(link) when is_binary(link) do
+    if Routes.local_path?(link), do: Routes.base_url() <> link
+  end
+
+  defp absolutize(_link), do: nil
 end

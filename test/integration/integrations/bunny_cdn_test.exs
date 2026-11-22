@@ -237,6 +237,80 @@ defmodule PhoenixKit.Integration.BunnyCDNTest do
     refute updated["source_checked_at"]
   end
 
+  @tag :tmp_dir
+  test "leaving the page mid-check still removes the pilot object", %{tmp_dir: dir} do
+    alias PhoenixKit.Modules.Storage.{Bucket, CDNSource}
+
+    # The check's cleanup runs under the app supervisor, which this file does
+    # not boot with the rest of PhoenixKit.
+    unless Process.whereis(PhoenixKit.TaskSupervisor) do
+      start_supervised!({Task.Supervisor, name: PhoenixKit.TaskSupervisor})
+    end
+
+    bucket = Repo.insert!(%Bucket{name: "Local pilot", provider: "local", endpoint: dir})
+    parent = self()
+
+    attrs = %{
+      "api_key" => "test",
+      "pull_zone_id" => "42",
+      "source_bucket_uuid" => bucket.uuid,
+      "source_origin" => "https://origin.example/cdn-pilot/"
+    }
+
+    {:ok, %{uuid: site}} =
+      Integrations.add_configured_connection("bunny_cdn", "Test edge", attrs, nil, [])
+
+    Req.Test.stub(__MODULE__, fn conn ->
+      case {conn.host, conn.request_path} do
+        {"api.bunny.net", "/pullzone/42"} ->
+          Req.Test.json(conn, %{
+            "Id" => 42,
+            "Name" => "photos",
+            "OriginUrl" => attrs["source_origin"],
+            "Enabled" => true,
+            "Suspended" => false,
+            "ZoneSecurityEnabled" => false,
+            "Hostnames" => [
+              %{
+                "Value" => "photos.b-cdn.net",
+                "IsSystemHostname" => true,
+                "HasCertificate" => true
+              }
+            ]
+          })
+
+        {"api.bunny.net", "/purge"} ->
+          send(parent, :purged)
+          Plug.Conn.send_resp(conn, 200, "")
+
+        {"photos.b-cdn.net", "/" <> _key} ->
+          send(parent, :edge)
+          # Hold the check open so the test can kill it the way a closed page does.
+          receive do
+            :continue -> :ok
+          after
+            5_000 -> :ok
+          end
+
+          Plug.Conn.send_resp(conn, 404, "")
+      end
+    end)
+
+    task =
+      Task.Supervisor.async_nolink(PhoenixKit.TaskSupervisor, fn ->
+        CDNSource.verify(site, :system)
+      end)
+
+    assert_receive :edge, 5_000
+    assert File.ls!(Path.join(dir, "cdn-pilot")) != []
+
+    Task.shutdown(task, :brutal_kill)
+
+    assert_receive :purged, 5_000
+    assert File.ls!(Path.join(dir, "cdn-pilot")) == []
+    refute_receive :purged, 200
+  end
+
   test "validation checks the pull zone ID against Bunny's response" do
     stub_zone(false)
 

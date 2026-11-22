@@ -13,6 +13,7 @@ defmodule PhoenixKit.Utils.LocaleSwitchPathTest do
   use ExUnit.Case, async: false
 
   alias Ecto.Adapters.SQL.Sandbox
+  alias PhoenixKit.Test.LanguageSettings
   alias PhoenixKit.Utils.Routes
 
   setup do
@@ -124,6 +125,32 @@ defmodule PhoenixKit.Utils.LocaleSwitchPathTest do
 
       assert Routes.locale_switch_path("/phoenix_kit/nl/products", "en", current_locale: "nl") ==
                "/phoenix_kit/en/products"
+    end
+  end
+
+  describe "sibling dialects of one base" do
+    setup do
+      LanguageSettings.put_languages(~w(en-US en-GB es-ES))
+      :ok
+    end
+
+    test "each dialect is emitted as the segment the site serves it under" do
+      assert Routes.locale_switch_path("/phoenix_kit/blog", "en-US") ==
+               "/phoenix_kit/en/blog"
+
+      assert Routes.locale_switch_path("/phoenix_kit/blog", "en-GB") ==
+               "/phoenix_kit/en-gb/blog"
+    end
+
+    test "a lowercase sibling segment is replaced, not stacked" do
+      assert Routes.locale_switch_path("/phoenix_kit/en-gb/users/log-in?from=home", "es-ES") ==
+               "/phoenix_kit/es/users/log-in?from=home"
+
+      assert Routes.locale_switch_path("/phoenix_kit/en-GB/admin/users", "en-US") ==
+               "/phoenix_kit/en/admin/users"
+
+      assert Routes.locale_switch_path("/phoenix_kit/en/admin/users", "en-GB") ==
+               "/phoenix_kit/en-gb/admin/users"
     end
   end
 

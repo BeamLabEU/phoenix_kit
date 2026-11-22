@@ -85,6 +85,7 @@
         <fieldset class="fieldset min-w-0">
           <legend class="fieldset-legend sr-only">{gettext("Change Email")}</legend>
           <.input field={@email_form[:email]} type="email" label={gettext("New email")} required />
+          <.turnstile_widget auth_form="confirmation_resend" id="change-email-turnstile" />
           <%!-- Only when email confirmation is NOT enforced: the account is
                already usable, so a hijacked session must not be able to move
                it to another address without the password. --%>

@@ -833,8 +833,7 @@ defmodule PhoenixKit.Utils.Routes do
       end
 
     codes
-    |> Enum.flat_map(fn code -> [code, DialectMapper.extract_base(code)] end)
-    |> Enum.filter(&is_binary/1)
+    |> Enum.flat_map(&locale_spellings/1)
     |> Enum.uniq()
   end
 
@@ -878,9 +877,18 @@ defmodule PhoenixKit.Utils.Routes do
       path segment and misses 3-letter codes entirely.
 
   The set used here is the site's enabled locale codes, including their base
-  codes, plus an explicitly supplied `:current_locale`. Preview defaults and
-  disabled languages are excluded: a host path such as `/nl/products` keeps
-  its first segment when Dutch is not served by the site.
+  codes and the lowercase form a sibling dialect's URL carries (`en-gb` next
+  to an `en-US` that `/en/` already serves), plus an explicitly supplied
+  `:current_locale`. Preview defaults and disabled languages are excluded: a
+  host path such as `/nl/products` keeps its first segment when Dutch is not
+  served by the site.
+
+  The target is passed to `path/2` unchanged. A full dialect is then emitted
+  as the segment the site serves it under (`Languages.url_locale_segment/1`):
+  `en-US` as `en` when that dialect owns `/en/`, an enabled sibling `en-GB`
+  as `en-gb`. Reducing the target to its base first made those two dialects
+  share one URL, and left a real `/en-gb/...` path in place so the next
+  language stacked a prefix that does not route.
 
   ## Options
 
@@ -890,15 +898,13 @@ defmodule PhoenixKit.Utils.Routes do
   """
   @spec locale_switch_path(String.t() | nil, String.t(), keyword()) :: String.t()
   def locale_switch_path(current_path, locale, opts \\ []) do
-    base = DialectMapper.extract_base(locale)
-
     url_prefix = Config.get_url_prefix()
     prefix = if url_prefix == "/", do: "", else: url_prefix
 
     (current_path || "")
     |> String.replace_prefix(prefix, "")
     |> strip_locale_segment(opts[:current_locale])
-    |> path(locale: base)
+    |> path(locale: locale)
   end
 
   @doc """
@@ -946,12 +952,18 @@ defmodule PhoenixKit.Utils.Routes do
   defp nonempty(path), do: path
 
   # Only served locales, plus the page's explicit locale to handle stale links.
+  # Each code contributes the stored spelling, its base, and the lowercase
+  # form (`en-GB` → `en-gb`): the locale plug accepts both cases.
   defp switchable_locale_codes(current_locale) do
-    (enabled_locale_codes_with_base() ++ List.wrap(current_locale))
-    |> Enum.flat_map(fn code -> [code, DialectMapper.extract_base(code)] end)
-    |> Enum.filter(&is_binary/1)
+    (enabled_locale_codes_with_base() ++ locale_spellings(current_locale))
     |> Enum.uniq()
   end
+
+  defp locale_spellings(code) when is_binary(code) and code != "" do
+    [code, DialectMapper.extract_base(code), String.downcase(code)]
+  end
+
+  defp locale_spellings(_code), do: []
 
   @doc """
   Whether `path` actually resolves to a `GET` route in the application's router.

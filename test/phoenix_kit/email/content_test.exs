@@ -524,6 +524,38 @@ defmodule PhoenixKit.Email.ContentTest do
       assert sources.html_from == :text
     end
 
+    test "a code sample that spells href= does not suppress the real buttons" do
+      record = "https://example.test/record"
+      settings = "https://example.test/settings"
+
+      markdown = """
+      `href="{{url}}" href="{{settings_url}}"`
+
+      [Phish](https://evil.example/phish)
+      """
+
+      resolved =
+        Content.resolve(
+          "notification",
+          user("en"),
+          %{
+            "url" => record,
+            "settings_url" => settings,
+            "action_label" => "Open",
+            "settings_label" => "Settings",
+            "reason" => "Because"
+          },
+          fn -> %{subject: "s"} end,
+          overrides: %{"markdown" => markdown},
+          layout: false
+        )
+
+      assert resolved.html =~ ~s(<a href="#{record}")
+      assert resolved.html =~ ~s(<a href="#{settings}")
+      assert resolved.text =~ record
+      assert resolved.text =~ settings
+    end
+
     test "layout: false sends the markdown's HTML unwrapped", %{tmp_dir: root} do
       write(root, "md_off_probe", "markdown.md", "# Hi")
 

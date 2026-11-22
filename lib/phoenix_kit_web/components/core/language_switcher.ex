@@ -1293,17 +1293,23 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
 
   # Extract the locale segment from a path (after prefix removal)
   # /en/admin => "en"
-  # /en-US/admin => "en-US"
+  # /en-gb/admin => "en-gb" when that sibling dialect is enabled
   defp extract_locale_from_path(path) do
     case String.split(path, "/", parts: 3) do
-      ["", locale, _rest] ->
-        if DialectMapper.valid_base_code?(locale), do: locale, else: nil
+      ["", locale, _rest] -> recognized_locale_segment(locale)
+      ["", locale] -> recognized_locale_segment(locale)
+      _ -> nil
+    end
+  end
 
-      ["", locale] ->
-        if DialectMapper.valid_base_code?(locale), do: locale, else: nil
-
-      _ ->
-        nil
+  # A catalogue base code, or a sibling dialect this site serves (`en-gb`).
+  # A hyphenated segment the site does not serve stays, so a host path is
+  # not eaten on the way to another language.
+  defp recognized_locale_segment(locale) do
+    cond do
+      DialectMapper.valid_base_code?(locale) -> locale
+      Routes.path_locale("/#{locale}") == locale -> locale
+      true -> nil
     end
   end
 

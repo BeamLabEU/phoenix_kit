@@ -213,7 +213,10 @@ test("a size budget keeps the public file public", () => {
   // that catch one put in the wrong file (or one that neither list names: the inventory test compares every
   // registered hook with the two lists).
   // 309 KiB includes the session language popup (~5 KB), used on public sign-in pages as well.
-  assert.ok(publicBytes < 309 * 1024, "phoenix_kit.js is " + publicBytes + " bytes");
+  // -> 312 (Turnstile waits for a closed daisyUI dialog to open before rendering, so the
+  // widget is not sized at nothing; public auth forms and the add-account dialog share the
+  // hook. 317 000 B, so 312 KiB = 319 488 B leaves ~2.4 KB).
+  assert.ok(publicBytes < 312 * 1024, "phoenix_kit.js is " + publicBytes + " bytes");
   assert.ok(adminBytes > publicBytes / 2, "the admin file is where the weight went");
 });
 

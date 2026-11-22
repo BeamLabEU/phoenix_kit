@@ -976,6 +976,16 @@
               label={gettext("Enable Turnstile on auth forms")}
             />
 
+            <p
+              :if={@turnstile["enabled"] && not @turnstile_protecting}
+              id="turnstile-not-protecting"
+              class="mt-3 text-sm text-error"
+            >
+              {gettext(
+                "The selected connection cannot verify visitors, so these forms are not protected."
+              )}
+            </p>
+
             <fieldset class="mt-3 space-y-2">
               <legend class="fieldset-legend">{gettext("Protected auth forms")}</legend>
               <input type="hidden" name="turnstile[forms][]" value="" />

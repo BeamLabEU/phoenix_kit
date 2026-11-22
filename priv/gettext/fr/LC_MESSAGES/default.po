@@ -27284,6 +27284,91 @@ msgstr "Saisissez la clé du site avant d'activer Turnstile."
 msgid "If Cloudflare cannot be reached, the forms keep working on the request limits alone."
 msgstr "Si Cloudflare est injoignable, les formulaires continuent de fonctionner avec les seules limites de requêtes."
 
+#: lib/phoenix_kit_web/users/session.ex:97
+#, elixir-autogen, elixir-format
+msgid "Please complete the verification and try signing in again."
+msgstr "Terminez la vérification, puis réessayez de vous connecter."
+
+#: lib/phoenix_kit_web/live/settings/authorization.ex:116
+#, elixir-autogen, elixir-format
+msgid "Choose a connection"
+msgstr "Choisir une connexion"
+
+#: lib/phoenix_kit_web/live/settings/authorization.ex:115
+#, elixir-autogen, elixir-format
+msgid "Previously saved auth keys"
+msgstr "Clés déjà enregistrées"
+
+#: lib/phoenix_kit_web/live/settings/authorization.ex:120
+#, elixir-autogen, elixir-format
+msgid "Unavailable connection"
+msgstr "Connexion indisponible"
+
+#: lib/phoenix_kit_web/live/settings/authorization.ex:139
+#, elixir-autogen, elixir-format
+msgid "Choose a verified Turnstile connection."
+msgstr "Choisissez une connexion Turnstile vérifiée."
+
+#: lib/phoenix_kit_web/live/settings/authorization.ex:142
+#, elixir-autogen, elixir-format
+msgid "Could not save the Turnstile settings."
+msgstr "Impossible d'enregistrer les paramètres Turnstile."
+
+#: lib/phoenix_kit_web/live/settings/authorization.ex:406
+#, elixir-autogen, elixir-format
+msgid "Password sign-in"
+msgstr "Connexion par mot de passe"
+
+#: lib/phoenix_kit_web/live/settings/authorization.ex:407
+#, elixir-autogen, elixir-format
+msgid "Sign-up"
+msgstr "Inscription"
+
+#: lib/phoenix_kit_web/live/settings/authorization.ex:408
+#, elixir-autogen, elixir-format
+msgid "Registration link request"
+msgstr "Demande de lien d'inscription"
+
+#: lib/phoenix_kit_web/live/settings/authorization.ex:409
+#, elixir-autogen, elixir-format
+msgid "Password reset request"
+msgstr "Demande de réinitialisation du mot de passe"
+
+#: lib/phoenix_kit_web/live/settings/authorization.ex:410
+#, elixir-autogen, elixir-format
+msgid "Magic link sign-in request"
+msgstr "Demande de connexion par lien magique"
+
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:976
+#, elixir-autogen, elixir-format
+msgid "Enable Turnstile on auth forms"
+msgstr "Activer Turnstile sur les formulaires d'authentification"
+
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:968
+#, elixir-autogen, elixir-format
+msgid "Verify visitors on the selected auth forms."
+msgstr "Vérifie les visiteurs sur les formulaires d'authentification choisis."
+
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:990
+#, elixir-autogen, elixir-format
+msgid "Protected auth forms"
+msgstr "Formulaires d'authentification protégés"
+
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:1009
+#, elixir-autogen, elixir-format
+msgid "Turnstile connection"
+msgstr "Connexion Turnstile"
+
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:1024
+#, elixir-autogen, elixir-format
+msgid "Manage website integrations"
+msgstr "Gérer les intégrations du site"
+
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:984
+#, elixir-autogen, elixir-format
+msgid "The selected connection cannot verify visitors, so these forms are not protected."
+msgstr "La connexion sélectionnée ne peut pas vérifier les visiteurs, donc ces formulaires ne sont pas protégés."
+
 #: lib/phoenix_kit_web/users/bot_check.ex:42
 #, elixir-autogen, elixir-format
 msgid "Please wait for the verification to finish, then try again. If you do not see it, reload the page."

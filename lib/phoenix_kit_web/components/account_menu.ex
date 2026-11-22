@@ -27,6 +27,7 @@ defmodule PhoenixKitWeb.Components.AccountMenu do
   alias PhoenixKitWeb.Components.Core.LanguageSwitcher
 
   import PhoenixKitWeb.Components.Core.Input, only: [input: 1]
+  import PhoenixKitWeb.Components.Core.TurnstileWidget, only: [turnstile_widget: 1]
 
   @doc """
   The languages a menu offers: each enabled language with its `:label` (its
@@ -312,6 +313,7 @@ defmodule PhoenixKitWeb.Components.AccountMenu do
         <h3 class="text-lg font-bold mb-4">{gettext("Add account")}</h3>
         <.form
           for={%{}}
+          id={@id <> "-form"}
           action={localized(@current_locale, "/users/session/accounts")}
           method="post"
           class="space-y-4"
@@ -334,6 +336,11 @@ defmodule PhoenixKitWeb.Components.AccountMenu do
               password_toggle
             />
           </div>
+          <.turnstile_widget
+            auth_form="password_login"
+            id={@id <> "-turnstile"}
+            class="mt-2"
+          />
           <div class="modal-action">
             <label for={@id} class="btn btn-outline">{gettext("Cancel")}</label>
             <button type="submit" class="btn btn-primary">{gettext("Add account")}</button>

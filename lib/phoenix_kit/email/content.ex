@@ -358,17 +358,27 @@ defmodule PhoenixKit.Email.Content do
       url = variables[key]
 
       if is_binary(url) and url != "" and not linked?(html, url) do
-        {Enum.join([html, Markdown.to_html(markdown, variables)]),
-         Enum.join(Enum.reject([text, Markdown.to_text(markdown, variables)], &is_nil/1), "\n\n")}
+        {append_part(html, Markdown.to_html(markdown, variables), ""),
+         append_part(text, Markdown.to_text(markdown, variables), "\n\n")}
       else
         {html, text}
       end
     end)
   end
 
+  defp append_part(body, extra, sep) do
+    case Enum.reject([body, extra], &is_nil/1) do
+      [] -> nil
+      parts -> Enum.join(parts, sep)
+    end
+  end
+
+  # An anchor whose href is this URL. Text inside `<code>` can contain the
+  # same characters (`href="…"`) without being a button, so a substring
+  # search would drop the real record and settings links.
   defp linked?(html, url) do
     escaped = url |> Phoenix.HTML.html_escape() |> Phoenix.HTML.safe_to_string()
-    String.contains?(html || "", ~s(href="#{escaped}"))
+    Regex.match?(~r/<a\b[^>]*\bhref="#{Regex.escape(escaped)}"/, html || "")
   end
 
   # A body from the first entry of the order whose part was found in that

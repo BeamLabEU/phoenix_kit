@@ -125,6 +125,23 @@
 
 ### Fixed
 
+- **A Turnstile connection that can no longer verify does not lock the doors.** The
+  widget was hidden while every protected submit, including password sign-in, was
+  refused. The check is now off until the connection can verify, and Settings →
+  Authorization says so. Resending a registration link for the address that just
+  passed no longer asks for a widget the success screen does not have. Adding
+  another account uses the same password-sign-in check. "Wrong email?" on the
+  parked confirmation page uses the confirmation-resend check and its rate limit.
+- **The account-menu language list keeps sibling dialects apart.** `en-US` and
+  `en-GB` no longer share one URL, and leaving a real `/en-gb/…` page no longer
+  stacks a prefix that does not route. The public switcher strips that segment too.
+- **A notification button stays on the site.** A `notification_link` that is not a
+  local path is dropped, so `@evil.com` and `.evil.com` are not turned into
+  off-site email or Telegram buttons. Wording that mentions `href="{{url}}"` inside
+  code still gets the real record and settings links.
+- **A CDN pilot object is removed when the check is interrupted.** Origin delete
+  and edge purge run even if delete itself fails or the page is left mid-check.
+
 - **The sitemap's boot-time scheduling check no longer crashes on hosts with scheduled
   regeneration enabled.** The module's `children/0` task called
   `SchedulerWorker.ensure_scheduled/0` right away, but the installer puts `PhoenixKit.Supervisor`
@@ -152,6 +169,11 @@
   occupying the Erlang file server could time out another size's existence check and leave that
   size out of the linked copy; local existence checks now read the filesystem directly
   (`File.exists?/2` with `[:raw]`).
+
+### i18n
+
+- **Turnstile settings and the password sign-in check** are in the catalogues: the
+  flash when the check is missing, the form list, and the connection picker.
 
 ## 3.6.1 - 2026-11-16
 

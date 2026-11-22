@@ -394,9 +394,23 @@ installations can continue using their previously saved auth keys.
   on the page (a validation error) has a fresh one.
 - **No verdict is not a refusal.** A timeout, a 5xx or a body that is not a
   verdict lets the request through with a warning: the rate limits are still in
-  front. A rejected secret or an unavailable selected connection refuses the submit.
+  front. A secret Cloudflare rejects, while the connection is still marked
+  connected, refuses the submit. A selected connection that can no longer
+  verify (removed, or its last test failed) turns the check off: the widget
+  is hidden, the forms accept submissions on the rate limits alone, and
+  Settings → Authorization says the forms are not protected. Leaving the
+  switch on with no key does the same.
 - The widget's script is loaded by the `Turnstile` hook in `phoenix_kit.js`, on
-  the first page that shows a widget. With Password sign-in selected, the email/username and password form shows the widget and its POST verifies the token before checking credentials. A completed registration or password change carries a short-lived signed handoff for that account so it can finish without another challenge.
+  the first page that shows a widget. A widget inside a closed dialog waits
+  until that dialog opens, so it is not sized at nothing. With Password
+  sign-in selected, the email/username and password form shows the widget and
+  its POST verifies the token before checking credentials. Adding another
+  account (`POST /users/session/accounts`) uses the same check. A completed
+  registration or password change carries a short-lived signed handoff for
+  that account so it can finish without another challenge. Resending a
+  registration link for the address that just passed, on that same page, does
+  not ask again; the send is still rate-limited. "Wrong email?" on the parked
+  confirmation page uses the confirmation-resend check and that same limit.
 - Tests: `config :phoenix_kit, :turnstile_req_options, plug: fn conn -> … end`
   stands in for Cloudflare (`test/integration/users/turnstile_test.exs`); the
   token is passed as the extra `cf-turnstile-response` param of `render_submit`.

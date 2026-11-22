@@ -24,6 +24,7 @@ defmodule PhoenixKit.Integration.Users.TurnstileTest do
   alias PhoenixKit.Users.Roles
   alias PhoenixKit.Users.Turnstile
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.Components.AccountMenu
 
   @password "ValidPassword123!"
   @secret "0x4AAAA-real-secret"
@@ -276,6 +277,20 @@ defmodule PhoenixKit.Integration.Users.TurnstileTest do
       end
     end
 
+    test "an unavailable connection is shown as not protecting the forms", %{conn: conn} do
+      {:ok, _} =
+        Settings.update_json_setting("turnstile_auth", %{
+          "enabled" => true,
+          "connection" => Ecto.UUID.generate(),
+          "forms" => ["registration"]
+        })
+
+      {:ok, _view, html} = protection(conn)
+      assert html =~ "id=\"turnstile-not-protecting\""
+      assert html =~ "not protected"
+      assert html =~ "Unavailable connection"
+    end
+
     test "a submitted UUID must identify a verified Turnstile connection", %{conn: conn} do
       {:ok, view, _} = protection(conn)
 
@@ -390,6 +405,31 @@ defmodule PhoenixKit.Integration.Users.TurnstileTest do
       assert conn |> post(path, params) |> get_session(:user_token)
     end
 
+    test "an enabled connection that can no longer verify does not lock the doors", %{conn: conn} do
+      # The switch stays on and still names a connection, but that connection is
+      # gone. The widget is hidden; refusing the missing token would lock
+      # password sign-in with nothing on the page to solve.
+      {:ok, _} =
+        Settings.update_json_setting("turnstile_auth", %{
+          "enabled" => true,
+          "connection" => Ecto.UUID.generate(),
+          "forms" => Turnstile.forms()
+        })
+
+      refute Turnstile.enabled?("password_login")
+      assert Turnstile.widget_site_key("password_login") == nil
+      assert :ok = Turnstile.verify(nil)
+      refute_received {:siteverify, _}
+
+      {:ok, user} = Auth.register_user(%{email: unique_email(), password: @password})
+
+      assert conn
+             |> post(Routes.path("/users/log-in"), %{
+               "user" => %{"email_or_username" => user.email, "password" => @password}
+             })
+             |> get_session(:user_token)
+    end
+
     test "only the selected form renders and requires a token", %{conn: conn} do
       switch_on()
 
@@ -468,6 +508,90 @@ defmodule PhoenixKit.Integration.Users.TurnstileTest do
                "#{path} let a refused token through"
       end
 
+      assert_no_email_sent()
+    end
+
+    test "resending a registration link for the same address does not ask again", %{conn: conn} do
+      switch_on()
+      email = unique_email()
+      {:ok, view, _html} = live(conn, Routes.path("/users/register/magic-link"))
+
+      render_submit(view, "send_magic_link", %{"email" => email, @field => "good-token"})
+      assert render_async(view) =~ "Resend Link"
+
+      html = view |> element("button", "Resend Link") |> render_click()
+      refute html =~ "Please wait for the verification to finish"
+
+      html = render_click(view, "send_magic_link", %{"email" => "other-#{email}"})
+      assert html =~ "Please wait for the verification to finish"
+    end
+
+    test "adding an account uses the password sign-in check", %{conn: conn} do
+      switch_on()
+
+      {:ok, _} =
+        Turnstile.save_selection(%{"enabled" => "true", "forms" => ["password_login"]}, [])
+
+      {:ok, _} = Settings.update_setting("multi_session_enabled", "true")
+      {:ok, holder} = Auth.register_user(%{email: unique_email(), password: @password})
+      {:ok, _} = Auth.admin_confirm_user(holder)
+      {:ok, other} = Auth.register_user(%{email: unique_email(), password: @password})
+      conn = log_in_user(conn, holder)
+
+      params = %{"user" => %{"email_or_username" => other.email, "password" => "wrong-password"}}
+      path = Routes.path("/users/session/accounts")
+
+      refused = post(conn, path, params)
+      assert Phoenix.Flash.get(refused.assigns.flash, :error) =~ "complete the verification"
+      refute Phoenix.Flash.get(refused.assigns.flash, :error) =~ "Invalid email"
+
+      checked = post(conn, path, Map.put(params, @field, "good-token"))
+      assert Phoenix.Flash.get(checked.assigns.flash, :error) =~ "Invalid email"
+
+      html =
+        render_component(&AccountMenu.add_account_modal/1, %{
+          id: "add-account",
+          current_path: "/admin",
+          current_locale: "en"
+        })
+
+      assert html =~ ~s(id="add-account-turnstile")
+      assert html =~ ~s(phx-hook="Turnstile")
+    end
+
+    test "changing a parked address is checked and rate-limited before the mail", %{conn: conn} do
+      switch_on()
+      {:ok, user} = Auth.register_user(%{email: unique_email(), password: @password})
+      new_email = unique_email()
+      {:ok, view, _html} = live(log_in_user(conn, user), Routes.path("/users/confirm"))
+
+      view |> element("button", "Wrong email? Change it") |> render_click()
+      assert has_element?(view, "#change_email_form #change-email-turnstile")
+
+      html =
+        render_submit(view, "update_email", %{"email_change" => %{"email" => new_email}})
+
+      assert html =~ "Please wait for the verification to finish"
+      assert_no_email_sent()
+
+      send_change = fn ->
+        unless has_element?(view, "#change_email_form") do
+          view |> element("button", "Wrong email? Change it") |> render_click()
+        end
+
+        render_submit(view, "update_email", %{
+          "email_change" => %{"email" => new_email},
+          @field => "good-token"
+        })
+      end
+
+      for _ <- 1..3 do
+        send_change.()
+        assert_email_sent(to: new_email)
+      end
+
+      html = send_change.()
+      assert html =~ "wait a few minutes"
       assert_no_email_sent()
     end
 

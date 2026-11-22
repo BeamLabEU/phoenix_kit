@@ -116,11 +116,12 @@ defmodule PhoenixKit.Integration.Languages.SwitcherGatingTest do
       {:ok, _} = Languages.add_language("en-GB")
       assigns = %{languages: AccountMenu.languages("en-GB")}
 
+      # The locale plug serves the sibling as the lowercase segment.
       doc =
         rendered_to_string(~H"""
         <AccountMenu.language_section
           languages={@languages}
-          current_path="/en-GB/users/log-in?from=home"
+          current_path="/en-gb/users/log-in?from=home"
           current_locale="en-GB"
         />
         """)
@@ -131,9 +132,23 @@ defmodule PhoenixKit.Integration.Languages.SwitcherGatingTest do
       assert Enum.sort(LazyHTML.attribute(LazyHTML.query(doc, "a [lang]"), "lang")) ==
                ["de-DE", "en-US", "ja"]
 
-      assert Enum.all?(LazyHTML.attribute(LazyHTML.query(doc, "a"), "href"), fn href ->
-               String.ends_with?(href, "/users/log-in?from=home")
-             end)
+      hrefs = LazyHTML.attribute(LazyHTML.query(doc, "a"), "href")
+
+      assert Enum.all?(hrefs, &String.ends_with?(&1, "/users/log-in?from=home"))
+      refute Enum.any?(hrefs, &String.contains?(&1, "en-gb"))
+      assert Enum.any?(hrefs, &String.contains?(&1, "/de/users/log-in?from=home"))
+      assert Enum.any?(hrefs, &String.contains?(&1, "/ja/users/log-in?from=home"))
+
+      # en-US owns /en/, which is omitted when the primary language is prefixless.
+      en =
+        Enum.find(hrefs, fn href ->
+          not String.contains?(href, "/de/") and not String.contains?(href, "/ja/")
+        end)
+
+      assert en in [
+               "/phoenix_kit/en/users/log-in?from=home",
+               "/phoenix_kit/users/log-in?from=home"
+             ]
     end
 
     test "a configured language switched off is not offered" do

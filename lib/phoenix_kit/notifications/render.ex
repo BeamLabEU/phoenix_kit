@@ -45,8 +45,9 @@ defmodule PhoenixKit.Notifications.Render do
   click-through lands on the right locale-prefixed path. When `nil`, link
   building falls back to `Routes.path`'s `determine_locale/0` (the process
   Gettext locale) — used by callers that don't track a locale (e.g. the admin
-  inbox). The metadata `notification_link` override is returned verbatim and is
-  expected to already be prefix/locale-correct (built via `Routes.path/1`).
+  inbox). A `notification_link` override is used only when `Routes.local_path?/1`
+  accepts it (built via `Routes.path/1`). Anything else is dropped, so a stored
+  `@evil.com` or `https://…` cannot leave the site.
   """
   @spec render(Notification.t(), String.t() | nil) :: render_result()
   def render(notification, locale \\ nil)
@@ -69,7 +70,7 @@ defmodule PhoenixKit.Notifications.Render do
     %{
       icon: meta_string(meta, "notification_icon") || default_icon,
       text: meta_string(meta, "notification_text") || default_text,
-      link: meta_string(meta, "notification_link") || link_for(activity, locale),
+      link: local_link(meta, "notification_link") || link_for(activity, locale),
       title: meta_string(meta, "notification_title"),
       action: meta_string(meta, "notification_action"),
       actor_uuid: activity.actor_uuid
@@ -89,7 +90,7 @@ defmodule PhoenixKit.Notifications.Render do
     %{
       icon: meta_string(meta, "notification_icon") || "hero-bell",
       text: meta_string(meta, "notification_text") || gettext("You have a new notification."),
-      link: meta_string(meta, "notification_link"),
+      link: local_link(meta, "notification_link"),
       title: meta_string(meta, "notification_title"),
       action: meta_string(meta, "notification_action"),
       actor_uuid: nil
@@ -462,6 +463,16 @@ defmodule PhoenixKit.Notifications.Render do
   defp blank?(nil), do: true
   defp blank?(""), do: true
   defp blank?(_value), do: false
+
+  # A button target. Only a local path: `Routes.local_path?/1` rejects
+  # `//`, `/\`, control characters and anything that is not a path, which
+  # is what stops `base_url <> "@evil.com"` becoming an off-site link.
+  defp local_link(meta, key) do
+    case meta_string(meta, key) do
+      link when is_binary(link) -> if Routes.local_path?(link), do: link
+      _ -> nil
+    end
+  end
 
   # Returns the metadata string for `key` iff it's a non-empty binary;
   # otherwise nil so the caller can fall through to the default.

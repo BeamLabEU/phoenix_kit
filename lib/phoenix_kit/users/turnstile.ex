@@ -67,10 +67,25 @@ defmodule PhoenixKit.Users.Turnstile do
 
   def legacy_configured?, do: legacy_site_key() != nil and secret() != nil
 
-  def enabled?(form \\ nil) do
-    selection = selection()
-    (is_nil(form) or form in selection["forms"]) and enabled_selection?(selection)
+  def enabled?(form \\ nil), do: protecting?(selection(), form) != nil
+
+  # The public key of a form that is actually checking tokens, or nil. A switch
+  # left on with nothing to check with (no legacy keys, or a connection that was
+  # removed or no longer verifies) is off: the widget would be hidden and a
+  # refusal would lock every protected door, including password sign-in.
+  defp protecting?(selection, form) do
+    key = site_key(selection)
+
+    if (is_nil(form) or form_selected?(selection, form)) and enabled_selection?(selection) and
+         present_key?(key),
+       do: key
   end
+
+  defp form_selected?(%{"forms" => forms}, form) when is_list(forms), do: form in forms
+  defp form_selected?(_, _), do: false
+
+  defp present_key?(key) when is_binary(key) and key != "", do: true
+  defp present_key?(_), do: false
 
   defp enabled_selection?(selection) do
     case selection do
@@ -79,17 +94,16 @@ defmodule PhoenixKit.Users.Turnstile do
     end
   end
 
-  def site_key do
-    case selection()["connection"] do
-      "" -> legacy_site_key()
-      uuid -> Adapter.site_key(uuid)
-    end
-  end
+  def site_key, do: site_key(selection())
+
+  defp site_key(%{"connection" => ""}), do: legacy_site_key()
+  defp site_key(%{"connection" => uuid}) when is_binary(uuid), do: Adapter.site_key(uuid)
+  defp site_key(_), do: nil
 
   defp legacy_site_key, do: present(Settings.get_setting_cached(@site_key, nil))
 
   @doc "The site key for a page to render the widget with, or `nil` while off."
-  def widget_site_key(form \\ nil), do: if(enabled?(form), do: site_key())
+  def widget_site_key(form \\ nil), do: protecting?(selection(), form)
 
   @doc """
   What the settings page shows: the switch, the site key and WHETHER a secret
@@ -110,8 +124,10 @@ defmodule PhoenixKit.Users.Turnstile do
   @doc """
   Checks the token a form submitted.
 
-  `:ok` when Turnstile is off, when the token is good, and when Cloudflare gave
-  no verdict (see the moduledoc). `{:error, :missing}` for no token,
+  `:ok` when Turnstile is off, when the token is good, when Cloudflare gave
+  no verdict, and when the selected connection can no longer verify (the same
+  as a switch left on without keys — refusing here would lock the doors with
+  no widget on the page). `{:error, :missing}` for no token,
   `{:error, :rejected}` for one Cloudflare refused.
   """
   @spec verify(term(), String.t() | nil) :: :ok | {:error, :missing | :rejected}
@@ -126,8 +142,11 @@ defmodule PhoenixKit.Users.Turnstile do
             do: Adapter.verify_with_secret(secret(), token, ip_address),
             else: :ok
 
-        %{"connection" => uuid} ->
+        %{"connection" => uuid} when is_binary(uuid) ->
           Adapter.verify(uuid, token, ip_address)
+
+        _ ->
+          :ok
       end
 
     case result do
@@ -136,7 +155,11 @@ defmodule PhoenixKit.Users.Turnstile do
         :ok
 
       {:error, :not_configured} ->
-        {:error, :rejected}
+        Logger.error(
+          "PhoenixKit.Turnstile: protection is switched on but the connection cannot verify tokens, so this request was not checked"
+        )
+
+        :ok
 
       verdict ->
         verdict
