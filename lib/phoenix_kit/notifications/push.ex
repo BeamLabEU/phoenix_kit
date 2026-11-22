@@ -184,7 +184,7 @@ defmodule PhoenixKit.Notifications.Push do
 
     attrs = %{
       endpoint: endpoint,
-      endpoint_hash: hash(endpoint),
+      endpoint_hash: hash,
       p256dh: p256dh,
       auth: auth,
       label: opts[:label] |> plain() |> cut_bytes(160),
@@ -313,10 +313,13 @@ defmodule PhoenixKit.Notifications.Push do
           from(i in Installation, where: i.browser_id == ^id, select: i.uuid)
           |> RepoHelper.repo().all()
 
-        from(b in Binding, where: b.user_uuid == ^user_uuid and b.installation_uuid in ^ids)
-        |> RepoHelper.repo().delete_all()
+        if ids != [] do
+          from(b in Binding, where: b.user_uuid == ^user_uuid and b.installation_uuid in ^ids)
+          |> RepoHelper.repo().delete_all()
 
-        Enum.each(ids, &drop_if_unbound/1)
+          Enum.each(ids, &drop_if_unbound/1)
+        end
+
         :ok
     end
   rescue
@@ -346,12 +349,29 @@ defmodule PhoenixKit.Notifications.Push do
   end
 
   @doc """
-  An account is being deleted: its bindings go, and every installation no
-  one else is bound to goes with them (its endpoint and keys are a way to
-  reach that device; nothing would ever clean them up after).
+  An account is being deleted, or its credentials end (deactivation, a new
+  password, "sign out everywhere", a recovery): its bindings go, with any
+  notice still waiting, and every installation no one else is bound to goes
+  with them (its endpoint and keys are a way to reach that device; nothing
+  would ever clean them up after). Never raises; see `forget_account!/1`
+  for a caller's transaction.
   """
   @spec forget_account(String.t()) :: :ok
   def forget_account(user_uuid) when is_binary(user_uuid) do
+    forget_account!(user_uuid)
+  rescue
+    _ -> :ok
+  end
+
+  def forget_account(_), do: :ok
+
+  @doc """
+  `forget_account/1` inside the caller's transaction: it raises instead of
+  answering `:ok`, so a failure rolls that transaction back rather than
+  leaving it aborted under a rescue.
+  """
+  @spec forget_account!(String.t()) :: :ok
+  def forget_account!(user_uuid) when is_binary(user_uuid) do
     repo = RepoHelper.repo()
 
     # The same lock a subscribe takes: no binding can be added meanwhile.
@@ -360,7 +380,11 @@ defmodule PhoenixKit.Notifications.Push do
         repo.query!("SELECT pg_advisory_xact_lock(hashtext($1))", ["pk_push:" <> user_uuid])
 
         ids =
-          from(b in Binding, where: b.user_uuid == ^user_uuid, select: b.installation_uuid)
+          from(b in Binding,
+            where: b.user_uuid == ^user_uuid,
+            select: b.installation_uuid,
+            order_by: b.installation_uuid
+          )
           |> repo.all()
 
         from(b in Binding, where: b.user_uuid == ^user_uuid) |> repo.delete_all()
@@ -368,13 +392,10 @@ defmodule PhoenixKit.Notifications.Push do
         ids
       end)
 
+    # In order: inside a caller's transaction every lock is held to its end.
     Enum.each(ids, &drop_if_unbound/1)
     :ok
-  rescue
-    _ -> :ok
   end
-
-  def forget_account(_), do: :ok
 
   @doc """
   A browser's subscription changed (`pushsubscriptionchange`): the old one is
@@ -469,10 +490,20 @@ defmodule PhoenixKit.Notifications.Push do
       from(p in Pending, where: p.user_uuid == ^user_uuid, select: p)
       |> RepoHelper.repo().delete_all()
 
-    case {rows, Auth.get_user(user_uuid)} do
-      {[], _} -> :none
-      {_, nil} -> :none
-      {rows, user} -> {:ok, payload(user, Enum.sort_by(rows, & &1.inserted_at, NaiveDateTime))}
+    # The account is checked again here, as `subscribe/3` did: one
+    # deactivated, made a managed organization or a service user since gets
+    # nothing (its notices are taken all the same).
+    with [_ | _] <- rows,
+         %User{} = user <- Auth.get_user(user_uuid),
+         :ok <- allowed_account(user) do
+      # `inserted_at` has whole seconds; the uuid (v7) orders a burst.
+      {:ok,
+       payload(
+         user,
+         Enum.sort_by(rows, &{NaiveDateTime.to_gregorian_seconds(&1.inserted_at), &1.uuid})
+       )}
+    else
+      _ -> :none
     end
   end
 

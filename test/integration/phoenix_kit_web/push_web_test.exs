@@ -101,6 +101,20 @@ defmodule PhoenixKitWeb.PushWebTest do
       assert page =~ "Add to Home Screen"
     end
 
+    test "a strict Accept header still gets the worker and the manifest", %{conn: conn} do
+      worker =
+        conn |> put_req_header("accept", "text/javascript") |> get(Routes.path("/push/sw.js"))
+
+      assert worker.status == 200
+
+      manifest =
+        build_conn()
+        |> put_req_header("accept", "application/manifest+json")
+        |> get(Routes.path("/push/manifest.webmanifest"))
+
+      assert manifest.status == 200
+    end
+
     test "a rotated subscription needs the old one's secret", %{conn: conn} do
       user = user!()
       old = subscription()
@@ -171,6 +185,29 @@ defmodule PhoenixKitWeb.PushWebTest do
 
       assert Auth.get_user_by_session_token(get_session(switched)["user_token"]).uuid ==
                owner.uuid
+
+      # A second click (or a switch in another tab): already that account.
+      again = switched |> recycle() |> post(open_path(h))
+      assert redirected_to(again) == "/admin/projects?for=owner"
+    end
+
+    test "logging out an added account stops its pushes in this browser", %{conn: conn} do
+      Settings.update_boolean_setting("multi_session_enabled", true)
+      on_exit(fn -> Settings.update_boolean_setting("multi_session_enabled", false) end)
+
+      owner = user!()
+      anna = user!()
+      browser = "browser-id-0123456789"
+      {:ok, _} = Push.subscribe(owner, subscription(), impersonated: false, browser_id: browser)
+      {:ok, _} = Push.subscribe(anna, subscription(), impersonated: false, browser_id: browser)
+
+      conn = conn |> login(owner) |> put_req_cookie("pk_push_browser", browser)
+      {:ok, conn} = MultiSession.add_account(conn, anna.email, "ValidPassword123!")
+
+      assert {:switched, _conn, %{uuid: owner_uuid}} = MultiSession.log_out_active(conn)
+      assert owner_uuid == owner.uuid
+      refute Push.any_device?(anna.uuid)
+      assert Push.any_device?(owner.uuid)
     end
 
     test "without switching on, the other account is not offered", %{conn: conn} do
@@ -235,6 +272,18 @@ defmodule PhoenixKitWeb.PushWebTest do
       assert Push.devices(user.uuid) == []
       assert [%{uuid: ^uuid}] = Push.devices(other.uuid)
       refute_push_event(view, "pk-push-unsubscribe", _)
+    end
+
+    test "a failed attempt says so and keeps the button", %{conn: conn} do
+      {:ok, view, _html} =
+        conn |> login(user!()) |> live(Routes.path("/profile/settings/notifications"))
+
+      view
+      |> with_target("#push-notifications-card")
+      |> render_hook("push_state", %{"state" => "failed"})
+
+      assert has_element?(view, "#push-notifications-card .alert-error", "Try again")
+      assert has_element?(view, "#push-notifications-card [data-push-enable]")
     end
 
     test "forged events: another account's device stays; a service user is refused", %{

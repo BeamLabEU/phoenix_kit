@@ -102,6 +102,7 @@ defmodule PhoenixKit.Users.ManagedOrganizations do
   alias PhoenixKit.API.Keys
   alias PhoenixKit.API.Keys.Key
   alias PhoenixKit.Integrations.Telegram.Linking
+  alias PhoenixKit.Notifications.Push
   alias PhoenixKit.RepoHelper
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.Auth.User
@@ -364,5 +365,7 @@ defmodule PhoenixKit.Users.ManagedOrganizations do
 
     # Inert while the account is managed, live again the moment it is not.
     Linking.drop_links(org.uuid, actor_uuid: actor_uuid)
+    # Its push devices too (in this transaction, so `forget_account!/1`).
+    Push.forget_account!(org.uuid)
   end
 end

@@ -29278,6 +29278,11 @@ msgstr "Уведомления в этом браузере включены."
 msgid "Notifications can't be turned on here."
 msgstr "Здесь нельзя включить уведомления."
 
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex
+#, elixir-autogen, elixir-format
+msgid "Notifications couldn't be turned on in this browser. Try again."
+msgstr "Не удалось включить уведомления в этом браузере. Попробуйте ещё раз."
+
 #: lib/phoenix_kit_web/live/components/push_notifications_card.ex:128
 #, elixir-autogen, elixir-format
 msgid "Notifications can't be turned on while you act as someone else."

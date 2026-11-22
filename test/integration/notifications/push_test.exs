@@ -447,4 +447,138 @@ defmodule PhoenixKit.Integration.Notifications.PushTest do
       assert Push.take_pending(a.uuid) == :none
     end
   end
+
+  describe "a burst in one second" do
+    test "the latest is the last queued, by its uuid, not by the second it shares" do
+      Settings.update_boolean_setting("push_show_line", true)
+      on_exit(fn -> Settings.update_boolean_setting("push_show_line", false) end)
+
+      a = user!()
+      second = ~N[2026-11-22 12:00:00]
+
+      # Inserted out of order, all in the same second: the uuid (v7) decides.
+      for {n, line} <- [{3, "third"}, {1, "first"}, {2, "second"}] do
+        Repo.insert!(%PhoenixKit.Notifications.Push.Pending{
+          uuid: "01900000-0000-7000-8000-00000000000#{n}",
+          user_uuid: a.uuid,
+          type_key: "comments",
+          title: "T",
+          line: line,
+          inserted_at: second
+        })
+      end
+
+      {:ok, payload} = Push.take_pending(a.uuid)
+      assert payload["body"] =~ "latest: third"
+    end
+  end
+
+  describe "the devices end with the account's credentials" do
+    alias PhoenixKit.Test.ManagedOrganizationFixtures, as: F
+    alias PhoenixKit.Users.ManagedOrganizations
+    alias PhoenixKit.Users.Sessions
+
+    @new_password "AnotherValidPassword456!"
+
+    defp with_device do
+      u = user!()
+      subscribe!(u, browser())
+      :ok = Push.queue(envelope(u))
+      assert Push.any_device?(u.uuid)
+      Auth.get_user!(u.uuid)
+    end
+
+    defp gone?(u) do
+      not Push.any_device?(u.uuid) and Push.take_pending(u.uuid) == :none
+    end
+
+    test "deactivation" do
+      u = with_device()
+      {:ok, _} = Auth.update_user_status(u, %{"is_active" => false})
+      assert gone?(u)
+    end
+
+    test "a password reset, a change, an administrator's new password" do
+      for change <- [
+            &Auth.reset_user_password(&1, %{
+              password: @new_password,
+              password_confirmation: @new_password
+            }),
+            &Auth.update_user_password(&1, "ValidPassword123!", %{
+              password: @new_password,
+              password_confirmation: @new_password
+            }),
+            &Auth.admin_update_user_password(&1, %{
+              password: @new_password,
+              password_confirmation: @new_password
+            })
+          ] do
+        u = with_device()
+        assert {:ok, _} = change.(u)
+        assert gone?(u)
+      end
+    end
+
+    test "a failed password change keeps them" do
+      u = with_device()
+
+      assert {:error, _} =
+               Auth.update_user_password(u, "WrongCurrentPassword1!", %{
+                 password: @new_password,
+                 password_confirmation: @new_password
+               })
+
+      assert Push.any_device?(u.uuid)
+    end
+
+    test "signing out everywhere, or the other sessions" do
+      u = with_device()
+      Sessions.revoke_user_sessions(u)
+      assert gone?(u)
+
+      u = with_device()
+      token = Auth.generate_user_session_token(u)
+      _other = Auth.generate_user_session_token(u)
+      assert Sessions.revoke_other_user_sessions(u, token) == 1
+      assert gone?(u)
+    end
+
+    test "ending one session leaves them" do
+      u = with_device()
+      u |> Auth.generate_user_session_token() |> Auth.delete_user_session_token()
+      assert Push.any_device?(u.uuid)
+    end
+
+    test "a confirmation by an external proof" do
+      {:ok, u} =
+        Auth.register_user(%{
+          email: "push_#{System.unique_integer([:positive])}@example.com",
+          password: "ValidPassword123!"
+        })
+
+      subscribe!(u, browser())
+      assert {:ok, _} = Auth.confirm_user_from_external_proof(Auth.get_user!(u.uuid))
+      refute Push.any_device?(u.uuid)
+    end
+
+    test "becoming a managed organization, inside the conversion's transaction" do
+      Settings.update_setting("enable_organization_accounts", "true")
+      on_exit(fn -> Settings.update_setting("enable_organization_accounts", "false") end)
+
+      org = F.person(%{account_type: "organization", organization_name: "Pushed"})
+      subscribe!(org, browser())
+
+      {:ok, _} =
+        ManagedOrganizations.host_convert_to_managed(org.uuid, F.person().uuid, F.person())
+
+      refute Push.any_device?(org.uuid)
+    end
+
+    test "a notice taken for an account no longer allowed builds no push" do
+      u = with_device()
+      # Deactivated behind the cleanup's back (a race, an import).
+      Repo.update_all(from(x in Auth.User, where: x.uuid == ^u.uuid), set: [is_active: false])
+      assert Push.take_pending(u.uuid) == :none
+    end
+  end
 end

@@ -27,6 +27,7 @@ defmodule PhoenixKit.Users.Sessions do
   require Logger
   alias PhoenixKit.Admin.Events
   alias PhoenixKit.Integrations.Telegram.Linking
+  alias PhoenixKit.Notifications.Push
   alias PhoenixKit.RepoHelper, as: Repo
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.ActiveRole
@@ -384,6 +385,8 @@ defmodule PhoenixKit.Users.Sessions do
     if count > 0 do
       # The user locked their account down: a chat linked to the site bot is one of the others.
       Linking.drop_links(user_uuid, actor_uuid: user_uuid)
+      # And its push devices: this browser's too (a binding names no session).
+      Push.forget_account(user_uuid)
       Events.broadcast_user_sessions_revoked(user_uuid, count)
     end
 
@@ -620,6 +623,7 @@ defmodule PhoenixKit.Users.Sessions do
 
     # A chat linked to the site bot acts as the user: "sign out everywhere" ends it too.
     Linking.drop_links(user_uuid, actor_uuid: actor_uuid)
+    Push.forget_account(user_uuid)
 
     # Broadcast user sessions revocation event
     if count > 0 do

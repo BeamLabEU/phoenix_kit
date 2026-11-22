@@ -29048,6 +29048,11 @@ msgstr "此浏览器已开启通知。"
 msgid "Notifications can't be turned on here."
 msgstr "无法在此开启通知。"
 
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex
+#, elixir-autogen, elixir-format
+msgid "Notifications couldn't be turned on in this browser. Try again."
+msgstr "无法在此浏览器中开启通知。请重试。"
+
 #: lib/phoenix_kit_web/live/components/push_notifications_card.ex:128
 #, elixir-autogen, elixir-format
 msgid "Notifications can't be turned on while you act as someone else."

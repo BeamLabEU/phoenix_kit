@@ -29028,6 +29028,11 @@ msgstr "Benachrichtigungen sind in diesem Browser eingeschaltet."
 msgid "Notifications can't be turned on here."
 msgstr "Benachrichtigungen können hier nicht eingeschaltet werden."
 
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex
+#, elixir-autogen, elixir-format
+msgid "Notifications couldn't be turned on in this browser. Try again."
+msgstr "Benachrichtigungen konnten in diesem Browser nicht aktiviert werden. Versuchen Sie es erneut."
+
 #: lib/phoenix_kit_web/live/components/push_notifications_card.ex:128
 #, elixir-autogen, elixir-format
 msgid "Notifications can't be turned on while you act as someone else."

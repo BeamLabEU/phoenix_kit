@@ -29190,6 +29190,11 @@ msgstr "Teavitused on selles brauseris sees."
 msgid "Notifications can't be turned on here."
 msgstr "Teavitusi ei saa siin sisse lülitada."
 
+#: lib/phoenix_kit_web/live/components/push_notifications_card.ex
+#, elixir-autogen, elixir-format
+msgid "Notifications couldn't be turned on in this browser. Try again."
+msgstr "Teavitusi ei õnnestunud selles brauseris sisse lülitada. Proovi uuesti."
+
 #: lib/phoenix_kit_web/live/components/push_notifications_card.ex:128
 #, elixir-autogen, elixir-format
 msgid "Notifications can't be turned on while you act as someone else."

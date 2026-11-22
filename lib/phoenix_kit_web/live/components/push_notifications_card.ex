@@ -9,9 +9,9 @@ defmodule PhoenixKitWeb.Live.Components.PushNotificationsCard do
   service worker as the card mounts — so the permission prompt, which a
   browser shows only during a click, is not delayed by it — reports the
   browser's state (`push_state`: unsupported, needs installing on an iPhone,
-  not asked, allowed, blocked; and this browser's endpoint, to mark "this
-  device"), and on **Turn on** asks the browser and sends the subscription
-  (`push_subscribe`). It also keeps the browser's own id in a cookie
+  not asked, allowed, blocked, a failed attempt to turn it on; and this
+  browser's endpoint, to mark "this device"), and on **Turn on** asks the
+  browser and sends the subscription (`push_subscribe`). It also keeps the browser's own id in a cookie
   (`pk_push_browser`), so a logout in this browser stops its pushes.
 
   Refused on the server, like the Telegram card: turning push on in a
@@ -34,7 +34,7 @@ defmodule PhoenixKitWeb.Live.Components.PushNotificationsCard do
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Utils.Routes
 
-  @states ~w(unknown unsupported ios_install default granted denied)
+  @states ~w(unknown unsupported ios_install default granted denied failed)
 
   @impl true
   def update(assigns, socket) do
@@ -79,7 +79,21 @@ defmodule PhoenixKitWeb.Live.Components.PushNotificationsCard do
         _ -> nil
       end
 
-    {:noreply, assign(socket, browser_state: state, this_hash: this)}
+    socket = assign(socket, browser_state: state, this_hash: this)
+
+    # The browser can do push but turning it on failed (offline, the push
+    # service): said, with "Turn on" kept to try again.
+    socket =
+      if state == "failed",
+        do:
+          assign(
+            socket,
+            :message,
+            {:error, gettext("Notifications couldn't be turned on in this browser. Try again.")}
+          ),
+        else: socket
+
+    {:noreply, socket}
   end
 
   def handle_event("push_subscribe", %{"subscription" => %{} = subscription} = params, socket) do

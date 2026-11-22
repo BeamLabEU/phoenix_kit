@@ -40,8 +40,11 @@ defmodule PhoenixKit.Notifications.Push.GroupWorker do
 
     repo.transaction(fn ->
       case Push.take_pending(user_uuid) do
+        # Push turned off meanwhile: the notices are taken, nothing is queued.
         {:ok, payload} ->
-          enqueue_sends(repo, user_uuid, Jason.encode!(payload))
+          if Push.enabled?(),
+            do: enqueue_sends(repo, user_uuid, Jason.encode!(payload)),
+            else: :ok
 
         :none ->
           :ok

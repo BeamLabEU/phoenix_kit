@@ -74,16 +74,30 @@ defmodule PhoenixKitWeb.PushOpenController do
   def switch(conn, %{"handle" => handle}) do
     conn = WebAuth.fetch_phoenix_kit_current_scope(conn, [])
 
-    with {:ok, %{user_uuid: target} = opened} <- Push.read_handle(handle),
-         %{ref: ref} <- switchable(conn, target),
-         {:ok, conn, user} <- MultiSession.switch_to(conn, ref) do
-      redirect(conn, to: destination(Scope.for_user(user), opened))
-    else
-      _ -> generic(conn)
+    case Push.read_handle(handle) do
+      {:ok, %{user_uuid: target} = opened} -> switch_to(conn, target, opened)
+      :error -> generic(conn)
     end
   end
 
   def switch(conn, _params), do: generic(conn)
+
+  defp switch_to(conn, target, opened) do
+    cond do
+      # Already that account (a second click, a switch in another tab).
+      match?(%User{uuid: ^target}, conn.assigns[:phoenix_kit_current_user]) ->
+        redirect(conn, to: destination(conn.assigns[:phoenix_kit_current_scope], opened))
+
+      entry = switchable(conn, target) ->
+        case MultiSession.switch_to(conn, entry.ref) do
+          {:ok, conn, user} -> redirect(conn, to: destination(Scope.for_user(user), opened))
+          _ -> generic(conn)
+        end
+
+      true ->
+        generic(conn)
+    end
+  end
 
   # The account the notification is for, when this browser holds it as one
   # of its own (not borrowed) and may switch to it; nil otherwise.

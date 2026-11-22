@@ -1678,6 +1678,8 @@ defmodule PhoenixKit.Users.Auth do
   def delete_all_user_session_tokens(user) do
     Revocation.delete_all(UserToken.by_user_and_contexts_query(user, ["session"]))
     Linking.drop_links(user.uuid)
+    # The same for the browsers it turned push on in (`Push.forget_account/1`).
+    Push.forget_account(user.uuid)
     :ok
   end
 
@@ -2141,6 +2143,11 @@ defmodule PhoenixKit.Users.Auth do
   # OAuth callback runs inside the callback's transaction, so this runs before that one commits.
   defp after_credentials_revoked(%User{} = user, %{keys: keys, connections: connections}, how) do
     Enum.each(keys ++ connections, &ApiKeysCache.invalidate/1)
+
+    # A new password (or a recovery) ends the push devices too, as it ends a
+    # linked chat: a browser subscribed from a stolen session stops here.
+    # After the commit, so a failure here never undoes the password.
+    Push.forget_account(user.uuid)
 
     if keys != [] or connections != [] do
       PhoenixKit.Activity.log("api", "api.revoked_on_password_change",

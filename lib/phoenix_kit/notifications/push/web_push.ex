@@ -352,7 +352,7 @@ defmodule PhoenixKit.Notifications.Push.WebPush do
 
   defp retry_after(response) do
     with [value | _] <- Req.Response.get_header(response, "retry-after"),
-         {seconds, ""} <- Integer.parse(value) do
+         {seconds, ""} when seconds > 0 <- Integer.parse(value) do
       seconds * 1_000
     else
       _ -> nil

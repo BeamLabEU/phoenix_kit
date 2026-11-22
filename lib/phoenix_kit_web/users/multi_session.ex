@@ -1037,6 +1037,8 @@ defmodule PhoenixKitWeb.Users.MultiSession do
           PhoenixKitWeb.Users.Auth.broadcast_disconnect_for_socket(live_socket_id)
         end
 
+        # The account leaves this browser: so do its push notifications here.
+        forget_push(conn, active)
         Auth.delete_user_session_token(active)
         new_stack = List.delete(stack, active)
 

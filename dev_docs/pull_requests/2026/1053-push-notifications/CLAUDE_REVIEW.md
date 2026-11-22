@@ -1,6 +1,6 @@
 # PR #1053 — Browser push notifications: review record
 
-Reviewer seats: codex (GPT-6.1), zai (GLM-5.3), vibe (Mistral Medium 3.5), plus Claude's own read. Each finding was checked against the code before it was fixed; each fix has a test where one could be written.
+Reviewer seats: codex (GPT-6.1), zai (GLM-5.3), vibe (Mistral Medium 3.5), gemini (round 3), plus Claude's own read. Each finding was checked against the code before it was fixed; each fix has a test where one could be written.
 
 ## Round 1
 
@@ -34,6 +34,28 @@ Reviewer seats: codex (GPT-6.1), zai (GLM-5.3), vibe (Mistral Medium 3.5), plus 
 | BUG - LOW | `forget_account` could race a subscribe of the same account. | zai | Fixed: the same per-account lock. |
 | BUG - LOW | `subscribe` could return a changeset. | zai | Fixed. |
 | BUG - LOW | `cut_bytes` returned more than asked for a tiny limit. | codex | Fixed; test. |
+
+## Round 3 (Gemini, on `acdd7b1ac`)
+
+Each finding checked against the code; every fix has a test that fails without it.
+
+| Severity | Finding | Outcome |
+|---|---|---|
+| BUG - HIGH | Logging out an added account (`log_out_to_root/5`) deleted its session but kept its binding, so its pushes kept arriving in the browser. | Fixed: `forget_push(conn, active)`, as `remove_account/2`; test. |
+| BUG - HIGH | The six credential-ending paths dropped the Telegram link but not the push devices, and delivery didn't check the account again. | Fixed: `Push.forget_account/1` on deactivation, after the commit of every password change, reset and external-proof confirmation (`after_credentials_revoked/3`), on sign-out everywhere and sign-out of the others. `Push.forget_account!/1` (raises) runs inside an organization's conversion transaction. `take_pending/1` builds nothing for an account `subscribe/3` would refuse. Tests for each path, and one showing a failed password change keeps the devices. |
+| BUG - MEDIUM | `GET /push/sw.js` and the manifest sat behind `plug :accepts, ["json"]`: a strict `Accept` got a 406. | Fixed: their own scope without `accepts`; the resubscribe POST stays; test. |
+| BUG - MEDIUM | `PkPush` reported any failed attempt as "unsupported", which hid Turn on until a reload. A subscription held under another VAPID key made `subscribe()` throw `InvalidStateError`. | Fixed: a failed registration at mount leaves the button, and the click tries the registration again. A failed turn-on reports `failed` ("couldn't be turned on… Try again", 9 locales) and keeps the button. A subscription with another key is unsubscribed first. Card test. |
+| BUG - LOW | `take_pending/1` sorted by a 1-second `inserted_at`, so "latest" was arbitrary within a burst. | Fixed: `{inserted_at, uuid}`; test. |
+| BUG - LOW | Switch and open, clicked twice (or after switching in another tab), showed the generic page. | Fixed: already that account goes straight to the notification; test. |
+| IMPROVEMENT - LOW | `retry_after/1` accepted a negative `Retry-After`. | Fixed: positive only. |
+| NITPICK | GroupWorker queued sends with push off; `forget_browser/2` ran an empty `DELETE`; `upsert_installation/5` hashed twice. | Fixed. |
+
+### Left, recorded
+
+- **Sign-out of the other sessions and a password change end push in this browser too.** A binding names no session, so the browser that acted can't be told apart. Telegram does the same. Turn on again to restore it.
+- **The old-key subscription a key change unsubscribes** stays bound for the browser's other accounts until its next 410. They turn push on again.
+- **`SendWorker` still ignores the parsed `Retry-After`** and keeps Oban's backoff. A snooze would raise `max_attempts` with no bound against a service that always answers 429.
+- iOS Home Screen scope under a mount prefix and the unpadded base64 in `pk_push_sw.js`: as Gemini says, not broken.
 
 ## Left, recorded (accepted)
 

@@ -10370,37 +10370,18 @@
         return;
       }
 
-      var worker = this.el.dataset.worker;
-      var scope = worker.slice(0, worker.lastIndexOf("/") + 1);
-
-      this.ready = navigator.serviceWorker
-        .register(worker, { scope: scope })
+      this.ready = this.register();
+      this.ready
         .then(function (registration) {
-          if (registration.active) return registration;
-          // The card lives outside the worker scope, so serviceWorker.ready
-          // would wait for an unrelated registration. Wait on this worker.
-          var worker = registration.installing || registration.waiting;
-          return new Promise(function (resolve, reject) {
-            if (!worker) return reject(new Error("no worker"));
-            function changed() {
-              if (worker.state !== "activated" && worker.state !== "redundant") return;
-              worker.removeEventListener("statechange", changed);
-              if (worker.state === "activated") resolve(registration);
-              else reject(new Error("worker installation failed"));
-            }
-            worker.addEventListener("statechange", changed);
-            changed();
-          });
-        })
-        .then(function (registration) {
-          self.registration = registration;
           return registration.pushManager.getSubscription();
         })
         .then(function (subscription) {
           self.report(Notification.permission, subscription ? subscription.endpoint : null);
         })
         .catch(function () {
-          self.report("unsupported", null);
+          // The browser can do push; this attempt failed (offline, a slow
+          // install). The card keeps "Turn on", whose click tries again.
+          self.report(Notification.permission, null);
         });
 
       this.onClick = function (event) {
@@ -10419,10 +10400,42 @@
       this.pushEventTo(this.el, "push_state", { state: state, endpoint: endpoint });
     },
 
+    // The push worker's registration, once it is active. The card lives
+    // outside the worker scope, so serviceWorker.ready would wait for an
+    // unrelated registration: this waits on this worker.
+    register: function () {
+      var self = this;
+      var worker = this.el.dataset.worker;
+      var scope = worker.slice(0, worker.lastIndexOf("/") + 1);
+
+      return navigator.serviceWorker
+        .register(worker, { scope: scope })
+        .then(function (registration) {
+          if (registration.active) return registration;
+          var installing = registration.installing || registration.waiting;
+          return new Promise(function (resolve, reject) {
+            if (!installing) return reject(new Error("no worker"));
+            function changed() {
+              if (installing.state !== "activated" && installing.state !== "redundant") return;
+              installing.removeEventListener("statechange", changed);
+              if (installing.state === "activated") resolve(registration);
+              else reject(new Error("worker installation failed"));
+            }
+            installing.addEventListener("statechange", changed);
+            changed();
+          });
+        })
+        .then(function (registration) {
+          self.registration = registration;
+          return registration;
+        });
+    },
+
     // Asked inside the click: the permission prompt first, nothing awaited
     // before it, then the subscription.
     // A click before the worker's registration has finished waits for it,
-    // after the prompt (which must stay inside the click).
+    // after the prompt (which must stay inside the click); one that failed
+    // at mount is tried again. A failure says so and keeps the button.
     enable: function () {
       var self = this;
       if (!this.ready || !this.el.dataset.key) return;
@@ -10433,21 +10446,51 @@
           return;
         }
 
-        return self.ready.then(function () {
-          if (!self.registration) throw new Error("no registration");
-          return self.registration.pushManager
-          .subscribe({ userVisibleOnly: true, applicationServerKey: self.key() })
-          .then(function (subscription) {
-            self.pushEventTo(self.el, "push_subscribe", {
-              subscription: subscription.toJSON(),
-              browser_id: self.browserId(),
-              label: self.label()
-            });
+        var ready = self.registration
+          ? Promise.resolve(self.registration)
+          : self.ready.catch(function () {
+            return (self.ready = self.register());
           });
+
+        return ready.then(function (registration) {
+          return self.subscribe(registration);
         });
       }).catch(function () {
-        self.report("unsupported", null);
+        self.report("failed", null);
       });
+    },
+
+    // A subscription the browser holds with another key (the site's VAPID key
+    // was changed) makes subscribe() refuse with InvalidStateError: it goes
+    // first. One with this key is the one subscribe() hands back.
+    subscribe: function (registration) {
+      var self = this;
+      var key = this.key();
+
+      return registration.pushManager.getSubscription()
+        .then(function (existing) {
+          if (existing && !self.sameKey(existing, key)) return existing.unsubscribe();
+        })
+        .then(function () {
+          return registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+        })
+        .then(function (subscription) {
+          self.pushEventTo(self.el, "push_subscribe", {
+            subscription: subscription.toJSON(),
+            browser_id: self.browserId(),
+            label: self.label()
+          });
+        });
+    },
+
+    // A browser that does not say which key a subscription holds: the same.
+    sameKey: function (subscription, key) {
+      var held = subscription.options && subscription.options.applicationServerKey;
+      if (!held) return true;
+      var bytes = new Uint8Array(held);
+      if (bytes.length !== key.length) return false;
+      for (var i = 0; i < key.length; i++) if (bytes[i] !== key[i]) return false;
+      return true;
     },
 
     key: function () {

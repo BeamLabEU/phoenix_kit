@@ -498,12 +498,20 @@ defmodule PhoenixKitWeb.Integration do
 
         get "/assets/:file", AssetsController, :serve
 
-        # Push notifications' service worker and web app manifest, and the
-        # worker's report of a rotated subscription (no session, no CSRF: a
-        # service worker has neither; the old subscription's secret proves it).
+        # The service worker's report of a rotated subscription (no session, no
+        # CSRF: a service worker has neither; the old subscription's secret
+        # proves it).
+        post "/push/resubscribe", PushController, :resubscribe
+      end
+
+      # Push notifications' service worker and web app manifest. Not JSON, so
+      # no `accepts`: `:phoenix_kit_api` answers a strict
+      # `Accept: text/javascript` (or `application/manifest+json`) with a 406.
+      scope unquote(url_prefix), PhoenixKitWeb do
+        pipe_through [:phoenix_kit_api_v1]
+
         get "/push/sw.js", PushController, :service_worker
         get "/push/manifest.webmanifest", PushController, :manifest
-        post "/push/resubscribe", PushController, :resubscribe
       end
 
       # Resumable uploads: chunks of a file the upload manager is sending. No
