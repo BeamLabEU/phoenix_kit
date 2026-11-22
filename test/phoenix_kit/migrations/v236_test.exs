@@ -76,6 +76,18 @@ defmodule PhoenixKit.Migrations.Postgres.V236Test do
     assert table_exists?()
   end
 
+  test "up and down leave the connection's lock_timeout as they found it" do
+    %{rows: [[before]]} = Repo.query!("SHOW lock_timeout")
+
+    run(V236.up_statements("public"))
+    assert %{rows: [[^before]]} = Repo.query!("SHOW lock_timeout")
+
+    run(V236.down_statements("public"))
+    assert %{rows: [[^before]]} = Repo.query!("SHOW lock_timeout")
+
+    run(V236.up_statements("public"))
+  end
+
   test "a token hash is unique, the payload defaults to an empty map, and the account cascades" do
     user = KeyTestSupport.register_user!()
     hash = :crypto.strong_rand_bytes(32)

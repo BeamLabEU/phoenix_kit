@@ -79,7 +79,8 @@ defmodule PhoenixKit.Migrations.Postgres.V236 do
       "CREATE INDEX IF NOT EXISTS phoenix_kit_handoff_tokens_user_uuid_index ON #{p}phoenix_kit_handoff_tokens (user_uuid)",
       "CREATE INDEX IF NOT EXISTS phoenix_kit_handoff_tokens_expires_at_index ON #{p}phoenix_kit_handoff_tokens (expires_at)",
       "CREATE UNIQUE INDEX IF NOT EXISTS phoenix_kit_handoff_tokens_source_proof_hash_index ON #{p}phoenix_kit_handoff_tokens (source_proof_hash) WHERE source_proof_hash IS NOT NULL",
-      "COMMENT ON TABLE #{p}phoenix_kit IS '236'"
+      "COMMENT ON TABLE #{p}phoenix_kit IS '236'",
+      "RESET lock_timeout"
     ]
   end
 
@@ -91,7 +92,8 @@ defmodule PhoenixKit.Migrations.Postgres.V236 do
     [
       "SET lock_timeout = '5000ms'",
       "DROP TABLE IF EXISTS #{p}phoenix_kit_handoff_tokens",
-      "COMMENT ON TABLE #{p}phoenix_kit IS '235'"
+      "COMMENT ON TABLE #{p}phoenix_kit IS '235'",
+      "RESET lock_timeout"
     ]
   end
 end
