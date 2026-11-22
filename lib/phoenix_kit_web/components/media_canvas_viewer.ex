@@ -108,6 +108,11 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       not rendered; the shape goes out marked `comments_off`, "Edit label"
       stays) and `annotation_reply` is refused on the server. Pass
       `comments={false}` as well to take the preview and the count away too.
+      One consequence: Etcher's offline merge keeps a shape that a device
+      deleted offline when the server's copy has `comment_count` set
+      (`offline_protect`); under `:authors` off the copy has no such key, so a
+      shape with a discussion is not protected that way. Deleting it online is
+      not blocked either, so this changes when, not whether, it can go.
     * `:details_path` (default `nil`) — when set, the sidebar shows an
       "Open details page" button navigating to this path. Admin-context
       hosts (`MediaBrowser` with `admin={true}`) pass the file's
@@ -2315,16 +2320,19 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   # The one key of a shape's metadata that names a person: a marker's byline,
   # stamped when it is drawn, and the author of the first comment of a shape
   # that has a discussion (`curate_row/2`); Etcher's tooltip header shows it.
-  # Dropped here, on the way out, and nowhere earlier: `viewer_annotations`
-  # keeps the stored metadata whole, because a later write rebuilds the row's
-  # metadata from it and must not erase who drew a marker.
+  # `wire_metadata/2` drops it on the way out, and nowhere earlier:
+  # `viewer_annotations` keeps the stored metadata whole, because a later write
+  # rebuilds the row's metadata from it and must not erase who drew a marker.
   @author_meta_keys ~w(comment_author)
 
-  #
-  # With the names gone the thread is not rendered, so a shape that has a
-  # discussion goes out as one with the discussion off (`comments_off`, no
-  # `comment_count`): the tooltip then offers no Reply / View, which would write
-  # or scroll to a thread nobody can read, and keeps "Edit label".
+  # What goes to the browser of a shape's metadata. With `authors` on, all of
+  # it. With `authors` off, the byline is dropped; and as the thread is not
+  # rendered, a shape that has a discussion goes out as one with the discussion
+  # off (`comments_off` instead of `comment_count`): the tooltip then offers no
+  # Reply / View, which would write or scroll to a thread nobody can read, and
+  # keeps "Edit label". (The viewer's `offline_protect="comment_count"` reads the
+  # server's copy of the shape, so on such a shape it does not apply: see
+  # `:authors` in the moduledoc.)
   @doc false
   def wire_metadata(metadata, true), do: metadata
 

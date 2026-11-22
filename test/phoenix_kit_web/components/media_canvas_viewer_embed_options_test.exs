@@ -322,16 +322,32 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerEmbedOptionsTest do
                )
     end
 
-    test "a shape's title edited from the thread is refused too" do
-      socket = updated(mounted(), %{can_annotate: false})
+    # The title edit also needs an annotation of the open file, and a file whose
+    # row is writable (no file uuid here: nothing to look up). So the socket
+    # holds the shape, and what stops the edit is `can_annotate` alone: with it
+    # on, the same event reaches `persist_annotation_title/2`, which writes
+    # through the repo and raises here.
+    defp with_shape(socket) do
+      Phoenix.Component.assign(socket, :viewer_annotations, [
+        %{uuid: @shape_uuid, kind: "rectangle", geometry: %{}, style: %{}, metadata: %{}}
+      ])
+    end
 
-      # With a writable file this would reach `persist_annotation_title/2`,
-      # which writes through the repo and raises here.
-      assert {:ok, ^socket} =
-               MediaCanvasViewer.update(
-                 %{action: :annotation_title_updated, metadata_value: @shape_uuid, label: "x"},
-                 socket
-               )
+    @title_edit %{action: :annotation_title_updated, metadata_value: @shape_uuid, label: "x"}
+
+    test "a shape's title edited from the thread is refused too" do
+      socket = updated(mounted(), %{can_annotate: false}) |> with_shape()
+
+      assert {:ok, after_edit} = MediaCanvasViewer.update(@title_edit, socket)
+      assert after_edit.assigns.can_annotate == false
+    end
+
+    test "the same title edit is written when drawing is on (the control)" do
+      socket = mounted() |> updated(%{}) |> with_shape()
+
+      assert_raise RuntimeError, ~r/could not lookup Ecto repo/, fn ->
+        MediaCanvasViewer.update(@title_edit, socket)
+      end
     end
   end
 

@@ -178,7 +178,7 @@ defmodule PhoenixKitWeb.Components.MediaViewer do
   # any event at a component, so anything else is ignored, not a crash. The
   # debug line is there to make a host's mistyped `phx-target` findable.
   def handle_event(event, _params, socket) do
-    Logger.debug("MediaViewer: ignored event #{inspect(event)}")
+    Logger.debug("MediaViewer #{socket.assigns[:id]}: ignored event #{inspect(event)}")
     {:noreply, socket}
   end
 
