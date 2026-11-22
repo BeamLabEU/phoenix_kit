@@ -64,10 +64,10 @@ defmodule PhoenixKitWeb.Components.MediaViewer do
     header is the shape's label or its kind. The drawings and their labels stay.
     The comments thread names each commenter, so it is not rendered under
     `authors={false}`. With `comments` on, a shape's tooltip still previews the
-    first comment's text and offers Reply and View: Reply is refused on the
-    server (a comment its writer could not read back) and View has no thread to
-    scroll to. Pass `comments={false}` as well to take the discussion out
-    altogether.
+    first comment's text but offers no Reply or View (a reply could not be read
+    back, and there is no thread to scroll to; "Edit label" stays), and Reply is
+    refused on the server. Pass `comments={false}` as well to take the preview
+    and the count away too.
 
   The lightbox never offers the viewer's other writes: no title/description
   editor, no persisted rotation, no "Edit image", no trash buttons, no

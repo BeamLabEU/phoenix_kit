@@ -541,6 +541,29 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerEmbedOptionsTest do
       assert MediaCanvasViewer.wire_metadata(nil, false) == nil
     end
 
+    test "a shape with a discussion goes out as one with the discussion off: no Reply / View" do
+      meta = %{
+        "comment_author" => @author,
+        "comment_count" => 2,
+        "comment_text" => "Looks good",
+        "badge" => 2
+      }
+
+      wire = MediaCanvasViewer.wire_metadata(meta, false)
+
+      refute Map.has_key?(wire, "comment_count")
+      assert wire["comments_off"] == true
+      assert wire["comment_text"] == "Looks good"
+      assert MediaCanvasViewer.wire_metadata(meta, true)["comment_count"] == 2
+    end
+
+    test "a shape with comments already off, or on a board, is left as it was" do
+      off = %{"comments_off" => true, "title" => "t"}
+
+      assert MediaCanvasViewer.wire_metadata(off, false) == off
+      assert MediaCanvasViewer.wire_metadata(%{"title" => "t"}, false) == %{"title" => "t"}
+    end
+
     test "the patch pushed to a drawn shape has no author either" do
       socket = Phoenix.Component.assign(mounted(), :authors, false)
 

@@ -87,7 +87,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       comment count, preview or badge (so the tooltip offers no Reply / View
       but keeps "Edit label"), and `annotation_reply` is refused on the
       server. The drawings themselves are untouched, a marker's byline (the
-      name of whoever drew it) included.
+      name of whoever drew it) included (unless `:authors` is off).
     * `:details` (default `true`) — `false` cuts the sidebar down to the file's
       name and its Download controls. Not printed: the title, alt text,
       description and tags, the type, MIME type, size, dimensions, dates, status,
@@ -104,8 +104,10 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       cannot be made anonymous from here, so it is not rendered. The drawings
       and their labels are untouched. The server keeps the byline on the row.
       With `:comments` on, a shape's tooltip still previews the first comment
-      and offers Reply and View: View has no thread to scroll to, and Reply is
-      refused on the server (pass `comments={false}` to take both away).
+      but offers no Reply / View (they would write or scroll to a thread that is
+      not rendered; the shape goes out marked `comments_off`, "Edit label"
+      stays) and `annotation_reply` is refused on the server. Pass
+      `comments={false}` as well to take the preview and the count away too.
     * `:details_path` (default `nil`) — when set, the sidebar shows an
       "Open details page" button navigating to this path. Admin-context
       hosts (`MediaBrowser` with `admin={true}`) pass the file's
@@ -2318,9 +2320,22 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   # metadata from it and must not erase who drew a marker.
   @author_meta_keys ~w(comment_author)
 
+  #
+  # With the names gone the thread is not rendered, so a shape that has a
+  # discussion goes out as one with the discussion off (`comments_off`, no
+  # `comment_count`): the tooltip then offers no Reply / View, which would write
+  # or scroll to a thread nobody can read, and keeps "Edit label".
   @doc false
   def wire_metadata(metadata, true), do: metadata
-  def wire_metadata(%{} = metadata, false), do: Map.drop(metadata, @author_meta_keys)
+
+  def wire_metadata(%{} = metadata, false) do
+    metadata = Map.drop(metadata, @author_meta_keys)
+
+    if Map.has_key?(metadata, "comment_count"),
+      do: metadata |> Map.delete("comment_count") |> Map.put("comments_off", true),
+      else: metadata
+  end
+
   def wire_metadata(metadata, false), do: metadata
 
   # Read this user's saved Etcher palette fresh from the DB, falling back
