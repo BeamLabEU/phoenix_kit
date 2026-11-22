@@ -354,6 +354,24 @@ defmodule PhoenixKit.Handoff do
   def source_proof?(_secret, _param), do: false
 
   @doc """
+  Whether a handoff row already holds the source proof `hash` (the 32 bytes
+  `decode_source_proof/1` gives): an indexed existence check, which the controller asks before it
+  asks any module for a snapshot, so a replay costs no snapshot round on any node. It is an
+  optimisation only: the unique index `mint/1` writes under is the authority, and a database that
+  cannot answer is `false`, left to the insert to refuse.
+  """
+  @spec source_proof_used?(term()) :: boolean()
+  def source_proof_used?(hash) when is_binary(hash) and byte_size(hash) == 32 do
+    RepoHelper.repo().exists?(from(t in Token, where: t.source_proof_hash == ^hash), log: false)
+  rescue
+    _ -> false
+  catch
+    :exit, _ -> false
+  end
+
+  def source_proof_used?(_hash), do: false
+
+  @doc """
   The 32-byte hash an `s` parameter carries (what `mint/1` takes as `:source_proof_hash`), or
   `:error`. The same decoding as `decode_nonce_hash/1`.
   """

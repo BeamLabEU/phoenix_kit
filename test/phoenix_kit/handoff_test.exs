@@ -848,6 +848,33 @@ defmodule PhoenixKit.HandoffTest do
     end
   end
 
+  describe "source_proof_used?/1" do
+    test "is true for a proof that has a row, false for one that has none" do
+      proof = sha("proof")
+      nonce = Handoff.new_secret()
+
+      refute Handoff.source_proof_used?(proof)
+      mint!(nonce, %{source_proof_hash: proof})
+      assert Handoff.source_proof_used?(proof)
+      refute Handoff.source_proof_used?(sha("another"))
+    end
+
+    test "a proof that is not 32 bytes has no row" do
+      refute Handoff.source_proof_used?("short")
+      refute Handoff.source_proof_used?(nil)
+    end
+
+    test "stays true when the row has been used, and is what mint's unique index agrees with" do
+      proof = sha("proof")
+      nonce = Handoff.new_secret()
+      token = mint!(nonce, %{source_proof_hash: proof})
+      assert {:ok, _} = Handoff.redeem(token, @host, nonce)
+
+      assert Handoff.source_proof_used?(proof)
+      assert {:error, :proof_used} = Handoff.mint(attrs(nonce, %{source_proof_hash: proof}))
+    end
+  end
+
   describe "revoke_for_users/1" do
     test "deletes the unused handoffs of the accounts named, and nobody else's" do
       a = KeyTestSupport.register_user!()

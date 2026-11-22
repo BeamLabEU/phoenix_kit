@@ -167,8 +167,10 @@ defmodule PhoenixKitWeb.HandoffController do
   ## Step 3
 
   # Cheap checks first (the cookie, the proof, the shape of every parameter), then the budgets,
-  # then the host resolver, the session and the database. A request that fails a cheap check asks
-  # nothing and costs nobody a slot.
+  # then ONE indexed question to the database (is the proof already spent?), then the host
+  # resolver, the session and the snapshots. A request that fails a cheap check asks nothing and
+  # costs nobody a slot, and a replay of a spent proof, on any node and whatever the budgets
+  # remember, costs no resolver round and no snapshot round.
   defp do_mint(conn, params) do
     name = Handoff.source_cookie(scheme(conn))
 
@@ -186,6 +188,7 @@ defmodule PhoenixKitWeb.HandoffController do
          host when is_binary(host) <- Handoff.host_param(params["h"]),
          :ok <- RateLimiter.check_handoff_mint_proof_rate_limit(params["s"]),
          :ok <- RateLimiter.check_handoff_mint_ip_rate_limit(IpAddress.extract_from_conn(conn)),
+         false <- Handoff.source_proof_used?(proof_hash),
          conn = resolve_site(conn),
          target when is_binary(target) <- Handoff.allowed_host(host, site(conn).hosts),
          source when is_binary(source) <- Handoff.own_host(conn.host, site(conn).hosts),

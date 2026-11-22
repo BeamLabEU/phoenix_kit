@@ -221,14 +221,20 @@ That gives:
   (`source_proof_hash`, V236) under a unique index, and a second `mint` with the
   same proof hits it and is refused (`Handoff.mint/1` answers
   `{:error, :proof_used}`). This is the guarantee, and it holds across nodes and
-  restarts. In front of it sit two budgets that only save work: one `mint` per
-  proof per minute (per node, in memory: a replay is refused before the session
-  is read and any module is asked) and, **for a guest and a signed-in account
-  alike**, 60 mints a minute per address. What a client with one genuine cookie
-  can cost is therefore one snapshot round and one row, then a refusal for the
-  rest of the minute; to cost more it needs more `start`s, and those are counted
-  per address. A refused request is still a request: the table is bounded, the
-  request rate is the limiter's and your proxy's.
+  restarts. In front of it sit three things that only save work: `mint` asks the
+  database, with one indexed existence query on `source_proof_hash`, whether the
+  proof already has a row, **before it asks the host resolver or any module**, so a
+  replay (on another node, after a restart, after the limiter forgot it) is
+  refused there and costs no snapshot round; one `mint` per proof per minute (per
+  node, in memory); and, **for a guest and a signed-in account alike**, 60 mints a
+  minute per address. What a client with one genuine cookie can cost is therefore
+  one row and, at most, the snapshot rounds of the requests that arrive before the
+  first row is committed: parallel replays all pass the existence check, each
+  takes a snapshot round, and the unique index lets exactly one of them write
+  (the rest are refused). That burst is bounded by the per-address budget (and,
+  per node, by the proof's). To cost more it needs more `start`s, and those are
+  counted per address. A refused request is still a request: the table is bounded,
+  the request rate is the limiter's and your proxy's.
 - A `mint` request that someone else crafts for a victim's browser is refused:
   it needs the hash of a secret that sits in an `HttpOnly` cookie of the victim.
 - A handoff with nothing to carry (no account and no snapshot) is refused at

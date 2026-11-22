@@ -765,7 +765,7 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
     end
 
     test "the proof stays spent when the limiter has forgotten it: the database refuses the replay" do
-      session = signed_in_session(user!())
+      session = signed_in_session(user!()) ++ [stub_cart: "cart-1"]
       {browser, s} = started(new_browser(), session)
       cookie = browser.jars[@source][@start_cookie]
       n = Handoff.nonce_hash_param(Handoff.new_secret())
@@ -777,6 +777,7 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
         )
 
       assert %{host: @target} = location(first)
+      assert asked_for_snapshots() == 1
 
       # What a second node, or a restart, looks like: no counter, but the same database.
       :ets.match_delete(
@@ -792,6 +793,8 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
 
       assert_refused(second)
       assert length(tokens()) == 1
+      # The database is asked about the proof before any module is: no snapshot round for it.
+      assert asked_for_snapshots() == 0
     end
 
     test "mints are limited per address, for a guest and for a signed-in account alike" do
