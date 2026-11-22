@@ -859,6 +859,34 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
     end
   end
 
+  describe "the log" do
+    test "carries the token of a full handoff in no line: not the request line, not the timer's" do
+      PhoenixKit.API.OAuth.RequestLog.install()
+      previous = Logger.level()
+      Logger.configure(level: :debug)
+      on_exit(fn -> Logger.configure(level: previous) end)
+
+      user = user!()
+
+      {token, log} =
+        with_log([level: :debug], fn ->
+          {[_, _, mint, redeem], _} = handoff(new_browser(), session: signed_in_session(user))
+          assert redirected_to(redeem, 302) == "/shop"
+          location(mint).path |> String.split("/") |> List.last()
+        end)
+
+      assert Handoff.secret?(token)
+
+      # The controls: the endpoint wrote a request line for the other steps, readable, so the
+      # redeem line is missing its token because it was filtered, not because nothing was captured.
+      assert log =~ "[info] GET #{@prefix}/prepare"
+      assert log =~ "[info] GET #{@prefix}/[FILTERED]"
+      assert log =~ "[RequestTimer] END GET #{@prefix}/[FILTERED]"
+      assert log =~ "[RequestTimer] START GET #{@prefix}/[FILTERED]"
+      refute log =~ token
+    end
+  end
+
   describe "routes" do
     test "the endpoints have one address, whatever the language" do
       for locale <- ["en", "de", "fr"] do
