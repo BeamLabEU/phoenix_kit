@@ -351,6 +351,31 @@ defmodule PhoenixKitWeb.Integration do
     end
   end
 
+  # The cross-domain handoff (`PhoenixKit.Handoff`): four GET endpoints under the kit's URL
+  # prefix, in the host's `:browser` pipeline and the locale plug, **no login plug**: a visitor
+  # who is not signed in is the common case (a guest cart), and the controller reads the
+  # session itself. `/handoff` is a reserved segment, so the locale plugs leave it alone. The
+  # token route comes last, after the three literal ones. `log: false`: the token is a
+  # capability. Left out of the sitemap, as a root-mounted install has no prefix to hide them.
+  defp generate_handoff_routes(url_prefix) do
+    quote do
+      scope unquote(url_prefix), PhoenixKitWeb do
+        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
+
+        get "/handoff/start", HandoffController, :start,
+          log: false,
+          metadata: %{sitemap: false}
+
+        get "/handoff/prepare", HandoffController, :prepare,
+          log: false,
+          metadata: %{sitemap: false}
+
+        get "/handoff/mint", HandoffController, :mint, log: false, metadata: %{sitemap: false}
+        get "/handoff/:token", HandoffController, :redeem, log: false, metadata: %{sitemap: false}
+      end
+    end
+  end
+
   # The metadata routes: at the site root, so under a URL prefix they sit in a `scope "/"` of
   # their own (no alias, like `root_sitemap_routes/1`), and in a root-mounted install in the
   # kit's scope. The protected resource's document is the path variant of RFC 9728: the
@@ -2223,6 +2248,10 @@ defmodule PhoenixKitWeb.Integration do
       # The authorization server of the MCP endpoint (`/oauth/...`). Literal-rooted like the
       # machine API above, so it too stays ahead of every `/:locale`-rooted surface.
       unquote(generate_oauth_routes(url_prefix))
+
+      # The cross-domain handoff (`/handoff/...`): literal-rooted too, so ahead of every
+      # `/:locale`-rooted surface.
+      unquote(generate_handoff_routes(url_prefix))
 
       # ⚠️ THE ORDER OF EVERYTHING BELOW IS LOAD-BEARING — DO NOT REORDER.
       #

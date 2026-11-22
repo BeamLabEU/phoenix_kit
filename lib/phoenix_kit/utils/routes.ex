@@ -25,7 +25,9 @@ defmodule PhoenixKit.Utils.Routes do
   # place, a host page such as `/mcp-servers` still gets its locale. The same holds for
   # `/oauth`: the endpoints of the authorization server have one address, whatever the
   # visitor's language, and a host page such as `/oauth-guide` still gets its locale.
-  @reserved_segments ~w(/mcp /oauth)
+  # `/handoff` (the cross-domain handoff, `PhoenixKit.Handoff`) is the same: its four
+  # endpoints are called by the domains of one site and have one address each.
+  @reserved_segments ~w(/mcp /oauth /handoff)
 
   @warn_interval_ms 60_000
 
