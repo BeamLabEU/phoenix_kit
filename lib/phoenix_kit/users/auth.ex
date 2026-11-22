@@ -1550,7 +1550,7 @@ defmodule PhoenixKit.Users.Auth do
   or `nil`: it does not exist (signed out, revoked), has expired, belongs to someone else, is not
   a session, or acts for an organization. Takes uuids, not the secret token.
   """
-  @spec get_live_session(term(), term()) :: %UserToken{} | nil
+  @spec get_live_session(term(), term()) :: struct() | nil
   def get_live_session(token_uuid, user_uuid)
       when is_binary(token_uuid) and is_binary(user_uuid) do
     with {:ok, token_uuid} <- Ecto.UUID.cast(token_uuid),

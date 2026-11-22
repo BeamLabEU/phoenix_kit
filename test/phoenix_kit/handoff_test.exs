@@ -7,6 +7,7 @@ defmodule PhoenixKit.HandoffTest do
 
   import ExUnit.CaptureLog
 
+  alias Ecto.Adapters.SQL.Sandbox
   alias PhoenixKit.API.KeyTestSupport
   alias PhoenixKit.Cache
   alias PhoenixKit.Handoff
@@ -887,7 +888,7 @@ defmodule PhoenixKit.HandoffTest do
       nonce = Handoff.new_secret()
 
       try do
-        Ecto.Adapters.SQL.Sandbox.unboxed_run(Repo, fn ->
+        Sandbox.unboxed_run(Repo, fn ->
           refute Repo.in_transaction?()
           assert {:ok, _} = Handoff.mint(attrs(nonce, %{source_proof_hash: proof}))
 
@@ -895,7 +896,7 @@ defmodule PhoenixKit.HandoffTest do
                    Handoff.mint(attrs(nonce, %{source_proof_hash: proof}))
         end)
       after
-        Ecto.Adapters.SQL.Sandbox.unboxed_run(Repo, fn ->
+        Sandbox.unboxed_run(Repo, fn ->
           Repo.delete_all(from(t in Token, where: t.source_proof_hash == ^proof))
         end)
       end
