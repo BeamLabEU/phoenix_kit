@@ -61,6 +61,7 @@ config :phoenix_kit, Oban,
        {"*/5 * * * *", PhoenixKit.API.Confirm.ExpiryWorker},
        {"40 4 * * *", PhoenixKit.API.Confirm.PruneWorker},
        {"50 4 * * *", PhoenixKit.API.OAuth.PruneWorker},
+       {"55 4 * * *", PhoenixKit.Handoff.PruneWorker},
        # Notification digest sweeps — one per cadence (fixed windows).
        {"0 * * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "hourly"}},
        {"0 */12 * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "12h"}},

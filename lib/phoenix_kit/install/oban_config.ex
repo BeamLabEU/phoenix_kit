@@ -358,6 +358,7 @@ if Code.ensure_loaded?(Igniter) do
              {"*/5 * * * *", PhoenixKit.API.Confirm.ExpiryWorker},
              {"40 4 * * *", PhoenixKit.API.Confirm.PruneWorker},
              {"50 4 * * *", PhoenixKit.API.OAuth.PruneWorker},
+             {"55 4 * * *", PhoenixKit.Handoff.PruneWorker},
              {"0 * * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "hourly"}},
              {"0 */12 * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "12h"}},
              {"0 6 * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "daily"}},
@@ -1613,7 +1614,10 @@ if Code.ensure_loaded?(Igniter) do
       {"35 4 * * *", "PhoenixKit.API.Idempotency.PruneWorker"},
       {"*/5 * * * *", "PhoenixKit.API.Confirm.ExpiryWorker"},
       {"40 4 * * *", "PhoenixKit.API.Confirm.PruneWorker"},
-      {"50 4 * * *", "PhoenixKit.API.OAuth.PruneWorker"}
+      {"50 4 * * *", "PhoenixKit.API.OAuth.PruneWorker"},
+      # The cross-domain handoff's token rows (V236). Without the prune the table grows for the
+      # life of the install.
+      {"55 4 * * *", "PhoenixKit.Handoff.PruneWorker"}
     ]
 
     @doc """
@@ -2110,6 +2114,7 @@ if Code.ensure_loaded?(Igniter) do
                {"*/5 * * * *", PhoenixKit.API.Confirm.ExpiryWorker},
                {"40 4 * * *", PhoenixKit.API.Confirm.PruneWorker},
                {"50 4 * * *", PhoenixKit.API.OAuth.PruneWorker},
+               {"55 4 * * *", PhoenixKit.Handoff.PruneWorker},
                {"0 * * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "hourly"}},
                {"0 */12 * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "12h"}},
                {"0 6 * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "daily"}},
