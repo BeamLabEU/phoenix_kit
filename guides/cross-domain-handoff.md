@@ -92,6 +92,22 @@ hand over to:
 - `enabled?/0` is `true` when the resolver names at least two hosts for the
   enabled languages.
 - **Put `rel="nofollow"` on every link to `start`.** The endpoint is not a page.
+- **Links to `start` must be same-site links, rendered by your own pages** (a
+  language switcher, a "continue in the German shop" button): `start` refuses a
+  request that is not a top-level navigation of the visitor's own. A link to it
+  on another site, an `<img>` or `<iframe>` that loads it, a form or script that
+  aims the visitor at it, is answered with a `302` to `/` and changes nothing.
+  The rule (`Sec-Fetch-Site` must be `same-origin`, `same-site` or `none`, and
+  `Sec-Fetch-Dest`, when sent, `document`; a browser that sends neither is let
+  through) is the answer to a page of another site that would otherwise replace
+  whoever is signed in on the target with the account signed in on the source,
+  just by sending the visitor there. It is checked **before** the rate limit, so
+  such requests cost the visitor's address no budget.
+- **Only `start` is checked, on purpose.** `prepare`, `mint` and `redeem` are
+  reached by *redirects* from another of your domains, for which the browser
+  reports `Sec-Fetch-Site: cross-site`; refusing that would refuse every
+  handoff. They are protected by what they need instead: a cookie only an earlier
+  step of the same browser sets, a proof and a nonce.
 - A visitor who is anonymous, with nothing for any module to carry, is sent
   straight to `<scheme>://<target><to>`: no cookie, no database row.
 

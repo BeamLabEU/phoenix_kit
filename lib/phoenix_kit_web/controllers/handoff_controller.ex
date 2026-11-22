@@ -18,6 +18,14 @@ defmodule PhoenixKitWeb.HandoffController do
   handoff cookie the step consumes and nothing else. No page, no message, and nothing that tells a
   used token from an unknown one or a refused host from a refused parameter.
 
+  ## Who may start one
+
+  `start` is the one step a page can aim a visitor at, so it refuses a request that is not a
+  top-level navigation of the visitor's own (`Sec-Fetch-Site` `cross-site`, or a `Sec-Fetch-Dest`
+  other than `document`: an image, a frame, a script): a `302` to `/`, before the rate limit takes a
+  slot, with no side effect. The other steps are reached by cross-site redirects by design and are
+  not checked this way (see `navigation?/1`).
+
   ## Requests with no side effects
 
   A request that says it is a prefetch or a preview (`Sec-Purpose` or `Purpose` naming `prefetch`,
@@ -60,6 +68,7 @@ defmodule PhoenixKitWeb.HandoffController do
   @cookie_max_age 60
   @language_pattern ~r/\A[A-Za-z]{2,3}(?:-[A-Za-z0-9]{1,8})*\z/
   @side_effect_free_purposes ~w(prefetch prerender preview)
+  @navigation_fetch_sites ~w(same-origin same-site none)
 
   @doc "Step 1, on the source domain."
   def start(conn, params), do: guarded(conn, :start, &do_start(&1, params))
@@ -310,9 +319,13 @@ defmodule PhoenixKitWeb.HandoffController do
   # cookie only a counted `start` sets (and is limited per account on top); a `redeem` counts only
   # when it fails (`do_redeem/2` hands the slot back on success).
   defp limited(conn, :start, fun) do
-    case RateLimiter.check_handoff_start_rate_limit(IpAddress.extract_from_conn(conn)) do
-      :ok -> run(conn, fun)
-      {:error, _} -> fail(conn)
+    # Fetch metadata first: a refusal here has no side effect and takes no slot, so a page that
+    # loads `start` as an image or a frame cannot spend the visitor's (or their NAT's) budget.
+    with true <- navigation?(conn),
+         :ok <- RateLimiter.check_handoff_start_rate_limit(IpAddress.extract_from_conn(conn)) do
+      run(conn, fun)
+    else
+      _ -> fail(conn)
     end
   end
 
@@ -337,6 +350,27 @@ defmodule PhoenixKitWeb.HandoffController do
   end
 
   defp side_effect_free?(conn), do: head?(conn) or purpose_request?(conn)
+
+  # `start` is the one step a page of another site can aim a visitor at (a link, a form, a frame,
+  # an image, a redirect), and it completes a chain that signs the visitor in as the source
+  # account, replacing whoever is signed in on the target. It must be a top-level navigation the
+  # visitor made themselves or a page of the site made for them: `Sec-Fetch-Site` is `same-origin`,
+  # `same-site` or `none` (typed, bookmarked), or absent (a browser that does not send fetch
+  # metadata: it cannot be told, and is let through), and `Sec-Fetch-Dest`, when sent, is
+  # `document`. Anything else, an unknown value included, is refused.
+  #
+  # Only `start` is checked. `prepare`, `mint` and `redeem` are reached by REDIRECTS from another
+  # of the site's domains, for which the browser reports `Sec-Fetch-Site: cross-site`, by design:
+  # refusing that would refuse every handoff. They are protected by what they need: a cookie only
+  # an earlier step of the same browser sets, a proof, a nonce.
+  defp navigation?(conn) do
+    fetch_header_values(conn, "sec-fetch-site") |> Enum.all?(&(&1 in @navigation_fetch_sites)) and
+      fetch_header_values(conn, "sec-fetch-dest") |> Enum.all?(&(&1 == "document"))
+  end
+
+  defp fetch_header_values(conn, header) do
+    conn |> get_req_header(header) |> Enum.map(&(&1 |> String.trim() |> String.downcase()))
+  end
 
   defp head?(%Plug.Conn{method: "HEAD"}), do: true
   defp head?(%Plug.Conn{adapter: {_adapter, %{method: "HEAD"}}}), do: true

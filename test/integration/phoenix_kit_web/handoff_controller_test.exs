@@ -492,6 +492,131 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
     end
   end
 
+  # `start` is the one step a page can aim a visitor at (a link, a form, an image, a frame, a
+  # redirect from another site): it completes a chain that signs the visitor in as the source
+  # account, replacing whoever is signed in on the target. The other three steps are reached by
+  # cross-site redirects by design (the browser reports `Sec-Fetch-Site: cross-site` for them), so
+  # they are not checked.
+  describe "start and fetch metadata" do
+    defp start_with(headers, browser \\ new_browser()) do
+      visit(browser, @source, Handoff.start_path("de", "/shop"),
+        session: signed_in_session(user!()),
+        headers: headers
+      )
+    end
+
+    defp assert_refused_without_effects(conn) do
+      assert_refused(conn)
+      assert handoff_cookies(conn) == []
+      assert tokens() == []
+    end
+
+    test "a cross-site start is refused: a 302 to /, no cookie, no row" do
+      {conn, _} = start_with([{"sec-fetch-site", "cross-site"}])
+      assert_refused_without_effects(conn)
+    end
+
+    test "a same-origin, same-site or user-initiated start (and one from an older browser) goes on" do
+      for headers <- [
+            [{"sec-fetch-site", "same-origin"}],
+            [{"sec-fetch-site", "same-site"}],
+            [{"sec-fetch-site", "none"}],
+            [],
+            [{"sec-fetch-site", "same-origin"}, {"sec-fetch-dest", "document"}],
+            [
+              {"sec-fetch-site", "none"},
+              {"sec-fetch-mode", "navigate"},
+              {"sec-fetch-dest", "document"}
+            ],
+            [{"sec-fetch-dest", "document"}]
+          ] do
+        {conn, _} = start_with(headers)
+
+        assert %{host: @target, path: @prefix <> "/prepare"} = location(conn)
+        assert Map.has_key?(conn.resp_cookies, @start_cookie)
+      end
+    end
+
+    test "a start that is not a top-level navigation is refused, whatever the site says" do
+      for dest <- [
+            "image",
+            "iframe",
+            "frame",
+            "embed",
+            "object",
+            "script",
+            "style",
+            "empty",
+            "audio",
+            "video",
+            "worker"
+          ],
+          site <- ["same-origin", "same-site", "none", nil] do
+        headers =
+          [{"sec-fetch-dest", dest}] ++ if(site, do: [{"sec-fetch-site", site}], else: [])
+
+        {conn, _} = start_with(headers)
+        assert_refused_without_effects(conn)
+      end
+    end
+
+    test "a value that is not one of the browser's is refused, and the case is not significant" do
+      {conn, _} = start_with([{"sec-fetch-site", "somewhere"}])
+      assert_refused_without_effects(conn)
+
+      {conn, _} = start_with([{"sec-fetch-site", "Cross-Site"}])
+      assert_refused_without_effects(conn)
+
+      {conn, _} =
+        start_with([{"sec-fetch-site", " Same-Origin "}, {"sec-fetch-dest", "Document"}])
+
+      assert %{host: @target} = location(conn)
+    end
+
+    test "a refusal costs no rate-limit budget: subresource loads cannot burn the visitor's starts" do
+      limit = Keyword.fetch!(RateLimiter.get_config(), :handoff_start_limit)
+      browser = new_browser()
+
+      for headers <- [
+            [{"sec-fetch-site", "cross-site"}, {"sec-fetch-dest", "image"}],
+            [{"sec-fetch-site", "cross-site"}, {"sec-fetch-dest", "iframe"}]
+          ],
+          _ <- 1..limit do
+        {conn, _} = start_with(headers, browser)
+        assert_refused_without_effects(conn)
+      end
+
+      # The same address, a real click, still has its whole budget.
+      for _ <- 1..limit do
+        {conn, _} = start_with([{"sec-fetch-site", "same-origin"}], browser)
+        assert %{host: @target} = location(conn)
+      end
+
+      {conn, _} = start_with([{"sec-fetch-site", "same-origin"}], browser)
+      assert_refused(conn)
+    end
+
+    test "prepare, mint and redeem are reached by cross-site redirects, and complete the chain" do
+      cross = [
+        {"sec-fetch-site", "cross-site"},
+        {"sec-fetch-mode", "navigate"},
+        {"sec-fetch-dest", "document"}
+      ]
+
+      {[_, _, _, redeem], _} =
+        handoff(new_browser(),
+          session: signed_in_session(user!()),
+          headers: [{"sec-fetch-site", "same-origin"}],
+          target_opts: [headers: cross],
+          mint_opts: [headers: cross],
+          redeem_opts: [headers: cross]
+        )
+
+      assert redirected_to(redeem, 302) == "/shop"
+      assert get_session(redeem, :user_token)
+    end
+  end
+
   describe "prepare" do
     test "refuses a return host that is not on the allow-list, the same host, and a bad target" do
       to = "%2Fshop"
