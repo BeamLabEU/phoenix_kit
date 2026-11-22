@@ -33,7 +33,9 @@ defmodule PhoenixKit.Install.MigrationStrategy do
     # Check if this is a new installation or existing installation
     case determine_migration_strategy(igniter, prefix) do
       {:new_install, igniter} ->
-        create_initial_migration_silent(igniter, prefix, create_schema)
+        igniter
+        |> Igniter.assign(:phoenix_kit_new_install?, true)
+        |> create_initial_migration_silent(prefix, create_schema)
 
       {:upgrade_needed, igniter, current_version, target_version} ->
         handle_upgrade_needed(igniter, prefix, current_version, target_version)
@@ -50,20 +52,21 @@ defmodule PhoenixKit.Install.MigrationStrategy do
   @doc """
   Handles interactive migration after configuration changes are complete.
 
-  This function is called outside of the Igniter context to prompt for
-  migration execution and handle the results.
+  This function is called outside of the Igniter context, by
+  `mix phoenix_kit.post_install`. The installer asks "Run migration?" itself
+  and passes the answer as `migrate: true | false`: the task runs as a child
+  of `Mix.shell().cmd/1`, which gives it no keyboard, so a prompt here would
+  wait forever. Without `:migrate` (the task run by hand) it prompts only on
+  a real terminal (`interactive_terminal?/0`).
   """
   def handle_interactive_migration_after_config(opts \\ []) do
     # Check if this is a new installation that needs migration
     case determine_migration_strategy_simple(opts) do
       {:new_install, migration_file} ->
-        # Check if we can run migrations safely
-        case check_migration_conditions_simple() do
-          :ok ->
-            run_interactive_migration_prompt_simple(migration_file)
-
-          {:error, reason} ->
-            fallback_migration_notice_simple(reason)
+        case Keyword.fetch(opts, :migrate) do
+          {:ok, true} -> run_migration_with_feedback_simple()
+          {:ok, false} -> manual_migration_notice_simple()
+          :error -> prompt_if_possible(migration_file)
         end
 
       {:upgrade_needed, current_version, target_version} ->
@@ -296,7 +299,33 @@ defmodule PhoenixKit.Install.MigrationStrategy do
     """
   end
 
+  @doc """
+  Whether this process can ask the person running it a question.
+
+  `TERM` cannot tell: a task Igniter queues runs through `Mix.shell().cmd/1`,
+  inherits the parent's `TERM`, and still has a pipe nobody writes to for its
+  standard input. Erlang/OTP 26+ reports whether standard input is a terminal
+  (`:io.getopts/1`, `:stdin`). Anything else counts as not interactive (an
+  OTP 25 node, a captured device): a question nobody can answer hangs the
+  install, a skipped one only prints "run `mix ecto.migrate`". Checking that
+  `/dev/stdin` is a device would not do: `/dev/null` is one.
+  """
+  @spec interactive_terminal?() :: boolean()
+  def interactive_terminal? do
+    case :io.getopts(:standard_io) do
+      opts when is_list(opts) -> Keyword.get(opts, :stdin) == true
+      _ -> false
+    end
+  end
+
   # Interactive migration functions (called outside igniter)
+
+  defp prompt_if_possible(migration_file) do
+    case check_migration_conditions_simple() do
+      :ok -> run_interactive_migration_prompt_simple(migration_file)
+      {:error, reason} -> fallback_migration_notice_simple(reason)
+    end
+  end
 
   # Simplified migration conditions check (without igniter)
   defp check_migration_conditions_simple do
@@ -306,9 +335,8 @@ defmodule PhoenixKit.Install.MigrationStrategy do
         {:error, "No app name found"}
 
       _app ->
-        # Check if we're in interactive environment
-        if System.get_env("CI") || !System.get_env("TERM") do
-          {:error, "Non-interactive environment"}
+        if System.get_env("CI") || !interactive_terminal?() do
+          {:error, "no interactive terminal"}
         else
           :ok
         end

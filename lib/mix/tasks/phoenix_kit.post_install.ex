@@ -16,8 +16,12 @@ defmodule Mix.Tasks.PhoenixKit.PostInstall do
 
   ## Steps
 
-    * offer to run `mix ecto.migrate` (interactive terminals only — skipped
-      under CI or with no `TERM`, with a note saying why)
+    * run `mix ecto.migrate` when the installer was told to (`--migrate`).
+      The installer asks the question itself, before "Proceed with changes?":
+      Igniter runs this task through `Mix.shell().cmd/1`, which passes it no
+      keyboard input, so a question asked here could never be answered.
+      Run by hand without `--migrate`/`--no-migrate`, the task asks on a real
+      terminal and otherwise (CI, a pipe) says to run the migration yourself.
     * rebuild assets, unless `--skip-assets`
 
   Both shell out to a fresh `mix` process on purpose: the install just
@@ -27,6 +31,8 @@ defmodule Mix.Tasks.PhoenixKit.PostInstall do
   ## Options
 
     * `--prefix SCHEMA` — the PostgreSQL schema the install targeted
+    * `--migrate` / `--no-migrate` — run the new install's migration, or
+      skip it with a note, without asking
     * `--skip-assets` — skip the asset rebuild
 
   Normally invoked for you. Running it by hand is safe and idempotent: it
@@ -40,7 +46,9 @@ defmodule Mix.Tasks.PhoenixKit.PostInstall do
   @impl Mix.Task
   def run(argv) do
     {opts, _rest, _invalid} =
-      OptionParser.parse(argv, switches: [prefix: :string, skip_assets: :boolean])
+      OptionParser.parse(argv,
+        switches: [prefix: :string, skip_assets: :boolean, migrate: :boolean]
+      )
 
     MigrationStrategy.handle_interactive_migration_after_config(opts)
 

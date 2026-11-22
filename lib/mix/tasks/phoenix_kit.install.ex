@@ -161,7 +161,68 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       prefix_argv = if prefix = opts[:prefix], do: ["--prefix", prefix], else: []
       skip_assets_argv = if opts[:skip_assets], do: ["--skip-assets"], else: []
 
-      Igniter.add_task(igniter, "phoenix_kit.post_install", prefix_argv ++ skip_assets_argv)
+      Igniter.add_task(
+        igniter,
+        "phoenix_kit.post_install",
+        prefix_argv ++ skip_assets_argv ++ migrate_argv(igniter)
+      )
+    end
+
+    # "Run the migration?" is asked HERE, while igniter/1 runs in the process
+    # the person typed into. The queued task cannot ask: Igniter starts it with
+    # Mix.shell().cmd/1, whose child inherits TERM but gets a stdin pipe nobody
+    # writes to, so a prompt there waited forever.
+    #
+    # An explicit --yes means migrate. No flag on a non-terminal means no
+    # question and no flag: Igniter turns `yes` on by itself when stdin is not
+    # a TTY, which is consent to the file changes, not to touching a database,
+    # so post_install prints the "run mix ecto.migrate" note as before.
+    #
+    # The direct `mix phoenix_kit.install` path can run igniter/1 twice (the
+    # config pre-flight restarts it); the first answer is kept for the second.
+    @migrate_answer_key :phoenix_kit_install_migrate_argv
+
+    defp migrate_argv(igniter) do
+      case Process.get(@migrate_answer_key) do
+        nil ->
+          argv = decide_migrate_argv(igniter)
+          if argv != [], do: Process.put(@migrate_answer_key, argv)
+          argv
+
+        argv ->
+          argv
+      end
+    end
+
+    @doc false
+    def decide_migrate_argv(igniter) do
+      cond do
+        # The migration file exists already: post_install reports the
+        # upgrade / up-to-date state on its own.
+        !igniter.assigns[:phoenix_kit_new_install?] -> []
+        # Queued tasks do not run on --dry-run.
+        flag?(igniter, :dry_run, "--dry-run") -> []
+        "--yes" in igniter.args.argv -> ["--migrate"]
+        !MigrationStrategy.interactive_terminal?() -> []
+        ask_migrate?() -> ["--migrate"]
+        true -> ["--no-migrate"]
+      end
+    end
+
+    # Global Igniter switches are not always parsed into a task's own options
+    # on the composed `igniter.install` path; Igniter reads them off argv too.
+    defp flag?(igniter, key, flag),
+      do: igniter.args.options[key] == true or flag in igniter.args.argv
+
+    defp ask_migrate? do
+      Mix.shell().info("""
+
+      🚀 PhoenixKit adds a migration that creates its tables.
+      It can run `mix ecto.migrate` right after the changes below are applied
+      (answer n to run it yourself later).
+      """)
+
+      Igniter.Util.IO.yes?("Run the migration after installing?")
     end
 
     # Override run/1 to handle post-igniter interactive migration
@@ -222,6 +283,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
             # Clean up retry flag on successful completion
             Process.delete(:phoenix_kit_retry_pass)
+            Process.delete(@migrate_answer_key)
             result
 
           {:missing, true} ->
@@ -240,6 +302,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
             """)
 
             Process.delete(:phoenix_kit_retry_pass)
+            Process.delete(@migrate_answer_key)
             :error
         end
       end

@@ -1,3 +1,17 @@
+## Unreleased
+
+### Fixed
+
+- **`mix igniter.install phoenix_kit` no longer hangs at "Run migration?".** Igniter runs
+  the queued `phoenix_kit.post_install` task through `Mix.shell().cmd/1`, whose child
+  inherits `TERM` but gets no keyboard input, so the prompt there could never be answered.
+  The installer now asks "Run the migration after installing?" itself, before "Proceed
+  with changes?", and passes the answer on (`--migrate` / `--no-migrate`). An explicit
+  `--yes` runs the migration; with no terminal and no `--yes` nothing is asked and the
+  "run `mix ecto.migrate`" note is printed. `post_install` run by hand asks only when
+  standard input is a real terminal (`MigrationStrategy.interactive_terminal?/0`), not
+  whenever `TERM` is set.
+
 ## 3.7.0 - 2026-11-21
 
 ### Added
