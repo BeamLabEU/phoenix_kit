@@ -470,11 +470,12 @@ test("sync: tabs that fit stay in the strip; the button and the menu items stay 
 });
 
 test("sync: tabs that do not fit move to the menu beside the button, which is measured while hidden", () => {
-  // 4 x 100 do not fit in 250; with the 44px button two do (206 of room).
-  const f = syncFixture({ widths: [100, 100, 100, 100], width: 250 });
+  // 4 x 100 do not fit in 240; beside the 44px button one does (196 of room),
+  // whereas a button measured as 0px (still hidden) would leave room for two.
+  const f = syncFixture({ widths: [100, 100, 100, 100], width: 240 });
   f.hook.sync();
-  assert.deepEqual(f.hiddenTabs(), [false, false, true, true]);
-  assert.deepEqual(f.shownItems(), [false, false, true, true]);
+  assert.deepEqual(f.hiddenTabs(), [false, true, true, true]);
+  assert.deepEqual(f.shownItems(), [false, true, true, true]);
   assert.equal(f.moreHidden(), false);
 });
 
@@ -536,10 +537,17 @@ test("sync: the exact boundary, with a forced tab, a gap and a trailing slot", (
   assert.deepEqual(tight.shownItems(), [false, true, true]);
 });
 
-test("sync: tabs hidden by an earlier pass are measured again once there is room", () => {
-  const f = syncFixture({ widths: [100, 100, 100], width: 300, hiddenAtStart: [false, true, true] });
+test("sync: tabs hidden by an earlier pass are measured at their natural width, not 0", () => {
+  // Measured as 0 the two hidden tabs would "fit" and the strip would keep all four.
+  const f = syncFixture({ widths: [100, 100, 100, 100], width: 250, hiddenAtStart: [false, false, true, true] });
   f.hook.sync();
-  assert.deepEqual(f.hiddenTabs(), [false, false, false]);
+  assert.deepEqual(f.hiddenTabs(), [false, false, true, true]);
+  assert.deepEqual(f.shownItems(), [false, false, true, true]);
+
+  // And once there is room again they come back.
+  const roomy = syncFixture({ widths: [100, 100, 100], width: 300, hiddenAtStart: [false, true, true] });
+  roomy.hook.sync();
+  assert.deepEqual(roomy.hiddenTabs(), [false, false, false]);
 });
 
 // Picking a menu item moves focus to "⋯" and clicks the strip tab. When that tab

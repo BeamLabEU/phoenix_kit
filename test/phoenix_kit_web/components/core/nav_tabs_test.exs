@@ -681,7 +681,12 @@ defmodule PhoenixKitWeb.Components.Core.NavTabsTest do
 
     defp more_button(html), do: html |> Floki.parse_fragment!() |> find_one("[data-nav-more]")
 
-    defp find_one(doc, selector), do: doc |> Floki.find(selector) |> hd()
+    defp find_one(doc, selector) do
+      case Floki.find(doc, selector) do
+        [node | _] -> node
+        [] -> flunk("no node matches #{selector}")
+      end
+    end
 
     defp hidden_node?(node),
       do: "hidden" in (node |> Floki.attribute("class") |> Enum.join(" ") |> String.split())

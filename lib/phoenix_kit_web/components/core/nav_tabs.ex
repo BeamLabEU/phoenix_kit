@@ -162,8 +162,9 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
   JavaScript — "⋯" does nothing and the tab is not in the strip, so a page's only
   route to something must not be an `in_menu` tab.
 
-  When the last `in_menu` tab is chosen from the menu it becomes the active one,
-  "⋯" hides, and focus moves to that tab in the strip.
+  Whenever "⋯" hides while it has focus — the last `in_menu` tab was chosen from
+  the menu and became the active one, or a resize made every tab fit — focus
+  moves to the active tab in the strip.
 
   `overflow={:menu}` requires an `id` (an `ArgumentError` without one): the hook
   binds to it, so it must be unique on the page — a derived id would collide for
