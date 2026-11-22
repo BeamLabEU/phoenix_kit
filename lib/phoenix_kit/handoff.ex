@@ -585,21 +585,20 @@ defmodule PhoenixKit.Handoff do
 
   A host that runs this code before migration V236 has no table to delete from, and a session must
   end whatever the migration state: the delete then answers `0`. Postgres aborts a transaction on
-  an error, so the delete runs in a savepoint (`mode: :savepoint`), which the error rolls back
-  alone, and the surrounding transaction (the session deletion) stays usable. Any other error is
-  raised.
+  an error, so **inside a transaction** (`Repo.in_transaction?/0`, the way `Revocation` calls it)
+  the delete runs in a savepoint (`mode: :savepoint`), which the error rolls back alone, and the
+  surrounding transaction stays usable. **Outside one** there is nothing to abort and no
+  transaction to put a savepoint in (asking for one is an error of its own), so it is a plain
+  statement, with the same answer for a missing table. Any other error is raised.
   """
   @spec revoke_for_users([String.t()]) :: non_neg_integer()
   def revoke_for_users([]), do: 0
 
   def revoke_for_users(user_uuids) when is_list(user_uuids) do
-    {count, _} =
-      RepoHelper.repo().delete_all(
-        from(t in Token, where: t.user_uuid in ^user_uuids and is_nil(t.used_at)),
-        log: false,
-        mode: :savepoint
-      )
+    repo = RepoHelper.repo()
+    query = from(t in Token, where: t.user_uuid in ^user_uuids and is_nil(t.used_at))
 
+    {count, _} = repo.delete_all(query, delete_options(repo))
     count
   rescue
     error in Postgrex.Error ->
@@ -609,6 +608,10 @@ defmodule PhoenixKit.Handoff do
       else
         reraise error, __STACKTRACE__
       end
+  end
+
+  defp delete_options(repo) do
+    if repo.in_transaction?(), do: [log: false, mode: :savepoint], else: [log: false]
   end
 
   defp table_missing?(%Postgrex.Error{postgres: %{code: :undefined_table}}), do: true

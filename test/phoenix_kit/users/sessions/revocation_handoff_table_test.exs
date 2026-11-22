@@ -9,8 +9,10 @@ defmodule PhoenixKit.Users.Sessions.RevocationHandoffTableTest do
   """
   use PhoenixKit.DataCase, async: false
 
+  alias Ecto.Adapters.SQL.Sandbox
   alias PhoenixKit.API.KeyTestSupport
   alias PhoenixKit.Handoff
+  alias PhoenixKit.Handoff.Token
   alias PhoenixKit.Migrations.Postgres.V236
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.UserToken
@@ -73,5 +75,79 @@ defmodule PhoenixKit.Users.Sessions.RevocationHandoffTableTest do
 
     drop_handoff_table()
     assert Handoff.revoke_for_users([user.uuid]) == 0
+  end
+
+  # The sandbox wraps every test in a transaction, which is the one situation `revoke_for_users/1`
+  # (savepoint mode needs a transaction) used to work in. Its other caller is any code that
+  # revokes with no transaction of its own: a real connection, no savepoint to take.
+  describe "revoke_for_users/1 outside any transaction" do
+    defp unboxed(fun), do: Sandbox.unboxed_run(Repo, fun)
+
+    defp committed_user do
+      email = "revoke-outside-#{System.unique_integer([:positive])}@example.com"
+
+      {:ok, user} =
+        Auth.register_user(%{"email" => email, "password" => "ValidPassword123!"})
+
+      user
+    end
+
+    test "deletes the account's unused handoffs on a real connection" do
+      unboxed(fn ->
+        refute Repo.in_transaction?()
+        user = committed_user()
+
+        try do
+          session = user |> Auth.generate_user_session_token() |> Auth.get_session_token_record()
+
+          for _ <- 1..2 do
+            assert {:ok, _token} =
+                     Handoff.mint(%{
+                       target_host: "shop-de.test",
+                       redirect_path: "/",
+                       browser_nonce_hash: :crypto.hash(:sha256, "n"),
+                       user_uuid: user.uuid,
+                       source_session_uuid: session.uuid
+                     })
+          end
+
+          assert Handoff.revoke_for_users([user.uuid]) == 2
+          assert Repo.aggregate(from(t in Token, where: t.user_uuid == ^user.uuid), :count) == 0
+        after
+          Repo.delete!(user)
+        end
+      end)
+    end
+
+    test "answers 0 when there is no handoff table, as a plain statement" do
+      unboxed(fn ->
+        refute Repo.in_transaction?()
+
+        # No table to find: the session's search path knows nothing of the kit's tables.
+        Repo.query!("SET search_path TO pg_catalog")
+
+        try do
+          assert Handoff.revoke_for_users([Ecto.UUID.generate()]) == 0
+        after
+          Repo.query!("RESET search_path")
+        end
+
+        assert %{rows: [[1]]} = Repo.query!("SELECT 1")
+      end)
+    end
+
+    test "inside a transaction it still takes a savepoint: the table missing aborts nothing" do
+      # The sandbox's own transaction is not the caller's (`in_transaction?/0` is false there);
+      # `Repo.transaction/1` is the transaction `Revocation` runs the deletion in.
+      assert {:ok, :usable} =
+               Repo.transaction(fn ->
+                 assert Repo.in_transaction?()
+                 drop_handoff_table()
+
+                 assert Handoff.revoke_for_users([Ecto.UUID.generate()]) == 0
+                 assert %{rows: [[1]]} = Repo.query!("SELECT 1")
+                 :usable
+               end)
+    end
   end
 end
