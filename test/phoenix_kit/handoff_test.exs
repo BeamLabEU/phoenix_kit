@@ -812,7 +812,8 @@ defmodule PhoenixKit.HandoffTest do
       assert Enum.sort(Handoff.auth_session_keys()) ==
                Enum.sort(~w(
                  user_token live_socket_id pk_session_accounts pk_own_tokens pk_impersonators
-                 pk_organization_token website_access_unlock website_access_allowed _csrf_token
+                 pk_organization_token phoenix_kit_session_uuid website_access_unlock
+                 website_access_allowed _csrf_token
                ))
 
       names = Handoff.auth_cookie_names(["_my_app_key"])
@@ -836,6 +837,84 @@ defmodule PhoenixKit.HandoffTest do
       assert Handoff.session_cookie_names(PhoenixKitWeb.Endpoint) == ["_phoenix_kit_key"]
       assert Handoff.session_cookie_names(nil) == []
       assert Handoff.session_cookie_names(String) == []
+    end
+
+    defmodule ListEndpoint do
+      def __sockets__ do
+        [
+          {"/live", Phoenix.LiveView.Socket,
+           [websocket: [connect_info: [session: [store: :cookie, key: "_list_key"]]]]}
+        ]
+      end
+    end
+
+    defmodule MfaEndpoint do
+      def session, do: [store: :cookie, key: "_mfa_key"]
+
+      def __sockets__ do
+        [
+          {"/live", Phoenix.LiveView.Socket,
+           [websocket: [connect_info: [session: {__MODULE__, :session, []}]]]}
+        ]
+      end
+    end
+
+    defmodule BrokenMfaEndpoint do
+      def __sockets__ do
+        [
+          {"/live", Phoenix.LiveView.Socket,
+           [websocket: [connect_info: [session: {__MODULE__, :nope, []}]]]}
+        ]
+      end
+    end
+
+    defmodule NoSessionEndpoint do
+      def __sockets__ do
+        [{"/live", Phoenix.LiveView.Socket, [websocket: [connect_info: [:peer_data]]]}]
+      end
+    end
+
+    test "a session declared as a list or as an {m, f, a} is read, and one that cannot be is not" do
+      assert Handoff.session_cookie_names(ListEndpoint) == ["_list_key"]
+      assert Handoff.session_cookie_names(MfaEndpoint) == ["_mfa_key"]
+
+      capture_log(fn ->
+        assert Handoff.session_cookie_names(BrokenMfaEndpoint) == []
+        assert Handoff.session_cookie_names(NoSessionEndpoint) == []
+      end)
+    end
+
+    defmodule SilentEndpoint do
+      def __sockets__, do: []
+    end
+
+    test "an endpoint whose session cookie cannot be told is logged once, and only once" do
+      log =
+        capture_log(fn ->
+          for _ <- 1..5, do: assert(Handoff.session_cookie_names(SilentEndpoint) == [])
+        end)
+
+      assert [_one] = Regex.scan(~r/session cookie of .*SilentEndpoint/, log)
+      assert log =~ "no cookies"
+    end
+
+    test "with no session cookie name, a module is handed no cookies at all: it fails closed" do
+      cookies = %{"_unknown_session" => "signed-session", "theme" => "dark"}
+
+      for opts <- [[], [session_cookies: []]] do
+        assert %{cookies: %{}, session: %{"stub_cart" => "c1"}, user_uuid: "u1"} ==
+                 Handoff.hook_context("u1", %{"stub_cart" => "c1"}, cookies, opts)
+      end
+
+      assert %{cookies: %{"theme" => "dark"}} =
+               Handoff.hook_context("u1", %{}, cookies, session_cookies: ["_unknown_session"])
+    end
+
+    test "the session keys of a header widget are the kit's, once, and no other list names them" do
+      assert "phoenix_kit_session_uuid" in Handoff.auth_session_keys()
+
+      assert PhoenixKit.HeaderWidget.reserved_session_keys() --
+               Handoff.auth_session_keys() == []
     end
   end
 
@@ -922,6 +1001,93 @@ defmodule PhoenixKit.HandoffTest do
 
       assert %{notices: ["modest"]} =
                Handoff.apply_payload(@context, %{"modest" => %{}}, [Modest])
+    end
+
+    for i <- 1..4 do
+      defmodule Module.concat(__MODULE__, "Nap#{i}") do
+        def module_key, do: unquote("nap_#{i}")
+        def handoff_snapshot(_context), do: Process.sleep(250) && %{n: unquote(i)}
+
+        def handoff_apply(_context, _payload),
+          do: Process.sleep(250) && {:ok, [unquote("nap #{i}")]}
+      end
+
+      defmodule Module.concat(__MODULE__, "Hang#{i}") do
+        def module_key, do: unquote("hang_#{i}")
+        def handoff_snapshot(_context), do: Process.sleep(5_000) && %{n: unquote(i)}
+        def handoff_apply(_context, _payload), do: Process.sleep(5_000) && {:ok, ["never"]}
+      end
+    end
+
+    defp naps, do: for(i <- 1..4, do: Module.concat(__MODULE__, "Nap#{i}"))
+    defp hangs, do: for(i <- 1..4, do: Module.concat(__MODULE__, "Hang#{i}"))
+    defp elapsed_ms(fun), do: div(elem(:timer.tc(fun), 0), 1_000)
+
+    test "modules run at the same time: four that take a quarter second each do not add up" do
+      {ms, snapshots} = :timer.tc(fn -> Handoff.snapshots(@context, naps(), timeout: 2_000) end)
+
+      assert Map.keys(snapshots) |> Enum.sort() == ["nap_1", "nap_2", "nap_3", "nap_4"]
+      assert div(ms, 1_000) < 700, "snapshots took #{div(ms, 1_000)} ms: one after another"
+
+      payload = Map.new(1..4, &{"nap_#{&1}", %{}})
+
+      {ms, effects} =
+        :timer.tc(fn -> Handoff.apply_payload(@context, payload, naps(), timeout: 2_000) end)
+
+      # The order of the modules, not of who finished first.
+      assert effects.notices == ["nap 1", "nap 2", "nap 3", "nap 4"]
+      assert div(ms, 1_000) < 700, "applies took #{div(ms, 1_000)} ms: one after another"
+    end
+
+    test "one deadline covers the whole call: four modules that hang cost one timeout, not four" do
+      log =
+        capture_log(fn ->
+          ms =
+            elapsed_ms(fn ->
+              assert Handoff.snapshots(@context, hangs(), timeout: 200) == %{}
+            end)
+
+          assert ms < 600, "four hung snapshots took #{ms} ms: the deadline is per module"
+
+          ms =
+            elapsed_ms(fn ->
+              payload = Map.new(1..4, &{"hang_#{&1}", %{}})
+
+              assert %{notices: [], cookies: []} =
+                       Handoff.apply_payload(@context, payload, hangs(), timeout: 200)
+            end)
+
+          assert ms < 600, "four hung applies took #{ms} ms: the deadline is per module"
+        end)
+
+      for i <- 1..4 do
+        assert log =~ "handoff_snapshot of PhoenixKit.HandoffTest.Hang#{i} timed out"
+        assert log =~ "handoff_apply of PhoenixKit.HandoffTest.Hang#{i} timed out"
+      end
+    end
+
+    test "a module that misses the deadline is killed, and the ones that made it are kept" do
+      defmodule Straggler do
+        def module_key, do: "straggler"
+
+        def handoff_snapshot(_context) do
+          send(List.first(Process.get(:"$callers")), {:straggler, self()})
+          Process.sleep(5_000)
+          %{late: true}
+        end
+      end
+
+      capture_log(fn ->
+        assert Handoff.snapshots(@context, [Straggler, Quick], timeout: 100) == %{
+                 "quick" => %{"a" => 1}
+               }
+      end)
+
+      assert_received {:straggler, pid}
+      ref = Process.monitor(pid)
+      # Killed before the call returned, or killed since: either way it is dead, not sleeping.
+      assert_receive {:DOWN, ^ref, :process, ^pid, reason}
+      assert reason in [:killed, :noproc]
     end
 
     test "a hook can read the database from its task" do

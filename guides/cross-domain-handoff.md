@@ -246,6 +246,12 @@ The core knows no module's keys: a module reads its own identity from the
 that needs an identity on the target browser returns `cookies:` from
 `handoff_apply/2`.
 
+**What a module is handed is the visitor's own input.** The `cookies` are what
+the browser sent, and the `session` holds whatever the visitor's earlier
+requests put in it; a snapshot is stored and handed to `handoff_apply/2` on the
+other domain. Validate it as you would a request parameter (a cart id is looked
+up and checked to be a guest's, never trusted because it arrived here).
+
 ### When they are called
 
 - **Only for an enabled module** (`enabled?/0` is `true`). A module that is
@@ -257,14 +263,27 @@ that needs an identity on the target browser returns `cookies:` from
 - `handoff_apply/2`: **once at `redeem`, before the sign-in**, for a module that
   has an entry in the payload. It may change things (merge a cart); the visitor
   is signed in after it returns.
-- **Each call runs in a supervised task of its own, with a time limit**: **2000
-  ms** for a snapshot, **5000 ms** for an apply. A task still running then is
-  killed, the module is left out (or its answer ignored) and the handoff goes on.
-  The task inherits the request's `$callers` (so an Ecto sandbox allowance
-  follows it, and a hook can read and write the database) and its Gettext
-  locale. It does not have the rest of the request's process state: no process
-  dictionary, no `Logger` metadata. The limits are per call; several slow
-  modules add up.
+- **Each call runs in a supervised task of its own, all of a call site at the
+  same time, under one deadline for the whole call site**: **2000 ms** for the
+  snapshots (the one round at `start` or `mint`), **5000 ms** for the applies (the
+  one round at `redeem`). M modules therefore cost one deadline, not M. A task
+  still running at the deadline is killed (`:brutal_kill`) and logged, the module
+  is left out (or its answer ignored) and the handoff goes on. The modules'
+  answers are used in the order of the modules, not of who finished first.
+- **What the task has, and has not.** It inherits the request's `$callers` (so an
+  Ecto sandbox allowance follows it, and a hook can read and write the database)
+  and its Gettext locale. It does **not** have the rest of the request's process
+  state, because it is a different process: no process dictionary, so **no
+  per-request dynamic repo or prefix** (a hook reads and writes the host's default
+  repo), **no request currency or other per-request setting a plug put in the
+  process**, and **no `Logger` metadata** (the request id is not on its log
+  lines). A module derives what it needs from what it is handed: the `:host` and
+  `:locale` (at apply), the `session` and the `cookies`.
+- **A hook killed at the deadline may leave effects that are not in the
+  database.** Its open database transaction is rolled back, but a message it sent,
+  a request it made, a file it wrote or a cache entry it set stays. Keep a
+  snapshot free of side effects (it must change nothing), and make an apply
+  idempotent or tolerant of having run partly.
 - Any failure of a module (a raise, an exit, a throw, a timeout, a wrong answer)
   is logged with the module and the kind of failure, never the message, and
   never stops the handoff of the others.
@@ -279,15 +298,17 @@ that needs an identity on the target browser returns `cookies:` from
 |---|---|
 | `:user_uuid` | the signed-in account, or `nil` for a visitor (at apply: the account about to be signed in, or `nil` for a guest) |
 | `:session` | the Plug session of the request (`Plug.Conn.get_session/1`, string keys), **without** the kit's auth material |
-| `:cookies` | the request cookies, `%{name => value}`, unsigned as the browser sent them, **without** the kit's auth cookies |
+| `:cookies` | the request cookies, `%{name => value}`, unsigned as the browser sent them, **without** the kit's auth cookies, and **empty** when the host's session cookie cannot be named (below) |
 | `:host` | (apply only) the host the request arrived on |
 | `:locale` | (apply only) the enabled language code that host serves (`"de"`, `"de-DE"`), or `nil` |
 
 **Removed from `:session`** (`PhoenixKit.Handoff.auth_session_keys/0`, the one
-list): `"user_token"` and `"live_socket_id"` (the signed-in session);
-`"pk_session_accounts"`, `"pk_own_tokens"`, `"pk_impersonators"` and
-`"pk_organization_token"` (the multi-account stack); `"website_access_unlock"`
-and `"website_access_allowed"` (the website gate); `"_csrf_token"`.
+list, built on `PhoenixKit.HeaderWidget.reserved_session_keys/0`, which a header
+widget's session is held to as well): `"user_token"` and `"live_socket_id"` (the
+signed-in session); `"pk_session_accounts"`, `"pk_own_tokens"`,
+`"pk_impersonators"` and `"pk_organization_token"` (the multi-account stack);
+`"phoenix_kit_session_uuid"`; `"website_access_unlock"` and
+`"website_access_allowed"` (the website gate); `"_csrf_token"`.
 
 **Removed from `:cookies`** (`PhoenixKit.Handoff.auth_cookie_names/1`):
 `"_phoenix_kit_web_user_remember_me"`; `"_phoenix_kit_web_session_accounts"`;
@@ -296,9 +317,14 @@ and `"website_access_allowed"` (the website gate); `"_csrf_token"`.
 host's session cookie**, whose name the kit reads from the `session:` connect
 info of the sockets of the endpoint that served the request
 (`PhoenixKit.Handoff.session_cookie_names/1`). Keep your LiveView socket's
-`connect_info: [session: @session_options]` (every Phoenix 1.7+ app has it): an
-endpoint that declares none is not recognised, and its session cookie would be
-passed on.
+`connect_info: [session: @session_options]` (every Phoenix 1.7+ app has it; a
+keyword list or an `{module, function, args}` that returns one is read).
+**If the name cannot be told, the module is handed no cookies at all**: the
+session cookie is a signed cookie that exposes `user_token`, and one that cannot
+be told from the others must not be passed on, so the handoff fails closed and
+logs a warning once per endpoint. A host in that case loses its modules'
+cookies (a guest cart kept in a cookie is not carried), not its sessions;
+declaring the session on a socket restores them.
 
 A snapshot is stored as plaintext `jsonb`: **a module never puts a secret in it**
 (a token, a password, anything it does not want read from the database), and
@@ -345,6 +371,13 @@ A **signed or encrypted** cookie is made with the application's `secret_key_base
 puts the cookie's `:max_age` into the signature, **a day when none is given**:
 pass the lifetime your own plug expects, or the cookie stops verifying after a
 day however long the browser keeps it.
+
+**A `sign: true` cookie proves that this application issued it, not that its
+value is trustworthy.** The value comes from the visitor's own cookies and
+session on the source domain, and the signing salt is the cookie's name. Your
+plug that reads it back must still treat the value as input (look the cart up,
+check it is a guest's and still open), exactly as it would a cookie it had set
+itself in an earlier request that took a value from the visitor.
 
 The handoff never lets a module set a cookie of the kit's (the list above), or
 read the kit's auth material. It does not give a module the means to sign

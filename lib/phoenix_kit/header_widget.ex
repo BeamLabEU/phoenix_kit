@@ -60,15 +60,23 @@ defmodule PhoenixKit.HeaderWidget do
   signed, not encrypted.
   """
 
+  alias PhoenixKitWeb.Users.Auth, as: WebAuth
+  alias PhoenixKitWeb.Users.MultiSession
+
   # Keys of the browser's cookie session that authentication reads. The signed session of a
   # nested LiveView is merged OVER the cookie session (Phoenix.LiveView.Channel), so a widget
   # session carrying one of them would replace what `SessionRef.from_session/1` and
   # `MultiSession.impersonated?/1` read in the widget's `mount/3`.
-  @reserved_session_keys ~w(user_token pk_session_accounts pk_own_tokens pk_impersonators pk_organization_token live_socket_id phoenix_kit_session_uuid)
+  #
+  # The one definition of the kit's session keys: the cross-domain handoff builds the list of the
+  # keys it never hands a module on it (`PhoenixKit.Handoff.auth_session_keys/0`).
+  @session_uuid_key "phoenix_kit_session_uuid"
 
   @doc "The session keys a widget's session function cannot set: they are dropped."
   @spec reserved_session_keys() :: [String.t()]
-  def reserved_session_keys, do: @reserved_session_keys
+  def reserved_session_keys do
+    WebAuth.session_keys() ++ MultiSession.session_keys() ++ [@session_uuid_key]
+  end
 
   @type session_fun :: (map() -> map() | nil)
 
@@ -134,7 +142,7 @@ defmodule PhoenixKit.HeaderWidget do
 
       session when is_map(session) and not is_struct(session) ->
         if Enum.all?(session, fn {key, _} -> is_binary(key) end) do
-          {dropped, kept} = Map.split(session, @reserved_session_keys)
+          {dropped, kept} = Map.split(session, reserved_session_keys())
           {:ok, %{widget | session: kept}, dropped |> Map.keys() |> Enum.sort()}
         else
           {:error, "the session has a key that is not a string"}

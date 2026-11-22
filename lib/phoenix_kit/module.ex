@@ -218,10 +218,15 @@ defmodule PhoenixKit.Module do
   always has something). So once for a signed-in visitor, twice for a guest. It must be cheap and
   must not change anything.
 
-  It runs in a supervised task of its own, not in the request process, and is given **2000 ms**:
-  a task that is still running then is killed and the module is left out. The task inherits the
-  request's `$callers` (an Ecto sandbox allowance of a test follows it) and its Gettext locale;
-  nothing else of the request's process state (process dictionary, `Logger` metadata) is there.
+  It runs in a supervised task of its own, not in the request process. The snapshots of all the
+  enabled modules are taken **at the same time** and share one deadline of **2000 ms** for the whole
+  round (not 2000 ms each): a task that is still running then is killed and the module is left out.
+  The task inherits the request's `$callers` (an Ecto sandbox allowance of a test follows it) and
+  its Gettext locale, and nothing else of the request's process state: it is another process, so
+  **no process dictionary** (no per-request dynamic repo or prefix, no request currency or other
+  setting a plug put there) and **no `Logger` metadata**. Derive what you need from the context.
+  A task that is killed at the deadline may leave effects that are not in the database (a message
+  sent, a request made); a snapshot changes nothing, so there are none to leave.
 
   ## The context
 
@@ -230,10 +235,11 @@ defmodule PhoenixKit.Module do
     * `:user_uuid` - the signed-in account, or `nil` for a visitor
     * `:session` - the Plug session of the source request (`Plug.Conn.get_session/1`: a map with
       string keys, as stored) **without the kit's own auth material**, the keys of
-      `PhoenixKit.Handoff.auth_session_keys/0`: `"user_token"`, `"live_socket_id"` (the signed-in
-      session), `"pk_session_accounts"`, `"pk_own_tokens"`, `"pk_impersonators"`,
-      `"pk_organization_token"` (the multi-account stack), `"website_access_unlock"`,
-      `"website_access_allowed"` (the website gate) and `"_csrf_token"`
+      `PhoenixKit.Handoff.auth_session_keys/0` (built on
+      `PhoenixKit.HeaderWidget.reserved_session_keys/0`): `"user_token"`, `"live_socket_id"` (the
+      signed-in session), `"pk_session_accounts"`, `"pk_own_tokens"`, `"pk_impersonators"`,
+      `"pk_organization_token"` (the multi-account stack), `"phoenix_kit_session_uuid"`,
+      `"website_access_unlock"`, `"website_access_allowed"` (the website gate) and `"_csrf_token"`
     * `:cookies` - the request cookies (`%{name => value}`, unsigned, as the browser sent them)
       **without** the names of `PhoenixKit.Handoff.auth_cookie_names/1`: the remember-me cookie
       (`"_phoenix_kit_web_user_remember_me"`), the account mirror
@@ -241,12 +247,15 @@ defmodule PhoenixKit.Module do
       OAuth browser cookie (`"pk_oauth_browser"`), the four handoff cookies (`"pk_handoff_src"`,
       `"pk_handoff_nonce"` and their `__Host-` forms) and the host's session cookie. The session
       cookie's name is read from the `session:` connect info of the sockets of the endpoint that
-      served the request (`PhoenixKit.Handoff.session_cookie_names/1`); an endpoint that declares
-      none is not recognised, which is why a host's endpoint keeps its LiveView socket's
-      `connect_info: [session: ...]`.
+      served the request (`PhoenixKit.Handoff.session_cookie_names/1`). **When that name cannot be
+      told** (no socket declares a readable `session:`) **`:cookies` is empty**, whatever the
+      request carried: the session cookie holds `user_token` and must not be passed on by
+      mistake. That is logged once; a host's endpoint keeps its LiveView socket's
+      `connect_info: [session: ...]`, which also restores the cookies.
 
   A module reads its own identity from `:session` and `:cookies` (a shop's guest cart id): the core
-  never names a module's keys.
+  never names a module's keys. Both are **the visitor's own input**: treat a value from them as you
+  would a request parameter.
 
   ## The answer
 
@@ -271,8 +280,12 @@ defmodule PhoenixKit.Module do
   On the target domain, in the request that redeems the handoff, **before** the account is signed
   in (the log-in redirects, and merges the target browser's own guest cart itself), for an
   **enabled** module that has an entry in the payload, once. Like the snapshot it runs in a
-  supervised task of its own (see `handoff_snapshot/1`), with **5000 ms**; a module that is still
-  running then is killed and ignored, and the visitor is handed over without its contribution.
+  supervised task of its own (see `handoff_snapshot/1`, whose notes on the process state apply:
+  no process dictionary, no `Logger` metadata). The applies of all the modules run **at the same
+  time** under one deadline of **5000 ms** for the round; a module that is still running then is
+  killed and ignored, and the visitor is handed over without its contribution. A killed apply may
+  have done part of its work (and left effects outside the database): make it idempotent. The
+  answers are used in the order of the modules.
 
   ## The context
 
@@ -284,11 +297,13 @@ defmodule PhoenixKit.Module do
       holds nothing of this module's: a module that needs an identity on the target returns a
       cookie (below)
     * `:cookies` - the request cookies of the target browser, without the names listed at
-      `handoff_snapshot/1`
+      `handoff_snapshot/1` (and none at all when the session cookie's name cannot be told)
     * `:host` - the host the request arrived on
     * `:locale` - the enabled language code that host serves (`"de"`, `"de-DE"`), or `nil`
 
-  There is no currency: the core has none. A module derives it from `:host` or `:locale` itself.
+  There is no currency, and nothing else per request either: the core has none, and the task has
+  no process dictionary (a per-request dynamic repo or prefix, a request currency, `Logger`
+  metadata are not there). A module derives what it needs from `:host` and `:locale` itself.
 
   `payload` is what `handoff_snapshot/1` returned, with string keys.
 
@@ -321,7 +336,10 @@ defmodule PhoenixKit.Module do
       itself**: `secure: true` (`false` on a plain-http dev or test site), `http_only: true`,
       `same_site: "Lax"`. A signed or encrypted cookie is made with the application's
       `secret_key_base` and, besides `:max_age` on the cookie, Plug puts that `:max_age` (a day,
-      when not given) into the signature: pass the lifetime the module's own plug expects.
+      when not given) into the signature: pass the lifetime the module's own plug expects. **A
+      `sign: true` cookie proves the application issued it, not that its value is trustworthy**:
+      the value came from the visitor's own cookies and session, and the plug that reads it back
+      treats it as input.
   """
   @callback handoff_apply(context :: map(), payload :: map()) ::
               {:ok, [String.t()]} | {:ok, map()} | {:error, term()}

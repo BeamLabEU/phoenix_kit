@@ -39,7 +39,8 @@ defmodule PhoenixKit.Handoff do
 
   Modules take part through two optional `PhoenixKit.Module` callbacks, `handoff_snapshot/1` (at
   mint) and `handoff_apply/2` (at redeem). Only enabled modules are asked; each call runs in a task
-  of its own with a time limit; what a module is handed has the kit's auth material removed
+  of its own, all the modules of a round at the same time under one deadline (`snapshots/3`,
+  `apply_payload/4`); what a module is handed has the kit's auth material removed
   (`hook_context/4`); what it answers is validated (`apply_payload/4`). The contract is in the
   callbacks' docs and the guide.
 
@@ -56,6 +57,7 @@ defmodule PhoenixKit.Handoff do
   import Ecto.Query
 
   alias PhoenixKit.Handoff.Token
+  alias PhoenixKit.HeaderWidget
   alias PhoenixKit.ModuleRegistry
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
@@ -573,15 +575,15 @@ defmodule PhoenixKit.Handoff do
   ## What a module is handed
 
   @doc """
-  The names (strings) of the session keys a module is never handed: the signed-in session
-  (`PhoenixKitWeb.Users.Auth.session_keys/0`), the multi-account stack
-  (`PhoenixKitWeb.Users.MultiSession.session_keys/0`), the website-access unlock and the CSRF
+  The names (strings) of the session keys a module is never handed: the keys of the cookie
+  session that authentication reads (`PhoenixKit.HeaderWidget.reserved_session_keys/0`: the
+  signed-in session, the multi-account stack and `phoenix_kit_session_uuid`; the one definition,
+  which a header widget's session is held to as well), the website-access unlock and the CSRF
   token. The one list.
   """
   @spec auth_session_keys() :: [String.t()]
   def auth_session_keys do
-    WebAuth.session_keys() ++
-      MultiSession.session_keys() ++
+    HeaderWidget.reserved_session_keys() ++
       [
         Atom.to_string(Gate.session_key()),
         Atom.to_string(WebsiteAccessPlug.allowed_session_key()),
@@ -609,46 +611,95 @@ defmodule PhoenixKit.Handoff do
 
   @doc """
   The name(s) of the session cookie of `endpoint`, read from the `session:` connect info of its
-  sockets (a LiveView host declares one: `socket "/live", ..., connect_info: [session: opts]`).
-  `[]` when the endpoint declares none, in which case that cookie is not recognised as the
-  session's.
+  sockets (a LiveView host declares one: `socket "/live", ..., connect_info: [session: opts]`,
+  with `opts` a keyword list or an `{module, function, args}` that returns one). `[]` when it
+  cannot be told: the endpoint declares none, or one that cannot be read. That is logged once per
+  endpoint, and `hook_context/4` then hands the modules **no cookies at all**, because the
+  session cookie (a signed cookie that holds `user_token`) could not be told from any other.
   """
   @spec session_cookie_names(module() | term()) :: [String.t()]
   def session_cookie_names(endpoint) when is_atom(endpoint) and not is_nil(endpoint) do
-    endpoint.__sockets__()
-    |> Enum.flat_map(fn {_path, _handler, opts} -> socket_session_keys(opts) end)
-    |> Enum.filter(&is_binary/1)
-    |> Enum.uniq()
+    names =
+      endpoint.__sockets__()
+      |> Enum.flat_map(fn {_path, _handler, opts} -> socket_session_keys(opts) end)
+      |> Enum.filter(&is_binary/1)
+      |> Enum.uniq()
+
+    if names == [], do: warn_session_cookie_unknown(endpoint)
+    names
   rescue
-    _ -> []
+    _ ->
+      warn_session_cookie_unknown(endpoint)
+      []
   end
 
   def session_cookie_names(_endpoint), do: []
+
+  defp warn_session_cookie_unknown(endpoint) do
+    key = {__MODULE__, :session_cookie_unknown, endpoint}
+
+    if :persistent_term.get(key, nil) == nil do
+      :persistent_term.put(key, true)
+
+      Logger.warning(
+        "[Handoff] the session cookie of #{inspect(endpoint)} cannot be told (none of its " <>
+          "sockets declares a readable `session:` in connect_info): no cookies are handed to " <>
+          "the modules' handoff hooks. Declare it, `connect_info: [session: @session_options]`, " <>
+          "to hand them the cookies that are not the session's."
+      )
+    end
+
+    :ok
+  end
 
   defp socket_session_keys(opts) when is_list(opts) do
     for transport <- [:websocket, :longpoll],
         transport_opts = Keyword.get(opts, transport),
         is_list(transport_opts),
-        {:session, session} <- List.wrap(Keyword.get(transport_opts, :connect_info)),
+        {:session, declared} <- List.wrap(Keyword.get(transport_opts, :connect_info)),
+        session = session_options(declared),
         is_list(session),
         do: Keyword.get(session, :key)
   end
 
   defp socket_session_keys(_opts), do: []
 
+  defp session_options(session) when is_list(session), do: session
+
+  defp session_options({module, function, args})
+       when is_atom(module) and is_atom(function) and is_list(args) do
+    case apply(module, function, args) do
+      session when is_list(session) -> session
+      _ -> nil
+    end
+  rescue
+    _ -> nil
+  end
+
+  defp session_options(_session), do: nil
+
   @doc """
   The context a hook is handed (`PhoenixKit.Module.handoff_snapshot/1`): `:user_uuid`, `:session`
   and `:cookies`, with every key of `auth_session_keys/0` and every name of `auth_cookie_names/1`
-  removed. `opts`: `:session_cookies`, the host's session cookie names.
+  removed. `opts`: `:session_cookies`, the host's session cookie names (`session_cookie_names/1`).
+
+  **Without a session cookie name `:cookies` is empty**, whatever the request carried: the session
+  cookie holds `user_token`, and a cookie that cannot be told from it must not be handed over. A
+  host whose endpoint cannot be read loses its modules' cookies, not its sessions.
   """
   @spec hook_context(String.t() | nil, map(), map(), keyword()) :: context()
   def hook_context(user_uuid, session, cookies, opts \\ []) do
     %{
       user_uuid: user_uuid,
       session: Map.drop(session, auth_session_keys()),
-      cookies: Map.drop(cookies, auth_cookie_names(Keyword.get(opts, :session_cookies, [])))
+      cookies: handed_cookies(cookies, Keyword.get(opts, :session_cookies, []))
     }
   end
+
+  defp handed_cookies(_cookies, []), do: %{}
+
+  defp handed_cookies(cookies, session_cookies),
+    do: Map.drop(cookies, auth_cookie_names(session_cookies))
 
   ## Module hooks
 
@@ -657,19 +708,25 @@ defmodule PhoenixKit.Handoff do
 
   Returns `%{module_key => snapshot}` for the modules that answered with a non-empty map that is
   JSON-safe and small enough; the snapshots are normalised the way the database returns them
-  (string keys). A module that raises, exits, throws, takes longer than `:timeout` (default
-  #{@snapshot_timeout_ms} ms) or answers anything else is logged and left out. `modules` defaults to
-  the enabled modules (`ModuleRegistry.enabled_modules/0`: a disabled module is never asked).
+  (string keys). A module that raises, exits, throws, does not answer within `:timeout` (default
+  #{@snapshot_timeout_ms} ms) or answers anything else is logged and left out. The modules are
+  asked **at the same time** and share that one deadline for the call, so many modules cannot add
+  up; one still running at the deadline is killed. `modules` defaults to the enabled modules
+  (`ModuleRegistry.enabled_modules/0`: a disabled module is never asked).
   """
   @spec snapshots(context(), [module()] | nil, keyword()) :: %{String.t() => map()}
   def snapshots(context, modules \\ nil, opts \\ []) when is_map(context) do
     timeout = Keyword.get(opts, :timeout, @snapshot_timeout_ms)
 
-    modules
-    |> hook_modules(:handoff_snapshot, 1)
-    |> Enum.reduce(%{}, fn module, acc ->
-      with {:ok, key} <- module_key(module),
-           {:ok, snapshot} <- call_hook(module, :handoff_snapshot, [context], timeout),
+    calls =
+      for module <- hook_modules(modules, :handoff_snapshot, 1),
+          {:ok, key} <- [module_key(module)],
+          do: {{key, module}, module, :handoff_snapshot, [context]}
+
+    calls
+    |> call_hooks(timeout)
+    |> Enum.reduce(%{}, fn {{key, module}, result}, acc ->
+      with {:ok, snapshot} <- result,
            {:ok, snapshot} <- json_safe(module, snapshot) do
         Map.put(acc, key, snapshot)
       else
@@ -685,9 +742,11 @@ defmodule PhoenixKit.Handoff do
   Returns `%{notices: [String.t()], cookies: [{name, value, opts}]}`: what the modules asked to
   show the visitor and to set on the response, validated and capped (at most #{@max_notices}
   notices of #{@max_notice_bytes} bytes and #{@max_notices_total_bytes} bytes in all, cut on a
-  character boundary; at most #{@max_cookies} cookies). A module that fails, answers with an error
-  or takes longer than `:timeout` (default #{@apply_timeout_ms} ms) is logged and ignored, and so
-  is anything invalid in what it answered. This function does not raise.
+  character boundary; at most #{@max_cookies} cookies), in the order of the modules. A module that
+  fails, answers with an error or does not answer within `:timeout` (default
+  #{@apply_timeout_ms} ms) is logged and ignored, and so is anything invalid in what it answered.
+  The modules run **at the same time** and share that one deadline, as for `snapshots/3`. This
+  function does not raise.
 
   Options: `:timeout`, `:scheme` (`scheme/0`, default `"https"`: it decides the default of a
   cookie's `Secure` flag) and `:reserved_cookies` (names a module may not set, default
@@ -705,12 +764,20 @@ defmodule PhoenixKit.Handoff do
       reserved: Keyword.get_lazy(opts, :reserved_cookies, &auth_cookie_names/0)
     }
 
-    modules
-    |> hook_modules(:handoff_apply, 2)
-    |> Enum.reduce(%{notices: [], cookies: []}, fn module, acc ->
-      case apply_one(module, context, payload, settings) do
-        {:ok, effects} -> merge_effects(acc, effects)
-        :error -> acc
+    calls =
+      for module <- hook_modules(modules, :handoff_apply, 2),
+          {:ok, key} <- [module_key(module)],
+          {:ok, snapshot} when is_map(snapshot) <- [Map.fetch(payload, key)],
+          do: {module, module, :handoff_apply, [context, snapshot]}
+
+    calls
+    |> call_hooks(settings.timeout)
+    |> Enum.reduce(%{notices: [], cookies: []}, fn {module, result}, acc ->
+      with {:ok, result} <- result,
+           {:ok, effects} <- sanitize_result(module, result, settings) do
+        merge_effects(acc, effects)
+      else
+        _ -> acc
       end
     end)
     |> limit_effects()
@@ -718,16 +785,6 @@ defmodule PhoenixKit.Handoff do
     error ->
       Logger.error("[Handoff] apply_payload failed: #{inspect(error.__struct__)}")
       %{notices: [], cookies: []}
-  end
-
-  defp apply_one(module, context, payload, settings) do
-    with {:ok, key} <- module_key(module),
-         {:ok, snapshot} when is_map(snapshot) <- Map.fetch(payload, key),
-         {:ok, result} <- call_hook(module, :handoff_apply, [context, snapshot], settings.timeout) do
-      sanitize_result(module, result, settings)
-    else
-      _ -> :error
-    end
   end
 
   defp hook_modules(modules, function, arity) do
@@ -746,22 +803,62 @@ defmodule PhoenixKit.Handoff do
     end
   end
 
-  # The hook runs in a task of its own, supervised but not linked, and is given `timeout` ms:
-  # a module that hangs cannot hold the visitor's request. The task inherits the caller's
-  # `$callers` (so the Ecto sandbox of a test and the logger metadata of a request follow it) and
-  # its Gettext locale. Only the module and the kind of failure are logged, never a message:
-  # those can carry what the module was handed. The failure is caught inside the task, because
-  # an uncaught one is logged by the runtime with its message.
-  defp call_hook(module, function, args, timeout) do
+  # Every hook of a call site runs in a task of its own, supervised but not linked, all started
+  # at once and all given the one `timeout` (in ms) from there: a module that hangs cannot hold the
+  # visitor's request, and M modules cost one deadline, not M. A task still running at the
+  # deadline is killed (`Task.shutdown/2`) and logged.
+  #
+  # The task inherits the caller's `$callers` (so the Ecto sandbox of a test follows it) and its
+  # Gettext locale. It does NOT have the rest of the request's process state: not the process
+  # dictionary, so no Logger metadata (the request id), no per-request dynamic repo or prefix.
+  # Only the module and the kind of failure are logged, never a message: those can carry what the
+  # module was handed. The failure is caught inside the task, because an uncaught one is logged by
+  # the runtime with its message.
+  #
+  # `calls` are `{id, module, function, args}`; the answer is `[{id, {:ok, value} | :error}]`
+  # in the same order.
+  defp call_hooks([], _timeout), do: []
+
+  defp call_hooks(calls, timeout) do
     locale = Gettext.get_locale()
 
-    task =
-      Task.Supervisor.async_nolink(PhoenixKit.TaskSupervisor, fn ->
-        Gettext.put_locale(locale)
-        call_safely(module, function, args)
+    started =
+      Enum.map(calls, fn {id, module, function, args} ->
+        {id, module, function, start_hook(module, function, args, locale)}
       end)
 
-    case Task.yield(task, timeout) || Task.shutdown(task, :brutal_kill) do
+    yielded =
+      for({_id, _module, _function, %Task{} = task} <- started, do: task)
+      |> Task.yield_many(timeout)
+      |> Map.new()
+
+    for {id, module, function, task} <- started do
+      outcome =
+        case task do
+          :error -> :error
+          %Task{} -> hook_outcome(module, function, task, Map.get(yielded, task), timeout)
+        end
+
+      {id, outcome}
+    end
+  end
+
+  defp start_hook(module, function, args, locale) do
+    Task.Supervisor.async_nolink(PhoenixKit.TaskSupervisor, fn ->
+      Gettext.put_locale(locale)
+      call_safely(module, function, args)
+    end)
+  catch
+    :exit, _ ->
+      Logger.error(
+        "[Handoff] #{function} of #{inspect(module)} could not run (no task supervisor)"
+      )
+
+      :error
+  end
+
+  defp hook_outcome(module, function, task, yielded, timeout) do
+    case yielded || Task.shutdown(task, :brutal_kill) do
       {:ok, {:ok, _value} = ok} ->
         ok
 
@@ -777,13 +874,6 @@ defmodule PhoenixKit.Handoff do
         Logger.error("[Handoff] #{function} of #{inspect(module)} timed out after #{timeout} ms")
         :error
     end
-  catch
-    :exit, _ ->
-      Logger.error(
-        "[Handoff] #{function} of #{inspect(module)} could not run (no task supervisor)"
-      )
-
-      :error
   end
 
   defp call_safely(module, function, args) do
