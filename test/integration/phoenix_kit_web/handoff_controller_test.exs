@@ -736,6 +736,25 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
       for conn <- Enum.drop(conns, 1), do: assert_refused(conn)
     end
 
+    test "a replay is refused before the session is read and any module is asked" do
+      session = signed_in_session(user!()) ++ [stub_cart: "cart-1"]
+      _ = asked_for_snapshots()
+
+      conns = replay_genuine_cookie(session, 5)
+
+      assert minted_mints(conns) == 1
+      # Only the mint that wrote the row took a snapshot: the four replays cost no module a call.
+      assert asked_for_snapshots() == 1
+    end
+
+    defp asked_for_snapshots do
+      receive do
+        {:handoff_snapshot, _context} -> 1 + asked_for_snapshots()
+      after
+        0 -> 0
+      end
+    end
+
     test "so does one replayed by a guest who has only module state to carry" do
       conns = replay_genuine_cookie([stub_cart: "cart-1"], 5)
 
