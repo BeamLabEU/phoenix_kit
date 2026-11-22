@@ -6,7 +6,8 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerEmbedOptionsTest do
 
   * `comments` (default `true`) — `false` takes the discussion out of the
     viewer: no thread in the sidebar, no reply popup, no Reply / View buttons
-    and no counts on the shapes, and the Reply event is refused on the server.
+    (the label stays editable) and no counts on the shapes, and the Reply
+    event is refused on the server.
   * `own_files_only` — a drawing on a file someone else uploaded is not
     writable; the check answers before it reaches the database.
   """
@@ -50,16 +51,43 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerEmbedOptionsTest do
       assert meta["comment_text"] == "Looks good"
       assert meta["comment_author"] == "Jane"
       assert meta["badge"] == 3
+      refute Map.has_key?(meta, "comments_off")
     end
 
     test "with comments off there is nothing of the discussion on the shape" do
       meta = MediaCanvasViewer.curate_row(row(), false).metadata
 
-      # `comment_count` present is what makes the tooltip offer Reply / View.
+      # With no `comment_count` the tooltip has no Reply / View; `comments_off`
+      # is what tells it the label is still there to edit.
       for key <- ~w(comment_count comment_text comment_author comment_thumbnail_url
                     comment_has_attachment comment_created_at badge) do
         refute Map.has_key?(meta, key), "#{key} leaked onto the shape"
       end
+
+      assert meta["comments_off"] == true
+    end
+
+    test "with comments off a marker keeps its stored byline" do
+      # `comment_author` of a marker is the stored name of whoever drew it, not
+      # a thread: dropping it from the row would erase it on the next drag.
+      stored = %{"comment_author" => "Jane"}
+      row = put_in(row(), [:annotation, :metadata], stored)
+
+      assert MediaCanvasViewer.curate_row(row, false).metadata["comment_author"] == "Jane"
+    end
+
+    test "the mark of comments off is not persisted with the row" do
+      current = %{
+        metadata: MediaCanvasViewer.curate_row(row(), false).metadata,
+        geometry: %{},
+        style: %{},
+        kind: "rectangle"
+      }
+
+      refute Map.has_key?(
+               MediaCanvasViewer.persistable_attrs(%{"metadata" => %{}}, current)["metadata"],
+               "comments_off"
+             )
     end
 
     test "the default is with comments" do
@@ -123,12 +151,47 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerEmbedOptionsTest do
       }
     end
 
+    # The shape already has its thread (`master_comment_uuid`) and the file
+    # has no uuid to look up, so an unguarded Reply opens the popup without
+    # touching a database or the Comments package: the only thing that can
+    # leave `replying_annotation_uuid` empty here is the refusal itself.
+    defp threaded_socket(overrides) do
+      reply_socket(
+        Map.merge(
+          %{
+            file: %{file_uuid: nil},
+            viewer_annotations: [
+              %{
+                uuid: @shape_uuid,
+                kind: "rectangle",
+                metadata: %{},
+                master_comment_uuid: "01900000-0000-7000-8000-0000000000cc"
+              }
+            ]
+          },
+          overrides
+        )
+      )
+    end
+
+    test "the same Reply opens the popup when comments are on" do
+      {:noreply, socket} =
+        MediaCanvasViewer.handle_event(
+          "annotation_reply",
+          %{"uuid" => @shape_uuid},
+          threaded_socket(%{comments: true})
+        )
+
+      assert socket.assigns.replying_annotation_uuid == @shape_uuid
+      assert socket.assigns.reply_parent_uuid == "01900000-0000-7000-8000-0000000000cc"
+    end
+
     test "is refused before anything is looked up or written" do
       {:noreply, socket} =
         MediaCanvasViewer.handle_event(
           "annotation_reply",
           %{"uuid" => @shape_uuid},
-          reply_socket(%{})
+          threaded_socket(%{})
         )
 
       assert socket.assigns.replying_annotation_uuid == nil
@@ -150,6 +213,18 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerEmbedOptionsTest do
       refute MediaCanvasViewer.annotation_row_writable?(%Storage.File{user_uuid: nil}, %{
                own_files_only: @me
              })
+    end
+
+    test "a file of another library than the host's is not writable" do
+      row = %Storage.File{user_uuid: @me, library_uuid: @someone_else}
+
+      refute MediaCanvasViewer.annotation_row_writable?(row, %{write_library_uuid: @me})
+    end
+
+    test "a restricted viewer's file is not writable unless they uploaded it" do
+      row = %Storage.File{user_uuid: @someone_else}
+
+      refute MediaCanvasViewer.annotation_row_writable?(row, %{viewer_uuid: @me})
     end
   end
 end

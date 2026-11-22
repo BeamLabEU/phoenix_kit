@@ -389,15 +389,25 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
           scope_folder_id={@order.storage_folder_uuid}
           readonly
         />
+  - `own_files_only` (default `nil`) — the uuid of a person who changes only the
+    files they uploaded: a write naming someone else's file is refused. It
+    covers the drawings in the modal viewer too: on a file someone else
+    uploaded the shapes are locked and the tools gone, and drawing, changing,
+    deleting, Reply and a title edited from the thread are refused on the
+    server. Looking at the drawings stays open. The sidebar's comments thread
+    and the tooltip's Reply button stay as they are — Reply is refused
+    silently, as under `readonly`; `comments={false}` is the way to take the
+    discussion away.
   - `comments` (default `true`) — `false` leaves the discussion out of the modal
     viewer: no comments thread in the sidebar, no reply popup, and the shapes
     drawn on a picture carry no comment count, preview or badge, so their
-    tooltip offers no Reply / View. The mechanism is that it is **not
-    rendered**: what is not rendered cannot be reached, and the viewer also
-    refuses the Reply event on the server. Drawings and file details are
-    untouched (they follow `readonly`, `own_files_only` and the rest). Use it
-    where the viewer is embedded for someone who must not read or add
-    comments.
+    tooltip offers no Reply / View (it keeps "Edit label"). The mechanism is
+    that it is **not rendered**: what is not rendered cannot be reached, and
+    the viewer also refuses the Reply event on the server. Drawings and file
+    details are untouched (they follow `readonly`, `own_files_only` and the
+    rest); a marker keeps the name of whoever drew it, which is the drawing's
+    byline and not a comment. Use it where the viewer is embedded for someone
+    who must not read or add comments.
   - `show_path` (default `true`) — `false` leaves out the list view's "Path"
     column (the header and the cell of every folder and file row), which spells
     out a file's whole folder chain from the top of the library, including the

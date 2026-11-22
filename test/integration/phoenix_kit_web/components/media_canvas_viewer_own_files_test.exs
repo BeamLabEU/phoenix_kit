@@ -101,6 +101,15 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerOwnFilesTest do
     }
   end
 
+  # The shapes of the open file already have their thread: Reply then opens the
+  # popup without reaching the Comments package, so a refusal is the only thing
+  # that leaves it closed.
+  defp threaded(socket) do
+    update_in(socket.assigns.viewer_annotations, fn rows ->
+      Enum.map(rows, &Map.put(&1, :master_comment_uuid, Ecto.UUID.generate()))
+    end)
+  end
+
   defp wire(shape) do
     %{
       "uuid" => to_string(shape.uuid),
@@ -161,11 +170,22 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerOwnFilesTest do
                MediaCanvasViewer.handle_event(
                  "annotation_reply",
                  %{"uuid" => to_string(ctx.shape.uuid)},
-                 socket(ctx.others, ctx.me, ctx.me.uuid)
+                 threaded(socket(ctx.others, ctx.me, ctx.me.uuid))
                )
 
       assert socket.assigns.replying_annotation_uuid == nil
       assert socket.assigns.reply_parent_uuid == nil
+    end
+
+    test "the same Reply opens the popup without own_files_only", ctx do
+      assert {:noreply, socket} =
+               MediaCanvasViewer.handle_event(
+                 "annotation_reply",
+                 %{"uuid" => to_string(ctx.shape.uuid)},
+                 threaded(socket(ctx.others, ctx.me, nil))
+               )
+
+      assert socket.assigns.replying_annotation_uuid == to_string(ctx.shape.uuid)
     end
 
     test "a title edited from the thread is not written", ctx do
@@ -238,6 +258,46 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerOwnFilesTest do
         })
 
       refute html =~ ~s(data-toolbar="false")
+    end
+  end
+
+  describe "a title edited from the thread, on the person's own file" do
+    setup do
+      me = user!()
+      mine = file!(me)
+      {:ok, me: me, mine: mine, shape: shape!(mine)}
+    end
+
+    test "the title of a shape that is not on the open file is not written", ctx do
+      stranger = shape!(file!(user!()), "Stranger's")
+
+      assert {:ok, _} =
+               MediaCanvasViewer.update(
+                 %{
+                   action: :annotation_title_updated,
+                   metadata_value: to_string(stranger.uuid),
+                   label: "Hijacked"
+                 },
+                 socket(ctx.mine, ctx.me, ctx.me.uuid)
+               )
+
+      assert Annotations.get(stranger.uuid).title == "Stranger's"
+    end
+
+    test "a viewer that cannot annotate does not write it", ctx do
+      readonly = put_in(socket(ctx.mine, ctx.me, ctx.me.uuid).assigns.can_annotate, false)
+
+      assert {:ok, _} =
+               MediaCanvasViewer.update(
+                 %{
+                   action: :annotation_title_updated,
+                   metadata_value: to_string(ctx.shape.uuid),
+                   label: "Renamed"
+                 },
+                 readonly
+               )
+
+      assert titles(ctx.mine) == ["Original"]
     end
   end
 
