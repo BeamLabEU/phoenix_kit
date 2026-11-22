@@ -106,7 +106,7 @@ for a reader who cannot open the record it came from.
 ## Delivery channels (external destinations)
 
 Pluggable per-user routing of notifications to **external** destinations
-(Telegram, Email; more via modules) on top of the in-app inbox. **Model B —
+(Telegram, Email, Browser push; more via modules) on top of the in-app inbox. **Model B —
 parallel routing layer**: the inbox path above is untouched; external channels
 are computed + enqueued independently, so "Telegram on, inbox off" works with
 **no migration** (config rides `users.custom_fields`).
@@ -115,7 +115,7 @@ are computed + enqueued independently, so "Telegram on, inbox off" works with
   `configured?/2`, `deliver/2`, optional `validate_config/1`. `deliver/2` takes a
   channel-neutral, pre-rendered `t:envelope/0` (absolute URL) and returns a
   permanent/transient error taxonomy so the worker decides retry-vs-give-up.
-- **`Channels`** registry: core `[Email, Telegram]` + modules' optional
+- **`Channels`** registry: core `[Email, Telegram, Push]` + modules' optional
   `notification_channels/0` (same merge as `Types`). `Channels.Email` is
   always-configured (sends via `Mailer`); `Channels.Telegram` auto-discovers the
   recipient's Telegram connections + captured `chat_ids`.
@@ -185,5 +185,52 @@ are computed + enqueued independently, so "Telegram on, inbox off" works with
     alike, so none is switched off. A soft-disabled user sees "Switched off" on
     the card and a **Reconnect** button, which runs the same one-tap flow and
     switches delivery back on.
+
+- **Browser push (`Channels.Push`, key `"push"`, label "Browser")** — Web Push
+  (RFC 8030/8291/8292) to the person's browsers and phones, built in core with
+  no extra dependency (`PhoenixKit.Notifications.Push`, V235). Site settings on
+  Settings → Notification messages: `push_enabled` (default on), `push_show_line`
+  (default off: a locked screen shows only the site's name and "New
+  notification" / "N notifications pending"), `push_group_seconds` (default 30,
+  5–600). The site's VAPID key pair is made on first use (setting
+  `push_vapid_key`, encrypted with the site’s restricted settings and included in
+  encryption-key rotation). Turning push on requires a working encryption key.
+  - **Devices** — one `phoenix_kit_push_installations` row per browser
+    subscription, one `phoenix_kit_push_bindings` row per account that turned
+    push on there (several accounts in one browser share the installation). The
+    person turns it on from the **Browser card** of their notification settings
+    (`Live.Components.PushNotificationsCard`, hook `PkPush`); a borrowed session,
+    a managed organization and a service user are refused. The first time, the
+    types the account gets by email are ticked for Browser too. The card lets the
+    person change those choices, including accounts without admin access. At most 10
+    devices per account. An endpoint must be a known push service
+    (`WebPush.endpoint_ok?/2`: FCM, Mozilla, Apple, Windows, plus
+    `config :phoenix_kit, :push_service_hosts`) on a public address — never a
+    URL of the person's choosing.
+  - **Grouping** — the channel writes a `phoenix_kit_push_pending` row and
+    schedules one `GroupWorker` per account (Oban unique on the user); when the
+    window ends it sends ONE push per device (`SendWorker`, TTL 7 days, `Topic`
+    per account so the service replaces an undelivered one, `tag` per account
+    so the screen shows one). A 404/410 from the service deletes the device; a
+    429/5xx retries. A notice the reader can no longer see (`visible: false`)
+    is never queued. The quoted comment never goes into a push.
+  - **Clicks** — the payload carries only `<prefix>/notifications/open/<handle>`,
+    an encrypted handle (account, same-site link, summary?, 7-day expiry).
+    `PushOpenController` opens it for the account in use; for another account
+    this browser holds and may switch to (`MultiSession.gate_allowed?/1`, not a
+    borrowed one) it asks "Switch and open" (a CSRF POST); anything else gets a
+    page that names no one.
+  - **Clean-up** — logging out (and removing an account from the switcher)
+    drops that account's binding in this browser (cookie `pk_push_browser`), and
+    the last binding takes the installation. A rotated subscription is reported
+    by the worker to `POST <prefix>/push/resubscribe`, proven by the old
+    subscription's `auth` secret.
+  - **Host notes** — the service worker is served by core at
+    `<prefix>/push/sw.js` with scope `<prefix>/push/` (it never sits in front of
+    the host's pages; it has no fetch handler). A host with a Content Security
+    Policy needs `worker-src 'self'` and `manifest-src 'self'`. iPhone and iPad
+    get web push only from a site added to the Home Screen: the card links
+    `<prefix>/push/install`, which carries the manifest itself, so the host's
+    layout needs no change. Jobs run on the existing `:notifications` queue.
 
 **Cleanup:** `PhoenixKit.Notifications.PruneWorker` daily (`"0 4 * * *"`). Retention: `notifications_retention_days` → falls back to `activity_retention_days` (default 90). Cascading FK deletes also remove notifications when the underlying activity is pruned.

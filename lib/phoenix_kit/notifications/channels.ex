@@ -19,6 +19,7 @@ defmodule PhoenixKit.Notifications.Channels do
   # Core channels ship here. Keep alphabetical-by-key for stable UI ordering.
   @core_channels [
     PhoenixKit.Notifications.Channels.Email,
+    PhoenixKit.Notifications.Channels.Push,
     PhoenixKit.Notifications.Channels.Telegram
   ]
 

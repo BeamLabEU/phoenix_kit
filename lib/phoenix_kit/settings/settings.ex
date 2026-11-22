@@ -152,6 +152,7 @@ defmodule PhoenixKit.Settings do
     billing_razorpay_key_secret
     billing_razorpay_webhook_secret
     billing_everypay_api_secret
+    push_vapid_key
   )
 
   # The explicit ALLOW list `list_public_settings/0` reads from. Deliberately
@@ -420,6 +421,10 @@ defmodule PhoenixKit.Settings do
       # its other two keys with explicit defaults). Restricted: encrypted at
       # rest, withheld from the settings history.
       "turnstile_secret_key" => "",
+      # The site's Web Push key pair (`PhoenixKit.Notifications.Push.WebPush`,
+      # made on first use, stored as an encrypted restricted value). Restricted: kept
+      # out of the settings listings and their history.
+      "push_vapid_key" => "",
       # Billing-provider secrets. Written by the separate phoenix_kit_billing
       # package through this same table — core carries no other knowledge of
       # these keys, only enough to classify them (see

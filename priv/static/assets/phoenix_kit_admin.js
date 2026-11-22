@@ -10337,6 +10337,151 @@
     window.PhoenixKitAdminHooks.UploadManager = window.PhoenixKitUploadManager.hook;
   }
 
+  // ---------------------------------------------------------------------
+  // PkPush — the "Browser" card of the notification settings
+  // (PhoenixKitWeb.Live.Components.PushNotificationsCard). Registers the push
+  // service worker as the card mounts (so the permission prompt, which a
+  // browser allows only inside a click, is not delayed by it), reports the
+  // browser's state to the card, and on "Turn on" asks the browser and sends
+  // the subscription. Keeps the browser's own id in a cookie
+  // (`pk_push_browser`) so a logout here stops this browser's pushes.
+  // ---------------------------------------------------------------------
+  window.PhoenixKitAdminHooks.PkPush = {
+    mounted: function () {
+      var self = this;
+      this.registration = null;
+
+      var supported =
+        "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+      var ios = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      var standalone = window.navigator.standalone === true ||
+        (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+
+      // An iPhone or iPad tab gets push only once the site is on the Home
+      // Screen: say that first, whatever the tab exposes.
+      if (ios && !standalone) {
+        this.report("ios_install", null);
+        return;
+      }
+
+      if (!supported) {
+        this.report("unsupported", null);
+        return;
+      }
+
+      var worker = this.el.dataset.worker;
+      var scope = worker.slice(0, worker.lastIndexOf("/") + 1);
+
+      this.ready = navigator.serviceWorker
+        .register(worker, { scope: scope })
+        .then(function (registration) {
+          if (registration.active) return registration;
+          // The card lives outside the worker scope, so serviceWorker.ready
+          // would wait for an unrelated registration. Wait on this worker.
+          var worker = registration.installing || registration.waiting;
+          return new Promise(function (resolve, reject) {
+            if (!worker) return reject(new Error("no worker"));
+            function changed() {
+              if (worker.state !== "activated" && worker.state !== "redundant") return;
+              worker.removeEventListener("statechange", changed);
+              if (worker.state === "activated") resolve(registration);
+              else reject(new Error("worker installation failed"));
+            }
+            worker.addEventListener("statechange", changed);
+            changed();
+          });
+        })
+        .then(function (registration) {
+          self.registration = registration;
+          return registration.pushManager.getSubscription();
+        })
+        .then(function (subscription) {
+          self.report(Notification.permission, subscription ? subscription.endpoint : null);
+        })
+        .catch(function () {
+          self.report("unsupported", null);
+        });
+
+      this.onClick = function (event) {
+        if (!event.target.closest("[data-push-enable]")) return;
+        event.preventDefault();
+        self.enable();
+      };
+      this.el.addEventListener("click", this.onClick);
+    },
+
+    destroyed: function () {
+      if (this.onClick) this.el.removeEventListener("click", this.onClick);
+    },
+
+    report: function (state, endpoint) {
+      this.pushEventTo(this.el, "push_state", { state: state, endpoint: endpoint });
+    },
+
+    // Asked inside the click: the permission prompt first, nothing awaited
+    // before it, then the subscription.
+    // A click before the worker's registration has finished waits for it,
+    // after the prompt (which must stay inside the click).
+    enable: function () {
+      var self = this;
+      if (!this.ready || !this.el.dataset.key) return;
+
+      Notification.requestPermission().then(function (permission) {
+        if (permission !== "granted") {
+          self.report(permission, null);
+          return;
+        }
+
+        return self.ready.then(function () {
+          if (!self.registration) throw new Error("no registration");
+          return self.registration.pushManager
+          .subscribe({ userVisibleOnly: true, applicationServerKey: self.key() })
+          .then(function (subscription) {
+            self.pushEventTo(self.el, "push_subscribe", {
+              subscription: subscription.toJSON(),
+              browser_id: self.browserId(),
+              label: self.label()
+            });
+          });
+        });
+      }).catch(function () {
+        self.report("unsupported", null);
+      });
+    },
+
+    key: function () {
+      var b64 = this.el.dataset.key.replace(/-/g, "+").replace(/_/g, "/");
+      var raw = atob(b64 + "===".slice((b64.length + 3) % 4));
+      var bytes = new Uint8Array(raw.length);
+      for (var i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+      return bytes;
+    },
+
+    // This browser's own id: kept in a cookie the server reads at logout.
+    browserId: function () {
+      var match = document.cookie.match(/(?:^|; )pk_push_browser=([A-Za-z0-9_-]{16,64})/);
+      if (match) return match[1];
+      var bytes = new Uint8Array(18);
+      (window.crypto || window.msCrypto).getRandomValues(bytes);
+      var id = btoa(String.fromCharCode.apply(null, bytes))
+        .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+      document.cookie = "pk_push_browser=" + id + "; path=/; max-age=31536000; SameSite=Lax" +
+        (location.protocol === "https:" ? "; Secure" : "");
+      return id;
+    },
+
+    // "Chrome on Mac": what the device list shows.
+    label: function () {
+      var ua = navigator.userAgent;
+      var browser = /Edg\//.test(ua) ? "Edge" : /Firefox\//.test(ua) ? "Firefox" :
+        /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "Browser";
+      var os = /iPhone|iPad|iPod/.test(ua) ? "iOS" : /Android/.test(ua) ? "Android" :
+        /Mac OS X/.test(ua) ? "Mac" : /Windows/.test(ua) ? "Windows" : /Linux/.test(ua) ? "Linux" : "";
+      return os ? browser + " on " + os : browser;
+    }
+  };
+
   // Still inside the function that opens at the top of this file. The blocks
   // above that start at column 0 were moved from phoenix_kit.js as they were.
   // A hook defined here that nothing stubs is unreachable: say so while

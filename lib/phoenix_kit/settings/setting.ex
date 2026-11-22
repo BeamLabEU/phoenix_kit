@@ -57,6 +57,7 @@ defmodule PhoenixKit.Settings.Setting do
 
   # Settings that are allowed to have empty/nil values
   @optional_settings [
+    "push_vapid_key",
     # AWS Credentials
     "aws_access_key_id",
     "aws_secret_access_key",

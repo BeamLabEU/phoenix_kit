@@ -63,6 +63,7 @@ defmodule PhoenixKitWeb.Users.MultiSession do
 
   import Plug.Conn
 
+  alias PhoenixKit.Notifications.Push
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.ActiveRole
   alias PhoenixKit.Users.Auth
@@ -887,6 +888,27 @@ defmodule PhoenixKitWeb.Users.MultiSession do
     system.owner in roles or system.admin in roles
   end
 
+  @doc false
+  # The browser's push id (`PhoenixKit.Notifications.Push`), from the cookie
+  # the settings page set when push was turned on here.
+  def push_browser_id(conn) do
+    conn |> Plug.Conn.fetch_cookies() |> Map.get(:req_cookies, %{}) |> Map.get("pk_push_browser")
+  rescue
+    _ -> nil
+  end
+
+  defp forget_push(conn, token) do
+    case Auth.get_user_by_session_token(token) do
+      %Auth.User{uuid: uuid} ->
+        Push.forget_browser(uuid, push_browser_id(conn))
+
+      _ ->
+        :ok
+    end
+  rescue
+    _ -> :ok
+  end
+
   @doc "Activates a token already present in the stack, identified by `ref`."
   def switch_to(conn, ref) do
     session = get_session(conn)
@@ -926,6 +948,8 @@ defmodule PhoenixKitWeb.Users.MultiSession do
         {:error, :cannot_remove_root}
 
       token ->
+        # The account leaves this browser: so do its push notifications here.
+        forget_push(conn, token)
         organization = organization_token(session)
 
         cond do

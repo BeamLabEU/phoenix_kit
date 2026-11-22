@@ -26,6 +26,7 @@ defmodule PhoenixKit.Integration.KeyRotationTest do
   alias PhoenixKit.Integrations
   alias PhoenixKit.Integrations.Encryption
   alias PhoenixKit.Integrations.KeyRotation
+  alias PhoenixKit.Notifications.Push.WebPush
   alias PhoenixKit.Settings
   alias PhoenixKit.Settings.Queries
   alias PhoenixKit.Settings.Setting
@@ -215,6 +216,14 @@ defmodule PhoenixKit.Integration.KeyRotationTest do
   end
 
   describe "rotate/2 — restricted PhoenixKit.Settings values (S015)" do
+    test "the site keeps its browser push identity across encryption key rotation" do
+      assert {:ok, key} = WebPush.vapid_key()
+      secret = "new-push-rotation-secret-well-over-min-length"
+      assert {:ok, %{rotated: 1}} = KeyRotation.rotate(secret)
+      Application.put_env(:phoenix_kit, :integrations_encryption_key, secret)
+      assert {:ok, ^key} = WebPush.vapid_key()
+    end
+
     test "a restricted setting shares the same key and rotates alongside integration connections" do
       [restricted_key | _] = Settings.restricted_setting_keys()
       {:ok, _} = Settings.update_setting(restricted_key, "top-secret-value")

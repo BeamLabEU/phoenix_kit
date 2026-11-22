@@ -5068,6 +5068,7 @@
     "SearchPicker",
     "ContextMenu",
     "AvatarCrop",
+    "PkPush",
     "ImageEditor"
   ];
 

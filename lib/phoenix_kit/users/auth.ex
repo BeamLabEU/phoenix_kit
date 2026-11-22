@@ -62,6 +62,7 @@ defmodule PhoenixKit.Users.Auth do
   """
 
   import Ecto.Query, warn: false
+  alias PhoenixKit.Notifications.Push
   alias PhoenixKit.RepoHelper, as: Repo
 
   require Logger
@@ -3873,6 +3874,10 @@ defmodule PhoenixKit.Users.Auth do
       # committed (e.g. an extra owner) — rare, admin-recoverable, and
       # preferable to hooks silently vanishing with a rollback.
       run_before_user_delete_hooks(user.uuid)
+
+      # Core's own: the account's push devices that no one else uses (the
+      # bindings would cascade away, the devices' endpoints and keys not).
+      Push.forget_account(user.uuid)
 
       do_delete_user(user, opts, current_user)
     end

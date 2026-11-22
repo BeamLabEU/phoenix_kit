@@ -460,6 +460,12 @@ defmodule PhoenixKitWeb.Integration do
         get "/tiles/:token/:dzi_filename", FileController, :serve_manifest
         get "/tiles/:token/:files_segment/:level/:tile_filename", FileController, :serve_tile
 
+        # Push notifications: where a notification's click lands (the account
+        # check, "Switch and open" as a CSRF POST), and the iPhone install page.
+        get "/notifications/open/:handle", PushOpenController, :show
+        post "/notifications/open/:handle", PushOpenController, :switch
+        get "/push/install", PushController, :install
+
         # Cookie consent widget config (public API for JS auto-injection).
         # Declared unconditionally: the vendored bundle requests this on every
         # page load whether or not phoenix_kit_legal is installed, so a
@@ -491,6 +497,13 @@ defmodule PhoenixKitWeb.Integration do
         pipe_through [:phoenix_kit_api]
 
         get "/assets/:file", AssetsController, :serve
+
+        # Push notifications' service worker and web app manifest, and the
+        # worker's report of a rotated subscription (no session, no CSRF: a
+        # service worker has neither; the old subscription's secret proves it).
+        get "/push/sw.js", PushController, :service_worker
+        get "/push/manifest.webmanifest", PushController, :manifest
+        post "/push/resubscribe", PushController, :resubscribe
       end
 
       # Resumable uploads: chunks of a file the upload manager is sending. No

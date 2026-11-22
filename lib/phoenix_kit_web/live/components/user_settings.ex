@@ -1784,6 +1784,15 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
               user={@user}
               impersonated={@api_keys_impersonated}
             />
+
+            <%!-- Browser push: turn notifications on in this browser, list the --%>
+            <%!-- devices that have them. Renders nothing while the site has it off. --%>
+            <.live_component
+              module={PhoenixKitWeb.Live.Components.PushNotificationsCard}
+              id="push-notifications-card"
+              user={@user}
+              impersonated={@api_keys_impersonated}
+            />
           </div>
         <% end %>
 

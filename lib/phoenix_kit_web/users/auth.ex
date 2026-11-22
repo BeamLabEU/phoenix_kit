@@ -65,6 +65,7 @@ defmodule PhoenixKitWeb.Users.Auth do
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Maintenance
+  alias PhoenixKit.Notifications.Push
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.{Scope, User}
   alias PhoenixKit.Users.FormatCountry
@@ -432,6 +433,10 @@ defmodule PhoenixKitWeb.Users.Auth do
     # Get user info before deleting any token, for the admin notification below.
     user = user_token && Auth.get_user_by_session_token(user_token)
 
+    # Every account leaving this browser stops getting its push notifications
+    # here (`PhoenixKit.Notifications.Push`), before their tokens go.
+    forget_push_on_logout(conn, user)
+
     # Invalidate the active token AND every secondary multi-session account in
     # the stack (stack_tokens/1 falls back to just the active token when no
     # stack is set, so this covers the ordinary single-session logout too).
@@ -459,6 +464,27 @@ defmodule PhoenixKitWeb.Users.Auth do
     |> delete_resp_cookie(@remember_me_cookie)
     |> MultiSession.forget_persisted_accounts()
     |> redirect(to: Routes.safe_destination(conn, scope: nil))
+  end
+
+  defp forget_push_on_logout(conn, user) do
+    browser = MultiSession.push_browser_id(conn)
+
+    if is_binary(browser) do
+      users =
+        conn
+        |> get_session()
+        |> MultiSession.list_accounts()
+        |> Enum.map(& &1.user.uuid)
+
+      [user && user.uuid | users]
+      |> Enum.reject(&is_nil/1)
+      |> Enum.uniq()
+      |> Enum.each(&Push.forget_browser(&1, browser))
+    end
+
+    :ok
+  rescue
+    _ -> :ok
   end
 
   @doc """

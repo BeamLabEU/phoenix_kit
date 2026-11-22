@@ -32,8 +32,11 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessages do
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Notifications.Channels.Telegram
   alias PhoenixKit.Notifications.Messages
+  alias PhoenixKit.Notifications.Push
   alias PhoenixKit.Notifications.Types
+  alias PhoenixKit.RepoHelper
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.RecipientLocale
   alias PhoenixKit.Utils.Routes
 
@@ -57,6 +60,7 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessages do
        |> assign(:current_path, Routes.path(@base_path))
        |> assign(:types, type_rows())
        |> assign(:locales, locales())
+       |> assign_push_settings()
        |> assign(:notice, nil)}
     else
       {:ok,
@@ -222,6 +226,51 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessages do
     reset(socket, (socket.assigns.entry || %{})["version"] || 0)
   end
 
+  # Browser push, site-wide (`PhoenixKit.Notifications.Push`): on or off,
+  # the line on a locked screen or not, the grouping window.
+  def handle_event("push_settings", %{"push" => push} = _params, socket) when is_map(push) do
+    actor = socket.assigns[:phoenix_kit_current_scope] |> Scope.user_uuid()
+    opts = [actor_uuid: actor, source: "settings"]
+
+    seconds =
+      case Integer.parse(if is_binary(push["group_seconds"]), do: push["group_seconds"], else: "") do
+        {n, ""} -> n |> max(5) |> min(600)
+        _ -> Push.group_seconds()
+      end
+
+    result =
+      RepoHelper.repo().transact(fn ->
+        with {:ok, _} <-
+               Settings.update_boolean_setting_with_module(
+                 "push_enabled",
+                 push["enabled"] == "true",
+                 "notifications",
+                 opts
+               ),
+             {:ok, _} <-
+               Settings.update_boolean_setting_with_module(
+                 "push_show_line",
+                 push["show_line"] == "true",
+                 "notifications",
+                 opts
+               ) do
+          Settings.update_setting_with_module(
+            "push_group_seconds",
+            Integer.to_string(seconds),
+            "notifications",
+            opts
+          )
+        end
+      end)
+
+    socket = assign_push_settings(socket)
+
+    case result do
+      {:ok, _} -> {:noreply, put_flash(socket, :info, gettext("Saved."))}
+      {:error, _} -> {:noreply, put_flash(socket, :error, gettext("Failed to save settings"))}
+    end
+  end
+
   def handle_event(_event, _params, socket), do: {:noreply, socket}
 
   defp reset(socket, version) do
@@ -232,6 +281,14 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessages do
       :ok -> {:noreply, socket |> load() |> put_flash(:info, gettext("Back to the default."))}
       {:error, reason} -> {:noreply, assign(socket, :notice, error_text(reason))}
     end
+  end
+
+  defp assign_push_settings(socket) do
+    assign(socket, :push, %{
+      enabled: Push.enabled?(),
+      show_line: Push.show_line?(),
+      group_seconds: Push.group_seconds()
+    })
   end
 
   defp error_text(:stale),
@@ -485,6 +542,57 @@ defmodule PhoenixKitWeb.Live.Settings.NotificationMessages do
           <div :if={@notice} id="notification-messages-notice" class="alert alert-error text-sm">
             <span>{@notice}</span>
           </div>
+
+          <form
+            id="notification-messages-push"
+            phx-submit="push_settings"
+            class="card bg-base-100 shadow"
+          >
+            <div class="card-body gap-2 py-4">
+              <h3 class="font-medium">{gettext("Browser push notifications")}</h3>
+              <label class="label cursor-pointer justify-start gap-2">
+                <input type="hidden" name="push[enabled]" value="false" />
+                <input
+                  type="checkbox"
+                  name="push[enabled]"
+                  value="true"
+                  checked={@push.enabled}
+                  class="toggle toggle-sm"
+                />
+                <span class="label-text">{gettext("People can turn on notifications in their browser")}</span>
+              </label>
+              <label class="label cursor-pointer justify-start gap-2">
+                <input type="hidden" name="push[show_line]" value="false" />
+                <input
+                  type="checkbox"
+                  name="push[show_line]"
+                  value="true"
+                  checked={@push.show_line}
+                  class="toggle toggle-sm"
+                />
+                <span class="label-text">
+                  {gettext(
+                    "Show what happened on a locked screen (otherwise only “New notification” or “3 notifications pending”)"
+                  )}
+                </span>
+              </label>
+              <label class="flex items-center gap-2 text-sm">
+                <span>{gettext("Group notifications that arrive within")}</span>
+                <input
+                  type="number"
+                  name="push[group_seconds]"
+                  value={@push.group_seconds}
+                  min="5"
+                  max="600"
+                  class="input input-sm w-20"
+                />
+                <span>{gettext("seconds into one")}</span>
+              </label>
+              <div>
+                <button type="submit" class="btn btn-sm">{gettext("Save")}</button>
+              </div>
+            </div>
+          </form>
 
           <div class="grid gap-4 xl:grid-cols-2">
             <form
