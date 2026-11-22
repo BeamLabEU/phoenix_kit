@@ -384,7 +384,11 @@ session cookie is a signed cookie that exposes `user_token`, and one that cannot
 be told from the others must not be passed on, so the handoff fails closed and
 logs a warning once per endpoint. A host in that case loses its modules'
 cookies (a guest cart kept in a cookie is not carried), not its sessions;
-declaring the session on a socket restores them.
+declaring the session on a socket restores them. **The same on the way back:**
+without the session cookie's name, every cookie a module's `handoff_apply/2` asks
+to set is refused (and logged once per module), so that a module cannot set a
+cookie with the session cookie's name either. When the name is known it is
+reserved with the kit's own names, and a module that tries it is left out.
 
 A snapshot is stored as plaintext `jsonb`: **a module never puts a secret in it**
 (a token, a password, anything it does not want read from the database), and

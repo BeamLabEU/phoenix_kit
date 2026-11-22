@@ -677,6 +677,8 @@ defmodule PhoenixKit.HandoffTest do
     end
 
     @context %{user_uuid: nil, session: %{}, cookies: %{}, host: "shop-de.test", locale: "de"}
+    # Cookies are only accepted when the host's session cookie is named (see below).
+    @session [session_cookies: ["_test_session"]]
 
     test "hands each module its own payload and the context, and collects notices and cookies" do
       payload = %{
@@ -685,7 +687,7 @@ defmodule PhoenixKit.HandoffTest do
         "not_registered" => %{"y" => 1}
       }
 
-      effects = Handoff.apply_payload(@context, payload, [Notices, MapResult])
+      effects = Handoff.apply_payload(@context, payload, [Notices, MapResult], @session)
 
       assert effects.notices == ["Moved 2.", "shop-de.test"] ++ ["From the map."]
 
@@ -1277,7 +1279,7 @@ defmodule PhoenixKit.HandoffTest do
 
     @context %{user_uuid: nil, session: %{}, cookies: %{}, host: "h", locale: nil}
 
-    defp answer(value, opts \\ []) do
+    defp answer(value, opts \\ @session) do
       Application.put_env(:phoenix_kit, :handoff_unit_answer, value)
       on_exit(fn -> Application.delete_env(:phoenix_kit, :handoff_unit_answer) end)
 
@@ -1315,10 +1317,51 @@ defmodule PhoenixKit.HandoffTest do
       assert %{cookies: [{"good-name_1.x", "v", _}]} =
                answer({:ok, %{cookies: [{"good-name_1.x", "v", []}]}})
 
-      assert %{cookies: []} =
-               answer({:ok, %{cookies: [{"_my_app_key", "v", []}]}},
-                 reserved_cookies: ["_my_app_key"]
+      # The host's session cookie is reserved by the name it is given: a module that
+      # tries it is left out, and its other cookies are not.
+      assert %{cookies: [{"theme", "dark", _}]} =
+               answer(
+                 {:ok, %{cookies: [{"_my_app_key", "v", []}, {"theme", "dark", []}]}},
+                 session_cookies: ["_my_app_key"]
                )
+    end
+
+    test "with no session cookie name, every cookie a module sets is refused" do
+      cookies = [{"theme", "dark", []}, {"_my_app_key", "v", []}]
+
+      for opts <- [[], [session_cookies: []]] do
+        assert %{notices: ["Kept."], cookies: []} =
+                 answer({:ok, %{notices: ["Kept."], cookies: cookies}}, opts)
+      end
+    end
+
+    test "and that is logged once for the module, not once per handoff" do
+      :persistent_term.erase({Handoff, :cookies_refused, Scripted})
+      Application.put_env(:phoenix_kit, :handoff_unit_answer, {:ok, %{cookies: [{"a", "b", []}]}})
+      on_exit(fn -> Application.delete_env(:phoenix_kit, :handoff_unit_answer) end)
+
+      log =
+        capture_log(fn ->
+          for _ <- 1..4,
+              do: Handoff.apply_payload(@context, %{"scripted" => %{}}, [Scripted], [])
+        end)
+
+      assert [_one] = Regex.scan(~r/session cookie/, log)
+      assert log =~ "Scripted"
+    end
+
+    test "a module that sets no cookie is not logged for the missing session cookie name" do
+      :persistent_term.erase({Handoff, :cookies_refused, Scripted})
+      Application.put_env(:phoenix_kit, :handoff_unit_answer, {:ok, %{notices: ["Only this."]}})
+      on_exit(fn -> Application.delete_env(:phoenix_kit, :handoff_unit_answer) end)
+
+      log =
+        capture_log(fn ->
+          assert %{notices: ["Only this."], cookies: []} =
+                   Handoff.apply_payload(@context, %{"scripted" => %{}}, [Scripted], [])
+        end)
+
+      refute log =~ "session cookie"
     end
 
     test "a cookie value must be a binary of sane size and cookie characters" do
@@ -1395,7 +1438,7 @@ defmodule PhoenixKit.HandoffTest do
 
       # On a plain-http site (dev, test) the default cannot be Secure, or the browser drops it.
       assert %{cookies: [{_, _, opts}]} =
-               answer({:ok, %{cookies: [{"c", "v", []}]}}, scheme: "http")
+               answer({:ok, %{cookies: [{"c", "v", []}]}}, [{:scheme, "http"} | @session])
 
       assert opts[:secure] == false
     end

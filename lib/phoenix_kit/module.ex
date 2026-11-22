@@ -325,7 +325,9 @@ defmodule PhoenixKit.Module do
     * **Cookies** are set on the response of the redirect. At most **5** per module and **10** in
       all. `name` is an RFC 6265 token (letters, digits and ``!#$%&'*+-.^_`|~``) of 1 to 64 bytes,
       and is none of the kit's own cookie names (`PhoenixKit.Handoff.auth_cookie_names/1`, the
-      session cookie included). `value` is a binary of at most **2048 bytes** of cookie characters
+      session cookie included). **When the host's session cookie name cannot be told** (see
+      `handoff_snapshot/1`) **every cookie is refused**, whatever its name: nothing could keep a
+      module from setting the session cookie itself. `value` is a binary of at most **2048 bytes** of cookie characters
       (printable ASCII except space, `"`, `,`, `;` and `\`), or any binary of that size when `opts`
       has `sign: true` or `encrypt: true`. `opts` is a keyword list of
       `Plug.Conn.put_resp_cookie/4`'s options, of which only `:max_age` (an integer from 0 to

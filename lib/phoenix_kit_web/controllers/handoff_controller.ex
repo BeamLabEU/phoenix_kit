@@ -261,7 +261,7 @@ defmodule PhoenixKitWeb.HandoffController do
         |> Map.merge(%{host: conn.host, locale: locale})
         |> Handoff.apply_payload(row.payload || %{}, nil,
           scheme: scheme(conn),
-          reserved_cookies: Handoff.auth_cookie_names(session_cookies)
+          session_cookies: session_cookies
         )
 
       conn

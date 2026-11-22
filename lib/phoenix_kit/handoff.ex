@@ -717,6 +717,22 @@ defmodule PhoenixKit.Handoff do
     :ok
   end
 
+  defp warn_cookies_refused(module) do
+    key = {__MODULE__, :cookies_refused, module}
+
+    if :persistent_term.get(key, nil) == nil do
+      :persistent_term.put(key, true)
+
+      Logger.warning(
+        "[Handoff] the session cookie of the endpoint cannot be told: the cookies " <>
+          "#{inspect(module)} asked to set are refused. Declare the session in the endpoint's " <>
+          "socket, `connect_info: [session: @session_options]`, to let modules set cookies."
+      )
+    end
+
+    :ok
+  end
+
   defp socket_session_keys(opts) when is_list(opts) do
     for transport <- [:websocket, :longpoll],
         transport_opts = Keyword.get(opts, transport),
@@ -814,8 +830,12 @@ defmodule PhoenixKit.Handoff do
   function does not raise.
 
   Options: `:timeout`, `:scheme` (`scheme/0`, default `"https"`: it decides the default of a
-  cookie's `Secure` flag) and `:reserved_cookies` (names a module may not set, default
-  `auth_cookie_names/1`).
+  cookie's `Secure` flag) and `:session_cookies`, the host's session cookie names
+  (`session_cookie_names/1`), which are reserved with the rest of `auth_cookie_names/1`: a module
+  may not set any of them. **Without a session cookie name (the default, and `[]`) every cookie a
+  module asks for is refused**, whatever its name, and that is logged once per module: the session
+  cookie could not be told from any other, and a module must not be able to set it. This is the
+  write side of what `hook_context/4` does on the read side.
   """
   @spec apply_payload(context(), map(), [module()] | nil, keyword()) :: %{
           notices: [String.t()],
@@ -826,7 +846,8 @@ defmodule PhoenixKit.Handoff do
     settings = %{
       timeout: Keyword.get(opts, :timeout, @apply_timeout_ms),
       scheme: Keyword.get(opts, :scheme, "https"),
-      reserved: Keyword.get_lazy(opts, :reserved_cookies, &auth_cookie_names/0)
+      session_cookies: Keyword.get(opts, :session_cookies, []),
+      reserved: opts |> Keyword.get(:session_cookies, []) |> auth_cookie_names()
     }
 
     calls =
@@ -1018,6 +1039,13 @@ defmodule PhoenixKit.Handoff do
     if String.valid?(bytes),
       do: bytes,
       else: drop_partial_character(binary_part(bytes, 0, byte_size(bytes) - 1))
+  end
+
+  # With no session cookie name, none: the session cookie (which holds `user_token`) is among the
+  # names a module could set, and nothing tells it from the others.
+  defp clean_cookies(module, cookies, %{session_cookies: []}) do
+    if cookies != [], do: warn_cookies_refused(module)
+    []
   end
 
   defp clean_cookies(module, cookies, settings) do
