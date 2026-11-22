@@ -106,6 +106,13 @@ defmodule PhoenixKitWeb.Users.Auth do
   def remember_me_cookie, do: @remember_me_cookie
 
   @doc """
+  The session keys (strings, as `Plug.Conn.get_session/1` returns them) that hold the signed-in
+  session itself: the session token and the live-socket id derived from it. Auth material.
+  """
+  @spec session_keys() :: [String.t()]
+  def session_keys, do: ["user_token", "live_socket_id"]
+
+  @doc """
   Logs the user in.
 
   It renews the session ID and clears the whole session

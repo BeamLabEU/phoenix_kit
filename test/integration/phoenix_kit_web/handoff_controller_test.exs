@@ -10,16 +10,22 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
 
   import ExUnit.CaptureLog
 
+  alias PhoenixKit.API.OAuth.RequestLog
+  alias PhoenixKit.Cache
   alias PhoenixKit.Handoff
   alias PhoenixKit.Handoff.Token
   alias PhoenixKit.ModuleRegistry
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Settings
+  alias PhoenixKit.Test.HandoffDisabledModule
   alias PhoenixKit.Test.HandoffFailingModule
   alias PhoenixKit.Test.HandoffResolver
+  alias PhoenixKit.Test.HandoffScriptedModule
   alias PhoenixKit.Test.HandoffStubModule
+  alias PhoenixKit.Test.LanguageSettings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.RateLimiter
+  alias PhoenixKit.Users.Sessions
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Users.Auth, as: WebAuth
   alias PhoenixKitWeb.Users.MultiSession
@@ -36,6 +42,10 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
     {:ok, _} = Languages.add_language("fr-FR")
     Application.put_env(:phoenix_kit, :canonical_host_resolver, {HandoffResolver, :host})
     :ok = ModuleRegistry.register(HandoffStubModule)
+
+    # The hooks run in tasks of this supervisor (an application starts it; the suite does not).
+    unless Process.whereis(PhoenixKit.TaskSupervisor),
+      do: start_supervised!({Task.Supervisor, name: PhoenixKit.TaskSupervisor})
 
     on_exit(fn ->
       Application.delete_env(:phoenix_kit, :canonical_host_resolver)
@@ -94,12 +104,14 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
         put_req_header(acc, name, value)
       end)
 
-    conn =
-      browser.jars
-      |> Map.get(host, %{})
-      |> Enum.reduce(conn, fn {name, value}, acc -> put_req_cookie(acc, name, value) end)
+    # Cookies the test gives a visit are in the browser from then on, as a real browser's are.
+    jar = Map.merge(Map.get(browser.jars, host, %{}), Map.new(Keyword.get(opts, :cookies, [])))
+    browser = %{browser | jars: Map.put(browser.jars, host, jar)}
 
-    conn = Phoenix.ConnTest.dispatch(conn, @endpoint, method, "https://#{host}#{path}")
+    conn = Enum.reduce(jar, conn, fn {name, value}, acc -> put_req_cookie(acc, name, value) end)
+
+    scheme = Keyword.get(opts, :scheme, "https")
+    conn = Phoenix.ConnTest.dispatch(conn, @endpoint, method, "#{scheme}://#{host}#{path}")
     {conn, absorb(browser, host, conn)}
   end
 
@@ -115,7 +127,13 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
 
   defp follow(browser, conn, opts \\ []) do
     uri = conn |> redirected_to(302) |> URI.parse()
-    visit(browser, uri.host, uri.path <> if(uri.query, do: "?" <> uri.query, else: ""), opts)
+
+    visit(
+      browser,
+      uri.host,
+      uri.path <> if(uri.query, do: "?" <> uri.query, else: ""),
+      [{:scheme, uri.scheme || "https"} | opts]
+    )
   end
 
   defp location(conn) do
@@ -130,8 +148,8 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
   end
 
   # start (source) -> prepare (target) -> mint (source) -> redeem (target); the four conns.
-  defp handoff(browser, opts \\ []) do
-    source_opts = Keyword.take(opts, [:session, :headers])
+  defp handoff(browser, opts) do
+    source_opts = Keyword.take(opts, [:session, :headers, :cookies, :scheme])
     target_opts = Keyword.get(opts, :target_opts, [])
     redeem_opts = Keyword.get(opts, :redeem_opts, [])
     to = Keyword.get(opts, :to, "/shop")
@@ -161,6 +179,18 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
         do: assert(cookie[key] == value, "#{name} #{key}: #{inspect(cookie[key])}")
 
     cookie
+  end
+
+  defp proof, do: Handoff.source_proof_param(Handoff.new_secret())
+
+  # What a signed cookie of the application holds (`nil` when it is not one).
+  defp signed_secret(value, name) do
+    secret_key_base = @endpoint.config(:secret_key_base)
+
+    case Plug.Crypto.verify(secret_key_base, name <> "_cookie", value, keys: Plug.Keys) do
+      {:ok, secret} -> secret
+      _ -> nil
+    end
   end
 
   defp assert_deleted(conn, name), do: assert(%{max_age: 0} = conn.resp_cookies[name])
@@ -197,12 +227,18 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
         max_age: 60
       )
 
-      assert Handoff.secret?(start.resp_cookies[@start_cookie].value)
+      # The source cookie is signed by the application, and the proof of its secret travels on.
+      secret = signed_secret(start.resp_cookies[@start_cookie].value, @start_cookie)
+      assert Handoff.secret?(secret)
 
       assert %{scheme: "https", host: @target, path: @prefix <> "/prepare", query: query} =
                location(start)
 
-      assert query == %{"return" => @source, "to" => "/shop"}
+      assert query == %{
+               "return" => @source,
+               "to" => "/shop",
+               "s" => Handoff.source_proof_param(secret)
+             }
 
       # 2: prepare. A nonce cookie of the target; its hash goes back to the source.
       nonce_cookie =
@@ -220,7 +256,8 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
       assert query == %{
                "n" => Handoff.nonce_hash_param(nonce_cookie.value),
                "h" => @target,
-               "to" => "/shop"
+               "to" => "/shop",
+               "s" => Handoff.source_proof_param(secret)
              }
 
       # 3: mint. The source cookie is spent; a row binds the token to host, browser and account.
@@ -458,15 +495,19 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
   describe "prepare" do
     test "refuses a return host that is not on the allow-list, the same host, and a bad target" do
       to = "%2Fshop"
+      s = Handoff.source_proof_param(Handoff.new_secret())
 
       for query <- [
-            "return=evil.test&to=#{to}",
-            "return=#{@target}&to=#{to}",
-            "return=#{@source}&to=//evil.test",
-            "return=#{@source}",
-            "to=#{to}",
-            "return=https%3A%2F%2F#{@source}&to=#{to}",
-            "return=#{@source}:99&to=#{to}"
+            "return=evil.test&to=#{to}&s=#{s}",
+            "return=#{@target}&to=#{to}&s=#{s}",
+            "return=#{@source}&to=//evil.test&s=#{s}",
+            "return=#{@source}&s=#{s}",
+            "to=#{to}&s=#{s}",
+            "return=https%3A%2F%2F#{@source}&to=#{to}&s=#{s}",
+            "return=#{@source}:99&to=#{to}&s=#{s}",
+            "return=#{@source}&to=#{to}",
+            "return=#{@source}&to=#{to}&s=short",
+            "return=#{@source}&to=#{to}&s=#{String.duplicate("!", 43)}"
           ] do
         {conn, _} = visit(new_browser(), @target, "#{@prefix}/prepare?" <> query)
         assert_refused(conn)
@@ -476,7 +517,7 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
 
     test "gives a browser that holds a nonce the same one again" do
       browser = new_browser()
-      path = "#{@prefix}/prepare?return=#{@source}&to=%2Fshop"
+      path = "#{@prefix}/prepare?return=#{@source}&to=%2Fshop&s=#{proof()}"
 
       {first, browser} = visit(browser, @target, path)
       {second, _} = visit(browser, @target, path)
@@ -487,7 +528,7 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
 
     test "ignores a nonce cookie that is not well-formed" do
       {conn, _} =
-        visit(new_browser(), @target, "#{@prefix}/prepare?return=#{@source}&to=%2F",
+        visit(new_browser(), @target, "#{@prefix}/prepare?return=#{@source}&to=%2F&s=#{proof()}",
           headers: [{"cookie", "#{@nonce_cookie}=short"}]
         )
 
@@ -496,46 +537,129 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
   end
 
   describe "mint" do
-    defp prepared(browser) do
+    defp prepared(browser, s \\ proof()) do
       {prepare, browser} =
-        visit(browser, @target, "#{@prefix}/prepare?return=#{@source}&to=%2Fshop")
+        visit(browser, @target, "#{@prefix}/prepare?return=#{@source}&to=%2Fshop&s=#{s}")
 
       {location(prepare).query["n"], browser}
     end
 
-    defp mint_path(n, h \\ @target, to \\ "/shop"),
-      do: "#{@prefix}/mint?" <> URI.encode_query(n: n, h: h, to: to)
+    defp mint_path(n, s, h \\ @target, to \\ "/shop"),
+      do: "#{@prefix}/mint?" <> URI.encode_query(n: n, s: s, h: h, to: to)
 
+    # The browser after `start`, with the proof of its source cookie.
     defp started(browser, session) do
       {start, browser} =
         visit(browser, @source, Handoff.start_path("de", "/shop"), session: session)
 
       assert Map.has_key?(start.resp_cookies, @start_cookie)
-      browser
+      {browser, location(start).query["s"]}
     end
 
     test "is refused for a browser that never clicked start, and writes nothing" do
       session = signed_in_session(user!())
       {n, _} = prepared(new_browser())
 
-      {conn, _} = visit(new_browser(), @source, mint_path(n), session: session)
+      {conn, _} = visit(new_browser(), @source, mint_path(n, proof()), session: session)
       assert_refused(conn)
       assert tokens() == []
     end
 
     test "needs the source cookie, which is good for one attempt" do
       session = signed_in_session(user!())
-      browser = started(new_browser(), session)
-      {n, browser} = prepared(browser)
+      {browser, s} = started(new_browser(), session)
+      {n, browser} = prepared(browser, s)
 
-      {first, browser} = visit(browser, @source, mint_path(n))
+      {first, browser} = visit(browser, @source, mint_path(n, s))
       assert %{host: @target} = location(first)
       assert_deleted(first, @start_cookie)
       assert length(tokens()) == 1
 
-      {second, _} = visit(browser, @source, mint_path(n))
+      {second, _} = visit(browser, @source, mint_path(n, s))
       assert_refused(second)
       assert length(tokens()) == 1
+    end
+
+    test "is refused for a source cookie the application did not issue, with a proof that matches it" do
+      session = signed_in_session(user!())
+      forged = Handoff.new_secret()
+      {n, _} = prepared(new_browser())
+
+      for cookie <- [forged, "SFMyNTY.forged.forged", ""] do
+        {conn, _} =
+          visit(new_browser(), @source, mint_path(n, Handoff.source_proof_param(forged)),
+            session: session,
+            cookies: [{@start_cookie, cookie}]
+          )
+
+        assert_refused(conn)
+      end
+
+      assert tokens() == []
+    end
+
+    test "is refused for a source cookie issued for another start: the proof must be its own" do
+      session = signed_in_session(user!())
+      {browser, _s} = started(new_browser(), session)
+      {_other_browser, other_s} = started(new_browser(), session)
+      {n, browser} = prepared(browser, other_s)
+
+      # A real cookie of this browser, the proof of a different start's.
+      {conn, _} = visit(browser, @source, mint_path(n, other_s))
+      assert_refused(conn)
+      assert tokens() == []
+    end
+
+    test "is refused without a proof, or with one that is not a hash of a secret" do
+      session = signed_in_session(user!())
+
+      for s <- [nil, "", "short", String.duplicate("!", 43), String.duplicate("a", 44)] do
+        {browser, _s} = started(new_browser(), session)
+        {n, browser} = prepared(browser)
+
+        path =
+          "#{@prefix}/mint?" <>
+            URI.encode_query(Enum.reject([n: n, s: s, h: @target, to: "/"], &is_nil(elem(&1, 1))))
+
+        {conn, _} = visit(browser, @source, path)
+        assert_refused(conn)
+      end
+
+      assert tokens() == []
+    end
+
+    test "an anonymous visitor with nothing for any module to carry gets no row, whatever the proof" do
+      # A cookie the application did issue (a guest with a cart clicked start), then the cart is
+      # gone by the time of the mint: nothing to carry, no account.
+      {browser, s} = started(new_browser(), stub_cart: "cart-1")
+      {n, browser} = prepared(browser, s)
+
+      # The browser lost its session (the cart with it) but kept the source cookie.
+      jars = Map.update!(browser.jars, @source, &Map.delete(&1, "_phoenix_kit_key"))
+
+      {conn, _} = visit(%{browser | jars: jars}, @source, mint_path(n, s))
+      assert_refused(conn)
+      assert_deleted(conn, @start_cookie)
+      assert tokens() == []
+    end
+
+    test "a flood of mints from one address, with no start behind them, writes no row" do
+      limit = Keyword.fetch!(RateLimiter.get_config(), :handoff_mint_limit)
+      browser = new_browser()
+      {n, _} = prepared(new_browser())
+
+      for _ <- 1..(limit * 3) do
+        s = proof()
+
+        {conn, _} =
+          visit(browser, @source, mint_path(n, s),
+            cookies: [{@start_cookie, Handoff.new_secret()}]
+          )
+
+        assert_refused(conn)
+      end
+
+      assert tokens() == []
     end
 
     test "is refused for a hash that is not 32 bytes of base64url, whatever else is right" do
@@ -549,8 +673,8 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
             String.duplicate("!", 43),
             String.duplicate("a", 43) <> "=="
           ] do
-        browser = started(new_browser(), session)
-        {conn, _} = visit(browser, @source, mint_path(n))
+        {browser, s} = started(new_browser(), session)
+        {conn, _} = visit(browser, @source, mint_path(n, s))
         assert_refused(conn)
       end
 
@@ -567,9 +691,9 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
             {@target, "//evil.test"},
             {@target, "https://evil.test"}
           ] do
-        browser = started(new_browser(), session)
-        {n, browser} = prepared(browser)
-        {conn, _} = visit(browser, @source, mint_path(n, h, to))
+        {browser, s} = started(new_browser(), session)
+        {n, browser} = prepared(browser, s)
+        {conn, _} = visit(browser, @source, mint_path(n, s, h, to))
         assert_refused(conn)
       end
 
@@ -581,7 +705,7 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
       {n, _} = prepared(new_browser())
 
       {conn, _} =
-        visit(new_browser(), "www.example.com", mint_path(n),
+        visit(new_browser(), "www.example.com", mint_path(n, proof()),
           session: session,
           headers: [{"cookie", "#{@start_cookie}=#{Handoff.new_secret()}"}]
         )
@@ -592,11 +716,11 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
 
     test "is refused for an impersonated session" do
       {admin_session, target} = impersonation_session()
-      browser = started(new_browser(), admin_session)
-      {n, browser} = prepared(browser)
+      {browser, s} = started(new_browser(), admin_session)
+      {n, browser} = prepared(browser, s)
       browser = impersonate(browser, [], target)
 
-      {conn, _} = visit(browser, @source, mint_path(n))
+      {conn, _} = visit(browser, @source, mint_path(n, s))
       assert_refused(conn, carried_flash: true)
       assert tokens() == []
     end
@@ -604,12 +728,12 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
     test "carries no account for one that has been deactivated, only what the modules hold" do
       user = user!()
       session = signed_in_session(user) ++ [stub_cart: "cart-1"]
-      browser = started(new_browser(), session)
-      {n, browser} = prepared(browser)
+      {browser, s} = started(new_browser(), session)
+      {n, browser} = prepared(browser, s)
 
       Repo.update_all(from(u in Auth.User, where: u.uuid == ^user.uuid), set: [is_active: false])
 
-      {conn, _} = visit(browser, @source, mint_path(n))
+      {conn, _} = visit(browser, @source, mint_path(n, s))
       assert %{host: @target} = location(conn)
       assert [%Token{user_uuid: nil}] = tokens()
     end
@@ -904,9 +1028,389 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
     end
   end
 
+  describe "what a module is handed" do
+    test "the session and cookies of the request, without the kit's auth material" do
+      user = user!()
+      session = signed_in_session(user) ++ [stub_cart: "cart-1"]
+
+      cookies = [
+        {"_phoenix_kit_web_user_remember_me", "remember-secret"},
+        {"_phoenix_kit_web_session_accounts", "accounts-secret"},
+        {"_phoenix_kit_device", "device-secret"},
+        {"pk_oauth_browser", "oauth-secret"},
+        {"_phoenix_kit_key", "session-cookie-secret"},
+        {"theme", "dark"}
+      ]
+
+      {[_, _, _, redeem], _} =
+        handoff(new_browser(),
+          session: session,
+          cookies: cookies,
+          target_opts: [cookies: [{"theme", "light"}, {"_phoenix_kit_key", "target-session"}]]
+        )
+
+      # The control: the session did hold the kit's tokens, so what is missing was removed.
+      assert get_session(redeem, :user_token)
+      assert [%Token{user_uuid: uuid}] = tokens()
+      assert uuid == user.uuid
+
+      # A signed-in visitor: one snapshot, at the mint.
+      assert_received {:handoff_snapshot, at_mint}
+      refute_received {:handoff_snapshot, _}
+
+      for key <- Handoff.auth_session_keys(), do: refute(Map.has_key?(at_mint.session, key), key)
+      assert at_mint.session["stub_cart"] == "cart-1"
+      assert at_mint.cookies == %{"theme" => "dark"}
+      assert Enum.sort(Map.keys(at_mint)) == [:cookies, :session, :user_uuid]
+
+      assert_received {:handoff_apply, applied, _payload}
+
+      for key <- Handoff.auth_session_keys(), do: refute(Map.has_key?(applied.session, key), key)
+      assert applied.cookies == %{"theme" => "light"}
+    end
+
+    test "a guest's snapshot at start has none of it either" do
+      session = [
+        stub_cart: "cart-1",
+        user_token: "stale-token",
+        live_socket_id: "phoenix_kit_sessions:x",
+        pk_session_accounts: ["stale-token"],
+        pk_own_tokens: ["stale-token"],
+        pk_impersonators: %{"stale-token" => "origin"},
+        pk_organization_token: "stale-org-token",
+        website_access_unlock: "unlocked"
+      ]
+
+      {[_start, _, _, _], _} = handoff(new_browser(), session: session)
+
+      assert_received {:handoff_snapshot, at_start}
+
+      for key <- Handoff.auth_session_keys(), do: refute(Map.has_key?(at_start.session, key), key)
+      assert at_start.session["stub_cart"] == "cart-1"
+    end
+
+    test "a cookie a module sets is Secure, HttpOnly and SameSite=Lax, and has the options it passed" do
+      {[_, _, _, redeem], _} = handoff(new_browser(), session: [stub_cart: "cart-1"])
+
+      cookie =
+        assert_cookie(redeem, "stub_cart_id",
+          http_only: true,
+          same_site: "Lax",
+          secure: true,
+          max_age: 600
+        )
+
+      refute Map.has_key?(cookie, :unsafe_option)
+    end
+  end
+
+  describe "a module that misbehaves" do
+    setup do
+      :ok = ModuleRegistry.register(HandoffScriptedModule)
+
+      on_exit(fn ->
+        ModuleRegistry.unregister(HandoffScriptedModule)
+        HandoffScriptedModule.clear()
+      end)
+    end
+
+    # The whole flow for a signed-in account, with the script in place; the redeem conn.
+    defp handoff_with(script, user \\ nil) do
+      HandoffScriptedModule.script(script)
+      user = user || user!()
+      {[_, _, _, redeem], _} = handoff(new_browser(), session: signed_in_session(user))
+      {redeem, user}
+    end
+
+    defp handed_over(redeem, user) do
+      assert redirected_to(redeem, 302) == "/shop"
+      assert get_session(redeem, :user_token)
+      assert Auth.get_user_by_session_token(get_session(redeem, :user_token)).uuid == user.uuid
+    end
+
+    test "a cookie with a bad name is left out, and the visitor is still handed over" do
+      {redeem, user} =
+        handoff_with(%{apply: {:ok, %{cookies: [{"bad name;x", "v", []}, {"fine", "v", []}]}}})
+
+      handed_over(redeem, user)
+      refute Map.has_key?(redeem.resp_cookies, "bad name;x")
+      assert %{value: "v"} = redeem.resp_cookies["fine"]
+      assert flash(redeem, "info") == signed_in(user)
+    end
+
+    test "a cookie with a huge value is left out" do
+      {redeem, user} =
+        handoff_with(%{apply: {:ok, %{cookies: [{"huge", String.duplicate("a", 5000), []}]}}})
+
+      handed_over(redeem, user)
+      refute Map.has_key?(redeem.resp_cookies, "huge")
+    end
+
+    test "a cookie that tries the kit's own names is left out" do
+      forged = [
+        {"_phoenix_kit_web_user_remember_me", "x", []},
+        {"_phoenix_kit_key", "x", []},
+        {"__Host-pk_handoff_nonce", "x", []}
+      ]
+
+      {redeem, user} = handoff_with(%{apply: {:ok, %{cookies: forged}}})
+
+      handed_over(redeem, user)
+      # (The sign-in deletes the remember-me cookie itself; what matters is nobody's value.)
+      for name <- ["_phoenix_kit_web_user_remember_me", "_phoenix_kit_key"] do
+        refute match?(%{value: "x"}, redeem.resp_cookies[name]), name
+      end
+    end
+
+    test "five long notices of four-byte characters cannot overflow the session cookie" do
+      notices = for n <- 1..5, do: String.duplicate("😀", 300) <> "#{n}"
+      {redeem, user} = handoff_with(%{apply: {:ok, notices}})
+
+      handed_over(redeem, user)
+
+      line = flash(redeem, "info")
+      assert String.valid?(line)
+      assert byte_size(line) <= byte_size(signed_in(user)) + 5 + 600
+
+      [session_cookie] =
+        for header <- get_resp_header(redeem, "set-cookie"),
+            String.starts_with?(header, "_phoenix_kit_key="),
+            do: header
+
+      assert byte_size(session_cookie) < 4096
+    end
+
+    test "an answer that is not the contract's is ignored, and the visitor is handed over" do
+      for garbage <- [:ok, {:ok, 5}, {:ok, %{cookies: :nope}}, {:weird, :tuple, 3}, nil] do
+        {redeem, user} = handoff_with(%{apply: garbage})
+        handed_over(redeem, user)
+        assert flash(redeem, "info") == signed_in(user)
+      end
+    end
+
+    test "a module that raises in apply is logged (its kind, not its message) and left out" do
+      log =
+        capture_log(fn ->
+          {redeem, user} = handoff_with(%{apply: {:raise, "apply-secret-value"}})
+          handed_over(redeem, user)
+          assert flash(redeem, "info") == signed_in(user)
+        end)
+
+      assert log =~ "handoff_apply of PhoenixKit.Test.HandoffScriptedModule raised RuntimeError"
+      refute log =~ "apply-secret-value"
+    end
+
+    test "the other modules' contribution still reaches the visitor" do
+      HandoffScriptedModule.script(%{apply: {:raise, "x"}})
+      user = user!()
+
+      {[_, _, _, redeem], _} =
+        capture_log(fn ->
+          send(
+            self(),
+            {:flow,
+             handoff(new_browser(), session: signed_in_session(user) ++ [stub_cart: "cart-1"])}
+          )
+        end)
+        |> then(fn _log ->
+          assert_received {:flow, flow}
+          flow
+        end)
+
+      handed_over(redeem, user)
+      assert flash(redeem, "info") == signed_in(user) <> " Your cart came along."
+      assert %{value: "cart-1"} = redeem.resp_cookies["stub_cart_id"]
+    end
+  end
+
+  describe "a module that is switched off" do
+    setup do
+      :ok = ModuleRegistry.register(HandoffDisabledModule)
+      on_exit(fn -> ModuleRegistry.unregister(HandoffDisabledModule) end)
+    end
+
+    test "is neither asked for a snapshot at start or mint nor applied at redeem" do
+      assert HandoffDisabledModule in ModuleRegistry.all_modules()
+
+      # A guest: start asks the modules whether there is anything to carry.
+      {[_, _, _, _redeem], _} = handoff(new_browser(), session: [stub_cart: "cart-1"])
+
+      refute_received :disabled_snapshot_called
+      refute_received :disabled_apply_called
+      assert [%Token{payload: payload}] = tokens()
+      assert Map.keys(payload) == ["handoff_stub"]
+    end
+
+    test "is not applied even when a payload names it" do
+      session = signed_in_session(user!())
+      {browser, _prepare, mint, _token} = minted(session)
+
+      Repo.update_all(Token,
+        set: [payload: %{"handoff_disabled" => %{"secret" => "disabled"}}]
+      )
+
+      {redeem, _} = follow(browser, mint)
+      assert redirected_to(redeem, 302) == "/shop"
+      refute_received :disabled_apply_called
+      assert flash(redeem, "info") =~ "angemeldet"
+      refute flash(redeem, "info") =~ "from a disabled module"
+    end
+  end
+
+  describe "revocation" do
+    test "a redeem after the account's sessions were all revoked fails" do
+      user = user!()
+      {browser, _prepare, mint, _token} = minted(signed_in_session(user))
+      assert [%Token{used_at: nil}] = tokens()
+
+      Auth.delete_all_user_session_tokens(user)
+
+      {conn, _} = follow(browser, mint)
+      assert_refused(conn)
+      refute get_session(conn, :user_token)
+      assert tokens() == []
+    end
+
+    test "so does one after a password change" do
+      user = user!()
+      {browser, _prepare, mint, _token} = minted(signed_in_session(user))
+
+      assert {:ok, _user} =
+               Auth.update_user_password(user, "ValidPassword123!", %{
+                 password: "AnotherValidPassword456!"
+               })
+
+      {conn, _} = follow(browser, mint)
+      assert_refused(conn)
+      refute get_session(conn, :user_token)
+    end
+
+    test "so does one after an admin revoked the account's sessions" do
+      user = user!()
+      {browser, _prepare, mint, _token} = minted(signed_in_session(user))
+      {admin, _token} = create_admin_user()
+
+      Sessions.revoke_user_sessions(user, actor: admin)
+
+      {conn, _} = follow(browser, mint)
+      assert_refused(conn)
+      assert tokens() == []
+    end
+
+    test "so does one after the one session it was minted from was signed out" do
+      user = user!()
+      session = signed_in_session(user)
+      {browser, _prepare, mint, _token} = minted(session)
+
+      Auth.delete_user_session_token(session[:user_token])
+
+      {conn, _} = follow(browser, mint)
+      assert_refused(conn)
+    end
+
+    test "another account's handoff, and a guest's, are not touched" do
+      user = user!()
+      other = user!()
+      {_browser, _prepare, _mint, _token} = minted(signed_in_session(user))
+      {other_browser, _prepare, other_mint, _token} = minted(signed_in_session(other))
+      {guest_browser, _prepare, guest_mint, _token} = minted(stub_cart: "cart-1")
+
+      Auth.delete_all_user_session_tokens(user)
+
+      assert length(tokens()) == 2
+      {redeem, _} = follow(other_browser, other_mint)
+      assert get_session(redeem, :user_token)
+      {redeem, _} = follow(guest_browser, guest_mint)
+      assert flash(redeem, "info") == "Your cart came along."
+    end
+  end
+
+  describe "an http site" do
+    # With the settings cache running, settings are read from it alone: the languages go in too.
+    setup do
+      LanguageSettings.multilingual!(languages: ["en-US", "de-DE", "fr-FR"])
+      Cache.put(:settings, "site_url", "http://shop.test")
+      :ok
+    end
+
+    test "gets http redirects, and plain cookie names without Secure, end to end" do
+      user = user!()
+
+      {[start, prepare, mint, redeem], _} =
+        handoff(new_browser(), session: signed_in_session(user), scheme: "http")
+
+      assert %{scheme: "http", host: @target} = location(start)
+      assert %{scheme: "http", host: @source} = location(prepare)
+      assert %{scheme: "http", host: @target} = location(mint)
+
+      assert_cookie(start, "pk_handoff_src", secure: false, http_only: true, same_site: "Lax")
+      assert_cookie(prepare, "pk_handoff_nonce", secure: false, http_only: true, same_site: "Lax")
+      refute Map.has_key?(start.resp_cookies, @start_cookie)
+      refute Map.has_key?(prepare.resp_cookies, @nonce_cookie)
+
+      assert redirected_to(redeem, 302) == "/shop"
+      assert get_session(redeem, :user_token)
+      assert_deleted(redeem, "pk_handoff_nonce")
+    end
+
+    test "a visitor with nothing to carry is sent on over http" do
+      {start, _} =
+        visit(new_browser(), @source, Handoff.start_path("de", "/shop"), scheme: "http")
+
+      assert redirected_to(start, 302) == "http://#{@target}/shop"
+    end
+  end
+
+  describe "an https site" do
+    test "never falls back to plain cookie names, whatever the connection says" do
+      user = user!()
+
+      # A proxy that terminates TLS may hand the app an http conn; the scheme of the cookies is
+      # the site's (`site_url`, https by default), not the conn's.
+      {[start, prepare, _mint, _redeem], _} =
+        handoff(new_browser(), session: signed_in_session(user), scheme: "http")
+
+      assert %{scheme: "https"} = location(start)
+      assert %{secure: true} = start.resp_cookies[@start_cookie]
+      assert %{secure: true} = prepare.resp_cookies[@nonce_cookie]
+      refute Map.has_key?(start.resp_cookies, "pk_handoff_src")
+    end
+  end
+
+  describe "the host resolver" do
+    defp asked do
+      receive do
+        {:resolver_asked, language} -> [language | asked()]
+      after
+        0 -> []
+      end
+    end
+
+    test "is asked once per language by a redeem, a prepare and a mint, not once per use" do
+      session = signed_in_session(user!())
+      {browser, _prepare, mint, _token} = minted(session)
+      _ = asked()
+
+      {_redeem, _} = follow(browser, mint)
+      redeem_asked = asked()
+
+      {_prepare, _} =
+        visit(new_browser(), @target, "#{@prefix}/prepare?return=#{@source}&to=%2F&s=#{proof()}")
+
+      prepare_asked = asked()
+
+      for questions <- [redeem_asked, prepare_asked] do
+        assert questions != []
+
+        assert Enum.all?(Enum.frequencies(questions), fn {_language, times} -> times == 1 end),
+               inspect(Enum.frequencies(questions))
+      end
+    end
+  end
+
   describe "the log" do
     test "carries the token of a full handoff in no line: not the request line, not the timer's" do
-      PhoenixKit.API.OAuth.RequestLog.install()
+      RequestLog.install()
       previous = Logger.level()
       Logger.configure(level: :debug)
       on_exit(fn -> Logger.configure(level: previous) end)
@@ -952,12 +1456,6 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
   end
 
   ## Sessions for the refusal tests
-
-  defp admin_session do
-    {admin, token} = create_admin_user()
-    _ = admin
-    [user_token: token, pk_session_accounts: [token]]
-  end
 
   defp impersonation_session do
     {:ok, _} = Settings.update_boolean_setting("multi_session_enabled", true)

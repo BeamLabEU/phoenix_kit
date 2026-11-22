@@ -1728,6 +1728,15 @@ defmodule PhoenixKit.Utils.Routes do
     end
   end
 
+  @doc """
+  The scheme (`"https"` or `"http"`) of the URLs the site builds for its own domains: the one of
+  the explicit `site_url` setting when that is `http` or `https`, and `https` otherwise (also when
+  `site_url` is unset, whatever scheme the endpoint URL has). The scheme `canonical_origin/1`
+  uses; a plain-HTTP dev or staging site says so by setting `site_url`.
+  """
+  @spec canonical_scheme() :: String.t()
+  def canonical_scheme, do: site_scheme()
+
   defp site_scheme do
     case PhoenixKit.Settings.get_setting_cached("site_url", "") do
       site_url when is_binary(site_url) ->

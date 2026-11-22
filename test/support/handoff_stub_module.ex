@@ -3,8 +3,9 @@ defmodule PhoenixKit.Test.HandoffStubModule do
   A stand-in feature module with per-session state (a guest cart in the session), for the
   handoff tests. Registered with `PhoenixKit.ModuleRegistry` by the test.
 
-  Hooks run in the request process, which under `Phoenix.ConnTest` is the test process, so every
-  call reports itself to the test with a message.
+  The handoff runs every hook in a task of its own, so each call reports itself to the process
+  that started the request (the first of `$callers`, which under `Phoenix.ConnTest` is the test
+  process) with a message.
   """
 
   def module_key, do: "handoff_stub"
@@ -12,7 +13,7 @@ defmodule PhoenixKit.Test.HandoffStubModule do
   def enabled?, do: true
 
   def handoff_snapshot(context) do
-    send(self(), {:handoff_snapshot, context})
+    send(caller(), {:handoff_snapshot, context})
 
     case context.session["stub_cart"] do
       nil -> nil
@@ -21,7 +22,7 @@ defmodule PhoenixKit.Test.HandoffStubModule do
   end
 
   def handoff_apply(context, payload) do
-    send(self(), {:handoff_apply, context, payload})
+    send(caller(), {:handoff_apply, context, payload})
 
     {:ok,
      %{
@@ -32,4 +33,6 @@ defmodule PhoenixKit.Test.HandoffStubModule do
        ]
      }}
   end
+
+  defp caller, do: List.first(Process.get(:"$callers", [])) || self()
 end

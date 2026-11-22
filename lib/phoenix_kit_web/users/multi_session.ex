@@ -92,6 +92,20 @@ defmodule PhoenixKitWeb.Users.MultiSession do
   @doc "Maximum number of accounts allowed in one stack."
   def max_accounts, do: @max_accounts
 
+  @doc """
+  The session keys (strings, as `Plug.Conn.get_session/1` returns them) that hold this module's
+  session tokens: the account stack, the tokens added by the user, the impersonation origins and
+  the organization slot. Auth material: never to be handed to code that does not own it.
+  """
+  @spec session_keys() :: [String.t()]
+  def session_keys do
+    Enum.map([@stack_key, @own_key, @impersonators_key, @organization_key], &Atom.to_string/1)
+  end
+
+  @doc "The name of the persistent cookie that mirrors the account stack."
+  @spec accounts_cookie() :: String.t()
+  def accounts_cookie, do: @accounts_cookie
+
   @doc "Whether this signed browser session carries an organization slot."
   def acting?(session), do: is_binary(organization_token(session))
 

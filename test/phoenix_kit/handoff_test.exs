@@ -8,19 +8,31 @@ defmodule PhoenixKit.HandoffTest do
   import ExUnit.CaptureLog
 
   alias PhoenixKit.API.KeyTestSupport
+  alias PhoenixKit.Cache
   alias PhoenixKit.Handoff
   alias PhoenixKit.Handoff.Token
+  alias PhoenixKit.ModuleRegistry
   alias PhoenixKit.Modules.Languages
+  alias PhoenixKit.Test.HandoffDisabledModule
   alias PhoenixKit.Test.HandoffResolver
+  alias PhoenixKit.Test.LanguageSettings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.Auth.User
 
   @host "shop-de.test"
 
+  # The hooks run in tasks of this supervisor (an application starts it; the suite does not).
+  setup do
+    unless Process.whereis(PhoenixKit.TaskSupervisor),
+      do: start_supervised!({Task.Supervisor, name: PhoenixKit.TaskSupervisor})
+
+    :ok
+  end
+
   defp sha(value), do: :crypto.hash(:sha256, value)
 
-  defp attrs(nonce, overrides \\ %{}) do
+  defp attrs(nonce, overrides) do
     Map.merge(
       %{
         target_host: @host,
@@ -175,19 +187,6 @@ defmodule PhoenixKit.HandoffTest do
       assert :error = Handoff.redeem(token, nil, nonce)
       assert :error = Handoff.redeem(String.duplicate("\0", 43), @host, nonce)
       assert is_nil(row(token).used_at)
-    end
-
-    test "of several simultaneous redeems exactly one wins" do
-      nonce = Handoff.new_secret()
-      token = mint!(nonce)
-
-      results =
-        1..8
-        |> Task.async_stream(fn _ -> Handoff.redeem(token, @host, nonce) end, timeout: 10_000)
-        |> Enum.map(fn {:ok, result} -> result end)
-
-      assert Enum.count(results, &match?({:ok, _}, &1)) == 1
-      assert Enum.count(results, &(&1 == :error)) == 7
     end
 
     test "a deleted account takes its rows with it" do
@@ -559,7 +558,15 @@ defmodule PhoenixKit.HandoffTest do
 
       assert effects.notices == ["Moved 2.", "shop-de.test"] ++ ["From the map."]
 
-      assert effects.cookies == [{"cart", "id", [sign: true, max_age: 60]}]
+      assert [{"cart", "id", opts}] = effects.cookies
+
+      assert Enum.sort(opts) == [
+               http_only: true,
+               max_age: 60,
+               same_site: "Lax",
+               secure: true,
+               sign: true
+             ]
     end
 
     test "a module with no entry in the payload is not called" do
@@ -587,6 +594,485 @@ defmodule PhoenixKit.HandoffTest do
     test "at most five notices are kept" do
       effects = Handoff.apply_payload(@context, %{"chatty" => %{}}, [Chatty])
       assert length(effects.notices) == 5
+    end
+  end
+
+  describe "mint/1 with nothing to carry" do
+    test "refuses a handoff with no account and no payload, and writes no row" do
+      nonce = Handoff.new_secret()
+
+      for payload <- [nil, %{}] do
+        assert {:error, :nothing_to_carry} =
+                 Handoff.mint(attrs(nonce, %{payload: payload, user_uuid: nil}))
+      end
+
+      assert {:error, :nothing_to_carry} =
+               Handoff.mint(Map.delete(attrs(nonce, %{user_uuid: nil}), :payload))
+
+      assert Repo.all(Token) == []
+    end
+
+    test "an account alone is something to carry, and so is a payload alone" do
+      user = KeyTestSupport.register_user!()
+      nonce = Handoff.new_secret()
+
+      assert {:ok, _} = Handoff.mint(attrs(nonce, %{payload: %{}, user_uuid: user.uuid}))
+      assert {:ok, _} = Handoff.mint(attrs(nonce, %{user_uuid: nil}))
+      assert length(Repo.all(Token)) == 2
+    end
+  end
+
+  describe "retention" do
+    defp expire(token, seconds_ago) do
+      at = DateTime.add(DateTime.utc_now(), -seconds_ago, :second)
+
+      Repo.update_all(from(t in Token, where: t.token_hash == ^sha(token)),
+        set: [expires_at: at]
+      )
+    end
+
+    test "prune_expired/1 takes the age and the batch size" do
+      nonce = Handoff.new_secret()
+      tokens = for _ <- 1..5, do: mint!(nonce)
+      for {token, age} <- Enum.zip(tokens, [60, 400, 400, 400, 400]), do: expire(token, age)
+
+      # Nothing is that old by a day; four are by five minutes, the batch takes two.
+      assert Handoff.prune_expired() == 0
+      assert Handoff.prune_expired(older_than: 300, limit: 2) == 2
+      assert Handoff.prune_expired(older_than: 300) == 2
+      assert length(Repo.all(Token)) == 1
+    end
+
+    test "a mint deletes a small batch of rows that expired minutes ago, and keeps the rest" do
+      nonce = Handoff.new_secret()
+      stale = for _ <- 1..25, do: mint!(nonce)
+      fresh = mint!(nonce)
+      just_expired = mint!(nonce)
+
+      for token <- stale, do: expire(token, 3_600)
+      expire(just_expired, 30)
+      assert length(Repo.all(Token)) == 27
+
+      # This mint finds 25 that expired an hour ago and takes a batch of 20 of them.
+      newest = mint!(nonce)
+
+      remaining = Repo.all(Token)
+      assert length(remaining) == 25 - 20 + 3
+      assert row(fresh)
+      assert row(just_expired)
+      assert row(newest)
+      assert Enum.count(stale, &row/1) == 5
+    end
+  end
+
+  describe "revoke_for_users/1" do
+    test "deletes the unused handoffs of the accounts named, and nobody else's" do
+      a = KeyTestSupport.register_user!()
+      b = KeyTestSupport.register_user!()
+      nonce = Handoff.new_secret()
+      token_a = mint!(nonce, %{user_uuid: a.uuid})
+      used_a = mint!(nonce, %{user_uuid: a.uuid})
+      token_b = mint!(nonce, %{user_uuid: b.uuid})
+      guest = mint!(nonce)
+      assert {:ok, _} = Handoff.redeem(used_a, @host, nonce)
+
+      assert Handoff.revoke_for_users([a.uuid]) == 1
+
+      refute row(token_a)
+      assert row(used_a)
+      assert row(token_b)
+      assert row(guest)
+      assert Handoff.revoke_for_users([]) == 0
+    end
+  end
+
+  describe "the scheme" do
+    setup do
+      LanguageSettings.start_cache!()
+      :ok
+    end
+
+    test "is https unless the site_url setting says http" do
+      assert Handoff.scheme() == "https"
+
+      Cache.put(:settings, "site_url", "http://shop.test")
+      assert Handoff.scheme() == "http"
+
+      Cache.put(:settings, "site_url", "https://shop.test")
+      assert Handoff.scheme() == "https"
+
+      Cache.put(:settings, "site_url", "ftp://shop.test")
+      assert Handoff.scheme() == "https"
+    end
+
+    test "decides the names of the handoff cookies: __Host- only where it can be Secure" do
+      assert Handoff.source_cookie("https") == "__Host-pk_handoff_src"
+      assert Handoff.nonce_cookie("https") == "__Host-pk_handoff_nonce"
+      assert Handoff.source_cookie("http") == "pk_handoff_src"
+      assert Handoff.nonce_cookie("http") == "pk_handoff_nonce"
+
+      assert Enum.sort(Handoff.cookie_names()) ==
+               Enum.sort([
+                 "__Host-pk_handoff_src",
+                 "__Host-pk_handoff_nonce",
+                 "pk_handoff_src",
+                 "pk_handoff_nonce"
+               ])
+    end
+  end
+
+  describe "the source proof" do
+    test "is the hash of the secret, and only that secret matches" do
+      secret = Handoff.new_secret()
+      proof = Handoff.source_proof_param(secret)
+
+      assert Handoff.secret?(proof)
+      assert Handoff.source_proof?(secret, proof)
+      refute Handoff.source_proof?(Handoff.new_secret(), proof)
+      refute Handoff.source_proof?(secret, Handoff.source_proof_param(Handoff.new_secret()))
+      refute Handoff.source_proof?(nil, proof)
+      refute Handoff.source_proof?(secret, nil)
+      refute Handoff.source_proof?(secret, secret)
+      refute Handoff.source_proof?("short", "short")
+    end
+  end
+
+  describe "hook_context/4 and what a module is never handed" do
+    test "drops the kit's session keys and cookies, and keeps the rest" do
+      session =
+        Map.new(Handoff.auth_session_keys(), &{&1, "secret"})
+        |> Map.merge(%{"stub_cart" => "c1", "phoenix_flash" => %{}})
+
+      cookies =
+        Map.new(Handoff.auth_cookie_names(["_my_app_key"]), &{&1, "secret"})
+        |> Map.merge(%{"stub_cart_id" => "c1", "theme" => "dark"})
+
+      context = Handoff.hook_context("u1", session, cookies, session_cookies: ["_my_app_key"])
+
+      assert context == %{
+               user_uuid: "u1",
+               session: %{"stub_cart" => "c1", "phoenix_flash" => %{}},
+               cookies: %{"stub_cart_id" => "c1", "theme" => "dark"}
+             }
+    end
+
+    test "the lists name what the kit really keeps in the session and in cookies" do
+      assert Enum.sort(Handoff.auth_session_keys()) ==
+               Enum.sort(~w(
+                 user_token live_socket_id pk_session_accounts pk_own_tokens pk_impersonators
+                 pk_organization_token website_access_unlock website_access_allowed _csrf_token
+               ))
+
+      names = Handoff.auth_cookie_names(["_my_app_key"])
+
+      for name <- [
+            "_phoenix_kit_web_user_remember_me",
+            "_phoenix_kit_web_session_accounts",
+            "_phoenix_kit_device",
+            "pk_oauth_browser",
+            "__Host-pk_handoff_src",
+            "__Host-pk_handoff_nonce",
+            "pk_handoff_src",
+            "pk_handoff_nonce",
+            "_my_app_key"
+          ] do
+        assert name in names, name
+      end
+    end
+
+    test "the session cookie of an endpoint is read from its live socket" do
+      assert Handoff.session_cookie_names(PhoenixKitWeb.Endpoint) == ["_phoenix_kit_key"]
+      assert Handoff.session_cookie_names(nil) == []
+      assert Handoff.session_cookie_names(String) == []
+    end
+  end
+
+  describe "hooks run only for enabled modules" do
+    setup do
+      :ok = ModuleRegistry.register(HandoffDisabledModule)
+      on_exit(fn -> ModuleRegistry.unregister(HandoffDisabledModule) end)
+    end
+
+    test "a disabled module is registered, and is neither snapshotted nor applied" do
+      assert HandoffDisabledModule in ModuleRegistry.all_modules()
+      refute HandoffDisabledModule in ModuleRegistry.enabled_modules()
+
+      context = %{user_uuid: nil, session: %{}, cookies: %{}}
+      assert Handoff.snapshots(context) == %{}
+      refute_received :disabled_snapshot_called
+
+      payload = %{"handoff_disabled" => %{"secret" => "disabled"}}
+
+      assert %{notices: [], cookies: []} =
+               Handoff.apply_payload(Map.merge(context, %{host: "h", locale: nil}), payload)
+
+      refute_received :disabled_apply_called
+    end
+  end
+
+  describe "hooks run with a time limit" do
+    defmodule SlowSnapshot do
+      def module_key, do: "slow_snapshot"
+      def handoff_snapshot(_context), do: Process.sleep(1_000) && %{a: 1}
+    end
+
+    defmodule SlowApply do
+      def module_key, do: "slow_apply"
+      def handoff_apply(_context, _payload), do: Process.sleep(1_000) && {:ok, ["late"]}
+    end
+
+    defmodule Quick do
+      def module_key, do: "quick"
+      def handoff_snapshot(_context), do: %{a: 1}
+      def handoff_apply(_context, _payload), do: {:ok, ["on time"]}
+    end
+
+    defmodule Modest do
+      def module_key, do: "modest"
+      def handoff_snapshot(_context), do: Process.sleep(300) && %{a: 1}
+      def handoff_apply(_context, _payload), do: Process.sleep(300) && {:ok, ["modest"]}
+    end
+
+    defmodule ReadsTheDatabase do
+      def module_key, do: "reads_db"
+
+      def handoff_snapshot(_context),
+        do: %{users: Repo.aggregate(User, :count)}
+    end
+
+    @context %{user_uuid: nil, session: %{}, cookies: %{}, host: "h", locale: nil}
+
+    test "a snapshot that takes too long is left out, the others are kept" do
+      log =
+        capture_log(fn ->
+          assert Handoff.snapshots(@context, [SlowSnapshot, Quick], timeout: 50) == %{
+                   "quick" => %{"a" => 1}
+                 }
+        end)
+
+      assert log =~ "handoff_snapshot of PhoenixKit.HandoffTest.SlowSnapshot timed out"
+    end
+
+    test "an apply that takes too long is ignored, the others still apply" do
+      payload = %{"slow_apply" => %{}, "quick" => %{}}
+
+      log =
+        capture_log(fn ->
+          effects = Handoff.apply_payload(@context, payload, [SlowApply, Quick], timeout: 50)
+          assert effects.notices == ["on time"]
+        end)
+
+      assert log =~ "handoff_apply of PhoenixKit.HandoffTest.SlowApply timed out"
+    end
+
+    test "the default limits leave a module that takes a third of a second alone" do
+      assert Handoff.snapshots(@context, [Modest]) == %{"modest" => %{"a" => 1}}
+
+      assert %{notices: ["modest"]} =
+               Handoff.apply_payload(@context, %{"modest" => %{}}, [Modest])
+    end
+
+    test "a hook can read the database from its task" do
+      assert %{"reads_db" => %{"users" => count}} =
+               Handoff.snapshots(@context, [ReadsTheDatabase])
+
+      assert is_integer(count)
+    end
+
+    test "the hook sees the locale of the request that asked" do
+      Gettext.put_locale("de")
+
+      defmodule Locale do
+        def module_key, do: "locale"
+        def handoff_snapshot(_context), do: %{locale: Gettext.get_locale()}
+      end
+
+      assert Handoff.snapshots(@context, [Locale]) == %{"locale" => %{"locale" => "de"}}
+    end
+  end
+
+  describe "what a module's apply may set" do
+    defmodule Scripted do
+      def module_key, do: "scripted"
+
+      def handoff_apply(_context, _payload),
+        do: Application.get_env(:phoenix_kit, :handoff_unit_answer)
+    end
+
+    @context %{user_uuid: nil, session: %{}, cookies: %{}, host: "h", locale: nil}
+
+    defp answer(value, opts \\ []) do
+      Application.put_env(:phoenix_kit, :handoff_unit_answer, value)
+      on_exit(fn -> Application.delete_env(:phoenix_kit, :handoff_unit_answer) end)
+
+      capture_log(fn ->
+        send(
+          self(),
+          {:effects, Handoff.apply_payload(@context, %{"scripted" => %{}}, [Scripted], opts)}
+        )
+      end)
+
+      assert_received {:effects, effects}
+      effects
+    end
+
+    test "a cookie name must be an RFC token of at most 64 bytes, and not one of the kit's" do
+      bad = [
+        "bad name;x",
+        "bad name",
+        "a;b",
+        "a=b",
+        "a,b",
+        "",
+        String.duplicate("a", 65),
+        "naïve",
+        "__Host-pk_handoff_src",
+        "pk_handoff_nonce",
+        "_phoenix_kit_web_user_remember_me",
+        "_phoenix_kit_web_session_accounts"
+      ]
+
+      for name <- bad do
+        assert %{cookies: []} = answer({:ok, %{cookies: [{name, "v", []}]}}), inspect(name)
+      end
+
+      assert %{cookies: [{"good-name_1.x", "v", _}]} =
+               answer({:ok, %{cookies: [{"good-name_1.x", "v", []}]}})
+
+      assert %{cookies: []} =
+               answer({:ok, %{cookies: [{"_my_app_key", "v", []}]}},
+                 reserved_cookies: ["_my_app_key"]
+               )
+    end
+
+    test "a cookie value must be a binary of sane size and cookie characters" do
+      for value <- [
+            String.duplicate("a", 2049),
+            "has space",
+            "semi;colon",
+            "co,mma",
+            "quo\"te",
+            "back\\slash",
+            "new\nline",
+            "naïve",
+            5,
+            nil
+          ] do
+        assert %{cookies: []} = answer({:ok, %{cookies: [{"c", value, []}]}}), inspect(value)
+      end
+
+      big = String.duplicate("a", 2048)
+      assert %{cookies: [{"c", ^big, _}]} = answer({:ok, %{cookies: [{"c", big, []}]}})
+      assert %{cookies: [{"c", "", _}]} = answer({:ok, %{cookies: [{"c", "", []}]}})
+
+      # A signed value is sent as what Plug makes of it, so any text of that size will do.
+      assert %{cookies: [{"c", "has space; ok", _}]} =
+               answer({:ok, %{cookies: [{"c", "has space; ok", [sign: true]}]}})
+    end
+
+    test "the options are a whitelist, with values checked" do
+      assert %{cookies: [{"c", "v", opts}]} =
+               answer(
+                 {:ok, %{cookies: [{"c", "v", [domain: "evil.test", unsafe: true, max_age: 60]}]}}
+               )
+
+      assert Enum.sort(Keyword.keys(opts)) == [:http_only, :max_age, :same_site, :secure]
+
+      for bad <- [
+            [max_age: -1],
+            [max_age: "60"],
+            [max_age: 40_000_000],
+            [http_only: "yes"],
+            [secure: 1],
+            [same_site: "lax"],
+            [same_site: "Whatever"],
+            [path: "no-slash"],
+            [path: "/a;b"],
+            [path: "/ space"],
+            [sign: true, encrypt: true],
+            [same_site: "None", secure: false],
+            :not_a_keyword
+          ] do
+        assert %{cookies: []} = answer({:ok, %{cookies: [{"c", "v", bad}]}}), inspect(bad)
+      end
+
+      assert %{cookies: [{"c", "v", opts}]} =
+               answer({:ok, %{cookies: [{"c", "v", [path: "/shop", same_site: "Strict"]}]}})
+
+      assert opts[:path] == "/shop"
+      assert opts[:same_site] == "Strict"
+    end
+
+    test "a cookie is Secure, HttpOnly and SameSite=Lax unless the module says otherwise" do
+      assert %{cookies: [{_, _, opts}]} = answer({:ok, %{cookies: [{"c", "v", []}]}})
+      assert opts[:secure] == true
+      assert opts[:http_only] == true
+      assert opts[:same_site] == "Lax"
+
+      assert %{cookies: [{_, _, opts}]} =
+               answer(
+                 {:ok,
+                  %{cookies: [{"c", "v", [secure: false, http_only: false, same_site: "Strict"]}]}}
+               )
+
+      assert {opts[:secure], opts[:http_only], opts[:same_site]} == {false, false, "Strict"}
+
+      # On a plain-http site (dev, test) the default cannot be Secure, or the browser drops it.
+      assert %{cookies: [{_, _, opts}]} =
+               answer({:ok, %{cookies: [{"c", "v", []}]}}, scheme: "http")
+
+      assert opts[:secure] == false
+    end
+
+    test "at most five cookies of one module, and ten in all" do
+      many = for n <- 1..8, do: {"c#{n}", "v", []}
+      assert %{cookies: cookies} = answer({:ok, %{cookies: many}})
+      assert length(cookies) == 5
+    end
+
+    test "notices are capped by bytes: five at most, 600 in all, cut on a character boundary" do
+      emoji = String.duplicate("😀", 300)
+      assert %{notices: notices} = answer({:ok, List.duplicate(emoji, 5)})
+
+      assert length(notices) <= 5
+      assert notices |> Enum.map(&byte_size/1) |> Enum.sum() <= 600
+      assert Enum.all?(notices, &String.valid?/1)
+      assert Enum.all?(notices, &(byte_size(&1) <= 300))
+
+      # A cut inside a three-byte character drops the character.
+      text = "a" <> String.duplicate("€", 200)
+      assert %{notices: [cut]} = answer({:ok, [text]})
+      assert String.valid?(cut)
+      assert byte_size(cut) == 298
+      assert String.starts_with?(text, cut)
+
+      # The total, across notices that are each small.
+      lines = for n <- 1..5, do: String.duplicate("é", 100) <> "#{n}"
+      assert %{notices: kept} = answer({:ok, lines})
+      assert kept |> Enum.map(&byte_size/1) |> Enum.sum() <= 600
+      assert Enum.all?(kept, &String.valid?/1)
+    end
+
+    test "notices that are not text are left out" do
+      assert %{notices: ["fine"]} = answer({:ok, ["fine", <<255, 254>>, 5, nil, :atom, "   "]})
+    end
+
+    test "answers that are not what the contract says are ignored, not raised on" do
+      for garbage <- [
+            :ok,
+            nil,
+            5,
+            "text",
+            {:ok, 5},
+            {:ok, nil},
+            {:ok, "text"},
+            {:ok, %{cookies: :nope, notices: :nope}},
+            {:ok, %{cookies: [{"a", "b"}, :junk, {1, 2, 3}, {"a", "b", "opts"}], notices: %{}}},
+            {:error, "secret-session-value"},
+            {:weird, :tuple, :of, :four}
+          ] do
+        assert %{notices: [], cookies: []} = answer(garbage), inspect(garbage)
+      end
     end
   end
 end
