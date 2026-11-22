@@ -100,6 +100,9 @@ defmodule PhoenixKit.Module do
     this module contributes (default: `[]`)
   - `before_user_delete/1` - Hook called before a user row is deleted. No default:
     it is called only on a module that defines it.
+  - `handoff_snapshot/1`, `handoff_apply/2` - Carry the module's per-session state when
+    a visitor moves from one of the site's domains to another
+    (`PhoenixKit.Handoff`). No default: called only on a module that defines them.
   - `resource_links/0` - How this module's resource types deep-link to their pages
     (default: `%{}`). See `PhoenixKit.ResourceLinks`.
   - `css_sources/0` - Tailwind CSS source roots to scan (default: `[]`)
@@ -201,6 +204,60 @@ defmodule PhoenixKit.Module do
   hook is logged and never aborts the deletion.
   """
   @callback before_user_delete(user_uuid :: String.t()) :: any()
+
+  @doc """
+  Cross-domain handoff, source side: the state of this module that should follow the visitor to
+  another of the site's domains (`PhoenixKit.Handoff`). Called when the visitor clicks a handoff
+  link, twice per handoff (once to find out whether there is anything to carry, once to take the
+  snapshot that is stored), so it must be cheap and must not change anything.
+
+  `context` is a plain map with exactly these keys:
+
+    * `:user_uuid` - the signed-in account, or `nil` for a visitor
+    * `:session` - the Plug session of the source request (`Plug.Conn.get_session/1`: a map with
+      string keys, as stored)
+    * `:cookies` - the request cookies (`%{name => value}`, unsigned, as the browser sent them),
+      without the handoff cookies
+
+  Return `nil` (or `%{}`) when there is nothing to carry, otherwise a JSON-safe map of at most
+  64 KB. The map is stored under this module's `module_key/0` and is handed to `handoff_apply/2` on
+  the target with string keys, whatever it had here. The core never names a module's keys: a module
+  that keeps its identity in the session (a shop's guest cart id) reads it from `:session`.
+
+  Best effort: a raise, exit or throw, a non-map answer or a map that cannot be encoded as JSON is
+  logged and the module is left out of the handoff.
+  """
+  @callback handoff_snapshot(context :: map()) :: map() | nil
+
+  @doc """
+  Cross-domain handoff, target side: re-applies what `handoff_snapshot/1` took. Called on the
+  target domain, in the request that redeems the handoff, **before** the account is signed in (the
+  log-in redirects, and merges the target browser's own guest cart itself), and only for a module
+  that has an entry in the payload.
+
+  `context` is a plain map with exactly these keys:
+
+    * `:user_uuid` - the account that is about to be signed in, or `nil` for a guest
+    * `:session` - the Plug session of the target request (string keys). For a guest on its first
+      visit it holds nothing of this module's: a module that needs an identity on the target
+      returns a cookie (below)
+    * `:cookies` - the request cookies of the target browser, without the handoff cookies
+    * `:host` - the host the request arrived on
+    * `:locale` - the enabled language code that host serves (`"de"`), or `nil`
+
+  There is no currency: the core has none. A module derives it from `:host` or `:locale` itself.
+
+  `payload` is what `handoff_snapshot/1` returned, with string keys.
+
+  Return `{:ok, notices}` (a list of short strings shown to the visitor with the sign-in message),
+  `{:ok, %{notices: [String.t()], cookies: [{name, value, opts}]}}` or `{:error, term}`. Any other
+  key of the map (`moved: 2`, `skipped: [...]`) is ignored. `cookies` are set on the response of
+  the redirect (`opts` is `Plug.Conn.put_resp_cookie/4`'s `:max_age`, `:http_only`, `:same_site`,
+  `:secure`, `:sign`, `:encrypt` and `:path`; nothing else is passed on). An error, a raise, exit or
+  throw is logged and ignored: the visitor is still handed over.
+  """
+  @callback handoff_apply(context :: map(), payload :: map()) ::
+              {:ok, [String.t()]} | {:ok, map()} | {:error, term()}
   @callback version() :: String.t()
   @callback migration_module() :: module() | nil
   @callback required_modules() :: [String.t()]
@@ -1022,6 +1079,8 @@ defmodule PhoenixKit.Module do
     notification_types: 0,
     notification_channels: 0,
     before_user_delete: 1,
+    handoff_snapshot: 1,
+    handoff_apply: 2,
     resource_links: 0,
     css_sources: 0,
     js_sources: 0,
