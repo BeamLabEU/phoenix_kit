@@ -411,6 +411,17 @@ defmodule PhoenixKit.Handoff do
   A handoff that carries nothing, no `:user_uuid` and an empty `:payload`, is refused
   (`{:error, :nothing_to_carry}`): there is nothing to hand over, and no row is written. Each
   successful mint also deletes a few rows that expired a while ago (`prune_expired/1`).
+
+  ## Transactions
+
+  `mint/1` may be called inside a transaction of the caller's, and does not abort it: **inside
+  one** (`Repo.in_transaction?/0`) the insert, and the prune after it, run in a savepoint, so a
+  duplicate proof (`{:error, :proof_used}`), any other database error (`{:error, :failed}`) and a
+  failed prune roll back to the savepoint alone and the caller's transaction stays usable. A
+  successful mint is **part of the caller's transaction**: the row commits or rolls back with it,
+  while the token it returned was never stored anywhere else (a rollback leaves a token with no
+  row, which redeems as nothing). **Outside one** it is plain statements, each its own
+  transaction. The controller calls it outside any.
   """
   @spec mint(map()) :: {:ok, String.t()} | {:error, term()}
   def mint(%{target_host: host, redirect_path: path, browser_nonce_hash: nonce_hash} = attrs)
@@ -465,7 +476,9 @@ defmodule PhoenixKit.Handoff do
       |> Ecto.Changeset.change()
       |> Ecto.Changeset.unique_constraint(:source_proof_hash, name: @proof_index)
 
-    case RepoHelper.repo().insert(changeset) do
+    repo = RepoHelper.repo()
+
+    case repo.insert(changeset, savepoint_options(repo)) do
       {:ok, _row} ->
         prune_a_few()
         {:ok, token}
@@ -592,7 +605,8 @@ defmodule PhoenixKit.Handoff do
             where: t.uuid in subquery(from(e in expired, select: e.uuid, limit: ^limit))
       end
 
-    {count, _} = RepoHelper.repo().delete_all(query)
+    repo = RepoHelper.repo()
+    {count, _} = repo.delete_all(query, savepoint_options(repo))
     count
   end
 
@@ -616,7 +630,7 @@ defmodule PhoenixKit.Handoff do
     repo = RepoHelper.repo()
     query = from(t in Token, where: t.user_uuid in ^user_uuids and is_nil(t.used_at))
 
-    {count, _} = repo.delete_all(query, delete_options(repo))
+    {count, _} = repo.delete_all(query, [{:log, false} | savepoint_options(repo)])
     count
   rescue
     error in Postgrex.Error ->
@@ -628,8 +642,10 @@ defmodule PhoenixKit.Handoff do
       end
   end
 
-  defp delete_options(repo) do
-    if repo.in_transaction?(), do: [log: false, mode: :savepoint], else: [log: false]
+  # A statement of a transaction that a failure must not abort goes in a savepoint, which needs
+  # a transaction to sit in: outside one it is a plain statement.
+  defp savepoint_options(repo) do
+    if repo.in_transaction?(), do: [mode: :savepoint], else: []
   end
 
   defp table_missing?(%Postgrex.Error{postgres: %{code: :undefined_table}}), do: true

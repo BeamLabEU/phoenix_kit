@@ -850,6 +850,58 @@ defmodule PhoenixKit.HandoffTest do
     end
   end
 
+  describe "mint/1 and the caller's transaction" do
+    test "a duplicate proof leaves a transaction of the caller's usable" do
+      proof = sha("proof")
+      nonce = Handoff.new_secret()
+      mint!(nonce, %{source_proof_hash: proof})
+
+      assert {:ok, :usable} =
+               Repo.transaction(fn ->
+                 assert Repo.in_transaction?()
+
+                 assert {:error, :proof_used} =
+                          Handoff.mint(attrs(nonce, %{source_proof_hash: proof}))
+
+                 # A unique violation aborts a transaction that has no savepoint to go back to.
+                 assert %{rows: [[1]]} = Repo.query!("SELECT 1")
+                 :usable
+               end)
+    end
+
+    test "a mint that succeeds is the caller's: it is rolled back with the transaction" do
+      nonce = Handoff.new_secret()
+
+      assert {:error, token} =
+               Repo.transaction(fn ->
+                 assert {:ok, token} = Handoff.mint(attrs(nonce, %{}))
+                 assert row(token)
+                 Repo.rollback(token)
+               end)
+
+      refute row(token)
+    end
+
+    test "on a real connection with no transaction a duplicate proof is an answer, not a raise" do
+      proof = sha("outside-#{System.unique_integer([:positive])}")
+      nonce = Handoff.new_secret()
+
+      try do
+        Ecto.Adapters.SQL.Sandbox.unboxed_run(Repo, fn ->
+          refute Repo.in_transaction?()
+          assert {:ok, _} = Handoff.mint(attrs(nonce, %{source_proof_hash: proof}))
+
+          assert {:error, :proof_used} =
+                   Handoff.mint(attrs(nonce, %{source_proof_hash: proof}))
+        end)
+      after
+        Ecto.Adapters.SQL.Sandbox.unboxed_run(Repo, fn ->
+          Repo.delete_all(from(t in Token, where: t.source_proof_hash == ^proof))
+        end)
+      end
+    end
+  end
+
   describe "source_proof_used?/1" do
     test "is true for a proof that has a row, false for one that has none" do
       proof = sha("proof")
