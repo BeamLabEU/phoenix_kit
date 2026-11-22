@@ -207,54 +207,121 @@ defmodule PhoenixKit.Module do
 
   @doc """
   Cross-domain handoff, source side: the state of this module that should follow the visitor to
-  another of the site's domains (`PhoenixKit.Handoff`). Called when the visitor clicks a handoff
-  link, twice per handoff (once to find out whether there is anything to carry, once to take the
-  snapshot that is stored), so it must be cheap and must not change anything.
+  another of the site's domains (`PhoenixKit.Handoff`, `guides/cross-domain-handoff.md`).
 
-  `context` is a plain map with exactly these keys:
+  ## When it is called
+
+  Only for an **enabled** module (`enabled?/0` is `true`; `before_user_delete/1`, which must reach
+  every module, is the other way round), when the visitor follows a handoff link on the source
+  domain: once at `mint`, to take the snapshot that is stored; and, for a visitor who is not signed
+  in, once more at `start`, to find out whether there is anything to carry (a signed-in visitor
+  always has something). So once for a signed-in visitor, twice for a guest. It must be cheap and
+  must not change anything.
+
+  It runs in a supervised task of its own, not in the request process, and is given **2000 ms**:
+  a task that is still running then is killed and the module is left out. The task inherits the
+  request's `$callers` (an Ecto sandbox allowance of a test follows it) and its Gettext locale;
+  nothing else of the request's process state (process dictionary, `Logger` metadata) is there.
+
+  ## The context
+
+  A plain map with exactly these keys:
 
     * `:user_uuid` - the signed-in account, or `nil` for a visitor
     * `:session` - the Plug session of the source request (`Plug.Conn.get_session/1`: a map with
-      string keys, as stored)
-    * `:cookies` - the request cookies (`%{name => value}`, unsigned, as the browser sent them),
-      without the handoff cookies
+      string keys, as stored) **without the kit's own auth material**, the keys of
+      `PhoenixKit.Handoff.auth_session_keys/0`: `"user_token"`, `"live_socket_id"` (the signed-in
+      session), `"pk_session_accounts"`, `"pk_own_tokens"`, `"pk_impersonators"`,
+      `"pk_organization_token"` (the multi-account stack), `"website_access_unlock"`,
+      `"website_access_allowed"` (the website gate) and `"_csrf_token"`
+    * `:cookies` - the request cookies (`%{name => value}`, unsigned, as the browser sent them)
+      **without** the names of `PhoenixKit.Handoff.auth_cookie_names/1`: the remember-me cookie
+      (`"_phoenix_kit_web_user_remember_me"`), the account mirror
+      (`"_phoenix_kit_web_session_accounts"`), the new-device cookie (`"_phoenix_kit_device"`), the
+      OAuth browser cookie (`"pk_oauth_browser"`), the four handoff cookies (`"pk_handoff_src"`,
+      `"pk_handoff_nonce"` and their `__Host-` forms) and the host's session cookie. The session
+      cookie's name is read from the `session:` connect info of the sockets of the endpoint that
+      served the request (`PhoenixKit.Handoff.session_cookie_names/1`); an endpoint that declares
+      none is not recognised, which is why a host's endpoint keeps its LiveView socket's
+      `connect_info: [session: ...]`.
 
-  Return `nil` (or `%{}`) when there is nothing to carry, otherwise a JSON-safe map of at most
-  64 KB. The map is stored under this module's `module_key/0` and is handed to `handoff_apply/2` on
-  the target with string keys, whatever it had here. The core never names a module's keys: a module
-  that keeps its identity in the session (a shop's guest cart id) reads it from `:session`.
+  A module reads its own identity from `:session` and `:cookies` (a shop's guest cart id): the core
+  never names a module's keys.
 
-  Best effort: a raise, exit or throw, a non-map answer or a map that cannot be encoded as JSON is
-  logged and the module is left out of the handoff.
+  ## The answer
+
+  `nil` or `%{}` when there is nothing to carry, otherwise a JSON-safe map whose JSON encoding is at
+  most **65 536 bytes**. It is stored under this module's `module_key/0` (as plaintext `jsonb`, for
+  the 60 seconds the handoff lives and until the table is pruned: **no secret goes in it**, and
+  nothing the module cannot afford to have read from the database) and handed to
+  `handoff_apply/2` on the target with string keys, whatever it had here.
+
+  Best effort: a raise, exit or throw, a timeout, a non-map answer, a map that cannot be encoded as
+  JSON or one that is too large is logged (the module and the kind of failure, never a message) and
+  the module is left out of the handoff; the others still go.
   """
   @callback handoff_snapshot(context :: map()) :: map() | nil
 
   @doc """
-  Cross-domain handoff, target side: re-applies what `handoff_snapshot/1` took. Called on the
-  target domain, in the request that redeems the handoff, **before** the account is signed in (the
-  log-in redirects, and merges the target browser's own guest cart itself), and only for a module
-  that has an entry in the payload.
+  Cross-domain handoff, target side: re-applies what `handoff_snapshot/1` took
+  (`PhoenixKit.Handoff`, `guides/cross-domain-handoff.md`).
 
-  `context` is a plain map with exactly these keys:
+  ## When it is called
+
+  On the target domain, in the request that redeems the handoff, **before** the account is signed
+  in (the log-in redirects, and merges the target browser's own guest cart itself), for an
+  **enabled** module that has an entry in the payload, once. Like the snapshot it runs in a
+  supervised task of its own (see `handoff_snapshot/1`), with **5000 ms**; a module that is still
+  running then is killed and ignored, and the visitor is handed over without its contribution.
+
+  ## The context
+
+  A plain map with exactly these keys:
 
     * `:user_uuid` - the account that is about to be signed in, or `nil` for a guest
-    * `:session` - the Plug session of the target request (string keys). For a guest on its first
-      visit it holds nothing of this module's: a module that needs an identity on the target
-      returns a cookie (below)
-    * `:cookies` - the request cookies of the target browser, without the handoff cookies
+    * `:session` - the Plug session of the target request (string keys), without the kit's own
+      auth material (the keys listed at `handoff_snapshot/1`). For a guest on its first visit it
+      holds nothing of this module's: a module that needs an identity on the target returns a
+      cookie (below)
+    * `:cookies` - the request cookies of the target browser, without the names listed at
+      `handoff_snapshot/1`
     * `:host` - the host the request arrived on
-    * `:locale` - the enabled language code that host serves (`"de"`), or `nil`
+    * `:locale` - the enabled language code that host serves (`"de"`, `"de-DE"`), or `nil`
 
   There is no currency: the core has none. A module derives it from `:host` or `:locale` itself.
 
   `payload` is what `handoff_snapshot/1` returned, with string keys.
 
-  Return `{:ok, notices}` (a list of short strings shown to the visitor with the sign-in message),
-  `{:ok, %{notices: [String.t()], cookies: [{name, value, opts}]}}` or `{:error, term}`. Any other
-  key of the map (`moved: 2`, `skipped: [...]`) is ignored. `cookies` are set on the response of
-  the redirect (`opts` is `Plug.Conn.put_resp_cookie/4`'s `:max_age`, `:http_only`, `:same_site`,
-  `:secure`, `:sign`, `:encrypt` and `:path`; nothing else is passed on). An error, a raise, exit or
-  throw is logged and ignored: the visitor is still handed over.
+  ## The answer
+
+    * `{:ok, notices}` - a list of short strings
+    * `{:ok, %{notices: [String.t()], cookies: [{name, value, opts}]}}` - either key may be left
+      out; any other key (`moved: 2`, `skipped: [...]`) is ignored
+    * `{:error, term}` - logged, ignored
+
+  Anything else, a raise, exit or throw and a timeout are logged (the module and the kind of
+  failure) and ignored: the visitor is still handed over. What a module answers is **validated**,
+  and what is not valid is left out, never raised on:
+
+    * **Notices** are shown to the visitor with the sign-in message (the flash lives in the cookie
+      session, so the total is capped): text only (valid UTF-8, trimmed, empty ones dropped), at
+      most **5** notices, at most **300 bytes** each and **600 bytes** in all, cut on a character
+      boundary.
+    * **Cookies** are set on the response of the redirect. At most **5** per module and **10** in
+      all. `name` is an RFC 6265 token (letters, digits and ``!#$%&'*+-.^_`|~``) of 1 to 64 bytes,
+      and is none of the kit's own cookie names (`PhoenixKit.Handoff.auth_cookie_names/1`, the
+      session cookie included). `value` is a binary of at most **2048 bytes** of cookie characters
+      (printable ASCII except space, `"`, `,`, `;` and `\`), or any binary of that size when `opts`
+      has `sign: true` or `encrypt: true`. `opts` is a keyword list of
+      `Plug.Conn.put_resp_cookie/4`'s options, of which only `:max_age` (an integer from 0 to
+      34 560 000), `:http_only`, `:secure`, `:sign`, `:encrypt` (booleans, not both), `:same_site`
+      (`"Lax"`, `"Strict"` or `"None"`, the last only with `secure: true`) and `:path` (starting
+      with `/`, at most 256 bytes) are passed on: any other (`:domain`, ...) is dropped, a value
+      that is not valid drops the cookie. Defaults, **unless the module passes the option
+      itself**: `secure: true` (`false` on a plain-http dev or test site), `http_only: true`,
+      `same_site: "Lax"`. A signed or encrypted cookie is made with the application's
+      `secret_key_base` and, besides `:max_age` on the cookie, Plug puts that `:max_age` (a day,
+      when not given) into the signature: pass the lifetime the module's own plug expects.
   """
   @callback handoff_apply(context :: map(), payload :: map()) ::
               {:ok, [String.t()]} | {:ok, map()} | {:error, term()}
