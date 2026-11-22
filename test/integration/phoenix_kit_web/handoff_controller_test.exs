@@ -1879,6 +1879,39 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
       refute get_session(conn, :user_token)
     end
 
+    test "a session revoked while the modules apply their snapshots ends the handoff" do
+      :ok = ModuleRegistry.register(HandoffScriptedModule)
+
+      on_exit(fn ->
+        ModuleRegistry.unregister(HandoffScriptedModule)
+        HandoffScriptedModule.clear()
+      end)
+
+      user = user!()
+      session = signed_in_session(user)
+
+      # The hook is what runs between the redeem's look-up of the session and the sign-in; the
+      # session goes in that window (straight at the table, past the revocation hook).
+      HandoffScriptedModule.script(%{
+        apply:
+          {:run,
+           fn ->
+             Repo.delete_all(from(t in UserToken, where: t.token == ^session[:user_token]))
+           end}
+      })
+
+      {[_, _, _, redeem], _} = handoff(new_browser(), session: session)
+
+      assert_refused(redeem)
+      refute get_session(redeem, :user_token)
+      assert [%Token{used_at: %DateTime{}}] = tokens()
+
+      assert Repo.aggregate(
+               from(t in UserToken, where: t.user_uuid == ^user.uuid and t.context == "session"),
+               :count
+             ) == 0
+    end
+
     test "a guest's handoff has no session to continue and is not affected" do
       {[_, _, _, redeem], _} = handoff(new_browser(), session: [stub_cart: "cart-1"])
 

@@ -4,7 +4,8 @@ defmodule PhoenixKit.Test.HandoffScriptedModule do
   hooks run in a task of their own, so the script travels through the application environment
   (`:handoff_scripted`, a map with `:snapshot` and `:apply`).
 
-  `:apply` is the answer of `handoff_apply/2`, or `{:raise, message}`, `{:sleep, ms}`. The
+  `:apply` is the answer of `handoff_apply/2`, or `{:raise, message}`, `{:sleep, ms}`, or
+  `{:run, fun}` (`fun.()` is called in the hook's task, and the answer is the default). The
   snapshot is `%{"x" => 1}` unless scripted.
   """
 
@@ -20,9 +21,18 @@ defmodule PhoenixKit.Test.HandoffScriptedModule do
 
   defp run(hook, default) do
     case Application.get_env(:phoenix_kit, :handoff_scripted, %{}) |> Map.get(hook, default) do
-      {:raise, message} -> raise message
-      {:sleep, ms} -> Process.sleep(ms) && default
-      answer -> answer
+      {:raise, message} ->
+        raise message
+
+      {:sleep, ms} ->
+        Process.sleep(ms) && default
+
+      {:run, fun} ->
+        _ = fun.()
+        default
+
+      answer ->
+        answer
     end
   end
 end

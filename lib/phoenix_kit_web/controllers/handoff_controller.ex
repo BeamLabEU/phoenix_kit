@@ -279,13 +279,26 @@ defmodule PhoenixKitWeb.HandoffController do
           session_cookies: session_cookies
         )
 
-      conn
-      |> put_module_effects(user, effects, locale)
-      |> land(user, to, row.source_session)
+      # The hooks can take seconds: the session the visitor is to continue is looked up again
+      # right before they are signed in. A session that went in the meantime ends the handoff
+      # (`302 /`), but what the modules did by then (their own server-side effects) stays: they
+      # have been told, and there is no way to take it back.
+      if source_session_alive?(row) do
+        conn
+        |> put_module_effects(user, effects, locale)
+        |> land(user, to, row.source_session)
+      else
+        fail(conn)
+      end
     else
       _ -> fail(conn)
     end
   end
+
+  defp source_session_alive?(%{user_uuid: nil}), do: true
+
+  defp source_session_alive?(row),
+    do: Auth.get_live_session(row.source_session_uuid, row.user_uuid) != nil
 
   defp load_user(nil), do: {:ok, nil}
 
