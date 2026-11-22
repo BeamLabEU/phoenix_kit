@@ -299,6 +299,39 @@ defmodule PhoenixKit.Users.RateLimiterTest do
     end
   end
 
+  describe "check_handoff_rate_limit/1" do
+    test "blocks after the limit and counts per IP", %{unique_id: id} do
+      ip = "172.17.0.#{rem(id, 255)}"
+      other = "172.17.1.#{rem(id, 255)}"
+      limit = Keyword.fetch!(RateLimiter.get_config(), :handoff_limit)
+
+      for _ <- 1..limit, do: assert(:ok = RateLimiter.check_handoff_rate_limit(ip))
+
+      assert {:error, :rate_limit_exceeded} = RateLimiter.check_handoff_rate_limit(ip)
+      assert :ok = RateLimiter.check_handoff_rate_limit(other)
+    end
+
+    test "an address nobody knows is not limited" do
+      for _ <- 1..60 do
+        assert :ok = RateLimiter.check_handoff_rate_limit("unknown")
+        assert :ok = RateLimiter.check_handoff_rate_limit(nil)
+      end
+    end
+  end
+
+  describe "check_handoff_mint_rate_limit/1" do
+    test "blocks one account after the limit, not another", %{unique_id: id} do
+      user = "0194f000-0000-7000-8000-#{String.pad_leading(Integer.to_string(id), 12, "0")}"
+      other = "0194f000-0000-7000-8001-#{String.pad_leading(Integer.to_string(id), 12, "0")}"
+      limit = Keyword.fetch!(RateLimiter.get_config(), :handoff_mint_limit)
+
+      for _ <- 1..limit, do: assert(:ok = RateLimiter.check_handoff_mint_rate_limit(user))
+
+      assert {:error, :rate_limit_exceeded} = RateLimiter.check_handoff_mint_rate_limit(user)
+      assert :ok = RateLimiter.check_handoff_mint_rate_limit(other)
+    end
+  end
+
   describe "IPv6 /64 grouping on login and mail IP buckets" do
     # QR already covers check_qr_login_rate_limit/1. Login keys the IP
     # itself; the mail endpoints go through charge_ip/4. A revert of either
