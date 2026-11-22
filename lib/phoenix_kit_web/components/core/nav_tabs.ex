@@ -37,7 +37,8 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
   `badge: if(count > 0, do: count)` renders no badge rather than an empty one.
 
   `:in_menu` (a boolean, `overflow={:menu}` only) keeps a tab out of the strip
-  on every width — see "Tabs that live in the menu" below.
+  on every width while it is not the active one — see "Tabs that live in the
+  menu" below.
 
   The link keys mirror `Phoenix.Component.link/1` rather than inventing a
   parallel vocabulary: `:navigate` for a full LiveView navigation, `:patch`
@@ -93,8 +94,9 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
       </.nav_tabs>
 
   Tabs that do not fit leave the strip and are listed, in order, in a dropdown
-  behind a trailing "⋯" button. The server renders every tab in the strip plus a
-  plain `role="menuitem"` button for it in the menu; the strip tab stays the
+  behind a trailing "⋯" button. The server renders every tab in the strip (except
+  an `in_menu` tab, which it renders hidden) plus a plain `role="menuitem"` button
+  for it in the menu; the strip tab stays the
   single element carrying the link / `phx-click` / `phx-target` / `phx-value-tab`
   attributes. Choosing a menu item makes the `NavTabsOverflow` hook
   (`phoenix_kit_admin.js`) click that strip tab — LiveView handles it exactly as a
@@ -117,7 +119,8 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
       `tabs-sm`), so it is under the 44px touch floor vertically.
     * Until the hook mounts (the dead render) the strip is one clipped row with
       "⋯" hidden, so tabs that do not fit are cut off until the admin bundle
-      arrives (behind a stub).
+      arrives (behind a stub). Tabs marked `in_menu` are the other way round: they
+      are rendered hidden and "⋯" is rendered shown, see below.
 
   The hook is an admin hook: it lives in `phoenix_kit_admin.js` behind a stub in
   `phoenix_kit.js`, because no core page outside the admin area and the user
@@ -152,6 +155,15 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
   then always visible while at least one tab is in the menu. The server renders
   that state itself (the tab hidden, the button shown), so nothing moves when
   the hook mounts. The key is ignored with `overflow={:wrap}`, which has no menu.
+
+  An `in_menu` tab is reachable only once the admin bundle has loaded: the menu
+  is opened by the `NavTabsOverflow` hook, which sits behind a stub in
+  `phoenix_kit.js`. Until then — or when the bundle never arrives, or without
+  JavaScript — "⋯" does nothing and the tab is not in the strip, so a page's only
+  route to something must not be an `in_menu` tab.
+
+  When the last `in_menu` tab is chosen from the menu it becomes the active one,
+  "⋯" hides, and focus moves to that tab in the strip.
 
   `overflow={:menu}` requires an `id` (an `ArgumentError` without one): the hook
   binds to it, so it must be unique on the page — a derived id would collide for

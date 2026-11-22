@@ -3473,7 +3473,9 @@
   //   * tabs that do not fit leave the strip and appear in the menu, in order;
   //   * the active tab always stays in the strip: earlier non-active tabs make
   //     room for it (and it truncates when it is alone and still too wide);
-  //   * the "⋯" button shows only while something is hidden.
+  //   * the "⋯" button shows only while something is hidden; when it hides
+  //     with focus on it (the last menu tab was picked), focus moves to the
+  //     active strip tab.
   //   * a tab marked `data-nav-in-menu` (the `in_menu` tab key) stays in the
   //     menu on every width while it is not the active one.
   // Measured on mount, on container resize, after web fonts load, and whenever
@@ -3691,6 +3693,9 @@
       var menu = this.el.querySelector("[data-nav-menu]");
       if (!strip || !more || !menu) return;
       this._applying = true;
+      // Focus on "⋯" is about to be lost if it hides below (a hidden element
+      // keeps no focus): note it before any class changes.
+      var focusOnMore = document.activeElement === more;
       var tabs = Array.prototype.slice.call(strip.querySelectorAll("[data-nav-tab]"));
       var items = Array.prototype.slice.call(menu.querySelectorAll("[data-nav-item]"));
       // Tabs the caller keeps in the menu (`in_menu`), the active one excepted.
@@ -3711,6 +3716,11 @@
         var gap = parseFloat(cs.columnGap) || 0;
         var inner = strip.clientWidth - (parseFloat(cs.paddingLeft) || 0) -
           (parseFloat(cs.paddingRight) || 0);
+        // Order matters below. `avail` and the widths are read first, and
+        // navTabsLayout subtracts the button itself, so `avail` must not
+        // already be net of it; the button is revealed only afterwards, to read
+        // its own width, and put back as it was (already shown here when a tab
+        // is forced into the menu).
         // What the tabs share the row with: the trailing slot.
         var trailing = strip.querySelector("[data-nav-trailing]");
         var avail = inner - (trailing ? trailing.getBoundingClientRect().width + gap : 0);
@@ -3735,6 +3745,12 @@
       });
       more.classList.toggle("hidden", !any);
       this.setOpen(this._open && any, true);
+      if (focusOnMore && !any) {
+        // The picked menu tab was the last one in the menu and is the active
+        // tab now: focus follows it into the strip instead of falling to <body>.
+        var current = tabs.find(function(t) { return t.hasAttribute("data-nav-active"); });
+        if (current && current.focus) current.focus({ preventScroll: true });
+      }
       // Our own class changes are not a reason to run again.
       this._mutations.takeRecords();
       this._applying = false;

@@ -664,64 +664,64 @@ defmodule PhoenixKitWeb.Components.Core.NavTabsTest do
       %{id: "c", label: "Notes", in_menu: true}
     ]
 
-    defp parts(assigns) do
-      html =
-        render_tabs(
-          assigns
-          |> Map.put(:overflow, :menu)
-          |> Map.put_new(:id, "tabs")
-          |> Map.put_new(:on_change, "go")
-        )
-
-      doc = Floki.parse_fragment!(html)
-
-      %{
-        html: html,
-        tab: fn id -> doc |> Floki.find(~s([data-nav-tab="#{id}"])) |> hd() end,
-        item: fn id -> doc |> Floki.find(~s([data-nav-item="#{id}"])) |> hd() end,
-        more: doc |> Floki.find("[data-nav-more]") |> hd()
-      }
+    defp menu_html(assigns) do
+      render_tabs(
+        assigns
+        |> Map.put(:overflow, :menu)
+        |> Map.put_new(:id, "tabs")
+        |> Map.put_new(:on_change, "go")
+      )
     end
 
-    defp hidden?(node),
+    defp strip_tab(html, id),
+      do: html |> Floki.parse_fragment!() |> find_one(~s([data-nav-tab="#{id}"]))
+
+    defp menu_item(html, id),
+      do: html |> Floki.parse_fragment!() |> find_one(~s([data-nav-item="#{id}"]))
+
+    defp more_button(html), do: html |> Floki.parse_fragment!() |> find_one("[data-nav-more]")
+
+    defp find_one(doc, selector), do: doc |> Floki.find(selector) |> hd()
+
+    defp hidden_node?(node),
       do: "hidden" in (node |> Floki.attribute("class") |> Enum.join(" ") |> String.split())
 
     test "a tab kept in the menu is out of the strip and shown in the menu" do
-      p = parts(%{tabs: @menu_set})
+      html = menu_html(%{tabs: @menu_set})
 
-      refute hidden?(p.tab.("a"))
-      assert hidden?(p.tab.("b"))
-      assert hidden?(p.tab.("c"))
+      refute hidden_node?(strip_tab(html, "a"))
+      assert hidden_node?(strip_tab(html, "b"))
+      assert hidden_node?(strip_tab(html, "c"))
 
-      assert hidden?(p.item.("a"))
-      refute hidden?(p.item.("b"))
-      refute hidden?(p.item.("c"))
+      assert hidden_node?(menu_item(html, "a"))
+      refute hidden_node?(menu_item(html, "b"))
+      refute hidden_node?(menu_item(html, "c"))
     end
 
     test "the more button is shown from the first render" do
-      refute hidden?(parts(%{tabs: @menu_set}).more)
+      refute hidden_node?(more_button(menu_html(%{tabs: @menu_set})))
     end
 
     test "the strip tab is marked for the hook, link and event tabs alike" do
-      p = parts(%{tabs: @menu_set})
+      html = menu_html(%{tabs: @menu_set})
 
-      assert Floki.attribute(p.tab.("a"), "data-nav-in-menu") == []
-      assert Floki.attribute(p.tab.("b"), "data-nav-in-menu") != []
-      assert Floki.attribute(p.tab.("c"), "data-nav-in-menu") != []
+      assert Floki.attribute(strip_tab(html, "a"), "data-nav-in-menu") == []
+      assert Floki.attribute(strip_tab(html, "b"), "data-nav-in-menu") != []
+      assert Floki.attribute(strip_tab(html, "c"), "data-nav-in-menu") != []
     end
 
     test "while it is the active tab it shows in the strip" do
-      p = parts(%{tabs: @menu_set, active_tab: "b"})
+      html = menu_html(%{tabs: @menu_set, active_tab: "b"})
 
-      refute hidden?(p.tab.("b"))
-      assert hidden?(p.item.("b"))
-      assert hidden?(p.tab.("c"))
-      refute hidden?(p.more)
+      refute hidden_node?(strip_tab(html, "b"))
+      assert hidden_node?(menu_item(html, "b"))
+      assert hidden_node?(strip_tab(html, "c"))
+      refute hidden_node?(more_button(html))
     end
 
     test "the more button hides again when the only menu tab is the active one" do
       tabs = Enum.reject(@menu_set, &(&1.id == "c"))
-      assert hidden?(parts(%{tabs: tabs, active_tab: "b"}).more)
+      assert hidden_node?(more_button(menu_html(%{tabs: tabs, active_tab: "b"})))
     end
 
     test "false and nil read as absent" do
@@ -730,12 +730,29 @@ defmodule PhoenixKitWeb.Components.Core.NavTabsTest do
         %{id: "b", label: "History", navigate: "/b", in_menu: nil}
       ]
 
-      p = parts(%{tabs: tabs})
+      html = menu_html(%{tabs: tabs})
 
-      refute hidden?(p.tab.("a"))
-      refute hidden?(p.tab.("b"))
-      assert hidden?(p.more)
-      refute p.html =~ "data-nav-in-menu"
+      refute hidden_node?(strip_tab(html, "a"))
+      refute hidden_node?(strip_tab(html, "b"))
+      assert hidden_node?(more_button(html))
+      refute html =~ "data-nav-in-menu"
+    end
+
+    test "with no in_menu key every menu item and the button are hidden, and no strip tab is" do
+      tabs = [
+        %{id: "a", label: "General", navigate: "/a"},
+        %{id: "b", label: "History", navigate: "/b"},
+        %{id: "c", label: "Notes"}
+      ]
+
+      html = menu_html(%{tabs: tabs, active_tab: "b"})
+
+      for id <- ["a", "b", "c"] do
+        refute hidden_node?(strip_tab(html, id))
+        assert hidden_node?(menu_item(html, id))
+      end
+
+      assert hidden_node?(more_button(html))
     end
 
     test "the key is ignored in :wrap mode" do
