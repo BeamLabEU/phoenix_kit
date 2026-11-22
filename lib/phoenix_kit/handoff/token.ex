@@ -6,7 +6,10 @@ defmodule PhoenixKit.Handoff.Token do
   `target_host` only, by the browser whose nonce hashes to `browser_nonce_hash`, until
   `expires_at`, once (`used_at`). `payload` maps a module's key to that module's snapshot.
   `source_proof_hash` is the proof of the `start` the row was minted for (unique where set, so a
-  source cookie yields one row, whatever the client does with it).
+  source cookie yields one row, whatever the client does with it). `source_session_uuid` is the
+  session token the handoff was minted from (none for a guest): `PhoenixKit.Handoff.redeem/4`
+  looks it up and returns it in the virtual `source_session`, whose age and acting role the new
+  session takes over.
   """
   use Ecto.Schema
   use PhoenixKit.SchemaPrefix
@@ -25,6 +28,8 @@ defmodule PhoenixKit.Handoff.Token do
     field :browser_nonce_hash, :binary
     field :user_agent_hash, :binary
     field :source_proof_hash, :binary
+    field :source_session_uuid, UUIDv7
+    field :source_session, :any, virtual: true
     field :expires_at, :utc_datetime
     field :used_at, :utc_datetime
 

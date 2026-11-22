@@ -142,9 +142,9 @@ hand over to:
 ## What happens to the visitor
 
 - **Signed in on the source, signed in on the target**, through the normal
-  sign-in path (`PhoenixKitWeb.Users.Auth.log_in_user/3`): a session token of
+  sign-in path (`PhoenixKitWeb.Users.Auth.log_in_user/4`): a session token of
   the target's own (never the source's), the sign-in alert, no remember-me
-  cookie. If the browser was signed in as someone else on the target, the
+  cookie, and **the age of the session it continues** (next section). If the browser was signed in as someone else on the target, the
   handoff's account replaces it, and the flash names it ("You are signed in as
   …", in the language of the target domain).
 - **The visitor lands on the path the link named.** The link chose `to` for the
@@ -168,6 +168,36 @@ hand over to:
   off or deleted, an admin's revoke) also deletes that account's unused
   handoff rows, in the same transaction; and `redeem` loads the account again
   and asks `Auth.sign_in_refusal/1` once more.
+
+## Session age
+
+A handoff **continues** a sign-in; it does not start a new one. The session the
+target signs in is built from the source session the handoff was minted from
+(`phoenix_kit_handoff_tokens.source_session_uuid`, V236), so it inherits what the
+kit's rules read from a session:
+
+| Inherited | Why it matters |
+|---|---|
+| **`inserted_at`**: the new token has the source token's, not "now" | Every rule that reads a session's age sees the real sign-in. A session that is 59 days old is still 59 days old on the target and expires at the same moment as the source (the 60 days a session lives). **Handing a session over, any number of times, never lengthens its life.** The 15-minute window in which a passkey may be added (`PhoenixKit.Users.Passkeys.check_may_add/2`) is the same on both: a session that is stale on the source is stale on the target, and a fresh one is fresh on the target until it stops being fresh on the source. A rule of your own that reads `phoenix_kit_users_tokens.inserted_at` gets the same for free. |
+| **`active_role_uuid`**: the role the session acts as (`PhoenixKit.Users.ActiveRole`) | A session an Admin narrowed to "Seller" stays narrowed on the target, instead of falling back to the default (widest) role. |
+
+Not inherited, because it describes the browser that opens the target session, not
+the sign-in: the IP address, the user agent and the device name on the token (the
+target browser's own), the remember-me cookie (none is set), and the new-device
+alert (the target browser has not been seen on that host, so the alert is the
+normal one).
+
+- **The source session must still exist at redeem.** The token names it; `redeem`
+  looks it up again and the handoff fails if it was signed out, revoked or has
+  expired in the meantime, however it went (it does not matter whether a
+  revocation hook ran). No timing is involved: a revocation that commits at any
+  moment before the redeem ends the handoff.
+- A **guest** has no session and a guest's row names none; nothing is inherited.
+- The sessions list shows the handed-over session with the date of the original
+  sign-in (it is the same sign-in), so the source and the target rows share it.
+- The cookie session is not carried: a "recently signed in" marker a host keeps in
+  the cookie session of the source is not on the target, which is the safe side.
+  Put such a rule on the session token's age, where the kit puts its own.
 
 ## What the binding gives, and what it does not
 

@@ -139,6 +139,24 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V236 do
         backfill: nil
       },
       %{
+        id: "column:phoenix_kit_handoff_tokens.source_session_uuid",
+        owner: :core,
+        check:
+          {:catalog,
+           %{
+             table: "phoenix_kit_handoff_tokens",
+             column: "source_session_uuid",
+             kind: :column
+           }},
+        create:
+          "ALTER TABLE __SCHEMA__.phoenix_kit_handoff_tokens ADD COLUMN IF NOT EXISTS \"source_session_uuid\" uuid",
+        since: 236,
+        class: :column,
+        presence: :required,
+        revisions: [{236, %{default: nil, type: "uuid", pos: 13, not_null: false}}],
+        backfill: nil
+      },
+      %{
         id: "column:phoenix_kit_handoff_tokens.target_host",
         owner: :core,
         check:

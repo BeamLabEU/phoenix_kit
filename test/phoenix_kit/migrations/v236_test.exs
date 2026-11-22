@@ -105,18 +105,52 @@ defmodule PhoenixKit.Migrations.Postgres.V236Test do
     assert [[_]] = insert(:crypto.strong_rand_bytes(32))
   end
 
-  test "a database that ran the first draft of V236 gets the column and its index on a re-run" do
+  defp columns do
+    query(
+      "SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1",
+      [@table]
+    )
+    |> List.flatten()
+  end
+
+  test "a database that ran an earlier draft of V236 gets the columns and the index on a re-run" do
     run([
       "DROP INDEX phoenix_kit_handoff_tokens_source_proof_hash_index",
-      "ALTER TABLE phoenix_kit_handoff_tokens DROP COLUMN source_proof_hash"
+      "ALTER TABLE phoenix_kit_handoff_tokens DROP COLUMN source_proof_hash",
+      "ALTER TABLE phoenix_kit_handoff_tokens DROP COLUMN source_session_uuid"
     ])
+
+    refute "source_proof_hash" in columns()
+    refute "source_session_uuid" in columns()
 
     run(V236.up_statements("public"))
 
+    assert "source_proof_hash" in columns()
+    assert "source_session_uuid" in columns()
     assert indexes() == Enum.sort(@indexes)
 
     assert [[_]] =
              insert(:crypto.strong_rand_bytes(32), nil, :crypto.strong_rand_bytes(32))
+  end
+
+  test "the session a row continues is a nullable uuid with no foreign key" do
+    session = Ecto.UUID.bingenerate()
+    [[row]] = insert(:crypto.strong_rand_bytes(32))
+
+    query("UPDATE phoenix_kit_handoff_tokens SET source_session_uuid = $1 WHERE uuid = $2", [
+      session,
+      row
+    ])
+
+    assert query("SELECT source_session_uuid FROM phoenix_kit_handoff_tokens WHERE uuid = $1", [
+             row
+           ]) == [[session]]
+
+    assert query("""
+           SELECT count(*) FROM pg_constraint
+           WHERE conrelid = 'phoenix_kit_handoff_tokens'::regclass AND contype = 'f'
+             AND confrelid <> 'phoenix_kit_users'::regclass
+           """) == [[0]]
   end
 
   test "a guest row (no account) is allowed" do

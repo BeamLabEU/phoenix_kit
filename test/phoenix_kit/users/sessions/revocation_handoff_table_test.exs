@@ -58,12 +58,15 @@ defmodule PhoenixKit.Users.Sessions.RevocationHandoffTableTest do
 
   test "revoke_for_users/1 answers 0 for a missing table and still deletes with the table there",
        %{user: user} do
+    session = user |> Auth.generate_user_session_token() |> Auth.get_session_token_record()
+
     assert {:ok, _token} =
              Handoff.mint(%{
                target_host: "shop-de.test",
                redirect_path: "/",
                browser_nonce_hash: :crypto.hash(:sha256, "n"),
-               user_uuid: user.uuid
+               user_uuid: user.uuid,
+               source_session_uuid: session.uuid
              })
 
     assert Handoff.revoke_for_users([user.uuid]) == 1

@@ -18,10 +18,17 @@ defmodule PhoenixKit.Migrations.Postgres.V236 do
   already has a row hits the unique index and is refused, however the client treats the cookie it
   was told to delete.
 
+  `source_session_uuid` (nullable, no foreign key) is the `uuid` of the session token the handoff was
+  minted from: what `redeem` looks up (the session must still exist) to give the new session the
+  age and the acting role of the one it continues. A guest's row has none. There is no foreign key:
+  the look-up at redeem is the one rule, whichever way the session went (signed out, revoked,
+  expired).
+
   ## Locks
 
-  A new table and its indexes. Re-runnable. A database that ran the first draft of this migration
-  (without `source_proof_hash`) gets the column and its index on a re-run.
+  A new table and its indexes. Re-runnable. A database that ran an earlier draft of this migration
+  (without `source_proof_hash`, or without `source_session_uuid`) gets the missing columns and
+  indexes on a re-run.
 
   ## Down
 
@@ -62,10 +69,12 @@ defmodule PhoenixKit.Migrations.Postgres.V236 do
         expires_at timestamp(0) without time zone NOT NULL,
         used_at timestamp(0) without time zone,
         inserted_at timestamp(0) without time zone NOT NULL DEFAULT now(),
-        source_proof_hash bytea
+        source_proof_hash bytea,
+        source_session_uuid uuid
       )
       """,
       "ALTER TABLE #{p}phoenix_kit_handoff_tokens ADD COLUMN IF NOT EXISTS source_proof_hash bytea",
+      "ALTER TABLE #{p}phoenix_kit_handoff_tokens ADD COLUMN IF NOT EXISTS source_session_uuid uuid",
       "CREATE UNIQUE INDEX IF NOT EXISTS phoenix_kit_handoff_tokens_token_hash_index ON #{p}phoenix_kit_handoff_tokens (token_hash)",
       "CREATE INDEX IF NOT EXISTS phoenix_kit_handoff_tokens_user_uuid_index ON #{p}phoenix_kit_handoff_tokens (user_uuid)",
       "CREATE INDEX IF NOT EXISTS phoenix_kit_handoff_tokens_expires_at_index ON #{p}phoenix_kit_handoff_tokens (expires_at)",

@@ -192,6 +192,7 @@ defmodule PhoenixKitWeb.HandoffController do
          false <- same_host?(target, source),
          conn = WebAuth.fetch_phoenix_kit_current_scope(conn, []),
          {:ok, user} <- Handoff.carried_user(conn.assigns[:phoenix_kit_current_scope]),
+         {:ok, source_session} <- source_session(conn, user),
          :ok <- mint_rate_limit(user),
          user_uuid = user && user.uuid,
          {:ok, token} <-
@@ -199,6 +200,7 @@ defmodule PhoenixKitWeb.HandoffController do
              target_host: target,
              redirect_path: to,
              user_uuid: user_uuid,
+             source_session_uuid: source_session,
              payload: Handoff.snapshots(hook_context(conn, user_uuid)),
              browser_nonce_hash: nonce_hash,
              source_proof_hash: proof_hash,
@@ -207,6 +209,20 @@ defmodule PhoenixKitWeb.HandoffController do
       redirect(conn, external: external_url(conn, target, "/handoff/" <> token, []))
     else
       _ -> fail(conn)
+    end
+  end
+
+  # The session the account is signed in with, which the redeem will look up again: its row's
+  # uuid. A guest has none. An account whose session cannot be found (it went between the
+  # pipeline and here) is not carried.
+  defp source_session(_conn, nil), do: {:ok, nil}
+
+  defp source_session(conn, %User{uuid: uuid}) do
+    with token when is_binary(token) <- get_session(conn, :user_token),
+         %{uuid: session, user_uuid: ^uuid} <- Auth.get_session_token_record(token) do
+      {:ok, session}
+    else
+      _ -> :error
     end
   end
 
@@ -241,7 +257,7 @@ defmodule PhoenixKitWeb.HandoffController do
 
       conn
       |> put_module_effects(user, effects, locale)
-      |> land(user, to)
+      |> land(user, to, row.source_session)
     else
       _ -> fail(conn)
     end
@@ -279,10 +295,17 @@ defmodule PhoenixKitWeb.HandoffController do
   #
   # `localize: false`: the destination was chosen for the host it lands on, so the person's saved
   # language does not turn `/x` into `/<saved>/x` there.
-  defp land(conn, nil, to), do: redirect(conn, to: to)
+  #
+  # `inherit_session`: this is the same sign-in continued, so the new session has the source
+  # session's age (`PhoenixKit.Handoff`, "The session it continues").
+  defp land(conn, nil, to, _source_session), do: redirect(conn, to: to)
 
-  defp land(conn, user, to),
-    do: WebAuth.log_in_user(conn, user, %{"return_to" => to}, localize: false)
+  defp land(conn, user, to, source_session) do
+    WebAuth.log_in_user(conn, user, %{"return_to" => to},
+      localize: false,
+      inherit_session: source_session
+    )
+  end
 
   defp put_flash_line(conn, user, notices, locale) do
     line =

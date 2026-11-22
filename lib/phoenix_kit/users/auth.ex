@@ -1546,6 +1546,24 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   @doc """
+  The live session token row `token_uuid` of the account `user_uuid` (`UserToken.live_session_query/2`),
+  or `nil`: it does not exist (signed out, revoked), has expired, belongs to someone else, is not
+  a session, or acts for an organization. Takes uuids, not the secret token.
+  """
+  @spec get_live_session(term(), term()) :: %UserToken{} | nil
+  def get_live_session(token_uuid, user_uuid)
+      when is_binary(token_uuid) and is_binary(user_uuid) do
+    with {:ok, token_uuid} <- Ecto.UUID.cast(token_uuid),
+         {:ok, user_uuid} <- Ecto.UUID.cast(user_uuid) do
+      token_uuid |> UserToken.live_session_query(user_uuid) |> Repo.one(log: false)
+    else
+      _ -> nil
+    end
+  end
+
+  def get_live_session(_token_uuid, _user_uuid), do: nil
+
+  @doc """
   Verifies a session fingerprint against the stored token data.
 
   Returns:

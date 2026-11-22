@@ -19,6 +19,7 @@ defmodule PhoenixKit.HandoffTest do
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.Auth.User
+  alias PhoenixKit.Users.Auth.UserToken
 
   @host "shop-de.test"
 
@@ -50,6 +51,20 @@ defmodule PhoenixKit.HandoffTest do
   end
 
   defp row(token), do: Repo.get_by(Token, token_hash: sha(token))
+
+  # What the controller hands `mint/1` for a signed-in account: the account, and the session it
+  # is signed in with.
+  defp signed_in(user) do
+    token = Auth.generate_user_session_token(user)
+    %{uuid: uuid} = Auth.get_session_token_record(token)
+    %{user_uuid: user.uuid, source_session_uuid: uuid}
+  end
+
+  defp age_session(uuid, seconds) do
+    at = DateTime.add(DateTime.utc_now(), -seconds, :second) |> DateTime.truncate(:second)
+    Repo.update_all(from(t in UserToken, where: t.uuid == ^uuid), set: [inserted_at: at])
+    at
+  end
 
   describe "mint/1" do
     test "returns a 43-character token and stores only its hash" do
@@ -192,12 +207,128 @@ defmodule PhoenixKit.HandoffTest do
     test "a deleted account takes its rows with it" do
       user = KeyTestSupport.register_user!()
       nonce = Handoff.new_secret()
-      token = mint!(nonce, %{user_uuid: user.uuid})
+      token = mint!(nonce, signed_in(user))
       assert row(token).user_uuid == user.uuid
 
       Repo.delete!(user)
       assert :error = Handoff.redeem(token, @host, nonce)
       assert is_nil(row(token))
+    end
+  end
+
+  describe "the session a handoff continues" do
+    setup do
+      user = KeyTestSupport.register_user!()
+      {:ok, user: user, nonce: Handoff.new_secret()}
+    end
+
+    test "mint stores the session's uuid, and a guest's row has none", %{user: user, nonce: nonce} do
+      %{source_session_uuid: session} = attrs = signed_in(user)
+
+      assert row(mint!(nonce, attrs)).source_session_uuid == session
+      assert is_nil(row(mint!(nonce)).source_session_uuid)
+    end
+
+    test "an account cannot be carried without the session it is signed in with", %{
+      user: user,
+      nonce: nonce
+    } do
+      assert {:error, :invalid_attrs} =
+               Handoff.mint(attrs(nonce, %{user_uuid: user.uuid}))
+
+      for bad <- ["not-a-uuid", 7, ""] do
+        assert {:error, :invalid_attrs} =
+                 Handoff.mint(attrs(nonce, %{user_uuid: user.uuid, source_session_uuid: bad}))
+      end
+
+      assert Repo.all(Token) == []
+    end
+
+    test "redeem hands back the session, with the age and the role it acts as", %{
+      user: user,
+      nonce: nonce
+    } do
+      %{source_session_uuid: session} = attrs = signed_in(user)
+      role = Ecto.UUID.generate()
+
+      Repo.update_all(from(t in UserToken, where: t.uuid == ^session),
+        set: [active_role_uuid: role]
+      )
+
+      aged = age_session(session, 7_200)
+      token = mint!(nonce, attrs)
+
+      assert {:ok, %Token{source_session: %UserToken{} = source}} =
+               Handoff.redeem(token, @host, nonce)
+
+      assert source.uuid == session
+      assert source.inserted_at == aged
+      assert source.active_role_uuid == role
+    end
+
+    test "a guest's row has no session to look up", %{nonce: nonce} do
+      token = mint!(nonce)
+      assert {:ok, %Token{source_session: nil}} = Handoff.redeem(token, @host, nonce)
+    end
+
+    test "a session revoked after the mint ends the handoff, without any revocation hook", %{
+      user: user,
+      nonce: nonce
+    } do
+      %{source_session_uuid: session} = attrs = signed_in(user)
+      token = mint!(nonce, attrs)
+
+      # A deletion that bypasses `Revocation` (and so `revoke_for_users/1`): the look-up at
+      # redeem is the rule, whichever way the session went.
+      {1, _} = Repo.delete_all(from(t in UserToken, where: t.uuid == ^session))
+
+      assert :error = Handoff.redeem(token, @host, nonce)
+    end
+
+    test "a session that has expired since the mint ends it", %{user: user, nonce: nonce} do
+      %{source_session_uuid: session} = attrs = signed_in(user)
+      token = mint!(nonce, attrs)
+      age_session(session, 61 * 86_400)
+
+      assert :error = Handoff.redeem(token, @host, nonce)
+    end
+
+    test "a session just inside its 60 days still continues", %{user: user, nonce: nonce} do
+      %{source_session_uuid: session} = attrs = signed_in(user)
+      age_session(session, 60 * 86_400 - 3_600)
+
+      assert {:ok, %Token{source_session: %UserToken{uuid: ^session}}} =
+               Handoff.redeem(mint!(nonce, attrs), @host, nonce)
+    end
+
+    test "a session of another account, or one that is not a session, is no session", %{
+      user: user,
+      nonce: nonce
+    } do
+      other = KeyTestSupport.register_user!()
+      %{source_session_uuid: others_session} = signed_in(other)
+
+      mine = mint!(nonce, %{user_uuid: user.uuid, source_session_uuid: others_session})
+      assert :error = Handoff.redeem(mine, @host, nonce)
+
+      {_raw, reset} = UserToken.build_email_token(user, "reset_password")
+      reset = Repo.insert!(reset)
+
+      not_a_session = mint!(nonce, %{user_uuid: user.uuid, source_session_uuid: reset.uuid})
+      assert :error = Handoff.redeem(not_a_session, @host, nonce)
+    end
+
+    test "a row for an account that names no session is refused at redeem", %{
+      user: user,
+      nonce: nonce
+    } do
+      token = mint!(nonce, signed_in(user))
+
+      Repo.update_all(from(t in Token, where: t.token_hash == ^sha(token)),
+        set: [source_session_uuid: nil]
+      )
+
+      assert :error = Handoff.redeem(token, @host, nonce)
     end
   end
 
@@ -616,7 +747,7 @@ defmodule PhoenixKit.HandoffTest do
       user = KeyTestSupport.register_user!()
       nonce = Handoff.new_secret()
 
-      assert {:ok, _} = Handoff.mint(attrs(nonce, %{payload: %{}, user_uuid: user.uuid}))
+      assert {:ok, _} = Handoff.mint(attrs(nonce, Map.put(signed_in(user), :payload, %{})))
       assert {:ok, _} = Handoff.mint(attrs(nonce, %{user_uuid: nil}))
       assert length(Repo.all(Token)) == 2
     end
@@ -722,9 +853,9 @@ defmodule PhoenixKit.HandoffTest do
       a = KeyTestSupport.register_user!()
       b = KeyTestSupport.register_user!()
       nonce = Handoff.new_secret()
-      token_a = mint!(nonce, %{user_uuid: a.uuid})
-      used_a = mint!(nonce, %{user_uuid: a.uuid})
-      token_b = mint!(nonce, %{user_uuid: b.uuid})
+      token_a = mint!(nonce, signed_in(a))
+      used_a = mint!(nonce, signed_in(a))
+      token_b = mint!(nonce, signed_in(b))
       guest = mint!(nonce)
       assert {:ok, _} = Handoff.redeem(used_a, @host, nonce)
 

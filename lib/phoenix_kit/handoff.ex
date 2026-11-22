@@ -16,12 +16,14 @@ defmodule PhoenixKit.Handoff do
        sends the SHA-256 of it back to the source, with the proof it was given unchanged.
     3. `mint` on the **source**: checks that its signed cookie is one this application issued and
        that the proof is its hash, asks every enabled module for a snapshot of its state, stores a
-       token row bound to the target host, to that nonce hash and to the proof, which the row's
-       unique index spends (one source cookie, one row), refusing a handoff that carries nothing
-       (no account and no snapshot), and sends the browser to the target.
-    4. `redeem` on the **target**: consumes the row in one statement (`redeem/4`), lets the modules
-       apply their payload, signs the account in through the normal log-in path and redirects to the
-       requested path.
+       token row bound to the target host, to that nonce hash, to the proof, which the row's
+       unique index spends (one source cookie, one row), and to the session the account is signed in
+       with, refusing a handoff that carries nothing (no account and no snapshot), and sends the
+       browser to the target.
+    4. `redeem` on the **target**: consumes the row in one statement and finds the source session
+       alive (`redeem/4`), lets the modules apply their payload, signs the account in
+       through the normal log-in path with that session's age, and redirects to the requested
+       path.
 
   Only a browser that took part in steps 1 and 2 can complete step 4: the nonce cookie never leaves
   the target browser, only its hash travels, so a copied handoff link is useless in any other
@@ -52,6 +54,16 @@ defmodule PhoenixKit.Handoff do
   account (`revoke_for_users/1`, called by `PhoenixKit.Users.Sessions.Revocation`), and expired
   rows are deleted (`prune_expired/1`: by `PhoenixKit.Handoff.PruneWorker` daily, and a few at every
   mint).
+
+  ## The session it continues
+
+  A handoff is the same sign-in on another domain, not a new one. A row for an account names the
+  session it was minted from (`source_session_uuid`), and `redeem/4` looks that session up: it must
+  still exist and be unexpired, or the redeem fails. The session the target signs in is built from
+  it (`PhoenixKitWeb.Users.Auth.log_in_user/4`, `:inherit_session`): it has the **same
+  `inserted_at`**, so every rule that reads a session's age (the passkey freshness window, the 60
+  days a session lives, the sessions list) sees the sign-in that really happened, and the same
+  acting role. A guest's row has no session and is exempt.
   """
 
   import Ecto.Query
@@ -369,6 +381,10 @@ defmodule PhoenixKit.Handoff do
   `:user_uuid`, `:payload` (a JSON-safe map), `:user_agent` (a header value, kept as a hash) and
   `:source_proof_hash` (the 32 bytes `decode_source_proof/1` gives).
 
+  `:source_session_uuid`, the `uuid` of the session token the account is signed in with, is
+  **required with `:user_uuid`** (and refused without it): the row continues that session, see
+  `redeem/4`. A row with an account and no session is `{:error, :invalid_attrs}`.
+
   `:source_proof_hash` makes the proof of a `start` **single use**: it is stored under a unique
   index, so a second mint with a proof that already has a row is `{:error, :proof_used}` and writes
   nothing. That holds across nodes and restarts, which a counter in memory cannot promise. A mint
@@ -385,6 +401,7 @@ defmodule PhoenixKit.Handoff do
     cond do
       is_nil(valid_to(path)) -> {:error, :invalid_path}
       not valid_proof_hash?(Map.get(attrs, :source_proof_hash)) -> {:error, :invalid_attrs}
+      not valid_source_session?(attrs) -> {:error, :invalid_attrs}
       nothing_to_carry?(attrs) -> {:error, :nothing_to_carry}
       true -> insert_token(attrs, host, path, nonce_hash)
     end
@@ -394,6 +411,15 @@ defmodule PhoenixKit.Handoff do
 
   defp valid_proof_hash?(nil), do: true
   defp valid_proof_hash?(hash), do: is_binary(hash) and byte_size(hash) == 32
+
+  # An account is carried with the session it is signed in with, and only an account has one.
+  defp valid_source_session?(attrs) do
+    case {Map.get(attrs, :user_uuid), Map.get(attrs, :source_session_uuid)} do
+      {nil, nil} -> true
+      {nil, _session} -> false
+      {_user, session} -> is_binary(session) and match?({:ok, _}, Ecto.UUID.cast(session))
+    end
+  end
 
   defp nothing_to_carry?(attrs) do
     is_nil(Map.get(attrs, :user_uuid)) and Map.get(attrs, :payload) in [nil, %{}]
@@ -412,6 +438,7 @@ defmodule PhoenixKit.Handoff do
       browser_nonce_hash: nonce_hash,
       user_agent_hash: user_agent_hash(Map.get(attrs, :user_agent)),
       source_proof_hash: Map.get(attrs, :source_proof_hash),
+      source_session_uuid: Map.get(attrs, :source_session_uuid),
       expires_at: DateTime.add(now, @ttl_seconds, :second)
     }
 
@@ -456,6 +483,12 @@ defmodule PhoenixKit.Handoff do
   and not expired. A request that fails any of them touches nothing, so a wrong host, browser or
   `User-Agent` does not burn the token; two requests racing for it, exactly one wins.
 
+  A row for an account then needs the session it was minted from (`:source_session_uuid`) to be
+  alive: `Auth.get_live_session/2` finds it (it exists, is unexpired, is that account's), and it
+  is returned in the row's virtual `:source_session`, for `log_in_user/4` to take its age and
+  acting role over. Without it the redeem is `:error` (the token stays spent). A guest's row has
+  no session and gets `source_session: nil`.
+
   `{:ok, token_row}` or `:error`, which says nothing about why.
   """
   @spec redeem(term(), term(), term(), keyword()) :: {:ok, Token.t()} | :error
@@ -485,7 +518,7 @@ defmodule PhoenixKit.Handoff do
         select: t
 
     case RepoHelper.repo().update_all(query, set: [used_at: now]) do
-      {1, [row]} -> {:ok, row}
+      {1, [row]} -> with_source_session(row)
       _ -> :error
     end
   rescue
@@ -496,6 +529,17 @@ defmodule PhoenixKit.Handoff do
     :exit, _ ->
       Logger.error("[Handoff] redeem failed: database unavailable")
       :error
+  end
+
+  # The row is spent already: a session that is gone ends the handoff, and the token with it.
+  defp with_source_session(%Token{user_uuid: nil} = row), do: {:ok, row}
+  defp with_source_session(%Token{source_session_uuid: nil}), do: :error
+
+  defp with_source_session(%Token{} = row) do
+    case Auth.get_live_session(row.source_session_uuid, row.user_uuid) do
+      nil -> :error
+      session -> {:ok, %{row | source_session: session}}
+    end
   end
 
   defp user_agent_matches(user_agent) do

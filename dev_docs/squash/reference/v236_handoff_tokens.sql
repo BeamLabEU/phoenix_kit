@@ -21,7 +21,8 @@ CREATE TABLE __SCHEMA__.phoenix_kit_handoff_tokens (
     expires_at timestamp(0) without time zone NOT NULL,
     used_at timestamp(0) without time zone,
     inserted_at timestamp(0) without time zone DEFAULT now() NOT NULL,
-    source_proof_hash bytea
+    source_proof_hash bytea,
+    source_session_uuid uuid
 );
 
 CREATE UNIQUE INDEX phoenix_kit_handoff_tokens_source_proof_hash_index ON __SCHEMA__.phoenix_kit_handoff_tokens USING btree (source_proof_hash) WHERE (source_proof_hash IS NOT NULL);

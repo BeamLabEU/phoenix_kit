@@ -24,6 +24,8 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
   alias PhoenixKit.Test.HandoffStubModule
   alias PhoenixKit.Test.LanguageSettings
   alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Users.Auth.UserToken
+  alias PhoenixKit.Users.Passkeys
   alias PhoenixKit.Users.RateLimiter
   alias PhoenixKit.Users.Sessions
   alias PhoenixKit.Utils.Routes
@@ -1509,6 +1511,143 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
       refute_received :disabled_apply_called
       assert flash(redeem, "info") =~ "angemeldet"
       refute flash(redeem, "info") =~ "from a disabled module"
+    end
+  end
+
+  describe "the age of the session" do
+    # A session that is `seconds` old, as the sessions of the pipeline see it.
+    defp aged_session(user, seconds) do
+      session = signed_in_session(user)
+      age(session[:user_token], seconds)
+      session
+    end
+
+    defp age(token, seconds) do
+      at = DateTime.add(DateTime.utc_now(), -seconds, :second) |> DateTime.truncate(:second)
+      Repo.update_all(from(t in UserToken, where: t.token == ^token), set: [inserted_at: at])
+      at
+    end
+
+    # Time passing: every session of the account gets `seconds` older.
+    defp pass_time(user, seconds) do
+      Repo.update_all(
+        from(t in UserToken, where: t.user_uuid == ^user.uuid and t.context == "session"),
+        set: [
+          inserted_at:
+            dynamic([t], fragment("? - make_interval(secs => ?)", t.inserted_at, ^seconds))
+        ]
+      )
+    end
+
+    defp session_row(token), do: Repo.get_by!(UserToken, token: token, context: "session")
+
+    defp may_add_passkey(user, token),
+      do: Passkeys.check_may_add(user, impersonated: false, session_token: token)
+
+    setup do
+      {:ok, _} = Settings.update_setting("passkey_login_enabled", "true")
+      on_exit(fn -> Settings.update_setting("passkey_login_enabled", "false") end)
+    end
+
+    test "a session older than the passkey window is just as stale on the target" do
+      user = user!()
+      minutes = Passkeys.fresh_session_minutes()
+      session = aged_session(user, (minutes + 15) * 60)
+      source = session[:user_token]
+      assert {:error, :stale_session} = may_add_passkey(user, source)
+
+      {[_, _, _, redeem], _} = handoff(new_browser(), session: session)
+
+      target = get_session(redeem, :user_token)
+      refute target == source
+      assert Auth.get_user_by_session_token(target).uuid == user.uuid
+      assert {:error, :stale_session} = may_add_passkey(user, target)
+      assert session_row(target).inserted_at == session_row(source).inserted_at
+    end
+
+    test "a session younger than the window is still fresh on the target, until the source is not" do
+      user = user!()
+      session = aged_session(user, 60)
+      source = session[:user_token]
+      assert :ok = may_add_passkey(user, source)
+
+      {[_, _, _, redeem], _} = handoff(new_browser(), session: session)
+
+      target = get_session(redeem, :user_token)
+      assert :ok = may_add_passkey(user, target)
+
+      # The window closes for both at once.
+      pass_time(user, Passkeys.fresh_session_minutes() * 60)
+      assert {:error, :stale_session} = may_add_passkey(user, source)
+      assert {:error, :stale_session} = may_add_passkey(user, target)
+    end
+
+    test "the new session expires when the one it continues would have, not 60 days from now" do
+      user = user!()
+      almost = 60 * 86_400 - 300
+      session = aged_session(user, almost)
+      source = session[:user_token]
+      assert Auth.get_user_by_session_token(source)
+
+      {[_, _, _, redeem], _} = handoff(new_browser(), session: session)
+
+      target = get_session(redeem, :user_token)
+      assert Auth.get_user_by_session_token(target)
+
+      # Ten minutes later the source is over its 60 days: so is the target.
+      pass_time(user, 600)
+      refute Auth.get_user_by_session_token(source)
+      refute Auth.get_user_by_session_token(target)
+    end
+
+    test "the account's role in the session carries over" do
+      user = user!()
+      session = signed_in_session(user)
+      role = Ecto.UUID.generate()
+
+      Repo.update_all(from(t in UserToken, where: t.token == ^session[:user_token]),
+        set: [active_role_uuid: role]
+      )
+
+      {[_, _, _, redeem], _} = handoff(new_browser(), session: session)
+
+      assert session_row(get_session(redeem, :user_token)).active_role_uuid == role
+    end
+
+    test "a session revoked after the mint and before the redeem ends the handoff" do
+      user = user!()
+      session = signed_in_session(user)
+      {browser, _prepare, mint, _token} = minted(session)
+      assert [%Token{used_at: nil, source_session_uuid: source}] = tokens()
+      assert source == session_row(session[:user_token]).uuid
+
+      # Straight at the table, past the revocation hook: the redeem looks the session up itself.
+      {1, _} = Repo.delete_all(from(t in UserToken, where: t.token == ^session[:user_token]))
+      assert [%Token{used_at: nil}] = tokens()
+
+      {conn, _} = follow(browser, mint)
+      assert_refused(conn)
+      refute get_session(conn, :user_token)
+    end
+
+    test "a guest's handoff has no session to continue and is not affected" do
+      {[_, _, _, redeem], _} = handoff(new_browser(), session: [stub_cart: "cart-1"])
+
+      assert flash(redeem, "info") == "Your cart came along."
+      assert [%Token{user_uuid: nil, source_session_uuid: nil}] = tokens()
+    end
+
+    test "a sign-in of any other kind gets the age of now, and no role" do
+      user = user!()
+
+      conn =
+        build_conn()
+        |> Phoenix.ConnTest.init_test_session(%{})
+        |> WebAuth.log_in_user(user, %{})
+
+      token = get_session(conn, :user_token)
+      assert DateTime.diff(DateTime.utc_now(), session_row(token).inserted_at) in 0..5
+      assert is_nil(session_row(token).active_role_uuid)
     end
   end
 

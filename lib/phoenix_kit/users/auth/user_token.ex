@@ -94,6 +94,10 @@ defmodule PhoenixKit.Users.Auth.UserToken do
 
     * `:fingerprint` - A `%SessionFingerprint{}` struct with `:ip_address` and `:user_agent_hash` fields
     * `:browser` / `:os` - readable device name (e.g. `"Safari"` / `"iOS"`) for the sessions UI
+    * `:inherit_session` - the `%UserToken{}` of a session this one CONTINUES (a cross-domain
+      handoff, `PhoenixKit.Handoff`): the new token takes its `inserted_at` and `active_role_uuid`,
+      so every rule that reads a session's age or acting role sees the original sign-in's. Without
+      it (every other caller) the token is new: the age of now, the default role.
 
   ## Examples
 
@@ -109,11 +113,14 @@ defmodule PhoenixKit.Users.Auth.UserToken do
     token = :crypto.strong_rand_bytes(@rand_size)
     fingerprint = Keyword.get(opts, :fingerprint)
     {ip_address, user_agent_hash} = extract_fingerprint_attrs(fingerprint)
+    {inserted_at, active_role_uuid} = inherited(Keyword.get(opts, :inherit_session))
 
     user_token = %UserToken{
       token: token,
       context: "session",
       user_uuid: user.uuid,
+      inserted_at: inserted_at,
+      active_role_uuid: active_role_uuid,
       ip_address: ip_address,
       user_agent_hash: user_agent_hash,
       # Readable device name for the sessions UI (V148). Captured separately
@@ -124,6 +131,12 @@ defmodule PhoenixKit.Users.Auth.UserToken do
 
     {token, user_token}
   end
+
+  # `nil` for `inserted_at` is what the schema's timestamps fill with now.
+  defp inherited(%UserToken{inserted_at: inserted_at, active_role_uuid: role}),
+    do: {inserted_at, role}
+
+  defp inherited(_none), do: {nil, nil}
 
   defp extract_fingerprint_attrs(%SessionFingerprint{} = fp) do
     {fp.ip_address, fp.user_agent_hash}
@@ -157,6 +170,22 @@ defmodule PhoenixKit.Users.Auth.UserToken do
   """
   def verify_session_token_uuid_query(token_uuid) do
     {:ok, session_user_query(from(UserToken, where: [uuid: ^token_uuid, context: "session"]))}
+  end
+
+  @doc """
+  The query for the session `token_uuid` of the account `user_uuid`, when it is a live one: a
+  plain `"session"` row (no acting organization) that has not expired, by the same 60 days
+  `verify_session_token_query/1` applies. What `PhoenixKit.Handoff` looks up at redeem, to give the
+  session it signs in the age and the acting role of the one it continues.
+
+  `token_uuid` and `user_uuid` must be valid UUIDs; the caller checks them.
+  """
+  def live_session_query(token_uuid, user_uuid) do
+    from token in UserToken,
+      where: token.uuid == ^token_uuid and token.user_uuid == ^user_uuid,
+      where: token.context == "session",
+      where: is_nil(token.acting_session_uuid) and is_nil(token.organization_manager_uuid),
+      where: token.inserted_at > ago(@session_validity_in_days, "day")
   end
 
   # `active_role_uuid` rides along on the user's virtual field: the two session

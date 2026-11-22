@@ -13,8 +13,8 @@ defmodule PhoenixKit.Migrations.Postgres do
   carry a visitor from one of the site's domains to another. The raw token is never stored (`token_hash`, unique);
   a row is bound to the target domain, to the browser that asked for it (`browser_nonce_hash`) and softly to its
   `User-Agent`; it names the account to sign in (nullable, cascading) and holds what the modules asked to carry
-  (`payload`). `source_proof_hash` (nullable, unique where set) makes the proof of a `start` single use across nodes.
-  Additive, no backfill.
+  (`payload`). `source_proof_hash` (nullable, unique where set) makes the proof of a `start` single use across nodes;
+  `source_session_uuid` (nullable) names the session the handoff continues. Additive, no backfill.
 
   ### V235 - Browser push notifications
 

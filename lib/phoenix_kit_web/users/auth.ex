@@ -135,6 +135,11 @@ defmodule PhoenixKitWeb.Users.Auth do
     * `:localize` - whether a destination without a language is rewritten into the person's
       saved language (default `true`). A caller whose destination was already chosen for the
       host it lands on (`PhoenixKit.Handoff`) passes `false`.
+    * `:inherit_session` - the `%PhoenixKit.Users.Auth.UserToken{}` of the session this sign-in
+      CONTINUES (default `nil`: a new sign-in). The new session takes its `inserted_at` and acting
+      role (`PhoenixKit.Users.Auth.UserToken.build_session_token/2`), so a session of any age
+      stays that old, however many domains it is carried through. Only `PhoenixKit.Handoff` passes
+      it, with a session it has just found alive.
   """
   def log_in_user(conn, user, params \\ %{}, opts \\ [])
 
@@ -192,7 +197,13 @@ defmodule PhoenixKitWeb.Users.Auth do
     # of fingerprinting (which keeps only the hashed UA) and of the alerts
     # setting. The raw UA isn't stored — only the parsed browser/OS.
     ua = List.first(get_req_header(conn, "user-agent"))
-    opts = Keyword.merge(opts, browser: UserAgent.browser(ua), os: UserAgent.os(ua))
+
+    opts =
+      Keyword.merge(opts,
+        browser: UserAgent.browser(ua),
+        os: UserAgent.os(ua),
+        inherit_session: Keyword.get(sign_in_opts, :inherit_session)
+      )
 
     token = Auth.generate_user_session_token(user, opts)
 
