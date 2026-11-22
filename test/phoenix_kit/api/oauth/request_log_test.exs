@@ -144,6 +144,33 @@ defmodule PhoenixKit.API.OAuth.RequestLogTest do
       assert RequestLog.path(conn("/phoenix_kit/handoff/start")) == "/phoenix_kit/handoff/start"
     end
 
+    # The router drops empty segments, so these all reach `redeem` with the same token.
+    test "hides the token whichever way the router accepts its path spelled" do
+      for path <- [
+            "/handoff//" <> @token,
+            "/handoff////" <> @token,
+            "/handoff/" <> @token <> "/",
+            "/handoff/" <> @token <> "//",
+            "/handoff//" <> @token <> "//",
+            "//phoenix_kit//handoff//" <> @token,
+            "/phoenix_kit/handoff//" <> @token <> "?x=1"
+          ] do
+        redacted = RequestLog.redact(path)
+        refute redacted =~ @token, "#{path} -> #{redacted}"
+        assert redacted =~ "/[FILTERED]"
+
+        line = ["GET", ?\s, path]
+        assert %{msg: {:string, ["GET", ?\s, from_line]}} = RequestLog.filter(event(line), [])
+        assert from_line == redacted
+      end
+    end
+
+    test "a step's name after repeated slashes is still a step, not a token" do
+      for path <- ["/handoff//start?lang=de", "/handoff///prepare", "/handoff//mint/"] do
+        assert RequestLog.redact(path) == path
+      end
+    end
+
     test "a path that only mentions handoff is as it is" do
       for path <- ["/handoff", "/handoff-guide/" <> @token, "/shop/handoffs/" <> @token] do
         assert RequestLog.redact(path) == path

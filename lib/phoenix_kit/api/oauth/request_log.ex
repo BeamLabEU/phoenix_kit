@@ -16,7 +16,8 @@ defmodule PhoenixKit.API.OAuth.RequestLog do
   of a consent or handoff path by `[FILTERED]` (the word Phoenix uses for a parameter it hides) and
   drops a query string from any `/oauth/` path; in the second it replaces the tokens. The three
   literal steps of the handoff (`start`, `prepare`, `mint`) are left readable: only the segment
-  after `/handoff/` that is not one of them is a token. A message written as other chardata (nested
+  after `/handoff/` (and any repeated slashes: the router drops empty segments) that is not one
+  of them is a token. A message written as other chardata (nested
   lists, a charlist) is read as one text first and judged the same way. Every other event passes
   unchanged. The `[RequestTimer]` lines of the kit's own `PhoenixKitWeb.Plugs.RequestTimer` log
   `path/1`.
@@ -34,7 +35,9 @@ defmodule PhoenixKit.API.OAuth.RequestLog do
 
   @filter_id :phoenix_kit_oauth_request_log
   @consent_token ~r{(/oauth/consent/)[^/?#\s]+}
-  @handoff_token ~r{(/handoff/)(?!(?:start|prepare|mint)(?:[/?#\s]|\z))[^/?#\s]+}
+  # `/handoff/++`: the router drops empty segments, so `/handoff//<token>` redeems too; a step's
+  # name after any number of slashes is still a step.
+  @handoff_token ~r{(/handoff/++)(?!(?:start|prepare|mint)(?:[/?#\s]|\z))[^/?#\s]+}
   @filtered "[FILTERED]"
 
   @doc """

@@ -1739,6 +1739,58 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
     end
   end
 
+  describe "the log, for every spelling of the redeem path" do
+    # Spellings the router accepts as `redeem` (it drops empty segments and decodes the token's
+    # percent-escapes): the token must reach no line of the log in any of them.
+    defp spellings(token) do
+      encoded = "%" <> Base.encode16(binary_part(token, 0, 1)) <> binary_part(token, 1, 42)
+
+      for path <- [
+            "#{@prefix}/#{token}",
+            "#{@prefix}//#{token}",
+            "#{@prefix}////#{token}",
+            "#{@prefix}/#{token}/",
+            "#{@prefix}/#{token}//",
+            "#{@prefix}//#{token}//",
+            "/phoenix_kit//handoff/#{token}",
+            "//phoenix_kit/handoff//#{token}",
+            "#{@prefix}/#{encoded}",
+            "#{@prefix}//#{encoded}/"
+          ],
+          do: {path, if(String.contains?(path, "%"), do: encoded, else: token)}
+    end
+
+    test "the router takes each of them for a redeem, and the request line, the timer and redact/1 hide it" do
+      RequestLog.install()
+      previous = Logger.level()
+      Logger.configure(level: :debug)
+      on_exit(fn -> Logger.configure(level: previous) end)
+
+      # Every token below has the shape of a real one and is unknown: a failed redeem is logged
+      # the same as a good one, and burns nothing.
+      for _ <- 1..3 do
+        token = Handoff.new_secret()
+
+        for {path, shown} <- spellings(token) do
+          assert %{plug_opts: :redeem} =
+                   Phoenix.Router.route_info(PhoenixKitWeb.Router, "GET", path, @target)
+
+          refute RequestLog.redact(path) =~ shown
+          refute RequestLog.redact(path) =~ token
+
+          {_conn, log} =
+            with_log([level: :debug], fn ->
+              visit(new_browser(), @target, path)
+            end)
+
+          assert log =~ "[FILTERED]", "no request line was captured for #{path}"
+          refute log =~ shown, "#{path} reached the log"
+          refute log =~ token, "#{path} reached the log, decoded"
+        end
+      end
+    end
+  end
+
   describe "routes" do
     test "the endpoints have one address, whatever the language" do
       for locale <- ["en", "de", "fr"] do
