@@ -185,6 +185,22 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
 
   defp proof, do: Handoff.source_proof_param(Handoff.new_secret())
 
+  # `key` of the RateLimiter's config set for this test, and the application env put back
+  # exactly as it was: the same list when there was one, no key at all when there was none.
+  defp put_rate_limit(key, value) do
+    {current, restore} =
+      case Application.fetch_env(:phoenix_kit, RateLimiter) do
+        {:ok, config} ->
+          {config, fn -> Application.put_env(:phoenix_kit, RateLimiter, config) end}
+
+        :error ->
+          {[], fn -> Application.delete_env(:phoenix_kit, RateLimiter) end}
+      end
+
+    Application.put_env(:phoenix_kit, RateLimiter, Keyword.put(current, key, value))
+    on_exit(restore)
+  end
+
   # What a signed cookie of the application holds (`nil` when it is not one).
   defp signed_secret(value, name) do
     secret_key_base = @endpoint.config(:secret_key_base)
@@ -867,7 +883,7 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
       for conn <- Enum.drop(conns, 1), do: assert_refused(conn)
     end
 
-    test "a replay is refused before the session is read and any module is asked" do
+    test "a replay is refused before the scope is built and any module is asked" do
       session = signed_in_session(user!()) ++ [stub_cart: "cart-1"]
       _ = asked_for_snapshots()
 
@@ -991,15 +1007,7 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
 
     test "a flood of guests' mints from one address stops at the address limit" do
       limit = 5
-      previous = Application.get_env(:phoenix_kit, RateLimiter, [])
-
-      Application.put_env(
-        :phoenix_kit,
-        RateLimiter,
-        Keyword.put(previous, :handoff_mint_ip_limit, limit)
-      )
-
-      on_exit(fn -> Application.put_env(:phoenix_kit, RateLimiter, previous) end)
+      put_rate_limit(:handoff_mint_ip_limit, limit)
 
       browser = new_browser()
 

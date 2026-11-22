@@ -581,7 +581,8 @@ defmodule PhoenixKit.Users.RateLimiter do
   A client that ignores the `Set-Cookie` which deletes that cookie can send it again within its
   minute, so the proof is also made single use in the database (the unique `source_proof_hash` of
   `PhoenixKit.Handoff.mint/1`). This bucket is the cheap first fence, **per node**: it refuses a
-  replay before the session is read and the snapshots are taken, but it is neither shared between
+  replay before the scope is built (the pipeline has already looked the session token up), the
+  host resolver is asked and the snapshots are taken, but it is neither shared between
   nodes nor exact (a fixed window, so a replay across the minute boundary is let through to the
   database, which refuses it). Returns `:ok` or `{:error, :rate_limit_exceeded}`.
   """
