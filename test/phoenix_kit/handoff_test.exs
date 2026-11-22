@@ -259,12 +259,12 @@ defmodule PhoenixKit.HandoffTest do
       aged = age_session(session, 7_200)
       token = mint!(nonce, attrs)
 
-      assert {:ok, %Token{source_session: %UserToken{} = source}} =
-               Handoff.redeem(token, @host, nonce)
+      assert {:ok, %Token{source_session: source}} = Handoff.redeem(token, @host, nonce)
 
-      assert source.uuid == session
-      assert source.inserted_at == aged
-      assert source.active_role_uuid == role
+      # Only what the new session takes over (and whose it is): no struct, no session token.
+      assert source == %{user_uuid: user.uuid, inserted_at: aged, active_role_uuid: role}
+      refute is_struct(source)
+      refute Map.has_key?(source, :token)
     end
 
     test "a guest's row has no session to look up", %{nonce: nonce} do
@@ -298,8 +298,10 @@ defmodule PhoenixKit.HandoffTest do
       %{source_session_uuid: session} = attrs = signed_in(user)
       age_session(session, 60 * 86_400 - 3_600)
 
-      assert {:ok, %Token{source_session: %UserToken{uuid: ^session}}} =
+      assert {:ok, %Token{source_session: %{user_uuid: user_uuid}}} =
                Handoff.redeem(mint!(nonce, attrs), @host, nonce)
+
+      assert user_uuid == user.uuid
     end
 
     test "a session of another account, or one that is not a session, is no session", %{

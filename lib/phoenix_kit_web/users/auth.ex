@@ -135,11 +135,12 @@ defmodule PhoenixKitWeb.Users.Auth do
     * `:localize` - whether a destination without a language is rewritten into the person's
       saved language (default `true`). A caller whose destination was already chosen for the
       host it lands on (`PhoenixKit.Handoff`) passes `false`.
-    * `:inherit_session` - the `%PhoenixKit.Users.Auth.UserToken{}` of the session this sign-in
-      CONTINUES (default `nil`: a new sign-in). The new session takes its `inserted_at` and acting
-      role (`PhoenixKit.Users.Auth.UserToken.build_session_token/2`), so a session of any age
-      stays that old, however many domains it is carried through. Only `PhoenixKit.Handoff` passes
-      it, with a session it has just found alive.
+    * `:inherit_session` - what the session this sign-in CONTINUES lends (default `nil`: a new
+      sign-in): a map with its `:user_uuid`, `:inserted_at` and `:active_role_uuid`. The new
+      session takes its `inserted_at` and acting role when it is this account's and not dated in
+      the future (`PhoenixKit.Users.Auth.UserToken.build_session_token/2`), so a session of any
+      age stays that old, however many domains it is carried through. Only `PhoenixKit.Handoff`
+      passes it, with a session it has just found alive.
   """
   def log_in_user(conn, user, params \\ %{}, opts \\ [])
 

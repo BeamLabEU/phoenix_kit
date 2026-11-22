@@ -8,8 +8,8 @@ defmodule PhoenixKit.Handoff.Token do
   `source_proof_hash` is the proof of the `start` the row was minted for (unique where set, so a
   source cookie yields one row, whatever the client does with it). `source_session_uuid` is the
   session token the handoff was minted from (none for a guest): `PhoenixKit.Handoff.redeem/4`
-  looks it up and returns it in the virtual `source_session`, whose age and acting role the new
-  session takes over.
+  looks it up and returns what the new session takes over in the virtual `source_session`: its
+  age and acting role (with the account they belong to), not its token.
   """
   use Ecto.Schema
   use PhoenixKit.SchemaPrefix

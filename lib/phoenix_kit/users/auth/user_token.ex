@@ -94,10 +94,13 @@ defmodule PhoenixKit.Users.Auth.UserToken do
 
     * `:fingerprint` - A `%SessionFingerprint{}` struct with `:ip_address` and `:user_agent_hash` fields
     * `:browser` / `:os` - readable device name (e.g. `"Safari"` / `"iOS"`) for the sessions UI
-    * `:inherit_session` - the `%UserToken{}` of a session this one CONTINUES (a cross-domain
-      handoff, `PhoenixKit.Handoff`): the new token takes its `inserted_at` and `active_role_uuid`,
-      so every rule that reads a session's age or acting role sees the original sign-in's. Without
-      it (every other caller) the token is new: the age of now, the default role.
+    * `:inherit_session` - what a session this one CONTINUES lends (a cross-domain handoff,
+      `PhoenixKit.Handoff`): a map with its `:user_uuid`, `:inserted_at` and `:active_role_uuid`.
+      The new token takes the `inserted_at` and the `active_role_uuid`, so every rule that reads a
+      session's age or acting role sees the original sign-in's. The session must be the same
+      account's and must not be dated later than now; anything else (another account's, a future
+      one, no map at all) is ignored and the token is a normal new one, as it is without the option
+      (every other caller): the age of now, the default role.
 
   ## Examples
 
@@ -113,7 +116,7 @@ defmodule PhoenixKit.Users.Auth.UserToken do
     token = :crypto.strong_rand_bytes(@rand_size)
     fingerprint = Keyword.get(opts, :fingerprint)
     {ip_address, user_agent_hash} = extract_fingerprint_attrs(fingerprint)
-    {inserted_at, active_role_uuid} = inherited(Keyword.get(opts, :inherit_session))
+    {inserted_at, active_role_uuid} = inherited(Keyword.get(opts, :inherit_session), user.uuid)
 
     user_token = %UserToken{
       token: token,
@@ -132,11 +135,16 @@ defmodule PhoenixKit.Users.Auth.UserToken do
     {token, user_token}
   end
 
-  # `nil` for `inserted_at` is what the schema's timestamps fill with now.
-  defp inherited(%UserToken{inserted_at: inserted_at, active_role_uuid: role}),
-    do: {inserted_at, role}
+  # `nil` for `inserted_at` is what the schema's timestamps fill with now. A session that is not
+  # this account's, or is dated in the future, lends nothing: the sign-in is a normal one.
+  defp inherited(%{user_uuid: user_uuid, inserted_at: %DateTime{} = inserted_at} = session, user_uuid)
+       when not is_nil(user_uuid) do
+    if DateTime.compare(inserted_at, DateTime.utc_now()) == :gt,
+      do: {nil, nil},
+      else: {inserted_at, Map.get(session, :active_role_uuid)}
+  end
 
-  defp inherited(_none), do: {nil, nil}
+  defp inherited(_none, _user_uuid), do: {nil, nil}
 
   defp extract_fingerprint_attrs(%SessionFingerprint{} = fp) do
     {fp.ip_address, fp.user_agent_hash}

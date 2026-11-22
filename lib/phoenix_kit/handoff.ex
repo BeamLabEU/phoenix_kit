@@ -106,6 +106,7 @@ defmodule PhoenixKit.Handoff do
   @max_to_length 2048
   @cookie_option_keys [:max_age, :http_only, :same_site, :secure, :sign, :encrypt, :path]
   @same_site_values ["Lax", "Strict", "None"]
+  @source_session_keys [:user_uuid, :inserted_at, :active_role_uuid]
   @proof_index :phoenix_kit_handoff_tokens_source_proof_hash_index
   @source_cookie "pk_handoff_src"
   @nonce_cookie "pk_handoff_nonce"
@@ -515,10 +516,11 @@ defmodule PhoenixKit.Handoff do
   `User-Agent` does not burn the token; two requests racing for it, exactly one wins.
 
   A row for an account then needs the session it was minted from (`:source_session_uuid`) to be
-  alive: `Auth.get_live_session/2` finds it (it exists, is unexpired, is that account's), and it
-  is returned in the row's virtual `:source_session`, for `log_in_user/4` to take its age and
-  acting role over. Without it the redeem is `:error` (the token stays spent). A guest's row has
-  no session and gets `source_session: nil`.
+  alive: `Auth.get_live_session/2` finds it (it exists, is unexpired, is that account's), and what
+  `log_in_user/4` needs of it to take its age and acting role over is returned in the row's virtual
+  `:source_session`: a map of `:user_uuid`, `:inserted_at` and `:active_role_uuid`, never the
+  session token. Without a live session the redeem is `:error` (the token stays spent). A guest's
+  row has no session and gets `source_session: nil`.
 
   `{:ok, token_row}` or `:error`, which says nothing about why.
   """
@@ -569,7 +571,7 @@ defmodule PhoenixKit.Handoff do
   defp with_source_session(%Token{} = row) do
     case Auth.get_live_session(row.source_session_uuid, row.user_uuid) do
       nil -> :error
-      session -> {:ok, %{row | source_session: session}}
+      session -> {:ok, %{row | source_session: Map.take(session, @source_session_keys)}}
     end
   end
 
