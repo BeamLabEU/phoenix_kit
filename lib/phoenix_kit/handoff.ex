@@ -50,6 +50,7 @@ defmodule PhoenixKit.Handoff do
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.RepoHelper
+  alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Utils.Routes
@@ -185,7 +186,7 @@ defmodule PhoenixKit.Handoff do
   @doc """
   The account a scope may carry: `{:ok, user}` for a signed-in account, `{:ok, nil}` for a
   visitor, `:refused` for a session that must not be handed over (an impersonated session, one
-  acting for an organization, an account `log_in_user/3` would refuse).
+  acting for an organization, an account `Auth.sign_in_refusal/1` names).
   """
   @spec carried_user(term()) :: {:ok, User.t() | nil} | :refused
   def carried_user(%Scope{authenticated?: true, user: %User{} = user} = scope) do
@@ -194,20 +195,12 @@ defmodule PhoenixKit.Handoff do
       not is_nil(scope.acting_person) -> :refused
       not is_nil(Scope.acting_link(scope)) -> :refused
       not is_nil(Scope.acting_user_uuid(scope)) -> :refused
-      not eligible_user?(user) -> :refused
+      not Auth.may_sign_in?(user) -> :refused
       true -> {:ok, user}
     end
   end
 
   def carried_user(_scope), do: {:ok, nil}
-
-  @doc "Whether `log_in_user/3` would sign `user` in (active, not a service user or organization)."
-  @spec eligible_user?(term()) :: boolean()
-  def eligible_user?(%User{} = user) do
-    user.is_active != false and not user.api_only and not user.managed_by_members
-  end
-
-  def eligible_user?(_user), do: false
 
   ## Tokens and nonces
 

@@ -271,6 +271,16 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
       assert flash(redeem, "info") == signed_in(user)
     end
 
+    test "lands on the path the link named, not in the person's saved language" do
+      {:ok, user} = Auth.update_user_locale_preference(user!(), "fr-FR")
+      to = Routes.path("/admin")
+
+      {[_, _, _, redeem], _} = handoff(new_browser(), session: signed_in_session(user), to: to)
+
+      assert redirected_to(redeem, 302) == to
+      assert get_session(redeem, :user_token)
+    end
+
     test "a module's apply hook runs before the sign-in, and its notice joins the flash" do
       user = user!()
       session = signed_in_session(user) ++ [stub_cart: "cart-1"]
@@ -357,6 +367,45 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
       refute log =~ "secret-session-value"
       assert [%Token{payload: payload}] = tokens()
       assert Map.keys(payload) == ["handoff_stub"]
+    end
+  end
+
+  describe "who may sign in" do
+    # One rule, `Auth.sign_in_refusal/1`: `log_in_user/3` refuses what it names, and so does the
+    # handoff (at start, mint and redeem).
+    defp refused_by_log_in?(user) do
+      conn =
+        build_conn()
+        |> Phoenix.ConnTest.init_test_session(%{})
+        |> Phoenix.Controller.fetch_flash()
+        |> WebAuth.log_in_user(user)
+
+      conn.halted and redirected_to(conn, 302) == Routes.path("/users/log-in") and
+        is_nil(get_session(conn, :user_token))
+    end
+
+    test "log_in_user/3 and the handoff refuse the same accounts" do
+      for attrs <- [%{is_active: false}, %{api_only: true}, %{managed_by_members: true}] do
+        user = struct(Auth.User, Map.put(attrs, :uuid, Ecto.UUID.generate()))
+
+        assert refused_by_log_in?(user), inspect(attrs)
+        refute Auth.may_sign_in?(user), inspect(attrs)
+
+        scope = struct(PhoenixKit.Users.Auth.Scope, user: user, authenticated?: true)
+        assert Handoff.carried_user(scope) == :refused, inspect(attrs)
+      end
+    end
+
+    test "an account log_in_user/3 refuses since the mint is not signed in at redeem" do
+      for attrs <- [[is_active: false], [api_only: true]] do
+        user = user!()
+        {browser, _prepare, mint, _token} = minted(signed_in_session(user))
+        Repo.update_all(from(u in Auth.User, where: u.uuid == ^user.uuid), set: attrs)
+
+        {conn, _} = follow(browser, mint)
+        assert_refused(conn)
+        refute get_session(conn, :user_token), inspect(attrs)
+      end
     end
   end
 

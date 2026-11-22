@@ -122,17 +122,35 @@ defmodule PhoenixKitWeb.Users.Auth do
   When session fingerprinting is enabled, this function captures the user's
   IP address and user agent to create a session fingerprint. This helps
   detect session hijacking attempts.
-  """
-  def log_in_user(conn, user, params \\ %{})
 
-  # A deactivated account gets no session, whichever door it arrives at. The
-  # password controller checked `is_active` itself, but magic-link verification,
-  # QR-login completion and the OAuth callback all call this function directly
-  # and did not — they minted a token for an account the operator had switched
-  # off. The fetch plugs then resolved it to nil, so the practical result was a
-  # confusing dead session rather than access; putting the check on the shared
-  # funnel means no future entry point has to remember it.
-  def log_in_user(conn, %Auth.User{is_active: false} = user, _params) do
+  ## Options
+
+    * `:localize` - whether a destination without a language is rewritten into the person's
+      saved language (default `true`). A caller whose destination was already chosen for the
+      host it lands on (`PhoenixKit.Handoff`) passes `false`.
+  """
+  def log_in_user(conn, user, params \\ %{}, opts \\ [])
+
+  # Who may sign in is `Auth.sign_in_refusal/1`, one rule for every door: a deactivated account
+  # gets no session, whichever door it arrives at (the password controller checked `is_active`
+  # itself, but magic-link verification, QR-login completion and the OAuth callback all call this
+  # function directly and did not — they minted a token for an account the operator had switched
+  # off; the fetch plugs then resolved it to nil, so the practical result was a confusing dead
+  # session rather than access). A service user (`api_only`) acts through API keys and never
+  # signs in on the web, nor does a managed organization: password login, magic link, QR code and
+  # OAuth all end here, so the refusal is on the shared funnel as well as in each door's own
+  # check. Its message is the one a wrong password gets: the page must not say that such an
+  # account exists.
+  def log_in_user(conn, %Auth.User{} = user, params, opts) do
+    case Auth.sign_in_refusal(user) do
+      nil -> sign_in(conn, user, params, opts)
+      refusal -> refuse_sign_in(conn, user, refusal)
+    end
+  end
+
+  def log_in_user(conn, user, params, opts), do: sign_in(conn, user, params, opts)
+
+  defp refuse_sign_in(conn, user, :inactive) do
     Logger.warning("PhoenixKit: refused sign-in for deactivated user #{user.uuid}")
 
     conn
@@ -144,12 +162,7 @@ defmodule PhoenixKitWeb.Users.Auth do
     |> halt()
   end
 
-  # A service user (`api_only`) acts through API keys and never signs in on the web.
-  # Password login, magic link, QR code and OAuth all end here, so the refusal is on the
-  # shared funnel as well as in each door's own check. The message is the one a wrong
-  # password gets: the page must not say that such an account exists.
-  def log_in_user(conn, %Auth.User{} = user, _params)
-      when user.api_only or user.managed_by_members do
+  defp refuse_sign_in(conn, user, :not_independent) do
     Logger.warning("PhoenixKit: refused independent sign-in for user #{user.uuid}")
 
     conn
@@ -158,7 +171,7 @@ defmodule PhoenixKitWeb.Users.Auth do
     |> halt()
   end
 
-  def log_in_user(conn, user, params) do
+  defp sign_in(conn, user, params, sign_in_opts) do
     # Create session fingerprint if enabled
     opts =
       if SessionFingerprint.fingerprinting_enabled?() do
@@ -209,7 +222,7 @@ defmodule PhoenixKitWeb.Users.Auth do
       [params["return_to"], get_session(conn, :user_return_to)]
       |> Kernel.++(start_page_candidates(user))
       |> Routes.post_auth_path(context: conn, scope: Scope.for_user(user))
-      |> in_saved_language(user, page_locale, conn)
+      |> in_saved_language(user, page_locale, conn, Keyword.get(sign_in_opts, :localize, true))
 
     # Merge guest cart into user cart before session renewal clears session data.
     # The shop_session_id cookie survives renew_session (only session data is cleared).
@@ -238,7 +251,9 @@ defmodule PhoenixKitWeb.Users.Auth do
   # Left alone when the sign-in page was in another language (the newer
   # choice), when the destination names a language (a `return_to` keeps its
   # own), and when the saved one is not served.
-  defp in_saved_language(path, user, page_locale, conn) do
+  defp in_saved_language(path, _user, _page_locale, _conn, false), do: path
+
+  defp in_saved_language(path, user, page_locale, conn, true) do
     saved = RecipientLocale.preferred(user)
     page_in_site_language? = is_nil(page_locale) or RecipientLocale.site_language?(page_locale)
 

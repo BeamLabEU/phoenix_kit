@@ -12,6 +12,7 @@ defmodule PhoenixKit.HandoffTest do
   alias PhoenixKit.Handoff.Token
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Test.HandoffResolver
+  alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.Auth.User
 
@@ -255,7 +256,7 @@ defmodule PhoenixKit.HandoffTest do
     end
   end
 
-  describe "carried_user/1 and eligible_user?/1" do
+  describe "carried_user/1" do
     defp user(attrs \\ []) do
       struct(User, Keyword.merge([uuid: Ecto.UUID.generate(), email: "a@example.com"], attrs))
     end
@@ -283,10 +284,21 @@ defmodule PhoenixKit.HandoffTest do
       assert :refused = Handoff.carried_user(scope(user(managed_by_members: true)))
     end
 
-    test "only an active person is eligible" do
-      assert Handoff.eligible_user?(user())
-      refute Handoff.eligible_user?(user(is_active: false))
-      refute Handoff.eligible_user?(nil)
+    test "the account is refused exactly when Auth.sign_in_refusal/1 names a reason" do
+      for {attrs, refusal} <- [
+            {[], nil},
+            {[is_active: false], :inactive},
+            {[api_only: true], :not_independent},
+            {[managed_by_members: true], :not_independent}
+          ] do
+        account = user(attrs)
+
+        assert Auth.sign_in_refusal(account) == refusal
+        assert Auth.may_sign_in?(account) == is_nil(refusal)
+        assert Handoff.carried_user(scope(account)) == :refused == not is_nil(refusal)
+      end
+
+      refute Auth.may_sign_in?(nil)
     end
   end
 

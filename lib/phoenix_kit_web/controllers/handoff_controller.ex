@@ -187,7 +187,7 @@ defmodule PhoenixKitWeb.HandoffController do
 
   defp load_user(uuid) do
     case Auth.get_user(uuid) do
-      %User{} = user -> if Handoff.eligible_user?(user), do: {:ok, user}, else: :error
+      %User{} = user -> if Auth.may_sign_in?(user), do: {:ok, user}, else: :error
       nil -> :error
     end
   end
@@ -196,7 +196,10 @@ defmodule PhoenixKitWeb.HandoffController do
   # live-socket id apply, and an account already signed in on this browser is replaced.
   # No `remember_me`, so no persistent cookie.
   defp land(conn, nil, to), do: redirect(conn, to: to)
-  defp land(conn, user, to), do: WebAuth.log_in_user(conn, user, %{"return_to" => to})
+  # `localize: false`: the destination was chosen for the host it lands on, so the person's saved
+  # language does not turn `/x` into `/<saved>/x` there.
+  defp land(conn, user, to),
+    do: WebAuth.log_in_user(conn, user, %{"return_to" => to}, localize: false)
 
   defp put_flash_line(conn, user, notices, locale) do
     line =
