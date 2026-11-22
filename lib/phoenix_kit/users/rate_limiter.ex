@@ -165,13 +165,16 @@ defmodule PhoenixKit.Users.RateLimiter do
     # Passkey sign-in answers: 10 per minute per IP (pre-auth, checked before any lookup)
     passkey_login_limit: 10,
     passkey_login_window_ms: 60_000,
-    # Cross-domain handoff: its four requests (start, prepare, mint, redeem) all count against
-    # one bucket per IP, so 40 a minute is ten handoffs; and the mint, which reads the session
-    # and writes a row, also counts per account: 10 per minute.
-    handoff_limit: 40,
-    handoff_window_ms: 60_000,
-    handoff_mint_limit: 10,
+    # Cross-domain handoff (`PhoenixKit.Handoff`). A handoff is counted once, where it starts:
+    # 60 starts a minute per address leaves room for an office behind one NAT. The mint, which
+    # reads the session and writes a row, also counts per account: 20 a minute. A redeem counts
+    # only when it FAILS, 30 a minute per address (a wrong or replayed link, a guessing client).
+    handoff_start_limit: 60,
+    handoff_start_window_ms: 60_000,
+    handoff_mint_limit: 20,
     handoff_mint_window_ms: 60_000,
+    handoff_redeem_failure_limit: 30,
+    handoff_redeem_failure_window_ms: 60_000,
     manager_invitation_limit: 10,
     manager_invitation_window_ms: 60_000,
     organization_enter_limit: 30,
@@ -498,52 +501,96 @@ defmodule PhoenixKit.Users.RateLimiter do
   end
 
   @doc """
-  Checks if a cross-domain handoff request (`PhoenixKit.Handoff`: start, prepare, mint or redeem)
-  is within rate limit.
+  Checks if a cross-domain handoff may start (`PhoenixKit.Handoff`, the `start` step) from this
+  address.
 
   Returns `:ok` if the request is allowed, or `{:error, :rate_limit_exceeded}`. IP-only and counted
-  before anything is looked up, as every public endpoint is. An unknown address (`nil`, `""`,
-  `"unknown"`) is not limited, for the reason `check_passkey_login_rate_limit/1` gives.
-  """
-  def check_handoff_rate_limit(ip_address) when ip_address in [nil, "", "unknown"], do: :ok
+  before anything is looked up, as every public endpoint is. The other steps of a handoff are not
+  counted here: one handoff is one start. An unknown address (`nil`, `""`, `"unknown"`) is not
+  limited, for the reason `check_passkey_login_rate_limit/1` gives.
 
-  def check_handoff_rate_limit(ip_address) when is_binary(ip_address) do
+  A refusal is logged at debug level: a NAT'd office or a flood from one address would otherwise
+  write a warning per request.
+  """
+  def check_handoff_start_rate_limit(ip_address) when ip_address in [nil, "", "unknown"], do: :ok
+
+  def check_handoff_start_rate_limit(ip_address) when is_binary(ip_address) do
     config = get_config()
 
     ip = IpAddress.network(ip_address)
-    key = "auth:handoff:ip:#{ip}"
-    limit = Keyword.get(config, :handoff_limit)
-    window = Keyword.get(config, :handoff_window_ms)
+    limit = Keyword.get(config, :handoff_start_limit)
+    window = Keyword.get(config, :handoff_start_window_ms)
 
-    case check_rate_limit(key, window, limit) do
-      :ok ->
-        :ok
-
-      {:error, :rate_limit_exceeded} = error ->
-        log_rate_limit_violation("handoff", "ip:#{ip}", limit, window)
-        error
-    end
+    handoff_hit("auth:handoff_start:ip:#{ip}", window, limit, "handoff start", "ip:#{ip}")
   end
 
   @doc """
   Checks if an account may have another handoff minted (`PhoenixKit.Handoff`, the `mint` step,
   which reads the session and writes a row).
 
-  Returns `:ok` if the request is allowed, or `{:error, :rate_limit_exceeded}`.
+  Returns `:ok` if the request is allowed, or `{:error, :rate_limit_exceeded}`. A refusal is
+  logged at debug level.
   """
   def check_handoff_mint_rate_limit(user_uuid) when is_binary(user_uuid) do
     config = get_config()
 
-    key = "auth:handoff_mint:user:#{user_uuid}"
     limit = Keyword.get(config, :handoff_mint_limit)
     window = Keyword.get(config, :handoff_mint_window_ms)
 
+    handoff_hit(
+      "auth:handoff_mint:user:#{user_uuid}",
+      window,
+      limit,
+      "handoff mint",
+      "user:#{user_uuid}"
+    )
+  end
+
+  @doc """
+  Takes a slot of the failed-redeem bucket of an address (`PhoenixKit.Handoff`, the `redeem`
+  step), before the link is looked at.
+
+  Like `check_login_rate_limit/2` it takes the slot up front, which is what bounds a parallel
+  burst, and the caller hands it back with `release_handoff_redeem_slot/1` when the redeem
+  succeeds: only failures stay counted. Returns `:ok` or `{:error, :rate_limit_exceeded}`; an
+  unknown address is not limited. A refusal is logged at debug level.
+  """
+  def check_handoff_redeem_rate_limit(ip_address) when ip_address in [nil, "", "unknown"],
+    do: :ok
+
+  def check_handoff_redeem_rate_limit(ip_address) when is_binary(ip_address) do
+    config = get_config()
+
+    ip = IpAddress.network(ip_address)
+    limit = Keyword.get(config, :handoff_redeem_failure_limit)
+    window = Keyword.get(config, :handoff_redeem_failure_window_ms)
+
+    handoff_hit("auth:handoff_redeem:ip:#{ip}", window, limit, "handoff redeem", "ip:#{ip}")
+  end
+
+  @doc """
+  Hands back the slot `check_handoff_redeem_rate_limit/1` took, after the redeem succeeded.
+  Never raises.
+  """
+  @spec release_handoff_redeem_slot(String.t() | nil) :: :ok
+  def release_handoff_redeem_slot(ip_address) when ip_address in [nil, "", "unknown"], do: :ok
+
+  def release_handoff_redeem_slot(ip_address) when is_binary(ip_address) do
+    window = Keyword.get(get_config(), :handoff_redeem_failure_window_ms)
+    release_slot("auth:handoff_redeem:ip:#{IpAddress.network(ip_address)}", window)
+  end
+
+  defp handoff_hit(key, window, limit, action, identifier) do
     case check_rate_limit(key, window, limit) do
       :ok ->
         :ok
 
       {:error, :rate_limit_exceeded} = error ->
-        log_rate_limit_violation("handoff_mint", user_uuid, limit, window)
+        Logger.debug(
+          "PhoenixKit.RateLimiter: #{action} refused for #{identifier} " <>
+            "(over #{limit} in #{format_window(window)})"
+        )
+
         error
     end
   end

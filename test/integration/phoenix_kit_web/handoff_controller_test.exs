@@ -837,25 +837,70 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
       end
     end
 
-    test "is limited per address before anything is looked up" do
-      session = signed_in_session(user!())
-      {browser, _prepare, mint, _token} = minted(session)
-      limit = Keyword.fetch!(RateLimiter.get_config(), :handoff_limit)
+    test "starts are limited per address before anything is looked up" do
+      limit = Keyword.fetch!(RateLimiter.get_config(), :handoff_start_limit)
+      browser = new_browser()
 
-      # The browser has spent 3 of its requests on the flow; the rest go to nothing.
       for _ <- 1..limit do
         {conn, _} = visit(browser, @source, "#{@prefix}/start?lang=xx")
         assert redirected_to(conn, 302) == "/"
       end
 
-      # Refused with a valid link and the right browser, and the link is not spent.
-      {conn, _} = follow(browser, mint)
+      # Refused with a valid request and the right browser: nothing is set and nothing written.
+      {conn, _} =
+        visit(browser, @source, Handoff.start_path("de", "/shop"),
+          session: signed_in_session(user!())
+        )
+
       assert_refused(conn)
-      assert [%Token{used_at: nil}] = tokens()
+      assert handoff_cookies(conn) == []
+      assert tokens() == []
 
       # Another address is not affected.
       {other, _} = visit(new_browser(), @source, Handoff.start_path("de"))
       assert redirected_to(other, 302) == "https://#{@target}/"
+    end
+
+    test "a handoff is counted once: an address makes more handoffs a minute than the old shared bucket allowed" do
+      browser = new_browser()
+      session = signed_in_session(user!())
+
+      for _ <- 1..15 do
+        {[_, _, _, redeem], _} = handoff(browser, session: session)
+        assert redirected_to(redeem, 302) == "/shop"
+      end
+    end
+
+    test "failed redeems are limited per address, and a good one is not counted" do
+      session = signed_in_session(user!())
+      {browser, _prepare, mint, _token} = minted(session)
+      limit = Keyword.fetch!(RateLimiter.get_config(), :handoff_redeem_failure_limit)
+
+      for _ <- 1..limit do
+        {conn, _} = visit(browser, @target, "#{@prefix}/#{Handoff.new_secret()}")
+        assert redirected_to(conn, 302) == "/"
+      end
+
+      # Over the limit: the valid link is refused too, and is not spent.
+      {conn, _} = follow(browser, mint)
+      assert_refused(conn)
+      assert [%Token{used_at: nil}] = tokens()
+
+      # Another address redeems it fine; the success handed its slot back.
+      {redeem, _} = follow(%{browser | peer: new_browser().peer}, mint)
+      assert redirected_to(redeem, 302) == "/shop"
+    end
+
+    test "a refusal is logged at debug level, not as a warning" do
+      limit = Keyword.fetch!(RateLimiter.get_config(), :handoff_start_limit)
+      browser = new_browser()
+
+      log =
+        capture_log([level: :warning], fn ->
+          for _ <- 1..(limit + 3), do: visit(browser, @source, "#{@prefix}/start?lang=xx")
+        end)
+
+      refute log =~ "Rate limit exceeded"
     end
   end
 

@@ -8,8 +8,9 @@ defmodule PhoenixKitWeb.HandoffController do
     * `GET <prefix>/handoff/:token` on the target domain
 
   None of them needs a login (the session decides what is carried), all four answer
-  `Cache-Control: no-store`, count against the rate limit before anything is looked up, and are
-  `log: false` routes: the token is a capability.
+  `Cache-Control: no-store` and are `log: false` routes: the token is a capability. A handoff is
+  counted once against the rate limit, where it starts (`start`, per address, before anything is
+  looked up); a `redeem` counts only when it fails, and a `mint` also per account.
 
   ## Failure
 
@@ -47,16 +48,16 @@ defmodule PhoenixKitWeb.HandoffController do
   @side_effect_free_purposes ~w(prefetch prerender preview)
 
   @doc "Step 1, on the source domain."
-  def start(conn, params), do: guarded(conn, &do_start(&1, params))
+  def start(conn, params), do: guarded(conn, :start, &do_start(&1, params))
 
   @doc "Step 2, on the target domain."
-  def prepare(conn, params), do: guarded(conn, &do_prepare(&1, params))
+  def prepare(conn, params), do: guarded(conn, :prepare, &do_prepare(&1, params))
 
   @doc "Step 3, on the source domain."
-  def mint(conn, params), do: guarded(conn, &do_mint(&1, params))
+  def mint(conn, params), do: guarded(conn, :mint, &do_mint(&1, params))
 
   @doc "Step 4, on the target domain."
-  def redeem(conn, %{"token" => token}), do: guarded(conn, &do_redeem(&1, token))
+  def redeem(conn, %{"token" => token}), do: guarded(conn, :redeem, &do_redeem(&1, token))
 
   ## Step 1
 
@@ -164,6 +165,7 @@ defmodule PhoenixKitWeb.HandoffController do
     conn = delete_handoff_cookie(conn, Handoff.nonce_cookie())
 
     with {:ok, row} <- Handoff.redeem(token, conn.host, nonce, user_agent: user_agent(conn)),
+         :ok <- RateLimiter.release_handoff_redeem_slot(IpAddress.extract_from_conn(conn)),
          to when is_binary(to) <- Handoff.valid_to(row.redirect_path),
          {:ok, user} <- load_user(row.user_uuid) do
       locale = Handoff.language_for_host(conn.host)
@@ -238,20 +240,30 @@ defmodule PhoenixKitWeb.HandoffController do
     }
   end
 
-  defp guarded(conn, fun) do
+  defp guarded(conn, step, fun) do
     conn = secure(conn)
 
-    cond do
-      side_effect_free?(conn) ->
-        send_resp(conn, 204, "")
+    if side_effect_free?(conn), do: send_resp(conn, 204, ""), else: limited(conn, step, fun)
+  end
 
-      match?(:ok, RateLimiter.check_handoff_rate_limit(IpAddress.extract_from_conn(conn))) ->
-        fun.(conn)
-
-      true ->
-        fail(conn)
+  # A handoff is counted once, where it starts. `prepare` writes nothing; `mint` needs a source
+  # cookie only a counted `start` sets (and is limited per account on top); a `redeem` counts only
+  # when it fails (`do_redeem/2` hands the slot back on success).
+  defp limited(conn, :start, fun) do
+    case RateLimiter.check_handoff_start_rate_limit(IpAddress.extract_from_conn(conn)) do
+      :ok -> fun.(conn)
+      {:error, _} -> fail(conn)
     end
   end
+
+  defp limited(conn, :redeem, fun) do
+    case RateLimiter.check_handoff_redeem_rate_limit(IpAddress.extract_from_conn(conn)) do
+      :ok -> fun.(conn)
+      {:error, _} -> fail(conn)
+    end
+  end
+
+  defp limited(conn, _step, fun), do: fun.(conn)
 
   defp fail(conn), do: redirect(secure(conn), to: "/")
 
