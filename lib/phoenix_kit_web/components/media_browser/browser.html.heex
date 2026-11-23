@@ -615,6 +615,7 @@
                       select_mode={assigns[:select_mode]}
                       selected_files={assigns[:selected_files]}
                       selected_folders={assigns[:selected_folders]}
+                      show_path={assigns[:show_path]}
                       uploaded_files={assigns[:uploaded_files]}
                     />
                   <% end %>
@@ -1104,6 +1105,7 @@
           has_prev={has_prev}
           has_next={has_next}
           can_annotate={writes?}
+          comments={assigns[:comments]}
           persist_rotation={writes?}
           details_path={
             if @admin and @can_manage_storage and writes?,

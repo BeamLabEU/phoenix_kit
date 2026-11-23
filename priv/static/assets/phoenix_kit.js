@@ -4963,9 +4963,10 @@
   // Real buttons on the tooltip's header row, next to Etcher's trash
   // (Etcher 0.13's `window.Etcher.tooltipActions`). Only on surfaces that
   // hydrate PhoenixKit's comment contract (`comment_count` present — the
-  // media viewer); boards shapes carry no comment metadata and keep the
-  // plain tooltip. Clicks re-dispatch as `etcher:tooltip-action`, routed by
-  // the EtcherTooltipActions hook below:
+  // media viewer, or `comments_off` — the same viewer with the discussion
+  // switched off, which keeps Edit and drops Reply / View); boards shapes
+  // carry no comment metadata and keep the plain tooltip. Clicks re-dispatch
+  // as `etcher:tooltip-action`, routed by the EtcherTooltipActions hook below:
   //   Reply — anyone, any persisted shape: opens the discussion flow.
   //   Edit  — non-readonly shapes: Etcher's inline label editor.
   //   View  — only when discussion exists: scrolls the sidebar to the
@@ -4992,13 +4993,19 @@
 
   window.Etcher.tooltipActions = function(shape) {
     var m = shape.metadata || {};
-    if (!shape.uuid || m.comment_count == null) return [];
+    // `comments_off`: a viewer with the discussion switched off. The shape
+    // still has a label to edit; Reply and View are what goes away.
+    var commentsOff = m.comments_off === true;
+    if (!shape.uuid || (m.comment_count == null && !commentsOff)) return [];
 
-    var actions = [{ action: "pk-reply", title: "Reply", icon: pkTooltipIcons.reply }];
+    var actions = [];
+    if (!commentsOff) {
+      actions.push({ action: "pk-reply", title: "Reply", icon: pkTooltipIcons.reply });
+    }
     if (!shape.readonly) {
       actions.push({ action: "pk-edit", title: "Edit label", icon: pkTooltipIcons.edit });
     }
-    if ((m.comment_count || 0) > 0) {
+    if (!commentsOff && (m.comment_count || 0) > 0) {
       actions.push({ action: "pk-view", title: "View discussion", icon: pkTooltipIcons.view });
     }
     return actions;

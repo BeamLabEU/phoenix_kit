@@ -597,7 +597,7 @@
           <%!-- Body-only: the shape's label is its title; this box is what    --%>
           <%!-- the user wants to SAY about it, threaded under the shape's     --%>
           <%!-- master comment. --%>
-          <%= if @replying_annotation_uuid && @current_user do %>
+          <%= if assigns[:comments] != false and @replying_annotation_uuid && @current_user do %>
             <div
               id={
                 viewer_dom_id(
@@ -991,15 +991,17 @@
             />
           </div>
 
-          <%!-- Comments section — gated on the Comments module being     --%>
-          <%!-- installed AND enabled, plus a logged-in user. Keyed by    --%>
+          <%!-- Comments section — gated on the host's `comments` option,  --%>
+          <%!-- the Comments module being installed AND enabled, plus a   --%>
+          <%!-- logged-in user (with `comments` off nothing is rendered,  --%>
+          <%!-- and what is not rendered cannot be reached). Keyed by     --%>
           <%!-- file_uuid so prev/next remounts the component cleanly.    --%>
           <%!--                                                            --%>
           <%!-- The wrapper applies a compact-mode override: shrinks the  --%>
           <%!-- comments component's typography, paddings, and avatars    --%>
           <%!-- via descendant selectors so it fits inside the sidebar    --%>
           <%!-- without truncation. The component itself isn't modified.  --%>
-          <%= if comments_enabled?() and @current_user do %>
+          <%= if assigns[:comments] != false and comments_enabled?() and @current_user do %>
             <div class="border-t border-base-300 pt-3 mt-3 leaf-comments-compact">
               <.live_component
                 module={PhoenixKitComments.Web.CommentsComponent}
