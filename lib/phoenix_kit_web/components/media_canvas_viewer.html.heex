@@ -685,7 +685,9 @@
               </a>
             <% end %>
             <details :if={download_variants(f.urls) != []} class="dropdown">
-              <summary class="btn btn-ghost btn-sm">{gettext("Other sizes")}</summary>
+              <summary class="btn btn-ghost btn-sm gap-2">
+                <.icon name="hero-arrow-down-tray" class="w-4 h-4" /> {gettext("Other versions")}
+              </summary>
               <ul class="dropdown-content menu bg-base-100 rounded-box shadow-lg z-10 w-60">
                 <li :for={{name, url} <- download_variants(f.urls)}>
                   <a href={download_url(url)} download={f.filename} target="_blank" rel="noopener">
