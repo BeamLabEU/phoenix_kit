@@ -81,8 +81,8 @@ link opened in any other browser is useless.
 Run the migration (V236, `mix phoenix_kit.update`) **before** the code that links to
 `start` goes live. Until V236 has run there is no table to write: every handoff ends
 with a `302` to `/` (and a logged error), and `enabled?/0` is already `true`, so a
-language switcher that links to `start` lands the visitor on `/` of the other domain,
-signed out. Signing out, signing out everywhere and a password change keep working
+language switcher that links to `start` lands the visitor back on `/` of the domain
+they started on. Signing out, signing out everywhere and a password change keep working
 without the table; they delete nothing from it.
 
 ## Linking
