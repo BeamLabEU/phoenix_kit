@@ -1,6 +1,7 @@
 defmodule PhoenixKit.Users.RateLimiterTest do
   use ExUnit.Case, async: false
 
+  alias PhoenixKit.Test.RateLimitIsolation
   alias PhoenixKit.Users.RateLimiter
   alias PhoenixKit.Users.RateLimiter.Backend
 
@@ -499,7 +500,7 @@ defmodule PhoenixKit.Users.RateLimiterTest do
   # for. These cover the two buckets that can.
   describe "per-IP bucket on the mail-sending endpoints" do
     test "a spray of fresh addresses from one IP is stopped", %{unique_id: id} do
-      ip = "198.51.100.#{rem(id, 200)}"
+      ip = RateLimitIsolation.unique_ip()
 
       # Ten distinct addresses, one hit each — the per-address bucket (3) never
       # fires, and before the IP bucket existed all ten went through.
@@ -512,7 +513,7 @@ defmodule PhoenixKit.Users.RateLimiterTest do
     end
 
     test "another IP is unaffected", %{unique_id: id} do
-      ip = "198.51.100.#{rem(id, 200)}"
+      ip = RateLimitIsolation.unique_ip()
 
       for n <- 1..10 do
         assert :ok = RateLimiter.check_magic_link_rate_limit("ipa_#{id}_#{n}@e.com", ip)
@@ -525,7 +526,7 @@ defmodule PhoenixKit.Users.RateLimiterTest do
     end
 
     test "each endpoint has its own IP bucket", %{unique_id: id} do
-      ip = "198.51.100.#{rem(id, 200)}"
+      ip = RateLimitIsolation.unique_ip()
 
       for n <- 1..10 do
         assert :ok = RateLimiter.check_confirmation_resend_rate_limit("mix_#{id}_#{n}@e.com", ip)
