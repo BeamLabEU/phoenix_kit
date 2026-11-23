@@ -52,6 +52,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowserShowPathTest do
         id: "mb-path-test",
         myself: %Phoenix.LiveComponent.CID{cid: 1},
         readonly: false,
+        mark: nil,
         removal_guarded: false,
         renaming_folder: nil,
         renaming_source: nil,

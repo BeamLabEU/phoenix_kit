@@ -122,4 +122,23 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerTest do
       refute iframe =~ "sandbox"
     end
   end
+
+  describe "build_comment_decorations/2" do
+    @annotation %{uuid: "a1", metadata: %{"title" => "Sky"}}
+
+    test "a viewer that may draw gets an editable label" do
+      assert %{
+               "annotation_uuid" => %{"a1" => %{label: "Sky", on_save: :annotation_title_updated}}
+             } =
+               MediaCanvasViewer.build_comment_decorations([@annotation])
+
+      assert MediaCanvasViewer.build_comment_decorations([@annotation], true) ==
+               MediaCanvasViewer.build_comment_decorations([@annotation])
+    end
+
+    test "a read-only viewer gets the label without an editor (on_save: nil)" do
+      assert %{"annotation_uuid" => %{"a1" => %{label: "Sky", on_save: nil}}} =
+               MediaCanvasViewer.build_comment_decorations([@annotation], false)
+    end
+  end
 end

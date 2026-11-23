@@ -94,15 +94,15 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerAuthorsTest do
   setup do
     viewer = user!()
     file = file!(user!())
-    {:ok, viewer: viewer, file: file, shape: marker!(file)}
+    {:ok, viewer: viewer, stored_file: file, shape: marker!(file)}
   end
 
   test "default: the opened viewer carries the byline (the control)", ctx do
-    assert open(ctx.file, ctx.viewer, %{}) =~ "AuthorUniq"
+    assert open(ctx.stored_file, ctx.viewer, %{}) =~ "AuthorUniq"
   end
 
   test "authors: false: the shape is sent without it, and is still there", ctx do
-    html = open(ctx.file, ctx.viewer, %{authors: false})
+    html = open(ctx.stored_file, ctx.viewer, %{authors: false})
 
     refute html =~ "AuthorUniq"
     assert html =~ to_string(ctx.shape.uuid)
@@ -115,8 +115,8 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerAuthorsTest do
     {:ok, socket} =
       MediaCanvasViewer.update(
         %{
-          id: "viewer-#{ctx.file.uuid}",
-          file: file_map(ctx.file),
+          id: "viewer-#{ctx.stored_file.uuid}",
+          file: file_map(ctx.stored_file),
           current_user: ctx.viewer,
           parent_id: "host",
           comments: false,
@@ -143,7 +143,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerAuthorsTest do
                socket
              )
 
-    assert [stored] = Annotations.list_for_file(ctx.file.uuid)
+    assert [stored] = Annotations.list_for_file(ctx.stored_file.uuid)
     assert stored.geometry == %{"x" => 50, "y" => 60}
     assert stored.metadata["comment_author"] == @author
   end

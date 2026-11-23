@@ -144,6 +144,7 @@
     files={@selected}
     current={@preview_uuid}
     current_user={@phoenix_kit_current_user}
+    can_annotate={not @readonly}
     notify={{__MODULE__, @id}}
   />
 </div>

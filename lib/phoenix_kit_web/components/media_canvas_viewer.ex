@@ -27,7 +27,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       `MediaBrowser`'s `uploaded_files` carries.
     * `:current_user` — logged-in user; nil-tolerant. When nil the
       composer + comments thread don't render (no user to attribute
-      a comment to).
+      a comment to) and the drawings are read-only (`:can_annotate`).
     * `:parent_id` — DOM id of the *outer* LiveComponent (the modal
       host). Currently unused by this component, but kept on the
       assigns map so future cross-component send_updates have a
@@ -54,6 +54,8 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       / `etcher:shape-drawn` outright — Etcher's flag is UX, this is the
       boundary. Hosts pass their own write permission (a project member's
       `can_write`); the default keeps every existing host as it was.
+      Without a `:current_user` the viewer is read-only whatever this
+      says: nobody signed in changes a drawing.
     * `:viewer_only` (default `false`) — render only the canvas /
       composer column; suppresses the close button and the sidebar
       (filename + Download + metadata + comments). Used by
@@ -490,10 +492,15 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
         is_nil(file) or annotation_file_writable?(file, assigns)
       end)
 
+    # Nobody signed in never draws, whatever the host said: a readonly
+    # `MediaGallery` lightbox (`MediaViewer`) shows a site-library file to an
+    # anonymous visitor and passes no `can_annotate`, and the rows written would
+    # carry no creator. The `etcher:annotations-changed` boundary reads this.
     assign(
       socket,
       :can_annotate,
-      assigns[:can_annotate] != false and socket.assigns.annotation_writable
+      assigns[:can_annotate] != false and not is_nil(assigns[:current_user]) and
+        socket.assigns.annotation_writable
     )
   end
 
@@ -2709,11 +2716,22 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   included; an annotation without a title contributes nothing
   (and the comment renders without a label block).
 
+  `editable?` (default `true`) says whether the label is editable in
+  the thread; pass the viewer's `can_annotate`, so a read-only viewer
+  gets read-only labels (`on_save: nil`).
+
   Public so standalone-page hosts (`MediaDetail`) can build the
   same registry against the annotations they loaded via
   `load_annotations_for/1`.
   """
-  def build_comment_decorations(annotations) when is_list(annotations) do
+  def build_comment_decorations(annotations, editable? \\ true)
+
+  def build_comment_decorations(annotations, editable?) when is_list(annotations) do
+    # `on_save: nil` is read-only in the comments thread: a viewer that may not
+    # change the drawings (`can_annotate: false`) is not offered a label editor
+    # whose save `apply_annotation_title_update/3` refuses.
+    on_save = if editable?, do: :annotation_title_updated
+
     entries =
       Enum.reduce(annotations, %{}, fn a, acc ->
         title = a |> Map.get(:metadata, %{}) |> Map.get("title")
@@ -2721,7 +2739,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
         if is_binary(title) and title != "" do
           Map.put(acc, to_string(a.uuid), %{
             label: title,
-            on_save: :annotation_title_updated
+            on_save: on_save
           })
         else
           acc
@@ -2731,7 +2749,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
     if map_size(entries) == 0, do: %{}, else: %{"annotation_uuid" => entries}
   end
 
-  def build_comment_decorations(_), do: %{}
+  def build_comment_decorations(_annotations, _editable?), do: %{}
 
   # Poke the file's CommentsComponent to reload after server-side
   # changes the component didn't drive itself (new annotation

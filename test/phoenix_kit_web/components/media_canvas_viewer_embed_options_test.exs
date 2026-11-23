@@ -252,9 +252,16 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerEmbedOptionsTest do
       socket
     end
 
+    # A signed-in viewer unless a test says otherwise: nobody signed in never
+    # draws, whatever `can_annotate` says.
     defp updated(socket, assigns) do
-      {:ok, socket} =
-        MediaCanvasViewer.update(Map.merge(%{id: "mcv-1", file: nil}, assigns), socket)
+      defaults = %{
+        id: "mcv-1",
+        file: nil,
+        current_user: %{uuid: "01900000-0000-7000-8000-0000000000aa"}
+      }
+
+      {:ok, socket} = MediaCanvasViewer.update(Map.merge(defaults, assigns), socket)
 
       socket
     end
@@ -288,6 +295,10 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerEmbedOptionsTest do
     test "update/2 works can_annotate out again every time, and the event follows it" do
       socket = updated(mounted(), %{can_annotate: true})
       assert socket.assigns.can_annotate == true
+
+      # Nobody signed in: read-only, whatever the host said.
+      assert updated(mounted(), %{can_annotate: true, current_user: nil}).assigns.can_annotate ==
+               false
 
       # The host re-renders the child for a file outside its set.
       socket =

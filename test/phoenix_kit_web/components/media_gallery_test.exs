@@ -505,6 +505,19 @@ defmodule PhoenixKitWeb.Components.MediaGalleryTest do
       refute html =~ "close_viewer"
     end
 
+    test "a readonly gallery opens a lightbox that cannot draw" do
+      uuid = "01900000-0000-7000-8000-000000000001"
+
+      viewer = fn readonly ->
+        gallery_assigns(selected: [uuid], preview_uuid: uuid, readonly: readonly)
+        |> MediaGallery.render()
+        |> viewer_component()
+      end
+
+      assert %{can_annotate: false} = viewer.(true).assigns
+      assert %{can_annotate: true} = viewer.(false).assigns
+    end
+
     test "media_viewer_closed is safe when preview_uuid is already nil" do
       uuid = "01900000-0000-7000-8000-000000000001"
 
@@ -1001,4 +1014,19 @@ defmodule PhoenixKitWeb.Components.MediaGalleryTest do
       assert socket.assigns.selected == [uuid1]
     end
   end
+
+  # The `MediaViewer` live_component in a rendered tree (the lightbox).
+  defp viewer_component(
+         %Phoenix.LiveView.Component{component: PhoenixKitWeb.Components.MediaViewer} = c
+       ),
+       do: c
+
+  defp viewer_component(%Phoenix.LiveView.Rendered{dynamic: dynamic}),
+    do: viewer_component(dynamic.(false))
+
+  defp viewer_component(%Phoenix.LiveView.Comprehension{} = comprehension),
+    do: comprehension |> Map.get(:dynamics, []) |> viewer_component()
+
+  defp viewer_component(list) when is_list(list), do: Enum.find_value(list, &viewer_component/1)
+  defp viewer_component(_other), do: nil
 end

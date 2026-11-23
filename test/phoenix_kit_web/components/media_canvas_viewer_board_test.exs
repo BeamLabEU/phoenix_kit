@@ -10,6 +10,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerBoardTest do
   import Phoenix.LiveViewTest
 
   alias PhoenixKit.Annotations
+  alias PhoenixKit.Users.Auth
   alias PhoenixKitWeb.Components.MediaCanvasViewer
 
   @board_uuid "01900000-0000-7000-8000-00000000b0a1"
@@ -117,10 +118,38 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerBoardTest do
 
     # The default keeps every existing host as it was: both buttons (nil →
     # no attribute), the toolbar, the tools, nothing locked.
-    html = render_component(MediaCanvasViewer, board_assigns())
+    html = render_component(MediaCanvasViewer, board_assigns(%{current_user: register!()}))
     refute html =~ ~s(data-toolbar="false")
     refute html =~ ~s(data-nav-buttons=)
     refute html =~ ~s(readonly)
     assert html =~ ~s(rectangle)
+  end
+
+  test "nobody signed in gets a read-only viewer, whatever can_annotate says" do
+    {:ok, shape} =
+      Annotations.create(%{
+        target_type: "projects_whiteboard",
+        target_uuid: @board_uuid,
+        kind: "rectangle",
+        geometry: %{"x" => 1, "y" => 2, "w" => 3, "h" => 4}
+      })
+
+    html =
+      render_component(MediaCanvasViewer, board_assigns(%{current_user: nil, can_annotate: true}))
+
+    assert html =~ shape.uuid
+    assert html =~ ~s(data-toolbar="false")
+    assert html =~ ~s(data-tools="[]")
+    assert html =~ ~s(readonly)
+  end
+
+  defp register! do
+    {:ok, user} =
+      Auth.register_user(%{
+        email: "board-viewer-#{System.unique_integer([:positive])}@example.com",
+        password: "hello world!"
+      })
+
+    user
   end
 end
