@@ -5,6 +5,11 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
 
   `async: false`: the tests set the host resolver and the languages, and register stub modules in
   the module registry.
+
+  The budgets are counted per address and in windows aligned to the clock, so every browser has an
+  address of its own and no window rolls while a test runs (`RateLimitIsolation`): a test that
+  takes its whole budget and expects the next request to be refused does not depend on the
+  second it starts in, or on another test's address.
   """
   use PhoenixKitWeb.ConnCase, async: false
 
@@ -23,6 +28,7 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
   alias PhoenixKit.Test.HandoffScriptedModule
   alias PhoenixKit.Test.HandoffStubModule
   alias PhoenixKit.Test.LanguageSettings
+  alias PhoenixKit.Test.RateLimitIsolation
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.UserToken
   alias PhoenixKit.Users.Passkeys
@@ -44,6 +50,7 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
     {:ok, _} = Languages.add_language("fr-FR")
     Application.put_env(:phoenix_kit, :canonical_host_resolver, {HandoffResolver, :host})
     :ok = ModuleRegistry.register(HandoffStubModule)
+    RateLimitIsolation.freeze_windows()
 
     # The hooks run in tasks of this supervisor (an application starts it; the suite does not).
     unless Process.whereis(PhoenixKit.TaskSupervisor),
@@ -77,10 +84,7 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
     Repo.get!(Auth.User, user.uuid)
   end
 
-  defp new_browser do
-    n = System.unique_integer([:positive])
-    %{peer: {10, 8, rem(n, 250), 1 + rem(div(n, 250), 250)}, jars: %{}}
-  end
+  defp new_browser, do: %{peer: RateLimitIsolation.unique_peer(), jars: %{}}
 
   defp with_peer(conn, ip) do
     {adapter, payload} = conn.adapter
@@ -184,22 +188,6 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
   end
 
   defp proof, do: Handoff.source_proof_param(Handoff.new_secret())
-
-  # `key` of the RateLimiter's config set for this test, and the application env put back
-  # exactly as it was: the same list when there was one, no key at all when there was none.
-  defp put_rate_limit(key, value) do
-    {current, restore} =
-      case Application.fetch_env(:phoenix_kit, RateLimiter) do
-        {:ok, config} ->
-          {config, fn -> Application.put_env(:phoenix_kit, RateLimiter, config) end}
-
-        :error ->
-          {[], fn -> Application.delete_env(:phoenix_kit, RateLimiter) end}
-      end
-
-    Application.put_env(:phoenix_kit, RateLimiter, Keyword.put(current, key, value))
-    on_exit(restore)
-  end
 
   # What a signed cookie of the application holds (`nil` when it is not one).
   defp signed_secret(value, name) do
@@ -1048,7 +1036,7 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
 
     test "a flood of guests' mints from one address stops at the address limit" do
       limit = 5
-      put_rate_limit(:handoff_mint_ip_limit, limit)
+      RateLimitIsolation.put(:handoff_mint_ip_limit, limit)
 
       browser = new_browser()
 
