@@ -29382,7 +29382,7 @@ msgstr "Besucher prüfen, die auf Ihrer Website Formulare absenden."
 msgid "Other versions"
 msgstr "Andere Versionen"
 
-#: lib/phoenix_kit_web/controllers/handoff_controller.ex:361
+#: lib/phoenix_kit_web/controllers/handoff_controller.ex:369
 #, elixir-autogen, elixir-format, fuzzy
 msgid "You are signed in as %{email}."
 msgstr "Sie sind als %{email} angemeldet."

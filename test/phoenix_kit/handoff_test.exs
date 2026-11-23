@@ -508,6 +508,47 @@ defmodule PhoenixKit.HandoffTest do
       assert Handoff.language_for_host("www.example.com") == nil
     end
 
+    test "host_languages/0 emits each enabled language once and prefers exact dialect over base" do
+      defmodule DialectAndBaseResolver do
+        def host("de-DE"), do: "shop-de.test"
+        def host("de"), do: "fallback-de.test"
+        def host("en-US"), do: "shop.test"
+        def host("en"), do: "shop.test"
+        def host("fr"), do: "shop-fr.test"
+        def host(_), do: nil
+      end
+
+      Application.put_env(:phoenix_kit, :canonical_host_resolver, {DialectAndBaseResolver, :host})
+
+      assert Handoff.host_languages() == [
+               {"en-US", "shop.test"},
+               {"de-DE", "shop-de.test"},
+               {"fr-FR", "shop-fr.test"}
+             ]
+
+      refute "fallback-de.test" in Handoff.allowed_hosts()
+    end
+
+    test "host_for_language/2 resolves enabled dialect codes and bare base codes alike" do
+      assert Handoff.host_for_language("de-DE") == "shop-de.test"
+      assert Handoff.host_for_language("DE-de") == "shop-de.test"
+      assert Handoff.host_for_language("de") == "shop-de.test"
+      assert Handoff.host_for_language("de-AT") == nil
+      assert Handoff.host_for_language("xx") == nil
+      assert Handoff.host_for_language(nil) == nil
+
+      # Dialect-only resolver: bare base code still resolves via the enabled dialect.
+      defmodule DialectOnlyResolver do
+        def host("en-US"), do: "shop.test"
+        def host("de-DE"), do: "shop-de.test"
+        def host(_), do: nil
+      end
+
+      Application.put_env(:phoenix_kit, :canonical_host_resolver, {DialectOnlyResolver, :host})
+      assert Handoff.host_for_language("de") == "shop-de.test"
+      assert Handoff.host_for_language("de-DE") == "shop-de.test"
+    end
+
     test "start_path/2 is the start endpoint with the language and a local target" do
       path = Handoff.start_path("de", "/shop?a=1")
       assert path == "/phoenix_kit/handoff/start?lang=de&to=%2Fshop%3Fa%3D1"
@@ -1312,15 +1353,24 @@ defmodule PhoenixKit.HandoffTest do
       assert is_integer(count)
     end
 
-    test "the hook sees the locale of the request that asked" do
+    test "the hook sees both the global and web Gettext locales of the request that asked" do
       Gettext.put_locale("de")
+      Gettext.put_locale(PhoenixKitWeb.Gettext, "fr")
 
       defmodule Locale do
         def module_key, do: "locale"
-        def handoff_snapshot(_context), do: %{locale: Gettext.get_locale()}
+
+        def handoff_snapshot(_context) do
+          %{
+            global: Gettext.get_locale(),
+            web: Gettext.get_locale(PhoenixKitWeb.Gettext)
+          }
+        end
       end
 
-      assert Handoff.snapshots(@context, [Locale]) == %{"locale" => %{"locale" => "de"}}
+      assert Handoff.snapshots(@context, [Locale]) == %{
+               "locale" => %{"global" => "de", "web" => "fr"}
+             }
     end
   end
 

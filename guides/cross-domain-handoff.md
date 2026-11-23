@@ -363,7 +363,9 @@ up and checked to be a guest's, never trusted because it arrived here).
   answers are used in the order of the modules, not of who finished first.
 - **What the task has, and has not.** It inherits the request's `$callers` (so an
   Ecto sandbox allowance follows it, and a hook can read and write the database)
-  and its Gettext locale. It does **not** have the rest of the request's process
+  and its Gettext locales (both the process-global locale and `PhoenixKitWeb.Gettext`;
+  at `redeem`, both are set to the target domain's language, so notices translated
+  with `gettext` match the target domain). It does **not** have the rest of the request's process
   state, because it is a different process: no process dictionary, so **no
   per-request dynamic repo or prefix** (a hook reads and writes the host's default
   repo), **no request currency or other per-request setting a plug put in the

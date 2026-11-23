@@ -29392,7 +29392,7 @@ msgstr "Kontrolli külastajaid, kes saadavad sinu veebisaidil vorme."
 msgid "Other versions"
 msgstr "Muud versioonid"
 
-#: lib/phoenix_kit_web/controllers/handoff_controller.ex:361
+#: lib/phoenix_kit_web/controllers/handoff_controller.ex:369
 #, elixir-autogen, elixir-format, fuzzy
 msgid "You are signed in as %{email}."
 msgstr "Oled sisse logitud kasutajana %{email}."

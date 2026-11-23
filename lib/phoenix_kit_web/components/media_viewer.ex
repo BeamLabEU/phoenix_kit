@@ -150,8 +150,8 @@ defmodule PhoenixKitWeb.Components.MediaViewer do
 
     # The current file's row and the prev/next arrows cost database reads;
     # recompute them only when the open file or the list actually changed
-    # (first render, a step, or the host passing a new `files` / `current`),
-    # not on every parent render.
+    # (first render, or the host passing a new `files` list), not on every
+    # parent render.
     if socket.assigns.current_uuid != prev_uuid or files != prev_files or
          not Map.has_key?(socket.assigns, :current_file) do
       socket

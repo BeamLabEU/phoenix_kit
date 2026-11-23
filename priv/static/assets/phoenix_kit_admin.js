@@ -3615,7 +3615,7 @@
         subtree: true,
         characterData: true,
         attributes: true,
-        attributeFilter: ["class", "data-nav-active"]
+        attributeFilter: ["class", "data-nav-active", "data-nav-in-menu"]
       });
       if (typeof ResizeObserver === "function") {
         // The parent and the neighbours too: a content-sized wrapper (a flex-row

@@ -68,11 +68,11 @@ defmodule PhoenixKitWeb.HandoffController do
   use PhoenixKitWeb, :controller
 
   alias PhoenixKit.Handoff
-  alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.RateLimiter
   alias PhoenixKit.Utils.IpAddress
+  alias PhoenixKit.Utils.RecipientLocale
   alias PhoenixKitWeb.Users.Auth, as: WebAuth
 
   require Logger
@@ -105,8 +105,7 @@ defmodule PhoenixKitWeb.HandoffController do
   defp do_start(conn, params) do
     with lang when is_binary(lang) <- language(params["lang"]),
          conn = resolve_site(conn),
-         canonical when is_binary(canonical) <- Routes.canonical_host(lang),
-         target when is_binary(target) <- Handoff.allowed_host(canonical, site(conn).hosts),
+         target when is_binary(target) <- Handoff.host_for_language(lang, site(conn).languages),
          source when is_binary(source) <- Handoff.own_host(conn.host, site(conn).hosts),
          false <- same_host?(target, source) do
       to = Handoff.valid_to(params["to"]) || "/"
@@ -272,34 +271,43 @@ defmodule PhoenixKitWeb.HandoffController do
       session_cookies = session_cookie_names(conn)
 
       effects =
-        conn
-        |> hook_context(row.user_uuid)
-        |> Map.merge(%{host: conn.host, locale: locale})
-        |> Handoff.apply_payload(row.payload || %{}, nil,
-          scheme: scheme(conn),
-          session_cookies: session_cookies
-        )
+        RecipientLocale.in_locale(locale, fn ->
+          conn
+          |> hook_context(row.user_uuid)
+          |> Map.merge(%{host: conn.host, locale: locale})
+          |> Handoff.apply_payload(row.payload || %{}, nil,
+            scheme: scheme(conn),
+            session_cookies: session_cookies
+          )
+        end)
 
       # The hooks can take seconds: the session the visitor is to continue is looked up again
-      # right before they are signed in. A session that went in the meantime ends the handoff
+      # right before they are signed in, and the fresh copy is what `land/4` inherits (so a role
+      # switch during the hooks is not lost). A session that went in the meantime ends the handoff
       # (`302 /`), but what the modules did by then (their own server-side effects) stays: they
       # have been told, and there is no way to take it back.
-      if source_session_alive?(row) do
-        conn
-        |> put_module_effects(user, effects, locale)
-        |> land(user, to, row.source_session)
-      else
-        fail(conn)
+      case fresh_source_session(row) do
+        {:ok, source_session} ->
+          conn
+          |> put_module_effects(user, effects, locale)
+          |> land(user, to, source_session)
+
+        :error ->
+          fail(conn)
       end
     else
       _ -> fail(conn)
     end
   end
 
-  defp source_session_alive?(%{user_uuid: nil}), do: true
+  defp fresh_source_session(%{user_uuid: nil}), do: {:ok, nil}
 
-  defp source_session_alive?(row),
-    do: Auth.get_live_session(row.source_session_uuid, row.user_uuid) != nil
+  defp fresh_source_session(row) do
+    case Auth.get_live_session(row.source_session_uuid, row.user_uuid) do
+      nil -> :error
+      session -> {:ok, Handoff.inherited_session(session)}
+    end
+  end
 
   defp load_user(nil), do: {:ok, nil}
 
@@ -357,16 +365,9 @@ defmodule PhoenixKitWeb.HandoffController do
   defp signed_in_line(nil, _locale), do: nil
 
   defp signed_in_line(%User{} = user, locale) do
-    in_locale(locale, fn ->
+    RecipientLocale.in_locale(locale, fn ->
       gettext("You are signed in as %{email}.", email: User.delivery_email(user))
     end)
-  end
-
-  defp in_locale(nil, fun), do: fun.()
-
-  defp in_locale(code, fun) do
-    base = DialectMapper.extract_base(code)
-    Gettext.with_locale(PhoenixKitWeb.Gettext, base, fun)
   end
 
   ## Shared

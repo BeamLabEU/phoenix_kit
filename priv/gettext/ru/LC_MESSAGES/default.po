@@ -29480,7 +29480,7 @@ msgstr "Проверять посетителей, отправляющих фо
 msgid "Other versions"
 msgstr "Другие версии"
 
-#: lib/phoenix_kit_web/controllers/handoff_controller.ex:361
+#: lib/phoenix_kit_web/controllers/handoff_controller.ex:369
 #, elixir-autogen, elixir-format, fuzzy
 msgid "You are signed in as %{email}."
 msgstr "Вы вошли как %{email}."

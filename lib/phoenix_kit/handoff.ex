@@ -192,23 +192,31 @@ defmodule PhoenixKit.Handoff do
 
   @doc """
   `[{language_code, host}]`: every enabled language code with the host the resolver answers for it
-  (or for its base code), in language order. The resolver is asked once per distinct language.
-  `allowed_hosts/0` and `language_for_host/2` read this list; a caller that needs both asks once
-  (`resolve/0`).
+  (falling back to its base code when the dialect itself has no entry), in language order. Each
+  distinct language needed is asked of the resolver once. `allowed_hosts/0`, `language_for_host/2`
+  and `host_for_language/2` read this list; a caller that needs several asks once (`resolve/0`).
   """
   @spec host_languages() :: [{String.t(), String.t()}]
   def host_languages do
     codes = Languages.enabled_locale_codes()
 
-    hosts =
+    exact =
       codes
-      |> Enum.flat_map(&[&1, DialectMapper.extract_base(&1)])
       |> Enum.uniq()
       |> Map.new(&{&1, Routes.canonical_host(&1)})
 
+    bases =
+      codes
+      |> Enum.filter(&is_nil(Map.fetch!(exact, &1)))
+      |> Enum.map(&DialectMapper.extract_base/1)
+      |> Enum.reject(&Map.has_key?(exact, &1))
+      |> Enum.uniq()
+      |> Map.new(&{&1, Routes.canonical_host(&1)})
+
+    hosts = Map.merge(bases, exact)
+
     for code <- codes,
-        language <- Enum.uniq([code, DialectMapper.extract_base(code)]),
-        host = Map.fetch!(hosts, language),
+        host = Map.get(exact, code) || Map.get(hosts, DialectMapper.extract_base(code)),
         is_binary(host),
         do: {code, host}
   rescue
@@ -288,6 +296,51 @@ defmodule PhoenixKit.Handoff do
     Enum.find_value(languages || host_languages(), fn {code, host} ->
       if host_name(host) == name, do: code
     end)
+  end
+
+  @doc """
+  The allowed host that serves `lang` (an enabled language code such as `"de-DE"`, or a base code
+  such as `"de"`), or `nil` (`languages` is `host_languages/0`, when already read).
+
+  Matches an enabled code first (case-insensitively), then a bare base code against enabled
+  languages sharing that base (when several dialects of that base are enabled on different hosts,
+  the resolver's own answer for `lang` breaks the tie when it names one of them).
+  """
+  @spec host_for_language(term(), [{String.t(), String.t()}] | nil) :: String.t() | nil
+  def host_for_language(lang, languages \\ nil)
+
+  def host_for_language(lang, languages) when is_binary(lang) do
+    languages = languages || host_languages()
+    downcased = String.downcase(lang)
+
+    case Enum.find_value(languages, fn {code, host} ->
+           if String.downcase(code) == downcased, do: host
+         end) do
+      host when is_binary(host) ->
+        host
+
+      nil ->
+        host_for_base_language(lang, downcased, languages)
+    end
+  end
+
+  def host_for_language(_lang, _languages), do: nil
+
+  defp host_for_base_language(lang, downcased, languages) do
+    if String.contains?(downcased, "-") do
+      nil
+    else
+      matches =
+        for {code, host} <- languages,
+            String.downcase(DialectMapper.extract_base(code)) == downcased,
+            do: host
+
+      case Enum.uniq(matches) do
+        [] -> nil
+        [host] -> host
+        many -> allowed_host(Routes.canonical_host(lang), many) || hd(many)
+      end
+    end
   end
 
   @doc "`to` when it is a local path (`Routes.local_path?/1`) of a sane length, else `nil`."
@@ -565,6 +618,10 @@ defmodule PhoenixKit.Handoff do
       :error
   end
 
+  @doc false
+  @spec inherited_session(map()) :: map()
+  def inherited_session(%{} = session), do: Map.take(session, @source_session_keys)
+
   # The row is spent already: a session that is gone ends the handoff, and the token with it.
   defp with_source_session(%Token{user_uuid: nil} = row), do: {:ok, row}
   defp with_source_session(%Token{source_session_uuid: nil}), do: :error
@@ -572,7 +629,7 @@ defmodule PhoenixKit.Handoff do
   defp with_source_session(%Token{} = row) do
     case Auth.get_live_session(row.source_session_uuid, row.user_uuid) do
       nil -> :error
-      session -> {:ok, %{row | source_session: Map.take(session, @source_session_keys)}}
+      session -> {:ok, %{row | source_session: inherited_session(session)}}
     end
   end
 
@@ -925,11 +982,11 @@ defmodule PhoenixKit.Handoff do
   defp call_hooks([], _timeout), do: []
 
   defp call_hooks(calls, timeout) do
-    locale = Gettext.get_locale()
+    locales = {Gettext.get_locale(), Gettext.get_locale(PhoenixKitWeb.Gettext)}
 
     started =
       Enum.map(calls, fn {id, module, function, args} ->
-        {id, module, function, start_hook(module, function, args, locale)}
+        {id, module, function, start_hook(module, function, args, locales)}
       end)
 
     yielded =
@@ -948,9 +1005,10 @@ defmodule PhoenixKit.Handoff do
     end
   end
 
-  defp start_hook(module, function, args, locale) do
+  defp start_hook(module, function, args, {global_locale, web_locale}) do
     Task.Supervisor.async_nolink(PhoenixKit.TaskSupervisor, fn ->
-      Gettext.put_locale(locale)
+      Gettext.put_locale(global_locale)
+      Gettext.put_locale(PhoenixKitWeb.Gettext, web_locale)
       call_safely(module, function, args)
     end)
   catch

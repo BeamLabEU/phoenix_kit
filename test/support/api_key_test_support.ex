@@ -174,11 +174,13 @@ defmodule PhoenixKit.API.KeyTestSupport do
   # gone) and "not started" (the write's own `invalidate/2` cast). All three
   # mean the same thing — no `:settings` cache in this test — so they are
   # expected; anything else still fails the test.
-  @expected_cache_warnings [
-    ~r/\A\d\d:\d\d:\d\d\.\d{3} \[warning\] Cache settings could not be invalidated: \{:noproc/,
-    ~r/\A\d\d:\d\d:\d\d\.\d{3} \[warning\] Cache settings unavailable: /,
-    ~r/\A\d\d:\d\d:\d\d\.\d{3} \[warning\] Cache settings not started/
-  ]
+  defp expected_cache_warnings do
+    [
+      ~r/\A\d\d:\d\d:\d\d\.\d{3} \[warning\] Cache settings could not be invalidated: \{:noproc/,
+      ~r/\A\d\d:\d\d:\d\d\.\d{3} \[warning\] Cache settings unavailable: /,
+      ~r/\A\d\d:\d\d:\d\d\.\d{3} \[warning\] Cache settings not started/
+    ]
+  end
 
   @doc """
   Runs a settings write, `fun`, which must return `{:ok, _}`, and returns `:ok`.
@@ -206,9 +208,11 @@ defmodule PhoenixKit.API.KeyTestSupport do
   # One entry per log record: a record that wraps over several lines stays
   # in one piece.
   defp unexpected_lines(log) do
+    warnings = expected_cache_warnings()
+
     ~r/\n(?=\d\d:\d\d:\d\d\.\d{3} \[)/
     |> Regex.split(String.trim(log))
-    |> Enum.reject(&(&1 == "" or Enum.any?(@expected_cache_warnings, fn re -> &1 =~ re end)))
+    |> Enum.reject(&(&1 == "" or Enum.any?(warnings, fn re -> &1 =~ re end)))
   end
 
   @doc "Sets a setting the way the admin page would, as a string. See `write_setting/1`."

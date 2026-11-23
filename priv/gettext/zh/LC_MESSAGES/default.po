@@ -29402,7 +29402,7 @@ msgstr "验证在您网站上提交表单的访客。"
 msgid "Other versions"
 msgstr "其他版本"
 
-#: lib/phoenix_kit_web/controllers/handoff_controller.ex:361
+#: lib/phoenix_kit_web/controllers/handoff_controller.ex:369
 #, elixir-autogen, elixir-format, fuzzy
 msgid "You are signed in as %{email}."
 msgstr "您已以 %{email} 身份登录。"

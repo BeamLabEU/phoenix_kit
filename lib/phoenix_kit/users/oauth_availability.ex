@@ -45,18 +45,28 @@ defmodule PhoenixKit.Users.OAuthAvailability do
   """
   @spec configured_providers :: [atom()]
   def configured_providers do
+    case fetch_configured_providers() do
+      {:ok, providers} -> providers
+      :error -> []
+    end
+  end
+
+  defp fetch_configured_providers do
     if ueberauth_loaded?() and oauth_enabled_in_settings?() do
-      Enum.filter([:google, :github, :facebook], fn provider ->
-        provider_switch_enabled?(provider) and
-          PhoenixKit.Settings.has_oauth_credentials_direct?(provider)
-      end)
+      providers =
+        Enum.filter([:google, :github, :facebook], fn provider ->
+          provider_switch_enabled?(provider) and
+            PhoenixKit.Settings.has_oauth_credentials_direct?(provider)
+        end)
+
+      {:ok, providers}
     else
-      []
+      {:ok, []}
     end
   rescue
-    _ -> []
+    _ -> :error
   catch
-    :exit, _ -> []
+    :exit, _ -> :error
   end
 
   # Derived key in the `:settings` cache: never a real setting row, so no
@@ -95,16 +105,20 @@ defmodule PhoenixKit.Users.OAuthAvailability do
         providers
 
       _miss_or_stale ->
-        providers = configured_providers()
+        case fetch_configured_providers() do
+          {:ok, providers} ->
+            # `if_generation:` drops the fill when a settings write invalidated
+            # the cache while we were computing (the miss-fill race); with no
+            # cache answer (generation nil) nothing is written.
+            PhoenixKit.Cache.put(:settings, @providers_cache_key, {generation, providers},
+              if_generation: generation
+            )
 
-        # `if_generation:` drops the fill when a settings write invalidated
-        # the cache while we were computing (the miss-fill race); with no
-        # cache answer (generation nil) nothing is written.
-        PhoenixKit.Cache.put(:settings, @providers_cache_key, {generation, providers},
-          if_generation: generation
-        )
+            providers
 
-        providers
+          :error ->
+            []
+        end
     end
   rescue
     _ -> configured_providers()
@@ -226,11 +240,13 @@ defmodule PhoenixKit.Users.OAuthAvailability do
   """
   @spec status :: map()
   def status do
+    providers = configured_providers()
+
     %{
       enabled_in_settings: oauth_enabled_in_settings?(),
       ueberauth_loaded: ueberauth_loaded?(),
-      providers: configured_providers(),
-      available: oauth_available?()
+      providers: providers,
+      available: providers != []
     }
   end
 end

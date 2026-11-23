@@ -222,7 +222,8 @@ defmodule PhoenixKit.Module do
   enabled modules are taken **at the same time** and share one deadline of **2000 ms** for the whole
   round (not 2000 ms each): a task that is still running then is killed and the module is left out.
   The task inherits the request's `$callers` (an Ecto sandbox allowance of a test follows it) and
-  its Gettext locale, and nothing else of the request's process state: it is another process, so
+  its Gettext locales (both process-global and `PhoenixKitWeb.Gettext`; at `redeem`, both are set
+  to the target domain's language), and nothing else of the request's process state: it is another process, so
   **no process dictionary** (no per-request dynamic repo or prefix, no request currency or other
   setting a plug put there) and **no `Logger` metadata**. Derive what you need from the context.
   A task that is killed at the deadline may leave effects that are not in the database (a message

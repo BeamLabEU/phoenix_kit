@@ -470,6 +470,17 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
       assert tokens() == []
     end
 
+    test "accepts an enabled dialect code even when the resolver only answers base codes" do
+      user = user!()
+
+      {[start, _prepare, _mint, redeem], _} =
+        handoff(new_browser(), session: signed_in_session(user), lang: "de-DE")
+
+      assert %{host: @target} = location(start)
+      assert redirected_to(redeem, 302) == "/shop"
+      assert get_session(redeem, :user_token)
+    end
+
     test "a target that is not a local path becomes /" do
       for to <- ["//evil.test", "https://evil.test/", "/\\evil.test", "evil", "/a\nb"] do
         query = URI.encode_query(lang: "de", to: to)
@@ -1900,6 +1911,60 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
              ) == 0
     end
 
+    test "a role switch made while the modules apply their snapshots carries over" do
+      :ok = ModuleRegistry.register(HandoffScriptedModule)
+
+      on_exit(fn ->
+        ModuleRegistry.unregister(HandoffScriptedModule)
+        HandoffScriptedModule.clear()
+      end)
+
+      user = user!()
+      session = signed_in_session(user)
+      new_role = Ecto.UUID.generate()
+
+      HandoffScriptedModule.script(%{
+        apply:
+          {:run,
+           fn ->
+             Repo.update_all(from(t in UserToken, where: t.token == ^session[:user_token]),
+               set: [active_role_uuid: new_role]
+             )
+           end}
+      })
+
+      {[_, _, _, redeem], _} = handoff(new_browser(), session: session)
+
+      assert session_row(get_session(redeem, :user_token)).active_role_uuid == new_role
+    end
+
+    test "a module's apply hook runs in the target domain's Gettext locales" do
+      :ok = ModuleRegistry.register(HandoffScriptedModule)
+      parent = self()
+
+      on_exit(fn ->
+        ModuleRegistry.unregister(HandoffScriptedModule)
+        HandoffScriptedModule.clear()
+      end)
+
+      HandoffScriptedModule.script(%{
+        apply:
+          {:run,
+           fn ->
+             send(
+               parent,
+               {:apply_locales, Gettext.get_locale(), Gettext.get_locale(PhoenixKitWeb.Gettext)}
+             )
+           end}
+      })
+
+      user = user!()
+      {[_, _, _, redeem], _} = handoff(new_browser(), session: signed_in_session(user))
+
+      assert redirected_to(redeem, 302) == "/shop"
+      assert_received {:apply_locales, "de", "de"}
+    end
+
     test "a guest's handoff has no session to continue and is not affected" do
       {[_, _, _, redeem], _} = handoff(new_browser(), session: [stub_cart: "cart-1"])
 
@@ -2050,8 +2115,13 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
       end
     end
 
-    test "is asked once per language by a redeem, a prepare and a mint, not once per use" do
+    test "is asked once per language by a start, a redeem and a prepare, not once per use" do
       session = signed_in_session(user!())
+      _ = asked()
+
+      {_start, _} = visit(new_browser(), @source, Handoff.start_path("de", "/shop"))
+      start_asked = asked()
+
       {browser, _prepare, mint, _token} = minted(session)
       _ = asked()
 
@@ -2063,7 +2133,7 @@ defmodule PhoenixKitWeb.HandoffControllerTest do
 
       prepare_asked = asked()
 
-      for questions <- [redeem_asked, prepare_asked] do
+      for questions <- [start_asked, redeem_asked, prepare_asked] do
         assert questions != []
 
         assert Enum.all?(Enum.frequencies(questions), fn {_language, times} -> times == 1 end),
