@@ -499,6 +499,16 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerEmbedOptionsTest do
       assert html =~ ~s(download="test.jpg")
     end
 
+    test "the original and the list of other sizes do not carry the same word" do
+      file = render_assigns(%{}).file
+      urls = Map.merge(file.urls, %{"original" => "/f/original.jpg", "medium" => "/f/medium.jpg"})
+
+      html = sidebar(%{file: %{file | urls: urls}})
+
+      assert html =~ "Other sizes"
+      assert length(Regex.scan(~r/>\s*Download\s*</, html)) == 1
+    end
+
     test "a file the viewer cannot preview: the card prints no type and no MIME type" do
       file = %{render_assigns(%{}).file | mime_type: "application/zip", file_type: "archive"}
 

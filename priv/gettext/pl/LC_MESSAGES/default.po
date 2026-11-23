@@ -29461,3 +29461,8 @@ msgstr "Magazyn obiektów"
 #, elixir-autogen, elixir-format
 msgid "Verify visitors submitting forms on your website."
 msgstr "Weryfikuj odwiedzających, którzy wysyłają formularze w Twojej witrynie."
+
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:688
+#, elixir-autogen, elixir-format
+msgid "Other sizes"
+msgstr "Inne rozmiary"

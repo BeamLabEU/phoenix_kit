@@ -29455,3 +29455,8 @@ msgstr "Об'єктне сховище"
 #, elixir-autogen, elixir-format
 msgid "Verify visitors submitting forms on your website."
 msgstr "Перевіряйте відвідувачів, які надсилають форми на вашому вебсайті."
+
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:688
+#, elixir-autogen, elixir-format
+msgid "Other sizes"
+msgstr "Інші розміри"

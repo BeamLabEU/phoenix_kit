@@ -29377,3 +29377,8 @@ msgstr "Objektspeicher"
 #, elixir-autogen, elixir-format
 msgid "Verify visitors submitting forms on your website."
 msgstr "Besucher prüfen, die auf Ihrer Website Formulare absenden."
+
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:688
+#, elixir-autogen, elixir-format
+msgid "Other sizes"
+msgstr "Andere Größen"
