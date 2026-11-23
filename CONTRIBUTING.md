@@ -7,7 +7,6 @@ Thank you for your interest in contributing to PhoenixKit! This guide will help 
 To contribute to PhoenixKit, you'll need to set up a local development environment:
 
 1. **Fork the Repository**: Fork [PhoenixKit on GitHub](https://github.com/BeamLabEU/phoenix_kit/fork) to your account
-   - **Important**: Uncheck "Copy the `main` branch only" to get all branches including `dev`
 
 2. **Clone Your Fork**:
 ```bash
@@ -138,11 +137,11 @@ mix phx.server
 - During the refresh request, Phoenix.CodeReloader automatically recompiles changed files
 - You see updated code immediately without manual recompilation
 
-## Continuous Integration (CI)
+## Quality Checks & Testing
 
-PhoenixKit uses GitHub Actions for automated testing and quality checks. Every push and pull request triggers the CI pipeline.
+PhoenixKit does not use GitHub Actions CI for pushes or pull requests — all quality checks and tests are run locally before opening a PR.
 
-### CI Checks
+### Required Checks
 
 The following checks must pass before your PR can be merged:
 
@@ -168,7 +167,7 @@ The following checks must pass before your PR can be merged:
    ```bash
    mix test
    ```
-   Runs all tests with PostgreSQL database. Tests must pass without errors.
+   Runs unit tests and (when PostgreSQL is available) integration tests. Run `mix test.setup` the first time to create and migrate the test database.
 
 5. **Compilation Warnings**
    ```bash
@@ -182,72 +181,52 @@ The following checks must pass before your PR can be merged:
    ```
    Verifies no unused dependencies.
 
-### Running CI Checks Locally
+### Running Checks Locally
 
-Before pushing your changes, run these commands locally to catch issues early:
+Before pushing your changes, run the pre-commit gate and test suite locally:
 
 ```bash
-# Format code
-mix format
+# Run the full pre-commit gate (compile --warnings-as-errors, unused deps, test.compile, format check, credo, dialyzer, JS tests)
+mix precommit
 
-# Run quality checks
-mix credo --strict
-
-# Run tests (if database is configured)
+# Run the Elixir test suite (not included in mix precommit)
 mix test
 
-# Compile with warnings as errors
-mix compile --force --warnings-as-errors
-
-# Or run all quality checks at once
+# Or run formatting + credo + dialyzer together
 mix quality
 ```
-
-### CI Workflow
-
-- **Triggers**: Runs on push to `main`, `dev`, and `claude/**` branches, and on all pull requests
-- **Parallel Execution**: Different checks run in parallel for faster feedback
-- **Caching**: Dependencies and PLT files are cached to speed up subsequent runs
-- **Coverage**: Test coverage is automatically reported to Codecov
-
-### Viewing CI Results
-
-1. **In Pull Requests**: CI status appears at the bottom of your PR
-2. **GitHub Actions Tab**: View detailed logs at https://github.com/BeamLabEU/phoenix_kit/actions
-3. **Status Badges**: Check README.md for current build status
-
-### Troubleshooting CI Failures
-
-If CI fails on your PR:
-
-1. **Check the logs**: Click "Details" next to the failed check
-2. **Reproduce locally**: Run the failing command on your machine
-3. **Fix and push**: Commit the fix and push - CI will re-run automatically
-4. **Ask for help**: If stuck, comment on your PR for assistance
 
 ## Contribution Workflow
 
 Once you have your development environment set up with live reloading, follow these steps to contribute:
 
-1. **Switch to dev branch**:
+1. **Create a feature branch off `main`**:
 ```bash
-git checkout dev
+git checkout main
+git pull origin main
+git checkout -b feat/your-change
 ```
 
 2. **Make your changes** in the `phoenix_kit` directory - you'll see them live in your browser, if live reloading setup was done correctly.
 
-3. **Commit and push** your changes:
+3. **Run checks locally**:
+```bash
+mix precommit
+mix test
+```
+
+4. **Commit and push** your changes:
 ```bash
 git add file_you_changed
 git commit
-git push dev
+git push -u origin feat/your-change
 ```
 
-4. **Create Pull Request**:
+5. **Create Pull Request**:
    - After pushing, you'll see a banner on GitHub indicating that your branch is ahead of the main repository
    - Click "Contribute" and then "Open a pull request"
    - GitHub will show the differences between your fork and the main repository
    - Click "Create pull request"
    - Enter a title and description of your changes
-   - Ensure the base branch is set to `BeamLabEU/phoenix_kit:dev` (not main)
+   - Ensure the base branch is set to `BeamLabEU/phoenix_kit:main` (there is no `dev` branch)
    - Click "Create pull request" to submit
