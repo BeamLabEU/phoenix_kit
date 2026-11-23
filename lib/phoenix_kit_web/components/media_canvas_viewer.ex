@@ -124,6 +124,15 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       `"unset_featured"` straight to `:parent_id` (same `phx-target`
       routing the close/prev/next buttons use) — this component does
       not own the pointer and has no event handler of its own for it.
+    * `:mark` (default `nil`) — `MediaBrowser`'s own `:mark` attr: `nil` or
+      `false` = off, or a map `%{uuids: uuids, icon: String.t(), on_label,
+      off_label, unmark_label}` (every key optional, labels `String.t() |
+      nil`), normalised here as the browser does. When set, the sidebar shows
+      a toggle for ANY open file that is not in the trash — the host's icon,
+      solid when the file is in `uuids`, named for what a click does
+      (`off_label` / `unmark_label`, no `aria-pressed`) — that posts
+      `"toggle_mark"` straight to `:parent_id`, like the featured button. This
+      component owns no mark and no handler for it.
     * `:can_trash` (default `false`) — offers "Move to trash" for a file
       that is not in the trash even without `:edit_target` (a picker's
       viewer, which writes nothing else). The click posts `"trash_file"`
@@ -153,6 +162,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Format
+  alias PhoenixKitWeb.Components.MediaBrowser.Helpers, as: BrowserHelpers
 
   # Etcher's toolbar color slots are a single palette shared across every
   # Fresco viewer this user opens — stored in their `custom_fields`
@@ -264,6 +274,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
      |> assign(:viewer_uuid, nil)
      |> assign(:file_writable, true)
      |> assign(:featured, nil)
+     |> assign(:mark, nil)
      |> assign(:can_trash, false)
      |> assign(:server_confirm, false)
      |> assign(:pick, nil)
@@ -377,6 +388,10 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       |> assign(:write_library_uuid, assigns[:write_library_uuid])
       |> assign(:viewer_uuid, assigns[:viewer_uuid])
       |> assign(:featured, assigns[:featured])
+      |> assign(
+        :mark,
+        BrowserHelpers.normalize_mark(assigns[:mark])
+      )
       |> assign(:can_trash, assigns[:can_trash] == true)
       |> assign(:server_confirm, assigns[:server_confirm] == true)
       |> assign(:pick, assigns[:pick])

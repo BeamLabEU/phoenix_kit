@@ -328,7 +328,7 @@
         <%= if file.file_type == "video" do %>
           <div class={[
             "absolute left-2 bg-black/60 text-white p-1.5 rounded pointer-events-none flex items-center justify-center",
-            if(@picker, do: "top-9", else: "top-2")
+            if(@picker or @mark, do: "top-9", else: "top-2")
           ]}>
             <.icon name="hero-play-solid" class="w-4 h-4" />
           </div>
@@ -337,7 +337,7 @@
         <%= if file.mime_type == "application/pdf" do %>
           <div class={[
             "absolute left-2 bg-error/80 text-white px-2 py-0.5 rounded text-xs font-bold pointer-events-none",
-            if(@picker, do: "top-9", else: "top-2")
+            if(@picker or @mark, do: "top-9", else: "top-2")
           ]}>
             PDF
           </div>
@@ -369,6 +369,15 @@
 
       <.featured_badge
         file={file}
+        featured={@featured}
+        interactive={not @readonly and not @select_mode and not @filter_trash and not @picker}
+        select_mode={@select_mode}
+        picker={@picker}
+        myself={@myself}
+      />
+      <.mark_badge
+        file={file}
+        mark={@mark}
         featured={@featured}
         interactive={not @readonly and not @select_mode and not @filter_trash and not @picker}
         select_mode={@select_mode}
@@ -457,6 +466,16 @@
                 do: gettext("Unset featured"),
                 else: gettext("Set as featured")
             }
+          />
+          <%!-- See the moduledoc's `:mark` attr — off entirely when the
+                host didn't opt in. --%>
+          <.table_row_menu_button
+            :if={not @readonly and not @picker and @mark != nil and not @filter_trash}
+            phx-click="toggle_mark"
+            phx-target={@myself}
+            phx-value-file-uuid={file.file_uuid}
+            icon={@mark.icon}
+            label={mark_label(@mark, marked?(@mark, file.file_uuid))}
           />
           <.table_row_menu_button
             :if={not @readonly and not @picker and file.file_type == "image"}

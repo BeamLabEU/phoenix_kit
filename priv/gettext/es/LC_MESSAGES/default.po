@@ -29151,3 +29151,18 @@ msgstr "iPhone y iPad solo muestran las notificaciones de un sitio web cuando es
 #, elixir-autogen, elixir-format
 msgid "seconds into one"
 msgstr "segundos en una sola"
+
+#: lib/phoenix_kit_web/components/media_browser/helpers.ex:344
+#, elixir-autogen, elixir-format
+msgid "Mark"
+msgstr "Marcar"
+
+#: lib/phoenix_kit_web/components/media_browser/helpers.ex:345
+#, elixir-autogen, elixir-format
+msgid "Remove mark"
+msgstr "Quitar marca"
+
+#: lib/phoenix_kit_web/components/media_browser/helpers.ex:349
+#, elixir-autogen, elixir-format
+msgid "Marked"
+msgstr "Marcado"
