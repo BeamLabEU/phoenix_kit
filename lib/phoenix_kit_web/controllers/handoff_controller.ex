@@ -83,8 +83,9 @@ defmodule PhoenixKitWeb.HandoffController do
   @cookie_max_age 60
   @language_pattern ~r/\A[A-Za-z]{2,3}(?:-[A-Za-z0-9]{1,8})*\z/
   @side_effect_free_purposes ~w(prefetch prerender preview)
-  # Links to `start` are always the host's own page (same-origin) or typed/bookmarked (none): a
-  # sibling subdomain, which `same-site` also names, is not.
+  # Links to `start` are always the host's own page (same-origin); `none` is a navigation started
+  # outside any page (address bar, bookmark, mail client, another application). A sibling
+  # subdomain, which `same-site` also names, is neither.
   @navigation_fetch_sites ~w(same-origin none)
 
   @doc "Step 1, on the source domain."
@@ -443,8 +444,9 @@ defmodule PhoenixKitWeb.HandoffController do
   # an image, a redirect), and it completes a chain that signs the visitor in as the source
   # account, replacing whoever is signed in on the target. It must be a top-level navigation the
   # visitor made themselves or a page of the host itself made for them: `Sec-Fetch-Site` is
-  # `same-origin` or `none` (typed, bookmarked), or absent (a browser that does not send fetch
-  # metadata: it cannot be told, and is let through), and `Sec-Fetch-Dest`, when sent, is
+  # `same-origin` or `none` (a navigation started outside any page, which a mail client or another
+  # application can start as well as the address bar), or absent (a browser that does not send
+  # fetch metadata: it cannot be told, and is let through), and `Sec-Fetch-Dest`, when sent, is
   # `document`. `same-site` is refused: it is a sibling subdomain (a dangling one, one a tenant
   # controls), and links to `start` are always the host's own. Anything else, an unknown value
   # included, is refused.

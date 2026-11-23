@@ -76,6 +76,15 @@ link opened in any other browser is useless.
 
    All four answer `Cache-Control: no-store` and are `log: false` routes.
 
+## Deploying
+
+Run the migration (V236, `mix phoenix_kit.update`) **before** the code that links to
+`start` goes live. Until V236 has run there is no table to write: every handoff ends
+with a `302` to `/` (and a logged error), and `enabled?/0` is already `true`, so a
+language switcher that links to `start` lands the visitor on `/` of the other domain,
+signed out. Signing out, signing out everywhere and a password change keep working
+without the table; they delete nothing from it.
+
 ## Linking
 
 Build the link with the helper and keep a plain link when there is nothing to
@@ -99,11 +108,19 @@ hand over to:
   host's own page. A link to it on another site, a sibling subdomain, an `<img>`
   or `<iframe>` that loads it, a form or script that aims the visitor at it, is
   answered with a `302` to `/` and changes nothing. The rule: `Sec-Fetch-Site`
-  must be `same-origin` or `none` (typed, bookmarked), and `Sec-Fetch-Dest`, when
-  sent, `document`. It is the answer to a page of another site that would
-  otherwise replace whoever is signed in on the target with the account signed in
-  on the source, just by sending the visitor there. It is checked **before** the
-  rate limit, so such requests cost the visitor's address no budget.
+  must be `same-origin` or `none`, and `Sec-Fetch-Dest`, when sent, `document`. It
+  is the answer to a page of another site that would otherwise replace whoever is
+  signed in on the target with the account signed in on the source, just by
+  sending the visitor there. It is checked **before** the rate limit, so such
+  requests cost the visitor's address no budget.
+  - **`none` is not only "typed or bookmarked".** Browsers send it for every
+    navigation started outside a page: the address bar, a bookmark, a link in a
+    mail client, a link opened by another application. A mail or a desktop
+    application can therefore aim a visitor at `start`, and so can a link in user
+    content, which is same-origin. The effect is bounded: it can only move the
+    visitor between **their own** signed-in accounts (the account signed in on the
+    source replaces the one signed in on the target), and the destination is a
+    local path on one of your own hosts.
   - **`same-site` is refused.** It is what a browser reports for a request from a
     *sibling subdomain* (`blog.shop.com` to `shop.com`), which is not the host's
     own page and may be a dangling or a tenant-controlled one. Your links to
@@ -215,7 +232,11 @@ normal one).
   looks it up again and the handoff fails if it was signed out, revoked or has
   expired in the meantime, however it went (it does not matter whether a
   revocation hook ran). No timing is involved: a revocation that commits at any
-  moment before the redeem ends the handoff.
+  moment before the redeem ends the handoff. The look-up is repeated right before
+  the visitor is signed in, after the modules' apply hooks (which can take up to
+  five seconds): a session revoked in that window also ends the handoff, with a
+  `302` to `/`. What the modules already did on the server by then stays; they have
+  been told, and it cannot be taken back.
 - `mint` refuses an account whose session it cannot find (it went between the
   pipeline and the insert), and `Handoff.mint/1` refuses an account with no
   session to name: a row for an account always continues one.
@@ -232,7 +253,11 @@ normal one).
 with the application's `secret_key_base`) and sends the SHA-256 of that secret
 through `prepare` to `mint` (`s`). `mint` reads the cookie as a signed cookie, so
 a value the application did not issue is not a cookie at all, and requires its
-hash to equal `s` (a constant-time comparison); then it deletes the cookie.
+hash to equal `s` (a constant-time comparison); only then does it delete the cookie.
+A request that does not carry the matching proof leaves the cookie alone, so a page of
+another site cannot take it by sending the visitor to `mint`; likewise the nonce cookie is
+deleted only by a `redeem` that went through, not by a request for a token that does not
+exist.
 
 That gives:
 
@@ -487,6 +512,9 @@ anyone in: the sign-in is the core's, after the hooks.
   crontab would let the table grow by one row per handoff (a handoff needs a
   signed-in account or a module snapshot, and a `start` from an address inside its
   limit): schedule `PhoenixKit.Handoff.prune_expired/0` yourself.
+- **Sessions accumulate.** Each handoff adds a session row on the target that lives until the
+  source session expires, and the kit has no per-account session cap, so switching language grows
+  the account's session list (bounded only by the mint limit above).
 - The handoff is a chain of top-level navigations that carry first-party
   cookies; a browser that blocks those cookies, or strips them from redirect
   chains, falls back to the failure path (a plain visit to `/` on the target).

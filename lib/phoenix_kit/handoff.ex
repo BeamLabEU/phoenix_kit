@@ -63,7 +63,8 @@ defmodule PhoenixKit.Handoff do
   it (`PhoenixKitWeb.Users.Auth.log_in_user/4`, `:inherit_session`): it has the **same
   `inserted_at`**, so every rule that reads a session's age (the passkey freshness window, the 60
   days a session lives, the sessions list) sees the sign-in that really happened, and the same
-  acting role. A guest's row has no session and is exempt.
+  acting role. A guest's row has no session and is exempt. The look-up is repeated by the
+  controller right before it signs the visitor in, after the modules' apply hooks.
   """
 
   import Ecto.Query
