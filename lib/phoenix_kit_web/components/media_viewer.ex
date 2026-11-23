@@ -33,13 +33,21 @@ defmodule PhoenixKitWeb.Components.MediaViewer do
     refuses drawing, changing, deleting, Reply and a shape's title, and any
     write to the file's own row. On a file that user uploaded everything the
     viewer offers stays. The comments thread under the picture is not a write
-    to the file and is switched off by `comments`, not by this.
+    to the file and is switched off by `comments`, not by this. One endpoint it
+    does not reach: `AnnotationBurnController` checks the uploader or
+    `Libraries.can?(:edit)` only, so under an embedding for someone who does
+    hold `:edit` a forged burn POST is still accepted.
   - `write_scope` — default `nil`; a folder uuid. A write to the file's own row
     needs the file's HOME folder inside it (`Storage.within_scope?/2`); a file
-    merely linked into the folder is not written.
+    merely linked into the folder is not written. In the lightbox itself it
+    gates nothing: the lightbox offers no write to the file's own row (no
+    title editor, no persisted rotation), so there is no `write_scope` check
+    to pass.
   - `comments` — default `true`. `false` takes the discussion out of the
     lightbox: no comments thread, no reply popup, no comment count, preview or
-    badge on the shapes, and the server refuses Reply.
+    badge on the shapes, and the server refuses Reply. The shapes go out
+    without `comment_count`, so Etcher's `offline_protect="comment_count"`
+    protects nothing on them.
   - `annotate_only` — default `nil`: `can_annotate` applies to every file. A
     list or `MapSet` of file uuids: a file in it gets `can_annotate` as the
     host passed it, any other file is read-only (shapes locked, tools gone, and
@@ -121,10 +129,14 @@ defmodule PhoenixKitWeb.Components.MediaViewer do
 
   @impl true
   def update(assigns, socket) do
+    files = assigns[:files] || []
+    prev_files = socket.assigns[:files]
+    prev_uuid = socket.assigns[:current_uuid]
+
     socket =
       socket
       |> assign(:id, assigns.id)
-      |> assign(:files, assigns[:files] || [])
+      |> assign(:files, files)
       |> assign_new(:current_uuid, fn -> assigns[:current] end)
       |> assign(:notify, assigns[:notify])
       |> assign(:current_user, assigns[:current_user])
@@ -136,14 +148,19 @@ defmodule PhoenixKitWeb.Components.MediaViewer do
       |> assign(:details, assigns[:details] != false)
       |> assign(:authors, assigns[:authors] != false)
 
-    socket =
-      assign(
-        socket,
-        :current_file,
-        curate_file(socket.assigns.current_uuid, socket.assigns.files)
-      )
-
-    {:ok, assign_neighbours(socket)}
+    # The current file's row and the prev/next arrows cost database reads;
+    # recompute them only when the open file or the list actually changed
+    # (first render, a step, or the host passing a new `files` / `current`),
+    # not on every parent render.
+    if socket.assigns.current_uuid != prev_uuid or files != prev_files or
+         not Map.has_key?(socket.assigns, :current_file) do
+      socket
+      |> assign(:current_file, curate_file(socket.assigns.current_uuid, files))
+      |> assign_neighbours()
+      |> then(&{:ok, &1})
+    else
+      {:ok, socket}
+    end
   end
 
   @impl true

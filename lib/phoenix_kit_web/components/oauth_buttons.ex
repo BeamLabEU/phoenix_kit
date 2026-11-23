@@ -41,7 +41,7 @@ defmodule PhoenixKitWeb.Components.OAuthButtons do
     # dropped rather than handed to the callback's session stash.
     assigns =
       assigns
-      |> assign(:providers, OAuthAvailability.configured_providers())
+      |> assign(:providers, OAuthAvailability.configured_providers_cached())
       |> assign(:return_query, oauth_return_query(assigns[:return_to]))
 
     ~H"""
@@ -76,7 +76,10 @@ defmodule PhoenixKitWeb.Components.OAuthButtons do
   sign-up pages (`PhoenixKitWeb.Components.AuthMethods`). Renders the links
   only, with no wrapper, so each one is a cell of the caller's grid.
   """
-  attr :providers, :list, required: true, doc: "from `OAuthAvailability.configured_providers/0`"
+  attr :providers, :list,
+    required: true,
+    doc: "from `OAuthAvailability.configured_providers_cached/0`"
+
   attr :return_to, :string, default: nil
 
   def provider_links(assigns) do

@@ -952,7 +952,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
     connected = Enum.map(oauth_providers, & &1.provider)
 
     configured =
-      OAuthAvailability.configured_providers()
+      OAuthAvailability.configured_providers_cached()
       |> Enum.map(&Atom.to_string/1)
 
     ["google", "github"]

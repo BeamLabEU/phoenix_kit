@@ -328,7 +328,12 @@
         <%= if file.file_type == "video" do %>
           <div class={[
             "absolute left-2 bg-black/60 text-white p-1.5 rounded pointer-events-none flex items-center justify-center",
-            if(@picker or @mark, do: "top-9", else: "top-2")
+            type_badge_offset(
+              @mark,
+              file.file_uuid,
+              @picker,
+              not @readonly and not @select_mode and not @filter_trash and not @picker
+            )
           ]}>
             <.icon name="hero-play-solid" class="w-4 h-4" />
           </div>
@@ -337,7 +342,12 @@
         <%= if file.mime_type == "application/pdf" do %>
           <div class={[
             "absolute left-2 bg-error/80 text-white px-2 py-0.5 rounded text-xs font-bold pointer-events-none",
-            if(@picker or @mark, do: "top-9", else: "top-2")
+            type_badge_offset(
+              @mark,
+              file.file_uuid,
+              @picker,
+              not @readonly and not @select_mode and not @filter_trash and not @picker
+            )
           ]}>
             PDF
           </div>

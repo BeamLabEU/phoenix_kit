@@ -98,7 +98,7 @@ defmodule PhoenixKitWeb.Users.Registration do
         # Whether the visitor has left the email field (or submitted): its
         # error and the "Did you mean" hint wait until then (`email_field/1`).
         |> assign(email_left: false, email_errors: [])
-        |> assign(oauth_providers: OAuthAvailability.configured_providers())
+        |> assign(oauth_providers: OAuthAvailability.configured_providers_cached())
         |> assign(project_title: project_title)
         |> assign(canonical_url: seo.canonical_url)
         |> assign(hreflang_links: seo.hreflang_links)

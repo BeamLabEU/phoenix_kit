@@ -299,31 +299,53 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Helpers do
   end
 
   # Normalises the host's `:mark` attr once (see the moduledoc's `:mark`):
-  # `nil` and `false` stay off (`nil`); a map becomes
+  # `nil` and `false` stay off (`nil`); an atom-keyed map becomes
   # `%{uuids: MapSet, icon: String, on_label: nil | String, off_label: nil | String,
   # unmark_label: nil | String}`. Labels stay `nil` here (an empty one counts as
   # none) and fall back to gettext when drawn, so the locale of the render
-  # applies. Idempotent — `update/2` runs it on every assign.
+  # applies; the icon falls back to the default eye the same way. Anything
+  # else — a string-keyed map, a non-enumerable `uuids`, any other term —
+  # raises `ArgumentError` rather than silently becoming an empty mark.
+  # Idempotent — `update/2` runs it on every assign.
   def normalize_mark(mark) when mark in [nil, false], do: nil
 
   def normalize_mark(%{} = mark) when not is_struct(mark) do
+    unless Enum.all?(mark, fn {key, _} -> is_atom(key) end) do
+      raise ArgumentError, mark_attr_error(mark)
+    end
+
     %{
-      uuids: MapSet.new(Map.get(mark, :uuids) || []),
-      icon: Map.get(mark, :icon) || "hero-eye",
+      uuids: mark_uuids(Map.get(mark, :uuids)),
+      icon: mark_icon(Map.get(mark, :icon)),
       on_label: mark_text(Map.get(mark, :on_label)),
       off_label: mark_text(Map.get(mark, :off_label)),
       unmark_label: mark_text(Map.get(mark, :unmark_label))
     }
   end
 
-  def normalize_mark(other) do
-    raise ArgumentError,
-          "the :mark attr must be nil or a map like %{uuids: [...], icon: ..., " <>
-            "on_label: ..., off_label: ..., unmark_label: ...}, got: #{inspect(other)}"
+  def normalize_mark(other), do: raise(ArgumentError, mark_attr_error(other))
+
+  defp mark_uuids(nil), do: MapSet.new()
+
+  defp mark_uuids(uuids) do
+    MapSet.new(uuids)
+  rescue
+    Protocol.UndefinedError ->
+      reraise ArgumentError,
+              [message: "the :mark attr's :uuids must be enumerable, got: #{inspect(uuids)}"],
+              __STACKTRACE__
   end
+
+  defp mark_icon(icon) when is_binary(icon) and icon != "", do: icon
+  defp mark_icon(_icon), do: "hero-eye"
 
   defp mark_text(text) when is_binary(text) and text != "", do: text
   defp mark_text(_text), do: nil
+
+  defp mark_attr_error(other) do
+    "the :mark attr must be nil or a map like %{uuids: [...], icon: ..., " <>
+      "on_label: ..., off_label: ..., unmark_label: ...}, got: #{inspect(other)}"
+  end
 
   # What the browser hands its viewer: the mark, except where the viewer's
   # sidebar must not offer one — a readonly browser and a picker.
@@ -348,6 +370,19 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Helpers do
   # no control to click: the host's `on_label`, gettext "Marked" without it.
   def mark_state_label(mark), do: mark[:on_label] || gettext("Marked")
 
+  # The top offset of the video/PDF type badges on a tile: below the corner
+  # when something is drawn in it — a picker's eye, or the mark badge (the
+  # interactive toggle on every file while the browser is writable, else the
+  # passive badge on a marked file only) — at the corner otherwise. A readonly,
+  # select-mode or trash tile that is not marked draws no mark, so its badges
+  # keep the top spot.
+  def type_badge_offset(mark, file_uuid, picker?, interactive?) do
+    if picker? or mark_in_corner?(mark, file_uuid, interactive?), do: "top-9", else: "top-2"
+  end
+
+  defp mark_in_corner?(mark, _file_uuid, true) when mark != nil, do: true
+  defp mark_in_corner?(mark, file_uuid, _interactive), do: marked?(mark, file_uuid)
+
   # The host's on/off mark (see the moduledoc's `:mark`) on a FILE tile, in the
   # top-left corner beside the featured star — the same round, same size.
   # Interactive, it is a toggle on every file of any type: filled with the
@@ -357,7 +392,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Helpers do
   # plain badge. Like the star it is a sibling of the tile's `click_file`
   # target, so a click on it never opens the viewer. Unlike the star it
   # appears on every file type, so it shares the corner with the video/PDF
-  # badges: callers move those down (`top-9`) while `:mark` is on.
+  # badges: callers move those down (`top-9`) when a mark is drawn in it
+  # (`type_badge_offset/4`).
   # The offset follows what is already in the corner: the star (an image tile
   # with `:featured` on, interactive; or the featured tile's passive star), the
   # selection checkbox, or a picker's View (eye) button.
@@ -561,7 +597,12 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Helpers do
           :if={@file.file_type == "video"}
           class={[
             "absolute left-2 bg-black/60 text-white p-1.5 rounded pointer-events-none flex items-center justify-center",
-            if(@mark, do: "top-9", else: "top-2")
+            type_badge_offset(
+              @mark,
+              @file.file_uuid,
+              false,
+              not @readonly and not @select_mode and not @filter_trash
+            )
           ]}
         >
           <.icon name="hero-play-solid" class="w-4 h-4" />
@@ -571,7 +612,12 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Helpers do
           :if={@file.mime_type == "application/pdf"}
           class={[
             "absolute left-2 bg-error/80 text-white px-2 py-0.5 rounded text-xs font-bold pointer-events-none",
-            if(@mark, do: "top-9", else: "top-2")
+            type_badge_offset(
+              @mark,
+              @file.file_uuid,
+              false,
+              not @readonly and not @select_mode and not @filter_trash
+            )
           ]}
         >
           PDF

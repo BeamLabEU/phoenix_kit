@@ -50,9 +50,26 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerEmbedOptionsTest do
 
       assert meta["comment_count"] == 3
       assert meta["comment_text"] == "Looks good"
-      assert meta["comment_author"] == "Jane"
+      assert meta["comment_preview_author"] == "Jane"
       assert meta["badge"] == 3
       refute Map.has_key?(meta, "comments_off")
+    end
+
+    test "the preview author never overwrites a stored marker byline" do
+      row =
+        put_in(row(), [:annotation, :metadata], %{"comment_author" => "The Drawer"})
+
+      meta = MediaCanvasViewer.curate_row(row, true).metadata
+
+      assert meta["comment_author"] == "The Drawer"
+      assert meta["comment_preview_author"] == "Jane"
+
+      # A drag rebuilds the row from this curated map: the byline survives,
+      # the preview key is load-injected and dropped.
+      attrs = MediaCanvasViewer.persistable_attrs(%{"metadata" => %{}}, %{metadata: meta})
+
+      assert attrs["metadata"]["comment_author"] == "The Drawer"
+      refute Map.has_key?(attrs["metadata"], "comment_preview_author")
     end
 
     test "with comments off there is nothing of the discussion on the shape" do
@@ -60,8 +77,8 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerEmbedOptionsTest do
 
       # With no `comment_count` the tooltip has no Reply / View; `comments_off`
       # is what tells it the label is still there to edit.
-      for key <- ~w(comment_count comment_text comment_author comment_thumbnail_url
-                    comment_has_attachment comment_created_at badge) do
+      for key <- ~w(comment_count comment_text comment_preview_author comment_author
+                    comment_thumbnail_url comment_has_attachment comment_created_at badge) do
         refute Map.has_key?(meta, key), "#{key} leaked onto the shape"
       end
 
@@ -572,8 +589,13 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerEmbedOptionsTest do
       assert render_html(Map.put(live, :viewer_canvas, with_author)) =~ "AuthorUniq"
     end
 
-    test "wire_metadata/2 drops only the byline" do
-      meta = %{"comment_author" => @author, "title" => "t", "badge" => 2}
+    test "wire_metadata/2 drops only the author keys" do
+      meta = %{
+        "comment_author" => @author,
+        "comment_preview_author" => @author,
+        "title" => "t",
+        "badge" => 2
+      }
 
       assert MediaCanvasViewer.wire_metadata(meta, true) == meta
       assert MediaCanvasViewer.wire_metadata(meta, false) == %{"title" => "t", "badge" => 2}
@@ -583,6 +605,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerEmbedOptionsTest do
     test "a shape with a discussion goes out as one with the discussion off: no Reply / View" do
       meta = %{
         "comment_author" => @author,
+        "comment_preview_author" => @author,
         "comment_count" => 2,
         "comment_text" => "Looks good",
         "badge" => 2
@@ -591,6 +614,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerEmbedOptionsTest do
       wire = MediaCanvasViewer.wire_metadata(meta, false)
 
       refute Map.has_key?(wire, "comment_count")
+      refute Map.has_key?(wire, "comment_preview_author")
       assert wire["comments_off"] == true
       assert wire["comment_text"] == "Looks good"
       assert MediaCanvasViewer.wire_metadata(meta, true)["comment_count"] == 2

@@ -707,6 +707,15 @@ defmodule PhoenixKitWeb.Components.Core.NavTabsTest do
       refute hidden_node?(more_button(menu_html(%{tabs: @menu_set})))
     end
 
+    test "the more button is aria-disabled until the hook mounts (and clears it)" do
+      button = more_button(menu_html(%{tabs: @menu_set}))
+      assert Floki.attribute(button, "aria-disabled") == ["true"]
+
+      {_html, strip, _menu} = menu_tabs(%{tabs: @tabs})
+      [raw] = Regex.run(~r/<button[^>]*data-nav-more[^>]*>/s, strip)
+      assert raw =~ ~s(aria-disabled="true")
+    end
+
     test "the strip tab is marked for the hook, link and event tabs alike" do
       html = menu_html(%{tabs: @menu_set})
 

@@ -71,7 +71,7 @@ defmodule PhoenixKitWeb.Users.Login do
             project_title: project_title,
             allow_registration: allow_registration,
             magic_link_enabled: magic_link_enabled,
-            oauth_providers: OAuthAvailability.configured_providers(),
+            oauth_providers: OAuthAvailability.configured_providers_cached(),
             qr_login_enabled: qr_login_enabled,
             passkey_enabled: passkey_enabled,
             remember_me_available: Auth.remember_me_enabled?(),

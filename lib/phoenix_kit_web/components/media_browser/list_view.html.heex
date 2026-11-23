@@ -24,7 +24,8 @@
         <th class="hidden md:table-cell">{gettext("Size")}</th>
         <th class="hidden md:table-cell">{gettext("Date")}</th>
         <th :if={@mark} data-mark-column class="w-10">
-          <span class="sr-only">{mark_label(@mark, false)}</span>
+          <%!-- The column holds the mark's state, not the action: name what is in it. --%>
+          <span class="sr-only">{mark_state_label(@mark)}</span>
         </th>
         <th class="w-10"></th>
       </tr>

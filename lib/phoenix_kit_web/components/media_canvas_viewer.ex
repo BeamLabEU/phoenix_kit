@@ -88,8 +88,10 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       no comments thread in the sidebar, no reply popup, the shapes carry no
       comment count, preview or badge (so the tooltip offers no Reply / View
       but keeps "Edit label"), and `annotation_reply` is refused on the
-      server. The drawings themselves are untouched, a marker's byline (the
-      name of whoever drew it) included (unless `:authors` is off).
+      server. The shapes go out without `comment_count`, so Etcher's
+      `offline_protect="comment_count"` protects nothing on them. The
+      drawings themselves are untouched, a marker's byline (the name of whoever
+      drew it) included (unless `:authors` is off).
     * `:details` (default `true`) — `false` cuts the sidebar down to the file's
       name and its Download controls. Not printed: the title, alt text,
       description and tags, the type, MIME type, size, dimensions, dates, status,
@@ -100,9 +102,10 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       files to open, and the download is the file itself.
     * `:authors` (default `true`) — `false` keeps every name that says WHO drew
       a shape or wrote a comment out of the browser: the marker byline
-      (`metadata.comment_author`) is dropped from the shapes' payload and from
-      every `etcher:patch-shape` push, so the tooltip header falls back to the
-      shape's label, then its kind. The comments thread names each commenter and
+      (`metadata.comment_author`) and the first-comment preview
+      (`metadata.comment_preview_author`) are dropped from the shapes' payload
+      and from every `etcher:patch-shape` push, so the tooltip header falls
+      back to the shape's label, then its kind. The comments thread names each commenter and
       cannot be made anonymous from here, so it is not rendered. The drawings
       and their labels are untouched. The server keeps the byline on the row.
       With `:comments` on, a shape's tooltip still previews the first comment
@@ -1598,9 +1601,12 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   # into the row (and a stale comment count outlives the comments it
   # counted). `comment_author` is deliberately absent: for markers it IS
   # stored metadata (the byline stamp), and dropping it on a marker drag
-  # would erase who drew it.
+  # would erase who drew it. The preview author of a shape's discussion goes
+  # under `comment_preview_author` instead, so a drag of a marker with a
+  # thread cannot overwrite the byline with the first commenter's name.
   @load_injected_meta_keys ~w(title badge comment_count comment_created_at comment_text
-                              comment_thumbnail_url comment_has_attachment comments_off)
+                              comment_thumbnail_url comment_has_attachment comments_off
+                              comment_preview_author)
 
   # Public (@doc false) with `persistable_attrs/2` so the unit suite can pin
   # the label round-trip — the bug class here (a metadata-only change judged
@@ -2339,13 +2345,14 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
     end
   end
 
-  # The one key of a shape's metadata that names a person: a marker's byline,
-  # stamped when it is drawn, and the author of the first comment of a shape
-  # that has a discussion (`curate_row/2`); Etcher's tooltip header shows it.
-  # `wire_metadata/2` drops it on the way out, and nowhere earlier:
+  # The keys of a shape's metadata that name a person: a marker's byline,
+  # stamped when it is drawn (`comment_author`), and the author of the first
+  # comment of a shape that has a discussion (`comment_preview_author`,
+  # injected by `curate_row/2`); Etcher's tooltip header shows them.
+  # `wire_metadata/2` drops them on the way out, and nowhere earlier:
   # `viewer_annotations` keeps the stored metadata whole, because a later write
   # rebuilds the row's metadata from it and must not erase who drew a marker.
-  @author_meta_keys ~w(comment_author)
+  @author_meta_keys ~w(comment_author comment_preview_author)
 
   # What goes to the browser of a shape's metadata. With `authors` on, all of
   # it. With `authors` off, the byline is dropped; and as the thread is not
@@ -2524,7 +2531,10 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
         %{} = c ->
           %{
             "comment_text" => truncate(c.content, 80),
-            "comment_author" => c.author,
+            # The preview author rides its own key so it never collides with
+            # a stored byline under `comment_author` (see
+            # `@load_injected_meta_keys`); the tooltip header reads both.
+            "comment_preview_author" => c.author,
             "comment_thumbnail_url" => c.thumbnail_url,
             "comment_has_attachment" => Map.get(c, :has_attachment, false),
             "comment_count" => count,
@@ -2580,8 +2590,10 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   # display name into the annotation's `metadata` server-side (trusted, from
   # the socket — not the untrusted wire payload, which the adapter strips
   # `creator_uuid` from anyway). The tooltip's header slot reads
-  # `metadata.comment_author`; `comment_created_at` is derived from the row's
-  # `inserted_at` in `load_annotations_for/1`. Persisting the name in
+  # `metadata.comment_preview_author` (a shape with a discussion) or
+  # `metadata.comment_author` (the marker byline); `comment_created_at` is
+  # derived from the row's `inserted_at` in `load_annotations_for/1`.
+  # Persisting the name in
   # `metadata` (an adapter-writable field) keeps the tooltip identical on the
   # instant patch-shape push and after a reload. Non-markers are untouched.
   defp put_marker_author(%{"kind" => "marker"} = attrs, socket) do
@@ -2756,7 +2768,10 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   # comment, cascade-deleted annotation comments, etc.). Flipping
   # `loaded?` to false makes its `update/2` rerun `load_comments/1`.
   defp refresh_file_comments(socket) do
+    # The thread is not rendered under `authors={false}` either (it names each
+    # commenter), so there is no component to poke then.
     with true <- socket.assigns[:comments] != false,
+         true <- socket.assigns[:authors] != false,
          %{file_uuid: file_uuid} when is_binary(file_uuid) <- socket.assigns[:file],
          true <- Code.ensure_loaded?(PhoenixKitComments.Web.CommentsComponent) do
       Phoenix.LiveView.send_update(PhoenixKitComments.Web.CommentsComponent,

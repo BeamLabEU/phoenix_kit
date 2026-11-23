@@ -199,6 +199,23 @@ defmodule PhoenixKitWeb.Components.MediaBrowserMarkTest do
                Helpers.normalize_mark(%{on_label: "", off_label: "", unmark_label: ""})
     end
 
+    test "an empty icon falls back to the default eye, like the labels do" do
+      assert %{icon: "hero-eye"} = Helpers.normalize_mark(%{uuids: [], icon: ""})
+      assert %{icon: "hero-eye"} = Helpers.normalize_mark(%{uuids: [], icon: nil})
+    end
+
+    test "a string-keyed map is refused, not silently read as an empty mark" do
+      assert_raise ArgumentError, ~r/:mark/, fn ->
+        Helpers.normalize_mark(%{"uuids" => ["a"], "icon" => "hero-star"})
+      end
+    end
+
+    test "a non-enumerable :uuids raises ArgumentError, not Protocol.UndefinedError" do
+      assert_raise ArgumentError, ~r/:uuids must be enumerable/, fn ->
+        Helpers.normalize_mark(%{uuids: 42})
+      end
+    end
+
     test "is idempotent" do
       once = Helpers.normalize_mark(mark(["a"], on_label: "Yes"))
       assert Helpers.normalize_mark(once) == once
@@ -629,12 +646,13 @@ defmodule PhoenixKitWeb.Components.MediaBrowserMarkTest do
         list(%{
           uploaded_files: [file("a")],
           folders: [folder("f")],
-          mark: normalized(mark([], off_label: "Approve"))
+          mark: normalized(mark([], off_label: "Approve", on_label: "Approved"))
         })
 
       assert [th] = find(doc, "th[data-mark-column]")
       assert [label] = Floki.find(th, ".sr-only")
-      assert Floki.text(label) =~ "Approve"
+      # The header names what the column HOLDS (the state), not the action.
+      assert Floki.text(label) =~ "Approved"
 
       column_count = doc |> find("thead th") |> length()
 

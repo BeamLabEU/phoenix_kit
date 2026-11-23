@@ -59,6 +59,59 @@ defmodule PhoenixKit.Users.OAuthAvailability do
     :exit, _ -> []
   end
 
+  # Derived key in the `:settings` cache: never a real setting row, so no
+  # collision with a user-defined key.
+  @providers_cache_key "__derived__oauth_configured_providers"
+
+  @doc """
+  `configured_providers/0` for DISPLAY paths only — the nav's "Add account"
+  modal, the sign-in / registration buttons, the user settings page. One
+  database round per enabled provider per call adds up on every navigation;
+  this caches the answer in the `:settings` cache under a derived key that
+  rides the cache generation, so ANY settings write (a credential or a
+  provider switch saved through the admin UI) drops it on the next read.
+
+  Decision paths — the OAuth callback, gates, anything that must see a
+  credential the instant it changed — keep calling `configured_providers/0`,
+  which reads directly.
+
+  ## Examples
+
+      iex> PhoenixKit.Users.OAuthAvailability.configured_providers_cached()
+      [:google]
+  """
+  @spec configured_providers_cached :: [atom()]
+  def configured_providers_cached do
+    cache_miss_sentinel = :__cache_not_found__
+
+    {cached, generation} =
+      PhoenixKit.Cache.get_with_generation(:settings, @providers_cache_key, cache_miss_sentinel)
+
+    case cached do
+      # The entry carries the generation it was filled at: any settings write
+      # bumps the cache's generation (even one that invalidates only its own
+      # key), so a generation mismatch means the answer is stale — recompute.
+      {^generation, providers} when is_list(providers) ->
+        providers
+
+      _miss_or_stale ->
+        providers = configured_providers()
+
+        # `if_generation:` drops the fill when a settings write invalidated
+        # the cache while we were computing (the miss-fill race); with no
+        # cache answer (generation nil) nothing is written.
+        PhoenixKit.Cache.put(:settings, @providers_cache_key, {generation, providers},
+          if_generation: generation
+        )
+
+        providers
+    end
+  rescue
+    _ -> configured_providers()
+  catch
+    :exit, _ -> configured_providers()
+  end
+
   @doc """
   Checks if OAuth is enabled in settings.
 

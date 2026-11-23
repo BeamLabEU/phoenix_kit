@@ -42,11 +42,13 @@ Two improvements are recorded below and were not applied.
   render, again on the connected mount, and on every patch or navigation. It only costs
   anything while OAuth and a provider switch are on: up to three queries per page view. The
   login and registration pages make the same call in `mount/3`, so a public, unauthenticated
-  page costs two of these rounds per hit. **Not fixed:** the direct read is deliberate
-  (`aadceb0f2`, "prevents race conditions when credentials are updated through admin UI"), and
-  the release recheck relies on it to treat an undecryptable secret as missing. The fix worth
-  doing later is a cached `configured_providers/0` for *display*, invalidated with the
-  credential settings, with the OAuth callback keeping the direct read.
+  page costs two of these rounds per hit. **Fixed in the follow-up pass:**
+  `OAuthAvailability.configured_providers_cached/0` is the display variant — cached in the
+  `:settings` cache under a derived key that stores the generation it was filled at, so ANY
+  settings write (credential or switch saved through the admin UI) makes it stale on the next
+  read. The nav modal, the login / registration / user-settings pages now call it;
+  `configured_providers/0` keeps the direct read for the OAuth callback and every decision
+  path. Test: `test/phoenix_kit/users/oauth_availability_test.exs`.
 - **IMPROVEMENT - MEDIUM — the provider list is fixed in code.** `configured_providers/0`,
   `provider_icon/1` and `provider_name/1` know exactly `:google`, `:github` and `:facebook`.
   That predates this PR, and the three stay in step (a fourth atom cannot come out of

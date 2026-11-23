@@ -159,12 +159,16 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
   An `in_menu` tab is reachable only once the admin bundle has loaded: the menu
   is opened by the `NavTabsOverflow` hook, which sits behind a stub in
   `phoenix_kit.js`. Until then — or when the bundle never arrives, or without
-  JavaScript — "⋯" does nothing and the tab is not in the strip, so a page's only
-  route to something must not be an `in_menu` tab.
+  JavaScript — "⋯" does nothing (it is rendered `aria-disabled` for exactly
+  that window; the hook clears the attribute when it mounts) and the tab is
+  not in the strip, so a page's only route to something must not be an
+  `in_menu` tab.
 
   Whenever "⋯" hides while it has focus — the last `in_menu` tab was chosen from
   the menu and became the active one, or a resize made every tab fit — focus
-  moves to the active tab in the strip.
+  moves to the active tab in the strip. That holds for `patch` and event tabs,
+  which stay in the same LiveView; a `navigate:` tab picked from the menu loads
+  a new page, so focus lands on `<body>` there.
 
   `overflow={:menu}` requires an `id` (an `ArgumentError` without one): the hook
   binds to it, so it must be unique on the page — a derived id would collide for
@@ -322,6 +326,10 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
         <% end %>
         <%!-- Hidden until the hook finds a tab that does not fit — unless a
              tab is in the menu by choice (`in_menu`), which the server knows. --%>
+        <%!-- aria-disabled until the NavTabsOverflow hook mounts (it clears the
+             attribute on its first sync; a later patch re-adds it and the next
+             sync clears it again): before the admin bundle arrives the button
+             is shown for `in_menu` tabs but does nothing. --%>
         <button
           type="button"
           data-nav-more
@@ -330,6 +338,7 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
           aria-haspopup="menu"
           aria-expanded="false"
           aria-controls={@menu_id}
+          aria-disabled="true"
         >
           <.icon name="hero-ellipsis-horizontal" class="w-5 h-5" />
         </button>

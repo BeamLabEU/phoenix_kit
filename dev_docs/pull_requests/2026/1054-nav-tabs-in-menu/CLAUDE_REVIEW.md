@@ -38,3 +38,12 @@ Reviewed before the merge, from the PR diff. These passed at the PR head:
 3. **NITPICK — no browser check yet.** Before the release, try two things in Chromium: pick
    the last `in_menu` event tab from the menu, then resize until every tab fits while "⋯" has
    focus.
+
+## Fixed on main in the follow-up pass
+
+- **Nitpick 1.** The moduledoc now says the focus move covers `patch` and event tabs; a
+  `navigate:` tab picked from the menu loads a new LiveView, so focus lands on `<body>`.
+- **Nitpick 2.** The server renders the "⋯" button `aria-disabled="true"`; the
+  `NavTabsOverflow` hook clears the attribute on every `sync()` (a patch re-adds it, the next
+  sync clears it again). Tests: `nav_tabs_test.exs` (attribute present) and
+  `nav_tabs_overflow.test.cjs` (cleared on sync).

@@ -423,6 +423,7 @@ function syncFixture({ widths, forced = [], active = -1, hiddenAtStart = [], wid
       hasAttribute(n) { return n in this.attrs; },
       getAttribute(n) { return n in this.attrs ? this.attrs[n] : null; },
       setAttribute(n, v) { this.attrs[n] = v; },
+      removeAttribute(n) { delete this.attrs[n]; },
       getBoundingClientRect: () => ({ width: cls.contains("hidden") ? 0 : natural, right: 0, bottom: 0, left: 0, top: 0 }),
       focus() { this.focused += 1; global.document.activeElement = this; },
       click() {},
@@ -467,6 +468,13 @@ test("sync: tabs that fit stay in the strip; the button and the menu items stay 
   assert.deepEqual(f.shownItems(), [false, false, false]);
   assert.equal(f.moreHidden(), true);
   assert.equal(f.tabs[0].style.flexShrink, "", "the temporary freeze is lifted");
+});
+
+test("sync: the server-rendered aria-disabled on \"⋯\" is cleared once the hook is live", () => {
+  const f = syncFixture({ widths: [100, 100], forced: [false, true], width: 1000 });
+  f.more.attrs["aria-disabled"] = "true";
+  f.hook.sync();
+  assert.equal(f.more.hasAttribute("aria-disabled"), false, "a patch re-adds it; every sync clears it again");
 });
 
 test("sync: tabs that do not fit move to the menu beside the button, which is measured while hidden", () => {

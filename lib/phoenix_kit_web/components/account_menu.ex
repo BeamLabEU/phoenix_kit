@@ -294,7 +294,7 @@ defmodule PhoenixKitWeb.Components.AccountMenu do
 
   @doc """
   The "Add account" dialog: email or username and password, then the OAuth
-  providers that have credentials (`OAuthAvailability.configured_providers/0`).
+  providers that have credentials (`OAuthAvailability.configured_providers_cached/0`).
   A switch with nothing behind it is not offered. Each provider link carries
   `add_account=1`, so the OAuth callback adds the account to the session
   instead of replacing it.
@@ -304,7 +304,7 @@ defmodule PhoenixKitWeb.Components.AccountMenu do
   attr :current_locale, :string, default: nil
 
   def add_account_modal(assigns) do
-    assigns = assign(assigns, :providers, OAuthAvailability.configured_providers())
+    assigns = assign(assigns, :providers, OAuthAvailability.configured_providers_cached())
 
     ~H"""
     <input type="checkbox" id={@id} class="modal-toggle" />

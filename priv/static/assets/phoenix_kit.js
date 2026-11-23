@@ -4904,10 +4904,11 @@
 
   window.Etcher.tooltipSlots = {
     // Header → annotation title (user-chosen label) if present;
-    // otherwise the comment author; otherwise the shape kind.
+    // otherwise the first comment's author (preview), then a marker's
+    // stored byline; otherwise the shape kind.
     header: function(shape) {
       var m = shape.metadata || {};
-      return pkEscape(m.title || m.comment_author || pkCapitalize(shape.kind));
+      return pkEscape(m.title || m.comment_preview_author || m.comment_author || pkCapitalize(shape.kind));
     },
 
     // Footer → "May 12, 2026 · 3 comments". Date and count are both

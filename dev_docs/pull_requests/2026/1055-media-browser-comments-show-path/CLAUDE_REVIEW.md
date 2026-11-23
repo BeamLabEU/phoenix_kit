@@ -67,3 +67,10 @@ database: all pass. #1057 is stacked on this PR. Fixes made on main after the me
 - The read-only-without-a-user rule from the #1057 review also landed in
   `MediaCanvasViewer.assign_can_annotate/3`. See
   `dev_docs/pull_requests/2026/1057-media-viewer-embed-options/CLAUDE_REVIEW.md`.
+
+## Fixed on main in the follow-up pass
+
+- **Finding 3.** The `:own_files_only` docs (MediaBrowser and MediaViewer) now say the option
+  does not reach `AnnotationBurnController`, which checks the uploader or `Libraries.can?(:edit)`
+  only — a host embedding `own_files_only` for someone who does hold `:edit` still accepts a
+  forged burn POST.

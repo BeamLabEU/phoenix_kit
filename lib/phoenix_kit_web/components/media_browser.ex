@@ -399,7 +399,12 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     server. Looking at the drawings stays open. The sidebar's comments thread
     and the tooltip's Reply button stay as they are — Reply is refused
     silently, as under `readonly`; `comments={false}` is the way to take the
-    discussion away.
+    discussion away. One endpoint it does not reach:
+    `AnnotationBurnController` (the burn of an annotated thumbnail) checks
+    the uploader or `Libraries.can?(:edit)` and knows nothing about this
+    embedding's `own_files_only`, so a host that passes it to someone who does
+    hold `:edit` still accepts a forged burn POST — decide that write through
+    `Storage.removal_plan/2` or the removal guard instead.
   - `comments` (default `true`) — `false` leaves the discussion out of the modal
     viewer: no comments thread in the sidebar, no reply popup, and the shapes
     drawn on a picture carry no comment count, preview or badge, so their
@@ -477,7 +482,11 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     `{__MODULE__, id, {:set_mark, file_uuid, boolean}}` to the host
     process — the same `{MediaBrowser, id, payload}` channel
     `{:set_featured, _}` uses — and optimistically updates its own copy
-    of `uuids`. The click is refused (logged, nothing sent) when
+    of `uuids`. The host OWNS the set: every `mark` assign (re)places the
+    browser's copy wholesale, so a host that handled the click but left its
+    own assign as it was sees the toggle undone on the next re-render —
+    persist the new set and pass it back, like `featured`.
+    The click is refused (logged, nothing sent) when
     `readonly`, in a picker, with `mark` off, for a file the browser does
     not show or one in the trash. It is not a write to the file, so
     `own_files_only` does not stop it (a host marks other people's files on

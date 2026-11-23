@@ -60,3 +60,17 @@ Reviewed before the merge, from the PR diff. Fixes made on main after the merge 
   now has 0 untranslated and 0 fuzzy entries.
 - **Finding 2.** `media_browser_mark_integration_test.exs` was run on a scratch database with
   the rest of the media suites: it passes.
+
+## Fixed on main in the follow-up pass
+
+- **Nitpick 3.** The video/PDF badges move to `top-9` only when something is actually drawn in
+  the tile's corner — `Helpers.type_badge_offset/4` (a picker's eye, or the mark badge:
+  interactive on every file while writable, passive on a marked file only). Readonly / select /
+  trash tiles that are unmarked keep `top-2`.
+- **Nitpick 4.** The list column's sr-only header names the state (`mark_state_label/1`), not
+  the action; the test pins `on_label`.
+- **Nitpick 5.** `normalize_mark/1` now raises `ArgumentError` for a string-keyed map and for
+  a non-enumerable `:uuids` (was `Protocol.UndefinedError`), and an empty `icon:` falls back to
+  the default eye like the labels do. Tests added.
+- **Nitpick 6.** The `:mark` moduledoc states the host owns the set: every `mark` assign
+  replaces the browser's copy wholesale, so a handled click must be persisted and passed back.

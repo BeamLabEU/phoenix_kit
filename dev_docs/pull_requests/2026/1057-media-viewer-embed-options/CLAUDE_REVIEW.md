@@ -80,3 +80,24 @@ locked shapes and no tools.
     returns `stored_file:`, and they pass. The PR body said it had not been run.
   - `media_canvas_viewer_embed_options_test.exs`'s `updated/2` helper now passes a signed-in
     user by default, because nobody signed in never draws. One assertion pins the nil case.
+
+### Follow-up pass (findings 2–6)
+
+- **Finding 2.** The first-comment preview author now rides its own key,
+  `metadata.comment_preview_author` (`curate_row/2`), which is in both
+  `@load_injected_meta_keys` (dropped by `persistable_attrs/2`) and
+  `@author_meta_keys` (dropped by `wire_metadata/2` under `authors: false`).
+  A marker's stored byline (`comment_author`) is never overwritten by a drag
+  of a shape with a discussion. Etcher's tooltip header in `phoenix_kit.js`
+  reads `title || comment_preview_author || comment_author || kind`, so the
+  display is unchanged. Regression tests in `media_canvas_viewer_embed_options_test.exs`
+  and `media_canvas_viewer_label_sync_test.exs`.
+- **Finding 3.** `MediaViewer.update/2` recomputes `current_file` and the
+  prev/next arrows only when `current_uuid` or `files` changed (or on first
+  render), not on every parent render.
+- **Finding 4.** The `:write_scope` doc now says the lightbox offers no write
+  to the file's own row, so the option gates nothing there.
+- **Finding 5.** The `:comments` doc carries the `offline_protect` caveat.
+- **Finding 6.** `refresh_file_comments/1` also requires `authors` on: the
+  thread is not rendered under `authors={false}`, so there is no component to
+  poke.

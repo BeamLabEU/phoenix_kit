@@ -116,14 +116,16 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerLabelSyncTest do
 
     test "stored server-owned metadata survives, load-injected preview does not" do
       # comment_author is genuinely stored for markers (the byline stamp);
-      # comment_count is injected at load. A drag must keep the former and
-      # shed the latter.
+      # comment_count and comment_preview_author are injected at load. A drag
+      # must keep the former and shed the latter two — the preview author must
+      # never be baked over the byline.
       c =
         curated(%{
           kind: "marker",
           metadata: %{
             "comment_author" => "Alexander Don",
             "comment_count" => 4,
+            "comment_preview_author" => "First Commenter",
             "title" => "t",
             "title_box" => %{"x" => 1}
           }

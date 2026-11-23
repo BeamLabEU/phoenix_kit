@@ -3693,6 +3693,10 @@
       var menu = this.el.querySelector("[data-nav-menu]");
       if (!strip || !more || !menu) return;
       this._applying = true;
+      // The server renders the "⋯" button aria-disabled until this hook
+      // mounts; a LiveView patch re-adds the attribute, so clear it on every
+      // sync — the hook is live, the button works.
+      more.removeAttribute("aria-disabled");
       // Focus on "⋯" is about to be lost if it hides below (a hidden element
       // keeps no focus): note it before any class changes.
       var focusOnMore = document.activeElement === more;
