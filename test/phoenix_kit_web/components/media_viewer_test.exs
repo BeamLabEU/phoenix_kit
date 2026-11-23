@@ -8,7 +8,7 @@ defmodule PhoenixKitWeb.Components.MediaViewerTest do
   navigation state (`current_uuid`), event routing (close + step), and
   the notify hand-off.
 
-  No DB required — `curate_file/1` calls catch
+  No DB required — `curate_file/2` calls catch
   `DBConnection.OwnershipError` and resolve to nil, which makes the
   render path early-return (no `<.live_component>` mounted). The
   navigation + close handlers don't touch the DB at all.
@@ -165,34 +165,13 @@ defmodule PhoenixKitWeb.Components.MediaViewerTest do
   end
 
   describe "stepping" do
-    @tag :integration
-    test "step_viewer next advances current_uuid" do
-      {:noreply, socket} = call("step_viewer", %{"dir" => "next"}, viewer_assigns(current: @u1))
-      assert socket.assigns.current_uuid == @u2
-    end
-
-    @tag :integration
-    test "step_viewer prev goes back" do
-      {:noreply, socket} = call("step_viewer", %{"dir" => "prev"}, viewer_assigns(current: @u2))
-      assert socket.assigns.current_uuid == @u1
-    end
-
     test "step_viewer next at the last image is a no-op" do
       {:noreply, socket} = call("step_viewer", %{"dir" => "next"}, viewer_assigns(current: @u3))
       assert socket.assigns.current_uuid == @u3
     end
 
-    @tag :integration
-    test "ArrowRight steps forward, ArrowLeft steps back" do
-      {:noreply, s1} =
-        call("viewer_keydown", %{"key" => "ArrowRight"}, viewer_assigns(current: @u1))
-
-      assert s1.assigns.current_uuid == @u2
-
-      {:noreply, s2} =
-        call("viewer_keydown", %{"key" => "ArrowLeft"}, viewer_assigns(current: @u2))
-
-      assert s2.assigns.current_uuid == @u1
-    end
+    # Stepping onto another file looks the next file up, so it needs real file
+    # rows: those tests are in
+    # `test/integration/phoenix_kit_web/components/media_viewer_embed_options_test.exs`.
   end
 end

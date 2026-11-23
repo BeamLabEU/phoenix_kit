@@ -495,10 +495,12 @@
             <% true -> %>
               <div class="flex flex-col items-center justify-center text-base-content/50 py-12">
                 <.icon name={file_icon(f.file_type)} class="w-32 h-32 mb-4" />
-                <p class="text-2xl font-semibold">
+                <p :if={assigns[:details] != false} class="text-2xl font-semibold">
                   {String.upcase(f.file_type || gettext("FILE"))}
                 </p>
-                <p class="text-sm text-base-content/70 mt-2">{f.mime_type}</p>
+                <p :if={assigns[:details] != false} class="text-sm text-base-content/70 mt-2">
+                  {f.mime_type}
+                </p>
               </div>
           <% end %>
 
@@ -735,7 +737,7 @@
             <%!-- Admin-context hosts pass details_path — the file's storage page --%>
             <%!-- (renditions, checksums, the buckets holding each copy).         --%>
             <.link
-              :if={@details_path}
+              :if={@details_path && assigns[:details] != false}
               navigate={@details_path}
               class="btn btn-ghost btn-sm gap-2"
             >
@@ -755,8 +757,9 @@
           <% can_edit_meta = @file_writable and can_edit_media_meta?(@details_path, @edit_target) %>
           <div
             :if={
-              Enum.any?(Map.values(@media_meta), &(&1 != "")) or @media_tags != [] or
-                can_edit_meta
+              assigns[:details] != false and
+                (Enum.any?(Map.values(@media_meta), &(&1 != "")) or @media_tags != [] or
+                   can_edit_meta)
             }
             class="border-t border-base-300 pt-2"
           >
@@ -836,7 +839,7 @@
             {f.filename}
           </h2>
 
-          <div class="text-sm space-y-2 -mt-1">
+          <div :if={assigns[:details] != false} class="text-sm space-y-2 -mt-1">
             <div>
               <span class="text-base-content/60">{gettext("Type:")}</span>
               <span class="ml-1 badge badge-ghost">
@@ -976,7 +979,10 @@
           <%!-- taken. Only where the title editor is offered — it tells where  --%>
           <%!-- a photo was taken, which a public lightbox must not.            --%>
           <div
-            :if={f.file_type == "image" and can_edit_media_meta?(@details_path, @edit_target)}
+            :if={
+              assigns[:details] != false and f.file_type == "image" and
+                can_edit_media_meta?(@details_path, @edit_target)
+            }
             class="border-t border-base-300 pt-2"
           >
             <PhoenixKitWeb.Components.Core.FileExifPanel.file_exif_panel
@@ -991,7 +997,8 @@
             />
           </div>
 
-          <%!-- Comments section — gated on the host's `comments` option,  --%>
+          <%!-- Comments section — gated on the host's `comments` and      --%>
+          <%!-- `authors` options (the thread names every commenter),     --%>
           <%!-- the Comments module being installed AND enabled, plus a   --%>
           <%!-- logged-in user (with `comments` off nothing is rendered,  --%>
           <%!-- and what is not rendered cannot be reached). Keyed by     --%>
@@ -1001,7 +1008,8 @@
           <%!-- comments component's typography, paddings, and avatars    --%>
           <%!-- via descendant selectors so it fits inside the sidebar    --%>
           <%!-- without truncation. The component itself isn't modified.  --%>
-          <%= if assigns[:comments] != false and comments_enabled?() and @current_user do %>
+          <%= if assigns[:comments] != false and assigns[:authors] != false and
+                   comments_enabled?() and @current_user do %>
             <div class="border-t border-base-300 pt-3 mt-3 leaf-comments-compact">
               <.live_component
                 module={PhoenixKitComments.Web.CommentsComponent}

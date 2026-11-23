@@ -5,9 +5,6 @@
   phx-target={@myself}
   aria-labelledby={"#{@id}-title"}
 >
-  <% preview_idx = Enum.find_index(@files, &(&1 == @current_uuid)) %>
-  <% has_prev = is_integer(preview_idx) and preview_idx > 0 %>
-  <% has_next = is_integer(preview_idx) and preview_idx < length(@files) - 1 %>
   <div class="modal-box !fixed !inset-0 !w-auto !h-auto !min-w-0 !max-w-none !max-h-none !m-0 !rounded-none lg:!relative lg:!inset-auto lg:!w-[95vw] lg:landscape:!h-[90vh] lg:portrait:!max-h-[90vh] lg:!rounded-2xl lg:!m-auto lg:portrait:!mt-[4vh] lg:portrait:!mb-auto p-0 !overflow-hidden">
     <%= if @current_file do %>
       <%!-- Per-file content (close button, prev/next chevrons, canvas/   --%>
@@ -20,9 +17,15 @@
         id={"media-canvas-viewer-" <> @current_uuid}
         file={@current_file}
         current_user={@current_user}
+        can_annotate={can_annotate_here?(@can_annotate, @annotate_only, @current_file)}
+        own_files_only={@own_files_only}
+        write_scope={@write_scope}
+        comments={@comments}
+        details={@details}
+        authors={@authors}
         parent_id={@id}
-        has_prev={has_prev}
-        has_next={has_next}
+        has_prev={@has_prev}
+        has_next={@has_next}
       />
     <% else %>
       <%!-- Fallback: current uuid resolved to nil (file not found).     --%>

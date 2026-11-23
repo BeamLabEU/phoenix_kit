@@ -87,7 +87,32 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       comment count, preview or badge (so the tooltip offers no Reply / View
       but keeps "Edit label"), and `annotation_reply` is refused on the
       server. The drawings themselves are untouched, a marker's byline (the
-      name of whoever drew it) included.
+      name of whoever drew it) included (unless `:authors` is off).
+    * `:details` (default `true`) — `false` cuts the sidebar down to the file's
+      name and its Download controls. Not printed: the title, alt text,
+      description and tags, the type, MIME type, size, dimensions, dates, status,
+      uploader and uuid, the rows other modules add, the EXIF panel, and the
+      "Storage" link. The name shown is always the one the file was uploaded
+      under, never its translated title; Download offers the file's variants by
+      name. A display rule, not a boundary for the bytes: the host chose which
+      files to open, and the download is the file itself.
+    * `:authors` (default `true`) — `false` keeps every name that says WHO drew
+      a shape or wrote a comment out of the browser: the marker byline
+      (`metadata.comment_author`) is dropped from the shapes' payload and from
+      every `etcher:patch-shape` push, so the tooltip header falls back to the
+      shape's label, then its kind. The comments thread names each commenter and
+      cannot be made anonymous from here, so it is not rendered. The drawings
+      and their labels are untouched. The server keeps the byline on the row.
+      With `:comments` on, a shape's tooltip still previews the first comment
+      but offers no Reply / View (they would write or scroll to a thread that is
+      not rendered; the shape goes out marked `comments_off`, "Edit label"
+      stays) and `annotation_reply` is refused on the server. Pass
+      `comments={false}` as well to take the preview and the count away too.
+      One consequence: Etcher's offline merge keeps a shape that a device
+      deleted offline when the server's copy has `comment_count` set
+      (`offline_protect`); under `:authors` off the copy has no such key, so a
+      shape with a discussion is not protected that way. Deleting it online is
+      not blocked either, so this changes when, not whether, it can go.
     * `:details_path` (default `nil`) — when set, the sidebar shows an
       "Open details page" button navigating to this path. Admin-context
       hosts (`MediaBrowser` with `admin={true}`) pass the file's
@@ -224,6 +249,8 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
      |> assign(:viewer_only, false)
      |> assign(:can_annotate, true)
      |> assign(:comments, true)
+     |> assign(:details, true)
+     |> assign(:authors, true)
      |> assign(:viewer_rotation, 0)
      |> assign(:persist_rotation, false)
      |> assign(:rotation_status, nil)
@@ -333,6 +360,8 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       |> assign(:has_next, assigns[:has_next] || false)
       |> assign(:viewer_only, assigns[:viewer_only] || false)
       |> assign(:comments, assigns[:comments] != false)
+      |> assign(:details, assigns[:details] != false)
+      |> assign(:authors, assigns[:authors] != false)
       |> assign_can_annotate(assigns, file)
       # Opt-in: hosts that pass `persist_rotation` write a rotation back to the
       # shared file row (see handle_event "fresco:rotate") — the media browser
@@ -381,7 +410,10 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
 
           socket
           |> assign(:viewer_annotations, annotations)
-          |> assign(:viewer_canvas, build_viewer_canvas(file, annotations, locked?(socket)))
+          |> assign(
+            :viewer_canvas,
+            build_viewer_canvas(file, annotations, locked?(socket), authors?(socket))
+          )
           |> assign(:burn_canvas, build_burn_canvas(file))
           |> assign(:burn_version, Map.get(file, :burn_fingerprint))
           # Seed everything that lives on the file's own DB row — the saved
@@ -411,7 +443,10 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
 
           socket
           |> assign(:viewer_annotations, annotations)
-          |> assign(:viewer_canvas, build_board_canvas(board, annotations, locked?(socket)))
+          |> assign(
+            :viewer_canvas,
+            build_board_canvas(board, annotations, locked?(socket), authors?(socket))
+          )
           |> assign(:viewer_rotation, 0)
           |> then(fn s ->
             prefs = viewer_user_prefs(assigns[:current_user])
@@ -590,6 +625,11 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   # Comments off: the popup is not rendered, and Reply would write a comment
   # (the shape's master) all the same if the event were sent from a console.
   def handle_event("annotation_reply", _params, %{assigns: %{comments: false}} = socket),
+    do: {:noreply, socket}
+
+  # Authors off: the thread is not rendered, so a reply would be a comment its
+  # writer can never read back. The tooltip still offers Reply; this refuses it.
+  def handle_event("annotation_reply", _params, %{assigns: %{authors: false}} = socket),
     do: {:noreply, socket}
 
   def handle_event("annotation_reply", %{"uuid" => uuid}, socket) do
@@ -1499,7 +1539,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
 
       socket
       |> assign(:viewer_annotations, refreshed)
-      |> assign(:viewer_canvas, build_canvas(subject, refreshed))
+      |> assign(:viewer_canvas, build_canvas(subject, refreshed, authors?(socket)))
       |> push_metadata_patches(target_uuid, new_in_batch, refreshed)
     else
       # Etcher re-broadcast with no net change — skip the reload and
@@ -1698,15 +1738,23 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
     case file_uuid &&
            Enum.find(fresh, fn a -> to_string(a.uuid) == to_string(annotation_uuid) end) do
       %{} = ann ->
-        Phoenix.LiveView.push_event(socket, "etcher:patch-shape", %{
-          fresco_id: viewer_dom_id(socket.assigns, "media-zoom-" <> file_uuid),
-          uuid: ann.uuid,
-          metadata: ann.metadata
-        })
+        patch_shape(socket, file_uuid, ann)
 
       _ ->
         socket
     end
+  end
+
+  # Push a shape's fresh metadata into the DOM (the canvas is phx-update="ignore":
+  # patch-shape is the only road in). Every push goes through here so that what
+  # `authors` keeps off the wire is kept off the pushes as well.
+  @doc false
+  def patch_shape(socket, file_uuid, ann) do
+    Phoenix.LiveView.push_event(socket, "etcher:patch-shape", %{
+      fresco_id: viewer_dom_id(socket.assigns, "media-zoom-" <> file_uuid),
+      uuid: ann.uuid,
+      metadata: wire_metadata(ann.metadata, authors?(socket))
+    })
   end
 
   defp comments_installed? do
@@ -1729,11 +1777,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
           |> rebuild_viewer_canvas(fresh)
 
         Enum.reduce(fresh, socket, fn ann, acc ->
-          Phoenix.LiveView.push_event(acc, "etcher:patch-shape", %{
-            fresco_id: viewer_dom_id(socket.assigns, "media-zoom-" <> file_uuid),
-            uuid: ann.uuid,
-            metadata: ann.metadata
-          })
+          patch_shape(acc, file_uuid, ann)
         end)
 
       _ ->
@@ -1779,11 +1823,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
           acc
 
         ann ->
-          Phoenix.LiveView.push_event(acc, "etcher:patch-shape", %{
-            fresco_id: viewer_dom_id(socket.assigns, "media-zoom-" <> file_uuid),
-            uuid: ann.uuid,
-            metadata: ann.metadata
-          })
+          patch_shape(acc, file_uuid, ann)
       end
     end)
   end
@@ -1895,23 +1935,26 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   defp target_of(%{file_uuid: uuid}) when is_binary(uuid), do: {"file", uuid}
   defp target_of(%{target_type: type, target_uuid: uuid}), do: {type, uuid}
 
-  defp build_canvas(%{file_uuid: _} = file, annotations),
-    do: build_viewer_canvas(file, annotations, false)
+  defp build_canvas(%{file_uuid: _} = file, annotations, authors?),
+    do: build_viewer_canvas(file, annotations, false, authors?)
 
-  defp build_canvas(%{target_type: _} = board, annotations),
-    do: build_board_canvas(board, annotations, false)
+  defp build_canvas(%{target_type: _} = board, annotations, authors?),
+    do: build_board_canvas(board, annotations, false, authors?)
 
   # A read-only viewer's shapes are sent locked (Etcher `readonly`).
   defp locked?(socket), do: not socket.assigns.can_annotate
 
+  # Whether the names of who drew and who commented may reach the browser.
+  defp authors?(socket), do: socket.assigns[:authors] != false
+
   # A board: the scene with NO images — Fresco keeps the extent from the
   # canvas itself and Etcher draws over the void. `infinite_canvas` lets
   # the user pan beyond the extent, which is what a whiteboard wants.
-  defp build_board_canvas(board, annotations, locked?) do
+  defp build_board_canvas(board, annotations, locked?, authors?) do
     Fresco.Canvas.new(width: board.width, height: board.height, background: board.background)
     |> Fresco.Canvas.put_extension("etcher", %{
       "version" => "1",
-      "annotations" => Enum.map(annotations, &etcher_annotation_for_wire(&1, locked?))
+      "annotations" => Enum.map(annotations, &etcher_annotation_for_wire(&1, locked?, authors?))
     })
   end
 
@@ -2105,9 +2148,10 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
     end
   end
 
-  defp build_viewer_canvas(nil, _annotations, _locked?), do: nil
+  @doc false
+  def build_viewer_canvas(nil, _annotations, _locked?, _authors?), do: nil
 
-  defp build_viewer_canvas(file, annotations, locked?) when is_map(file) do
+  def build_viewer_canvas(file, annotations, locked?, authors?) when is_map(file) do
     # Open on the variant the GRID was already showing, not a bigger one.
     #
     # The card behind this popup paints `small` (300px). Opening on `medium`
@@ -2143,7 +2187,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       )
       |> Fresco.Canvas.put_extension("etcher", %{
         "version" => "1",
-        "annotations" => Enum.map(annotations, &etcher_annotation_for_wire(&1, locked?))
+        "annotations" => Enum.map(annotations, &etcher_annotation_for_wire(&1, locked?, authors?))
       })
     end
   end
@@ -2252,7 +2296,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   # Map an in-memory annotation (from `load_annotations_for/1`) to
   # the Etcher 0.3 wire shape (string-keyed map with uuid/kind/
   # geometry plus optional style/metadata).
-  defp etcher_annotation_for_wire(a, locked?) do
+  defp etcher_annotation_for_wire(a, locked?, authors?) do
     base = %{
       "uuid" => to_string(a.uuid),
       "kind" => a.kind,
@@ -2269,9 +2313,38 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
 
     case Map.get(a, :metadata) do
       nil -> base
-      metadata -> Map.put(base, "metadata", metadata)
+      metadata -> Map.put(base, "metadata", wire_metadata(metadata, authors?))
     end
   end
+
+  # The one key of a shape's metadata that names a person: a marker's byline,
+  # stamped when it is drawn, and the author of the first comment of a shape
+  # that has a discussion (`curate_row/2`); Etcher's tooltip header shows it.
+  # `wire_metadata/2` drops it on the way out, and nowhere earlier:
+  # `viewer_annotations` keeps the stored metadata whole, because a later write
+  # rebuilds the row's metadata from it and must not erase who drew a marker.
+  @author_meta_keys ~w(comment_author)
+
+  # What goes to the browser of a shape's metadata. With `authors` on, all of
+  # it. With `authors` off, the byline is dropped; and as the thread is not
+  # rendered, a shape that has a discussion goes out as one with the discussion
+  # off (`comments_off` instead of `comment_count`): the tooltip then offers no
+  # Reply / View, which would write or scroll to a thread nobody can read, and
+  # keeps "Edit label". (The viewer's `offline_protect="comment_count"` reads the
+  # server's copy of the shape, so on such a shape it does not apply: see
+  # `:authors` in the moduledoc.)
+  @doc false
+  def wire_metadata(metadata, true), do: metadata
+
+  def wire_metadata(%{} = metadata, false) do
+    metadata = Map.drop(metadata, @author_meta_keys)
+
+    if Map.has_key?(metadata, "comment_count"),
+      do: metadata |> Map.delete("comment_count") |> Map.put("comments_off", true),
+      else: metadata
+  end
+
+  def wire_metadata(metadata, false), do: metadata
 
   # Read this user's saved Etcher palette fresh from the DB, falling back
   # to the default when nothing is stored (or there's no user). Fresh read
@@ -2531,7 +2604,11 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
         socket
 
       file ->
-        assign(socket, :viewer_canvas, build_viewer_canvas(file, annotations, locked?(socket)))
+        assign(
+          socket,
+          :viewer_canvas,
+          build_viewer_canvas(file, annotations, locked?(socket), authors?(socket))
+        )
     end
   end
 
@@ -2550,10 +2627,12 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
         _ -> nil
       end
 
-    # The write needs the same standing as drawing: can_annotate, a writable
-    # file, and an annotation that is one of this file's (the uuid comes from
-    # the thread's decoration, but the write is by uuid alone).
-    if socket.assigns.can_annotate and
+    # The write needs the same standing as drawing: can_annotate (a host that
+    # took the drawings away from this file, `MediaViewer`'s `annotate_only`,
+    # leaves the thread's title editor no way in), a writable file, and an
+    # annotation that is one of this file's (the uuid comes from the thread's
+    # decoration, but the write is by uuid alone).
+    if socket.assigns[:can_annotate] != false and
          annotation_file_writable?(socket.assigns[:file], socket.assigns) and
          find_viewer_annotation(socket, annotation_uuid) do
       persist_annotation_title(annotation_uuid, normalize_annotation_title(title))
@@ -2568,11 +2647,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
 
     case file_uuid && Enum.find(fresh, fn a -> a.uuid == annotation_uuid end) do
       %{} = ann ->
-        Phoenix.LiveView.push_event(socket, "etcher:patch-shape", %{
-          fresco_id: viewer_dom_id(socket.assigns, "media-zoom-" <> file_uuid),
-          uuid: ann.uuid,
-          metadata: ann.metadata
-        })
+        patch_shape(socket, file_uuid, ann)
 
       _ ->
         socket
