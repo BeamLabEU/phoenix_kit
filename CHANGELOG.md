@@ -1,3 +1,13 @@
+## Unreleased
+
+### Fixed
+
+- **The language submenu of the account menu did not switch the language in Safari** (iPad,
+  iPhone, Mac). Safari does not focus a pressed button or link but the nearest focusable
+  ancestor, here the account menu's own list. The submenu read that as focus leaving it and
+  closed before the click arrived. Focus landing on an ancestor of the submenu no longer
+  closes it.
+
 ## 3.7.0 - 2026-11-22
 
 ### Added

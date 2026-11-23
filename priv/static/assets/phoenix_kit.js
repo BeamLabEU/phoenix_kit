@@ -99,7 +99,13 @@
           if (!this.contains(event.target)) this.close();
         };
         document.addEventListener("pointerdown", closeOutside, options);
-        document.addEventListener("focusin", closeOutside, options);
+        // Safari (iPad, Mac) does not focus a button or a link that is pressed:
+        // it focuses the nearest focusable ancestor, here the account menu's own
+        // list. That is no way out of the panel, and closing on it would hide the
+        // language under the finger before its click arrives.
+        document.addEventListener("focusin", event => {
+          if (!event.target.contains(this)) closeOutside(event);
+        }, options);
         document.addEventListener("keydown", event => {
           if (event.key === "Escape") {
             event.preventDefault();
