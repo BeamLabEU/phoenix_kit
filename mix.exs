@@ -554,6 +554,7 @@ defmodule PhoenixKit.MixProject do
         "guides/custom-admin-pages.md",
         "guides/your-app-as-a-module.md",
         "guides/locale-routing.md",
+        "guides/cross-domain-handoff.md",
         "guides/per-module-i18n.md",
         "guides/email-templates.md",
         "lib/phoenix_kit/dashboard/ADMIN_README.md"

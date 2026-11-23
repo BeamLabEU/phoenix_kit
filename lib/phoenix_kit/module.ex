@@ -100,6 +100,9 @@ defmodule PhoenixKit.Module do
     this module contributes (default: `[]`)
   - `before_user_delete/1` - Hook called before a user row is deleted. No default:
     it is called only on a module that defines it.
+  - `handoff_snapshot/1`, `handoff_apply/2` - Carry the module's per-session state when
+    a visitor moves from one of the site's domains to another
+    (`PhoenixKit.Handoff`). No default: called only on a module that defines them.
   - `resource_links/0` - How this module's resource types deep-link to their pages
     (default: `%{}`). See `PhoenixKit.ResourceLinks`.
   - `css_sources/0` - Tailwind CSS source roots to scan (default: `[]`)
@@ -201,6 +204,147 @@ defmodule PhoenixKit.Module do
   hook is logged and never aborts the deletion.
   """
   @callback before_user_delete(user_uuid :: String.t()) :: any()
+
+  @doc """
+  Cross-domain handoff, source side: the state of this module that should follow the visitor to
+  another of the site's domains (`PhoenixKit.Handoff`, `guides/cross-domain-handoff.md`).
+
+  ## When it is called
+
+  Only for an **enabled** module (`enabled?/0` is `true`; `before_user_delete/1`, which must reach
+  every module, is the other way round), when the visitor follows a handoff link on the source
+  domain: once at `mint`, to take the snapshot that is stored; and, for a visitor who is not signed
+  in, once more at `start`, to find out whether there is anything to carry (a signed-in visitor
+  always has something). So once for a signed-in visitor, twice for a guest. It must be cheap and
+  must not change anything.
+
+  It runs in a supervised task of its own, not in the request process. The snapshots of all the
+  enabled modules are taken **at the same time** and share one deadline of **2000 ms** for the whole
+  round (not 2000 ms each): a task that is still running then is killed and the module is left out.
+  The task inherits the request's `$callers` (an Ecto sandbox allowance of a test follows it) and
+  its Gettext locale, and nothing else of the request's process state: it is another process, so
+  **no process dictionary** (no per-request dynamic repo or prefix, no request currency or other
+  setting a plug put there) and **no `Logger` metadata**. Derive what you need from the context.
+  A task that is killed at the deadline may leave effects that are not in the database (a message
+  sent, a request made); a snapshot changes nothing, so there are none to leave.
+
+  ## The context
+
+  A plain map with exactly these keys:
+
+    * `:user_uuid` - the signed-in account, or `nil` for a visitor
+    * `:session` - the Plug session of the source request (`Plug.Conn.get_session/1`: a map with
+      string keys, as stored) **without the kit's own auth material**, the keys of
+      `PhoenixKit.Handoff.auth_session_keys/0` (built on
+      `PhoenixKit.HeaderWidget.reserved_session_keys/0`): `"user_token"`, `"live_socket_id"` (the
+      signed-in session), `"pk_session_accounts"`, `"pk_own_tokens"`, `"pk_impersonators"`,
+      `"pk_organization_token"` (the multi-account stack), `"phoenix_kit_session_uuid"`,
+      `"website_access_unlock"`, `"website_access_allowed"` (the website gate) and `"_csrf_token"`
+    * `:cookies` - the request cookies (`%{name => value}`, unsigned, as the browser sent them)
+      **without** the names of `PhoenixKit.Handoff.auth_cookie_names/1`: the remember-me cookie
+      (`"_phoenix_kit_web_user_remember_me"`), the account mirror
+      (`"_phoenix_kit_web_session_accounts"`), the new-device cookie (`"_phoenix_kit_device"`), the
+      OAuth browser cookie (`"pk_oauth_browser"`), the four handoff cookies (`"pk_handoff_src"`,
+      `"pk_handoff_nonce"` and their `__Host-` forms) and the host's session cookie. The session
+      cookie's name is read from the `session:` connect info of the sockets of the endpoint that
+      served the request (`PhoenixKit.Handoff.session_cookie_names/1`). **When that name cannot be
+      told** (no socket declares a readable `session:`) **`:cookies` is empty**, whatever the
+      request carried: the session cookie holds `user_token` and must not be passed on by
+      mistake. That is logged once; a host's endpoint keeps its LiveView socket's
+      `connect_info: [session: ...]`, which also restores the cookies.
+
+  A module reads its own identity from `:session` and `:cookies` (a shop's guest cart id): the core
+  never names a module's keys. Both are **the visitor's own input**: treat a value from them as you
+  would a request parameter.
+
+  ## The answer
+
+  `nil` or `%{}` when there is nothing to carry, otherwise a JSON-safe map whose JSON encoding is at
+  most **65 536 bytes**. It is stored under this module's `module_key/0` (as plaintext `jsonb`, for
+  the 60 seconds the handoff lives and until the table is pruned: **no secret goes in it**, and
+  nothing the module cannot afford to have read from the database) and handed to
+  `handoff_apply/2` on the target with string keys, whatever it had here.
+
+  Best effort: a raise, exit or throw, a timeout, a non-map answer, a map that cannot be encoded as
+  JSON or one that is too large is logged (the module and the kind of failure, never a message) and
+  the module is left out of the handoff; the others still go.
+  """
+  @callback handoff_snapshot(context :: map()) :: map() | nil
+
+  @doc """
+  Cross-domain handoff, target side: re-applies what `handoff_snapshot/1` took
+  (`PhoenixKit.Handoff`, `guides/cross-domain-handoff.md`).
+
+  ## When it is called
+
+  On the target domain, in the request that redeems the handoff, **before** the account is signed
+  in (the log-in redirects, and merges the target browser's own guest cart itself), for an
+  **enabled** module that has an entry in the payload, once. Like the snapshot it runs in a
+  supervised task of its own (see `handoff_snapshot/1`, whose notes on the process state apply:
+  no process dictionary, no `Logger` metadata). The applies of all the modules run **at the same
+  time** under one deadline of **5000 ms** for the round; a module that is still running then is
+  killed and ignored, and the visitor is handed over without its contribution. A killed apply may
+  have done part of its work (and left effects outside the database): make it idempotent. The
+  answers are used in the order of the modules.
+
+  ## The context
+
+  A plain map with exactly these keys:
+
+    * `:user_uuid` - the account that is about to be signed in, or `nil` for a guest
+    * `:session` - the Plug session of the target request (string keys), without the kit's own
+      auth material (the keys listed at `handoff_snapshot/1`). For a guest on its first visit it
+      holds nothing of this module's: a module that needs an identity on the target returns a
+      cookie (below)
+    * `:cookies` - the request cookies of the target browser, without the names listed at
+      `handoff_snapshot/1` (and none at all when the session cookie's name cannot be told)
+    * `:host` - the host the request arrived on
+    * `:locale` - the enabled language code that host serves (`"de"`, `"de-DE"`), or `nil`
+
+  There is no currency, and nothing else per request either: the core has none, and the task has
+  no process dictionary (a per-request dynamic repo or prefix, a request currency, `Logger`
+  metadata are not there). A module derives what it needs from `:host` and `:locale` itself.
+
+  `payload` is what `handoff_snapshot/1` returned, with string keys.
+
+  ## The answer
+
+    * `{:ok, notices}` - a list of short strings
+    * `{:ok, %{notices: [String.t()], cookies: [{name, value, opts}]}}` - either key may be left
+      out; any other key (`moved: 2`, `skipped: [...]`) is ignored
+    * `{:error, term}` - logged, ignored
+
+  Anything else, a raise, exit or throw and a timeout are logged (the module and the kind of
+  failure) and ignored: the visitor is still handed over. What a module answers is **validated**,
+  and what is not valid is left out, never raised on:
+
+    * **Notices** are shown to the visitor with the sign-in message (the flash lives in the cookie
+      session, so the total is capped): text only (valid UTF-8, trimmed, empty ones dropped), at
+      most **5** notices, at most **300 bytes** each and **600 bytes** in all, cut on a character
+      boundary.
+    * **Cookies** are set on the response of the redirect. At most **5** per module and **10** in
+      all. `name` is an RFC 6265 token (letters, digits and ``!#$%&'*+-.^_`|~``) of 1 to 64 bytes,
+      and is none of the kit's own cookie names (`PhoenixKit.Handoff.auth_cookie_names/1`, the
+      session cookie included). **When the host's session cookie name cannot be told** (see
+      `handoff_snapshot/1`) **every cookie is refused**, whatever its name: nothing could keep a
+      module from setting the session cookie itself. `value` is a binary of at most **2048 bytes** of cookie characters
+      (printable ASCII except space, `"`, `,`, `;` and `\`), or any binary of that size when `opts`
+      has `sign: true` or `encrypt: true`. `opts` is a keyword list of
+      `Plug.Conn.put_resp_cookie/4`'s options, of which only `:max_age` (an integer from 0 to
+      34 560 000), `:http_only`, `:secure`, `:sign`, `:encrypt` (booleans, not both), `:same_site`
+      (`"Lax"`, `"Strict"` or `"None"`, the last only with `secure: true`) and `:path` (starting
+      with `/`, at most 256 bytes) are passed on: any other (`:domain`, ...) is dropped, a value
+      that is not valid drops the cookie. Defaults, **unless the module passes the option
+      itself**: `secure: true` (`false` on a plain-http dev or test site), `http_only: true`,
+      `same_site: "Lax"`. A signed or encrypted cookie is made with the application's
+      `secret_key_base` and, besides `:max_age` on the cookie, Plug puts that `:max_age` (a day,
+      when not given) into the signature: pass the lifetime the module's own plug expects. **A
+      `sign: true` cookie proves the application issued it, not that its value is trustworthy**:
+      the value came from the visitor's own cookies and session, and the plug that reads it back
+      treats it as input.
+  """
+  @callback handoff_apply(context :: map(), payload :: map()) ::
+              {:ok, [String.t()]} | {:ok, map()} | {:error, term()}
   @callback version() :: String.t()
   @callback migration_module() :: module() | nil
   @callback required_modules() :: [String.t()]
@@ -1022,6 +1166,8 @@ defmodule PhoenixKit.Module do
     notification_types: 0,
     notification_channels: 0,
     before_user_delete: 1,
+    handoff_snapshot: 1,
+    handoff_apply: 2,
     resource_links: 0,
     css_sources: 0,
     js_sources: 0,

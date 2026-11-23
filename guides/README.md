@@ -49,6 +49,13 @@ any other module.
 kept it in the session.** Read this when the language switcher's links don't
 behave, or before building a multilingual site on PhoenixKit.
 
+#### [Cross-Domain Handoff](cross-domain-handoff.md)
+
+**Keep a visitor signed in, with the modules' per-session state, when your
+site serves one language per domain on different TLDs.** Covers what the host
+has to configure (the canonical host resolver), how to build the links
+(`rel="nofollow"`), robots.txt and log scrubbing, and the module hooks.
+
 #### [Customizing Emails with Template Files](email-templates.md)
 
 **Override the copy of PhoenixKit's emails, and the HTML layout every email is

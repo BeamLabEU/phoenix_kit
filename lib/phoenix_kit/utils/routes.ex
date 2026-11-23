@@ -25,7 +25,9 @@ defmodule PhoenixKit.Utils.Routes do
   # place, a host page such as `/mcp-servers` still gets its locale. The same holds for
   # `/oauth`: the endpoints of the authorization server have one address, whatever the
   # visitor's language, and a host page such as `/oauth-guide` still gets its locale.
-  @reserved_segments ~w(/mcp /oauth)
+  # `/handoff` (the cross-domain handoff, `PhoenixKit.Handoff`) is the same: its four
+  # endpoints are called by the domains of one site and have one address each.
+  @reserved_segments ~w(/mcp /oauth /handoff)
 
   @warn_interval_ms 60_000
 
@@ -1725,6 +1727,15 @@ defmodule PhoenixKit.Utils.Routes do
       host -> site_scheme() <> "://" <> host
     end
   end
+
+  @doc """
+  The scheme (`"https"` or `"http"`) of the URLs the site builds for its own domains: the one of
+  the explicit `site_url` setting when that is `http` or `https`, and `https` otherwise (also when
+  `site_url` is unset, whatever scheme the endpoint URL has). The scheme `canonical_origin/1`
+  uses; a plain-HTTP dev or staging site says so by setting `site_url`.
+  """
+  @spec canonical_scheme() :: String.t()
+  def canonical_scheme, do: site_scheme()
 
   defp site_scheme do
     case PhoenixKit.Settings.get_setting_cached("site_url", "") do

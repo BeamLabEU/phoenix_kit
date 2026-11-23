@@ -159,6 +159,9 @@ end
 {:ok, _pid} = PhoenixKit.ModuleRegistry.start_link([])
 {:ok, _pid} = PhoenixKit.Users.RateLimiter.Backend.start_link([])
 
+# The addresses tests hand out to be rate-limited under (`PhoenixKit.Test.RateLimitIsolation`).
+PhoenixKit.Test.RateLimitIsolation.start()
+
 # The downloads of client metadata documents run here (`PhoenixKit.API.OAuth.Cimd`), as many at a
 # time as its setting says (four by default); `PhoenixKit.Supervisor` starts it in an application.
 {:ok, _pid} =

@@ -1,7 +1,7 @@
 defmodule PhoenixKit.Install.ApiFlowCronTest do
   @moduledoc """
-  The three cron workers of the dangerous-operation flow reach a host that installed
-  core before they existed, once, without touching a schedule the host wrote, and never
+  The cron workers of the dangerous-operation flow, OAuth and the cross-domain handoff reach a
+  host that installed core before they existed, once, without touching a schedule the host wrote, and never
   when the host commented the entry out.
   """
   use ExUnit.Case, async: true
@@ -14,7 +14,8 @@ defmodule PhoenixKit.Install.ApiFlowCronTest do
     {"35 4 * * *", "PhoenixKit.API.Idempotency.PruneWorker"},
     {"*/5 * * * *", "PhoenixKit.API.Confirm.ExpiryWorker"},
     {"40 4 * * *", "PhoenixKit.API.Confirm.PruneWorker"},
-    {"50 4 * * *", "PhoenixKit.API.OAuth.PruneWorker"}
+    {"50 4 * * *", "PhoenixKit.API.OAuth.PruneWorker"},
+    {"55 4 * * *", "PhoenixKit.Handoff.PruneWorker"}
   ]
 
   @host """
@@ -39,7 +40,7 @@ defmodule PhoenixKit.Install.ApiFlowCronTest do
   defp backfill(content),
     do: quiet(fn -> ObanConfig.ensure_worker_cron_entries(content, "my_app") end)
 
-  test "an existing host gains the three entries" do
+  test "an existing host gains the entries" do
     updated = backfill(@host)
 
     for {cron, worker} <- @workers do

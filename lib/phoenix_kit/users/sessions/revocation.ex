@@ -23,6 +23,10 @@ defmodule PhoenixKit.Users.Sessions.Revocation do
   validation still refuses deleted sessions but sockets may remain connected
   until their next authorization check or reconnect.
 
+  A deletion of session tokens also deletes the unused cross-domain handoffs of their accounts
+  (`PhoenixKit.Handoff.revoke_for_users/1`), in the same transaction; a host that has not run
+  migration V236 yet has no such table, and the session is deleted all the same.
+
   These are system primitives, not authorization APIs. A request-driven caller
   authorizes before invoking them. Manager lifecycle callers must also hold
   the organization's lock and enforce the last-active-manager rule.
@@ -31,6 +35,7 @@ defmodule PhoenixKit.Users.Sessions.Revocation do
   import Ecto.Query
 
   alias Ecto.Adapters.SQL.Sandbox
+  alias PhoenixKit.Handoff
   alias PhoenixKit.RepoHelper
   alias PhoenixKit.Users.Auth.UserToken
   alias PhoenixKit.Users.OrganizationManager
@@ -99,6 +104,7 @@ defmodule PhoenixKit.Users.Sessions.Revocation do
         dependents = dependent_tokens(repo, ids, dependency)
 
         deleted = repo.delete_all(from(row in query, where: row.uuid in ^ids), log: false)
+        revoke_handoffs(rows, schema)
 
         direct = for %{context: "session", token: token} <- rows, do: token
         tokens = Enum.reject(direct ++ dependents, &(&1 == opts[:except_token]))
@@ -109,6 +115,18 @@ defmodule PhoenixKit.Users.Sessions.Revocation do
     result
   end
 
+  # A cross-domain handoff in flight (`PhoenixKit.Handoff`) must not outlive the sessions of the
+  # account it would sign in: its unused rows go in the same transaction as the sessions, whichever
+  # way those end (logout everywhere, password change, deactivation, an admin's revoke).
+  defp revoke_handoffs(rows, UserToken) do
+    user_uuids =
+      for %{context: "session", user_uuid: uuid} <- rows, is_binary(uuid), uniq: true, do: uuid
+
+    Handoff.revoke_for_users(user_uuids)
+  end
+
+  defp revoke_handoffs(_rows, _schema), do: 0
+
   defp lock_sources(repo, query, schema) do
     query = query |> exclude(:select) |> exclude(:order_by)
 
@@ -117,7 +135,12 @@ defmodule PhoenixKit.Users.Sessions.Revocation do
         from(row in query,
           order_by: row.uuid,
           lock: "FOR UPDATE",
-          select: %{uuid: row.uuid, token: row.token, context: row.context}
+          select: %{
+            uuid: row.uuid,
+            token: row.token,
+            context: row.context,
+            user_uuid: row.user_uuid
+          }
         )
       else
         from(row in query, order_by: row.uuid, lock: "FOR UPDATE", select: %{uuid: row.uuid})

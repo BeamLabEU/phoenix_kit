@@ -249,6 +249,7 @@ defmodule PhoenixKit.Migrations.ModuleOwnedTables do
     phoenix_kit_file_location_checks
     phoenix_kit_file_locations
     phoenix_kit_files
+    phoenix_kit_handoff_tokens
     phoenix_kit_job_runs
     phoenix_kit_login_attempts
     phoenix_kit_media_folder_links

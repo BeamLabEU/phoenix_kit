@@ -262,6 +262,27 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   @doc """
+  Why `PhoenixKitWeb.Users.Auth.log_in_user/3` refuses to sign `user` in, or `nil` when it does
+  not: `:inactive` (deactivated account) or `:not_independent` (a service user, `api_only`, or a
+  managed organization, which never sign in on their own).
+
+  The one rule of who may sign in: every door that mints a session for an account it did not
+  authenticate itself (`PhoenixKit.Handoff`) asks it too, so there is no second definition.
+  """
+  @spec sign_in_refusal(User.t()) :: :inactive | :not_independent | nil
+  def sign_in_refusal(%User{is_active: false}), do: :inactive
+
+  def sign_in_refusal(%User{} = user) when user.api_only or user.managed_by_members,
+    do: :not_independent
+
+  def sign_in_refusal(%User{}), do: nil
+
+  @doc "Whether `log_in_user/3` would sign `user` in (`sign_in_refusal/1` is `nil`)."
+  @spec may_sign_in?(term()) :: boolean()
+  def may_sign_in?(%User{} = user), do: is_nil(sign_in_refusal(user))
+  def may_sign_in?(_user), do: false
+
+  @doc """
   Gets a single user.
 
   Returns `nil` if the user does not exist.
@@ -1523,6 +1544,24 @@ defmodule PhoenixKit.Users.Auth do
     )
     |> Repo.one(log: false)
   end
+
+  @doc """
+  The live session token row `token_uuid` of the account `user_uuid` (`UserToken.live_session_query/2`),
+  or `nil`: it does not exist (signed out, revoked), has expired, belongs to someone else, is not
+  a session, or acts for an organization. Takes uuids, not the secret token.
+  """
+  @spec get_live_session(term(), term()) :: struct() | nil
+  def get_live_session(token_uuid, user_uuid)
+      when is_binary(token_uuid) and is_binary(user_uuid) do
+    with {:ok, token_uuid} <- Ecto.UUID.cast(token_uuid),
+         {:ok, user_uuid} <- Ecto.UUID.cast(user_uuid) do
+      token_uuid |> UserToken.live_session_query(user_uuid) |> Repo.one(log: false)
+    else
+      _ -> nil
+    end
+  end
+
+  def get_live_session(_token_uuid, _user_uuid), do: nil
 
   @doc """
   Verifies a session fingerprint against the stored token data.

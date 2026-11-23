@@ -7,7 +7,16 @@ defmodule PhoenixKit.Migrations.Postgres do
 
   ## Migration Versions
 
-  ### V235 - Browser push notifications ⚡ LATEST
+  ### V236 - Cross-domain handoff ⚡ LATEST
+
+  One table for `PhoenixKit.Handoff`: `phoenix_kit_handoff_tokens`, the short-lived (60 seconds), single-use rows that
+  carry a visitor from one of the site's domains to another. The raw token is never stored (`token_hash`, unique);
+  a row is bound to the target domain, to the browser that asked for it (`browser_nonce_hash`) and softly to its
+  `User-Agent`; it names the account to sign in (nullable, cascading) and holds what the modules asked to carry
+  (`payload`). `source_proof_hash` (nullable, unique where set) makes the proof of a `start` single use across nodes;
+  `source_session_uuid` (nullable) names the session the handoff continues. Additive, no backfill.
+
+  ### V235 - Browser push notifications
 
   Three tables for push (`PhoenixKit.Notifications.Push`): `phoenix_kit_push_installations` (a browser or device
   that turned push on: its endpoint, keys and the VAPID key it was made with; unique by the endpoint's SHA-256),
@@ -1107,7 +1116,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   alias PhoenixKit.Migrations.Repair.Environment
 
   @initial_version 135
-  @current_version 235
+  @current_version 236
 
   # Core 3.0 no longer creates or changes any module's table (plan
   # `dev_docs/plans/2026-10-25-module-table-ownership.md`, step 8): V135..V225

@@ -1,6 +1,7 @@
 defmodule PhoenixKit.Users.RateLimiterTest do
   use ExUnit.Case, async: false
 
+  alias PhoenixKit.Test.RateLimitIsolation
   alias PhoenixKit.Users.RateLimiter
   alias PhoenixKit.Users.RateLimiter.Backend
 
@@ -299,6 +300,114 @@ defmodule PhoenixKit.Users.RateLimiterTest do
     end
   end
 
+  describe "the handoff buckets" do
+    import ExUnit.CaptureLog
+
+    test "the defaults leave room for an office behind one NAT" do
+      config = RateLimiter.get_config()
+
+      assert Keyword.fetch!(config, :handoff_start_limit) >= 60
+      assert Keyword.fetch!(config, :handoff_mint_limit) >= 20
+      assert Keyword.fetch!(config, :handoff_redeem_failure_limit) >= 30
+    end
+
+    test "starts are blocked after the limit, per IP", %{unique_id: id} do
+      ip = "172.17.0.#{rem(id, 255)}"
+      other = "172.17.1.#{rem(id, 255)}"
+      limit = Keyword.fetch!(RateLimiter.get_config(), :handoff_start_limit)
+
+      for _ <- 1..limit, do: assert(:ok = RateLimiter.check_handoff_start_rate_limit(ip))
+
+      assert {:error, :rate_limit_exceeded} = RateLimiter.check_handoff_start_rate_limit(ip)
+      assert :ok = RateLimiter.check_handoff_start_rate_limit(other)
+    end
+
+    test "an address nobody knows is not limited" do
+      for _ <- 1..100, address <- ["unknown", nil, ""] do
+        assert :ok = RateLimiter.check_handoff_start_rate_limit(address)
+        assert :ok = RateLimiter.check_handoff_mint_ip_rate_limit(address)
+        assert :ok = RateLimiter.check_handoff_redeem_rate_limit(address)
+        assert :ok = RateLimiter.release_handoff_redeem_slot(address)
+      end
+    end
+
+    test "mints are blocked after the limit, per account", %{unique_id: id} do
+      user = "0194f000-0000-7000-8000-#{String.pad_leading(Integer.to_string(id), 12, "0")}"
+      other = "0194f000-0000-7000-8001-#{String.pad_leading(Integer.to_string(id), 12, "0")}"
+      limit = Keyword.fetch!(RateLimiter.get_config(), :handoff_mint_limit)
+
+      for _ <- 1..limit, do: assert(:ok = RateLimiter.check_handoff_mint_rate_limit(user))
+
+      assert {:error, :rate_limit_exceeded} = RateLimiter.check_handoff_mint_rate_limit(user)
+      assert :ok = RateLimiter.check_handoff_mint_rate_limit(other)
+    end
+
+    test "mints are blocked after the limit, per address", %{unique_id: id} do
+      ip = "172.17.5.#{rem(id, 255)}"
+      other = "172.17.6.#{rem(id, 255)}"
+      limit = Keyword.fetch!(RateLimiter.get_config(), :handoff_mint_ip_limit)
+
+      assert limit >= 60
+
+      for _ <- 1..limit, do: assert(:ok = RateLimiter.check_handoff_mint_ip_rate_limit(ip))
+
+      assert {:error, :rate_limit_exceeded} = RateLimiter.check_handoff_mint_ip_rate_limit(ip)
+      assert :ok = RateLimiter.check_handoff_mint_ip_rate_limit(other)
+    end
+
+    test "a source proof is good for one mint", %{unique_id: id} do
+      proof = Base.url_encode64(:crypto.hash(:sha256, "proof-#{id}"), padding: false)
+      other = Base.url_encode64(:crypto.hash(:sha256, "other-#{id}"), padding: false)
+
+      assert :ok = RateLimiter.check_handoff_mint_proof_rate_limit(proof)
+
+      for _ <- 1..5,
+          do:
+            assert(
+              {:error, :rate_limit_exceeded} =
+                RateLimiter.check_handoff_mint_proof_rate_limit(proof)
+            )
+
+      assert :ok = RateLimiter.check_handoff_mint_proof_rate_limit(other)
+    end
+
+    test "a redeem counts only when it fails: success hands its slot back", %{unique_id: id} do
+      ip = "172.17.2.#{rem(id, 255)}"
+      limit = Keyword.fetch!(RateLimiter.get_config(), :handoff_redeem_failure_limit)
+
+      # Many more successes than the limit, and the bucket never fills.
+      for _ <- 1..(limit * 3) do
+        assert :ok = RateLimiter.check_handoff_redeem_rate_limit(ip)
+        assert :ok = RateLimiter.release_handoff_redeem_slot(ip)
+      end
+
+      # The failures stay counted.
+      for _ <- 1..limit, do: assert(:ok = RateLimiter.check_handoff_redeem_rate_limit(ip))
+      assert {:error, :rate_limit_exceeded} = RateLimiter.check_handoff_redeem_rate_limit(ip)
+    end
+
+    test "the three buckets are independent", %{unique_id: id} do
+      ip = "172.17.3.#{rem(id, 255)}"
+      limit = Keyword.fetch!(RateLimiter.get_config(), :handoff_redeem_failure_limit)
+      for _ <- 1..limit, do: RateLimiter.check_handoff_redeem_rate_limit(ip)
+
+      assert {:error, :rate_limit_exceeded} = RateLimiter.check_handoff_redeem_rate_limit(ip)
+      assert :ok = RateLimiter.check_handoff_start_rate_limit(ip)
+    end
+
+    test "a refusal is not a warning", %{unique_id: id} do
+      ip = "172.17.4.#{rem(id, 255)}"
+      limit = Keyword.fetch!(RateLimiter.get_config(), :handoff_start_limit)
+
+      log =
+        capture_log([level: :warning], fn ->
+          for _ <- 1..(limit + 5), do: RateLimiter.check_handoff_start_rate_limit(ip)
+        end)
+
+      assert log == ""
+    end
+  end
+
   describe "IPv6 /64 grouping on login and mail IP buckets" do
     # QR already covers check_qr_login_rate_limit/1. Login keys the IP
     # itself; the mail endpoints go through charge_ip/4. A revert of either
@@ -391,7 +500,7 @@ defmodule PhoenixKit.Users.RateLimiterTest do
   # for. These cover the two buckets that can.
   describe "per-IP bucket on the mail-sending endpoints" do
     test "a spray of fresh addresses from one IP is stopped", %{unique_id: id} do
-      ip = "198.51.100.#{rem(id, 200)}"
+      ip = RateLimitIsolation.unique_ip()
 
       # Ten distinct addresses, one hit each — the per-address bucket (3) never
       # fires, and before the IP bucket existed all ten went through.
@@ -404,7 +513,7 @@ defmodule PhoenixKit.Users.RateLimiterTest do
     end
 
     test "another IP is unaffected", %{unique_id: id} do
-      ip = "198.51.100.#{rem(id, 200)}"
+      ip = RateLimitIsolation.unique_ip()
 
       for n <- 1..10 do
         assert :ok = RateLimiter.check_magic_link_rate_limit("ipa_#{id}_#{n}@e.com", ip)
@@ -417,7 +526,7 @@ defmodule PhoenixKit.Users.RateLimiterTest do
     end
 
     test "each endpoint has its own IP bucket", %{unique_id: id} do
-      ip = "198.51.100.#{rem(id, 200)}"
+      ip = RateLimitIsolation.unique_ip()
 
       for n <- 1..10 do
         assert :ok = RateLimiter.check_confirmation_resend_rate_limit("mix_#{id}_#{n}@e.com", ip)

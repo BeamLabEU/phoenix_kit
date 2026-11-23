@@ -96,6 +96,88 @@ defmodule PhoenixKit.API.OAuth.RequestLogTest do
     end
   end
 
+  describe "the handoff redeem path" do
+    test "hides the token in the request line, with and without a prefix" do
+      for prefix <- ["", "/phoenix_kit"] do
+        line = ["GET", ?\s, prefix <> "/handoff/" <> @token]
+
+        assert %{msg: {:string, ["GET", ?\s, redacted]}} = RequestLog.filter(event(line), [])
+        assert redacted == prefix <> "/handoff/[FILTERED]"
+      end
+    end
+
+    test "leaves the three literal steps readable" do
+      for path <- [
+            "/handoff/start?lang=de&to=%2Fshop",
+            "/handoff/prepare?return=a.test",
+            "/handoff/mint?n=x"
+          ] do
+        line = ["GET", ?\s, path]
+        assert RequestLog.filter(event(line), []) == event(line)
+        assert RequestLog.redact(path) == path
+      end
+
+      assert RequestLog.redact("/phoenix_kit/handoff/start") == "/phoenix_kit/handoff/start"
+      # A token that merely begins like a step name is still a token.
+      assert RequestLog.redact("/handoff/starting" <> @token) == "/handoff/[FILTERED]"
+    end
+
+    test "hides it in a plain text message and in other chardata" do
+      assert %{msg: {:string, "could not redeem /handoff/[FILTERED] for x"}} =
+               RequestLog.filter(event("could not redeem /handoff/#{@token} for x"), [])
+
+      for line <- [
+            [["GET", " "], ["/handoff/", @token]],
+            ~c"GET /handoff/" ++ String.to_charlist(@token)
+          ] do
+        assert %{msg: {:string, redacted}} = RequestLog.filter(event(line), [])
+        assert is_binary(redacted)
+        refute redacted =~ @token
+        assert redacted =~ "/handoff/[FILTERED]"
+      end
+    end
+
+    test "path/1 (what RequestTimer logs) has the token hidden" do
+      assert RequestLog.path(conn("/phoenix_kit/handoff/" <> @token)) ==
+               "/phoenix_kit/handoff/[FILTERED]"
+
+      assert RequestLog.path(conn("/phoenix_kit/handoff/start")) == "/phoenix_kit/handoff/start"
+    end
+
+    # The router drops empty segments, so these all reach `redeem` with the same token.
+    test "hides the token whichever way the router accepts its path spelled" do
+      for path <- [
+            "/handoff//" <> @token,
+            "/handoff////" <> @token,
+            "/handoff/" <> @token <> "/",
+            "/handoff/" <> @token <> "//",
+            "/handoff//" <> @token <> "//",
+            "//phoenix_kit//handoff//" <> @token,
+            "/phoenix_kit/handoff//" <> @token <> "?x=1"
+          ] do
+        redacted = RequestLog.redact(path)
+        refute redacted =~ @token, "#{path} -> #{redacted}"
+        assert redacted =~ "/[FILTERED]"
+
+        line = ["GET", ?\s, path]
+        assert %{msg: {:string, ["GET", ?\s, from_line]}} = RequestLog.filter(event(line), [])
+        assert from_line == redacted
+      end
+    end
+
+    test "a step's name after repeated slashes is still a step, not a token" do
+      for path <- ["/handoff//start?lang=de", "/handoff///prepare", "/handoff//mint/"] do
+        assert RequestLog.redact(path) == path
+      end
+    end
+
+    test "a path that only mentions handoff is as it is" do
+      for path <- ["/handoff", "/handoff-guide/" <> @token, "/shop/handoffs/" <> @token] do
+        assert RequestLog.redact(path) == path
+      end
+    end
+  end
+
   describe "path/1" do
     test "is the path with the consent token hidden" do
       assert RequestLog.path(conn("/oauth/consent/" <> @token)) == "/oauth/consent/[FILTERED]"
