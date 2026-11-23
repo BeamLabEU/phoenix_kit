@@ -137,7 +137,10 @@ defmodule PhoenixKit.Users.Auth.UserToken do
 
   # `nil` for `inserted_at` is what the schema's timestamps fill with now. A session that is not
   # this account's, or is dated in the future, lends nothing: the sign-in is a normal one.
-  defp inherited(%{user_uuid: user_uuid, inserted_at: %DateTime{} = inserted_at} = session, user_uuid)
+  defp inherited(
+         %{user_uuid: user_uuid, inserted_at: %DateTime{} = inserted_at} = session,
+         user_uuid
+       )
        when not is_nil(user_uuid) do
     if DateTime.compare(inserted_at, DateTime.utc_now()) == :gt,
       do: {nil, nil},
