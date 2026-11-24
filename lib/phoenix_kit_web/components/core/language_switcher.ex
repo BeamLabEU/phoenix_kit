@@ -1195,7 +1195,9 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
     |> url_of()
   end
 
-  def translation_url(_entries, _code, _match), do: nil
+  # A code that is not a binary has no entry. An unknown `match` has no clause at all: a typo
+  # fails loudly instead of reading as "no entry".
+  def translation_url(_entries, _code, match) when match in [:exact_first, :base], do: nil
 
   defp find_entry(pairs, matches?),
     do: Enum.find(pairs, fn {entry_code, _url} -> matches?.(entry_code) end)
@@ -1220,7 +1222,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
 
   defp entry_pairs(_entries), do: []
 
-  defp entry_pair(%{code: code} = entry), do: {code, entry_url(entry)}
+  defp entry_pair(%{code: code} = entry) when is_binary(code), do: {code, entry_url(entry)}
   defp entry_pair(%{"code" => code} = entry), do: {code, entry_url(entry)}
   defp entry_pair(_entry), do: {nil, nil}
 

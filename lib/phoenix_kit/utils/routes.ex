@@ -917,10 +917,12 @@ defmodule PhoenixKit.Utils.Routes do
   the path has one, is removed, because that domain carries the language. Anything else is left
   as it is: the segment of another language, a segment that is not the leading one
   (`/blog/de/...`), a path outside the mount prefix (`/de/docs` stays a path of its own; no
-  prefix is added).
+  prefix is added). Only the leading segment goes: `/de/de/x` is `/de/x`.
 
   `locale`'s own segments are its base code (`de`) and the segment the site serves it under
-  (`Languages.url_locale_segment/1`), compared without regard to case. A path that is only the
+  (`Languages.url_locale_segment/1`), compared without regard to case. For a dialect beside a
+  sibling of the same base (`en-GB` next to `en-US`) the base code is still one of them: `/en/`
+  is `en-US`'s URL, but a path given for `en-GB` that carries it is `en-GB`'s page. A path that is only the
   segment becomes the root (`/de?x=1` is `/?x=1`). The result is not validated: a path that
   continues with `//host` comes out as `//host`, and whoever uses the result as a link checks it
   (`PhoenixKit.Handoff.valid_to/1`).

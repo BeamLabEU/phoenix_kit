@@ -76,8 +76,8 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
       the language's own leading locale segment is dropped, as its domain carries the language.
       A URL is used only when it is a local path, or an absolute URL of the host it leads to
       (the page's `:current_host`, which an absolute URL therefore needs); anything else is
-      ignored, so this attr never leads off the site. Without it (or without an entry for a language) the
-      entry is what it was. See `PhoenixKitWeb.Components.AccountMenu.languages/3`.
+      ignored, so this attr never leads off the site. Without it (or without an entry for a
+      language) the entry is what it was. See `PhoenixKitWeb.Components.AccountMenu.languages/3`.
     * `:show_language_switcher` — include the in-menu language list (default `true`).
       Set `false` when the host renders a standalone switcher elsewhere to avoid
       a duplicate. Applies to both the signed-in and guest states.

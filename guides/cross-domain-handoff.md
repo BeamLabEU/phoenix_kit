@@ -219,9 +219,11 @@ URL per language, `language_urls`, on `user_dropdown/1` and `admin_user_dropdown
 
 It is what publishing assigns as `phoenix_kit_publishing_translations` (a list of
 `%{code: "de", url: "/de/docs/anfang", ...}`, atom- or string-keyed), or a plain map
-`%{"de" => "/de/docs/anfang"}`, the same lists the language switcher's `per_translation_urls`
-reads (`LanguageSwitcher.translation_url/2`). A language is matched by its exact code first
-(`de-DE`), then by the bare base language (`de`), then by any dialect of that base. The kit's own
+`%{"de" => "/de/docs/anfang"}`. The list has the shape the language switcher's
+`per_translation_urls` takes (a list only; the plain map is for the menus), and both read it
+through `LanguageSwitcher.translation_url/3`; the switcher keeps its own rule there, the first
+entry of the language's base in list order, while the menus match a language by its exact code
+first (`de-DE`), then by the bare base language (`de`), then by any dialect of that base. The kit's own
 layouts do not pass it (the admin header and the dashboard have no per-language pages): a host
 that renders the dropdown itself does.
 
@@ -239,9 +241,8 @@ that renders the dropdown itself does.
 - **Nothing in the list can lead off the site.** A URL is used only when it is a local path, or an
   absolute `http(s)` URL of the host the entry is for (the page's own host, so an absolute URL needs
   `current_host`; or the language's own host through the handoff), and it is reduced to its path
-  and query (a fragment is dropped; no path is `/`). A
-  URL of any other host, `//host/...`, `javascript:...` or anything else is ignored, as if the
-  language had no entry.
+  and query (a fragment is dropped; no path is `/`). A URL of any other host, `//host/...`,
+  `javascript:...` or anything else is ignored, as if the language had no entry.
 - A language with no entry, or no `language_urls` at all, is the entry it always was.
 
 To leave the language list out of a page's menu, pass `show_language_switcher={false}` to

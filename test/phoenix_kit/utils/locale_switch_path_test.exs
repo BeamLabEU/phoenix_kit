@@ -228,6 +228,28 @@ defmodule PhoenixKit.Utils.LocaleSwitchPathTest do
       assert Routes.domain_page_path("/en/docs/x", "en-US") == "/docs/x"
     end
 
+    test "only the leading segment goes, a repeated one is a page of its own" do
+      assert Routes.domain_page_path("/de/de/x", "de-DE") == "/de/x"
+      assert Routes.domain_page_path("/phoenix_kit/de/de/x", "de-DE") == "/phoenix_kit/de/x"
+    end
+
+    test "a dialect with a domain of its own: its base and its sibling segment both go" do
+      LanguageSettings.put_languages(~w(en-US en-GB es-ES))
+
+      assert Routes.domain_page_path("/en-gb/docs/x", "en-GB") == "/docs/x"
+      assert Routes.domain_page_path("/EN-GB/docs/x", "en-GB") == "/docs/x"
+
+      assert Routes.domain_page_path("/phoenix_kit/en-gb/docs/x", "en-GB") ==
+               "/phoenix_kit/docs/x"
+
+      # `/en/` is en-US's URL, but it is also en-GB's base code: a path given for en-GB with it
+      # is en-GB's page, as that domain serves it.
+      assert Routes.domain_page_path("/en/docs/x", "en-GB") == "/docs/x"
+      # and the other way: en-US's own segment is `en`, not `en-gb`
+      assert Routes.domain_page_path("/en-gb/docs/x", "en-US") == "/en-gb/docs/x"
+      assert Routes.domain_page_path("/en/docs/x", "en-US") == "/docs/x"
+    end
+
     test "the bare locale root, with what follows it" do
       assert Routes.domain_page_path("/de", "de-DE") == "/"
       assert Routes.domain_page_path("/de?x=1", "de-DE") == "/?x=1"

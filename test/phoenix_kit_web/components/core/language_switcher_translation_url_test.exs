@@ -92,6 +92,17 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcherTranslationUrlTest do
   end
 
   describe "the standalone switcher's own rule (:base)" do
+    test "an entry whose atom code is not a binary falls through to its string code, as before" do
+      entry = %{:code => nil, "code" => "fr", "url" => "/fr"}
+      assert LanguageSwitcher.translation_url([entry], "fr", :base) == "/fr"
+    end
+
+    test "an unknown match mode fails loudly, it does not read as no entry" do
+      assert_raise FunctionClauseError, fn ->
+        LanguageSwitcher.translation_url([%{code: "de", url: "/de"}], "de", :bace)
+      end
+    end
+
     # The switcher always took the first entry of the asked base language, in list order.
     test "the first entry of that base wins, bare or dialect" do
       assert LanguageSwitcher.translation_url(
