@@ -91,6 +91,26 @@ defmodule PhoenixKitWeb.Live.AdminMenuHandoffTest do
     assert Repo.get!(User, admin.uuid).custom_fields["preferred_locale"] == "de-DE"
   end
 
+  test "a forged handoff-prefixed url with an ASCII control char is not a full redirect", %{
+    conn: conn
+  } do
+    resolver!()
+    {admin, _} = create_admin_user()
+    {:ok, lv, _html} = live(log_in_user(conn, admin), @probe)
+
+    # A vertical tab passes the handoff prefix check and LiveView's own
+    # validate_local_url!/2, but `Routes.local_path?/1` rejects every C0
+    # byte, so the event must not leave the socket with a raw redirect.
+    forged = @start <> "x=1" <> <<11>>
+
+    result =
+      lv
+      |> element("#pk-admin-account-menu button[phx-value-locale=de-DE]")
+      |> render_click(%{"url" => forged})
+
+    refute match?({:error, {:redirect, _}}, result)
+  end
+
   describe "what the start endpoint does with the menu's url" do
     defp start(url, host) do
       Phoenix.ConnTest.build_conn()
