@@ -58,12 +58,17 @@ link opened in any other browser is useless.
    `Secure`. A site that says `https` never falls back to the plain names,
    whatever the connection looks like to the application (a proxy that ends
    TLS hands it plain http).
-4. **The session cookie must be `SameSite=Lax`** (what `mix phx.new` ships), **not
+4. **The original `Host` must reach the application.** `start`, `prepare` and `mint` compare
+   `conn.host` with the resolver's hosts; behind a proxy that rewrites the `Host` header they
+   refuse every handoff (a `302` to `/`), and a menu that offers a handoff link (see "The
+   account menus") shows it on a connected page, where the browser's own host is read, but not
+   on the first paint.
+5. **The session cookie must be `SameSite=Lax`** (what `mix phx.new` ships), **not
    `Strict`.** The `mint` step is a navigation that comes from another site (the
    target's `prepare`); a `Strict` session cookie is not sent with it, so the
    mint sees no session and the handoff quietly turns into a guest handoff: the
    visitor arrives signed out.
-5. **No new routes**: `phoenix_kit_routes()` mounts them, under the kit's URL
+6. **No new routes**: `phoenix_kit_routes()` mounts them, under the kit's URL
    prefix and in your `:browser` pipeline, ahead of the `/:locale` scopes
    (`/handoff` is a reserved segment). With the default prefix:
 
@@ -79,10 +84,10 @@ link opened in any other browser is useless.
 ## Deploying
 
 Run the migration (V236, `mix phoenix_kit.update`) **before** the code that links to
-`start` goes live (the kit's own account menus are such code, see "The account menus"). Until V236 has run there is no table to write: every handoff ends
-with a `302` to `/` (and a logged error), and `enabled?/0` is already `true`, so a
-language switcher that links to `start` lands the visitor back on `/` of the domain
-they started on. Signing out, signing out everywhere and a password change keep working
+`start` goes live (the kit's own account menus are such code, see "The account menus").
+Until V236 has run there is no table to write: every handoff that has something to carry ends
+with a `302` to `/` (and a logged error), and `enabled?/0` is already `true`, so a language
+switcher that links to `start` lands the visitor back on `/` of the domain they started on. Signing out, signing out everywhere and a password change keep working
 without the table; they delete nothing from it.
 
 ## Linking
@@ -169,13 +174,18 @@ entry is the plain language switch it always was, and a site with no
   person's language choice is still saved; its handler then redirects to `start` (a controller,
   not a LiveView), so the browser leaves the page with a full page load.
 - The destination is the current path as the language's own domain serves it: without a locale
-  segment, as that domain carries the language. When the domain serves another dialect of the
-  language first (`en-US` and `en-GB` on one host), the dialect's own segment stays
-  (`/en-gb/...`), so the visitor lands on the dialect they picked.
+  segment, as that domain carries the language. The language a domain serves without a segment
+  is the first enabled language (in the Languages module's order) the resolver maps to that
+  host, and **your application has to serve exactly that language at a path with no segment**
+  (the kit's own locale plug does not derive a language from the host). Any other language the
+  resolver maps to the same host (the sibling dialect `en-GB` next to `en-US`, or a different
+  language) keeps its own segment (`/en-gb/...`), so the visitor lands on the language they
+  picked.
 
 The menu has to know the host the page is served on. The admin header takes it from the page's
 socket (or from `current_host`, for a view that passes neither), the dashboard layout from the
-`:url_host` assign that the navigation hook sets next to `:url_path`; a host that renders
+`:url_host` assign that the navigation hook sets next to `:url_path` (a LiveView of yours that
+assigns its own `:url_host` in `handle_params` overrides it); a host that renders
 `user_dropdown/1` itself passes it, a host name without port:
 
 ```heex
@@ -190,14 +200,64 @@ socket (or from `current_host`, for a view that passes neither), the dashboard l
 (`conn.host` in a controller-rendered page.) Without `current_host` the menu keeps its plain
 language switches.
 
+### Pages whose address differs per language
+
+The menus build each entry from the current path, which is wrong for a page that has another
+address in every language (a publishing post with a translated slug, a product): the visitor lands
+on a page that does not exist, or one that costs a redirect. Such a page hands the menu its own
+URL per language, `language_urls`, on `user_dropdown/1` and `admin_user_dropdown/1`:
+
+```heex
+<UserDashboardNav.user_dropdown
+  scope={@phoenix_kit_current_scope}
+  current_path={@url_path}
+  current_locale={@current_locale}
+  current_host={assigns[:url_host]}
+  language_urls={assigns[:phoenix_kit_publishing_translations]}
+/>
+```
+
+It is what publishing assigns as `phoenix_kit_publishing_translations` (a list of
+`%{code: "de", url: "/de/docs/anfang", ...}`, atom- or string-keyed), or a plain map
+`%{"de" => "/de/docs/anfang"}`. The list has the shape the language switcher's
+`per_translation_urls` takes (a list only; the plain map is for the menus), and both read it
+through `LanguageSwitcher.translation_url/3`; the switcher keeps its own rule there, the first
+entry of the language's base in list order, while the menus match a language by its exact code
+first (`de-DE`), then by the bare base language (`de`), then by any dialect of that base. The kit's own
+layouts do not pass it (the admin header and the dashboard have no per-language pages): a host
+that renders the dropdown itself does.
+
+- On this domain the entry leads to that URL (in the event mode too: the person's choice is still
+  saved).
+- A URL the page gives is that language's address, and is **not rewritten**: the kit's prefix is
+  not added to it (`/de/docs/anfang` stays outside `/phoenix_kit`).
+- Through the handoff the URL is the destination on the language's own domain, and only the
+  language's own leading locale segment goes, because that domain carries the language: the one
+  right after the kit's prefix (`/phoenix_kit/de/docs/x` becomes `/phoenix_kit/docs/x`), or the
+  first one of a path outside it (`/de/docs/x` becomes `/docs/x`). A segment further in
+  (`/blog/de/docs/x`), another language's segment and a path with none are left as they are. A
+  dialect that shares the domain with another language keeps its URL whole (`/en-gb/docs/x`), and
+  an absolute URL of that domain's host is already its address there.
+- **Nothing in the list can lead off the site.** A URL is used only when it is a local path, or an
+  absolute `http(s)` URL of the host the entry is for (the page's own host, so an absolute URL needs
+  `current_host`; or the language's own host through the handoff), and it is reduced to its path
+  and query (a fragment is dropped; no path is `/`). A URL of any other host, `//host/...`,
+  `javascript:...` or anything else is ignored, as if the language had no entry.
+- A language with no entry, or no `language_urls` at all, is the entry it always was.
+
+To leave the language list out of a page's menu, pass `show_language_switcher={false}` to
+`user_dropdown/1`: it hides the list in both the signed-in and the guest menu, and leaves the rest
+of the menu.
+
 What a host will meet:
 
 - **Run V236 first.** These menus are links to `start` that the kit puts on every site whose
   resolver names two hosts, including a site that set the resolver only for canonical URLs and
-  hreflang. Until V236 has run, a visitor who picks another domain's language is sent back to
-  `/`, where the plain switch used to work.
-- **The same path is carried, not a translated one.** A page with a per-language slug is
-  reached by the path of the language the visitor left; the plain switch has the same limit.
+  hreflang. Until V236 has run, a signed-in visitor (or one with module state to carry) who
+  picks another domain's language is sent back to `/`, where the plain switch used to work.
+- **Without `language_urls` the same path is carried, not a translated one.** A page with a
+  per-language slug is reached by the path of the language the visitor left, as with the plain
+  switch; give the menu the page's own URLs (above) for such pages.
 - **A session the handoff will not carry arrives signed out.** An impersonated session and one
   acting for an organization (`carried_user/1`) are refused by `start`, which then redirects
   with nothing carried; the menu does not look at the session and still offers the link.

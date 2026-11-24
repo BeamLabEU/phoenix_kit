@@ -65,6 +65,19 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
       cart travel along, instead of switching language on this domain. Without
       it every entry is the plain language switch. A LiveView mounted through the
       kit's `on_mount` chain has it as `@url_host`; elsewhere pass `conn.host`.
+    * `:language_urls` — the page's own URL per language (default `nil`), for a page whose
+      address differs per language: a publishing post with a translated slug, a product.
+      Either what publishing assigns as `phoenix_kit_publishing_translations`
+      (`[%{code: "de", url: "/de/docs/anfang", ...}]`) or a plain `%{"de" => "/de/docs/anfang"}`.
+      A language with a URL there leads to it, instead of the current path rewritten for that
+      language, on this domain and through the handoff (`:current_host`) alike. The exact code is
+      matched first, then the bare base language (`de-DE` finds `de`), then any dialect of it.
+      A URL given here is that language's address and is not rewritten; through the handoff only
+      the language's own leading locale segment is dropped, as its domain carries the language.
+      A URL is used only when it is a local path, or an absolute URL of the host it leads to
+      (the page's `:current_host`, which an absolute URL therefore needs); anything else is
+      ignored, so this attr never leads off the site. Without it (or without an entry for a
+      language) the entry is what it was. See `PhoenixKitWeb.Components.AccountMenu.languages/3`.
     * `:show_language_switcher` — include the in-menu language list (default `true`).
       Set `false` when the host renders a standalone switcher elsewhere to avoid
       a duplicate. Applies to both the signed-in and guest states.
@@ -94,6 +107,7 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
   attr(:current_path, :string, default: "")
   attr(:current_locale, :string, default: "en")
   attr(:current_host, :string, default: nil)
+  attr(:language_urls, :any, default: nil)
   attr(:admin_edit_url, :string, default: nil)
   attr(:admin_edit_label, :string, default: nil)
   attr(:show_language_switcher, :boolean, default: true)
@@ -197,6 +211,7 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
             current_path={@current_path}
             current_locale={@current_locale}
             current_host={@current_host}
+            language_urls={@language_urls}
           />
 
           <PhoenixKitWeb.Components.Core.OrganizationSwitcher.organization_switcher
@@ -259,6 +274,7 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
         current_path={@current_path}
         current_locale={@current_locale}
         current_host={@current_host}
+        language_urls={@language_urls}
         guest_links={@guest_links}
         show_language_switcher={@show_language_switcher}
       />
@@ -272,6 +288,7 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
   attr(:current_path, :string, required: true)
   attr(:current_locale, :string, required: true)
   attr(:current_host, :string, default: nil)
+  attr(:language_urls, :any, default: nil)
   attr(:guest_links, :list, required: true)
   attr(:show_language_switcher, :boolean, required: true)
 
@@ -319,6 +336,7 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
           current_path={@current_path}
           current_locale={@current_locale}
           current_host={@current_host}
+          language_urls={@language_urls}
         />
       </ul>
     </div>
@@ -330,11 +348,18 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
   attr(:current_path, :string, required: true)
   attr(:current_locale, :string, required: true)
   attr(:current_host, :string, default: nil)
+  attr(:language_urls, :any, default: nil)
 
   defp language_menu_section(assigns) do
     ~H"""
     <PhoenixKitWeb.Components.AccountMenu.language_section
-      languages={PhoenixKitWeb.Components.AccountMenu.languages(@current_locale, @current_host)}
+      languages={
+        PhoenixKitWeb.Components.AccountMenu.languages(
+          @current_locale,
+          @current_host,
+          @language_urls
+        )
+      }
       current_path={@current_path}
       current_locale={@current_locale}
       switch={:link}

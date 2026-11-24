@@ -186,8 +186,10 @@ defmodule PhoenixKit.Utils.LocaleSwitchPathTest do
     end
 
     test "a bare locale root with a query is replaced, not stacked, by a switch" do
-      refute Routes.locale_switch_path("/phoenix_kit/ja?x=1", "es") =~ "/ja"
-      assert Routes.locale_switch_path("/phoenix_kit/ja?x=1", "es") =~ "/es"
+      # The bare root is `/es`, not `/es/`, with or without what follows it.
+      assert Routes.locale_switch_path("/phoenix_kit/ja?x=1", "es") == "/phoenix_kit/es?x=1"
+      assert Routes.locale_switch_path("/phoenix_kit/ja#top", "es") == "/phoenix_kit/es#top"
+      assert Routes.locale_switch_path("/phoenix_kit/ja", "es") == "/phoenix_kit/es"
     end
 
     test "an active locale that is no longer offered is stripped too" do
@@ -200,6 +202,102 @@ defmodule PhoenixKit.Utils.LocaleSwitchPathTest do
 
       assert Routes.locale_switch_path("/phoenix_kit/en-gb/users/log-in", :none) ==
                "/phoenix_kit/users/log-in"
+    end
+  end
+
+  describe "paths that only begin like the prefix, or carry a query at the root" do
+    test "never raise, and never lose what follows" do
+      assert Routes.locale_switch_path("/phoenix_kit?x=1", "ja") == "/phoenix_kit/ja?x=1"
+      assert Routes.locale_switch_path("/phoenix_kit?", "ja") == "/phoenix_kit/ja?"
+      assert Routes.locale_switch_path("/phoenix_kit#top", "ja") == "/phoenix_kit/ja#top"
+      assert Routes.locale_switch_path("/phoenix_kit?x=1", :none) == "/phoenix_kit/?x=1"
+
+      # Not under the prefix: a path of its own, as before for a path outside it.
+      assert Routes.locale_switch_path("/phoenix_kitn", "ja") == "/phoenix_kit/ja/phoenix_kitn"
+      assert Routes.locale_switch_path("docs/x", "ja") == "/phoenix_kit/ja/docs/x"
+    end
+  end
+
+  describe "domain_page_path/2" do
+    test "drops the language's own leading segment, after the prefix when the path has it" do
+      assert Routes.domain_page_path("/phoenix_kit/de/docs/x?y=1", "de-DE") ==
+               "/phoenix_kit/docs/x?y=1"
+
+      assert Routes.domain_page_path("/de/docs/anfang?x=1", "de-DE") == "/docs/anfang?x=1"
+      assert Routes.domain_page_path("/DE/docs", "de-DE") == "/docs"
+      assert Routes.domain_page_path("/en/docs/x", "en-US") == "/docs/x"
+    end
+
+    test "only the leading segment goes, a repeated one is a page of its own" do
+      assert Routes.domain_page_path("/de/de/x", "de-DE") == "/de/x"
+      assert Routes.domain_page_path("/phoenix_kit/de/de/x", "de-DE") == "/phoenix_kit/de/x"
+    end
+
+    test "a dialect with a domain of its own: its base and its sibling segment both go" do
+      LanguageSettings.put_languages(~w(en-US en-GB es-ES))
+
+      assert Routes.domain_page_path("/en-gb/docs/x", "en-GB") == "/docs/x"
+      assert Routes.domain_page_path("/EN-GB/docs/x", "en-GB") == "/docs/x"
+
+      assert Routes.domain_page_path("/phoenix_kit/en-gb/docs/x", "en-GB") ==
+               "/phoenix_kit/docs/x"
+
+      # `/en/` is en-US's URL, but it is also en-GB's base code: a path given for en-GB with it
+      # is en-GB's page, as that domain serves it.
+      assert Routes.domain_page_path("/en/docs/x", "en-GB") == "/docs/x"
+      # and the other way: en-US's own segment is `en`, not `en-gb`
+      assert Routes.domain_page_path("/en-gb/docs/x", "en-US") == "/en-gb/docs/x"
+      assert Routes.domain_page_path("/en/docs/x", "en-US") == "/docs/x"
+    end
+
+    test "the bare locale root, with what follows it" do
+      assert Routes.domain_page_path("/de", "de-DE") == "/"
+      assert Routes.domain_page_path("/de?x=1", "de-DE") == "/?x=1"
+      assert Routes.domain_page_path("/phoenix_kit/de", "de-DE") == "/phoenix_kit/"
+      assert Routes.domain_page_path("/phoenix_kit/de?x=1", "de-DE") == "/phoenix_kit/?x=1"
+    end
+
+    test "leaves a path alone when that segment is not the language's own, or not where it is" do
+      # another language's segment
+      assert Routes.domain_page_path("/de/docs/anfang", "fr-FR") == "/de/docs/anfang"
+      # not the leading segment
+      assert Routes.domain_page_path("/blog/de/docs/x", "de-DE") == "/blog/de/docs/x"
+
+      assert Routes.domain_page_path("/phoenix_kit/docs/de/x", "de-DE") ==
+               "/phoenix_kit/docs/de/x"
+
+      # a segment that only starts like it
+      assert Routes.domain_page_path("/deutsch/docs", "de-DE") == "/deutsch/docs"
+      # a path that only begins like the prefix is a path of its own
+      assert Routes.domain_page_path("/phoenix_kitn/de/x", "de-DE") == "/phoenix_kitn/de/x"
+      assert Routes.domain_page_path("/", "de-DE") == "/"
+    end
+
+    test "with the kit mounted at the root, every path is a page path" do
+      put_prefix("/")
+
+      assert Routes.domain_page_path("/de/docs/x", "de-DE") == "/docs/x"
+      assert Routes.domain_page_path("/phoenix_kit/de/docs", "de-DE") == "/phoenix_kit/de/docs"
+    end
+
+    test "returns what the path gives, validation is the caller's" do
+      put_prefix("/")
+      assert Routes.domain_page_path("/de//evil.test/x", "de-DE") == "//evil.test/x"
+    end
+
+    defp put_prefix(prefix) do
+      previous = Application.fetch_env(:phoenix_kit, :url_prefix)
+      Application.put_env(:phoenix_kit, :url_prefix, prefix)
+      PhoenixKit.Config.clear_url_prefix_cache()
+
+      on_exit(fn ->
+        case previous do
+          {:ok, value} -> Application.put_env(:phoenix_kit, :url_prefix, value)
+          :error -> Application.delete_env(:phoenix_kit, :url_prefix)
+        end
+
+        PhoenixKit.Config.clear_url_prefix_cache()
+      end)
     end
   end
 end

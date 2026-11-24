@@ -1141,23 +1141,90 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
 
   defp resolve_url(base_code, current_path, per_translation_urls)
        when is_list(per_translation_urls) and is_binary(base_code) do
-    case Enum.find(per_translation_urls, fn entry ->
-           entry_base_code(entry) == base_code
-         end) do
-      nil -> generate_base_code_url(base_code, current_path)
-      entry -> entry_url(entry) || generate_base_code_url(base_code, current_path)
-    end
+    translation_url(per_translation_urls, base_code, :base) ||
+      generate_base_code_url(base_code, current_path)
   end
 
   defp resolve_url(base_code, current_path, _),
     do: generate_base_code_url(base_code, current_path)
 
-  defp entry_base_code(%{code: code}) when is_binary(code), do: DialectMapper.extract_base(code)
+  @doc """
+  The URL of the current page in the language `code`, from the page's own list of per-language
+  URLs, or `nil` when the list has none for it.
 
-  defp entry_base_code(%{"code" => code}) when is_binary(code),
-    do: DialectMapper.extract_base(code)
+  `entries` is what publishing hands a host as `phoenix_kit_publishing_translations` (a list of
+  `%{code: ..., url: ...}`, atom- or string-keyed) or a plain map `%{code => url}` (string or
+  atom keys). An entry that matches but has no usable URL (an unpublished draft) answers `nil`:
+  a sibling dialect's page is not that language's.
 
-  defp entry_base_code(_), do: nil
+  `match` is how an entry is found:
+
+    * `:exact_first` (the default, what the account menus use): the entry whose code equals
+      `code` (ignoring case); then the entry of the bare base language (`de-DE` finds `de`); then
+      the first entry of any dialect of that base (`de` finds `de-AT`). An entry with a blank
+      code matches nothing.
+    * `:base` (what the language switcher's `:per_translation_urls` has always done): the first
+      entry, in list order, whose base language is `code`, which is then a base code.
+
+  Example:
+
+      translation_url([%{code: "de", url: "/de/docs/anfang"}], "de-DE")
+      # "/de/docs/anfang"
+  """
+  @spec translation_url(term(), String.t() | nil, :exact_first | :base) :: String.t() | nil
+  def translation_url(entries, code, match \\ :exact_first)
+
+  def translation_url(entries, code, :base) when is_binary(code) do
+    entries
+    |> entry_pairs()
+    |> Enum.find(fn {entry_code, _url} -> DialectMapper.extract_base(entry_code) == code end)
+    |> url_of()
+  end
+
+  def translation_url(entries, code, :exact_first) when is_binary(code) do
+    pairs =
+      entries |> entry_pairs() |> Enum.reject(fn {entry_code, _url} -> blank?(entry_code) end)
+
+    wanted = String.downcase(code)
+    base = base_of(code)
+
+    pairs
+    |> find_entry(fn entry_code -> String.downcase(entry_code) == wanted end)
+    |> Kernel.||(find_entry(pairs, fn entry_code -> String.downcase(entry_code) == base end))
+    |> Kernel.||(find_entry(pairs, fn entry_code -> base_of(entry_code) == base end))
+    |> url_of()
+  end
+
+  # A code that is not a binary has no entry. An unknown `match` has no clause at all: a typo
+  # fails loudly instead of reading as "no entry".
+  def translation_url(_entries, _code, match) when match in [:exact_first, :base], do: nil
+
+  defp find_entry(pairs, matches?),
+    do: Enum.find(pairs, fn {entry_code, _url} -> matches?.(entry_code) end)
+
+  defp url_of({_code, url}) when is_binary(url), do: url
+  defp url_of(_), do: nil
+
+  defp blank?(code), do: String.trim(code) == ""
+
+  defp base_of(code), do: code |> DialectMapper.extract_base() |> String.downcase()
+
+  # `[{code, url}]` from either shape; entries without a code are skipped.
+  defp entry_pairs(entries) when is_list(entries) do
+    for entry <- entries, {code, url} = entry_pair(entry), is_binary(code), do: {code, url}
+  end
+
+  defp entry_pairs(entries) when is_map(entries) and not is_struct(entries) do
+    for {code, url} <- entries, is_binary(code) or is_atom(code), not is_nil(code) do
+      {to_string(code), url}
+    end
+  end
+
+  defp entry_pairs(_entries), do: []
+
+  defp entry_pair(%{code: code} = entry) when is_binary(code), do: {code, entry_url(entry)}
+  defp entry_pair(%{"code" => code} = entry), do: {code, entry_url(entry)}
+  defp entry_pair(_entry), do: {nil, nil}
 
   defp entry_url(%{url: url}) when is_binary(url), do: url
   defp entry_url(%{"url" => url}) when is_binary(url), do: url
