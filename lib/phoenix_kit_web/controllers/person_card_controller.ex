@@ -28,6 +28,7 @@ defmodule PhoenixKitWeb.PersonCardController do
 
   alias Phoenix.HTML.Safe
   alias PhoenixKit.ModuleRegistry
+  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.Auth.User
@@ -37,9 +38,10 @@ defmodule PhoenixKitWeb.PersonCardController do
   import PhoenixKitWeb.Components.Core.Icon, only: [icon: 1]
   import PhoenixKitWeb.Components.Core.UserInfo, only: [user_avatar: 1]
 
-  def card(conn, %{"uuid" => uuid}) do
+  def card(conn, %{"uuid" => uuid} = params) do
     conn = WebAuth.fetch_phoenix_kit_current_scope(conn, [])
     scope = conn.assigns[:phoenix_kit_current_scope]
+    put_page_language(params["lang"])
 
     with true <- Scope.can_access_admin_area?(scope),
          {:ok, uuid} <- Ecto.UUID.cast(uuid),
@@ -90,6 +92,26 @@ defmodule PhoenixKitWeb.PersonCardController do
     """
   end
 
+  # The card's URL has no locale segment, so the drawer sends the page's
+  # `<html lang>`. Only an enabled language is used (exact, or the first
+  # enabled dialect of that base: "en" -> "en-US"); anything else leaves
+  # the default. The value itself is never written into the card.
+  defp put_page_language(lang) when is_binary(lang) and byte_size(lang) in 2..20 do
+    codes = Languages.enabled_locale_codes()
+    base = fn code -> code |> String.downcase() |> String.split(["-", "_"]) |> hd() end
+    wanted = String.downcase(lang)
+
+    match =
+      Enum.find(codes, &(String.downcase(&1) == wanted)) ||
+        Enum.find(codes, &(base.(&1) == base.(lang)))
+
+    if match, do: WebAuth.put_gettext_locale(match)
+  rescue
+    _ -> :ok
+  end
+
+  defp put_page_language(_), do: :ok
+
   # `%{label, href, icon?}` from every enabled module that answers; a path
   # off this site is dropped (an action is a page of the app).
   defp module_actions(scope, person) do
@@ -102,8 +124,9 @@ defmodule PhoenixKitWeb.PersonCardController do
       end
     end)
     |> Enum.filter(fn action ->
-      is_map(action) and is_binary(action[:label]) and is_binary(action[:href]) and
-        Routes.local_path?(action[:href])
+      # A struct is a map without Access: `action[:label]` would raise.
+      is_map(action) and not is_struct(action) and is_binary(Map.get(action, :label)) and
+        is_binary(Map.get(action, :href)) and Routes.local_path?(action.href)
     end)
   end
 
@@ -117,7 +140,8 @@ defmodule PhoenixKitWeb.PersonCardController do
 
       []
   catch
-    :exit, _ -> []
+    # An exit, or a throw from a module's callback.
+    _kind, _ -> []
   end
 
   defp present(value) when is_binary(value) and value != "", do: value

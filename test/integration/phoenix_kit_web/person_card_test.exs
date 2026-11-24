@@ -69,6 +69,25 @@ defmodule PhoenixKitWeb.PersonCardTest do
     refute html =~ "Open profile"
   end
 
+  test "the card speaks the page's language when it is an enabled one", %{conn: conn} do
+    {:ok, _} = PhoenixKit.Modules.Languages.enable_system()
+    {:ok, _} = PhoenixKit.Modules.Languages.add_language("de-DE")
+    {admin, _token} = create_admin_user()
+    person = user!()
+    conn = log_in_user(conn, admin)
+    # Built first: ConnTest runs the controller in this process, so the
+    # German locale it sets would put `/de` into a path built after it.
+    path = card_path(person.uuid)
+
+    # `<html lang="de">` names the base; the enabled dialect is used.
+    assert conn |> get(path <> "?lang=de") |> html_response(200) =~
+             "Profil öffnen"
+
+    # A language that is not enabled leaves the default.
+    html = build_conn() |> log_in_user(admin) |> get(path <> "?lang=fr")
+    assert html_response(html, 200) =~ "Open profile"
+  end
+
   test "nobody else gets a card, and nothing tells them why", %{conn: conn} do
     person = user!()
     plain = user!()

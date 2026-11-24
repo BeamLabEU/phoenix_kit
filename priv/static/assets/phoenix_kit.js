@@ -236,7 +236,9 @@
     function cardUrl(uuid) {
       var prefix = window.PHOENIX_KIT_PREFIX || "/phoenix_kit";
       if (prefix === "/") prefix = "";
-      return prefix + "/people/" + encodeURIComponent(uuid) + "/card";
+      // The card has no locale in its URL: it is told the page's language.
+      var lang = document.documentElement.getAttribute("lang");
+      return prefix + "/people/" + encodeURIComponent(uuid) + "/card" + (lang ? "?lang=" + encodeURIComponent(lang) : "");
     }
 
     function build() {
@@ -286,7 +288,8 @@
           if (first) first.focus();
         })
         .catch(function () {
-          if (mine !== seq) return;
+          // Closed meanwhile: the person changed their mind, stay put.
+          if (mine !== seq || !dialog.open) return;
           dialog.close();
           // No card for this viewer: the chip does what it did before.
           var href = chip.getAttribute("href");
@@ -300,7 +303,8 @@
         if (e.defaultPrevented || e.button !== 0) return;
         if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
         var chip = e.target.closest && e.target.closest("[data-mention-user]");
-        if (!chip || chip.closest("[contenteditable='true'], [contenteditable=''], textarea")) return;
+        // Any editing value ("true", "", "plaintext-only"): the editor's own chip.
+        if (!chip || chip.closest("[contenteditable]:not([contenteditable='false']), textarea")) return;
         var uuid = chip.getAttribute("data-mention-user");
         if (!uuid) return;
         // Ahead of LiveView's own link handling (it would navigate).
@@ -310,6 +314,12 @@
       },
       true
     );
+
+    // A LiveView navigation (a server push_navigate) leaves no stale card open.
+    window.addEventListener("phx:page-loading-start", function (e) {
+      var kind = e.detail && e.detail.kind;
+      if (dialog && dialog.open && (kind === "redirect" || kind === "patch")) dialog.close();
+    });
 
     window.PhoenixKitInternals = window.PhoenixKitInternals || {};
     window.PhoenixKitInternals.openPersonDrawer = open;
