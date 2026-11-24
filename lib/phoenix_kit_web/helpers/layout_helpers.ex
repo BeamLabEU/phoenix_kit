@@ -32,6 +32,7 @@ defmodule PhoenixKitWeb.LayoutHelpers do
     :page_title,
     :flash,
     :url_path,
+    :url_host,
     :phoenix_kit_current_scope,
     :current_locale,
     :current_locale_base,

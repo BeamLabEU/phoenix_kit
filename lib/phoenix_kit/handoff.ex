@@ -164,10 +164,11 @@ defmodule PhoenixKit.Handoff do
 
   @doc """
   Whether a handoff can happen on this site: the host's `:canonical_host_resolver` names at least
-  two hosts for the enabled languages. A host keeps plain links when this is `false`.
+  two hosts for the enabled languages. A host keeps plain links when this is `false`. `hosts` is
+  `allowed_hosts/0`, when already read.
   """
-  @spec enabled?() :: boolean()
-  def enabled?, do: match?([_, _ | _], allowed_hosts())
+  @spec enabled?([String.t()] | nil) :: boolean()
+  def enabled?(hosts \\ nil), do: match?([_, _ | _], hosts || allowed_hosts())
 
   @doc """
   The path (with the PhoenixKit URL prefix, no locale segment) of the `start` endpoint for a link
@@ -181,6 +182,35 @@ defmodule PhoenixKit.Handoff do
   def start_path(lang, to \\ "/") when is_binary(lang) do
     Routes.path("/handoff/start") <> "?" <> URI.encode_query(lang: lang, to: valid_to(to) || "/")
   end
+
+  @doc """
+  The members of `codes` (language codes, as `host_for_language/2` takes them) a page served on
+  `current_host` (a `conn.host`: the host name, no port) can hand a visitor over to: the handoff
+  is enabled, the page's host is one of the site's (`start` refuses any other), and the language
+  has a host of its own that is not the page's. A language that shares the page's host (a sibling
+  dialect, or the page's own language) is not among them.
+
+  The site is read once whatever the length of `codes` (`resolve/0`), and not at all when
+  `current_host` is not a binary: a caller with no host to offer asks the resolver nothing.
+  """
+  @spec hand_over_languages(term(), [String.t()]) :: [String.t()]
+  def hand_over_languages(current_host, codes) when is_binary(current_host) and is_list(codes) do
+    %{hosts: hosts, languages: languages} = resolve()
+
+    with true <- enabled?(hosts),
+         source when is_binary(source) <- own_host(current_host, hosts) do
+      Enum.filter(codes, fn code ->
+        case host_for_language(code, languages) do
+          host when is_binary(host) -> host_name(host) != host_name(source)
+          nil -> false
+        end
+      end)
+    else
+      _ -> []
+    end
+  end
+
+  def hand_over_languages(_current_host, _codes), do: []
 
   @doc """
   The hosts (`host` or `host:port`, as the resolver answers them) a handoff may involve: what

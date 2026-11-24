@@ -153,6 +153,36 @@ hand over to:
 - A visitor who is anonymous, with nothing for any module to carry, is sent
   straight to `<scheme>://<target><to>`: no cookie, no database row.
 
+### The account menus
+
+The language list of the account menus (the admin header's, and
+`PhoenixKitWeb.Components.UserDashboardNav.user_dropdown/1`, the one a host puts in its own
+header) links to `start` by itself, so a visitor who picks a language with a domain of its own
+takes their sign-in and cart along. An entry is a handoff link (a plain `<a href>` with
+`rel="nofollow"`, in a LiveView too: a move to another domain cannot be a LiveView event) when
+the handoff is enabled, the page's host is one of the hosts the resolver names, and the
+language has a host of its own that is not the page's. Every other entry is the plain
+language switch it always was, and a site with no `:canonical_host_resolver` renders the same
+menu as before. The destination is the current path without its locale segment, as the
+language's own domain serves it.
+
+The menu has to know the host the page is served on. The kit's pages get it from the
+`:url_host` assign that the navigation hook sets next to `:url_path`; a host that renders
+`user_dropdown/1` itself passes it, a host name without port:
+
+```heex
+<UserDashboardNav.user_dropdown
+  scope={@phoenix_kit_current_scope}
+  current_path={@url_path}
+  current_locale={@current_locale}
+  current_host={@url_host}
+/>
+```
+
+(`conn.host` in a controller-rendered page.) Without `current_host` the menu keeps its plain
+language switches. A view that calls `LayoutWrapper.app_layout/1` directly passes
+`current_host={assigns[:url_host]}` for the admin header's menu to have it too.
+
 ## robots.txt, logs and analytics
 
 - `Disallow: /phoenix_kit/handoff/` in `robots.txt` (your URL prefix, plus

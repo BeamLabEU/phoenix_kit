@@ -892,13 +892,17 @@ defmodule PhoenixKit.Utils.Routes do
   share one URL, and left a real `/en-gb/...` path in place so the next
   language stacked a prefix that does not route.
 
+  `locale` may be `:none`: the same path with no locale segment at all, as a
+  language's own domain serves it (a link to another domain, see
+  `PhoenixKit.Handoff`).
+
   ## Options
 
     * `:current_locale` — the locale the page is being viewed in. Included in
       the strip set, so an active locale is removed even if it has since been
       disabled.
   """
-  @spec locale_switch_path(String.t() | nil, String.t(), keyword()) :: String.t()
+  @spec locale_switch_path(String.t() | nil, String.t() | :none, keyword()) :: String.t()
   def locale_switch_path(current_path, locale, opts \\ []) do
     url_prefix = Config.get_url_prefix()
     prefix = if url_prefix == "/", do: "", else: url_prefix

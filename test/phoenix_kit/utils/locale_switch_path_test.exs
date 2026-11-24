@@ -160,4 +160,31 @@ defmodule PhoenixKit.Utils.LocaleSwitchPathTest do
                "/phoenix_kit/en/admin"
     end
   end
+
+  describe "locale :none" do
+    test "drops the locale segment and adds none, for a link to a domain that carries the language" do
+      assert Routes.locale_switch_path("/phoenix_kit/ja/users/log-in?from=home", :none) ==
+               "/phoenix_kit/users/log-in?from=home"
+
+      assert Routes.locale_switch_path("/phoenix_kit/users/log-in", :none) ==
+               "/phoenix_kit/users/log-in"
+
+      assert Routes.locale_switch_path("/phoenix_kit/ja/admin/users", :none) ==
+               "/phoenix_kit/admin/users"
+
+      assert Routes.locale_switch_path("/phoenix_kit/ja", :none) == "/phoenix_kit/"
+    end
+
+    test "an active locale that is no longer offered is stripped too" do
+      assert Routes.locale_switch_path("/phoenix_kit/zz/admin", :none, current_locale: "zz") ==
+               "/phoenix_kit/admin"
+    end
+
+    test "a dialect sibling's lowercase segment is stripped" do
+      LanguageSettings.put_languages(~w(en-US en-GB es-ES))
+
+      assert Routes.locale_switch_path("/phoenix_kit/en-gb/users/log-in", :none) ==
+               "/phoenix_kit/users/log-in"
+    end
+  end
 end

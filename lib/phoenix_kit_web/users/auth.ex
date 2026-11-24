@@ -1366,7 +1366,7 @@ defmodule PhoenixKitWeb.Users.Auth do
   defp save_user_locale_preference(_assigns, _locale), do: :ok
 
   defp set_routing_info(params, url, socket) do
-    %{path: path} = URI.parse(url)
+    %{path: path, host: host} = URI.parse(url)
     # Read before the assign below overwrites it — used only to skip a
     # same-path presence update (a query-string-only patch, e.g. sorting or
     # searching on the same admin page) further down this pipe.
@@ -1375,6 +1375,9 @@ defmodule PhoenixKitWeb.Users.Auth do
     socket =
       socket
       |> Phoenix.Component.assign(:url_path, path)
+      # The host the page is served on: the account menu hands a visitor over to a
+      # language's own domain only from a host of the site's (`PhoenixKit.Handoff`).
+      |> Phoenix.Component.assign(:url_host, host)
       |> maybe_update_locale_from_params(params)
       # This hook fires on `handle_params` for every LiveView mounted through
       # PhoenixKit's on_mount chain (admin and host-app public pages alike),

@@ -44,5 +44,15 @@ defmodule PhoenixKitWeb.AdminPageUrlPathTest do
 
       assert socket.assigns.url_path == "/phoenix_kit/admin/users"
     end
+
+    test "assigns :url_host, the host the page is served on", %{conn: conn} do
+      {admin, _token} = create_admin_user()
+      conn = log_in_user(conn, admin)
+
+      {:ok, view, _html} = live(conn, "/phoenix_kit/admin/users")
+      %{socket: socket} = :sys.get_state(view.pid)
+
+      assert socket.assigns.url_host == "www.example.com"
+    end
   end
 end
