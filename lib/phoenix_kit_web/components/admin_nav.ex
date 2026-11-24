@@ -189,11 +189,15 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   languages domains of their own (`PhoenixKit.Handoff`), the language list sends the visitor
   to the language's domain through the cross-domain handoff; without it every entry is the
   plain language switch.
+
+  `language_urls` is the page's own URL per language, for a page whose address differs per
+  language; see `PhoenixKitWeb.Components.AccountMenu.languages/3`.
   """
   attr(:scope, :any, default: nil)
   attr(:current_path, :string, default: "")
   attr(:current_locale, :string, default: "en")
   attr(:current_host, :string, default: nil)
+  attr(:language_urls, :any, default: nil)
   attr(:accounts, :list, default: [])
   attr(:multi_session_allowed?, :boolean, default: false)
   attr(:admin_edit_url, :string, default: nil)
@@ -204,7 +208,12 @@ defmodule PhoenixKitWeb.Components.AdminNav do
 
     # Fewer than two languages is nothing to switch between, and the section
     # renders nothing. Its divider shows only when the dashboard is on.
-    admin_languages = AccountMenu.languages(assigns.current_locale, assigns.current_host)
+    admin_languages =
+      AccountMenu.languages(
+        assigns.current_locale,
+        assigns.current_host,
+        assigns.language_urls
+      )
 
     show_language_divider =
       PhoenixKit.Config.user_dashboard_enabled?() and length(admin_languages) > 1

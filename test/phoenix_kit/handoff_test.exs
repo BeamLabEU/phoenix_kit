@@ -571,7 +571,10 @@ defmodule PhoenixKit.HandoffTest do
 
       # en-GB has no domain of its own: it shares its base's, which is this page's.
       assert Handoff.hand_over_languages("shop.test", codes) ==
-               %{"de-DE" => :host_language, "fr-FR" => :host_language}
+               %{
+                 "de-DE" => %{kind: :host_language, host: "shop-de.test"},
+                 "fr-FR" => %{kind: :host_language, host: "shop-fr.test"}
+               }
 
       from_de = Handoff.hand_over_languages("shop-de.test", codes)
       assert Map.keys(from_de) |> Enum.sort() == ["en-GB", "en-US", "fr-FR"]
@@ -586,9 +589,9 @@ defmodule PhoenixKit.HandoffTest do
       assert Handoff.language_for_host("shop.test") == "en-US"
 
       assert Handoff.hand_over_languages("shop-de.test", ["en-US", "en-GB", "fr-FR"]) == %{
-               "en-US" => :host_language,
-               "en-GB" => :dialect,
-               "fr-FR" => :host_language
+               "en-US" => %{kind: :host_language, host: "shop.test"},
+               "en-GB" => %{kind: :dialect, host: "shop.test"},
+               "fr-FR" => %{kind: :host_language, host: "shop-fr.test"}
              }
     end
 
@@ -613,11 +616,12 @@ defmodule PhoenixKit.HandoffTest do
     test "hand_over_languages/2 compares host names, a port belongs to the entry" do
       Application.put_env(:phoenix_kit, :canonical_host_resolver, {PortResolver, :host})
 
+      # The host is the resolver's entry, port and all: it is what a destination is checked against.
       assert Handoff.hand_over_languages("shop.test", ["en-US", "de-DE"]) ==
-               %{"de-DE" => :host_language}
+               %{"de-DE" => %{kind: :host_language, host: "shop-de.test:8443"}}
 
       assert Handoff.hand_over_languages("shop-de.test", ["en-US", "de-DE"]) ==
-               %{"en-US" => :host_language}
+               %{"en-US" => %{kind: :host_language, host: "shop.test"}}
     end
 
     test "hand_over_languages/2 offers nothing between two ports of one host name" do

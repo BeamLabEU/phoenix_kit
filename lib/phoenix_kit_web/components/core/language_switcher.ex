@@ -1141,23 +1141,68 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
 
   defp resolve_url(base_code, current_path, per_translation_urls)
        when is_list(per_translation_urls) and is_binary(base_code) do
-    case Enum.find(per_translation_urls, fn entry ->
-           entry_base_code(entry) == base_code
-         end) do
-      nil -> generate_base_code_url(base_code, current_path)
-      entry -> entry_url(entry) || generate_base_code_url(base_code, current_path)
-    end
+    translation_url(per_translation_urls, base_code) ||
+      generate_base_code_url(base_code, current_path)
   end
 
   defp resolve_url(base_code, current_path, _),
     do: generate_base_code_url(base_code, current_path)
 
-  defp entry_base_code(%{code: code}) when is_binary(code), do: DialectMapper.extract_base(code)
+  @doc """
+  The URL of the current page in the language `code`, from the page's own list of per-language
+  URLs, or `nil` when the list has none for it.
 
-  defp entry_base_code(%{"code" => code}) when is_binary(code),
-    do: DialectMapper.extract_base(code)
+  `entries` is what publishing hands a host as `phoenix_kit_publishing_translations` (a list of
+  `%{code: ..., url: ...}`, atom- or string-keyed) or a plain map `%{code => url}` (string or
+  atom keys). An entry whose code equals `code` (ignoring case) wins; then the entry of the bare
+  base language (`de-DE` finds `de`); then the first entry of any dialect of that base (`de` finds
+  `de-AT`). An entry that matches
+  but has no usable URL (an unpublished draft) answers `nil`: a sibling dialect's page is not
+  that language's.
 
-  defp entry_base_code(_), do: nil
+  Both the switcher (`:per_translation_urls`) and the account menus (`:language_urls`) read
+  their lists here.
+
+      iex> translation_url([%{code: "de", url: "/de/docs/anfang"}], "de-DE")
+      "/de/docs/anfang"
+  """
+  @spec translation_url(term(), String.t() | nil) :: String.t() | nil
+  def translation_url(entries, code) when is_binary(code) do
+    pairs = entry_pairs(entries)
+    wanted = String.downcase(code)
+    base = base_of(code)
+
+    entry =
+      Enum.find(pairs, fn {entry_code, _url} -> String.downcase(entry_code) == wanted end) ||
+        Enum.find(pairs, fn {entry_code, _url} -> String.downcase(entry_code) == base end) ||
+        Enum.find(pairs, fn {entry_code, _url} -> base_of(entry_code) == base end)
+
+    case entry do
+      {_code, url} when is_binary(url) -> url
+      _ -> nil
+    end
+  end
+
+  def translation_url(_entries, _code), do: nil
+
+  defp base_of(code), do: code |> DialectMapper.extract_base() |> String.downcase()
+
+  # `[{code, url}]` from either shape; entries without a code are skipped.
+  defp entry_pairs(entries) when is_list(entries) do
+    for entry <- entries, {code, url} = entry_pair(entry), is_binary(code), do: {code, url}
+  end
+
+  defp entry_pairs(entries) when is_map(entries) and not is_struct(entries) do
+    for {code, url} <- entries, is_binary(code) or is_atom(code), not is_nil(code) do
+      {to_string(code), url}
+    end
+  end
+
+  defp entry_pairs(_entries), do: []
+
+  defp entry_pair(%{code: code} = entry), do: {code, entry_url(entry)}
+  defp entry_pair(%{"code" => code} = entry), do: {code, entry_url(entry)}
+  defp entry_pair(_entry), do: {nil, nil}
 
   defp entry_url(%{url: url}) when is_binary(url), do: url
   defp entry_url(%{"url" => url}) when is_binary(url), do: url

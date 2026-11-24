@@ -190,8 +190,9 @@ defmodule PhoenixKit.Handoff do
   page's own language) is not among them, and neither is any language while the site has only
   one host (the handoff is not `enabled?/0`).
 
-  A map, `%{code => kind}`. `kind` says what the destination path on the language's domain must
-  look like. `:host_language` when `code` is the language that domain serves without a locale
+  A map, `%{code => %{kind: kind, host: host}}`. `host` is the language's own host, as the
+  resolver answers it (what an absolute URL of that language has to be on). `kind` says what the
+  destination path on the language's domain must look like. `:host_language` when `code` is the language that domain serves without a locale
   segment: `language_for_host/2`, the first enabled language the resolver maps to that host (the
   host application must serve that one at a path with no segment). `:dialect` for any other
   language of that host (a sibling dialect, or a different language the resolver maps to the same
@@ -201,7 +202,9 @@ defmodule PhoenixKit.Handoff do
   `current_host` is not a binary or there is nothing to choose between: a caller with no host to
   offer asks the resolver nothing.
   """
-  @spec hand_over_languages(term(), [String.t()]) :: %{String.t() => :host_language | :dialect}
+  @spec hand_over_languages(term(), [String.t()]) :: %{
+          String.t() => %{kind: :host_language | :dialect, host: String.t()}
+        }
   def hand_over_languages(current_host, [_, _ | _] = codes) when is_binary(current_host) do
     languages = host_languages()
     hosts = languages |> Enum.map(&elem(&1, 1)) |> Enum.uniq()
@@ -212,7 +215,7 @@ defmodule PhoenixKit.Handoff do
             host = host_for_language(code, languages),
             host_name(host) != host_name(source),
             into: %{},
-            do: {code, destination_kind(code, host, languages)}
+            do: {code, %{kind: destination_kind(code, host, languages), host: host}}
 
       nil ->
         %{}
