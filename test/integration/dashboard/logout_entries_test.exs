@@ -3,8 +3,9 @@ defmodule PhoenixKit.Integration.Dashboard.LogoutEntriesTest do
   The log-out entries of the avatar dropdowns are not GET links.
 
   `GET /users/log-out` signs out with no token, so a link that navigates there
-  lets any third-party page sign a visitor out (`<img src=".../users/log-out">`)
-  and lets a prefetcher do it too. Every entry must instead carry
+  lets a third-party page sign a visitor out through a cross-site top-level
+  navigation (a subresource such as an `<img>` carries no `SameSite=Lax`
+  session) and lets a prefetcher do it too. Every entry must instead carry
   `data-method="delete"` and a CSRF token, which phoenix_html turns into a
   token-bearing DELETE form. `<.link navigate=…>` silently drops `method`, so
   the entry stays a plain GET navigation — that is what these tests catch.
@@ -67,7 +68,7 @@ defmodule PhoenixKit.Integration.Dashboard.LogoutEntriesTest do
 
     anchors = logout_anchors(html)
     assert length(anchors) == 2
-    assert Enum.any?(anchors, &(&1 =~ "all=1"))
+    assert Enum.any?(anchors, &(&1 =~ ~r/data-to="[^"]*\/users\/log-out\?all=1"/))
     assert_not_a_get_navigation(anchors)
   end
 
@@ -88,7 +89,7 @@ defmodule PhoenixKit.Integration.Dashboard.LogoutEntriesTest do
 
     anchors = logout_anchors(html)
     assert length(anchors) == 2
-    assert Enum.any?(anchors, &(&1 =~ "all=1"))
+    assert Enum.any?(anchors, &(&1 =~ ~r/data-to="[^"]*\/users\/log-out\?all=1"/))
     assert_not_a_get_navigation(anchors)
   end
 end
