@@ -66,6 +66,18 @@ defmodule PhoenixKit.Integration.Languages.MenuHandoffTest do
   defp hrefs_of(nodes), do: LazyHTML.attribute(nodes, "href")
 
   defp handoff_links(html), do: hrefs(html, "a[rel=nofollow]")
+
+  # What an entry leads to: the href of a link, the url an event button hands to the LiveView.
+  defp handoff_urls(html, :link), do: handoff_links(html)
+
+  defp handoff_urls(html, :event) do
+    html
+    |> doc()
+    |> LazyHTML.query("button[phx-value-url]")
+    |> LazyHTML.attribute("phx-value-url")
+    |> Enum.filter(&String.starts_with?(&1, "/phoenix_kit/handoff/start"))
+  end
+
   defp langs(html, selector), do: html |> doc() |> LazyHTML.query(selector) |> lang_of()
   defp lang_of(nodes), do: LazyHTML.attribute(nodes, "lang")
 
@@ -81,20 +93,37 @@ defmodule PhoenixKit.Integration.Languages.MenuHandoffTest do
 
   describe "a language with a host of its own, other than the page's" do
     for switch <- [:link, :event] do
-      test "is a plain link to the handoff start in #{switch} mode" do
+      test "leads to the handoff start in #{switch} mode" do
         html = section(host: "shop.test", switch: unquote(switch))
 
-        assert handoff_links(html) == [
+        assert handoff_urls(html, unquote(switch)) == [
                  "/phoenix_kit/handoff/start?lang=de-DE&to=%2Fphoenix_kit%2Fusers%2Flog-in%3Ffrom%3Dhome",
                  "/phoenix_kit/handoff/start?lang=fr-FR&to=%2Fphoenix_kit%2Fusers%2Flog-in%3Ffrom%3Dhome"
                ]
 
-        # A cross-domain move cannot be a LiveView event: no button, no click, no locale value.
-        refute html =~ "phx-click"
-        refute html =~ "phx-value-locale"
-        refute html =~ "<button"
-        assert langs(html, "a [lang]") == ["de-DE", "fr-FR"]
+        assert langs(html, "a [lang], button [lang]") == ["de-DE", "fr-FR"]
       end
+    end
+
+    test "is a plain nofollow link in link mode" do
+      html = section(host: "shop.test", switch: :link)
+      nodes = html |> doc() |> LazyHTML.query("a[rel=nofollow]")
+
+      assert LazyHTML.attribute(nodes, "href") |> length() == 2
+      assert html |> doc() |> LazyHTML.query("button") |> LazyHTML.attribute("type") == []
+    end
+
+    test "stays the locale event in event mode, so the person's choice is still saved" do
+      html = section(host: "shop.test", switch: :event)
+      nodes = html |> doc() |> LazyHTML.query("button")
+
+      assert LazyHTML.attribute(nodes, "phx-click") == [
+               "phoenix_kit_set_locale",
+               "phoenix_kit_set_locale"
+             ]
+
+      assert LazyHTML.attribute(nodes, "phx-value-locale") == ["de-DE", "fr-FR"]
+      assert html |> doc() |> LazyHTML.query("a") |> LazyHTML.attribute("href") == []
     end
 
     test "carries the path the target domain serves, without a locale segment" do
@@ -120,6 +149,36 @@ defmodule PhoenixKit.Integration.Languages.MenuHandoffTest do
              )
     end
 
+    test "keeps the dialect's own segment when the target host serves another dialect first" do
+      {:ok, _} = Languages.add_language("en-GB")
+
+      for switch <- [:link, :event] do
+        html =
+          section(
+            host: "shop-de.test",
+            locale: "de-DE",
+            path: "/phoenix_kit/de/users/log-in",
+            switch: switch
+          )
+
+        # shop.test serves en-US without a segment; en-GB is its sibling, at /en-gb.
+        assert handoff_urls(html, switch) == [
+                 "/phoenix_kit/handoff/start?lang=en-US&to=%2Fphoenix_kit%2Fusers%2Flog-in",
+                 "/phoenix_kit/handoff/start?lang=fr-FR&to=%2Fphoenix_kit%2Fusers%2Flog-in",
+                 "/phoenix_kit/handoff/start?lang=en-GB&to=%2Fphoenix_kit%2Fen-gb%2Fusers%2Flog-in"
+               ]
+      end
+    end
+
+    test "a bare locale root with a query loses its segment" do
+      html = section(host: "shop.test", path: "/phoenix_kit/en?x=1")
+
+      assert Enum.all?(
+               handoff_links(html),
+               &String.ends_with?(&1, "to=%2Fphoenix_kit%2F%3Fx%3D1")
+             )
+    end
+
     test "the host is compared by name, in any case" do
       assert section(host: "SHOP.test") == section(host: "shop.test")
     end
@@ -141,10 +200,9 @@ defmodule PhoenixKit.Integration.Languages.MenuHandoffTest do
 
     test "a language without a host of its own keeps today's event in event mode" do
       html = section(host: "shop.test", switch: :event)
-      nodes = html |> doc() |> LazyHTML.query("button")
+      nodes = html |> doc() |> LazyHTML.query("button[phx-value-locale=ja]")
 
       assert LazyHTML.attribute(nodes, "phx-click") == ["phoenix_kit_set_locale"]
-      assert LazyHTML.attribute(nodes, "phx-value-locale") == ["ja"]
 
       assert LazyHTML.attribute(nodes, "phx-value-url") ==
                ["/phoenix_kit/ja/users/log-in?from=home"]
@@ -301,12 +359,10 @@ defmodule PhoenixKit.Integration.Languages.MenuHandoffTest do
         />
         """)
 
-      assert handoff_links(html) == [
+      assert handoff_urls(html, :event) == [
                "/phoenix_kit/handoff/start?lang=de-DE&to=%2Fphoenix_kit%2Fadmin",
                "/phoenix_kit/handoff/start?lang=fr-FR&to=%2Fphoenix_kit%2Fadmin"
              ]
-
-      refute html =~ "phx-value-locale"
     end
   end
 end

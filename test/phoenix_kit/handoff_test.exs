@@ -570,34 +570,67 @@ defmodule PhoenixKit.HandoffTest do
       codes = ["en-US", "en-GB", "de-DE", "fr-FR", "ja"]
 
       # en-GB has no domain of its own: it shares its base's, which is this page's.
-      assert Handoff.hand_over_languages("shop.test", codes) == ["de-DE", "fr-FR"]
-      assert Handoff.hand_over_languages("shop-de.test", codes) == ["en-US", "en-GB", "fr-FR"]
-      assert Handoff.hand_over_languages("SHOP-DE.test", codes) == ["en-US", "en-GB", "fr-FR"]
+      assert Handoff.hand_over_languages("shop.test", codes) ==
+               %{"de-DE" => :host_language, "fr-FR" => :host_language}
+
+      from_de = Handoff.hand_over_languages("shop-de.test", codes)
+      assert Map.keys(from_de) |> Enum.sort() == ["en-GB", "en-US", "fr-FR"]
+      assert Handoff.hand_over_languages("SHOP-DE.test", codes) == from_de
+    end
+
+    test "hand_over_languages/2 tells the language a host serves from a dialect sharing its host" do
+      {:ok, _} = Languages.add_language("en-GB")
+
+      # shop.test serves en-US (the first enabled language of that host); a visitor who picks
+      # en-GB must land on en-GB's own URL there, not on the host's default dialect.
+      assert Handoff.language_for_host("shop.test") == "en-US"
+
+      assert Handoff.hand_over_languages("shop-de.test", ["en-US", "en-GB", "fr-FR"]) == %{
+               "en-US" => :host_language,
+               "en-GB" => :dialect,
+               "fr-FR" => :host_language
+             }
     end
 
     test "hand_over_languages/2 offers nothing from a page the handoff cannot start on" do
       codes = ["en-US", "de-DE", "fr-FR"]
 
       # `start` refuses a host that is not one of the site's: the plain link is the better one.
-      assert Handoff.hand_over_languages("www.example.com", codes) == []
-      assert Handoff.hand_over_languages("shop-de.test.evil.test", codes) == []
-      assert Handoff.hand_over_languages(nil, codes) == []
-      assert Handoff.hand_over_languages(5, codes) == []
+      assert Handoff.hand_over_languages("www.example.com", codes) == %{}
+      assert Handoff.hand_over_languages("shop-de.test.evil.test", codes) == %{}
+      assert Handoff.hand_over_languages(nil, codes) == %{}
+      assert Handoff.hand_over_languages(5, codes) == %{}
     end
 
     test "hand_over_languages/2 offers nothing while the handoff is disabled" do
       Application.put_env(:phoenix_kit, :canonical_host_resolver, {OneHostResolver, :host})
-      assert Handoff.hand_over_languages("only.test", ["en-US", "de-DE"]) == []
+      assert Handoff.hand_over_languages("only.test", ["en-US", "de-DE"]) == %{}
 
       Application.delete_env(:phoenix_kit, :canonical_host_resolver)
-      assert Handoff.hand_over_languages("shop.test", ["en-US", "de-DE"]) == []
+      assert Handoff.hand_over_languages("shop.test", ["en-US", "de-DE"]) == %{}
     end
 
     test "hand_over_languages/2 compares host names, a port belongs to the entry" do
       Application.put_env(:phoenix_kit, :canonical_host_resolver, {PortResolver, :host})
 
-      assert Handoff.hand_over_languages("shop.test", ["en-US", "de-DE"]) == ["de-DE"]
-      assert Handoff.hand_over_languages("shop-de.test", ["en-US", "de-DE"]) == ["en-US"]
+      assert Handoff.hand_over_languages("shop.test", ["en-US", "de-DE"]) ==
+               %{"de-DE" => :host_language}
+
+      assert Handoff.hand_over_languages("shop-de.test", ["en-US", "de-DE"]) ==
+               %{"en-US" => :host_language}
+    end
+
+    test "hand_over_languages/2 offers nothing between two ports of one host name" do
+      defmodule SameNameResolver do
+        def host("en"), do: "localhost:4000"
+        def host("de"), do: "localhost:4001"
+        def host(_), do: nil
+      end
+
+      Application.put_env(:phoenix_kit, :canonical_host_resolver, {SameNameResolver, :host})
+
+      # `start` compares host names (`same_host?/2`) and refuses a handoff between them.
+      assert Handoff.hand_over_languages("localhost", ["en-US", "de-DE"]) == %{}
     end
 
     test "hand_over_languages/2 asks the resolver once per language, whatever the list's length" do
@@ -612,15 +645,8 @@ defmodule PhoenixKit.HandoffTest do
 
     test "hand_over_languages/2 asks nothing without a page host" do
       flush_resolver_questions()
-      assert Handoff.hand_over_languages(nil, ["en-US", "de-DE"]) == []
+      assert Handoff.hand_over_languages(nil, ["en-US", "de-DE"]) == %{}
       assert flush_resolver_questions() == []
-    end
-
-    test "enabled?/1 judges a list of hosts already read" do
-      assert Handoff.enabled?(["a.test", "b.test"])
-      refute Handoff.enabled?(["a.test"])
-      refute Handoff.enabled?([])
-      assert Handoff.enabled?(nil)
     end
 
     test "with no resolver, or one host, a handoff is not enabled" do

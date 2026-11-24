@@ -1,17 +1,22 @@
 defmodule PhoenixKitWeb.Live.AdminMenuHandoffTest do
   @moduledoc """
-  The page's host reaches the admin account menu on its own for a LiveView rendered through the
-  admin layout: the navigation hook assigns `:url_host`, `layouts/admin.html.heex` hands it to
-  `app_layout/1`, and the menu's language list hands the visitor over to the other language's
-  domain through the cross-domain handoff.
+  The page's host reaches the admin account menu on every admin page of the kit, and the menu's
+  language list hands the visitor over to the other language's domain through the cross-domain
+  handoff.
+
+  Three routes carry the host: `layouts/admin.html.heex` (plugin pages), the page's own socket
+  (`LayoutWrapper.app_layout/1` called directly, most of the kit's admin pages) and an explicit
+  `current_host` (the few that pass no socket).
 
   The test endpoint serves `www.example.com`, so that is the site's English host here.
   """
   use PhoenixKitWeb.ConnCase, async: false
 
   alias PhoenixKit.Modules.Languages
+  alias PhoenixKit.Users.Auth.User
 
-  @path "/phoenix_kit/admin/__test/admin-edit-probe"
+  @probe "/phoenix_kit/admin/__test/admin-edit-probe"
+  @start "/phoenix_kit/handoff/start?lang=de-DE&to="
 
   defmodule Resolver do
     def host("en"), do: "www.example.com"
@@ -26,37 +31,84 @@ defmodule PhoenixKitWeb.Live.AdminMenuHandoffTest do
     :ok
   end
 
-  defp menu_links(html) do
+  defp resolver!,
+    do: Application.put_env(:phoenix_kit, :canonical_host_resolver, {Resolver, :host})
+
+  defp menu(html) do
     [menu] = Regex.run(~r/<ul[^>]*id="pk-admin-account-menu".*?<\/ul>/s, html)
     LazyHTML.from_fragment(menu)
   end
 
-  test "the other language's domain is a handoff link, not a language switch", %{conn: conn} do
-    Application.put_env(:phoenix_kit, :canonical_host_resolver, {Resolver, :host})
-    {admin, _} = create_admin_user()
-    {:ok, _lv, html} = live(log_in_user(conn, admin), @path)
+  defp language_buttons(html), do: LazyHTML.query(menu(html), "button[phx-value-locale]")
 
-    menu = menu_links(html)
-    links = LazyHTML.query(menu, "a[rel=nofollow]")
+  defp urls(html),
+    do: html |> language_buttons() |> LazyHTML.attribute("phx-value-url")
 
-    assert LazyHTML.attribute(links, "href") ==
-             [
-               "/phoenix_kit/handoff/start?lang=de-DE&to=%2Fphoenix_kit%2Fadmin%2F__test%2Fadmin-edit-probe"
-             ]
+  # Every page of the kit that wears the admin chrome, by the way it learns the host.
+  @pages [
+    {"a plugin page (admin layout)", "/phoenix_kit/admin/__test/admin-edit-probe"},
+    {"a page that passes its socket", "/phoenix_kit/admin/users"},
+    {"the admin dashboard", "/phoenix_kit/admin"},
+    {"a page that passes no socket", "/phoenix_kit/admin/settings/media"},
+    {"another page that passes no socket", "/phoenix_kit/admin/settings/emails-bulk"}
+  ]
 
-    assert LazyHTML.query(menu, "[phx-value-locale]") |> LazyHTML.attribute("phx-value-locale") ==
-             []
+  for {name, path} <- @pages do
+    test "the other language's domain is a handoff url on #{name}", %{conn: conn} do
+      resolver!()
+      {admin, _} = create_admin_user()
+      {:ok, _lv, html} = live(log_in_user(conn, admin), unquote(path))
+
+      assert [url] = urls(html)
+      assert String.starts_with?(url, @start)
+      assert URI.decode_www_form(String.replace_prefix(url, @start, "")) =~ "/phoenix_kit/admin"
+    end
+
+    test "without a domain map #{name} keeps the plain language switch", %{conn: conn} do
+      {admin, _} = create_admin_user()
+      {:ok, _lv, html} = live(log_in_user(conn, admin), unquote(path))
+
+      assert [url] = urls(html)
+      refute url =~ "/handoff/"
+    end
   end
 
-  test "without a domain map the menu is the plain language switch", %{conn: conn} do
+  test "picking the language through the handoff still saves the preference", %{conn: conn} do
+    resolver!()
     {admin, _} = create_admin_user()
-    {:ok, _lv, html} = live(log_in_user(conn, admin), @path)
+    {:ok, lv, _html} = live(log_in_user(conn, admin), @probe)
 
-    menu = menu_links(html)
+    result =
+      lv
+      |> element("#pk-admin-account-menu button[phx-value-locale=de-DE]")
+      |> render_click()
 
-    assert LazyHTML.query(menu, "a[rel=nofollow]") |> LazyHTML.attribute("href") == []
+    # `start` is a controller, not a LiveView: the handler sends the browser there with a full
+    # page load, not a navigation that stays on the socket.
+    assert {:error, {:redirect, %{to: to}}} = result
+    assert String.starts_with?(to, @start)
 
-    assert LazyHTML.query(menu, "button[phx-value-locale]")
-           |> LazyHTML.attribute("phx-value-locale") == ["de-DE"]
+    assert Repo.get!(User, admin.uuid).custom_fields["preferred_locale"] == "de-DE"
+  end
+
+  describe "what the start endpoint does with the menu's url" do
+    defp start(url, host) do
+      Phoenix.ConnTest.build_conn()
+      |> Map.put(:host, host)
+      |> Plug.Conn.put_req_header("sec-fetch-site", "same-origin")
+      |> Plug.Conn.put_req_header("sec-fetch-dest", "document")
+      |> get(url)
+    end
+
+    test "the dialect's own segment survives the redirect" do
+      resolver!()
+      {:ok, _} = Languages.add_language("en-GB")
+
+      url =
+        PhoenixKit.Handoff.start_path("en-GB", "/phoenix_kit/en-gb/users/log-in")
+
+      conn = start(url, "shop-de.test")
+      assert redirected_to(conn, 302) == "https://www.example.com/phoenix_kit/en-gb/users/log-in"
+    end
   end
 end

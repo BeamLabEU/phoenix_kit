@@ -943,16 +943,21 @@ defmodule PhoenixKit.Utils.Routes do
 
   def served_locale?(_locale), do: false
 
-  # Drop a leading locale segment, leaving "/" when it was the whole path.
+  # Drop a leading locale segment, leaving "/" when it was the whole path. The segment ends at
+  # the next "/", "?" or "#": `/de?x=1` is the German root with a query.
   defp strip_locale_segment(path, current_locale) do
     known = switchable_locale_codes(current_locale)
 
-    case String.split(path, "/", parts: 3) do
-      ["", segment, rest] -> if segment in known, do: "/" <> rest, else: nonempty(path)
-      ["", segment] -> if segment in known, do: "/", else: nonempty(path)
+    with [_, segment, rest] <- Regex.run(~r{\A/([^/?#]*)(.*)\z}s, path),
+         true <- segment in known do
+      root_of(rest)
+    else
       _ -> nonempty(path)
     end
   end
+
+  defp root_of("/" <> _ = rest), do: rest
+  defp root_of(rest), do: "/" <> rest
 
   defp nonempty(""), do: "/"
   defp nonempty(path), do: path

@@ -164,11 +164,10 @@ defmodule PhoenixKit.Handoff do
 
   @doc """
   Whether a handoff can happen on this site: the host's `:canonical_host_resolver` names at least
-  two hosts for the enabled languages. A host keeps plain links when this is `false`. `hosts` is
-  `allowed_hosts/0`, when already read.
+  two hosts for the enabled languages. A host keeps plain links when this is `false`.
   """
-  @spec enabled?([String.t()] | nil) :: boolean()
-  def enabled?(hosts \\ nil), do: match?([_, _ | _], hosts || allowed_hosts())
+  @spec enabled?() :: boolean()
+  def enabled?, do: match?([_, _ | _], allowed_hosts())
 
   @doc """
   The path (with the PhoenixKit URL prefix, no locale segment) of the `start` endpoint for a link
@@ -185,32 +184,47 @@ defmodule PhoenixKit.Handoff do
 
   @doc """
   The members of `codes` (language codes, as `host_for_language/2` takes them) a page served on
-  `current_host` (a `conn.host`: the host name, no port) can hand a visitor over to: the handoff
-  is enabled, the page's host is one of the site's (`start` refuses any other), and the language
-  has a host of its own that is not the page's. A language that shares the page's host (a sibling
-  dialect, or the page's own language) is not among them.
+  `current_host` (a `conn.host`: the host name, no port) can hand a visitor over to: the page's
+  host is one of the site's (`start` refuses any other), and the language has a host of its own
+  that is not the page's. A language that shares the page's host (a sibling dialect, or the
+  page's own language) is not among them, and neither is any language while the site has only
+  one host (the handoff is not `enabled?/0`).
+
+  A map, `%{code => kind}`. `kind` says what the destination path on the language's domain must
+  look like: `:host_language` when `code` is the language that domain serves (`language_for_host/2`:
+  the path carries no locale segment), `:dialect` when the domain serves another dialect of the
+  same base first, so the destination must keep `code`'s own segment to land on its page.
 
   The site is read once whatever the length of `codes` (`resolve/0`), and not at all when
-  `current_host` is not a binary: a caller with no host to offer asks the resolver nothing.
+  `current_host` is not a binary or there is nothing to choose between: a caller with no host to
+  offer asks the resolver nothing.
   """
-  @spec hand_over_languages(term(), [String.t()]) :: [String.t()]
-  def hand_over_languages(current_host, codes) when is_binary(current_host) and is_list(codes) do
+  @spec hand_over_languages(term(), [String.t()]) :: %{String.t() => :host_language | :dialect}
+  def hand_over_languages(current_host, [_, _ | _] = codes) when is_binary(current_host) do
     %{hosts: hosts, languages: languages} = resolve()
 
-    with true <- enabled?(hosts),
-         source when is_binary(source) <- own_host(current_host, hosts) do
-      Enum.filter(codes, fn code ->
-        case host_for_language(code, languages) do
-          host when is_binary(host) -> host_name(host) != host_name(source)
-          nil -> false
-        end
-      end)
-    else
-      _ -> []
+    case own_host(current_host, hosts) do
+      source when is_binary(source) ->
+        for code <- codes,
+            host = host_for_language(code, languages),
+            host_name(host) != host_name(source),
+            into: %{},
+            do: {code, destination_kind(code, host, languages)}
+
+      nil ->
+        %{}
     end
   end
 
-  def hand_over_languages(_current_host, _codes), do: []
+  def hand_over_languages(_current_host, _codes), do: %{}
+
+  defp destination_kind(code, host, languages) do
+    served = language_for_host(host_name(host), languages)
+
+    if is_binary(served) and String.downcase(served) == String.downcase(code),
+      do: :host_language,
+      else: :dialect
+  end
 
   @doc """
   The hosts (`host` or `host:port`, as the resolver answers them) a handoff may involve: what

@@ -175,6 +175,21 @@ defmodule PhoenixKit.Utils.LocaleSwitchPathTest do
       assert Routes.locale_switch_path("/phoenix_kit/ja", :none) == "/phoenix_kit/"
     end
 
+    test "a bare locale root loses its segment whatever follows it" do
+      assert Routes.locale_switch_path("/phoenix_kit/ja?x=1", :none) == "/phoenix_kit/?x=1"
+      assert Routes.locale_switch_path("/phoenix_kit/ja#top", :none) == "/phoenix_kit/#top"
+      assert Routes.locale_switch_path("/phoenix_kit/ja/?x=1", :none) == "/phoenix_kit/?x=1"
+
+      # A segment that merely starts like a locale is not one.
+      assert Routes.locale_switch_path("/phoenix_kit/jaguar?x=1", :none) ==
+               "/phoenix_kit/jaguar?x=1"
+    end
+
+    test "a bare locale root with a query is replaced, not stacked, by a switch" do
+      refute Routes.locale_switch_path("/phoenix_kit/ja?x=1", "es") =~ "/ja"
+      assert Routes.locale_switch_path("/phoenix_kit/ja?x=1", "es") =~ "/es"
+    end
+
     test "an active locale that is no longer offered is stripped too" do
       assert Routes.locale_switch_path("/phoenix_kit/zz/admin", :none, current_locale: "zz") ==
                "/phoenix_kit/admin"

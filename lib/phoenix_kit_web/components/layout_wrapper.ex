@@ -121,7 +121,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   attr :current_host, :string,
     default: nil,
     doc:
-      "The host name the page is served on (no port). The admin header's account menu uses it to hand a visitor over to a language's own domain (`PhoenixKit.Handoff`); `nil` keeps plain language switches. `layouts/admin.html.heex` threads it from the LiveView's `:url_host` by itself; a view calling `app_layout/1` directly passes `current_host={assigns[:url_host]}`."
+      "The host name the page is served on (no port). The admin header's account menu uses it to hand a visitor over to a language's own domain (`PhoenixKit.Handoff`); `nil` keeps plain language switches. Taken from the page's `socket` when not given, so a view that passes its socket needs nothing; `layouts/admin.html.heex` threads the LiveView's `:url_host`; a view that passes neither passes `current_host={assigns[:url_host]}`."
 
   attr :inner_content, :string, default: nil
   attr :project_title, :string, default: nil
@@ -823,6 +823,12 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
     end
   end
 
+  # The host the page is served on, from the page's own socket: the kit's admin pages call
+  # `app_layout/1` directly and pass the socket, so the account menu learns the host without
+  # each of them passing it. `host_uri` is `:not_mounted_at_router` outside a router.
+  defp socket_host(%{host_uri: %URI{host: host}}) when is_binary(host), do: host
+  defp socket_host(_socket), do: nil
+
   # Wrap inner_block with admin navigation if needed
   # Extracted so `wrap_inner_block_with_admin_nav_if_needed/1` stays under the
   # complexity ceiling — it is a plain projection of the caller's assigns onto
@@ -845,7 +851,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
       home_path: Routes.locale_aware_home_path(assigns, assigns[:socket]),
       phoenix_kit_current_user: assigns[:phoenix_kit_current_user],
       current_path: assigns[:current_path],
-      current_host: assigns[:current_host],
+      current_host: assigns[:current_host] || socket_host(assigns[:socket]),
       page_title: assigns[:page_title],
       page_subtitle: assigns[:page_subtitle],
       page_section: assigns[:page_section],
