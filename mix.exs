@@ -200,7 +200,7 @@ defmodule PhoenixKit.MixProject do
       # `priv/static/assets/phoenix_kit.js` loads the browser half from the
       # host's own copy of the Hex package's file, so an open ceiling lets a
       # host float past the API phoenix_kit.js was written against.
-      # `~> 0.13.0` is `>= 0.13.0 and < 0.14.0`, so the next leaf minor needs a
+      # `~> 0.13.3` is `>= 0.13.3 and < 0.14.0`, so the next leaf minor needs a
       # requirement move and a read of phoenix_kit.js's use of it. No test
       # holds the ceiling (leaf_bundle_pin_test.exs went with the CDN pin).
       # 0.9 added tag previews and `media_url`; 0.10 sanitizes what it renders
@@ -426,9 +426,9 @@ defmodule PhoenixKit.MixProject do
       # connection reaches the sharpest one; a photo added offline is uploaded
       # through the host's uploader before the sync (embedded, a phone photo
       # made the save too big to arrive, and it never did); and "Synced"
-      # is said once the server has confirmed it. 0.29.1 clears the device's
-      # offline copies on logout (`Etcher.offline.beforeLogout`, which
-      # phoenix_kit.js calls).
+      # is said once the server has confirmed it. 0.29.1 adds
+      # `Etcher.offline.beforeLogout`, `forget`, and `pending` for clearing a
+      # device's offline copies on logout.
       {:etcher, "~> 0.29.2"},
 
       # QR device-handoff login ("scan to sign in" on the login page).

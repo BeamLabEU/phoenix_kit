@@ -15,8 +15,10 @@ defmodule PhoenixKit.Integration.Dashboard.LogoutEntriesTest do
   import Phoenix.Component, only: [sigil_H: 2]
   import Phoenix.LiveViewTest, only: [rendered_to_string: 1]
 
+  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Components.{AdminNav, UserDashboardNav}
 
   defp scope! do
@@ -91,5 +93,52 @@ defmodule PhoenixKit.Integration.Dashboard.LogoutEntriesTest do
     assert length(anchors) == 2
     assert Enum.any?(anchors, &(&1 =~ ~r/data-to="[^"]*\/users\/log-out\?all=1"/))
     assert_not_a_get_navigation(anchors)
+  end
+
+  test "the admin sidebar user info card's log-out entry posts a DELETE" do
+    assigns = %{scope: scope!()}
+
+    html =
+      rendered_to_string(~H"""
+      <AdminNav.admin_user_info scope={@scope} />
+      """)
+
+    anchors = logout_anchors(html)
+    assert length(anchors) == 1
+    assert_not_a_get_navigation(anchors)
+  end
+
+  test "both dropdowns carry the visitor's locale in their log-out targets" do
+    {:ok, _} = Languages.enable_system()
+    {:ok, _} = Languages.add_language("de-DE")
+    scope = scope!()
+    assigns = %{scope: scope, accounts: scope.multi_session_accounts}
+
+    user_html =
+      rendered_to_string(~H"""
+      <UserDashboardNav.user_dropdown scope={@scope} current_path="/" current_locale="de-DE" />
+      """)
+
+    admin_html =
+      rendered_to_string(~H"""
+      <AdminNav.admin_user_dropdown
+        scope={@scope}
+        accounts={@accounts}
+        multi_session_allowed?={true}
+        current_path="/"
+        current_locale="de-DE"
+      />
+      """)
+
+    expected = Routes.path("/users/log-out", locale: "de")
+    assert expected =~ "/de/users/log-out"
+
+    for html <- [user_html, admin_html] do
+      anchors = logout_anchors(html)
+      assert length(anchors) == 2
+      assert Enum.any?(anchors, &(&1 =~ ~s(data-to="#{expected}")))
+      assert Enum.any?(anchors, &(&1 =~ ~s(data-to="#{expected}?all=1")))
+      assert_not_a_get_navigation(anchors)
+    end
   end
 end
