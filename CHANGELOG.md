@@ -1,4 +1,41 @@
-## Unreleased
+## 3.8.0 - 2026-11-24
+
+### Added
+
+- **Cross-domain handoff (#1058, migration V236).** A host serving several domains from one
+  app (for example one domain per language, resolved through `:canonical_host_resolver`) can
+  carry a sign-in and per-module state across domains: four GET endpoints
+  (`/handoff/start|prepare|mint|redeem`; `/handoff` is a reserved segment), a one-time token
+  bound to the visitor's browser, the target host, a nonce and the User-Agent, and module
+  hooks that carry and re-apply their own state. Impersonated and organization-acting
+  sessions are refused. Run V236 (`mix phoenix_kit.update`) before linking to `start`.
+  `PhoenixKit.Handoff` is the API (`start_path/2`, `allowed_hosts/0`, `enabled?/0`). Full
+  reference: `guides/cross-domain-handoff.md`.
+- **The account menus' language switch goes through the handoff (#1060).** An alternative
+  language that has a host of its own, different from the host the page is served on, now
+  leads to `/handoff/start`: an `<a rel="nofollow">` in the link mode, the saved-preference
+  `phoenix_kit_set_locale` event redirecting there in the admin header. New
+  `Handoff.hand_over_languages/2`; the menus learn the page's host from a `current_host` attr
+  (threaded by both layouts, `LayoutWrapper.app_layout/1` and the `:url_host` assign of every
+  kit-mounted LiveView). `Routes.locale_switch_path/3` accepts `locale: :none` and now strips
+  a bare locale root that carries a query (`/de?x=1`).
+- **`in_menu: true` tab key for `nav_tabs` with `overflow={:menu}` (#1054).** Keeps a named
+  tab behind «⋯» on every width, rendered server-side; the active tab always stays in the
+  strip.
+- **MediaBrowser embed options, and one security fix (#1055).** `comments: false` and
+  `show_path: false`; the viewer's annotation gate now honours `own_files_only` — previously
+  an embedded outside viewer could draw on, reply to and wipe the annotations of a file
+  someone else uploaded.
+- **A host-defined file mark in MediaBrowser (#1056).** `mark: %{uuids:, icon:, on_label:,
+  off_label:, unmark_label:}` — a host-owned on/off set on tiles, in the list view, the kebab
+  menu and the viewer sidebar; the browser persists nothing, the host owns the
+  `{:set_mark, _, _}` event.
+- **MediaViewer embedding options (#1057).** `can_annotate`, `own_files_only`, `write_scope`,
+  `comments`, `annotate_only`, `details: false` and `authors: false` pass through to the
+  standalone lightbox; forged events no longer crash the component and prev/next only land on
+  files that may be shown.
+- **"Other versions" in the media viewer's sidebar (#1059).** The variants dropdown no
+  longer reads "Download" twice.
 
 ### Fixed
 
@@ -7,6 +44,11 @@
   ancestor, here the account menu's own list. The submenu read that as focus leaving it and
   closed before the click arrived. Focus landing on an ancestor of the submenu no longer
   closes it.
+- The locale-switch event no longer sends a full-page redirect for a forged `phx-value-url`
+  carrying ASCII control characters: the handoff branch of `Auth.leave_for/2` runs the target
+  through `Routes.local_path?/1` first (#1060 review).
+- Review fixes from the post-3.7.0 PRs (#1054–#1059), including the gettext catalog after the
+  #1058 merge.
 
 ## 3.7.0 - 2026-11-22
 

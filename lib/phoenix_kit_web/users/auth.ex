@@ -1353,13 +1353,18 @@ defmodule PhoenixKitWeb.Users.Auth do
 
   # The cross-domain handoff's `start` is a controller, not a LiveView: a full page load takes
   # the browser there at once, where `push_navigate` would try a socket join first, which the
-  # server refuses with a warning before the client falls back to the same page load.
+  # server refuses with a warning before the client falls back to the same page load. `url`
+  # comes from the event's params, so the full redirect goes through `Routes.local_path?/1`
+  # like every redirect of user-influenced input — LiveView's own check lets some ASCII
+  # control characters through, and browsers strip them from the URL. The start itself is matched
+  # as a whole path segment: `/handoff/startx` is not it.
   defp leave_for(socket, url) do
     start = Routes.path("/handoff/start")
 
-    if url == start or String.starts_with?(url, [start <> "?", start <> "/"]),
-      do: Phoenix.LiveView.redirect(socket, to: url),
-      else: Phoenix.LiveView.push_navigate(socket, to: url)
+    if Routes.local_path?(url) and
+         (url == start or String.starts_with?(url, [start <> "?", start <> "/"])),
+       do: Phoenix.LiveView.redirect(socket, to: url),
+       else: Phoenix.LiveView.push_navigate(socket, to: url)
   end
 
   defp save_user_locale_preference(%{phoenix_kit_current_user: %{} = user}, locale)
