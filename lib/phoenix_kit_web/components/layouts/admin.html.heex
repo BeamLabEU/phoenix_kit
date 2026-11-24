@@ -22,7 +22,6 @@
     assigns[:url_path] || assigns[:current_path] ||
       PhoenixKit.Dashboard.Registry.path_for_live_view(@socket.view)
   }
-  current_host={assigns[:url_host]}
   current_locale={assigns[:current_locale]}
   page_title={assigns[:page_title]}
   page_subtitle={assigns[:page_subtitle]}

@@ -121,7 +121,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   attr :current_host, :string,
     default: nil,
     doc:
-      "The host name the page is served on (no port). The admin header's account menu uses it to hand a visitor over to a language's own domain (`PhoenixKit.Handoff`); `nil` keeps plain language switches. Taken from the page's `socket` when not given, so a view that passes its socket needs nothing; `layouts/admin.html.heex` threads the LiveView's `:url_host`; a view that passes neither passes `current_host={assigns[:url_host]}`."
+      "The host name the page is served on (no port). The admin header's account menu uses it to hand a visitor over to a language's own domain (`PhoenixKit.Handoff`); `nil` keeps plain language switches. Taken from the page's `socket` when not given, so a view that passes its socket (as `layouts/admin.html.heex` does) needs nothing; a view that passes no socket passes `current_host={assigns[:url_host]}`."
 
   attr :inner_content, :string, default: nil
   attr :project_title, :string, default: nil

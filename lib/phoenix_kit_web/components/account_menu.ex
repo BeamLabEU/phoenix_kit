@@ -123,8 +123,9 @@ defmodule PhoenixKitWeb.Components.AccountMenu do
   the link mode gets `rel="nofollow"`, and the event mode keeps its event
   (the person's choice is still saved), whose handler leaves the page for that
   url. The destination is the current path as the language's own domain serves
-  it: with no locale segment, unless that domain serves another dialect of the
-  language first, and then the dialect's own segment stays.
+  it: with no locale segment, unless another enabled language is listed first
+  for that domain (a sibling dialect, say), and then the language's own segment
+  stays.
   """
   attr :languages, :list, required: true
   attr :current_path, :string, required: true
@@ -183,8 +184,8 @@ defmodule PhoenixKitWeb.Components.AccountMenu do
 
   # Where an entry of the list leads: the language switch, or the handoff start when the
   # language has a domain of its own. The destination there is the path as that domain serves
-  # it, so the locale segment goes (the domain carries the language) unless the domain serves
-  # another dialect first, and then the dialect's own segment keeps it on the dialect's page.
+  # it, so the locale segment goes (the domain carries the language) unless another enabled
+  # language is listed first for that domain, and then the language's own segment stays.
   defp language_url(language, current_path, current_locale) do
     case language[:handoff] do
       nil ->

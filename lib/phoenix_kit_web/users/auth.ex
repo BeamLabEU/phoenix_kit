@@ -1355,7 +1355,9 @@ defmodule PhoenixKitWeb.Users.Auth do
   # the browser there at once, where `push_navigate` would try a socket join first, which the
   # server refuses with a warning before the client falls back to the same page load.
   defp leave_for(socket, url) do
-    if String.starts_with?(url, Routes.path("/handoff/start")),
+    start = Routes.path("/handoff/start")
+
+    if url == start or String.starts_with?(url, [start <> "?", start <> "/"]),
       do: Phoenix.LiveView.redirect(socket, to: url),
       else: Phoenix.LiveView.push_navigate(socket, to: url)
   end

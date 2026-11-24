@@ -1219,12 +1219,17 @@ defmodule PhoenixKit.Utils.Routes do
 
   # Builds a locale-prefixed URL (`/{locale}{url_path}`).
   #
-  # The bare root (`url_path == "/"`) is special-cased to emit
-  # `/{locale}` rather than `/{locale}/`: Phoenix routers do not match a
-  # trailing slash, so a `/:locale` landing route declared by the parent
-  # app would 404 on `/{locale}/`. Every other path keeps its leading
-  # slash, so the concatenation is already correct.
+  # The bare root (`url_path == "/"`, or `"/"` followed by a query or fragment)
+  # is special-cased to emit `/{locale}` rather than `/{locale}/`: Phoenix
+  # routers do not match a trailing slash, so a `/:locale` landing route
+  # declared by the parent app would 404 on `/{locale}/`. Every other path
+  # keeps its leading slash, so the concatenation is already correct.
   defp locale_prefixed_path(base_path, locale, "/"), do: "#{base_path}/#{locale}"
+
+  defp locale_prefixed_path(base_path, locale, "/" <> <<mark, _::binary>> = root)
+       when mark in [??, ?#],
+       do: "#{base_path}/#{locale}#{binary_part(root, 1, byte_size(root) - 1)}"
+
   defp locale_prefixed_path(base_path, locale, url_path), do: "#{base_path}/#{locale}#{url_path}"
 
   # Whether a CANONICAL path names the admin area.
