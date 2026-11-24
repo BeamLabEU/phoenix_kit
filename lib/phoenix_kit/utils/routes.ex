@@ -904,14 +904,79 @@ defmodule PhoenixKit.Utils.Routes do
   """
   @spec locale_switch_path(String.t() | nil, String.t() | :none, keyword()) :: String.t()
   def locale_switch_path(current_path, locale, opts \\ []) do
-    url_prefix = Config.get_url_prefix()
-    prefix = if url_prefix == "/", do: "", else: url_prefix
+    {_prefix, rest} = split_page_prefix(current_path || "")
 
-    (current_path || "")
-    |> String.replace_prefix(prefix, "")
+    rest
     |> strip_locale_segment(opts[:current_locale])
     |> path(locale: locale)
   end
+
+  @doc """
+  A page's own path (what a host or a module gave for it, mount prefix and query included) as the
+  domain of `locale` serves it: the leading segment of `locale`'s own, after the mount prefix when
+  the path has one, is removed, because that domain carries the language. Anything else is left
+  as it is: the segment of another language, a segment that is not the leading one
+  (`/blog/de/...`), a path outside the mount prefix (`/de/docs` stays a path of its own; no
+  prefix is added).
+
+  `locale`'s own segments are its base code (`de`) and the segment the site serves it under
+  (`Languages.url_locale_segment/1`), compared without regard to case. A path that is only the
+  segment becomes the root (`/de?x=1` is `/?x=1`). The result is not validated: a path that
+  continues with `//host` comes out as `//host`, and whoever uses the result as a link checks it
+  (`PhoenixKit.Handoff.valid_to/1`).
+
+      Routes.domain_page_path("/phoenix_kit/de/docs/x?y=1", "de-DE")  # "/phoenix_kit/docs/x?y=1"
+      Routes.domain_page_path("/de/docs/x", "de-DE")                   # "/docs/x"
+      Routes.domain_page_path("/blog/de/docs/x", "de-DE")              # unchanged
+  """
+  @spec domain_page_path(String.t(), String.t()) :: String.t()
+  def domain_page_path(page_path, locale) when is_binary(page_path) and is_binary(locale) do
+    {prefix, rest} = split_page_prefix(page_path)
+    own = own_locale_segments(locale)
+
+    with [_, segment, tail] <- Regex.run(~r{\A/([^/?#]*)(.*)\z}s, rest),
+         true <- String.downcase(segment) in own do
+      prefix <> root_of(tail)
+    else
+      _ -> page_path
+    end
+  end
+
+  defp own_locale_segments(locale) do
+    [DialectMapper.extract_base(locale), Languages.url_locale_segment(locale)]
+    |> Enum.map(&String.downcase/1)
+    |> Enum.uniq()
+  end
+
+  # `{prefix, rest}` of a served path: the kit's mount prefix, when the path is under it (a whole
+  # segment: `/phoenix_kit?x=1` is, `/phoenix_kitn` is not), and the rest as a path of its own
+  # (`/` when nothing is left).
+  defp split_page_prefix(path) do
+    prefix =
+      case Config.get_url_prefix() do
+        "/" -> ""
+        url_prefix -> url_prefix
+      end
+
+    cond do
+      prefix == "" ->
+        {"", rooted(path)}
+
+      path == prefix ->
+        {prefix, "/"}
+
+      String.starts_with?(path, [prefix <> "/", prefix <> "?", prefix <> "#"]) ->
+        {prefix,
+         path |> binary_part(byte_size(prefix), byte_size(path) - byte_size(prefix)) |> rooted()}
+
+      true ->
+        {"", rooted(path)}
+    end
+  end
+
+  defp rooted(""), do: "/"
+  defp rooted("/" <> _ = path), do: path
+  defp rooted(path), do: "/" <> path
 
   @doc """
   The language a path names in its first segment (after the mount prefix), or

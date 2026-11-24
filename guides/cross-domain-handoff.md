@@ -221,16 +221,25 @@ It is what publishing assigns as `phoenix_kit_publishing_translations` (a list o
 `%{code: "de", url: "/de/docs/anfang", ...}`, atom- or string-keyed), or a plain map
 `%{"de" => "/de/docs/anfang"}`, the same lists the language switcher's `per_translation_urls`
 reads (`LanguageSwitcher.translation_url/2`). A language is matched by its exact code first
-(`de-DE`), then by the bare base language (`de`), then by any dialect of that base.
+(`de-DE`), then by the bare base language (`de`), then by any dialect of that base. The kit's own
+layouts do not pass it (the admin header and the dashboard have no per-language pages): a host
+that renders the dropdown itself does.
 
 - On this domain the entry leads to that URL (in the event mode too: the person's choice is still
   saved).
-- Through the handoff the URL is the destination on the language's own domain: a path of that
-  domain, or an absolute URL of that domain's host (a relative one has its locale segment
-  removed, as for the computed path; a dialect that shares the domain keeps its own).
+- A URL the page gives is that language's address, and is **not rewritten**: the kit's prefix is
+  not added to it (`/de/docs/anfang` stays outside `/phoenix_kit`).
+- Through the handoff the URL is the destination on the language's own domain, and only the
+  language's own leading locale segment goes, because that domain carries the language: the one
+  right after the kit's prefix (`/phoenix_kit/de/docs/x` becomes `/phoenix_kit/docs/x`), or the
+  first one of a path outside it (`/de/docs/x` becomes `/docs/x`). A segment further in
+  (`/blog/de/docs/x`), another language's segment and a path with none are left as they are. A
+  dialect that shares the domain with another language keeps its URL whole (`/en-gb/docs/x`), and
+  an absolute URL of that domain's host is already its address there.
 - **Nothing in the list can lead off the site.** A URL is used only when it is a local path, or an
-  absolute `http(s)` URL of the host the entry is for (the page's own host, or the language's own
-  host through the handoff), and it is reduced to its path and query (a fragment is dropped). A
+  absolute `http(s)` URL of the host the entry is for (the page's own host, so an absolute URL needs
+  `current_host`; or the language's own host through the handoff), and it is reduced to its path
+  and query (a fragment is dropped; no path is `/`). A
   URL of any other host, `//host/...`, `javascript:...` or anything else is ignored, as if the
   language had no entry.
 - A language with no entry, or no `language_urls` at all, is the entry it always was.

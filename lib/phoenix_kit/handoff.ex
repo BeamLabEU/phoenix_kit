@@ -192,11 +192,15 @@ defmodule PhoenixKit.Handoff do
 
   A map, `%{code => %{kind: kind, host: host}}`. `host` is the language's own host, as the
   resolver answers it (what an absolute URL of that language has to be on). `kind` says what the
-  destination path on the language's domain must look like. `:host_language` when `code` is the language that domain serves without a locale
-  segment: `language_for_host/2`, the first enabled language the resolver maps to that host (the
-  host application must serve that one at a path with no segment). `:dialect` for any other
-  language of that host (a sibling dialect, or a different language the resolver maps to the same
-  host): the destination keeps `code`'s own segment to land on its page.
+  destination path on the language's domain must look like:
+
+    * `:host_language`: `code` is the language that domain serves without a locale segment
+      (`language_for_host/2`, the first enabled language the resolver maps to that host; the
+      host application must serve that one at a path with no segment), so its own leading
+      segment is dropped from a path.
+    * `:dialect`: any other language of that host (a sibling dialect, or a different language
+      the resolver maps to the same host), so the path keeps `code`'s own segment to land on its
+      page.
 
   The site is read once whatever the length of `codes` (`host_languages/0`), and not at all when
   `current_host` is not a binary or there is nothing to choose between: a caller with no host to

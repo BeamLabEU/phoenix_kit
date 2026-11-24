@@ -70,10 +70,13 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
       Either what publishing assigns as `phoenix_kit_publishing_translations`
       (`[%{code: "de", url: "/de/docs/anfang", ...}]`) or a plain `%{"de" => "/de/docs/anfang"}`.
       A language with a URL there leads to it, instead of the current path rewritten for that
-      language, on this domain and through the handoff (`:current_host`) alike; the exact code
-      is matched first, then the base language (`de-DE` finds `de`). A URL is used only when it
-      is a local path, or an absolute URL of the host it leads to; anything else is ignored, so
-      this attr never leads off the site. Without it (or without an entry for a language) the
+      language, on this domain and through the handoff (`:current_host`) alike. The exact code is
+      matched first, then the bare base language (`de-DE` finds `de`), then any dialect of it.
+      A URL given here is that language's address and is not rewritten; through the handoff only
+      the language's own leading locale segment is dropped, as its domain carries the language.
+      A URL is used only when it is a local path, or an absolute URL of the host it leads to
+      (the page's `:current_host`, which an absolute URL therefore needs); anything else is
+      ignored, so this attr never leads off the site. Without it (or without an entry for a language) the
       entry is what it was. See `PhoenixKitWeb.Components.AccountMenu.languages/3`.
     * `:show_language_switcher` — include the in-menu language list (default `true`).
       Set `false` when the host renders a standalone switcher elsewhere to avoid

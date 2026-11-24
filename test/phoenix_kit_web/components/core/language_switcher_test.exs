@@ -80,6 +80,47 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcherTest do
       assert html =~ ~s(href="/phoenix_kit/fr/some/page")
     end
 
+    test "a list holding a dialect and the bare base language gives the first, as it always did" do
+      for {per_urls, expected} <- [
+            {[%{code: "en-US", url: "/blog/a"}, %{code: "en", url: "/blog/b"}], "/blog/a"},
+            {[%{code: "en", url: "/blog/b"}, %{code: "en-US", url: "/blog/a"}], "/blog/b"},
+            {[%{code: "en-US", url: "/blog/a"}, %{code: "en", url: nil}], "/blog/a"}
+          ] do
+        assigns = %{per_urls: per_urls, languages: two_languages()}
+
+        html =
+          rendered_to_string(~H"""
+          <LanguageSwitcher.language_switcher_dropdown
+            current_locale="fr"
+            languages={@languages}
+            current_path="/some/page"
+            per_translation_urls={@per_urls}
+          />
+          """)
+
+        assert html =~ ~s(href="#{expected}")
+      end
+    end
+
+    test "a first entry without a url falls back to the default, not to the next entry" do
+      assigns = %{
+        per_urls: [%{code: "en-US", url: nil}, %{code: "en", url: "/blog/b"}],
+        languages: two_languages()
+      }
+
+      html =
+        rendered_to_string(~H"""
+        <LanguageSwitcher.language_switcher_dropdown
+          current_locale="fr"
+          languages={@languages}
+          current_path="/some/page"
+          per_translation_urls={@per_urls}
+        />
+        """)
+
+      refute html =~ ~s(href="/blog/b")
+    end
+
     test "normalizes full dialect codes to base codes for lookup" do
       # The list entry uses full code 'en-US' but the switcher iterates languages
       # by base code 'en' — DialectMapper.extract_base/1 normalizes both sides.

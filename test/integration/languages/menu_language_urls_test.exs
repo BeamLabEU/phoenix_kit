@@ -20,6 +20,7 @@ defmodule PhoenixKit.Integration.Languages.MenuLanguageUrlsTest do
   alias PhoenixKit.Test.HandoffResolver
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Components.AccountMenu
   alias PhoenixKitWeb.Components.AdminNav
   alias PhoenixKitWeb.Components.UserDashboardNav
@@ -71,7 +72,8 @@ defmodule PhoenixKit.Integration.Languages.MenuLanguageUrlsTest do
     Enum.zip(locales, LazyHTML.attribute(nodes, "phx-value-url"))
   end
 
-  defp start(lang, to), do: "/phoenix_kit/handoff/start?" <> URI.encode_query(lang: lang, to: to)
+  defp start(lang, to),
+    do: Routes.path("/handoff/start") <> "?" <> URI.encode_query(lang: lang, to: to)
 
   @publishing [
     %{code: "de", name: "Deutsch", flag: "x", url: "/phoenix_kit/de/docs/anfang", current: false},
@@ -213,6 +215,150 @@ defmodule PhoenixKit.Integration.Languages.MenuLanguageUrlsTest do
       html = section(host: "shop.test", urls: %{"de" => "/phoenix_kit/de/docs/anfang"})
 
       assert {"fr-FR", start("fr-FR", "/phoenix_kit/docs/start")} in leads(html, :link)
+    end
+  end
+
+  describe "a url outside the kit's prefix is an address as it stands" do
+    # A host that serves public pages outside the kit's prefix (publishing's own
+    # `:public_url_prefix`, a shop) hands such urls over.
+    setup do
+      resolver!()
+      on_exit(fn -> Application.delete_env(:phoenix_kit, :canonical_host_resolver) end)
+    end
+
+    defp prefix!(prefix) do
+      previous = Application.fetch_env(:phoenix_kit, :url_prefix)
+      Application.put_env(:phoenix_kit, :url_prefix, prefix)
+      PhoenixKit.Config.clear_url_prefix_cache()
+
+      on_exit(fn ->
+        case previous do
+          {:ok, value} -> Application.put_env(:phoenix_kit, :url_prefix, value)
+          :error -> Application.delete_env(:phoenix_kit, :url_prefix)
+        end
+
+        PhoenixKit.Config.clear_url_prefix_cache()
+      end)
+    end
+
+    # What the same entry leads to on this domain and through the handoff.
+    defp both(url, code \\ "de", opts \\ []) do
+      host = Keyword.get(opts, :host, "shop.test")
+      urls = %{code => url}
+
+      plain = section(host: "www.example.com", urls: urls, locale: opts[:locale] || "en-US")
+      via = section(host: host, urls: urls, locale: opts[:locale] || "en-US")
+      {leads(plain, :link), leads(via, :link)}
+    end
+
+    test "the handoff destination is the url itself, minus only the language's own segment" do
+      {_, via} = both("/de/docs/anfang?x=1")
+      assert {"de-DE", start("de-DE", "/docs/anfang?x=1")} in via
+
+      # Under the kit's prefix, the segment after it goes.
+      {_, via} = both("/phoenix_kit/de/docs/anfang")
+      assert {"de-DE", start("de-DE", "/phoenix_kit/docs/anfang")} in via
+
+      # Publishing's own prefix: the url is the address, there is no segment where one is dropped.
+      {_, via} = both("/blog/de/docs/anfang")
+      assert {"de-DE", start("de-DE", "/blog/de/docs/anfang")} in via
+      {_, via} = both("/blog/docs/anfang")
+      assert {"de-DE", start("de-DE", "/blog/docs/anfang")} in via
+    end
+
+    test "the two branches agree: the same url, the same address" do
+      for url <- [
+            "/de/docs/anfang?x=1",
+            "/phoenix_kit/de/docs/anfang",
+            "/blog/docs/anfang",
+            "/de"
+          ] do
+        {plain, via} = both(url)
+
+        assert {"de-DE", ^url} = Enum.find(plain, &(elem(&1, 0) == "de-DE"))
+
+        {"de-DE", started} = Enum.find(via, &(elem(&1, 0) == "de-DE"))
+        %URI{query: query} = URI.parse(started)
+        to = URI.decode_query(query)["to"]
+
+        # Whatever the handoff drops is the language's segment at its position, nothing else.
+        assert to == Routes.domain_page_path(url, "de-DE")
+      end
+    end
+
+    test "a dialect sharing the domain keeps the address it was given" do
+      {:ok, _} = Languages.add_language("en-GB")
+      opts = [host: "shop-de.test", locale: "de-DE"]
+
+      {_, via} = both("/en-gb/docs/start", "en-GB", opts)
+      assert {"en-GB", start("en-GB", "/en-gb/docs/start")} in via
+
+      {_, via} = both("/phoenix_kit/en-gb/docs/start", "en-GB", opts)
+      assert {"en-GB", start("en-GB", "/phoenix_kit/en-gb/docs/start")} in via
+
+      # The host language of that domain loses its segment.
+      {_, via} = both("/en/docs/start", "en-US", opts)
+      assert {"en-US", start("en-US", "/docs/start")} in via
+    end
+
+    test "with the kit mounted at the root" do
+      prefix!("/")
+
+      {plain, via} = both("/de/docs/anfang?x=1")
+      assert {"de-DE", "/de/docs/anfang?x=1"} in plain
+      assert {"de-DE", start("de-DE", "/docs/anfang?x=1")} in via
+
+      {_, via} = both("/phoenix_kit/de/docs")
+      assert {"de-DE", start("de-DE", "/phoenix_kit/de/docs")} in via
+    end
+
+    test "an absolute url of the language's host is already its address" do
+      {_, via} = both("https://shop-de.test/de/docs/anfang")
+      assert {"de-DE", start("de-DE", "/de/docs/anfang")} in via
+    end
+
+    test "an absolute url with no path is the home page" do
+      {_, via} = both("https://shop-de.test")
+      assert {"de-DE", start("de-DE", "/")} in via
+      {_, via} = both("https://shop-de.test?x=1")
+      assert {"de-DE", start("de-DE", "/?x=1")} in via
+
+      assert {"de-DE", "/?x=1"} in leads(
+               section(host: "www.example.com", urls: %{"de" => "https://www.example.com?x=1"}),
+               :link
+             )
+    end
+
+    test "no url, and no path of the page, can raise in a render" do
+      for url <- [
+            "/phoenix_kit?x=1",
+            "/phoenix_kit?",
+            "/phoenix_kit#f",
+            "/phoenix_kitn",
+            "/phoenix_kit/"
+          ],
+          host <- [nil, "www.example.com", "shop.test"],
+          switch <- [:link, :event] do
+        assert is_binary(section(host: host, urls: %{"de" => url, "fr" => url}, switch: switch))
+      end
+
+      for path <- ["/phoenix_kit?x=1", "/phoenix_kit?", "/phoenix_kitn", "/phoenix_kit/de?x=1"],
+          host <- [nil, "shop.test"] do
+        assert is_binary(section(host: host, path: path))
+      end
+    end
+
+    test "a page path is local after the rewriting too, whatever the mount" do
+      prefix!("/")
+      languages = AccountMenu.languages("en-US", "shop.test", %{"de" => "/de//evil.test/x"})
+
+      for language <- languages, path = language.page_path do
+        assert String.starts_with?(path, "/") and not String.starts_with?(path, "//")
+      end
+
+      # The entry falls back to the computed destination.
+      de = Enum.find(languages, &(&1.code == "de-DE"))
+      assert de.page_path == nil
     end
   end
 

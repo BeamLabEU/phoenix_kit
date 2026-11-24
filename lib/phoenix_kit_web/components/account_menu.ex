@@ -48,17 +48,22 @@ defmodule PhoenixKitWeb.Components.AccountMenu do
   differs per language (a post with a translated slug, a product): what
   publishing hands a host as `phoenix_kit_publishing_translations`, or a plain
   `%{code => url}` (`LanguageSwitcher.translation_url/2` reads it: the exact
-  code first, then the base language). A language with a usable URL there gets
-  it as `:page_path`, a local path with its query (a fragment is dropped), and
-  the menu leads there instead of to the current path rewritten for that
-  language; for a handoff entry it is the destination on the language's own
-  domain (the locale segment of a relative URL goes, as for the computed path).
+  code first, then the bare base language, then any dialect of it). A language
+  with a usable URL there gets it as `:page_path`, a local path with its query
+  (a fragment is dropped), and the menu leads there instead of to the current
+  path rewritten for that language. A URL the page gives is that language's
+  address and is not rewritten (the kit's prefix is not added to it): on this
+  domain it is used as it is; for a handoff entry it is the destination on the
+  language's own domain, from which only the language's own leading locale
+  segment goes (`Routes.domain_page_path/2`), and a dialect that shares the
+  domain keeps its URL whole.
+
   Only two kinds of URL are used: a local path, or an absolute `http(s)` URL
-  whose host is the one the entry is for (the page's `current_host`, or the
-  language's own host for a handoff entry), reduced to its path and query.
-  Anything else (another host, `//host`, `javascript:`, no list, no entry) is
-  ignored, as if the language had no entry, so the attr never leads off the
-  site.
+  whose host is the one the entry is for (the page's `current_host`, so an
+  absolute URL is ignored without one; or the language's own host for a handoff
+  entry), reduced to its path and query (no path is `/`). Anything else
+  (another host, `//host`, `javascript:`, no list, no entry) is ignored, as if
+  the language had no entry, so the attr never leads off the site.
   """
   @spec languages(String.t() | nil, String.t() | nil, term()) :: [map()]
   def languages(current_locale, current_host \\ nil, language_urls \\ nil) do
@@ -91,37 +96,35 @@ defmodule PhoenixKitWeb.Components.AccountMenu do
       |> Map.put(:handoff, target && target.kind)
       |> Map.put(
         :page_path,
-        page_path(language_urls, language.code, target, current_host, locale)
+        page_path(language_urls, language.code, target, current_host)
       )
     end)
   end
 
   # The page's own URL in a language, reduced to a local path, or nil: no list, no entry, or a URL
-  # that is not one of this site's (see `languages/3`). On the page's own domain the URL is used
-  # as it is; for a handoff entry it must be the language's domain's, and a relative one is
-  # rewritten the way the computed destination is (its locale segment goes, a dialect's stays).
-  defp page_path(language_urls, code, target, current_host, current_locale) do
-    with url when is_binary(url) <- LanguageSwitcher.translation_url(language_urls, code) do
-      case target do
-        nil ->
-          with {_, path} <- reduce_url(url, current_host), do: path
-
-        %{kind: kind, host: host} ->
-          case reduce_url(url, host) do
-            {:relative, path} ->
-              Routes.locale_switch_path(path, destination_segment(kind, code),
-                current_locale: current_locale
-              )
-
-            {:absolute, path} ->
-              path
-
-            nil ->
-              nil
-          end
-      end
+  # that is not one of this site's (see `languages/3`). A URL the page gives is the address of
+  # that language, so on the page's own domain it is used as it is, and through the handoff only
+  # the language's own leading locale segment goes (that domain carries the language): a dialect
+  # that shares the domain keeps its URL whole, an absolute URL of the domain is already its
+  # address. The result is checked once more, whatever was done to it.
+  defp page_path(language_urls, code, target, current_host) do
+    with url when is_binary(url) <- LanguageSwitcher.translation_url(language_urls, code),
+         path when is_binary(path) <-
+           destination(reduce_url(url, host_of(target, current_host)), target, code) do
+      Handoff.valid_to(path)
     end
   end
+
+  defp host_of(nil, current_host), do: current_host
+  defp host_of(%{host: host}, _current_host), do: host
+
+  defp destination(nil, _target, _code), do: nil
+  defp destination({_, path}, nil, _code), do: path
+  defp destination({:absolute, path}, _target, _code), do: path
+  defp destination({:relative, path}, %{kind: :dialect}, _code), do: path
+
+  defp destination({:relative, path}, %{kind: _host_language}, code),
+    do: Routes.domain_page_path(path, code)
 
   # `{:relative | :absolute, "/path?query"}` for a local path, or an absolute http(s) URL of
   # `host` (host names compared without port or case); nil for anything else. The result is
@@ -139,6 +142,10 @@ defmodule PhoenixKitWeb.Components.AccountMenu do
         nil
     end
   end
+
+  # An absolute URL with no path is the host's home page.
+  defp tag(:absolute, %URI{path: path} = uri) when path in [nil, ""],
+    do: tag(:absolute, %{uri | path: "/"})
 
   defp tag(kind, %URI{path: path, query: query}) do
     case Handoff.valid_to(to_string(path) <> if(query, do: "?" <> query, else: "")) do

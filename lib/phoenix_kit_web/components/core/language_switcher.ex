@@ -1141,7 +1141,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
 
   defp resolve_url(base_code, current_path, per_translation_urls)
        when is_list(per_translation_urls) and is_binary(base_code) do
-    translation_url(per_translation_urls, base_code) ||
+    translation_url(per_translation_urls, base_code, :base) ||
       generate_base_code_url(base_code, current_path)
   end
 
@@ -1154,36 +1154,56 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
 
   `entries` is what publishing hands a host as `phoenix_kit_publishing_translations` (a list of
   `%{code: ..., url: ...}`, atom- or string-keyed) or a plain map `%{code => url}` (string or
-  atom keys). An entry whose code equals `code` (ignoring case) wins; then the entry of the bare
-  base language (`de-DE` finds `de`); then the first entry of any dialect of that base (`de` finds
-  `de-AT`). An entry that matches
-  but has no usable URL (an unpublished draft) answers `nil`: a sibling dialect's page is not
-  that language's.
+  atom keys). An entry that matches but has no usable URL (an unpublished draft) answers `nil`:
+  a sibling dialect's page is not that language's.
 
-  Both the switcher (`:per_translation_urls`) and the account menus (`:language_urls`) read
-  their lists here.
+  `match` is how an entry is found:
 
-      iex> translation_url([%{code: "de", url: "/de/docs/anfang"}], "de-DE")
-      "/de/docs/anfang"
+    * `:exact_first` (the default, what the account menus use): the entry whose code equals
+      `code` (ignoring case); then the entry of the bare base language (`de-DE` finds `de`); then
+      the first entry of any dialect of that base (`de` finds `de-AT`). An entry with a blank
+      code matches nothing.
+    * `:base` (what the language switcher's `:per_translation_urls` has always done): the first
+      entry, in list order, whose base language is `code`, which is then a base code.
+
+  Example:
+
+      translation_url([%{code: "de", url: "/de/docs/anfang"}], "de-DE")
+      # "/de/docs/anfang"
   """
-  @spec translation_url(term(), String.t() | nil) :: String.t() | nil
-  def translation_url(entries, code) when is_binary(code) do
-    pairs = entry_pairs(entries)
+  @spec translation_url(term(), String.t() | nil, :exact_first | :base) :: String.t() | nil
+  def translation_url(entries, code, match \\ :exact_first)
+
+  def translation_url(entries, code, :base) when is_binary(code) do
+    entries
+    |> entry_pairs()
+    |> Enum.find(fn {entry_code, _url} -> DialectMapper.extract_base(entry_code) == code end)
+    |> url_of()
+  end
+
+  def translation_url(entries, code, :exact_first) when is_binary(code) do
+    pairs =
+      entries |> entry_pairs() |> Enum.reject(fn {entry_code, _url} -> blank?(entry_code) end)
+
     wanted = String.downcase(code)
     base = base_of(code)
 
-    entry =
-      Enum.find(pairs, fn {entry_code, _url} -> String.downcase(entry_code) == wanted end) ||
-        Enum.find(pairs, fn {entry_code, _url} -> String.downcase(entry_code) == base end) ||
-        Enum.find(pairs, fn {entry_code, _url} -> base_of(entry_code) == base end)
-
-    case entry do
-      {_code, url} when is_binary(url) -> url
-      _ -> nil
-    end
+    pairs
+    |> find_entry(fn entry_code -> String.downcase(entry_code) == wanted end)
+    |> Kernel.||(find_entry(pairs, fn entry_code -> String.downcase(entry_code) == base end))
+    |> Kernel.||(find_entry(pairs, fn entry_code -> base_of(entry_code) == base end))
+    |> url_of()
   end
 
-  def translation_url(_entries, _code), do: nil
+  def translation_url(_entries, _code, _match), do: nil
+
+  defp find_entry(pairs, matches?),
+    do: Enum.find(pairs, fn {entry_code, _url} -> matches?.(entry_code) end)
+
+  defp url_of({_code, url}) when is_binary(url), do: url
+  defp url_of(_), do: nil
+
+  defp blank?(code), do: String.trim(code) == ""
 
   defp base_of(code), do: code |> DialectMapper.extract_base() |> String.downcase()
 
