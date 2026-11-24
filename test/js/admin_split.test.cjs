@@ -216,7 +216,10 @@ test("a size budget keeps the public file public", () => {
   // -> 312 (Turnstile waits for a closed daisyUI dialog to open before rendering, so the
   // widget is not sized at nothing; public auth forms and the add-account dialog share the
   // hook. 317 000 B, so 312 KiB = 319 488 B leaves ~2.4 KB).
-  assert.ok(publicBytes < 312 * 1024, "phoenix_kit.js is " + publicBytes + " bytes");
+  // -> 316 (the person drawer, ~5.3 KB with its notes: a mention chip can render on any page a comment
+  // thread is on, outside the admin area too, so its click handler is public; 322 334 B, so 316 KiB =
+  // 323 584 B leaves ~1.2 KB).
+  assert.ok(publicBytes < 316 * 1024, "phoenix_kit.js is " + publicBytes + " bytes");
   assert.ok(adminBytes > publicBytes / 2, "the admin file is where the weight went");
 });
 

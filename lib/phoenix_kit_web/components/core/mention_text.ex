@@ -158,11 +158,11 @@ defmodule PhoenixKitWeb.Components.Core.MentionText do
     <.link
       :if={@info[:path]}
       navigate={href(@info)}
-      class="inline-flex items-center gap-1 align-middle rounded-full bg-base-200 hover:bg-base-300 py-0.5 pl-0.5 pr-2 font-medium no-underline"
+      class="inline-flex items-center gap-1 align-middle rounded-full bg-base-200 hover:bg-base-300 py-0 pl-0 pr-2 font-medium no-underline"
       data-mention-user={@token.uuid}
     ><.user_avatar user={@person} name={@info[:title]} size="xs" />{@info[:title]}</.link><span
       :if={is_nil(@info[:path])}
-      class="inline-flex items-center gap-1 align-middle rounded-full bg-base-200 py-0.5 pl-0.5 pr-2 font-medium"
+      class="inline-flex items-center gap-1 align-middle rounded-full bg-base-200 py-0 pl-0 pr-2 font-medium"
       data-mention-user={@token.uuid}
     ><.user_avatar user={@person} name={@info[:title]} size="xs" />{@info[:title]}</span>
     """

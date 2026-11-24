@@ -29396,3 +29396,9 @@ msgstr "Muud versioonid"
 #, elixir-autogen, elixir-format, fuzzy
 msgid "You are signed in as %{email}."
 msgstr "Oled sisse logitud kasutajana %{email}."
+
+
+#: lib/phoenix_kit_web/controllers/person_card_controller.ex:87
+#, elixir-autogen, elixir-format
+msgid "Open profile"
+msgstr "Ava profiil"

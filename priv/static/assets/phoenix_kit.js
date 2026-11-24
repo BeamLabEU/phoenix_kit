@@ -210,6 +210,111 @@
     }
   })();
 
+  // ============================================================================
+  // PERSON DRAWER
+  // ============================================================================
+  // A click on a mention chip (`[data-mention-user]`: core's <.mention_text>,
+  // the comments module's chips) opens a drawer with the person's card
+  // (PhoenixKitWeb.PersonCardController) instead of leaving the page for the
+  // profile (Max, 2026-11-24). Ctrl/⌘/Shift/middle clicks still follow the
+  // chip's link; a chip inside an editor is left to the editor.
+  //
+  // The drawer is a <dialog> opened with showModal(), so it stacks above an
+  // open task popup (the browser's top layer, newest on top). Its card is
+  // fetched every time it opens: what a viewer may see (the email, the
+  // profile button, modules' actions) is decided on the server. A viewer
+  // with no card for that person (not signed in to the admin area, or the
+  // person is gone) just follows the link.
+  (function personDrawer() {
+    if (typeof window === "undefined" || window.PhoenixKitPersonDrawer) return;
+    window.PhoenixKitPersonDrawer = true;
+
+    var dialog = null;
+    var body = null;
+    var seq = 0;
+
+    function cardUrl(uuid) {
+      var prefix = window.PHOENIX_KIT_PREFIX || "/phoenix_kit";
+      if (prefix === "/") prefix = "";
+      return prefix + "/people/" + encodeURIComponent(uuid) + "/card";
+    }
+
+    function build() {
+      dialog = document.createElement("dialog");
+      dialog.className = "modal modal-end pk-person-drawer";
+      dialog.setAttribute("aria-label", "Person");
+      dialog.innerHTML =
+        '<div class="modal-box h-full max-h-full w-80 max-w-[90vw] rounded-none p-5 relative">' +
+        '<button type="button" data-pk-drawer-close class="btn btn-ghost btn-sm btn-circle absolute right-3 top-3" aria-label="Close">✕</button>' +
+        '<div data-pk-drawer-body class="pt-6"></div>' +
+        "</div>" +
+        '<form method="dialog" class="modal-backdrop"><button aria-label="Close">close</button></form>';
+      body = dialog.querySelector("[data-pk-drawer-body]");
+      dialog.querySelector("[data-pk-drawer-close]").addEventListener("click", function () {
+        dialog.close();
+      });
+      dialog.addEventListener("close", function () {
+        body.innerHTML = "";
+      });
+      // A link in the card is followed with the drawer closed behind it.
+      dialog.addEventListener("click", function (e) {
+        var a = e.target.closest && e.target.closest("a[href]");
+        if (a && dialog.contains(a)) dialog.close();
+      });
+      document.body.appendChild(dialog);
+    }
+
+    function spinner() {
+      return '<div class="flex justify-center py-10"><span class="loading loading-spinner loading-md"></span></div>';
+    }
+
+    function open(uuid, chip) {
+      if (!dialog || !dialog.isConnected) build();
+      var mine = ++seq;
+      body.innerHTML = spinner();
+      if (!dialog.open) dialog.showModal();
+
+      fetch(cardUrl(uuid), { credentials: "same-origin", headers: { accept: "text/html" } })
+        .then(function (resp) {
+          if (!resp.ok) throw new Error("no card");
+          return resp.text();
+        })
+        .then(function (html) {
+          if (mine !== seq || !dialog.open) return;
+          body.innerHTML = html;
+          var first = body.querySelector("a[href], button");
+          if (first) first.focus();
+        })
+        .catch(function () {
+          if (mine !== seq) return;
+          dialog.close();
+          // No card for this viewer: the chip does what it did before.
+          var href = chip.getAttribute("href");
+          if (href) window.location.assign(href);
+        });
+    }
+
+    document.addEventListener(
+      "click",
+      function (e) {
+        if (e.defaultPrevented || e.button !== 0) return;
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        var chip = e.target.closest && e.target.closest("[data-mention-user]");
+        if (!chip || chip.closest("[contenteditable='true'], [contenteditable=''], textarea")) return;
+        var uuid = chip.getAttribute("data-mention-user");
+        if (!uuid) return;
+        // Ahead of LiveView's own link handling (it would navigate).
+        e.preventDefault();
+        e.stopPropagation();
+        open(uuid, chip);
+      },
+      true
+    );
+
+    window.PhoenixKitInternals = window.PhoenixKitInternals || {};
+    window.PhoenixKitInternals.openPersonDrawer = open;
+  })();
+
   // Initialize hooks collection
   window.PhoenixKitHooks = window.PhoenixKitHooks || {};
 

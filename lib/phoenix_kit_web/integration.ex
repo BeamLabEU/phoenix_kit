@@ -491,6 +491,10 @@ defmodule PhoenixKitWeb.Integration do
         post "/notifications/open/:handle", PushOpenController, :switch
         get "/push/install", PushController, :install
 
+        # The person drawer a mention chip opens: an HTML fragment, checked
+        # against the viewer's live scope on every request.
+        get "/people/:uuid/card", PersonCardController, :card
+
         # Cookie consent widget config (public API for JS auto-injection).
         # Declared unconditionally: the vendored bundle requests this on every
         # page load whether or not phoenix_kit_legal is installed, so a

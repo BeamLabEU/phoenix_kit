@@ -206,6 +206,19 @@ defmodule PhoenixKit.Module do
   @callback before_user_delete(user_uuid :: String.t()) :: any()
 
   @doc """
+  Actions offered in the person drawer a mention chip opens
+  (`PhoenixKitWeb.PersonCardController`): `[%{label: String.t(), href:
+  String.t(), icon: String.t() | nil}]` for `person` as seen by `scope` —
+  a chat module's "Message", for instance. Decide here who may see the
+  action; an `href` must be a path on this site (others are dropped), and
+  a callback that raises adds nothing. Optional.
+  """
+  @callback person_actions(
+              scope :: PhoenixKit.Users.Auth.Scope.t(),
+              person :: PhoenixKit.Users.Auth.User.t()
+            ) :: [map()]
+
+  @doc """
   Cross-domain handoff, source side: the state of this module that should follow the visitor to
   another of the site's domains (`PhoenixKit.Handoff`, `guides/cross-domain-handoff.md`).
 
@@ -1167,6 +1180,7 @@ defmodule PhoenixKit.Module do
     notification_types: 0,
     notification_channels: 0,
     before_user_delete: 1,
+    person_actions: 2,
     handoff_snapshot: 1,
     handoff_apply: 2,
     resource_links: 0,
