@@ -1,3 +1,25 @@
+## 3.9.0 - 2026-11-24
+
+### Added
+
+- **The account menus take the page's own URL per language (#1061).** `user_dropdown/1` (signed-in
+  and guest), the admin header's dropdown and the standalone language switcher accept an optional
+  `language_urls` — the page's own URL per language, as publishing's
+  `phoenix_kit_publishing_translations` list or a plain `%{code => url}` map — so a page whose
+  address differs per language (a translated slug) leads to the right page. One lookup,
+  `LanguageSwitcher.translation_url/3` (exact code, then bare base, then any dialect of the base).
+  A URL is used only when it is a local path or an absolute URL of the host it leads to; anything
+  else is ignored, so the attr never leads off the site. `Handoff.hand_over_languages/2` now also
+  returns each language's host. New `Routes.domain_page_path/2`.
+
+### Fixed
+
+- The locale-switch event's full-page redirect matches the handoff `start` as a whole path
+  segment (`/handoff/startx` is not it), on top of the 3.8.0 `Routes.local_path?/1` guard (#1061).
+- `Routes.locale_switch_path/3` no longer crashes on a path that merely starts with the URL prefix
+  (`/phoenix_kit?x=1`); the prefix is now split on segment boundaries, and a root with a query or
+  fragment switches locale correctly (`/de?x=1` → `/es?x=1`) (#1061).
+
 ## 3.8.0 - 2026-11-24
 
 ### Added
