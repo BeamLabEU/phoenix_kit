@@ -892,13 +892,17 @@ defmodule PhoenixKit.Utils.Routes do
   share one URL, and left a real `/en-gb/...` path in place so the next
   language stacked a prefix that does not route.
 
+  `locale` may be `:none`: the same path with no locale segment at all, as a
+  language's own domain serves it (a link to another domain, see
+  `PhoenixKit.Handoff`).
+
   ## Options
 
     * `:current_locale` — the locale the page is being viewed in. Included in
       the strip set, so an active locale is removed even if it has since been
       disabled.
   """
-  @spec locale_switch_path(String.t() | nil, String.t(), keyword()) :: String.t()
+  @spec locale_switch_path(String.t() | nil, String.t() | :none, keyword()) :: String.t()
   def locale_switch_path(current_path, locale, opts \\ []) do
     url_prefix = Config.get_url_prefix()
     prefix = if url_prefix == "/", do: "", else: url_prefix
@@ -939,16 +943,21 @@ defmodule PhoenixKit.Utils.Routes do
 
   def served_locale?(_locale), do: false
 
-  # Drop a leading locale segment, leaving "/" when it was the whole path.
+  # Drop a leading locale segment, leaving "/" when it was the whole path. The segment ends at
+  # the next "/", "?" or "#": `/de?x=1` is the German root with a query.
   defp strip_locale_segment(path, current_locale) do
     known = switchable_locale_codes(current_locale)
 
-    case String.split(path, "/", parts: 3) do
-      ["", segment, rest] -> if segment in known, do: "/" <> rest, else: nonempty(path)
-      ["", segment] -> if segment in known, do: "/", else: nonempty(path)
+    with [_, segment, rest] <- Regex.run(~r{\A/([^/?#]*)(.*)\z}s, path),
+         true <- segment in known do
+      root_of(rest)
+    else
       _ -> nonempty(path)
     end
   end
+
+  defp root_of("/" <> _ = rest), do: rest
+  defp root_of(rest), do: "/" <> rest
 
   defp nonempty(""), do: "/"
   defp nonempty(path), do: path

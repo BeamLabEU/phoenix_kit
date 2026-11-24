@@ -160,4 +160,46 @@ defmodule PhoenixKit.Utils.LocaleSwitchPathTest do
                "/phoenix_kit/en/admin"
     end
   end
+
+  describe "locale :none" do
+    test "drops the locale segment and adds none, for a link to a domain that carries the language" do
+      assert Routes.locale_switch_path("/phoenix_kit/ja/users/log-in?from=home", :none) ==
+               "/phoenix_kit/users/log-in?from=home"
+
+      assert Routes.locale_switch_path("/phoenix_kit/users/log-in", :none) ==
+               "/phoenix_kit/users/log-in"
+
+      assert Routes.locale_switch_path("/phoenix_kit/ja/admin/users", :none) ==
+               "/phoenix_kit/admin/users"
+
+      assert Routes.locale_switch_path("/phoenix_kit/ja", :none) == "/phoenix_kit/"
+    end
+
+    test "a bare locale root loses its segment whatever follows it" do
+      assert Routes.locale_switch_path("/phoenix_kit/ja?x=1", :none) == "/phoenix_kit/?x=1"
+      assert Routes.locale_switch_path("/phoenix_kit/ja#top", :none) == "/phoenix_kit/#top"
+      assert Routes.locale_switch_path("/phoenix_kit/ja/?x=1", :none) == "/phoenix_kit/?x=1"
+
+      # A segment that merely starts like a locale is not one.
+      assert Routes.locale_switch_path("/phoenix_kit/jaguar?x=1", :none) ==
+               "/phoenix_kit/jaguar?x=1"
+    end
+
+    test "a bare locale root with a query is replaced, not stacked, by a switch" do
+      refute Routes.locale_switch_path("/phoenix_kit/ja?x=1", "es") =~ "/ja"
+      assert Routes.locale_switch_path("/phoenix_kit/ja?x=1", "es") =~ "/es"
+    end
+
+    test "an active locale that is no longer offered is stripped too" do
+      assert Routes.locale_switch_path("/phoenix_kit/zz/admin", :none, current_locale: "zz") ==
+               "/phoenix_kit/admin"
+    end
+
+    test "a dialect sibling's lowercase segment is stripped" do
+      LanguageSettings.put_languages(~w(en-US en-GB es-ES))
+
+      assert Routes.locale_switch_path("/phoenix_kit/en-gb/users/log-in", :none) ==
+               "/phoenix_kit/users/log-in"
+    end
+  end
 end

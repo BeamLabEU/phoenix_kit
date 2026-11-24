@@ -184,10 +184,16 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   @doc """
   Renders user dropdown for top bar navigation.
   Shows user avatar with dropdown menu containing email, role, settings and logout.
+
+  `current_host` is the host name the page is served on (no port). When the site gives
+  languages domains of their own (`PhoenixKit.Handoff`), the language list sends the visitor
+  to the language's domain through the cross-domain handoff; without it every entry is the
+  plain language switch.
   """
   attr(:scope, :any, default: nil)
   attr(:current_path, :string, default: "")
   attr(:current_locale, :string, default: "en")
+  attr(:current_host, :string, default: nil)
   attr(:accounts, :list, default: [])
   attr(:multi_session_allowed?, :boolean, default: false)
   attr(:admin_edit_url, :string, default: nil)
@@ -198,7 +204,7 @@ defmodule PhoenixKitWeb.Components.AdminNav do
 
     # Fewer than two languages is nothing to switch between, and the section
     # renders nothing. Its divider shows only when the dashboard is on.
-    admin_languages = AccountMenu.languages(assigns.current_locale)
+    admin_languages = AccountMenu.languages(assigns.current_locale, assigns.current_host)
 
     show_language_divider =
       PhoenixKit.Config.user_dashboard_enabled?() and length(admin_languages) > 1

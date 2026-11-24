@@ -18,6 +18,7 @@ defmodule PhoenixKitWeb.Components.AccountMenu do
   use Phoenix.Component
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  alias PhoenixKit.Handoff
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Users.Auth.Scope
@@ -32,11 +33,18 @@ defmodule PhoenixKitWeb.Components.AccountMenu do
   @doc """
   The languages a menu offers: each enabled language with its `:label` (its
   own name, without the region when it is the only dialect of its language
-  enabled), `:flag`, `:base` and `:active?`. Fewer than two means there is
-  nothing to switch between, and the menus show no section.
+  enabled), `:flag`, `:base`, `:active?` and `:handoff`. Fewer than two means
+  there is nothing to switch between, and the menus show no section.
+
+  `:handoff` is `nil`, or says the page should hand the visitor over to the
+  language rather than switch to it: it has a domain of its own, which is not
+  the one the page is served on (`current_host`, a host name without port; see
+  `PhoenixKit.Handoff.hand_over_languages/2` for the two kinds, `:host_language`
+  and `:dialect`). With no `current_host` it is `nil` for every language, and
+  nothing is asked of the host resolver.
   """
-  @spec languages(String.t() | nil) :: [map()]
-  def languages(current_locale) do
+  @spec languages(String.t() | nil, String.t() | nil) :: [map()]
+  def languages(current_locale, current_host \\ nil) do
     enabled = if Languages.enabled?(), do: Languages.get_enabled_languages(), else: []
 
     languages =
@@ -55,10 +63,13 @@ defmodule PhoenixKitWeb.Components.AccountMenu do
         Enum.find(languages, &(&1.code == DialectMapper.base_to_dialect(base))) ||
         Enum.find(languages, &(&1.base == base))
 
+    handoff = Handoff.hand_over_languages(current_host, Enum.map(languages, & &1.code))
+
     Enum.map(languages, fn language ->
       language
       |> Map.put(:label, label(language, Map.get(per_base, language.base, 0)))
       |> Map.put(:active?, language == active)
+      |> Map.put(:handoff, Map.get(handoff, language.code))
     end)
   end
 
@@ -105,6 +116,15 @@ defmodule PhoenixKitWeb.Components.AccountMenu do
   `switch: :event` (inside a LiveView) sends `phoenix_kit_set_locale`, which
   also saves the person's choice; `switch: :link` is a plain link, for pages
   without a socket (the sign-in screens).
+
+  A language with a `:handoff` (see `languages/2`) leads to
+  `PhoenixKit.Handoff.start_path/2` instead of the language switch, so the
+  visitor's sign-in and cart travel to the language's own domain: the `<a>` of
+  the link mode gets `rel="nofollow"`, and the event mode keeps its event
+  (the person's choice is still saved), whose handler leaves the page for that
+  url. The destination is the current path as the language's own domain serves
+  it: with no locale segment, unless that domain serves another dialect of the
+  language first, and then the dialect's own segment stays.
   """
   attr :languages, :list, required: true
   attr :current_path, :string, required: true
@@ -133,10 +153,7 @@ defmodule PhoenixKitWeb.Components.AccountMenu do
             </summary>
             <div class="rounded-box border border-base-300 bg-base-100 text-base-content shadow-lg p-1 max-h-60 overflow-y-auto">
               <%= for language <- @alternatives do %>
-                <% url =
-                  Routes.locale_switch_path(@current_path, language.code,
-                    current_locale: @current_locale
-                  ) %>
+                <% url = language_url(language, @current_path, @current_locale) %>
                 <button
                   :if={@switch == :event}
                   type="button"
@@ -150,6 +167,7 @@ defmodule PhoenixKitWeb.Components.AccountMenu do
                 <a
                   :if={@switch == :link}
                   href={url}
+                  rel={language[:handoff] && "nofollow"}
                   class="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-base-200 focus-visible:outline"
                 >
                   <.language_entry language={language} />
@@ -161,6 +179,25 @@ defmodule PhoenixKitWeb.Components.AccountMenu do
       </li>
     <% end %>
     """
+  end
+
+  # Where an entry of the list leads: the language switch, or the handoff start when the
+  # language has a domain of its own. The destination there is the path as that domain serves
+  # it, so the locale segment goes (the domain carries the language) unless the domain serves
+  # another dialect first, and then the dialect's own segment keeps it on the dialect's page.
+  defp language_url(language, current_path, current_locale) do
+    case language[:handoff] do
+      nil ->
+        Routes.locale_switch_path(current_path, language.code, current_locale: current_locale)
+
+      kind ->
+        segment = if kind == :dialect, do: language.code, else: :none
+
+        Handoff.start_path(
+          language.code,
+          Routes.locale_switch_path(current_path, segment, current_locale: current_locale)
+        )
+    end
   end
 
   attr :language, :map, required: true

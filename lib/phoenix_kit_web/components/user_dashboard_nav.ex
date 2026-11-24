@@ -58,6 +58,13 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
       accepted: every URL built here reduces it to the base code the router
       actually serves (`/en/…`), so passing `@current_locale` rather than
       `@current_locale_base` no longer emits a link that costs a redirect.
+    * `:current_host` — the host name the page is served on (`conn.host`, no port;
+      default `nil`). When the site gives languages domains of their own
+      (`PhoenixKit.Handoff`), the in-menu language list sends the visitor to the
+      language's domain through the cross-domain handoff, so the sign-in and the
+      cart travel along, instead of switching language on this domain. Without
+      it every entry is the plain language switch. A LiveView mounted through the
+      kit's `on_mount` chain has it as `@url_host`; elsewhere pass `conn.host`.
     * `:show_language_switcher` — include the in-menu language list (default `true`).
       Set `false` when the host renders a standalone switcher elsewhere to avoid
       a duplicate. Applies to both the signed-in and guest states.
@@ -86,6 +93,7 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
   attr(:scope, :any, default: nil)
   attr(:current_path, :string, default: "")
   attr(:current_locale, :string, default: "en")
+  attr(:current_host, :string, default: nil)
   attr(:admin_edit_url, :string, default: nil)
   attr(:admin_edit_label, :string, default: nil)
   attr(:show_language_switcher, :boolean, default: true)
@@ -188,6 +196,7 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
             :if={@show_language_switcher}
             current_path={@current_path}
             current_locale={@current_locale}
+            current_host={@current_host}
           />
 
           <PhoenixKitWeb.Components.Core.OrganizationSwitcher.organization_switcher
@@ -249,6 +258,7 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
       <.guest_dropdown
         current_path={@current_path}
         current_locale={@current_locale}
+        current_host={@current_host}
         guest_links={@guest_links}
         show_language_switcher={@show_language_switcher}
       />
@@ -261,6 +271,7 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
   # and the shared language switcher.
   attr(:current_path, :string, required: true)
   attr(:current_locale, :string, required: true)
+  attr(:current_host, :string, default: nil)
   attr(:guest_links, :list, required: true)
   attr(:show_language_switcher, :boolean, required: true)
 
@@ -307,6 +318,7 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
           :if={@show_language_switcher}
           current_path={@current_path}
           current_locale={@current_locale}
+          current_host={@current_host}
         />
       </ul>
     </div>
@@ -317,11 +329,12 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
   # links: the guest menu is on the sign-in pages, which have no socket.
   attr(:current_path, :string, required: true)
   attr(:current_locale, :string, required: true)
+  attr(:current_host, :string, default: nil)
 
   defp language_menu_section(assigns) do
     ~H"""
     <PhoenixKitWeb.Components.AccountMenu.language_section
-      languages={PhoenixKitWeb.Components.AccountMenu.languages(@current_locale)}
+      languages={PhoenixKitWeb.Components.AccountMenu.languages(@current_locale, @current_host)}
       current_path={@current_path}
       current_locale={@current_locale}
       switch={:link}

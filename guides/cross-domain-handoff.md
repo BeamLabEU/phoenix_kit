@@ -79,7 +79,7 @@ link opened in any other browser is useless.
 ## Deploying
 
 Run the migration (V236, `mix phoenix_kit.update`) **before** the code that links to
-`start` goes live. Until V236 has run there is no table to write: every handoff ends
+`start` goes live (the kit's own account menus are such code, see "The account menus"). Until V236 has run there is no table to write: every handoff ends
 with a `302` to `/` (and a logged error), and `enabled?/0` is already `true`, so a
 language switcher that links to `start` lands the visitor back on `/` of the domain
 they started on. Signing out, signing out everywhere and a password change keep working
@@ -152,6 +152,55 @@ hand over to:
   need: a cookie only an earlier step of the same browser sets, a proof, a nonce.
 - A visitor who is anonymous, with nothing for any module to carry, is sent
   straight to `<scheme>://<target><to>`: no cookie, no database row.
+
+### The account menus
+
+The language list of the account menus (the admin header's, and
+`PhoenixKitWeb.Components.UserDashboardNav.user_dropdown/1`, the one a host puts in its own
+header) leads to `start` by itself, so a visitor who picks a language with a domain of its own
+takes their sign-in and cart along. An entry does that when the page's host is one of the hosts
+the resolver names and the language has a host of its own that is not the page's. Every other
+entry is the plain language switch it always was, and a site with no
+`:canonical_host_resolver` renders the same menu as before.
+
+- In the link mode (`user_dropdown/1`, the sign-in screens) the entry is a plain `<a href>` with
+  `rel="nofollow"`.
+- In the event mode (the admin header) the entry stays the `phoenix_kit_set_locale` event, so the
+  person's language choice is still saved; its handler then redirects to `start` (a controller,
+  not a LiveView), so the browser leaves the page with a full page load.
+- The destination is the current path as the language's own domain serves it: without a locale
+  segment, as that domain carries the language. When the domain serves another dialect of the
+  language first (`en-US` and `en-GB` on one host), the dialect's own segment stays
+  (`/en-gb/...`), so the visitor lands on the dialect they picked.
+
+The menu has to know the host the page is served on. The admin header takes it from the page's
+socket (or from `current_host`, for a view that passes neither), the dashboard layout from the
+`:url_host` assign that the navigation hook sets next to `:url_path`; a host that renders
+`user_dropdown/1` itself passes it, a host name without port:
+
+```heex
+<UserDashboardNav.user_dropdown
+  scope={@phoenix_kit_current_scope}
+  current_path={@url_path}
+  current_locale={@current_locale}
+  current_host={assigns[:url_host]}
+/>
+```
+
+(`conn.host` in a controller-rendered page.) Without `current_host` the menu keeps its plain
+language switches.
+
+What a host will meet:
+
+- **Run V236 first.** These menus are links to `start` that the kit puts on every site whose
+  resolver names two hosts, including a site that set the resolver only for canonical URLs and
+  hreflang. Until V236 has run, a visitor who picks another domain's language is sent back to
+  `/`, where the plain switch used to work.
+- **The same path is carried, not a translated one.** A page with a per-language slug is
+  reached by the path of the language the visitor left; the plain switch has the same limit.
+- **A session the handoff will not carry arrives signed out.** An impersonated session and one
+  acting for an organization (`carried_user/1`) are refused by `start`, which then redirects
+  with nothing carried; the menu does not look at the session and still offers the link.
 
 ## robots.txt, logs and analytics
 

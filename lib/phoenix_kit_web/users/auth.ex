@@ -1346,10 +1346,19 @@ defmodule PhoenixKitWeb.Users.Auth do
     # pages, whose public sessions are still split) `push_navigate`
     # degrades to a full-page load on its own — so it is safe here
     # unconditionally.
-    {:halt, Phoenix.LiveView.push_navigate(socket, to: url)}
+    {:halt, leave_for(socket, url)}
   end
 
   defp handle_locale_event(_event, _params, socket), do: {:cont, socket}
+
+  # The cross-domain handoff's `start` is a controller, not a LiveView: a full page load takes
+  # the browser there at once, where `push_navigate` would try a socket join first, which the
+  # server refuses with a warning before the client falls back to the same page load.
+  defp leave_for(socket, url) do
+    if String.starts_with?(url, Routes.path("/handoff/start")),
+      do: Phoenix.LiveView.redirect(socket, to: url),
+      else: Phoenix.LiveView.push_navigate(socket, to: url)
+  end
 
   defp save_user_locale_preference(%{phoenix_kit_current_user: %{} = user}, locale)
        when not is_nil(user) do
@@ -1366,7 +1375,7 @@ defmodule PhoenixKitWeb.Users.Auth do
   defp save_user_locale_preference(_assigns, _locale), do: :ok
 
   defp set_routing_info(params, url, socket) do
-    %{path: path} = URI.parse(url)
+    %{path: path, host: host} = URI.parse(url)
     # Read before the assign below overwrites it — used only to skip a
     # same-path presence update (a query-string-only patch, e.g. sorting or
     # searching on the same admin page) further down this pipe.
@@ -1375,6 +1384,9 @@ defmodule PhoenixKitWeb.Users.Auth do
     socket =
       socket
       |> Phoenix.Component.assign(:url_path, path)
+      # The host the page is served on: the account menu hands a visitor over to a
+      # language's own domain only from a host of the site's (`PhoenixKit.Handoff`).
+      |> Phoenix.Component.assign(:url_host, host)
       |> maybe_update_locale_from_params(params)
       # This hook fires on `handle_params` for every LiveView mounted through
       # PhoenixKit's on_mount chain (admin and host-app public pages alike),
