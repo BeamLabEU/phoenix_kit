@@ -278,7 +278,7 @@
       p.textContent = said("data-card-error", "Couldn't load this person.");
       box.appendChild(p);
       // A same-site link only: the chip's own href, as it was rendered.
-      if (href && href.charAt(0) === "/" && href.charAt(1) !== "/") {
+      if (href && href.charAt(0) === "/" && !/^[/][/\\]|[\x00-\x1f\x7f]/.test(href)) {
         var a = document.createElement("a");
         a.href = href;
         a.className = "link link-primary";

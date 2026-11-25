@@ -13,9 +13,8 @@ defmodule PhoenixKit.Mentions.Users do
       surface a mention currently appears on lives there — pinging a
       customer about an internal note would be the leak, not the feature.
 
-  Matching is on username, then name, then email — email last and only on a
-  prefix, so the typeahead cannot be used to confirm whether an address has
-  an account by pasting it in.
+  Everyone can search by username or name. Viewers with the users permission
+  can also search by email prefix.
   """
 
   import Ecto.Query
@@ -47,23 +46,25 @@ defmodule PhoenixKit.Mentions.Users do
   def search(query, opts \\ []) do
     limit = Keyword.get(opts, :limit, @default_limit)
 
+    show_email? = show_email?(opts[:scope])
+
     from(u in User, as: :user)
-    |> where([user: u], u.is_active == true and not is_nil(u.confirmed_at))
-    |> maybe_match(String.trim(query))
+    |> where([user: u], u.is_active == true and not u.api_only and not is_nil(u.confirmed_at))
+    |> maybe_match(String.trim(query), show_email?)
     |> where_pingable()
     |> order_by([user: u], asc: u.username, asc: u.email)
     |> limit(^limit)
     |> repo().all()
-    |> Enum.map(&to_result(&1, show_email?(opts[:scope])))
+    |> Enum.map(&to_result(&1, show_email?))
   rescue
     _ -> []
   catch
     :exit, _ -> []
   end
 
-  defp maybe_match(queryable, ""), do: queryable
+  defp maybe_match(queryable, "", _), do: queryable
 
-  defp maybe_match(queryable, query) do
+  defp maybe_match(queryable, query, show_email?) do
     contains = "%#{escape_like(query)}%"
     prefix = "#{escape_like(query)}%"
 
@@ -72,16 +73,17 @@ defmodule PhoenixKit.Mentions.Users do
       [user: u],
       ilike(u.username, ^contains) or ilike(u.first_name, ^contains) or
         ilike(u.last_name, ^contains) or ilike(u.organization_name, ^contains) or
-        fragment(
-          "? ILIKE ?",
-          fragment(
-            "CASE WHEN ? THEN ? ELSE ? END",
-            u.managed_by_members,
-            u.contact_email,
-            u.email
-          ),
-          ^prefix
-        )
+        (^show_email? and
+           fragment(
+             "? ILIKE ?",
+             fragment(
+               "CASE WHEN ? THEN ? ELSE ? END",
+               u.managed_by_members,
+               u.contact_email,
+               u.email
+             ),
+             ^prefix
+           ))
     )
   end
 

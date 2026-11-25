@@ -166,6 +166,21 @@ test("a card that cannot be loaded says so, in the chip's words, and never navig
   answer = () => Promise.resolve({ ok: true, text: () => Promise.resolve("<p>card</p>") });
 });
 
+test("a failed card omits a profile link outside the current origin", async () => {
+  const prev = answer;
+  answer = () => Promise.resolve({ ok: false });
+  try {
+    for (const href of ["//example.org", "/\\example.org", "/\t/example.org"]) {
+      click({ "[data-mention-user]": chip("u-2", { href }) });
+      await flush();
+      const body = lastDialog("pk-person-pop").querySelector("[data-pk-pop-body]");
+      assert.equal(body.children.at(-1).children.length, 1);
+    }
+  } finally {
+    answer = prev;
+  }
+});
+
 test("several people open the drawer with every card, each person once", async () => {
   const group = el("span");
   group.attrs = { "data-people": "a-1, a-2,a-1" };

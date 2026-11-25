@@ -182,6 +182,9 @@ defmodule PhoenixKit.Integration.MentionNotificationsTest do
 
       Application.put_env(:phoenix_kit, :mention_test_gate_closed, true)
       refute Types.still_visible?("mentions", n, ada)
+
+      Application.put_env(:phoenix_kit, :comment_resource_handlers, %{})
+      refute Types.still_visible?("mentions", n, ada)
     end
 
     test "a deleted comment's words leave the mention; the ping stays" do
@@ -309,6 +312,22 @@ defmodule PhoenixKit.Integration.MentionNotificationsTest do
 
     {:ok, []} = Mentions.sync("comment", source, "nobody", field: "content")
     assert Mentions.list_for_source("comment", source, "content") == []
+  end
+
+  test "turning a resource link into a ping updates the kind and can notify the person" do
+    source = Ecto.UUID.generate()
+    ada = user()
+    author = user()
+    target = "[user:#{ada.uuid}|Ada]"
+
+    assert {:ok, [%{kind: "resource"}]} = Mentions.sync("comment", source, "#" <> target)
+
+    assert {:ok, [ping]} =
+             Mentions.sync("comment", source, "@" <> target, actor_uuid: author.uuid)
+
+    assert ping.kind == "user"
+    Mentions.notify([ping], [])
+    assert [_] = inbox(ada)
   end
 
   test "the link follows the reader's language, not the author's" do

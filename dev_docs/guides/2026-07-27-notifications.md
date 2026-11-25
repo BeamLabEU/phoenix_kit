@@ -106,7 +106,7 @@ for a reader who cannot open the record it came from.
 Since 2026-11-25:
 
 - **Off means off.** With the mentions switch off (`Mentions.enabled?/0`), `notify/2` sends nothing; `sync/4` still indexes, so backlinks keep working.
-- **Asked again at delivery.** The type carries `visible: {PhoenixKit.Mentions, :still_visible?}`: a queued email or push to someone who has lost access to the record in between goes out as the line only, without the quote.
+- **Asked again at delivery.** The type carries `visible: {PhoenixKit.Mentions, :still_visible?}`: email omits the quote and push skips delivery when the recipient loses access. A stored quote also requires a working visibility handler at delivery time.
 - **The reader's language.** A stored `notification_link` that names a language the site serves is re-spelled in the reader's at render (`Render`), since a mention's link is built in the author's request.
 - **Forgetting a deleted record's words.** `PhoenixKit.Mentions.forget_source(source_type, source_uuid)` removes `"quote"` and `"preview"` from every `mention.created` activity for a mention IN that record (the activity carries `mention_source_type` / `mention_source_uuid`) or ABOUT it (the activity's resource). The ping and its link stay. A module calls it when it deletes the record (the comments module, on a comment's deletion; feature-detect it with `function_exported?/3`). Activities written before 2026-11-25 carry no mention source and are found only by their resource.
 - **Kept rows.** A re-save keeps the row of a mention still in the text, so a claim racing it still lands; a failed activity write gives the claim back so a later save can try again.

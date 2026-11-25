@@ -53,6 +53,7 @@ defmodule PhoenixKit.Mentions.UserSuggestionsTest do
 
     r = row(Mentions.search(:user, "Anna", scope: scope, user_uuid: admin.uuid), anna.uuid)
 
+    assert row(Mentions.search(:user, anna.email, scope: scope), anna.uuid)
     assert r.title == "Anna Kask"
     assert r.subtitle == "@#{anna.username} · #{anna.email}"
     assert r.avatar.initials == "AK"
@@ -62,7 +63,9 @@ defmodule PhoenixKit.Mentions.UserSuggestionsTest do
   end
 
   test "anyone else sees the @username but never the email", %{anna: anna} do
-    r = row(Mentions.search(:user, "Anna", scope: narrow_scope()), anna.uuid)
+    scope = narrow_scope()
+    refute row(Mentions.search(:user, anna.email, scope: scope), anna.uuid)
+    r = row(Mentions.search(:user, "Anna", scope: scope), anna.uuid)
 
     assert r.subtitle == "@#{anna.username}"
     refute r.subtitle =~ "@example.com"

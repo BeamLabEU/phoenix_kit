@@ -84,6 +84,7 @@ defmodule PhoenixKit.Mentions do
 
   alias PhoenixKit.Activity
   alias PhoenixKit.Mentions.{Mention, Token, Users}
+  alias PhoenixKit.Notifications.Render
   alias PhoenixKit.RepoHelper
   alias PhoenixKit.ResourceLinks
   alias PhoenixKit.Settings
@@ -570,7 +571,7 @@ defmodule PhoenixKit.Mentions do
     actor_uuid = Keyword.get(opts, :actor_uuid)
     tokens = text |> Token.parse() |> Enum.uniq_by(&{&1.type, &1.uuid})
 
-    token_keys = MapSet.new(tokens, &{&1.type, &1.uuid})
+    token_kinds = Map.new(tokens, &{{&1.type, &1.uuid}, Atom.to_string(&1.kind)})
 
     # Two saves of one field at once (two tabs) both read the old index and
     # each inserted its own replacement: both versions' people stayed
@@ -579,7 +580,6 @@ defmodule PhoenixKit.Mentions do
     repo().transaction(fn ->
       lock_source(source_type, source_uuid, field)
       existing = list_for_source(source_type, source_uuid, field)
-      existing_keys = MapSet.new(existing, &{&1.target_type, &1.target_uuid})
 
       # A mention still in the text KEEPS its row (and its uuid): a save that
       # replaced it made a concurrent save's claim on the old row miss, and
@@ -592,7 +592,7 @@ defmodule PhoenixKit.Mentions do
           key = {m.target_type, m.target_uuid}
 
           cond do
-            not MapSet.member?(token_keys, key) -> {kept, [m.uuid | dropped]}
+            Map.get(token_kinds, key) != m.kind -> {kept, [m.uuid | dropped]}
             Map.has_key?(kept, key) -> {kept, [m.uuid | dropped]}
             true -> {Map.put(kept, key, m), dropped}
           end
@@ -600,60 +600,44 @@ defmodule PhoenixKit.Mentions do
 
       if drop != [], do: repo().delete_all(from(m in Mention, where: m.uuid in ^drop))
 
-      tokens
-      |> Enum.reject(&Map.has_key?(keep, {&1.type, &1.uuid}))
-      |> Enum.map(fn token ->
-        %Mention{}
-        |> Mention.changeset(%{
-          source_type: source_type,
-          source_uuid: source_uuid,
-          source_field: field,
-          kind: Atom.to_string(token.kind),
-          target_type: token.type,
-          target_uuid: token.uuid,
-          label: token.label,
-          actor_uuid: actor_uuid
-        })
-        |> repo().insert!()
+      Enum.flat_map(tokens, fn token ->
+        case Map.get(keep, {token.type, token.uuid}) do
+          nil ->
+            row =
+              %Mention{}
+              |> Mention.changeset(%{
+                source_type: source_type,
+                source_uuid: source_uuid,
+                source_field: field,
+                kind: Atom.to_string(token.kind),
+                target_type: token.type,
+                target_uuid: token.uuid,
+                label: token.label,
+                actor_uuid: actor_uuid
+              })
+              |> repo().insert!()
+
+            [row]
+
+          row ->
+            row |> relabel(token.label) |> pending_ping()
+        end
       end)
-      |> tap(fn _ -> relabel(keep, tokens) end)
-      |> then(&{&1, existing_keys, keep})
     end)
-    |> case do
-      {:ok, {inserted, existing_keys, keep}} ->
-        new =
-          Enum.reject(inserted, &MapSet.member?(existing_keys, {&1.target_type, &1.target_uuid}))
-
-        # A person mentioned before whose ping was never delivered (a claim
-        # given back when its activity failed to save, or a reader who could
-        # not see the record then) is tried again by the next save; the
-        # conditional claim in `notify/2` still sends each ping once.
-        undelivered =
-          keep |> Map.values() |> Enum.filter(&(&1.kind == "user" and is_nil(&1.notified_at)))
-
-        {:ok, new ++ undelivered}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
   rescue
     e ->
       Logger.warning("[Mentions] sync failed: #{Exception.message(e)}")
       {:error, Exception.message(e)}
   end
 
-  # A kept row follows a renamed label (the person renamed between saves).
-  defp relabel(keep, tokens) do
-    Enum.each(tokens, fn token ->
-      case Map.get(keep, {token.type, token.uuid}) do
-        %Mention{label: label} = m when label != token.label ->
-          from(r in Mention, where: r.uuid == ^m.uuid)
-          |> repo().update_all(set: [label: token.label])
+  defp pending_ping(%Mention{kind: "user", notified_at: nil} = row), do: [row]
+  defp pending_ping(_row), do: []
 
-        _ ->
-          :ok
-      end
-    end)
+  # A kept row follows a renamed label (the person renamed between saves).
+  defp relabel(%Mention{label: label} = row, label), do: row
+
+  defp relabel(row, label) do
+    row |> Ecto.Changeset.change(label: label) |> repo().update!()
   end
 
   @doc "Every mention recorded for one field of one record."
@@ -865,13 +849,19 @@ defmodule PhoenixKit.Mentions do
   lost access to the record in between gets the line only, never the quote
   (`Notifications.DeliveryWorker` drops the quote when this is false). Asked
   of the source's handler like `notify/2` asks at creation: `false` when the
-  handler says no, `true` when it says yes or cannot answer (nothing was
-  quoted for an unanswerable source in the first place).
+  handler says no. If the handler is unavailable, only a notification
+  without a stored quote can still be delivered in full.
   """
   @spec still_visible?(term(), term()) :: boolean()
-  def still_visible?(%{activity: %{resource_type: type, resource_uuid: uuid}}, %{uuid: user_uuid})
+  def still_visible?(%{activity: %{resource_type: type, resource_uuid: uuid}} = notification, %{
+        uuid: user_uuid
+      })
       when is_binary(type) and is_binary(uuid) and is_binary(user_uuid) do
-    visibility(type, uuid, user_uuid) != :no
+    case visibility(type, uuid, user_uuid) do
+      :yes -> true
+      :no -> false
+      :unknown -> is_nil(Render.quote(notification))
+    end
   end
 
   def still_visible?(_notification, _user), do: false
