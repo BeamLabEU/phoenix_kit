@@ -51,7 +51,7 @@ defmodule PhoenixKitWeb.Components.ThemeControllerScript do
       )
 
     ~H"""
-    <script>
+    <script nonce={PhoenixKitWeb.CSP.nonce(:script)}>
       (function () {
         // One instance per page, whichever layout renders first.
         if (window.__pkThemeController) return;

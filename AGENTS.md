@@ -232,6 +232,14 @@ Keys, tools and the REST endpoints modules plug into. Full reference: `dev_docs/
 - **OAuth strings:** `ConnectedApps`, `ApiOauthPanel`, the e-mail templates and the OAuth section of the admin guide are translated by hand in `default.pot` and the nine `.po` files; `ApiOauthTranslationsTest` and `ApiGuideTranslationsTest` fail when one is missing. The admin guide says how the language of the consent pages is chosen (`#guide-oauth-language`, and the guide `Connecting with OAuth`); change that text together with `PhoenixKitWeb.OAuth.Language`.
 - **New cron workers** go into three places of `lib/phoenix_kit/install/oban_config.ex` (the generated crontab, the manual instructions, `@worker_cron_entries`) and into `config/config.exs`; `oban_cron_backfill_sync_test.exs` fails when they disagree.
 
+## Content-Security-Policy
+
+The policy is the host's; the kit only has to work under it. Guide: `guides/content-security-policy.md`; reference: `PhoenixKitWeb.CSP`.
+
+- ⚠️ **Every inline `<script>` and `<style>` carries the host's nonce**: `nonce={PhoenixKitWeb.CSP.nonce(:script)}` in HEEx, `#{CSP.attr(conn, :style)}` in a page written as a string. `test/phoenix_kit_web/csp_inline_tags_test.exs` fails on one without it. Two documents are exempt because they are cached or the same for everyone (the HTML sitemap, the public API guide): a nonce must never reach a cached body.
+- ⚠️ **`PhoenixKitWeb.Plugs.Integration` never rewrites the response body.** It runs on the host's own pages; what a page needs from the kit goes into `phoenix_kit.js` or a component.
+- The nonce is read from the assign the host names (`config :phoenix_kit, csp_nonce_assign_key:`), kept in the process dictionary for the request, and carried into the kit's live sessions by `session: {PhoenixKitWeb.CSP, :live_session, []}` + `on_mount PhoenixKitWeb.CSP`: a new kit `live_session` takes both. Do not add new inline event handlers (`onclick=`): no nonce covers them.
+
 ## External Module Packages
 
 Writing a standalone `phoenix_kit_*` module (discovery, Tailwind/JS asset pipelines, route modules, publishing routing): read `dev_docs/guides/2026-09-11-external-module-development.md`. Landmines:

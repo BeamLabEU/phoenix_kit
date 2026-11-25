@@ -448,7 +448,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   """
   def admin_sidebar_compact_bootstrap(assigns) do
     ~H"""
-    <style data-phoenix-kit-sidebar>
+    <style nonce={PhoenixKitWeb.CSP.nonce(:style)} data-phoenix-kit-sidebar>
       /* Scoped to lg and up: below it the sidebar is an overlay drawer that is
          already hidden until summoned, so there is nothing to reclaim. */
       @media (min-width: 1024px) {
@@ -602,7 +602,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
         background-color: var(--color-primary);
       }
     </style>
-    <script>
+    <script nonce={PhoenixKitWeb.CSP.nonce(:script)}>
       (function () {
         // One instance per page: a host root layout and the kit's own admin
         // shell can both render this.
@@ -1023,10 +1023,10 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
             <%!-- Globals + favicon needed here for render_admin_with_parent path where parent layout may not set them --%>
             <.phoenix_kit_globals />
             <.phoenix_kit_favicon />
-            <style data-phoenix-kit-themes>
+            <style nonce={PhoenixKitWeb.CSP.nonce(:style)} data-phoenix-kit-themes>
               <%= HTML.raw(ThemeConfig.custom_theme_css()) %>
             </style>
-            <style>
+            <style nonce={PhoenixKitWeb.CSP.nonce(:style)}>
               /* Custom sidebar control for desktop - override lg:drawer-open grid layout when closed */
               @media (min-width: 1024px) {
                 /* Override the grid to collapse sidebar column when closed */
@@ -1438,7 +1438,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
             </div>
 
             <%!-- Auto-close mobile drawer on navigation --%>
-            <script>
+            <script nonce={PhoenixKitWeb.CSP.nonce(:script)}>
               // Mobile drawer and burger menu navigation
               document.addEventListener('DOMContentLoaded', function() {
                 const drawerToggle = document.getElementById('admin-mobile-menu');
@@ -1608,7 +1608,11 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
         <%!-- PhoenixKit Cookie Consent Widget Setup --%>
         <.phoenix_kit_globals />
         <%= if Code.ensure_loaded?(PhoenixKit.Modules.Legal) do %>
-          <script defer src={Routes.path("/assets/phoenix_kit_consent.js")}>
+          <script
+            nonce={PhoenixKitWeb.CSP.nonce(:script)}
+            defer
+            src={Routes.path("/assets/phoenix_kit_consent.js")}
+          >
           </script>
         <% end %>
       </head>

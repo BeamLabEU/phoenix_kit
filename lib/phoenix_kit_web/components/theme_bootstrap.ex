@@ -52,10 +52,10 @@ defmodule PhoenixKitWeb.Components.ThemeBootstrap do
       )
 
     ~H"""
-    <style data-phoenix-kit-themes>
+    <style nonce={PhoenixKitWeb.CSP.nonce(:style)} data-phoenix-kit-themes>
       <%= Phoenix.HTML.raw(@custom_css) %>
     </style>
-    <script>
+    <script nonce={PhoenixKitWeb.CSP.nonce(:script)}>
       (function () {
         // One instance per page — a host layout and a kit layout can
         // both render this; a second copy would double the storage listener.

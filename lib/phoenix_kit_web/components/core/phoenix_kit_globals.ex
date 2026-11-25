@@ -56,7 +56,7 @@ defmodule PhoenixKitWeb.Components.Core.PhoenixKitGlobals do
 
     ~H"""
     <.mobile_inputs_style />
-    <script>
+    <script nonce={PhoenixKitWeb.CSP.nonce(:script)}>
       window.PHOENIX_KIT_PREFIX = "<%= @prefix %>";
       try{["localStorage","sessionStorage"].forEach(function(s){var t=window[s];Object.keys(t).filter(function(k){return k.indexOf("phx")!==-1&&k.indexOf("phx:")!==0}).forEach(function(k){t.removeItem(k)})})}catch(e){}
       // Suppress topbar on initial WebSocket connect — the dead render already shows
@@ -76,7 +76,7 @@ defmodule PhoenixKitWeb.Components.Core.PhoenixKitGlobals do
   """
   def mobile_inputs_style(assigns) do
     ~H"""
-    <style data-pk-mobile-inputs>
+    <style nonce={PhoenixKitWeb.CSP.nonce(:style)} data-pk-mobile-inputs>
       @media (pointer: coarse) and (max-width: 767px) {
         :is(#admin-drawer, [data-phoenix-kit]) :is(input:not([type=checkbox], [type=radio], [type=range], [type=file], [type=color], [type=hidden]), select, textarea) {
           font-size: max(16px, 1em);

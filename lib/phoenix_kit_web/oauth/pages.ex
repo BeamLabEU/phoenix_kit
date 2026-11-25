@@ -394,7 +394,7 @@ defmodule PhoenixKitWeb.OAuth.Pages do
         <meta name="robots" content="noindex, nofollow" />
         <meta name="referrer" content="no-referrer" />
         <title>{@title}</title>
-        <style>
+        <style nonce={PhoenixKitWeb.CSP.nonce(:style)}>
           <%= Phoenix.HTML.raw(@style) %>
         </style>
       </head>

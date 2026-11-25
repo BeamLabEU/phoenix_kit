@@ -11,6 +11,14 @@
   `mix phoenix_kit.update` does not add the key): there the way is still
   `mix phoenix_kit.integrations.rotate_key`.
 
+- **The kit's inline scripts and styles can carry the host's Content-Security-Policy nonce.**
+  `config :phoenix_kit, csp_nonce_assign_key: :csp_nonce` (or `%{script: …, style: …}`) names the
+  `conn` assign the host's own plug fills; every inline `<script>` and `<style>` the kit renders
+  then has `nonce="…"`, in the kit's LiveViews after the socket connects as well
+  (`PhoenixKitWeb.CSP`). Off by default, nothing changes without the setting. The HTML sitemap and
+  the public API guide (cached documents) and inline event handlers are not covered. Guide:
+  `guides/content-security-policy.md`.
+
 ### Changed
 
 - **The username suggested from an email address reads better.** A `+tag` is dropped

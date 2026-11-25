@@ -135,7 +135,7 @@ defmodule PhoenixKitWeb.Components.Core.ThemeController do
   defp toggle_icon_css(dark_value) do
     if dark_value =~ ~r/\A[a-z0-9_-]+\z/ do
       """
-      <style>
+      <style nonce={PhoenixKitWeb.CSP.nonce(:style)}>
         html[data-theme="#{dark_value}"] [data-theme-dark="#{dark_value}"] [data-toggle-icon="light"] { display: none; }
         html:not([data-theme="#{dark_value}"]) [data-theme-dark="#{dark_value}"] [data-toggle-icon="dark"] { display: none; }
       </style>

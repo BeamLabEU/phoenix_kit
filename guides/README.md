@@ -35,6 +35,11 @@ This folder contains comprehensive guides to help developers work with PhoenixKi
 - Extending the PhoenixKit admin interface
 - Building admin functionality for your features
 
+#### [Content-Security-Policy](content-security-policy.md)
+
+**Run the kit under a strict policy.** What the kit renders inline, how to hand it your CSP
+nonce (`config :phoenix_kit, csp_nonce_assign_key:`), and what a nonce does not cover.
+
 #### [Your App as a Module](your-app-as-a-module.md)
 
 **Use PhoenixKit's module hooks from your own application.** Clean up after a

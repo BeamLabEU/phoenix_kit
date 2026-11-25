@@ -295,6 +295,7 @@ defmodule PhoenixKitWeb.RoutePrecedenceTest do
         # The account gate protects the landing; the invitation hook adds
         # pending invitations without changing access to the dashboard.
         assert on_mount_ids(route) == [
+                 {PhoenixKitWeb.CSP, :default},
                  {PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin},
                  {PhoenixKitWeb.Hooks.InvitationHook, :default}
                ]

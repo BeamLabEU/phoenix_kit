@@ -246,7 +246,7 @@ defmodule PhoenixKitWeb.WebsiteAccessController do
              the disabled field comes back without the visitor guessing when. --%>
         <meta :if={@locked > 0} http-equiv="refresh" content={Integer.to_string(@locked + 1)} />
         <title>·</title>
-        <style>
+        <style nonce={PhoenixKitWeb.CSP.nonce(:style)}>
           <%= Phoenix.HTML.raw(@style) %>
         </style>
       </head>
@@ -283,7 +283,7 @@ defmodule PhoenixKitWeb.WebsiteAccessController do
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="robots" content="noindex, nofollow" />
         <title>·</title>
-        <style>
+        <style nonce={PhoenixKitWeb.CSP.nonce(:style)}>
           <%= Phoenix.HTML.raw(@style) %>
         </style>
       </head>

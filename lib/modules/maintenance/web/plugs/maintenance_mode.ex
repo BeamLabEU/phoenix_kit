@@ -15,6 +15,7 @@ defmodule PhoenixKitWeb.Plugs.MaintenanceMode do
   alias PhoenixKit.Modules.Maintenance
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKitWeb.CSP
 
   def init(opts), do: opts
 
@@ -106,7 +107,7 @@ defmodule PhoenixKitWeb.Plugs.MaintenanceMode do
     config = Maintenance.get_config()
     header = Phoenix.HTML.html_escape(config.header) |> Phoenix.HTML.safe_to_string()
     subtext = Phoenix.HTML.html_escape(config.subtext) |> Phoenix.HTML.safe_to_string()
-    countdown = countdown_html(config.scheduled_end)
+    countdown = countdown_html(config.scheduled_end, conn)
 
     # Inline styles so the page works without the parent app's asset pipeline.
     # Controller routes served by this plug may not have access to the digested
@@ -119,7 +120,7 @@ defmodule PhoenixKitWeb.Plugs.MaintenanceMode do
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>#{header}</title>
         <meta http-equiv="refresh" content="30" />
-        <style>
+        <style#{CSP.attr(conn, :style)}>
           html, body { margin: 0; padding: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
           body { background: #f2f2f2; color: #1a1a1a; }
           .wrap { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 1rem; box-sizing: border-box; }
@@ -157,9 +158,9 @@ defmodule PhoenixKitWeb.Plugs.MaintenanceMode do
   # "Back on <date>" with a ticking "back in 2d 3h 14m 05s" when the window
   # has an end. Server-rendered text first (no JS needed), the script only
   # replaces it; the page's 30-second refresh keeps even that honest.
-  defp countdown_html(nil), do: ""
+  defp countdown_html(nil, _conn), do: ""
 
-  defp countdown_html(%DateTime{} = end_dt) do
+  defp countdown_html(%DateTime{} = end_dt, conn) do
     iso = DateTime.to_iso8601(end_dt)
 
     back_on =
@@ -171,7 +172,7 @@ defmodule PhoenixKitWeb.Plugs.MaintenanceMode do
 
     """
     <p class="until"><span data-maintenance-until="#{iso}">#{back_on}</span></p>
-    <script>
+    <script#{CSP.attr(conn, :script)}>
       (function () {
         var el = document.querySelector("[data-maintenance-until]");
         if (!el) return;

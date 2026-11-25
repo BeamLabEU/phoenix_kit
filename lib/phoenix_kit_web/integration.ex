@@ -510,9 +510,11 @@ defmodule PhoenixKitWeb.Integration do
         pipe_through [:browser, :phoenix_kit_auto_setup]
 
         live_session :phoenix_kit_maintenance,
+          session: {PhoenixKitWeb.CSP, :live_session, []},
           on_mount:
             unquote(
-              extra_on_mount() ++
+              [PhoenixKitWeb.CSP] ++
+                extra_on_mount() ++
                 [{PhoenixKitWeb.Users.Auth, :phoenix_kit_mount_current_scope}]
             ) do
           live "/maintenance", Live.Modules.Maintenance.Page, :index
@@ -1222,9 +1224,11 @@ defmodule PhoenixKitWeb.Integration do
     quote do
       if unquote(PhoenixKit.Config.user_dashboard_enabled?()) do
         live_session unquote(session_name),
+          session: {PhoenixKitWeb.CSP, :live_session, []},
           on_mount:
             unquote(
-              extra_on_mount() ++
+              [PhoenixKitWeb.CSP] ++
+                extra_on_mount() ++
                 [
                   {PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_authenticated_scope},
                   {PhoenixKitWeb.Dashboard.ContextProvider, :default},
@@ -1924,7 +1928,12 @@ defmodule PhoenixKitWeb.Integration do
 
     quote do
       live_session unquote(session_name),
-        on_mount: unquote(extra_on_mount() ++ on_mount ++ [PhoenixKitWeb.Hooks.InvitationHook]) do
+        session: {PhoenixKitWeb.CSP, :live_session, []},
+        on_mount:
+          unquote(
+            [PhoenixKitWeb.CSP] ++
+              extra_on_mount() ++ on_mount ++ [PhoenixKitWeb.Hooks.InvitationHook]
+          ) do
         scope "#{unquote(url_prefix)}/:locale", PhoenixKitWeb do
           pipe_through unquote(pipelines)
           unquote(localized_routes)

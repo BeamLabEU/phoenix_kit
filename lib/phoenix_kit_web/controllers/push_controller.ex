@@ -115,7 +115,7 @@ defmodule PhoenixKitWeb.PushController do
         <link rel="manifest" href={@manifest} />
         <link :if={@icon} rel="apple-touch-icon" href={@icon} />
         <title>{@name}</title>
-        <style>
+        <style nonce={PhoenixKitWeb.CSP.nonce(:style)}>
           body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
                  max-width: 28rem; margin: 3rem auto; padding: 0 1rem; line-height: 1.5; color: #1f2937; }
           ol { padding-left: 1.25rem; } li { margin: .5rem 0; }

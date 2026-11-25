@@ -625,7 +625,7 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
   # the server: it finds its table as the element just before it.
   defp fit_restore(assigns) do
     ~H"""
-    <script>
+    <script nonce={PhoenixKitWeb.CSP.nonce(:script)}>
       (function () {
         try {
           var wrap = document.currentScript && document.currentScript.previousElementSibling;

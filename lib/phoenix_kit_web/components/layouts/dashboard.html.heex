@@ -100,11 +100,11 @@ has_multi_selector = context_selector_configs != [] %> <!DOCTYPE html>
       href={PhoenixKit.Utils.Routes.path("/assets/css/app.css")}
     />
     <%!-- PhoenixKit Custom Theme CSS (phoenix-light, phoenix-dark) --%>
-    <style data-phoenix-kit-themes>
+    <style nonce={PhoenixKitWeb.CSP.nonce(:style)} data-phoenix-kit-themes>
       <%= Phoenix.HTML.raw(PhoenixKit.ThemeConfig.custom_theme_css()) %>
     </style>
     <%!-- Dashboard animations CSS --%>
-    <style>
+    <style nonce={PhoenixKitWeb.CSP.nonce(:style)}>
       /* Shake animation for attention */
       @keyframes shake {
         0%, 100% { transform: translateX(0); }
@@ -159,7 +159,11 @@ has_multi_selector = context_selector_configs != [] %> <!DOCTYPE html>
     <.phoenix_kit_globals />
     <%!-- PhoenixKit Cookie Consent Widget Script --%>
     <%= if Code.ensure_loaded?(PhoenixKit.Modules.Legal) do %>
-      <script defer src={PhoenixKit.Utils.Routes.path("/assets/phoenix_kit_consent.js")}>
+      <script
+        nonce={PhoenixKitWeb.CSP.nonce(:script)}
+        defer
+        src={PhoenixKit.Utils.Routes.path("/assets/phoenix_kit_consent.js")}
+      >
       </script>
     <% end %>
   </head>

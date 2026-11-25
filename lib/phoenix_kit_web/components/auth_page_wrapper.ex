@@ -161,7 +161,7 @@ defmodule PhoenixKitWeb.Components.AuthPageWrapper do
           "@media (max-width: 768px) { .auth-bg { background-image: url('#{url}'); } }"
       end
 
-    "<style>.auth-bg { #{desktop} background-size: cover; background-position: center; } #{mobile}</style>"
+    "<style#{PhoenixKitWeb.CSP.attr(:style)}>.auth-bg { #{desktop} background-size: cover; background-position: center; } #{mobile}</style>"
   end
 
   defp custom_bg?(assigns) do

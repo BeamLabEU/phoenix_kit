@@ -27,6 +27,11 @@ defmodule PhoenixKitWeb.Plugs.Integration do
   lost. Keep it that way: anything a page needs from the kit goes into that
   file or a component the layout renders, not into the response body here.
 
+  - **CSP nonces** (`PhoenixKitWeb.CSP`): when the host names the assign
+    that holds its Content-Security-Policy nonce, the kit's inline tags on
+    this page carry it. The host's plug that assigns the nonce runs before
+    this one.
+
   ## Future Extensions
 
   This plug can be extended to include additional PhoenixKit features such as:
@@ -54,6 +59,7 @@ defmodule PhoenixKitWeb.Plugs.Integration do
   zero performance impact when features are not in use.
   """
 
+  alias PhoenixKitWeb.CSP
   alias PhoenixKitWeb.Plugs.WebsiteAccess
   alias PhoenixKitWeb.Users.Auth
 
@@ -73,7 +79,11 @@ defmodule PhoenixKitWeb.Plugs.Integration do
     # The session is rebuilt from the remember-me cookie first, because the
     # maintenance gate lets a signed-in administrator through by reading the
     # session's user token.
+    #
+    # The page's CSP nonces are remembered before anything can render (the
+    # gate and the maintenance page are written from here).
     conn
+    |> CSP.put_nonces()
     |> Auth.restore_remembered_session()
     |> WebsiteAccess.call([])
   end
