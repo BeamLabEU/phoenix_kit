@@ -140,7 +140,7 @@ defmodule PhoenixKitWeb.PushOpenController do
   defp inbox_path(%{user: %User{} = user}) do
     locale = RecipientLocale.for_rendering(user)
 
-    if is_binary(locale) and Languages.language_enabled?(locale),
+    if Languages.language_enabled?(locale),
       do: Routes.path("/admin/notifications", locale: locale),
       else:
         RecipientLocale.in_locale(locale, fn ->

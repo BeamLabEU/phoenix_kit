@@ -223,7 +223,7 @@ defmodule PhoenixKit.Notifications.DigestWorker do
   # `en-US`): the implicit lookup inside `in_locale/2` reduced it to the base
   # language, which opened the default dialect's inbox.
   defp inbox_path(locale) do
-    if is_binary(locale) and dialect_served?(locale),
+    if dialect_served?(locale),
       do: Routes.path("/admin/notifications", locale: locale),
       else: RecipientLocale.in_locale(locale, fn -> Routes.path("/admin/notifications") end)
   end
