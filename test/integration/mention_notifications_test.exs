@@ -205,6 +205,43 @@ defmodule PhoenixKit.Integration.MentionNotificationsTest do
       assert Render.render(n, "en").text =~ "mentioned you"
     end
 
+    test "a ping written before mentions recorded their source is found by its link" do
+      author = user()
+      ada = user()
+      comment = Ecto.UUID.generate()
+      task = Ecto.UUID.generate()
+      text = "Hi @[user:#{ada.uuid}|Ada], the client offered 40k"
+
+      {:ok, new} =
+        Mentions.sync("comment", comment, text, field: "content", actor_uuid: author.uuid)
+
+      Mentions.notify(new,
+        source_type: "open_thing",
+        source_uuid: task,
+        preview: text,
+        quote: text,
+        link: "/admin/things/#{task}#pk-comment-#{comment}"
+      )
+
+      # As an activity written before 2026-11-25 was: no mention source.
+      PhoenixKit.Activity.Entry
+      |> where([a], a.action == "mention.created" and a.target_uuid == ^ada.uuid)
+      |> Repo.update_all(
+        set: [
+          metadata: %{
+            "quote" => %{"text" => text},
+            "preview" => text,
+            "notification_link" => "/admin/things/#{task}#pk-comment-#{comment}"
+          }
+        ]
+      )
+
+      assert Mentions.forget_source("comment", comment) == 1
+
+      {[n], _} = Notifications.list_for_user(ada.uuid, status: :all)
+      assert Render.quote(n) == nil
+    end
+
     test "without a `:quote`, the uncut preview is the quote" do
       author = user()
       ada = user()
@@ -247,8 +284,11 @@ defmodule PhoenixKit.Integration.MentionNotificationsTest do
     {:ok, [first]} =
       Mentions.sync("comment", source, text, field: "content", actor_uuid: author.uuid)
 
-    # A second tab saves the same mention before the first one claims it.
-    {:ok, []} =
+    # A second tab saves the same mention before the first one claims it:
+    # the same row, still unsent, comes back to be sent (once — the claim).
+    first_uuid = first.uuid
+
+    {:ok, [%{uuid: ^first_uuid}]} =
       Mentions.sync("comment", source, text <> "!", field: "content", actor_uuid: author.uuid)
 
     assert [%{uuid: uuid}] = Mentions.list_for_source("comment", source, "content")
@@ -283,5 +323,50 @@ defmodule PhoenixKit.Integration.MentionNotificationsTest do
     assert link =~ "/admin/posts/1?x=1#pk-comment-2"
 
     assert Render.render(n, "et").link == stored
+  end
+
+  test "a ping whose claim was given back is sent by the next save, once" do
+    author = user()
+    ada = user()
+    source = Ecto.UUID.generate()
+    text = "Hi @[user:#{ada.uuid}|Ada]"
+
+    {:ok, [m]} = Mentions.sync("comment", source, text, field: "content", actor_uuid: author.uuid)
+
+    # Claimed, then given back (what `notify/2` does when the activity could
+    # not be written): nobody was told.
+    assert [_] = Mentions.claim_for_delivery([m])
+
+    PhoenixKit.Mentions.Mention
+    |> Ecto.Query.where([x], x.uuid == ^m.uuid)
+    |> Repo.update_all(set: [notified_at: nil])
+
+    {:ok, again} =
+      Mentions.sync("comment", source, text <> " ", field: "content", actor_uuid: author.uuid)
+
+    Mentions.notify(again, source_type: "open_thing", source_uuid: Ecto.UUID.generate())
+    assert length(inbox(ada)) == 1
+
+    # Delivered now: a further save sends nothing more.
+    {:ok, more} =
+      Mentions.sync("comment", source, text <> "  ", field: "content", actor_uuid: author.uuid)
+
+    Mentions.notify(more, source_type: "open_thing", source_uuid: Ecto.UUID.generate())
+    assert length(inbox(ada)) == 1
+  end
+
+  test "a host page's link is left as it is, whatever the reader's language" do
+    {:ok, _} = PhoenixKit.Modules.Languages.enable_system()
+    {:ok, _} = PhoenixKit.Modules.Languages.add_language("et")
+    author = user()
+    ada = user()
+
+    # A host-owned page that happens to start with a served language: it is
+    # not the kit's, so it is never rebuilt under the kit's mount.
+    stored = "/et/docs/123#pk-comment-2"
+    mention(author, ada, link: stored)
+
+    {[n], _} = Notifications.list_for_user(ada.uuid, status: :all)
+    assert Render.render(n, "en").link == stored
   end
 end

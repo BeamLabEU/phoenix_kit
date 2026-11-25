@@ -477,8 +477,8 @@ defmodule PhoenixKit.Notifications.Render do
   defp relocalize(link, locale) when not is_binary(locale) or locale == "", do: link
 
   defp relocalize(link, locale) do
-    case Routes.path_locale(link) do
-      nil ->
+    case kit_path?(link) && Routes.path_locale(link) do
+      locale_segment when locale_segment in [nil, false] ->
         link
 
       current ->
@@ -487,6 +487,25 @@ defmodule PhoenixKit.Notifications.Render do
     end
   rescue
     _ -> link
+  end
+
+  # Only a link to the kit's own pages is relocalized: one under the kit's
+  # mount prefix, or in its admin area. A host page (`/et/docs/123` beside a
+  # kit mounted at `/phoenix_kit`) is the host's, and rebuilding it with
+  # `Routes.path/2` moved it under the kit's mount — a link that 404s.
+  defp kit_path?(link) do
+    prefix =
+      case Routes.url_prefix() do
+        "/" -> ""
+        prefix -> prefix
+      end
+
+    under_prefix? =
+      prefix != "" and
+        (link == prefix or
+           String.starts_with?(link, [prefix <> "/", prefix <> "?", prefix <> "#"]))
+
+    under_prefix? or Routes.admin_area_path?(link)
   end
 
   defp local_link(meta, key) do
