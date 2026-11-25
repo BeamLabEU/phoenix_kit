@@ -738,7 +738,7 @@ defmodule PhoenixKitWeb.Components.PeoplePicker do
           phx-value-kind={r.kind}
           phx-value-uuid={r.uuid}
           phx-target={@myself}
-          class="btn btn-xs btn-ghost border-base-300 gap-1 font-normal"
+          class="btn btn-xs btn-ghost border-base-300 gap-1 font-normal rounded-full h-7 min-h-7 pl-0.5 pr-2"
           title={r[:sublabel] || r.label}
         >
           <.face row={r} size="xs" />{r.label}
