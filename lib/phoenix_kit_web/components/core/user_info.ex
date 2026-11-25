@@ -439,6 +439,8 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
       class={@chip_class}
       data-mention-user={@uuid}
       data-card-error={@uuid && gettext("Couldn't load this person.")}
+      role={@uuid && "button"}
+      tabindex={@uuid && "0"}
       {@rest}
     ><.chip_face face={@face} /><span class="truncate">{@shown}</span></span>
     """

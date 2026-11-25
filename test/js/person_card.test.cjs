@@ -53,6 +53,7 @@ function el(tag) {
 }
 
 const docListeners = [];
+const keyListeners = [];
 
 global.document = {
   documentElement: { getAttribute: (k) => (k === "lang" ? "et" : null) },
@@ -65,6 +66,7 @@ global.document = {
   querySelectorAll: () => [],
   addEventListener(type, fn, capture) {
     if (type === "click" && capture === true) docListeners.push(fn);
+    if (type === "keydown" && capture === true) keyListeners.push(fn);
   },
   removeEventListener: noop,
   readyState: "complete",
@@ -185,4 +187,39 @@ test("a modifier click follows the chip's link; a chip inside an editor is the e
   });
   assert.equal(inEditor.prevented, false);
   assert.equal(fetched.length, 0);
+});
+
+test("a chip that is not a link opens on Enter and Space, like a button", async () => {
+  fetched.length = 0;
+  const span = el("span");
+  span.attrs = { "data-mention-user": "k-1", role: "button", tabindex: "0" };
+  span.closest = () => null;
+  span.getBoundingClientRect = () => ({ top: 100, bottom: 124, left: 200, right: 260 });
+
+  for (const key of ["Enter", " "]) {
+    const ev = { key, target: span, prevented: false, preventDefault() { this.prevented = true; } };
+    keyListeners.forEach((fn) => fn(ev));
+    assert.equal(ev.prevented, true, key);
+  }
+  assert.equal(fetched.filter((u) => /\/people\/k-1\/card/.test(u)).length, 2);
+
+  // Another key, or a link (whose Enter is already a click), does nothing here.
+  const other = { key: "a", target: span, prevented: false, preventDefault() { this.prevented = true; } };
+  keyListeners.forEach((fn) => fn(other));
+  assert.equal(other.prevented, false);
+});
+
+test("a close event that arrives after the card reopened does not empty it", async () => {
+  const c = chip("r-1", { href: "/admin/users/view/r-1" });
+  click({ "[data-mention-user]": c });
+  await flush();
+  await flush();
+  const pop = lastDialog("pk-person-pop");
+  const body = pop.querySelector("[data-pk-pop-body]");
+  assert.equal(body.innerHTML, "<p>card</p>");
+
+  // The previous opening's queued close fires while the card is open again.
+  assert.equal(pop.open, true);
+  (pop.listeners.close || []).forEach((fn) => fn({}));
+  assert.equal(body.innerHTML, "<p>card</p>");
 });

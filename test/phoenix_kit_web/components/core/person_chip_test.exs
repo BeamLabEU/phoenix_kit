@@ -49,6 +49,9 @@ defmodule PhoenixKitWeb.Components.Core.PersonChipTest do
     refute html =~ "<a "
     assert html =~ "Gone Person"
     assert html =~ ">GP<"
+    # Reachable from the keyboard: a button, in the tab order.
+    assert html =~ ~s(role="button")
+    assert html =~ ~s(tabindex="0")
   end
 
   test "a person with only an OAuth or Gravatar picture shows initials, never a third party" do
@@ -65,6 +68,7 @@ defmodule PhoenixKitWeb.Components.Core.PersonChipTest do
   test "no uuid: no card to open" do
     html = render_component(&UserInfo.person_chip/1, name: "Someone")
     refute html =~ "data-mention-user"
+    refute html =~ "tabindex"
   end
 
   test "confirm_modal takes an id, so two in one document stay apart" do

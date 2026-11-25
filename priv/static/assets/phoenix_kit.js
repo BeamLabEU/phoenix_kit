@@ -299,8 +299,9 @@
         var a = e.target.closest && e.target.closest("a[href]");
         if (a && dialog.contains(a)) dialog.close();
       });
+      // The close event is queued: a card reopened meanwhile is not emptied.
       dialog.addEventListener("close", function () {
-        body.innerHTML = "";
+        if (!dialog.open) body.innerHTML = "";
       });
     }
 
@@ -456,6 +457,33 @@
           e.preventDefault();
           e.stopPropagation();
           openDrawer(list);
+        }
+      },
+      true
+    );
+
+    // From the keyboard: a chip or group that is not a link (role="button",
+    // tabindex="0") opens on Enter or Space, like a button. A link chip gets
+    // Enter's click from the browser already.
+    document.addEventListener(
+      "keydown",
+      function (e) {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        if (e.metaKey || e.ctrlKey || e.altKey) return;
+        var t = e.target;
+        if (!t || !t.closest || t.tagName === "A") return;
+        if (t.closest("[contenteditable]:not([contenteditable='false']), textarea, input")) return;
+        if (t.closest(".pk-person-pop, .pk-person-drawer")) return;
+        var uuid = t.getAttribute("data-mention-user");
+        if (uuid) {
+          e.preventDefault();
+          openCard(uuid, t);
+          return;
+        }
+        var people = t.getAttribute("data-people");
+        if (people) {
+          e.preventDefault();
+          openDrawer(people.split(",").map(function (s) { return s.trim(); }));
         }
       },
       true
