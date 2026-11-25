@@ -1278,3 +1278,29 @@ fixed in this commit.
   of zero violations on consent and on sign-in through the real router is Codex's, not mine.
   The unit files I ran: `csp_test.exs` and `doctor_csp_test.exs`, 25 tests, 0 failures, after
   the boolean fix. `root_layout_bundle_test.exs` was run before that fix, 3 tests, 0 failures.
+
+## Closing check — Claude, after the rechecks (`5ba471979`)
+
+Read Mistral's, Codex's and Grok's rechecks and Grok's commit `5ba471979`. No reviewer left a
+product finding open against the second pass. Codex's two tooling findings were real and Grok's
+fixes for them are right.
+
+What nobody had run on `5ba471979`, run now:
+
+- **`mix precommit` failed on it**: credo, one "nested modules could be aliased" note on the
+  test Grok added (`csp_test.exs`, `Mix.Tasks.PhoenixKit.Doctor`). Aliased; the gate passes.
+- The CSP test files, the remember-me plug file, `root_layout_bundle_test.exs`,
+  `doctor_csp_test.exs` and `route_precedence_test.exs`: 53 tests, 0 failures.
+- The committed browser harness, as its README says, with Grok's two changes (non-zero exit on
+  a failed check, `host === undefined` for the blocked host handler): 43 checks, 0 failed,
+  exit 0. That is the first Chromium run of the stricter decimal-field assertion.
+
+One small thing in `5ba471979`, left as it is: `assign_name?/1` accepts `nil` (an atom, not a
+boolean), so `%{script: :a}` reads the missing `:style` as the assign name `nil`.
+`conn.assigns[nil]` is `nil`, so the result is "no nonce for that kind", which is correct.
+
+Not re-run: the full `mix test`. The change since the last full run is the boolean handling in
+`csp.ex`, its test and the harness script.
+
+The open list is unchanged: a signed-in admin session in a browser on a real host, inline
+`style` attributes, `cally`, the module packages, and the tooling limits Grok lists above.

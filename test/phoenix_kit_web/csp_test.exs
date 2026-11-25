@@ -4,6 +4,7 @@ defmodule PhoenixKitWeb.CSPTest do
   import Phoenix.ConnTest, only: [build_conn: 0]
   import Phoenix.LiveViewTest, only: [render_component: 2]
 
+  alias Mix.Tasks.PhoenixKit.Doctor
   alias PhoenixKitWeb.Components.Core.PhoenixKitGlobals
   alias PhoenixKitWeb.CSP
 
@@ -220,7 +221,7 @@ defmodule PhoenixKitWeb.CSPTest do
         # The same call as the doctor: `key && router` is `false` when the setting is `false`,
         # which used to miss every clause of `csp_verdict/3` and raise.
         assert {:warn, message} =
-                 Mix.Tasks.PhoenixKit.Doctor.csp_verdict(key, problem, key && "router source")
+                 Doctor.csp_verdict(key, problem, key && "router source")
 
         assert message =~ "not usable"
         # A value stored under that key is still not the nonce.
