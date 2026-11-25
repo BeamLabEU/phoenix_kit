@@ -55,21 +55,20 @@ defmodule PhoenixKitWeb.Live.Settings.AuthorizationLanguageSwitcherTest do
     assert has_element?(view, @checkbox <> "[checked]")
   end
 
-  test "the change takes effect on the sign-in and registration pages", %{conn: conn} do
+  @auth_pages ~w(/users/log-in /users/register /users/magic-link /users/reset-password)
+
+  test "the change takes effect on the auth pages", %{conn: conn} do
     {:ok, view, _html} = live(admin_conn(conn), Routes.path("/admin/settings/authorization"))
     guest = Phoenix.ConnTest.build_conn()
 
-    assert auth_page_has_switcher?(guest, "/users/log-in")
-    assert auth_page_has_switcher?(guest, "/users/register")
+    for path <- @auth_pages, do: assert(auth_page_has_switcher?(guest, path), path)
 
     save(view, "false")
 
-    refute auth_page_has_switcher?(guest, "/users/log-in")
-    refute auth_page_has_switcher?(guest, "/users/register")
+    for path <- @auth_pages, do: refute(auth_page_has_switcher?(guest, path), path)
 
     save(view, "true")
 
-    assert auth_page_has_switcher?(guest, "/users/log-in")
-    assert auth_page_has_switcher?(guest, "/users/register")
+    for path <- @auth_pages, do: assert(auth_page_has_switcher?(guest, path), path)
   end
 end

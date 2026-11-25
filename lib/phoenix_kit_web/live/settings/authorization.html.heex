@@ -245,15 +245,23 @@
             </div>
 
             <div class="fieldset w-full mt-6">
+              <label class="label">
+                <span class="fieldset-legend text-base font-medium">
+                  {gettext("Language switcher")}
+                </span>
+                <span class="fieldset-label text-sm text-base-content/60">
+                  {gettext("The language list under the auth forms")}
+                </span>
+              </label>
               <.checkbox
                 name="settings[auth_language_switcher_enabled]"
                 id="auth-language-switcher-enabled"
                 checked={@settings["auth_language_switcher_enabled"] == "true"}
-                label={gettext("Show the language switcher on sign-in and registration pages")}
+                label={gettext("Show the language switcher on sign-in pages")}
               >
                 <:description>
                   {gettext(
-                    "Shown under the form when the Languages module is on and more than one language is enabled. Turn it off for a site that serves one language per domain."
+                    "Covers sign-in, registration, magic link, password reset, email confirmation and QR sign-in pages. Shown only when Multiple languages is turned on and more than one language is enabled. Turn it off for a site that serves one language per domain."
                   )}
                 </:description>
               </.checkbox>

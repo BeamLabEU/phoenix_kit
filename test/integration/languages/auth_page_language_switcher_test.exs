@@ -9,7 +9,8 @@ defmodule PhoenixKit.Integration.Languages.AuthPageLanguageSwitcherTest do
 
   use PhoenixKit.DataCase, async: true
 
-  import Phoenix.LiveViewTest, only: [render_component: 2]
+  import Phoenix.Component, only: [sigil_H: 2]
+  import Phoenix.LiveViewTest, only: [render_component: 2, rendered_to_string: 1]
 
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Settings
@@ -74,6 +75,53 @@ defmodule PhoenixKit.Integration.Languages.AuthPageLanguageSwitcherTest do
     test "an explicit assign false wins over the setting on" do
       set_switcher_setting("true")
       refute switcher?(render_wrapper(%{show_language_switcher: false}))
+    end
+  end
+
+  describe "called from a HEEx template" do
+    setup do
+      {:ok, _} = Languages.enable_system()
+      {:ok, _} = Languages.add_language("ja")
+      :ok
+    end
+
+    defp heex_default do
+      assigns = %{}
+
+      rendered_to_string(~H"""
+      <AuthPageWrapper.auth_page_wrapper flash={%{}} page_title="Log in">
+        SIGN IN FORM
+      </AuthPageWrapper.auth_page_wrapper>
+      """)
+    end
+
+    defp heex_explicit(value) do
+      assigns = %{value: value}
+
+      rendered_to_string(~H"""
+      <AuthPageWrapper.auth_page_wrapper
+        flash={%{}}
+        page_title="Log in"
+        show_language_switcher={@value}
+      >
+        SIGN IN FORM
+      </AuthPageWrapper.auth_page_wrapper>
+      """)
+    end
+
+    test "without the attribute the setting decides" do
+      assert switcher?(heex_default())
+
+      set_switcher_setting("false")
+      refute switcher?(heex_default())
+    end
+
+    test "the attribute wins over the setting, both ways" do
+      set_switcher_setting("false")
+      assert switcher?(heex_explicit(true))
+
+      set_switcher_setting("true")
+      refute switcher?(heex_explicit(false))
     end
   end
 
