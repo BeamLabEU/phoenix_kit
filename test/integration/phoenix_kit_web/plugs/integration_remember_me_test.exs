@@ -65,6 +65,20 @@ defmodule PhoenixKitWeb.Plugs.IntegrationRememberMeTest do
     assert get_session(conn, :live_socket_id)
   end
 
+  # A host's Content-Security-Policy may forbid inline scripts; the plug runs
+  # on the host's own pages, so it must not write one into them.
+  test "leaves the body of an HTML page as the host rendered it" do
+    body = "<!DOCTYPE html><html><head><title>About</title></head><body>Hi</body></html>"
+
+    conn =
+      %{}
+      |> host_request()
+      |> put_resp_content_type("text/html")
+      |> send_resp(200, body)
+
+    assert conn.resp_body == body
+  end
+
   test "does nothing without the cookie" do
     conn = host_request(%{})
     refute get_session(conn, :user_token)

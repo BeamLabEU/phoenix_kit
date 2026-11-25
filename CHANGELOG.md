@@ -24,6 +24,11 @@
 
 ### Fixed
 
+- **PhoenixKit no longer writes an inline script into the host's own pages.**
+  `PhoenixKitWeb.Plugs.Integration` put a `<script>` after `<head>` on every HTML response of the
+  `:browser` pipeline, which a `script-src` policy without `'unsafe-inline'` blocked on every page
+  of the site. `phoenix_kit.js` already does the same clearing of the cached LongPoll fallback, so
+  the plug now leaves the response body alone. PhoenixKit's own layouts still carry inline scripts.
 - The sign-up page no longer shows a padded name for the first two letters of the email (`f_1`,
   `fo_1`): the username field fills in from the third letter.
 - A generated username with a number added for uniqueness stays within the 30-character limit
