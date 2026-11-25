@@ -2450,7 +2450,12 @@ defmodule PhoenixKitWeb.Integration do
   end
 
   def call(conn, :phoenix_kit_auto_setup) do
+    # The CSP nonces again, now that the whole `:browser` pipeline has run: a host
+    # plug placed after `Plugs.Integration` is still read on kit routes.
+    #
     # Add backward compatibility for layouts that use render_slot(@inner_block)
-    Plug.Conn.assign(conn, :inner_block, [])
+    conn
+    |> PhoenixKitWeb.CSP.put_nonces()
+    |> Plug.Conn.assign(:inner_block, [])
   end
 end

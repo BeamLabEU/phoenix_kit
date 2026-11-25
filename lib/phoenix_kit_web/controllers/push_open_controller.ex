@@ -171,6 +171,9 @@ defmodule PhoenixKitWeb.PushOpenController do
       |> Map.put_new(:home, Routes.path("/"))
       |> Map.merge(%{page: page, style: @style})
 
+    # The page's CSP nonce is read from this connection, whatever the order of the host's plugs.
+    conn = PhoenixKitWeb.CSP.put_nonces(conn)
+
     conn
     |> put_resp_header("cache-control", "no-store")
     |> put_resp_header("x-robots-tag", "noindex, nofollow")

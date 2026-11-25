@@ -55,6 +55,18 @@
     <style nonce={PhoenixKitWeb.CSP.nonce(:style)} data-phoenix-kit-themes>
       <%= Phoenix.HTML.raw(PhoenixKit.ThemeConfig.custom_theme_css()) %>
     </style>
+    <%!-- The kit's own bundle, when the host serves it: a host root layout has
+         these tags from the installer, this fallback did not, so a page under
+         it had no listeners for the kit's `data-pk-*` controls unless app.js
+         imported the file. Deferred like app.js and before it, so the hooks
+         exist when LiveSocket is built. --%>
+    <script
+      :for={src <- PhoenixKitWeb.Layouts.kit_bundle_paths(assigns[:conn])}
+      nonce={PhoenixKitWeb.CSP.nonce(:script)}
+      defer
+      src={src}
+    >
+    </script>
     <script
       nonce={PhoenixKitWeb.CSP.nonce(:script)}
       defer

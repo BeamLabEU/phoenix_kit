@@ -1276,19 +1276,20 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                     {Phoenix.Component.live_render(@socket, widget.live_view,
                       id: widget.id,
                       sticky: true,
-                      session: widget.session
+                      session: PhoenixKitWeb.CSP.nested_session(widget.session)
                     )}
                   <% end %>
                   <%= if @socket && bell_user && PhoenixKit.Notifications.enabled?() do %>
                     {Phoenix.Component.live_render(@socket, PhoenixKitWeb.Live.NotificationsBell,
                       id: bell_id(assigns[:current_locale_base]),
                       sticky: true,
-                      session: %{
-                        "user_uuid" => bell_user.uuid,
-                        "locale" => assigns[:current_locale_base],
-                        "dialect" => assigns[:current_locale],
-                        "can_open_inbox" => @can_open_inbox
-                      }
+                      session:
+                        PhoenixKitWeb.CSP.nested_session(%{
+                          "user_uuid" => bell_user.uuid,
+                          "locale" => assigns[:current_locale_base],
+                          "dialect" => assigns[:current_locale],
+                          "can_open_inbox" => @can_open_inbox
+                        })
                     )}
                   <% end %>
                   <%!-- Role switcher, when `role_switcher_location` is

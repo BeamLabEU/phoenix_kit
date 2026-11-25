@@ -7,8 +7,8 @@ This guide says what the kit's pages need from it.
 
 The kit's layouts and some components render inline `<script>` and `<style>` tags (the theme
 bootstrap that runs before first paint, the URL-prefix global, the sidebar state, the table's
-view toggle). It renders no inline event handlers. A policy with `script-src 'self'` and nothing else blocks them, and the admin area
-loses its theme switch, sidebar memory and more.
+view toggle). It renders no inline event handlers. A policy with `script-src 'self'` and
+nothing else blocks them, and the admin area loses its theme switch, sidebar memory and more.
 
 The kit writes nothing into the host's own pages: `PhoenixKitWeb.Plugs.Integration` leaves the
 response body alone. Inline code appears only where a kit layout or a kit component is rendered.
@@ -31,7 +31,10 @@ defmodule MyAppWeb.Plugs.CSP do
     |> assign(:csp_nonce, nonce)
     |> put_resp_header(
       "content-security-policy",
-      "default-src 'self'; script-src 'self' 'nonce-#{nonce}'; style-src 'self' 'nonce-#{nonce}'"
+      # style-src-attr: the kit (like most UI libraries) sets some `style="…"` attributes,
+      # and no nonce can be put on an attribute.
+      "default-src 'self'; script-src 'self' 'nonce-#{nonce}'; " <>
+        "style-src 'self' 'nonce-#{nonce}'; style-src-attr 'unsafe-inline'"
     )
   end
 end
@@ -59,6 +62,37 @@ Every inline tag the kit renders now carries `nonce="…"`. The kit's own LiveVi
 after the socket connects (it travels in the LiveView session), so a `<style>` added by a later
 patch is accepted too.
 
+`mix phoenix_kit.doctor` ("Content-Security-Policy") reports a value of the wrong shape, which
+would otherwise read as "no nonce" with nothing said, and lists the plugs of `pipeline :browser`
+that run after `Plugs.Integration`.
+
+### Why the plug order matters, and where it does not
+
+`Plugs.Integration` reads the nonce when it runs, for the kit components on **your own pages**
+(the theme bootstrap the installer put in your root layout). A nonce assigned later is not seen
+there, and those tags render without one.
+
+The kit's own routes read it again after your whole `:browser` pipeline, and its hand-written
+pages (the website gate, the push pages, the OAuth consent pages) read it from the connection
+when they render, so on those the order does not matter. When the kit sees that a nonce
+appeared after `Integration` ran, it logs one warning naming the fix.
+
+The maintenance page and the website gate are answered from inside `Integration`. They get the
+nonce only when your plug ran before it.
+
+### The script tags in your root layout
+
+A nonce is not needed on a `<script src="…">` of your own origin under `script-src 'self'`.
+Put it on the tag that loads `phoenix_kit.js` anyway (see "Styles and scripts the bundle
+creates" below), and on every script tag if your policy uses `'strict-dynamic'`, which ignores
+`'self'`:
+
+```heex
+<script defer nonce={assigns[:csp_nonce]} src={~p"/assets/vendor/phoenix_kit.js"}></script>
+<script defer nonce={assigns[:csp_nonce]} src={~p"/assets/vendor/phoenix_kit_modules.js"}></script>
+<script defer nonce={assigns[:csp_nonce]} phx-track-static src={~p"/assets/app.js"}></script>
+```
+
 ### Your own LiveViews that render kit components
 
 A live session of yours that renders `LayoutWrapper`, the table or the theme controller takes two
@@ -72,6 +106,33 @@ live_session :app,
 
 Without them the first render still has the nonce; tags added by live navigation do not.
 
+`live_session` takes one `session:`. If you already have one, merge:
+
+```elixir
+def live_session(conn) do
+  Map.merge(my_session(conn), PhoenixKitWeb.CSP.live_session(conn))
+end
+```
+
+### Nested LiveViews
+
+A view rendered with `live_render/3` is a process of its own and skips the live session's
+`on_mount`. The kit hands the nonce to its own nested views (the header widgets, the
+notifications bell, the admin home). For one of yours that renders kit components, pass the
+session through `PhoenixKitWeb.CSP.nested_session/1` and restore it in the child:
+
+```elixir
+{live_render(@socket, MyAppWeb.WidgetLive, id: "w", session: PhoenixKitWeb.CSP.nested_session(%{}))}
+
+defmodule MyAppWeb.WidgetLive do
+  use Phoenix.LiveView
+  on_mount PhoenixKitWeb.CSP   # already there with `use PhoenixKitWeb, :live_view`
+end
+```
+
+A module's header widget (`header_widgets/0`) gets the session for free; its view needs the
+`on_mount` line unless it uses `PhoenixKitWeb, :live_view`.
+
 ### Inline event handlers
 
 The kit renders none (`onclick="…"`, `onerror="…"`): no nonce can be put on an attribute, so what
@@ -80,7 +141,11 @@ layout must load that file (the installer adds it) for copy buttons, dropdowns t
 choice, the decimal field's zero and the preview card's arrows to work.
 
 A handler you pass to a kit component yourself (`<.decimal_input onfocus="…">`) is rendered as
-you wrote it and is yours to allow.
+you wrote it. Under a nonce policy the browser blocks it like any other inline handler; the
+component's own behaviour keeps working.
+
+A page rendered under the kit's fallback root layout (a host with no `root_layout` configured)
+loads `/assets/vendor/phoenix_kit.js` by itself when your application serves that file.
 
 ### Styles and scripts the bundle creates
 
@@ -120,6 +185,31 @@ allowed stylesheet by the page holding a nonce.
   origin.
 - **Module packages** (`phoenix_kit_*`) have inline code of their own; each is converted in its
   own release.
+- **The calendar popup of date fields** (the vendored `cally` library) creates a style element
+  of its own, without a nonce.
+
+### Other directives the kit's features need
+
+A policy that starts from `default-src 'self'` also has to allow what these features reach:
+
+| Feature | Directive |
+|---|---|
+| LiveView's socket | `connect-src 'self'` covers `wss:` of the same origin in current browsers; older ones need the `wss://` origin spelled out |
+| Cloudflare Turnstile on the public auth forms | `script-src` and `frame-src https://challenges.cloudflare.com` |
+| Upload previews, the image editor, avatars cropped in the browser | `img-src 'self' blob: data:` (and `media-src blob:` for recorded audio) |
+| Files served straight from a bucket or CDN | that origin in `img-src` / `media-src` |
+| Gravatar avatars | `img-src https://www.gravatar.com` |
+| The OAuth consent form, which answers with a redirect to the client | the clients' redirect origins in `form-action`, or no `form-action` |
+
+## What was checked in a browser
+
+Headless Chromium, with the policy of Option 1 and the bundles of this repository: an otherwise
+empty page that loads the two bundles, a controller page with the theme toggle, a decimal
+field, copy buttons, a broken image and a dropdown, and a LiveView with nested views that add a
+`<style>` after the socket connects; each with one nonce, with a nonce per kind, and with the
+nonce assigned after `Integration`. No violation from the kit in any of them. The harness is in
+`dev_docs/handoffs/2026-11-25-csp-browser-harness/`. Not checked there: the consent widget, the
+table's column fitting, the kit's real router and layouts, Safari and Firefox.
 
 ## Option 2: allow inline code
 

@@ -50,6 +50,12 @@
  * @license MIT
  */
 
+// How many times this file has run on the page. A second include (a <script> tag
+// in the layout and an import in the host's app.js) must be a no-op: the first
+// section returns on PhoenixKitInitialized, and each later section returns on
+// this count, so no document listener is installed twice.
+if (typeof window !== "undefined") window.__pkBundleLoads = (window.__pkBundleLoads || 0) + 1;
+
 (function() {
   "use strict";
 
@@ -1532,7 +1538,7 @@
     // an inline onclick would be blocked by a strict Content-Security-Policy.
     var CONSENT_ACTIONS = ["openPreferences", "closePreferences", "acceptAll", "rejectAll", "savePreferences"];
 
-    document.addEventListener("click", function(e) {
+    function onConsentClick(e) {
       var el = e.target && typeof e.target.closest === "function"
         ? e.target.closest("[data-pk-consent]")
         : null;
@@ -1541,7 +1547,13 @@
       if (CONSENT_ACTIONS.indexOf(action) === -1) return;
       var fn = window.PhoenixKitConsent && window.PhoenixKitConsent[action];
       if (typeof fn === "function") fn();
-    });
+    }
+
+    if (typeof module === "object" && module.exports) {
+      module.exports.onConsentClick = onConsentClick;
+    }
+
+    document.addEventListener("click", onConsentClick);
 
     function injectWidget(config) {
       var existing = document.getElementById("pk-consent-root");
@@ -2419,7 +2431,10 @@
     var id = button.getAttribute("data-pk-copy-from");
     var source = id ? doc.getElementById(id) : null;
     if (!source) return null;
-    return source.value !== undefined && source.value !== null ? source.value : source.textContent;
+    // Only a form control's `value` is its text: <li>, <button>, <meter> and
+    // others have a `value` property of their own (an <li>'s is 0).
+    var tag = String(source.tagName || "").toUpperCase();
+    return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" ? source.value : source.textContent;
   }
 
   function onImageError(img) {
@@ -2528,8 +2543,9 @@
       if (slide) slide.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
     }
 
-    if (pkClosest(e.target, "[data-pk-blur]") && document.activeElement) {
-      document.activeElement.blur();
+    var active = document.activeElement;
+    if (pkClosest(e.target, "[data-pk-blur]") && active && typeof active.blur === "function") {
+      active.blur();
     }
   }
 
@@ -2537,7 +2553,11 @@
   // bundle) never fires its error again: look once the document is parsed.
   function sweepBrokenImages() {
     document.querySelectorAll("img[data-pk-img-error]").forEach(function(img) {
-      if (img.complete && img.naturalWidth === 0 && img.getAttribute("src")) onImageError(img);
+      // An SVG with no intrinsic size can report a natural width of 0 while
+      // it shows fine, so it is left to its own error event.
+      var src = img.getAttribute("src") || "";
+      if (!src || /\.svg(\?|#|$)/i.test(src) || src.indexOf("data:image/svg") === 0) return;
+      if (img.complete && img.naturalWidth === 0) onImageError(img);
     });
   }
 
@@ -2550,6 +2570,7 @@
     module.exports.filterLanguages = filterLanguages;
     module.exports.previewMark = previewMark;
     module.exports.onDeclaredClick = onDeclaredClick;
+    module.exports.sweepBrokenImages = sweepBrokenImages;
   }
 
   document.addEventListener("click", onDeclaredClick);
@@ -6140,6 +6161,7 @@
 // handled: inside an inner scroll container neither helps, so those bail out
 // to the browser default.
 (function() {
+  if (typeof window !== "undefined" && window.__pkBundleLoads > 1) return;
   if (typeof window === "undefined" || typeof document === "undefined") return;
 
   // Extra spacer height so (scrollTop + viewport) still fits inside the
@@ -6309,6 +6331,7 @@
 //
 // Won't scroll, open anything, or move focus.
 (function() {
+  if (typeof window !== "undefined" && window.__pkBundleLoads > 1) return;
   if (typeof window === "undefined" || typeof document === "undefined") return;
 
   var STYLE_ID = "pk-change-cue-style";
@@ -6622,6 +6645,7 @@ function pkMentionFace(av) {
 // page, and two textareas on one page must not fight over one menu.
 // ---------------------------------------------------------------------------
 (function() {
+  if (typeof window !== "undefined" && window.__pkBundleLoads > 1) return;
   if (typeof window === "undefined") return;
   window.PhoenixKitHooks = window.PhoenixKitHooks || {};
 
@@ -6986,6 +7010,7 @@ function pkMentionFace(av) {
 // data-label-processing / data-label-left. The hook owns the element's text.
 (function() {
   "use strict";
+  if (typeof window !== "undefined" && window.__pkBundleLoads > 1) return;
 
   // Decimal units, matching the Elixir-side Format.bytes(base: 1000) used in
   // the media file listings.
@@ -7126,6 +7151,7 @@ function pkMentionFace(av) {
 // guards full page unloads only — LiveView patch/navigate stays free.
 (function() {
   "use strict";
+  if (typeof window !== "undefined" && window.__pkBundleLoads > 1) return;
 
   window.PhoenixKitHooks = window.PhoenixKitHooks || {};
 
@@ -7173,6 +7199,7 @@ function pkMentionFace(av) {
 // `phx-target` on the element is for `render_hook/3` in tests. In a browser
 // `pushEventTo(this.el, ...)` finds the component from the DOM.
 (function () {
+  if (typeof window !== "undefined" && window.__pkBundleLoads > 1) return;
   const WAV_RATE = 16000;
   const TICK_MS = 100;
   // How long a clip may sit in "preparing" with no sign of life. The server reports
@@ -7570,6 +7597,7 @@ function pkMentionFace(av) {
 // `data-passkey-unsupported` and its buttons are hidden.
 // ---------------------------------------------------------------------------
 (function () {
+  if (typeof window !== "undefined" && window.__pkBundleLoads > 1) return;
   function toBase64Url(buffer) {
     var bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
     var binary = "";
@@ -7861,6 +7889,7 @@ if (typeof window !== "undefined") {
 // verification to finish" about a verification that was never going to start.
 // ---------------------------------------------------------------------------
 (function () {
+  if (typeof window !== "undefined" && window.__pkBundleLoads > 1) return;
   var SCRIPT_URL = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
   var loading = null;
 
@@ -8005,6 +8034,7 @@ if (typeof window !== "undefined") {
 // one of the libs). No-ops when the global is missing.
 // ===========================================================================
 (function() {
+  if (typeof window !== "undefined" && window.__pkBundleLoads > 1) return;
   if (typeof window === "undefined") return;
   window.PhoenixKitHooks = window.PhoenixKitHooks || {};
 
@@ -8036,6 +8066,7 @@ if (typeof window !== "undefined") {
 // because a style it set on its own element would be dropped by the next
 // patch.
 (function () {
+  if (typeof window !== "undefined" && window.__pkBundleLoads > 1) return;
   if (typeof window === "undefined") return;
   window.PhoenixKitHooks = window.PhoenixKitHooks || {};
 

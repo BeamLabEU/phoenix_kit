@@ -74,6 +74,7 @@ Object.defineProperty(global, "navigator", {
 });
 
 const {
+  sweepBrokenImages, onConsentClick,
   copyTextFor, onImageError, zeroFocus, zeroBlur, zeroEnter, filterLanguages, previewMark,
   onDeclaredClick,
 } = require("../../priv/static/assets/phoenix_kit.js");
@@ -93,12 +94,18 @@ function el(attrs, extra) {
 
 test("a copy button gives its own text, or the text of the element it names", () => {
   const doc = {
-    getElementById: (id) => ({ pre: { textContent: "{json}" }, field: { value: "typed" } })[id] || null,
+    getElementById: (id) => ({
+      pre: { tagName: "PRE", textContent: "{json}" },
+      field: { tagName: "INPUT", value: "typed", textContent: "" },
+      // An <li> has a numeric `value` of its own; its text is what is copied.
+      item: { tagName: "LI", value: 0, textContent: "third" },
+    })[id] || null,
   };
 
   assert.equal(copyTextFor(el({ "data-pk-copy": "https://x/cb" }), doc), "https://x/cb");
   assert.equal(copyTextFor(el({ "data-pk-copy-from": "pre" }), doc), "{json}");
   assert.equal(copyTextFor(el({ "data-pk-copy-from": "field" }), doc), "typed");
+  assert.equal(copyTextFor(el({ "data-pk-copy-from": "item" }), doc), "third");
   assert.equal(copyTextFor(el({ "data-pk-copy-from": "gone" }), doc), null);
 });
 
@@ -116,6 +123,12 @@ test("a click inside data-pk-blur drops the focus, any other click does not", ()
   onDeclaredClick({ target: el({}) });
 
   assert.equal(blurred, 1);
+});
+
+test("a focused node without blur() does not throw", () => {
+  global.document.activeElement = {};
+  assert.doesNotThrow(() => onDeclaredClick({ target: el({ "data-pk-blur": "" }) }));
+  global.document.activeElement = null;
 });
 
 // --- broken images ----------------------------------------------------------
@@ -275,4 +288,74 @@ test("an arrow scrolls the track by one slide, a tile jumps to its slide", () =>
 
   assert.deepEqual(scrolled, [-400, 400]);
   assert.deepEqual(shown, [2]);
+});
+
+// --- the sweep for images that failed before the bundle ran --------------------
+
+test("the sweep handles a finished image with no pixels, and leaves SVGs and loaded ones alone", () => {
+  const img = (src, complete, naturalWidth) =>
+    el({ "data-pk-img-error": "hide", src }, { style: {}, complete, naturalWidth });
+  const broken = img("/a.png", true, 0);
+  const loaded = img("/b.png", true, 40);
+  const pending = img("/c.png", false, 0);
+  const svg = img("/logo.svg?v=2", true, 0);
+  const inlineSvg = img("data:image/svg+xml;base64,AAAA", true, 0);
+  const none = img("", true, 0);
+
+  const before = global.document.querySelectorAll;
+  global.document.querySelectorAll = () => [broken, loaded, pending, svg, inlineSvg, none];
+  try {
+    sweepBrokenImages();
+  } finally {
+    global.document.querySelectorAll = before;
+  }
+
+  assert.equal(broken.style.display, "none");
+  for (const other of [loaded, pending, svg, inlineSvg, none]) {
+    assert.equal(other.style.display, undefined);
+  }
+});
+
+// --- cookie consent buttons ---------------------------------------------------
+
+test("a consent button runs its allow-listed action and nothing else", () => {
+  const calls = [];
+  const before = global.window.PhoenixKitConsent;
+  global.window.PhoenixKitConsent = {
+    acceptAll: () => calls.push("acceptAll"),
+    closePreferences: () => calls.push("closePreferences"),
+    // Reachable on the object, not on the list: must never run from markup.
+    init: () => calls.push("init"),
+    updateGoogleConsent: () => calls.push("updateGoogleConsent"),
+  };
+
+  try {
+    for (const action of ["acceptAll", "closePreferences", "init", "updateGoogleConsent",
+      "constructor", "__proto__", "toString", ""]) {
+      onConsentClick({ target: el({ "data-pk-consent": action }) });
+    }
+    onConsentClick({ target: el({}) });
+    onConsentClick({ target: null });
+  } finally {
+    global.window.PhoenixKitConsent = before;
+  }
+
+  assert.deepEqual(calls, ["acceptAll", "closePreferences"]);
+});
+
+// --- the file included twice ---------------------------------------------------
+
+test("a second include of the bundle installs no listener twice", () => {
+  const { createEnv } = require("./support/pk_env.cjs");
+  const env = createEnv({});
+  env.load("phoenix_kit.js");
+
+  const names = ["click", "error", "submit", "keydown", "focus", "blur", "input", "scroll"];
+  const count = () => names.map((n) => [env.listenerCount("document", n), env.listenerCount("window", n)]);
+  const once = count();
+  assert.ok(once[0][0] > 0, "the bundle listens for clicks");
+
+  env.load("phoenix_kit.js");
+  assert.deepEqual(count(), once);
+  assert.deepEqual(env.errors, []);
 });

@@ -58,6 +58,10 @@ defmodule PhoenixKitWeb do
 
       use Gettext, backend: PhoenixKitWeb.Gettext
 
+      # The page's CSP nonces, from the session. A root view gets them from its
+      # live session as well; a nested one (`live_render/3`) only from here.
+      on_mount PhoenixKitWeb.CSP
+
       unquote(core_components())
       unquote(html_helpers())
     end

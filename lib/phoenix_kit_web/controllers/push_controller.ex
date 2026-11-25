@@ -87,6 +87,9 @@ defmodule PhoenixKitWeb.PushController do
       settings: Routes.path("/profile/settings/notifications", locale: :none)
     }
 
+    # The page's CSP nonce is read from this connection, whatever the order of the host's plugs.
+    conn = PhoenixKitWeb.CSP.put_nonces(conn)
+
     conn
     |> put_resp_header("cache-control", "no-store")
     |> html(Safe.to_iodata(install_page(assigns)))

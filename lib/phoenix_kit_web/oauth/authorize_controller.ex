@@ -129,7 +129,7 @@ defmodule PhoenixKitWeb.OAuth.AuthorizeController do
   # with any `lang` replaced), so that a request refused for its rate or a busy table can be
   # tried again in the language the person chose.
   defp error_page(conn, status) do
-    conn = localize(conn)
+    conn = conn |> localize() |> PhoenixKitWeb.CSP.put_nonces()
     assigns = Language.assigns(conn, Routes.path("/oauth/authorize"), conn.query_string)
     Responses.page(conn, status, Pages.error(assigns))
   end

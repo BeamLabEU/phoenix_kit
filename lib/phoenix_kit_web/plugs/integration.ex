@@ -83,7 +83,7 @@ defmodule PhoenixKitWeb.Plugs.Integration do
     # The page's CSP nonces are remembered before anything can render (the
     # gate and the maintenance page are written from here).
     conn
-    |> CSP.put_nonces()
+    |> CSP.put_nonces_first()
     |> Auth.restore_remembered_session()
     |> WebsiteAccess.call([])
   end

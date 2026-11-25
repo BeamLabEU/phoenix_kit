@@ -935,3 +935,198 @@ conclusion holds, the mechanism does not, and Gemini's suggestion (call `put_non
   touches nothing here.
 - Full `mix test`: not re-run on the combined tree.
 - Browser: none by me.
+
+## Second pass — Claude, 2026-11-25: the open items, and a browser run
+
+Everything the table in "Author's response" listed as **Open** was worked on in this pass. This
+section is the one for the next reviewers. Please recheck it against the diff, not against this
+prose: the first report was wrong in three places that only a browser or a careful reading found.
+
+Base for this pass: `dbddc819b` (the combined tree after the four reviews). Review
+`git diff dbddc819b..HEAD`.
+
+### What changed, by finding
+
+**Nested LiveViews lose the nonce when connected (Gemini 5) — fixed.**
+A view rendered with `live_render/3` is its own process and never runs the live session's
+`on_mount`. Two halves:
+
+- The parent puts the nonces into the child's session: `PhoenixKitWeb.CSP.nested_session/1`, used
+  at the three sites (`layout_wrapper.ex` header widgets and `NotificationsBell`,
+  `live/dashboard.ex` `:home_session`).
+- The child restores them: `on_mount PhoenixKitWeb.CSP` is now part of
+  `use PhoenixKitWeb, :live_view` (`lib/phoenix_kit_web.ex`), and `NotificationsBell`, which uses
+  bare `Phoenix.LiveView`, has the line itself.
+
+A root kit view now runs that `on_mount` twice (live session and module). It is idempotent.
+A module's header widget on bare `Phoenix.LiveView` gets the session but restores nothing until
+it adds the line; the guide says so. **I did not audit the module packages for such views.**
+
+**Hand-written pages rely on plug order (Mistral 4, Gemini 7) — fixed, differently from the
+suggestion.** Instead of threading `conn` into each template, each of these calls
+`CSP.put_nonces(conn)` right before it renders, so the 1-arity `nonce(:style)` in the template
+reads this connection's value: `push_controller.ex`, `push_open_controller.ex`,
+`website_access_controller.ex` (both pages), `oauth/authorize_controller.ex` (`error_page/2`),
+and `oauth/consent_controller.ex` (a controller plug `:csp_nonces`, because its pages are built
+in four places).
+
+**Plug order on kit routes (Gemini 7) — fixed.** `Integration.call(conn, :phoenix_kit_auto_setup)`
+now calls `CSP.put_nonces/1` again, after the host's whole `:browser` pipeline. Mistral's sentence
+("those pages sit under `:phoenix_kit_auto_setup`, so the dictionary is set") is true now.
+
+What still depends on the order: kit components on the **host's own pages** (the theme bootstrap
+in the host's root layout), and the two pages `Integration` itself halts on (maintenance, the
+website gate). Nothing can read an assign that does not exist yet.
+
+**No warning when the order is wrong (Mistral 3, Gemini 7) — fixed, twice.**
+
+- At runtime: `Integration` now calls `CSP.put_nonces_first/1`, which marks the process. A later
+  `put_nonces/1` of the same request that finds a nonce where the first reading found none logs
+  one warning (once per node, `:persistent_term`) naming the fix.
+- `mix phoenix_kit.doctor`, new check "Content-Security-Policy" (`csp_verdict/3`, pure): a
+  `csp_nonce_assign_key` of the wrong shape (`CSP.config_problem/0`), `Integration` missing from
+  `pipeline :browser`, and the plugs that come after it. It reads the router's source text with
+  a regex. It cannot know which plug assigns the nonce, so it lists them and says "if one of
+  them".
+
+**Stale nonce in a reused process (Gemini 4, second half) — fixed.** `put_nonces/1` registers a
+`before_send` that deletes the dictionary entry. Only when it stored something, and only while
+the connection is not sent yet.
+
+**The fallback root layout does not load `phoenix_kit.js` (Codex) — fixed, with a guard.**
+
+- `PhoenixKitWeb.Layouts.kit_bundle_paths/1` asks the host's endpoint (from
+  `conn.private.phoenix_endpoint`) whether `priv/static/assets/vendor/phoenix_kit.js` and
+  `phoenix_kit_modules.js` exist, and `root.html.heex` loads those, deferred, before `app.js`.
+  No file, no tag: a host that imports the bundle in `app.js` and never ran the compiler is
+  unchanged.
+- Grok's objection was that a second include installs listeners twice. So `phoenix_kit.js` now
+  counts its runs (`window.__pkBundleLoads`) and each of its ten later top-level sections
+  returns on a second run. The first section already returned on `PhoenixKitInitialized`.
+
+**Lint blind spots (Gemini 6) — fixed.** `test/phoenix_kit_web/csp_inline_tags_test.exs`:
+
+- Tags are found anywhere in the file by one multi-line scan, after blanking doc heredocs, HEEx
+  comments and `#` comment lines. Four files that handle tags as data are skipped by name
+  (`@tags_as_data`).
+- Handlers: also single-quoted, also with spaces around `=` (for a list of real event names; a
+  bare `on\w+ =` matches Elixir like `only = "x"`), and `javascript:` in `href` / `src` /
+  `action` / `formaction`.
+- All four bundles are scanned, not two.
+- New: every `createElement("style")` in a bundle must be followed within four lines by
+  `adoptStyle` / `adopt(`, and no bundle may build a `<style` tag as a string.
+- From the previous pass: a `nonce={…}` in an `.ex` file must sit inside a `~H` template.
+
+**Small listener issues (Gemini 9) — fixed.** `copyTextFor` reads `.value` only from `INPUT`,
+`TEXTAREA`, `SELECT`; `data-pk-blur` checks that the focused node has `blur`; the image sweep
+skips SVGs. Tests added for the consent dispatch (`__proto__`, `constructor`, a real method that
+is not on the allow-list) and for the sweep.
+
+**The unused `:phoenix_kit_csp_nonces` assign (Gemini 9, Mistral) — removed.** `on_mount/4` now
+returns the socket untouched.
+
+**Guide gaps (Gemini 8) — fixed.** `style-src-attr` is in the Option 1 snippet; new subsections
+on why the order matters and where it does not, the script tags and `'strict-dynamic'`, merging
+`session:`, nested views, the other directives the kit's features need, and what was checked in
+a browser. The stale sentence in `oauth/responses.ex` is corrected.
+
+### The browser run
+
+Headless Chromium 159 against a throwaway host. Harness and how to run it:
+`dev_docs/handoffs/2026-11-25-csp-browser-harness/`. Policy: the guide's Option 1 with
+`style-src-attr 'unsafe-inline'`. Every page in three modes: one nonce, a nonce per kind, and a
+nonce assigned after the first reading. **43 checks, 0 failed.**
+
+| Scenario | Result |
+|---|---|
+| Empty page that loads both bundles | 0 violations, both created styles have a sheet |
+| Same, bundles from `55039edd7` (control) | 2 `style-src-elem` violations |
+| Controller page: theme toggle, decimal field, copy buttons, broken image, `data-pk-blur`, `data-pk-no-submit` | all behave; 0 violations from the kit |
+| LiveView: a `<style>` patched in after connect, in the page's view | applied |
+| Same, in a nested view using `PhoenixKitWeb, :live_view` | applied |
+| Same, in a nested view with nothing restoring the nonce (control) | blocked, 1 violation |
+
+Three things the run showed that the prose above did not say:
+
+1. **A host's own `onfocus` on `<.decimal_input>` is blocked by the policy.** My first report
+   said it "still runs after the kit's". That is true only without a nonce policy. The guide is
+   corrected.
+2. **Two documented limits are real.** An empty page with a different nonce per kind and no
+   `<style>` on it yet, and an empty page with no nonce on the bundle's script tag, each give
+   2 violations. Grok described both; the run confirms them. They are reported, not asserted.
+3. **The late-plug case works on kit routes** (`mode=late`): the page renders with the nonce
+   although it was assigned after the first reading.
+
+What the run does **not** prove, so please do not read it as more:
+
+- `Plugs.Integration` itself did not run (it needs a database). A stand-in plug calls the same
+  `put_nonces_first/1`, and the kit's `:phoenix_kit_auto_setup` clause is in the harness
+  pipeline on every page. So the "late" result holds for kit routes, not for a host's own page.
+- The kit's real router, root layout and admin layout were not served. The components were
+  rendered in a harness layout.
+- Not exercised: the consent widget (its stylesheet and the script it releases, Codex's second
+  finding), the table's first-paint script and `TableFit`, the preview card, the language
+  switcher, live navigation between two pages, the fallback root's new script tag.
+- The theme-toggle check has no control run. The old code is Elixir, not a file I could swap.
+  The unit test covers the literal attribute.
+- Chromium only.
+
+### Where to look hardest this time
+
+1. **`use PhoenixKitWeb, :live_view` now carries an `on_mount`.** Every kit and module LiveView
+   gets it. It reads one session key and writes the process dictionary. Check that nothing
+   depends on the order of `on_mount` hooks, and that a view with `layout: false` or a sticky
+   view is not affected. `route_precedence_test.exs` passes, but it inspects the live session's
+   hooks, not the module's.
+2. **`put_nonces/1` registers a `before_send` on every call that stores something.** Three calls
+   on a kit page means three callbacks, each deleting one dictionary key. Harmless as far as I
+   can see. Is there a path that renders after `before_send` has run (an error page rendered by
+   `Plug.ErrorHandler`, a chunked response)?
+3. **The late-plug warning is once per node.** A host that fixes the order and later breaks it
+   again without a restart gets no second warning. Also: it fires only when the first reading
+   found *nothing*. A host that assigns one nonce early and replaces it later is not detected.
+4. **`__pkBundleLoads`.** The counter is incremented at the top of the file, outside any
+   function. The ten later sections return when it is above 1. I verified the listener counts
+   in the fake page (`declared_handlers.test.cjs`, which fails on the previous bundle), not in a
+   browser. Is there a host arrangement that *relies* on the second run, for example a module
+   bundle that expects a later section to run after it registered something?
+5. **`kit_bundle_paths/1`** does two `File.regular?` calls per page render under the fallback
+   root, uncached. It trusts `endpoint.config(:otp_app)` and `:code.priv_dir/1`. In a release
+   the files are in the release's `priv`; I did not test a release.
+6. **The doctor's router parsing is a regex over source text.** A `pipeline :browser` built by a
+   macro, or plugs added through `plug` inside an imported block, are invisible to it. It then
+   says `Integration` was not found, which is a false warning.
+7. **The lint's `@tags_as_data` list.** Four files are skipped whole. A real inline tag added to
+   one of them would not be seen.
+8. **The handler regex's event list** is mine and finite. `onanimationstart = "…"` with spaces
+   would pass; without spaces it is caught by the first alternative.
+
+### Still open
+
+- A browser run on a **real host** (router, layouts, database): the consent widget, the table,
+  live navigation, the fallback root. The harness is a start, not that.
+- **Inline `style="…"` attributes** still need `style-src-attr 'unsafe-inline'`.
+- **`cally`** (vendored date picker) creates an unnonced style element. Checksummed; not ours to
+  edit.
+- **Module packages**, including `phoenix_kit_legal`'s own consent script and any header widget
+  on bare `Phoenix.LiveView`.
+- No test for the text the dashboard generator prints (Grok).
+- `PhoenixKitGlobals` still carries the stale transport-clearing line from before step 1.
+
+### Verification of this pass
+
+- `mix precommit`: passes (compile with warnings as errors, format, credo strict, dialyzer, the
+  JS suite).
+- New and changed tests: `csp_test.exs` (nested session, cleanup at send, the late-plug warning
+  and its two negative cases, `config_problem/0`), `csp_inline_tags_test.exs` (six cases),
+  `root_layout_bundle_test.exs`, `doctor_csp_test.exs`, `declared_handlers.test.cjs` (17 cases,
+  including the double include, which was confirmed red on the previous bundle).
+- Browser: 43 checks as above.
+- Full `mix test` against the real database: 17 078 tests, 23 failures. Twenty are the same
+  OAuth-client and "first user" tests that fail with none of this work applied (leftover rows
+  in the shared test database). Three were new in this run: `ApprovalsDecideTest` (a unique
+  email already taken), `ExecutorGateTest` (a unique role name already taken) and
+  `PermissionsHardeningTest` (a lock on `phoenix_kit_user_roles` cancelled). None touches CSP,
+  and the three files pass when run on their own (103 tests, 0 failures). I read them as the
+  same shared-database noise, but that is a reading, not a proof: the suite was not run on a
+  clean database.

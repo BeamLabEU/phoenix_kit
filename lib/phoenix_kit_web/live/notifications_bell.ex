@@ -13,6 +13,9 @@ defmodule PhoenixKitWeb.Live.NotificationsBell do
   """
   use Phoenix.LiveView, layout: false
 
+  # A nested view: the page's CSP nonces come in its session (`CSP.nested_session/1`).
+  on_mount PhoenixKitWeb.CSP
+
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   require Logger

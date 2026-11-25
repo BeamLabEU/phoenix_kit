@@ -71,6 +71,9 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
 
   plug :secure_headers
   plug Language, person: true
+  # Every page of this controller is written by hand: the CSP nonce is read from the
+  # connection here, after the whole router pipeline, whatever the order of the host's plugs.
+  plug :csp_nonces
 
   defp secure_headers(conn, _opts), do: Responses.secure(conn)
 
@@ -364,4 +367,6 @@ defmodule PhoenixKitWeb.OAuth.ConsentController do
   end
 
   defp integer(_value), do: nil
+
+  defp csp_nonces(conn, _opts), do: PhoenixKitWeb.CSP.put_nonces(conn)
 end

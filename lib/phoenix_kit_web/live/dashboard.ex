@@ -116,11 +116,14 @@ defmodule PhoenixKitWeb.Live.Dashboard do
     socket
     |> assign(:home_view, home_view())
     |> assign(:home_dashboard?, home_dashboard?(socket))
-    |> assign(:home_session, %{
-      "current_user_uuid" => Actor.uuid(socket),
-      "locale" => session["locale"],
-      "parent_pid" => self()
-    })
+    |> assign(
+      :home_session,
+      PhoenixKitWeb.CSP.nested_session(%{
+        "current_user_uuid" => Actor.uuid(socket),
+        "locale" => session["locale"],
+        "parent_pid" => self()
+      })
+    )
   end
 
   defp home_view do

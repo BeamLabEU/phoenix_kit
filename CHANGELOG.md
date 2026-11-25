@@ -19,8 +19,23 @@
   the public API guide (cached documents) are not covered. Guide:
   `guides/content-security-policy.md`.
 
+- **`mix phoenix_kit.doctor` checks the Content-Security-Policy setup**: a
+  `csp_nonce_assign_key` of the wrong shape (it read as "no nonce" with nothing said) and the
+  plugs of `pipeline :browser` that run after `PhoenixKitWeb.Plugs.Integration`.
+- `PhoenixKitWeb.CSP.nested_session/1`, for a LiveView rendered with `live_render/3` that
+  renders kit components under a nonce policy.
+
 ### Changed
 
+- **The kit's own pages no longer depend on where the host's nonce plug sits.** The kit's
+  routes read the nonce again after the whole `:browser` pipeline, and its hand-written pages
+  read it from the connection. The order still matters for kit components on the host's own
+  pages; one log line says so when a nonce appears after `Plugs.Integration` has run.
+- **The fallback root layout loads `phoenix_kit.js`** (and `phoenix_kit_modules.js`) when the
+  host serves them from `/assets/vendor/`. A page rendered under it had no listeners for the
+  kit's controls unless the host's `app.js` imported the bundle.
+- **Including `phoenix_kit.js` twice on a page is a no-op.** Only its first section was guarded;
+  the later ones installed their listeners again.
 - **The kit renders no inline event handlers.** The `onclick`, `onerror`, `onfocus`, `oninput`,
   `onscroll` and `onsubmit` attributes of core's components (copy buttons, dropdowns that close
   after a choice, broken-image fallbacks, `<.decimal_input>`'s zero, the language search, the
@@ -40,6 +55,16 @@
 
 ### Fixed
 
+- **Nested LiveViews lost the CSP nonce once the socket connected**: the header widgets, the
+  notifications bell and the admin home are processes of their own and never ran the live
+  session's `on_mount`. Their session now carries the nonce and the view restores it.
+- The light/dark toggle rendered a literal `nonce={…}` attribute on its `<style>` tag (a HEEx
+  expression written into a plain string), so a nonce policy blocked the style and both icons
+  showed.
+- A CSP nonce is dropped from the process when the response is sent, so a later request on the
+  same connection that never reads one cannot render it.
+- A copy button pointed at an element with a `value` property of its own (an `<li>`) copied that
+  value instead of the text.
 - **Styles and scripts the kit's JavaScript inserts can carry the page's Content-Security-Policy nonce.**
   A `<style>` created by `phoenix_kit.js` or `phoenix_kit_admin.js` takes the document's style
   nonce before it is inserted, or the loading script's nonce when the page uses one nonce for

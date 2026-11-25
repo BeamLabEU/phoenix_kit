@@ -185,6 +185,7 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
         run_check("Update Mode", fn -> update_mode_verdict(host_update_mode) end),
         run_check("daisyUI Version", fn -> check_daisyui() end),
         run_check("Viewer Libraries", fn -> check_viewer_libraries() end),
+        run_check("Content-Security-Policy", fn -> check_csp() end),
         run_check("User Dashboard (deprecated)", fn -> check_user_dashboard_deprecation() end),
         run_check("Sitemap Discoverability", fn -> check_sitemap_serving(prefix) end),
         run_check("Crawler Visibility", fn -> check_crawler_visibility(prefix) end),
@@ -2553,6 +2554,84 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
     |> String.replace(~r/<%!--.*?--%>/s, "")
     |> String.replace(~r/<%#.*?%>/s, "")
     |> String.replace(~r/<!--.*?-->/s, "")
+  end
+
+  @doc false
+  # Pure: `key` is `config :phoenix_kit, csp_nonce_assign_key:`, `problem` what
+  # `PhoenixKitWeb.CSP.config_problem/0` says about it, `router_source` the text of the host's
+  # router (nil when it could not be read).
+  def csp_verdict(nil, _problem, _router_source),
+    do:
+      {:pass,
+       "No csp_nonce_assign_key: the kit renders no nonce. Right for a site with no " <>
+         "Content-Security-Policy or one that allows 'unsafe-inline'."}
+
+  def csp_verdict(key, problem, _router_source) when is_binary(problem),
+    do:
+      {:warn,
+       "config :phoenix_kit, csp_nonce_assign_key: #{inspect(key)} is not usable (#{problem}). " <>
+         "It reads as \"no nonce\", so every inline tag of the kit is blocked by a nonce policy."}
+
+  def csp_verdict(key, nil, nil),
+    do:
+      {:pass,
+       "csp_nonce_assign_key: #{inspect(key)} (the router could not be read to check the plug order)"}
+
+  def csp_verdict(key, nil, router_source) when is_binary(router_source) do
+    case plugs_after_integration(router_source) do
+      :no_integration ->
+        {:warn,
+         "csp_nonce_assign_key is set, but PhoenixKitWeb.Plugs.Integration was not found in the " <>
+           "router's `pipeline :browser`. Without it the kit components on your own pages get no nonce."}
+
+      [] ->
+        {:pass,
+         "csp_nonce_assign_key: #{inspect(key)}; PhoenixKitWeb.Plugs.Integration is the last plug " <>
+           "of `pipeline :browser`, so the plug that assigns the nonce runs before it."}
+
+      later ->
+        {:warn,
+         "These plugs of `pipeline :browser` run after PhoenixKitWeb.Plugs.Integration: " <>
+           Enum.join(later, ", ") <>
+           ". If one of them assigns the CSP nonce, move it before: the kit components on your " <>
+           "own pages (the theme bootstrap in the root layout) read the nonce when Integration runs."}
+    end
+  end
+
+  # The `plug` lines of `pipeline :browser do … end` that follow the Integration plug.
+  defp plugs_after_integration(router_source) do
+    case Regex.run(~r/pipeline\s+:browser\s+do\b(.*?)\n\s*end\b/s, router_source) do
+      [_, body] ->
+        plugs =
+          ~r/^\s*plug\s+\(?\s*([^\n,)]+)/m
+          |> Regex.scan(body, capture: :all_but_first)
+          |> Enum.map(fn [name] -> String.trim(name) end)
+
+        case Enum.split_while(plugs, &(&1 != "PhoenixKitWeb.Plugs.Integration")) do
+          {_before, [_integration | later]} -> later
+          {_all, []} -> :no_integration
+        end
+
+      _ ->
+        :no_integration
+    end
+  end
+
+  defp check_csp do
+    key = Application.get_env(:phoenix_kit, :csp_nonce_assign_key)
+    csp_verdict(key, PhoenixKitWeb.CSP.config_problem(), key && host_router_source())
+  end
+
+  defp host_router_source do
+    with router when is_atom(router) and not is_nil(router) <- RouteResolver.get_router(),
+         source when is_list(source) <- router.__info__(:compile)[:source],
+         {:ok, text} <- File.read(to_string(source)) do
+      text
+    else
+      _ -> nil
+    end
+  rescue
+    _ -> nil
   end
 
   defp check_daisyui do

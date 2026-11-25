@@ -176,6 +176,9 @@ defmodule PhoenixKitWeb.WebsiteAccessController do
       |> Map.put(:csrf_token, CSRFProtection.get_csrf_token())
       |> Map.put(:action, AccessPlug.gate_path())
 
+    # The page's CSP nonce is read from this connection, whatever the order of the host's plugs.
+    conn = PhoenixKitWeb.CSP.put_nonces(conn)
+
     conn
     |> put_resp_header("cache-control", "no-store")
     |> put_resp_header("x-robots-tag", "noindex, nofollow")
@@ -188,6 +191,8 @@ defmodule PhoenixKitWeb.WebsiteAccessController do
       csrf_token: CSRFProtection.get_csrf_token(),
       action: AccessPlug.gate_path() <> "/link/" <> token
     }
+
+    conn = PhoenixKitWeb.CSP.put_nonces(conn)
 
     conn
     |> put_resp_header("cache-control", "no-store")

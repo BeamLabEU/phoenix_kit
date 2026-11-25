@@ -49,10 +49,12 @@ defmodule PhoenixKitWeb.CSP do
   same test fails on one, and `phoenix_kit.js` ("DECLARATIVE HANDLERS") does their work.
   """
 
-  import Phoenix.Component, only: [assign: 3]
+  require Logger
 
   @pdict_key {__MODULE__, :nonces}
   @session_key "phoenix_kit_csp_nonces"
+  @integration_ran_key {__MODULE__, :integration_ran}
+  @warned_key {__MODULE__, :late_plug_warned}
 
   @type kind :: :script | :style
   @type nonces :: %{optional(kind) => String.t()}
@@ -90,11 +92,112 @@ defmodule PhoenixKitWeb.CSP do
 
   @doc """
   Remembers the nonces of `conn` for everything rendered in this process. Returns `conn`.
+
+  Called by `PhoenixKitWeb.Plugs.Integration`, again by the kit's own route pipeline (after the
+  whole `:browser` pipeline, so a host plug placed after `Integration` is still read on kit
+  routes), and by a controller that writes its page by hand. A later call replaces an earlier
+  one. The dictionary is emptied when the response is sent: a connection process serves many
+  requests, and one that never comes through here must not find this page's nonce.
   """
   @spec put_nonces(Plug.Conn.t()) :: Plug.Conn.t()
   def put_nonces(%Plug.Conn{} = conn) do
-    store(from_conn(conn))
-    conn
+    nonces = from_conn(conn)
+    warn_late_plug(current(), nonces)
+    store(nonces)
+
+    if map_size(nonces) > 0 and conn.state in [:unset, :set] do
+      Plug.Conn.register_before_send(conn, fn conn ->
+        Process.delete(@pdict_key)
+        conn
+      end)
+    else
+      conn
+    end
+  end
+
+  # `Integration` read no nonce and a later reading of the same request finds one: the host's
+  # plug runs after `Integration`. Kit routes recover (this call), but the host's own pages
+  # render kit components (the theme bootstrap in its root layout) from the first reading.
+  defp warn_late_plug(earlier, later) when map_size(earlier) == 0 and map_size(later) > 0 do
+    if Process.get(@integration_ran_key) && !:persistent_term.get(@warned_key, false) do
+      :persistent_term.put(@warned_key, true)
+
+      Logger.warning(
+        "[PhoenixKit] The plug that assigns the Content-Security-Policy nonce runs after " <>
+          "PhoenixKitWeb.Plugs.Integration. Move it before, or the kit components on your own " <>
+          "pages (the theme bootstrap in the root layout) render without a nonce. " <>
+          "See guides/content-security-policy.md."
+      )
+    end
+
+    :ok
+  end
+
+  defp warn_late_plug(_earlier, _later), do: :ok
+
+  @doc false
+  # `Integration`'s own call: the first reading of a request. It marks the process so a later
+  # reading can tell "the host's plug came after" from "this is the first reading".
+  @spec put_nonces_first(Plug.Conn.t()) :: Plug.Conn.t()
+  def put_nonces_first(%Plug.Conn{} = conn) do
+    Process.delete(@pdict_key)
+    Process.delete(@integration_ran_key)
+    conn = put_nonces(conn)
+    # Marked after the reading: this one is the first, never "late".
+    Process.put(@integration_ran_key, true)
+
+    Plug.Conn.register_before_send(conn, fn conn ->
+      Process.delete(@integration_ran_key)
+      conn
+    end)
+  end
+
+  @doc """
+  The session of a nested LiveView (`live_render/3`) with the page's nonces added.
+
+  A nested view is its own process and skips the live session's `on_mount`, so its parent hands
+  the nonces over here and the child restores them with `on_mount PhoenixKitWeb.CSP` (every view
+  that does `use PhoenixKitWeb, :live_view` has it).
+
+      {live_render(@socket, MyWidget, id: "w", session: PhoenixKitWeb.CSP.nested_session(%{"a" => 1}))}
+  """
+  @spec nested_session(map) :: map
+  def nested_session(session \\ %{}) when is_map(session) do
+    case current() do
+      nonces when map_size(nonces) == 0 -> session
+      nonces -> Map.put(session, @session_key, stringify(nonces))
+    end
+  end
+
+  @doc """
+  What is wrong with `config :phoenix_kit, csp_nonce_assign_key:`, or `nil`.
+
+  A value of the wrong shape reads as "no nonce" at runtime, silently; `mix phoenix_kit.doctor`
+  shows this text.
+  """
+  @spec config_problem() :: String.t() | nil
+  def config_problem do
+    case Application.get_env(:phoenix_kit, :csp_nonce_assign_key) do
+      nil ->
+        nil
+
+      key when is_atom(key) ->
+        nil
+
+      %{} = keys ->
+        unknown = Map.keys(keys) -- [:script, :style]
+        bad = for {kind, key} <- keys, kind in [:script, :style], not is_atom(key), do: kind
+
+        cond do
+          unknown != [] -> "unknown keys #{inspect(unknown)}; the map takes :script and :style"
+          bad != [] -> "the assign names of #{inspect(bad)} must be atoms"
+          map_size(keys) == 0 -> "the map is empty; name :script and/or :style"
+          true -> nil
+        end
+
+      other ->
+        "expected an atom or a map with :script / :style, got #{inspect(other)}"
+    end
   end
 
   @doc """
@@ -107,9 +210,11 @@ defmodule PhoenixKitWeb.CSP do
         %{}
 
       nonces ->
-        %{@session_key => Map.new(nonces, fn {kind, value} -> {to_string(kind), value} end)}
+        %{@session_key => stringify(nonces)}
     end
   end
+
+  defp stringify(nonces), do: Map.new(nonces, fn {kind, value} -> {to_string(kind), value} end)
 
   @doc false
   def on_mount(_arg, _params, session, socket) do
@@ -119,8 +224,7 @@ defmodule PhoenixKitWeb.CSP do
       _ -> :ok
     end
 
-    # An assign as well, for a host template that wants the value by name.
-    {:cont, assign(socket, :phoenix_kit_csp_nonces, current())}
+    {:cont, socket}
   end
 
   defp current, do: Process.get(@pdict_key, %{})
