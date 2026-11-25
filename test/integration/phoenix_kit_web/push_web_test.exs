@@ -8,11 +8,14 @@ defmodule PhoenixKitWeb.PushWebTest do
 
   use PhoenixKitWeb.ConnCase, async: false
 
+  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Notifications.ChannelConfig
   alias PhoenixKit.Notifications.Push
   alias PhoenixKit.Notifications.Types
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Users.Permissions
+  alias PhoenixKit.Users.Roles
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Users.MultiSession
 
@@ -157,10 +160,10 @@ defmodule PhoenixKitWeb.PushWebTest do
       user = user!()
 
       {:ok, role} =
-        PhoenixKit.Users.Roles.create_role(%{name: "Push #{System.unique_integer([:positive])}"})
+        Roles.create_role(%{name: "Push #{System.unique_integer([:positive])}"})
 
-      {:ok, _} = PhoenixKit.Users.Permissions.grant_permission(role.uuid, "media")
-      {:ok, _} = PhoenixKit.Users.Roles.assign_role(user, role.name)
+      {:ok, _} = Permissions.grant_permission(role.uuid, "media")
+      {:ok, _} = Roles.assign_role(user, role.name)
 
       conn = conn |> login(user) |> get(open_path(handle(user.uuid, "/admin/projects?x=1", true)))
       assert redirected_to(conn) == Routes.path("/admin/notifications")
@@ -174,6 +177,24 @@ defmodule PhoenixKitWeb.PushWebTest do
         |> get(open_path(handle(plain.uuid, "/admin/projects?x=1", true)))
 
       assert redirected_to(conn) == "/admin/projects?x=1"
+    end
+
+    test "a summary opens the inbox in the recipient's own language", %{conn: conn} do
+      {:ok, _} = Languages.enable_system()
+      {:ok, _} = Languages.add_language("et")
+      user = user!()
+
+      {:ok, user} =
+        Auth.merge_user_custom_fields(user, %{"preferred_locale" => "et"},
+          ensure_definitions: false
+        )
+
+      {:ok, role} = Roles.create_role(%{name: "Push et #{System.unique_integer([:positive])}"})
+      {:ok, _} = Permissions.grant_permission(role.uuid, "media")
+      {:ok, _} = Roles.assign_role(user, role.name)
+
+      conn = conn |> login(user) |> get(open_path(handle(user.uuid, "/admin/projects", true)))
+      assert redirected_to(conn) =~ "/et/admin/notifications"
     end
 
     test "anyone else gets one page that names no one", %{conn: conn} do

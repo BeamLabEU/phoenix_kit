@@ -24,9 +24,11 @@ defmodule PhoenixKitWeb.PushOpenController do
   use Phoenix.Component
 
   alias Phoenix.HTML.Safe
+  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Notifications.Push
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.Auth.User
+  alias PhoenixKit.Utils.RecipientLocale
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Users.Auth, as: WebAuth
   alias PhoenixKitWeb.Users.MultiSession
@@ -126,11 +128,29 @@ defmodule PhoenixKitWeb.PushOpenController do
          scope,
          PhoenixKitWeb.Live.Notifications.Inbox
        ) and PhoenixKit.Notifications.enabled?(),
-       do: Routes.path("/admin/notifications"),
+       do: inbox_path(scope),
        else: opened.link || Routes.path("/")
   end
 
   defp destination(_scope, opened), do: opened.link || Routes.path("/")
+
+  # In the recipient's language: the push-open request carries none, so the
+  # redirect went to the default language's inbox. The full dialect when the
+  # site serves it, else through the recipient's locale.
+  defp inbox_path(%{user: %User{} = user}) do
+    locale = RecipientLocale.for_rendering(user)
+
+    if is_binary(locale) and Languages.language_enabled?(locale),
+      do: Routes.path("/admin/notifications", locale: locale),
+      else:
+        RecipientLocale.in_locale(locale, fn ->
+          Routes.path("/admin/notifications")
+        end)
+  rescue
+    _ -> Routes.path("/admin/notifications")
+  end
+
+  defp inbox_path(_scope), do: Routes.path("/admin/notifications")
 
   defp account_label(%User{} = user) do
     name = User.display_name(user)

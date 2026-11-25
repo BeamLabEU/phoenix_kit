@@ -24,6 +24,7 @@ defmodule PhoenixKit.Notifications.DigestWorker do
   require Logger
 
   alias PhoenixKit.Activity.Entry
+  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Notifications
   alias PhoenixKit.Notifications.ChannelConfig
   alias PhoenixKit.Notifications.Channels
@@ -218,8 +219,21 @@ defmodule PhoenixKit.Notifications.DigestWorker do
   # The inbox in the recipient's language: `Routes.path/1` takes the locale
   # from the process, which in this worker is the default one — the text was
   # Estonian and the button opened the English inbox (zai, 2026-11-25).
+  # The recipient's full dialect when the site serves it (`en-GB` beside
+  # `en-US`): the implicit lookup inside `in_locale/2` reduced it to the base
+  # language, which opened the default dialect's inbox.
   defp inbox_path(locale) do
-    RecipientLocale.in_locale(locale, fn -> Routes.path("/admin/notifications") end)
+    if is_binary(locale) and dialect_served?(locale),
+      do: Routes.path("/admin/notifications", locale: locale),
+      else: RecipientLocale.in_locale(locale, fn -> Routes.path("/admin/notifications") end)
+  end
+
+  defp dialect_served?(locale) do
+    Languages.language_enabled?(locale)
+  rescue
+    _ -> false
+  catch
+    :exit, _ -> false
   end
 
   # An Oban worker process starts on the default locale, so the digest strings

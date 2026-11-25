@@ -21,4 +21,19 @@ defmodule PhoenixKit.Integration.Notifications.DigestLinkLocaleTest do
     assert DigestWorker.digest_envelope(et, "comments", 1, "daily").url =~
              "/et/admin/notifications"
   end
+
+  test "a recipient on a served sibling dialect gets that dialect's inbox" do
+    {:ok, _} = Languages.enable_system()
+    # en-US may already be there (the default language).
+    _ = Languages.add_language("en-US")
+    {:ok, _} = Languages.add_language("en-GB")
+
+    gb = %User{
+      uuid: "00000000-0000-7000-8000-000000000003",
+      custom_fields: %{"preferred_locale" => "en-GB"}
+    }
+
+    assert DigestWorker.digest_envelope(gb, "comments", 1, "daily").url =~
+             "/en-gb/admin/notifications"
+  end
 end
