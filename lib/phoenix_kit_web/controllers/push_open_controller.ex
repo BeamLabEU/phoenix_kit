@@ -24,9 +24,11 @@ defmodule PhoenixKitWeb.PushOpenController do
   use Phoenix.Component
 
   alias Phoenix.HTML.Safe
+  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Notifications.Push
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.Auth.User
+  alias PhoenixKit.Utils.RecipientLocale
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Users.Auth, as: WebAuth
   alias PhoenixKitWeb.Users.MultiSession
@@ -118,14 +120,37 @@ defmodule PhoenixKitWeb.PushOpenController do
 
   # A summary opens the inbox for someone who may open it; anything else
   # opens the notification's own page (a path on this site only), else the
-  # site's home.
+  # site's home. The inbox is a personal page: the admin area is the whole
+  # gate (the same question its own mount asks), not the `notifications`
+  # permission, which is the administrative all-users view.
   defp destination(scope, %{summary?: true} = opened) do
-    if Scope.can?(scope, "notifications"),
-      do: Routes.path("/admin/notifications"),
-      else: opened.link || Routes.path("/")
+    if WebAuth.can_access_admin_view?(
+         scope,
+         PhoenixKitWeb.Live.Notifications.Inbox
+       ) and PhoenixKit.Notifications.enabled?(),
+       do: inbox_path(scope),
+       else: opened.link || Routes.path("/")
   end
 
   defp destination(_scope, opened), do: opened.link || Routes.path("/")
+
+  # In the recipient's language: the push-open request carries none, so the
+  # redirect went to the default language's inbox. The full dialect when the
+  # site serves it, else through the recipient's locale.
+  defp inbox_path(%{user: %User{} = user}) do
+    locale = RecipientLocale.for_rendering(user)
+
+    if Languages.language_enabled?(locale),
+      do: Routes.path("/admin/notifications", locale: locale),
+      else:
+        RecipientLocale.in_locale(locale, fn ->
+          Routes.path("/admin/notifications")
+        end)
+  rescue
+    _ -> Routes.path("/admin/notifications")
+  end
+
+  defp inbox_path(_scope), do: Routes.path("/admin/notifications")
 
   defp account_label(%User{} = user) do
     name = User.display_name(user)

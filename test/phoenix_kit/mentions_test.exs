@@ -73,6 +73,25 @@ defmodule PhoenixKit.MentionsTest do
     end
   end
 
+  describe "a label of multi-byte letters" do
+    # The parser counted bytes while the builder cut characters: a picked
+    # name of 61 two-byte letters was built and then not recognised.
+    test "is built and parsed alike up to the limit, and cut there" do
+      for n <- [60, 61, 120, 150] do
+        label = String.duplicate("Õ", n)
+        assert {:ok, token} = Token.to_string(:user, "user", @uuid, label)
+        assert [%Token{label: parsed}] = Token.parse(token)
+        assert String.length(parsed) == min(n, Token.max_label_length())
+        assert [%Token{}] = Enum.filter(Token.split("x " <> token), &is_struct/1)
+      end
+    end
+
+    test "text that is not valid UTF-8 is still read, never raises" do
+      text = <<255>> <> " @[user:#{@uuid}|Ada]"
+      assert [%Token{label: "Ada"}] = Token.parse(text)
+    end
+  end
+
   describe "Token.split/1" do
     test "keeps the surrounding text in order" do
       text = "a @[user:#{@uuid}|Alice] b"

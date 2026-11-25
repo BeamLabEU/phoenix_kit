@@ -70,6 +70,12 @@ defmodule PhoenixKit.Mentions do
   `user`: the `@` typeahead already lists every pingable account to anyone
   who can reach the admin area, so a name is not something a mention can
   leak.
+
+  ## When the record is deleted
+
+  A ping quotes the text it was written in. When that record goes, call
+  `forget_source/2` with its type and uuid (a comment: `"comment"` and the
+  comment's uuid): the words leave every ping about it, the ping stays.
   """
 
   import Ecto.Query
@@ -545,7 +551,10 @@ defmodule PhoenixKit.Mentions do
 
   @doc """
   Rebuilds the index for one field of one record from its text, and returns
-  the mentions that are NEW since last time.
+  the mentions to notify: the ones NEW since last time, plus any person still
+  mentioned whose ping was never delivered (a claim given back after a failed
+  write, a reader who could not see the record before). `notify/2` sends each
+  ping once whatever it is given.
 
   Call this from the durable save — creating or updating the comment, the
   task, the note. Never from a keystroke or an autosave draft: the return
@@ -561,18 +570,39 @@ defmodule PhoenixKit.Mentions do
     actor_uuid = Keyword.get(opts, :actor_uuid)
     tokens = text |> Token.parse() |> Enum.uniq_by(&{&1.type, &1.uuid})
 
-    existing = list_for_source(source_type, source_uuid, field)
-    existing_keys = MapSet.new(existing, &{&1.target_type, &1.target_uuid})
+    token_keys = MapSet.new(tokens, &{&1.type, &1.uuid})
 
+    # Two saves of one field at once (two tabs) both read the old index and
+    # each inserted its own replacement: both versions' people stayed
+    # indexed (codex, 2026-11-25). The index is read and written under one
+    # lock per source field, so the second save sees the first's rows.
     repo().transaction(fn ->
-      from(m in Mention,
-        where:
-          m.source_type == ^source_type and m.source_uuid == ^source_uuid and
-            m.source_field == ^field
-      )
-      |> repo().delete_all()
+      lock_source(source_type, source_uuid, field)
+      existing = list_for_source(source_type, source_uuid, field)
+      existing_keys = MapSet.new(existing, &{&1.target_type, &1.target_uuid})
 
-      Enum.map(tokens, fn token ->
+      # A mention still in the text KEEPS its row (and its uuid): a save that
+      # replaced it made a concurrent save's claim on the old row miss, and
+      # the person was never told (codex, 2026-11-25). Rows whose mention left
+      # the text go; new ones are inserted. One row per key: an older
+      # duplicate goes too.
+      {keep, drop} =
+        existing
+        |> Enum.reduce({%{}, []}, fn m, {kept, dropped} ->
+          key = {m.target_type, m.target_uuid}
+
+          cond do
+            not MapSet.member?(token_keys, key) -> {kept, [m.uuid | dropped]}
+            Map.has_key?(kept, key) -> {kept, [m.uuid | dropped]}
+            true -> {Map.put(kept, key, m), dropped}
+          end
+        end)
+
+      if drop != [], do: repo().delete_all(from(m in Mention, where: m.uuid in ^drop))
+
+      tokens
+      |> Enum.reject(&Map.has_key?(keep, {&1.type, &1.uuid}))
+      |> Enum.map(fn token ->
         %Mention{}
         |> Mention.changeset(%{
           source_type: source_type,
@@ -582,19 +612,26 @@ defmodule PhoenixKit.Mentions do
           target_type: token.type,
           target_uuid: token.uuid,
           label: token.label,
-          actor_uuid: actor_uuid,
-          # Carry the delivered mark across a re-save: the row is recreated
-          # every time the text is saved, and without this every edit would
-          # look like a brand-new mention and ping again.
-          notified_at: previously_notified_at(existing, token)
+          actor_uuid: actor_uuid
         })
         |> repo().insert!()
       end)
+      |> tap(fn _ -> relabel(keep, tokens) end)
+      |> then(&{&1, existing_keys, keep})
     end)
     |> case do
-      {:ok, inserted} ->
-        {:ok,
-         Enum.reject(inserted, &MapSet.member?(existing_keys, {&1.target_type, &1.target_uuid}))}
+      {:ok, {inserted, existing_keys, keep}} ->
+        new =
+          Enum.reject(inserted, &MapSet.member?(existing_keys, {&1.target_type, &1.target_uuid}))
+
+        # A person mentioned before whose ping was never delivered (a claim
+        # given back when its activity failed to save, or a reader who could
+        # not see the record then) is tried again by the next save; the
+        # conditional claim in `notify/2` still sends each ping once.
+        undelivered =
+          keep |> Map.values() |> Enum.filter(&(&1.kind == "user" and is_nil(&1.notified_at)))
+
+        {:ok, new ++ undelivered}
 
       {:error, reason} ->
         {:error, reason}
@@ -605,9 +642,17 @@ defmodule PhoenixKit.Mentions do
       {:error, Exception.message(e)}
   end
 
-  defp previously_notified_at(existing, token) do
-    Enum.find_value(existing, fn m ->
-      if m.target_type == token.type and m.target_uuid == token.uuid, do: m.notified_at
+  # A kept row follows a renamed label (the person renamed between saves).
+  defp relabel(keep, tokens) do
+    Enum.each(tokens, fn token ->
+      case Map.get(keep, {token.type, token.uuid}) do
+        %Mention{label: label} = m when label != token.label ->
+          from(r in Mention, where: r.uuid == ^m.uuid)
+          |> repo().update_all(set: [label: token.label])
+
+        _ ->
+          :ok
+      end
     end)
   end
 
@@ -687,6 +732,14 @@ defmodule PhoenixKit.Mentions do
   def notify([], _opts), do: :ok
 
   def notify(mentions, opts) do
+    # The master switch silences pings too, not only the picker: with
+    # mentions off a hand-typed token, or text written while they were on,
+    # still pinged — and a module that stood aside for the ping (Projects'
+    # comment notices) then sent its own as well (zai, 2026-11-25).
+    if enabled?(), do: deliver(mentions, opts), else: :ok
+  end
+
+  defp deliver(mentions, opts) do
     source_type = Keyword.get(opts, :source_type)
     source_uuid = Keyword.get(opts, :source_uuid)
     preview = opts |> Keyword.get(:preview) |> preview_text()
@@ -709,7 +762,7 @@ defmodule PhoenixKit.Mentions do
       Enum.map(pairs, fn {mention, visibility} -> {mention, visibility, names} end)
     end)
     |> Enum.each(fn {mention, visibility, names} ->
-      Activity.log(%{
+      %{
         action: "mention.created",
         module: "mentions",
         mode: "manual",
@@ -732,10 +785,23 @@ defmodule PhoenixKit.Mentions do
               if(visibility == :yes and quote_text,
                 do: %{"text" => quote_text, "author_uuid" => mention.actor_uuid}
               ),
-            "notification_link" => link
+            "notification_link" => link,
+            # The record the mention is written in (a comment), when the
+            # activity is about another (the task it is on):
+            # `forget_source/2` finds the quote by it when that is deleted.
+            "mention_source_type" => mention.source_type,
+            "mention_source_uuid" => mention.source_uuid
           }
           |> Map.reject(fn {_key, value} -> is_nil(value) end)
-      })
+      }
+      |> log_unless_forgotten(mention)
+      |> case do
+        :ok -> :ok
+        :forgotten -> :ok
+        # Claimed but not sent: give the claim back, or the person is never
+        # told and no later save would try again (zai, 2026-11-25).
+        _ -> release_claim(mention)
+      end
     end)
 
     :ok
@@ -743,6 +809,117 @@ defmodule PhoenixKit.Mentions do
     e ->
       Logger.warning("[Mentions] notify failed: #{Exception.message(e)}")
       :ok
+  end
+
+  # The source's mentions stamped by `forget_source/2` (the record was
+  # deleted): never delivered, never retried. A timestamp no claim can write.
+  @forgotten ~U[1970-01-01 00:00:00Z]
+
+  # The activity is written while the mention row is locked, and not at all
+  # when `forget_source/2` marked it: a delete between the claim and the
+  # write found nothing to scrub, and the quote landed afterwards (codex,
+  # 2026-11-25). `forget_source/2` takes the same rows' locks, so it either
+  # runs first (marked: nothing written) or waits and then scrubs.
+  defp log_unless_forgotten(attrs, %Mention{uuid: uuid}) do
+    repo().transaction(fn ->
+      row =
+        from(m in Mention, where: m.uuid == ^uuid, lock: "FOR UPDATE", select: m.notified_at)
+        |> repo().one()
+
+      if is_nil(row) or row == @forgotten do
+        repo().rollback(:forgotten)
+      else
+        case Activity.log(attrs) do
+          {:ok, _entry} -> :ok
+          other -> repo().rollback(other)
+        end
+      end
+    end)
+    |> case do
+      {:ok, :ok} -> :ok
+      {:error, :forgotten} -> :forgotten
+      other -> other
+    end
+  end
+
+  defp lock_source(source_type, source_uuid, field) do
+    key = "pk_mentions:#{source_type}:#{source_uuid}:#{field}"
+    repo().query!("SELECT pg_advisory_xact_lock(hashtext($1))", [key])
+  end
+
+  defp release_claim(%Mention{uuid: uuid}) do
+    from(m in Mention, where: m.uuid == ^uuid and m.notified_at != ^@forgotten)
+    |> repo().update_all(set: [notified_at: nil])
+
+    :ok
+  rescue
+    _ -> :ok
+  catch
+    :exit, _ -> :ok
+  end
+
+  @doc """
+  The `visible` check of the `mentions` notification type (delivery time).
+
+  A queued email or push is sent later than the ping was made; someone who
+  lost access to the record in between gets the line only, never the quote
+  (`Notifications.DeliveryWorker` drops the quote when this is false). Asked
+  of the source's handler like `notify/2` asks at creation: `false` when the
+  handler says no, `true` when it says yes or cannot answer (nothing was
+  quoted for an unanswerable source in the first place).
+  """
+  @spec still_visible?(term(), term()) :: boolean()
+  def still_visible?(%{activity: %{resource_type: type, resource_uuid: uuid}}, %{uuid: user_uuid})
+      when is_binary(type) and is_binary(uuid) and is_binary(user_uuid) do
+    visibility(type, uuid, user_uuid) != :no
+  end
+
+  def still_visible?(_notification, _user), do: false
+
+  @doc """
+  Forgets what mentions quoted from a deleted record: the comment text
+  (`"quote"`, `"preview"`) leaves every `mention.created` activity written
+  for a mention IN that record (a comment, by its own type and uuid) or
+  ABOUT it (the record the activity names). An activity written before
+  mentions recorded their source (2026-11-25) is found by its link, which
+  names the record (a comment's anchor, `#pk-comment-<uuid>`). The ping
+  stays, with its link; the words go. Call it when the record is deleted — a deleted comment's
+  text otherwise stayed readable in the inbox and in mail sent later.
+
+  Returns the number of activities changed; never raises.
+  """
+  @spec forget_source(String.t(), String.t()) :: non_neg_integer()
+  def forget_source(source_type, source_uuid)
+      when is_binary(source_type) and is_binary(source_uuid) do
+    {:ok, count} = repo().transaction(fn -> forget_in_tx(source_type, source_uuid) end)
+    count
+  rescue
+    _ -> 0
+  catch
+    :exit, _ -> 0
+  end
+
+  defp forget_in_tx(source_type, source_uuid) do
+    # First the record's own mention rows: marked so no later delivery
+    # writes a quote, and taking each row's lock, so a delivery already
+    # writing finishes before the scrub below looks for its activity.
+    from(m in Mention, where: m.source_type == ^source_type and m.source_uuid == ^source_uuid)
+    |> repo().update_all(set: [notified_at: @forgotten])
+
+    {count, _} =
+      from(a in PhoenixKit.Activity.Entry,
+        where:
+          a.action == "mention.created" and
+            ((a.resource_type == ^source_type and a.resource_uuid == ^source_uuid) or
+               (fragment("?->>'mention_source_type'", a.metadata) == ^source_type and
+                  fragment("?->>'mention_source_uuid'", a.metadata) == ^source_uuid) or
+               (is_nil(fragment("?->>'mention_source_uuid'", a.metadata)) and
+                  fragment("strpos(?->>'notification_link', ?) > 0", a.metadata, ^source_uuid))),
+        update: [set: [metadata: fragment("? - 'quote' - 'preview'", a.metadata)]]
+      )
+      |> repo().update_all([])
+
+    count
   end
 
   # Can the mentioned person open the thing they're being told about?
@@ -760,16 +937,21 @@ defmodule PhoenixKit.Mentions do
   # comment to someone the renderer would have shown a locked chip is the
   # notify path quietly overruling the render path.
   defp source_visibility(mention, source_type, source_uuid) do
-    type = source_type || mention.source_type
-    uuid = source_uuid || mention.source_uuid
+    visibility(
+      source_type || mention.source_type,
+      source_uuid || mention.source_uuid,
+      mention.target_uuid
+    )
+  end
 
+  defp visibility(type, uuid, user_uuid) do
     case Map.get(ResourceLinks.handlers(), type) do
       nil ->
         :unknown
 
       mod ->
         if exports?(mod, :visible_resource_uuids, 2) do
-          args = [[uuid], [user_uuid: mention.target_uuid]]
+          args = [[uuid], [user_uuid: user_uuid]]
           # credo:disable-for-next-line Credo.Check.Refactor.Apply
           allowed = apply(mod, :visible_resource_uuids, args)
           if uuid in List.wrap(allowed), do: :yes, else: :no

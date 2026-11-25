@@ -122,6 +122,26 @@ defmodule PhoenixKitWeb.Components.Core.MentionTextTest do
       assert html =~ ~r/>\s*AK\s*</
     end
 
+    test "the chip holds no <div>: it sits inside a paragraph" do
+      {:ok, user} =
+        Auth.register_user(%{
+          email: "para_#{System.unique_integer([:positive])}@example.com",
+          password: "ValidPassword123!"
+        })
+
+      # A <div> inside a <p> makes the browser close the paragraph there,
+      # pushing the chip onto a line of its own with its face and name apart.
+      html = render_text("asked @[user:#{user.uuid}|Anna] to look", scope: Scope.for_user(user))
+
+      assert html =~ ~s(data-mention-user="#{user.uuid}")
+      refute html =~ "<div"
+      # One look everywhere: the shared person chip, neutral, never underlined.
+      assert html =~ "pk-person-chip"
+      assert html =~ "no-underline!"
+      # The face is initials (or this site's picture), never Gravatar.
+      refute html =~ "gravatar"
+    end
+
     test "on a public surface a person is a name, with no uuid and no face" do
       {:ok, user} =
         Auth.register_user(%{

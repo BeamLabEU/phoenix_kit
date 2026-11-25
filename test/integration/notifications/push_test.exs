@@ -266,6 +266,9 @@ defmodule PhoenixKit.Integration.Notifications.PushTest do
       assert Push.same_site_link("https://evil.example/steal") == nil
       assert Push.same_site_link("//evil.example/steal") == nil
       assert Push.same_site_link("/admin/x?y=1") == "/admin/x?y=1"
+      # A comment's anchor survives (a mention opens on the comment).
+      assert Push.same_site_link("/admin/x?y=1#pk-comment-1") == "/admin/x?y=1#pk-comment-1"
+      assert Push.same_site_link("/admin/x#pk-comment-1") == "/admin/x#pk-comment-1"
       assert Push.same_site_link("/\\evil.example/steal") == nil
       assert Push.same_site_link("/\t/evil.example") == nil
       assert Push.same_site_link("javascript:alert(1)") == nil

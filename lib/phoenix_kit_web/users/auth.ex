@@ -3353,6 +3353,13 @@ defmodule PhoenixKitWeb.Users.Auth do
     end
   end
 
+  @doc false
+  # The same account gate the admin pages apply (email confirmation when
+  # required, the referral code), as a yes/no for endpoints that answer
+  # with data instead of a redirect (the person card).
+  @spec account_gate_ok?(term()) :: boolean()
+  def account_gate_ok?(scope), do: Scope.authenticated?(scope) and account_gate(scope) == :ok
+
   # Whether unconfirmed accounts are blocked from authenticated routes.
   # Host-configurable via the `require_email_confirmation` setting (default
   # true = historical behavior). Confirmation emails still send when off —

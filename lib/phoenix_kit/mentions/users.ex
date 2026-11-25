@@ -21,10 +21,12 @@ defmodule PhoenixKit.Mentions.Users do
   import Ecto.Query
 
   alias PhoenixKit.RepoHelper
+  alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.Role
   alias PhoenixKit.Users.RoleAssignment
   alias PhoenixKit.Users.RolePermission
+  alias PhoenixKitWeb.Components.Core.UserInfo
 
   @default_limit 8
 
@@ -52,7 +54,7 @@ defmodule PhoenixKit.Mentions.Users do
     |> order_by([user: u], asc: u.username, asc: u.email)
     |> limit(^limit)
     |> repo().all()
-    |> Enum.map(&to_result/1)
+    |> Enum.map(&to_result(&1, show_email?(opts[:scope])))
   rescue
     _ -> []
   catch
@@ -123,18 +125,41 @@ defmodule PhoenixKit.Mentions.Users do
     )
   end
 
-  defp to_result(%User{} = user) do
+  # The row: face, name, and underneath the @username. The email only for a
+  # searcher who manages users (the person card's rule, Max 2026-11-25):
+  # the title deliberately degrades to a local part, and printing the full
+  # address under it for everyone gave back what that was protecting.
+  defp to_result(%User{} = user, show_email?) do
+    name = display_name(user)
+
     %{
       kind: :user,
       type: "user",
       uuid: user.uuid,
-      title: display_name(user),
-      # NOT the email. The title deliberately degrades to a local part, and
-      # printing the full address underneath it gives back exactly what that
-      # was protecting — in a menu, next to a name, ready to copy.
-      subtitle: nil
+      title: name,
+      subtitle: subtitle(user, show_email?),
+      avatar: UserInfo.avatar_brief(user, name)
     }
   end
+
+  defp subtitle(user, show_email?) do
+    [
+      present(user.username) && "@" <> user.username,
+      show_email? && present(User.delivery_email(user))
+    ]
+    |> Enum.filter(&is_binary/1)
+    |> case do
+      [] -> nil
+      parts -> Enum.join(parts, " · ")
+    end
+  end
+
+  defp present(value) when is_binary(value) and value != "", do: value
+  defp present(_), do: nil
+
+  defp show_email?(%Scope{} = scope), do: Scope.has_module_access?(scope, "users")
+
+  defp show_email?(_), do: false
 
   @doc """
   The label a mention of this user carries — what the author saw when they

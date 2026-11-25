@@ -121,6 +121,9 @@ defmodule PhoenixKit.Mentions.Live do
           uuid: r[:uuid],
           title: r[:title],
           subtitle: r[:subtitle],
+          # A person's face (`%{url, initials, gradient}`, `UserInfo.avatar_brief/2`):
+          # the list shows who, not only a name.
+          avatar: r[:avatar],
           # The finished token, built and validated HERE. The client used
           # to assemble it by concatenation, which silently produced
           # something unparseable whenever a record's own name contained a

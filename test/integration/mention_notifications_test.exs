@@ -6,10 +6,15 @@ defmodule PhoenixKit.Integration.MentionNotificationsTest do
   """
   use PhoenixKit.DataCase, async: false
 
+  import Ecto.Query
+
   alias PhoenixKit.Mentions
+  alias PhoenixKit.Mentions.Mention
+  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Notifications
   alias PhoenixKit.Notifications.{ChannelConfig, Render, Routing, Types}
   alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Utils.Routes
 
   defp user(attrs \\ %{}) do
     {:ok, user} =
@@ -129,11 +134,22 @@ defmodule PhoenixKit.Integration.MentionNotificationsTest do
     def visible_resource_uuids(uuids, _opts), do: uuids
   end
 
+  defmodule GateHandler do
+    @moduledoc false
+    # Every record readable until the test closes the gate.
+    def visible_resource_uuids(uuids, _opts) do
+      if Application.get_env(:phoenix_kit, :mention_test_gate_closed), do: [], else: uuids
+    end
+  end
+
   describe "the comment as the notification's quote" do
     setup do
       previous = Application.get_env(:phoenix_kit, :comment_resource_handlers)
 
-      Application.put_env(:phoenix_kit, :comment_resource_handlers, %{"open_thing" => OpenHandler})
+      Application.put_env(:phoenix_kit, :comment_resource_handlers, %{
+        "open_thing" => OpenHandler,
+        "gated_thing" => GateHandler
+      })
 
       on_exit(fn ->
         if previous,
@@ -155,6 +171,82 @@ defmodule PhoenixKit.Integration.MentionNotificationsTest do
       assert q.author_uuid == author.uuid
     end
 
+    test "a reader who lost access by delivery time gets the line, not the quote" do
+      on_exit(fn -> Application.delete_env(:phoenix_kit, :mention_test_gate_closed) end)
+      author = user()
+      ada = user()
+      mention(author, ada, source_type: "gated_thing", quote: "the secret")
+
+      {[n], _} = Notifications.list_for_user(ada.uuid, status: :all)
+      assert Types.still_visible?("mentions", n, ada)
+
+      Application.put_env(:phoenix_kit, :mention_test_gate_closed, true)
+      refute Types.still_visible?("mentions", n, ada)
+    end
+
+    test "a deleted comment's words leave the mention; the ping stays" do
+      author = user()
+      ada = user()
+      source = Ecto.UUID.generate()
+      text = "Hi @[user:#{ada.uuid}|Ada], the client offered 40k"
+
+      {:ok, new} =
+        Mentions.sync("comment", source, text, field: "content", actor_uuid: author.uuid)
+
+      Mentions.notify(new,
+        source_type: "open_thing",
+        source_uuid: Ecto.UUID.generate(),
+        preview: text,
+        quote: text
+      )
+
+      {[n], _} = Notifications.list_for_user(ada.uuid, status: :all)
+      assert Render.quote(n).text =~ "40k"
+
+      assert Mentions.forget_source("comment", source) == 1
+
+      {[n], _} = Notifications.list_for_user(ada.uuid, status: :all)
+      assert Render.quote(n) == nil
+      assert Render.render(n, "en").text =~ "mentioned you"
+    end
+
+    test "a ping written before mentions recorded their source is found by its link" do
+      author = user()
+      ada = user()
+      comment = Ecto.UUID.generate()
+      task = Ecto.UUID.generate()
+      text = "Hi @[user:#{ada.uuid}|Ada], the client offered 40k"
+
+      {:ok, new} =
+        Mentions.sync("comment", comment, text, field: "content", actor_uuid: author.uuid)
+
+      Mentions.notify(new,
+        source_type: "open_thing",
+        source_uuid: task,
+        preview: text,
+        quote: text,
+        link: "/admin/things/#{task}#pk-comment-#{comment}"
+      )
+
+      # As an activity written before 2026-11-25 was: no mention source.
+      PhoenixKit.Activity.Entry
+      |> where([a], a.action == "mention.created" and a.target_uuid == ^ada.uuid)
+      |> Repo.update_all(
+        set: [
+          metadata: %{
+            "quote" => %{"text" => text},
+            "preview" => text,
+            "notification_link" => "/admin/things/#{task}#pk-comment-#{comment}"
+          }
+        ]
+      )
+
+      assert Mentions.forget_source("comment", comment) == 1
+
+      {[n], _} = Notifications.list_for_user(ada.uuid, status: :all)
+      assert Render.quote(n) == nil
+    end
+
     test "without a `:quote`, the uncut preview is the quote" do
       author = user()
       ada = user()
@@ -172,5 +264,181 @@ defmodule PhoenixKit.Integration.MentionNotificationsTest do
 
     {[n], _} = Notifications.list_for_user(ada.uuid, status: :all)
     assert Render.quote(n) == nil
+  end
+
+  test "with mentions switched off nobody is pinged" do
+    PhoenixKit.Settings.update_boolean_setting(Mentions.enabled_setting_key(), false)
+
+    on_exit(fn ->
+      PhoenixKit.Settings.update_boolean_setting(Mentions.enabled_setting_key(), true)
+    end)
+
+    author = user()
+    ada = user()
+    mention(author, ada, [])
+
+    assert inbox(ada) == []
+  end
+
+  test "a re-save keeps the row a mention already has (a pending claim still lands)" do
+    author = user()
+    ada = user()
+    source = Ecto.UUID.generate()
+    text = "Hi @[user:#{ada.uuid}|Ada]"
+
+    {:ok, [first]} =
+      Mentions.sync("comment", source, text, field: "content", actor_uuid: author.uuid)
+
+    # A second tab saves the same mention before the first one claims it:
+    # the same row, still unsent, comes back to be sent (once — the claim).
+    first_uuid = first.uuid
+
+    {:ok, [%{uuid: ^first_uuid}]} =
+      Mentions.sync("comment", source, text <> "!", field: "content", actor_uuid: author.uuid)
+
+    assert [%{uuid: uuid}] = Mentions.list_for_source("comment", source, "content")
+    assert uuid == first.uuid
+    assert [%{uuid: ^uuid}] = Mentions.claim_for_delivery([first])
+
+    # A renamed label is followed; a mention taken out goes.
+    {:ok, []} =
+      Mentions.sync("comment", source, "Hi @[user:#{ada.uuid}|Ada L.]", field: "content")
+
+    assert [%{uuid: ^uuid, label: "Ada L."}] =
+             Mentions.list_for_source("comment", source, "content")
+
+    {:ok, []} = Mentions.sync("comment", source, "nobody", field: "content")
+    assert Mentions.list_for_source("comment", source, "content") == []
+  end
+
+  test "the link follows the reader's language, not the author's" do
+    {:ok, _} = Languages.enable_system()
+    {:ok, _} = Languages.add_language("et")
+    author = user()
+    ada = user()
+
+    # Built in the author's Estonian page, as a caller builds it.
+    stored = Routes.path("/admin/posts/1?x=1#pk-comment-2", locale: "et")
+    assert stored =~ "/et/"
+    mention(author, ada, link: stored)
+
+    {[n], _} = Notifications.list_for_user(ada.uuid, status: :all)
+    link = Render.render(n, "en").link
+    refute link =~ "/et/"
+    assert link =~ "/admin/posts/1?x=1#pk-comment-2"
+
+    assert Render.render(n, "et").link == stored
+  end
+
+  test "a ping whose claim was given back is sent by the next save, once" do
+    author = user()
+    ada = user()
+    source = Ecto.UUID.generate()
+    text = "Hi @[user:#{ada.uuid}|Ada]"
+
+    {:ok, [m]} = Mentions.sync("comment", source, text, field: "content", actor_uuid: author.uuid)
+
+    # Claimed, then given back (what `notify/2` does when the activity could
+    # not be written): nobody was told.
+    assert [_] = Mentions.claim_for_delivery([m])
+
+    Mention
+    |> Ecto.Query.where([x], x.uuid == ^m.uuid)
+    |> Repo.update_all(set: [notified_at: nil])
+
+    {:ok, again} =
+      Mentions.sync("comment", source, text <> " ", field: "content", actor_uuid: author.uuid)
+
+    Mentions.notify(again, source_type: "open_thing", source_uuid: Ecto.UUID.generate())
+    assert length(inbox(ada)) == 1
+
+    # Delivered now: a further save sends nothing more.
+    {:ok, more} =
+      Mentions.sync("comment", source, text <> "  ", field: "content", actor_uuid: author.uuid)
+
+    Mentions.notify(more, source_type: "open_thing", source_uuid: Ecto.UUID.generate())
+    assert length(inbox(ada)) == 1
+  end
+
+  test "a host page's link is left as it is, whatever the reader's language" do
+    {:ok, _} = Languages.enable_system()
+    {:ok, _} = Languages.add_language("et")
+    author = user()
+    ada = user()
+
+    # A host-owned page that happens to start with a served language: it is
+    # not the kit's, so it is never rebuilt under the kit's mount.
+    stored = "/et/docs/123#pk-comment-2"
+    mention(author, ada, link: stored)
+
+    {[n], _} = Notifications.list_for_user(ada.uuid, status: :all)
+    assert Render.render(n, "en").link == stored
+  end
+
+  test "with the kit mounted at /kit, a host's own /<lang>/admin page is left alone" do
+    {:ok, _} = Languages.enable_system()
+    {:ok, _} = Languages.add_language("et")
+    key = {PhoenixKit.Config, :url_prefix}
+    before = :persistent_term.get(key, :not_cached)
+    :persistent_term.put(key, "/kit")
+
+    on_exit(fn ->
+      if before == :not_cached,
+        do: :persistent_term.erase(key),
+        else: :persistent_term.put(key, before)
+    end)
+
+    author = user()
+    ada = user()
+
+    # The host's page under its own /admin, not the kit's (mounted at /kit).
+    stored = "/et/admin/host-page#pk-comment-2"
+    mention(author, ada, link: stored)
+
+    {[n], _} = Notifications.list_for_user(ada.uuid, status: :all)
+    assert Render.render(n, "en").link == stored
+  end
+
+  test "a source forgotten before its ping is delivered sends no ping and stores no quote" do
+    author = user()
+    ada = user()
+    source = Ecto.UUID.generate()
+    text = "Secret plan @[user:#{ada.uuid}|Ada]"
+
+    {:ok, new} = Mentions.sync("comment", source, text, field: "content", actor_uuid: author.uuid)
+
+    # The comment is deleted after its mentions were indexed, before delivery.
+    Mentions.forget_source("comment", source)
+    Mentions.notify(new, source_type: "comment", source_uuid: source, preview: text, quote: text)
+
+    assert inbox(ada) == []
+
+    refute Repo.exists?(
+             from(a in PhoenixKit.Activity.Entry,
+               where:
+                 a.action == "mention.created" and
+                   fragment("?->'quote'->>'text' = ?", a.metadata, ^text)
+             )
+           )
+  end
+
+  test "a forgotten source's mentions are not pinged again by a later save (a restore)" do
+    author = user()
+    ada = user()
+    source = Ecto.UUID.generate()
+    text = "Hi @[user:#{ada.uuid}|Ada]"
+
+    {:ok, new} = Mentions.sync("comment", source, text, field: "content", actor_uuid: author.uuid)
+    Mentions.notify(new, source_type: "open_thing", source_uuid: Ecto.UUID.generate())
+    assert length(inbox(ada)) == 1
+
+    Mentions.forget_source("comment", source)
+
+    {:ok, again} =
+      Mentions.sync("comment", source, text, field: "content", actor_uuid: author.uuid)
+
+    assert again == []
+    Mentions.notify(again, source_type: "open_thing", source_uuid: Ecto.UUID.generate())
+    assert length(inbox(ada)) == 1
   end
 end

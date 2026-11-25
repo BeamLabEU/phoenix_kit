@@ -49,7 +49,7 @@ defmodule PhoenixKitWeb.Components.Core.MentionText do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   import PhoenixKitWeb.Components.Core.Icon, only: [icon: 1]
-  import PhoenixKitWeb.Components.Core.UserInfo, only: [user_avatar: 1]
+  import PhoenixKitWeb.Components.Core.UserInfo, only: [person_chip: 1]
 
   alias PhoenixKit.Mentions
   alias PhoenixKit.Mentions.Token
@@ -155,16 +155,12 @@ defmodule PhoenixKitWeb.Components.Core.MentionText do
     assigns = assign(assigns, token: token, info: info, person: Map.fetch!(assigns.users, uuid))
 
     ~H"""
-    <.link
-      :if={@info[:path]}
-      navigate={href(@info)}
-      class="inline-flex items-center gap-1 align-middle rounded-full bg-base-200 hover:bg-base-300 py-0.5 pl-0.5 pr-2 font-medium no-underline"
-      data-mention-user={@token.uuid}
-    ><.user_avatar user={@person} name={@info[:title]} size="xs" />{@info[:title]}</.link><span
-      :if={is_nil(@info[:path])}
-      class="inline-flex items-center gap-1 align-middle rounded-full bg-base-200 py-0.5 pl-0.5 pr-2 font-medium"
-      data-mention-user={@token.uuid}
-    ><.user_avatar user={@person} name={@info[:title]} size="xs" />{@info[:title]}</span>
+    <.person_chip
+      person={@person}
+      name={@info[:title]}
+      uuid={@token.uuid}
+      href={@info[:path] && href(@info)}
+    />
     """
   end
 

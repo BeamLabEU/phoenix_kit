@@ -29484,3 +29484,15 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "Covers sign-in, registration, magic link, password reset, email confirmation and QR sign-in pages. Shown only when Multiple languages is turned on and more than one language is enabled. Turn it off for a site that serves one language per domain."
 msgstr ""
+
+#: lib/phoenix_kit_web/controllers/person_card_controller.ex:87
+#, elixir-autogen, elixir-format
+msgid "Open profile"
+msgstr "Відкрити профіль"
+
+
+#: lib/phoenix_kit_web/components/core/user_info.ex:431
+#: lib/phoenix_kit_web/components/core/user_info.ex:438
+#, elixir-autogen, elixir-format
+msgid "Couldn't load this person."
+msgstr "Не вдалося завантажити цю людину."

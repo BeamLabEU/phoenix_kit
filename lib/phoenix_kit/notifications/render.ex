@@ -70,7 +70,8 @@ defmodule PhoenixKit.Notifications.Render do
     %{
       icon: meta_string(meta, "notification_icon") || default_icon,
       text: meta_string(meta, "notification_text") || default_text,
-      link: local_link(meta, "notification_link") || link_for(activity, locale),
+      link:
+        relocalize(local_link(meta, "notification_link"), locale) || link_for(activity, locale),
       title: meta_string(meta, "notification_title"),
       action: meta_string(meta, "notification_action"),
       actor_uuid: activity.actor_uuid
@@ -467,6 +468,50 @@ defmodule PhoenixKit.Notifications.Render do
   # A button target. Only a local path: `Routes.local_path?/1` rejects
   # `//`, `/\`, control characters and anything that is not a path, which
   # is what stops `base_url <> "@evil.com"` becoming an off-site link.
+  # A stored link was built in the WRITER's language (a mention's is made in
+  # the author's request), so `/et/admin/...` reached an English reader. When
+  # the link names a language the site serves, its segment is swapped for the
+  # reader's; a link that names none is left alone (a host page may not be
+  # localized at all). A result that is not a local path keeps the original.
+  defp relocalize(nil, _locale), do: nil
+  defp relocalize(link, locale) when not is_binary(locale) or locale == "", do: link
+
+  defp relocalize(link, locale) do
+    case kit_path?(link) && Routes.path_locale(link) do
+      locale_segment when locale_segment in [nil, false] ->
+        link
+
+      current ->
+        swapped = Routes.locale_switch_path(link, locale, current_locale: current)
+        if Routes.local_path?(swapped), do: swapped, else: link
+    end
+  rescue
+    _ -> link
+  end
+
+  # Only a link to the kit's own pages is relocalized: one under the kit's
+  # mount prefix, or in its admin area. A host page (`/et/docs/123` beside a
+  # kit mounted at `/phoenix_kit`) is the host's, and rebuilding it with
+  # `Routes.path/2` moved it under the kit's mount — a link that 404s.
+  defp kit_path?(link) do
+    prefix =
+      case Routes.url_prefix() do
+        "/" -> ""
+        prefix -> prefix
+      end
+
+    under_prefix? =
+      prefix != "" and
+        (link == prefix or
+           String.starts_with?(link, [prefix <> "/", prefix <> "?", prefix <> "#"]))
+
+    # With a mount prefix, the prefix alone says which links are the kit's:
+    # a host page under its own `/et/admin/...` is not (the admin-area test
+    # matched it). Mounted at the root, the kit's admin area is the only
+    # part it can tell apart from the host's pages.
+    if prefix != "", do: under_prefix?, else: Routes.admin_area_path?(link)
+  end
+
   defp local_link(meta, key) do
     case meta_string(meta, key) do
       link when is_binary(link) -> if Routes.local_path?(link), do: link

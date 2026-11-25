@@ -29406,3 +29406,15 @@ msgstr "Afficher le sélecteur de langue sur les pages de connexion"
 #, elixir-autogen, elixir-format
 msgid "Covers sign-in, registration, magic link, password reset, email confirmation and QR sign-in pages. Shown only when Multiple languages is turned on and more than one language is enabled. Turn it off for a site that serves one language per domain."
 msgstr "Concerne les pages de connexion, d’inscription, de lien magique, de réinitialisation du mot de passe, de confirmation de l’e-mail et de connexion par QR code. Affiché uniquement lorsque « Plusieurs langues » est activé et que plus d’une langue est activée. À désactiver pour un site qui propose une langue par domaine."
+
+#: lib/phoenix_kit_web/controllers/person_card_controller.ex:87
+#, elixir-autogen, elixir-format
+msgid "Open profile"
+msgstr "Ouvrir le profil"
+
+
+#: lib/phoenix_kit_web/components/core/user_info.ex:431
+#: lib/phoenix_kit_web/components/core/user_info.ex:438
+#, elixir-autogen, elixir-format
+msgid "Couldn't load this person."
+msgstr "Impossible de charger cette personne."

@@ -103,6 +103,14 @@ for a reader who cannot open the record it came from.
 
 **Mentions** (`PhoenixKit.Mentions.notify/2`, action `mention.created`) are a core type of their own, `"mentions"`, so a person can mute them or route them to email like anything else (routing is fail-closed: an action no type owns never leaves the inbox). The activity stores `actor_name` (full name, else username — never the email's local part) and Render words it in the reader's language: "Ada mentioned you." (`hero-at-symbol`). A caller passes `link:` — a local path built with `Routes.path/1`, pointing at the mention itself (comments: the record's page + `#pk-comment-<uuid>`); anything failing `Routes.local_path?/1` is dropped. Rows from before the name was stored keep their own `notification_text`.
 
+Since 2026-11-25:
+
+- **Off means off.** With the mentions switch off (`Mentions.enabled?/0`), `notify/2` sends nothing; `sync/4` still indexes, so backlinks keep working.
+- **Asked again at delivery.** The type carries `visible: {PhoenixKit.Mentions, :still_visible?}`: a queued email or push to someone who has lost access to the record in between goes out as the line only, without the quote.
+- **The reader's language.** A stored `notification_link` that names a language the site serves is re-spelled in the reader's at render (`Render`), since a mention's link is built in the author's request.
+- **Forgetting a deleted record's words.** `PhoenixKit.Mentions.forget_source(source_type, source_uuid)` removes `"quote"` and `"preview"` from every `mention.created` activity for a mention IN that record (the activity carries `mention_source_type` / `mention_source_uuid`) or ABOUT it (the activity's resource). The ping and its link stay. A module calls it when it deletes the record (the comments module, on a comment's deletion; feature-detect it with `function_exported?/3`). Activities written before 2026-11-25 carry no mention source and are found only by their resource.
+- **Kept rows.** A re-save keeps the row of a mention still in the text, so a claim racing it still lands; a failed activity write gives the claim back so a later save can try again.
+
 ## Delivery channels (external destinations)
 
 Pluggable per-user routing of notifications to **external** destinations
