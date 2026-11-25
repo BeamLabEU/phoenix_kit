@@ -8,6 +8,7 @@ defmodule PhoenixKitWeb.PersonCardTest do
 
   use PhoenixKitWeb.ConnCase, async: false
 
+  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Permissions
   alias PhoenixKit.Users.Roles
@@ -70,8 +71,8 @@ defmodule PhoenixKitWeb.PersonCardTest do
   end
 
   test "the card speaks the page's language when it is an enabled one", %{conn: conn} do
-    {:ok, _} = PhoenixKit.Modules.Languages.enable_system()
-    {:ok, _} = PhoenixKit.Modules.Languages.add_language("de-DE")
+    {:ok, _} = Languages.enable_system()
+    {:ok, _} = Languages.add_language("de-DE")
     {admin, _token} = create_admin_user()
     person = user!()
     conn = log_in_user(conn, admin)
@@ -86,6 +87,22 @@ defmodule PhoenixKitWeb.PersonCardTest do
     # A language that is not enabled leaves the default.
     html = build_conn() |> log_in_user(admin) |> get(path <> "?lang=fr")
     assert html_response(html, 200) =~ "Open profile"
+  end
+
+  test "an unconfirmed admin gets no card while confirmation is required", %{conn: conn} do
+    {:ok, _} = PhoenixKit.Settings.update_boolean_setting("require_email_confirmation", true)
+    person = user!()
+
+    {:ok, admin} =
+      Auth.register_user(%{
+        "email" => "unconfirmed-#{System.unique_integer([:positive])}@example.com",
+        "password" => "ValidPassword123!"
+      })
+
+    {:ok, _} = Roles.assign_role(admin, "Admin")
+    admin = Repo.get!(Auth.User, admin.uuid)
+
+    assert conn |> log_in_user(admin) |> get(card_path(person.uuid)) |> response(404) == ""
   end
 
   test "nobody else gets a card, and nothing tells them why", %{conn: conn} do

@@ -43,7 +43,10 @@ defmodule PhoenixKitWeb.PersonCardController do
     scope = conn.assigns[:phoenix_kit_current_scope]
     put_page_language(params["lang"])
 
+    # The admin pages' own account gate too (email confirmation when the
+    # site requires it): an unconfirmed admin reached the card's emails.
     with true <- Scope.can_access_admin_area?(scope),
+         true <- WebAuth.account_gate_ok?(scope),
          {:ok, uuid} <- Ecto.UUID.cast(uuid),
          %User{is_active: true, api_only: false} = person <- Auth.get_user(uuid) do
       viewer = scope.user
