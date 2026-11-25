@@ -76,8 +76,12 @@ defmodule PhoenixKitWeb.Components.Core.PreviewCardTest do
       html = render_card()
 
       assert html =~ "data-pc-track"
-      assert html =~ "scrollIntoView"
-      assert html =~ "scrollBy"
+      assert html =~ ~s(data-pc-jump="1")
+      assert html =~ ~s(data-pc-step="-1")
+      assert html =~ ~s(data-pc-step="1")
+      # phoenix_kit.js does the switching; nothing inline (a strict CSP blocks it)
+      refute html =~ "onclick"
+      refute html =~ "onscroll"
       assert html =~ "Previous"
       assert html =~ "Next"
       refute html =~ "card_select_image"
@@ -87,8 +91,8 @@ defmodule PhoenixKitWeb.Components.Core.PreviewCardTest do
       html = render_card(%{images: [%{uuid: "only", name: "x.jpg"}]})
 
       assert html =~ "only"
-      refute html =~ "scrollIntoView"
-      refute html =~ "scrollBy"
+      refute html =~ "data-pc-jump"
+      refute html =~ "data-pc-step"
     end
 
     test "files continue the same swipe track after the photos, PDF iframe hidden below sm" do

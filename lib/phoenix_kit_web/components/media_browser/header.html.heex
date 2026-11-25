@@ -705,7 +705,7 @@
               </div>
               <ul
                 tabindex="0"
-                onclick="document.activeElement.blur()"
+                data-pk-blur
                 class="dropdown-content menu bg-base-100 rounded-box z-20 w-44 p-2 shadow border border-base-200"
               >
                 <%= for {val, label, icon} <- display_options do %>
@@ -735,7 +735,7 @@
               </div>
               <ul
                 tabindex="0"
-                onclick="document.activeElement.blur()"
+                data-pk-blur
                 class="dropdown-content menu bg-base-100 rounded-box z-20 w-44 p-2 shadow border border-base-200"
               >
                 <%= for {val, label} <- sort_options do %>
@@ -774,7 +774,7 @@
               </div>
               <ul
                 tabindex="0"
-                onclick="document.activeElement.blur()"
+                data-pk-blur
                 class="dropdown-content menu bg-base-100 rounded-box z-20 w-44 p-2 shadow border border-base-200"
               >
                 <%= for {val, label} <- filter_options do %>
@@ -961,7 +961,7 @@
                  red button — not duplicated into the menu. --%>
             <ul
               tabindex="0"
-              onclick="document.activeElement.blur()"
+              data-pk-blur
               class="dropdown-content menu bg-base-100 rounded-box z-20 w-48 p-2 shadow border border-base-200"
             >
               <li :if={not @filter_trash and not @readonly}>

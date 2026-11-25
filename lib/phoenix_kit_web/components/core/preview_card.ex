@@ -146,16 +146,16 @@ defmodule PhoenixKitWeb.Components.Core.PreviewCard do
     ~H"""
     <div class="flex flex-col gap-4" data-pc-root>
       <%!-- Unified media carousel — images, then files, one swipe track.
-           All client-side. The track's onscroll keeps the jump strip's
-           active tile in sync (debounced; inline JS like the arrows, so the
-           card stays dependency-free wherever it is embedded). --%>
+           All client-side: the arrows (`data-pc-step`), the jump tiles
+           (`data-pc-jump`) and the scroll that keeps the strip's active
+           tile in sync are listeners in phoenix_kit.js, which every page
+           loads; no inline handlers, which a strict CSP would block. --%>
       <div :if={@slide_count > 0} class="relative">
         <div
           class="carousel w-full rounded-lg bg-base-200"
           data-pc-track
           role="region"
           aria-label={@title || gettext("Preview")}
-          onscroll="clearTimeout(this._pc);this._pc=setTimeout(()=>{const i=Math.round(this.scrollLeft/this.clientWidth);const s=this.closest('[data-pc-root]').querySelector('[data-pc-strip]');if(s)Array.from(s.children).forEach((el,j)=>{el.classList.toggle('border-primary',j===i);el.classList.toggle('border-base-300',j!==i);if(j===i){el.setAttribute('aria-current','true')}else{el.removeAttribute('aria-current')}})},80)"
         >
           <div
             :for={{img, idx} <- Enum.with_index(@images)}
@@ -200,7 +200,7 @@ defmodule PhoenixKitWeb.Components.Core.PreviewCard do
           type="button"
           aria-label={gettext("Previous")}
           class="btn btn-circle btn-sm bg-base-100/80 border-0 shadow absolute left-2 top-1/2 -translate-y-1/2 hidden sm:inline-flex"
-          onclick="const t=this.closest('[data-pc-root]').querySelector('[data-pc-track]');t.scrollBy({left:-t.clientWidth,behavior:'smooth'})"
+          data-pc-step="-1"
         >
           <.icon name="hero-chevron-left" class="w-4 h-4" />
         </button>
@@ -209,7 +209,7 @@ defmodule PhoenixKitWeb.Components.Core.PreviewCard do
           type="button"
           aria-label={gettext("Next")}
           class="btn btn-circle btn-sm bg-base-100/80 border-0 shadow absolute right-2 top-1/2 -translate-y-1/2 hidden sm:inline-flex"
-          onclick="const t=this.closest('[data-pc-root]').querySelector('[data-pc-track]');t.scrollBy({left:t.clientWidth,behavior:'smooth'})"
+          data-pc-step="1"
         >
           <.icon name="hero-chevron-right" class="w-4 h-4" />
         </button>
@@ -228,7 +228,7 @@ defmodule PhoenixKitWeb.Components.Core.PreviewCard do
       </div>
 
       <%!-- Jump strip: a tile per slide (image thumbs, then file tiles).
-           The border marks the current slide; the track's onscroll moves
+           The border marks the current slide; the track's scroll moves
            it as the user swipes. Tile 0 starts active server-side. --%>
       <div :if={@slide_count > 1} class="flex gap-2 overflow-x-auto pb-1" data-pc-strip>
         <button
@@ -240,7 +240,7 @@ defmodule PhoenixKitWeb.Components.Core.PreviewCard do
           ]}
           aria-label={gettext("Show image %{number}", number: idx + 1)}
           aria-current={idx == 0 && "true"}
-          onclick={jump_js(idx)}
+          data-pc-jump={idx}
         >
           <img
             src={image_url(img, "thumbnail")}
@@ -254,7 +254,7 @@ defmodule PhoenixKitWeb.Components.Core.PreviewCard do
           class="shrink-0 cursor-pointer w-[68px] h-[68px] rounded border-2 border-base-300 hover:border-primary transition-colors flex flex-col items-center justify-center gap-0.5 bg-base-200"
           aria-label={file.name}
           title={file.name}
-          onclick={jump_js(idx)}
+          data-pc-jump={idx}
         >
           <.icon
             name={(file.pdf? && "hero-document-text") || "hero-document"}
@@ -343,11 +343,6 @@ defmodule PhoenixKitWeb.Components.Core.PreviewCard do
 
   # Scrolls the slide at `idx` into view inside this card's own snap track.
   # `block: "nearest"` keeps the vertical position of the modal untouched.
-  defp jump_js(idx) do
-    "const t=this.closest('[data-pc-root]').querySelector('[data-pc-track]');" <>
-      "t.children[#{idx}].scrollIntoView({behavior:'smooth',block:'nearest',inline:'start'})"
-  end
-
   defp file_ext(name) when is_binary(name) do
     case Path.extname(name) do
       "." <> ext when byte_size(ext) in 1..4 -> ext

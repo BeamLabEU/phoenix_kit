@@ -1385,7 +1385,7 @@
 
       // Floating Icon (only shown in opt-in mode)
       var iconHTML = showIcon
-        ? '<button id="pk-consent-icon" type="button" onclick="window.PhoenixKitConsent.openPreferences()" ' +
+        ? '<button id="pk-consent-icon" type="button" data-pk-consent="openPreferences" ' +
             'class="pk-floating-icon pk-glass" ' +
             'style="position:fixed;z-index:50;width:3rem;height:3rem;border-radius:9999px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:var(--pk-primary);' + iconStyle + '" ' +
             'aria-label="Cookie preferences" title="Cookie preferences">' +
@@ -1429,9 +1429,9 @@
               '</div>' +
             '</div>' +
             '<div style="display:flex;gap:0.5rem;flex-wrap:wrap">' +
-              '<button type="button" onclick="window.PhoenixKitConsent.openPreferences()" class="btn btn-ghost btn-sm" style="font-size:0.75rem">Customize</button>' +
-              '<button type="button" onclick="window.PhoenixKitConsent.rejectAll()" class="btn btn-outline btn-sm" style="font-size:0.75rem">Reject</button>' +
-              '<button type="button" onclick="window.PhoenixKitConsent.acceptAll()" class="btn btn-primary btn-sm" style="font-size:0.75rem">Accept All</button>' +
+              '<button type="button" data-pk-consent="openPreferences" class="btn btn-ghost btn-sm" style="font-size:0.75rem">Customize</button>' +
+              '<button type="button" data-pk-consent="rejectAll" class="btn btn-outline btn-sm" style="font-size:0.75rem">Reject</button>' +
+              '<button type="button" data-pk-consent="acceptAll" class="btn btn-primary btn-sm" style="font-size:0.75rem">Accept All</button>' +
             '</div>' +
           '</div>' +
         '</div>' +
@@ -1441,7 +1441,7 @@
       var modalHTML = '<div id="pk-consent-modal" ' +
         'style="position:fixed;inset:0;z-index:100;display:none" ' +
         'role="dialog" aria-modal="true" aria-label="Cookie preferences">' +
-        '<div class="pk-modal-backdrop" onclick="window.PhoenixKitConsent.closePreferences()" ' +
+        '<div class="pk-modal-backdrop" data-pk-consent="closePreferences" ' +
           'style="position:absolute;inset:0;background:oklch(var(--bc)/0.4);backdrop-filter:blur(4px)"></div>' +
         '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:1rem;pointer-events:none">' +
           '<div class="pk-modal-content pk-glass" style="width:100%;max-width:28rem;max-height:85vh;overflow:hidden;border-radius:1rem;pointer-events:auto">' +
@@ -1456,7 +1456,7 @@
                   '<p style="font-size:0.75rem;color:var(--pk-text-muted);margin:0">Manage your cookie settings</p>' +
                 '</div>' +
               '</div>' +
-              '<button type="button" onclick="window.PhoenixKitConsent.closePreferences()" class="btn btn-ghost btn-sm btn-circle" aria-label="Close">' +
+              '<button type="button" data-pk-consent="closePreferences" class="btn btn-ghost btn-sm btn-circle" aria-label="Close">' +
                 closeIconSVG +
               '</button>' +
             '</div>' +
@@ -1476,8 +1476,8 @@
                   '<a href="' + cookiePolicyUrl + '" style="color:inherit;text-decoration:underline" target="_blank">Cookie Policy</a>' +
                 '</div>' +
                 '<div style="margin-left:auto;display:flex;gap:0.5rem">' +
-                  '<button type="button" onclick="window.PhoenixKitConsent.rejectAll()" class="btn btn-ghost btn-sm" style="font-size:0.75rem">Reject All</button>' +
-                  '<button type="button" onclick="window.PhoenixKitConsent.savePreferences()" class="btn btn-primary btn-sm" style="font-size:0.75rem">Save Preferences</button>' +
+                  '<button type="button" data-pk-consent="rejectAll" class="btn btn-ghost btn-sm" style="font-size:0.75rem">Reject All</button>' +
+                  '<button type="button" data-pk-consent="savePreferences" class="btn btn-primary btn-sm" style="font-size:0.75rem">Save Preferences</button>' +
                 '</div>' +
               '</div>' +
             '</div>' +
@@ -1493,6 +1493,21 @@
     // ---------------------------------------------------------------------------
     // UI Show/Hide Functions
     // ---------------------------------------------------------------------------
+
+    // The widget's buttons name their action (`data-pk-consent="acceptAll"`);
+    // an inline onclick would be blocked by a strict Content-Security-Policy.
+    var CONSENT_ACTIONS = ["openPreferences", "closePreferences", "acceptAll", "rejectAll", "savePreferences"];
+
+    document.addEventListener("click", function(e) {
+      var el = e.target && typeof e.target.closest === "function"
+        ? e.target.closest("[data-pk-consent]")
+        : null;
+      if (!el) return;
+      var action = el.getAttribute("data-pk-consent");
+      if (CONSENT_ACTIONS.indexOf(action) === -1) return;
+      var fn = window.PhoenixKitConsent && window.PhoenixKitConsent[action];
+      if (typeof fn === "function") fn();
+    });
 
     function injectWidget(config) {
       var existing = document.getElementById("pk-consent-root");
@@ -2320,6 +2335,223 @@
   }
 
   document.addEventListener("submit", function(e) { hideRevealedPasswords(e.target); }, true);
+
+  // ---------------------------------------------------------------------------
+  // DECLARATIVE HANDLERS
+  // ---------------------------------------------------------------------------
+  //
+  // What the kit's markup used to do with inline handlers (`onclick="…"`,
+  // `onerror="…"`). A Content-Security-Policy without 'unsafe-inline' blocks
+  // those, and no nonce can be put on an attribute, so the markup now only
+  // names what it wants and one listener per event, on the document, does it.
+  // No hook: the same markup is rendered by controller pages and dead views.
+  //
+  //   data-pk-blur                 a click inside drops the focus (closes a
+  //                                daisyUI dropdown after a choice)
+  //   data-pk-copy="text"          a click copies the text
+  //   data-pk-copy-from="id"       a click copies that element's value/text
+  //   data-pk-img-error="hide|remove|placeholder"
+  //                                what a broken <img> does; "placeholder"
+  //                                shows the .image-error-placeholder next to it
+  //   data-pk-no-submit            a <form> that is never submitted
+  //   data-pk-no-enter             Enter in this field does nothing
+  //   data-pk-zero-clear           <.decimal_input>: a zero clears on focus
+  //   data-pk-language-filter      the language switcher's search field
+  //   data-pc-track / -step / -jump   <.preview_card>'s carousel
+  //
+  // Capture phase where the event does not bubble (error, focus, blur, scroll,
+  // submit) and for keydown, so a host's own inline handler on the same
+  // element still runs after the kit's, as it did when both were chained.
+  // ---------------------------------------------------------------------------
+
+  function pkClosest(target, selector) {
+    return target && typeof target.closest === "function" ? target.closest(selector) : null;
+  }
+
+  function pkHas(el, name) {
+    return !!el && typeof el.hasAttribute === "function" && el.hasAttribute(name);
+  }
+
+  // Pure: the text a copy button asks for, or null.
+  function copyTextFor(button, doc) {
+    if (!button) return null;
+    if (pkHas(button, "data-pk-copy")) return button.getAttribute("data-pk-copy");
+    var id = button.getAttribute("data-pk-copy-from");
+    var source = id ? doc.getElementById(id) : null;
+    if (!source) return null;
+    return source.value !== undefined && source.value !== null ? source.value : source.textContent;
+  }
+
+  function onImageError(img) {
+    switch (img.getAttribute("data-pk-img-error")) {
+      case "hide":
+        img.style.display = "none";
+        break;
+      case "remove":
+        img.remove();
+        break;
+      case "placeholder":
+        var holder = img.parentElement && img.parentElement.querySelector(".image-error-placeholder");
+        if (holder) holder.style.display = "grid";
+        break;
+    }
+  }
+
+  // <.decimal_input>: a zero-like text (optional sign, zeros, optional decimal
+  // zeros) is cleared on focus so typing replaces it, and comes back if the
+  // field is left empty. The zero is kept in expando properties, never
+  // `dataset`: LiveView's patch of a focused input drops every attribute the
+  // server did not render. A readonly field is never cleared.
+  var ZERO_TEXT = /^\s*[-+]?(?:0+(?:[.,]0*)?|[.,]0+)\s*$/;
+
+  function zeroFocus(el) {
+    if (el.readOnly || !ZERO_TEXT.test(el.value)) return;
+    el.__pkZero = el.value;
+    el.__pkZeroEdited = false;
+    // One stable function, so adding it on every focus registers it once.
+    el.__pkZeroOnInput || (el.__pkZeroOnInput = function() { el.__pkZeroEdited = true; });
+    el.addEventListener("input", el.__pkZeroOnInput);
+    el.value = "";
+  }
+
+  function zeroBlur(el) {
+    if (el.__pkZero == null) return;
+    if (el.value.trim() === "") {
+      el.value = el.__pkZero;
+      // Typed-then-erased: the server last heard "" from phx-change, so the
+      // restore announces itself with an input event of its own.
+      if (el.__pkZeroEdited) el.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    delete el.__pkZero;
+  }
+
+  // Enter submits the form before any blur: restore the zero first.
+  function zeroEnter(el) {
+    if (el.__pkZero != null && el.value.trim() === "") {
+      el.value = el.__pkZero;
+      delete el.__pkZero;
+    }
+  }
+
+  function filterLanguages(input) {
+    var term = input.value.toLowerCase().trim();
+    var list = pkClosest(input, "ul");
+    if (!list) return;
+    var any = false;
+    list.querySelectorAll(".language-item").forEach(function(item) {
+      var name = item.dataset.name || "";
+      var native = item.dataset.native || "";
+      var match = !term || name.includes(term) || native.includes(term);
+      item.style.display = match ? "" : "none";
+      if (match) any = true;
+    });
+    var empty = list.querySelector(".ls-no-results");
+    if (empty) empty.style.display = any ? "none" : "";
+  }
+
+  // <.preview_card>: the slide the track shows, and the jump strip's mark.
+  function previewTrack(el) {
+    var root = pkClosest(el, "[data-pc-root]");
+    return root ? root.querySelector("[data-pc-track]") : null;
+  }
+
+  function previewMark(track) {
+    var root = pkClosest(track, "[data-pc-root]");
+    var strip = root && root.querySelector("[data-pc-strip]");
+    if (!strip || !track.clientWidth) return;
+    var current = Math.round(track.scrollLeft / track.clientWidth);
+    Array.from(strip.children).forEach(function(tile, index) {
+      tile.classList.toggle("border-primary", index === current);
+      tile.classList.toggle("border-base-300", index !== current);
+      if (index === current) tile.setAttribute("aria-current", "true");
+      else tile.removeAttribute("aria-current");
+    });
+  }
+
+  function onDeclaredClick(e) {
+    var el;
+
+    if ((el = pkClosest(e.target, "[data-pk-copy],[data-pk-copy-from]"))) {
+      var text = copyTextFor(el, document);
+      if (text != null && navigator.clipboard) navigator.clipboard.writeText(text).catch(function() {});
+    }
+
+    if ((el = pkClosest(e.target, "[data-pc-step]"))) {
+      var track = previewTrack(el);
+      var step = parseInt(el.getAttribute("data-pc-step"), 10) || 0;
+      if (track) track.scrollBy({ left: step * track.clientWidth, behavior: "smooth" });
+    }
+
+    if ((el = pkClosest(e.target, "[data-pc-jump]"))) {
+      var jumpTrack = previewTrack(el);
+      var slide = jumpTrack && jumpTrack.children[parseInt(el.getAttribute("data-pc-jump"), 10)];
+      if (slide) slide.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
+    }
+
+    if (pkClosest(e.target, "[data-pk-blur]") && document.activeElement) {
+      document.activeElement.blur();
+    }
+  }
+
+  // An image that failed before this file ran (a deferred or late-loaded
+  // bundle) never fires its error again: look once the document is parsed.
+  function sweepBrokenImages() {
+    document.querySelectorAll("img[data-pk-img-error]").forEach(function(img) {
+      if (img.complete && img.naturalWidth === 0 && img.getAttribute("src")) onImageError(img);
+    });
+  }
+
+  if (typeof module === "object" && module.exports) {
+    module.exports.copyTextFor = copyTextFor;
+    module.exports.onImageError = onImageError;
+    module.exports.zeroFocus = zeroFocus;
+    module.exports.zeroBlur = zeroBlur;
+    module.exports.zeroEnter = zeroEnter;
+    module.exports.filterLanguages = filterLanguages;
+    module.exports.previewMark = previewMark;
+    module.exports.onDeclaredClick = onDeclaredClick;
+  }
+
+  document.addEventListener("click", onDeclaredClick);
+
+  document.addEventListener("error", function(e) {
+    if (pkHas(e.target, "data-pk-img-error")) onImageError(e.target);
+  }, true);
+
+  document.addEventListener("submit", function(e) {
+    if (pkHas(e.target, "data-pk-no-submit")) e.preventDefault();
+  }, true);
+
+  document.addEventListener("keydown", function(e) {
+    if (e.key !== "Enter") return;
+    if (pkHas(e.target, "data-pk-zero-clear")) zeroEnter(e.target);
+    if (pkHas(e.target, "data-pk-no-enter")) e.preventDefault();
+  }, true);
+
+  document.addEventListener("focus", function(e) {
+    if (pkHas(e.target, "data-pk-zero-clear")) zeroFocus(e.target);
+  }, true);
+
+  document.addEventListener("blur", function(e) {
+    if (pkHas(e.target, "data-pk-zero-clear")) zeroBlur(e.target);
+  }, true);
+
+  document.addEventListener("input", function(e) {
+    if (pkHas(e.target, "data-pk-language-filter")) filterLanguages(e.target);
+  });
+
+  document.addEventListener("scroll", function(e) {
+    var track = e.target;
+    if (!pkHas(track, "data-pc-track")) return;
+    clearTimeout(track._pc);
+    track._pc = setTimeout(function() { previewMark(track); }, 80);
+  }, true);
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", sweepBrokenImages);
+  } else {
+    sweepBrokenImages();
+  }
 
   // ---------------------------------------------------------------------------
   // PkDateInput — the hook behind `<.date_input>` (core/date_input.ex): a

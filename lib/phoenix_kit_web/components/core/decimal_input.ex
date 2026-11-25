@@ -28,17 +28,19 @@ defmodule PhoenixKitWeb.Components.Core.DecimalInput do
   Typing anything keeps what was typed; typing and then erasing it all
   puts the zero back and fires an `input` event, so a `phx-change` form
   hears the zero instead of keeping the `""` it last saw. A `readonly`
-  field is left alone. All of it is inline handlers on the control
-  (`onfocus`/`onblur`/`onkeydown`), so it needs no hook and works in any
-  host app. The remembered zero lives in a property on the element, not a
-  `data-` attribute: LiveView strips attributes the server did not render
-  from a focused input on every patch.
+  field is left alone. The control only carries `data-pk-zero-clear`; the
+  behaviour is listeners in `phoenix_kit.js` (no hook, so it works in any
+  host app and on a page with no LiveView, and no inline handler, which a
+  Content-Security-Policy without `'unsafe-inline'` would block). The
+  remembered zero lives in a property on the element, not a `data-`
+  attribute: LiveView strips attributes the server did not render from a
+  focused input on every patch.
 
-  A host's own `onfocus`/`onblur`/`onkeydown` are kept: they run right
-  after the component's, in the same attribute (a second attribute of the
-  same name would be dropped by the browser). `phx-focus` fires on
-  `focusin`, after the clear, so it sees the emptied field; `phx-blur`
-  fires on `focusout`, after the restore, so it sees the zero again.
+  A host's own `onfocus`/`onblur`/`onkeydown` are kept as the host wrote
+  them and run right after the component's (the kit listens in the capture
+  phase). `phx-focus` fires on `focusin`, after the clear, so it sees the
+  emptied field; `phx-blur` fires on `focusout`, after the restore, so it
+  sees the zero again.
 
   `bare` renders the control alone, for a host that sets it inside a group
   of its own — a daisyUI `join` with a unit button, a table cell: the
@@ -139,39 +141,12 @@ defmodule PhoenixKitWeb.Components.Core.DecimalInput do
     |> decimal_input()
   end
 
-  # A zero-like text: optional sign, zeros, optional decimal zeros. A
-  # readonly field is never cleared — it could not be typed into, and an
-  # Enter in it would submit the emptied text.
-  @zero_test "!this.readOnly&&/^\\s*[-+]?(?:0+(?:[.,]0*)?|[.,]0+)\\s*$/.test(this.value)"
-
-  # The zero is kept in expando properties, never `dataset`: LiveView's
-  # patch of a focused input drops every attribute the server did not
-  # render. The input listener is one stable function, so adding it on
-  # every focus registers it once; it notes a keystroke during the clear.
-  @on_focus "if(#{@zero_test}){this.__pkZero=this.value;this.__pkZeroEdited=false;this.__pkZeroOnInput||(this.__pkZeroOnInput=()=>{this.__pkZeroEdited=true});this.addEventListener('input',this.__pkZeroOnInput);this.value=''}"
-
-  # Typed-then-erased: the server last heard `""` from phx-change, so the
-  # restore announces itself with an input event of its own.
-  @on_blur "if(this.__pkZero!=null){if(this.value.trim()===''){this.value=this.__pkZero;if(this.__pkZeroEdited)this.dispatchEvent(new Event('input',{bubbles:true}))}delete this.__pkZero}"
-
-  # Enter submits the form before any blur: restore the zero first.
-  @on_keydown "if(event.key==='Enter'&&this.__pkZero!=null&&this.value.trim()===''){this.value=this.__pkZero;delete this.__pkZero}"
-
   def decimal_input(assigns) do
-    # A host's onfocus/onblur/onkeydown ride along after ours; they must
-    # not also be spread from @rest, or the tag would carry the attribute
-    # twice and the browser would keep only the first.
-    {host_focus, rest} = Map.pop(assigns.rest, :onfocus)
-    {host_blur, rest} = Map.pop(rest, :onblur)
-    {host_keydown, rest} = Map.pop(rest, :onkeydown)
-
-    assigns =
-      assigns
-      |> assign(:text, Number.format_decimal(assigns.value))
-      |> assign(:rest, rest)
-      |> assign(:on_focus, chain(@on_focus, host_focus))
-      |> assign(:on_blur, chain(@on_blur, host_blur))
-      |> assign(:on_keydown, chain(@on_keydown, host_keydown))
+    # Clearing a zero on focus (and bringing it back) is `data-pk-zero-clear`
+    # in phoenix_kit.js, not inline handlers: a Content-Security-Policy
+    # without 'unsafe-inline' blocks those. A host's own onfocus / onblur /
+    # onkeydown still ride along in @rest and run after the kit's.
+    assigns = assign(assigns, :text, Number.format_decimal(assigns.value))
 
     layout(assigns)
   end
@@ -190,9 +165,6 @@ defmodule PhoenixKitWeb.Components.Core.DecimalInput do
       name={@name}
       id={@id}
       text={@text}
-      on_focus={@on_focus}
-      on_blur={@on_blur}
-      on_keydown={@on_keydown}
       rest={@rest}
       class={["input transition-colors focus:input-primary", @errors != [] && "input-error", @class]}
     />
@@ -221,9 +193,6 @@ defmodule PhoenixKitWeb.Components.Core.DecimalInput do
           name={@name}
           id={@id}
           text={@text}
-          on_focus={@on_focus}
-          on_blur={@on_blur}
-          on_keydown={@on_keydown}
           rest={@rest}
           class="grow min-w-0"
         />
@@ -234,9 +203,6 @@ defmodule PhoenixKitWeb.Components.Core.DecimalInput do
         name={@name}
         id={@id}
         text={@text}
-        on_focus={@on_focus}
-        on_blur={@on_blur}
-        on_keydown={@on_keydown}
         rest={@rest}
         class={[
           "input w-full transition-colors focus:input-primary",
@@ -260,14 +226,9 @@ defmodule PhoenixKitWeb.Components.Core.DecimalInput do
       id={@id}
       value={@text}
       class={@class}
-      onfocus={@on_focus}
-      onblur={@on_blur}
-      onkeydown={@on_keydown}
+      data-pk-zero-clear
       {@rest}
     />
     """
   end
-
-  defp chain(ours, host) when is_binary(host) and host != "", do: ours <> ";" <> host
-  defp chain(ours, _), do: ours
 end

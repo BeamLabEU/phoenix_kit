@@ -228,7 +228,12 @@ test("a size budget keeps the public file public", () => {
   // close guard, following the chip on scroll, the narrow sheet's width and
   // the merged PhoenixKitInternals — ~2.1 KB with their notes. 332 274 B,
   // so 328 KiB = 335 872 B leaves ~3.5 KB).
-  assert.ok(publicBytes < 328 * 1024, "phoenix_kit.js is " + publicBytes + " bytes");
+  // -> 336 (the declarative handlers, ~9.4 KB with their notes: what the inline
+  // onclick/onerror/onfocus attributes of core's components did, moved here so
+  // the markup works under a Content-Security-Policy without 'unsafe-inline';
+  // the components render on any page, and the consent widget's buttons are
+  // public too. 341 670 B, so 336 KiB = 344 064 B leaves ~2.3 KB).
+  assert.ok(publicBytes < 336 * 1024, "phoenix_kit.js is " + publicBytes + " bytes");
   assert.ok(adminBytes > publicBytes / 2, "the admin file is where the weight went");
 });
 

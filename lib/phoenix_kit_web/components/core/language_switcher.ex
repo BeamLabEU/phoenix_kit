@@ -302,19 +302,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
                       class="input input-sm w-full"
                       id={"ls-search-" <> slug(continent)}
                       autocomplete="off"
-                      oninput="
-                        var t=this.value.toLowerCase().trim();
-                        var ul=this.closest('ul');
-                        var any=false;
-                        ul.querySelectorAll('.language-item').forEach(function(i){
-                          var n=i.dataset.name||'',v=i.dataset.native||'';
-                          var m=!t||n.includes(t)||v.includes(t);
-                          i.style.display=m?'':'none';
-                          if(m)any=true;
-                        });
-                        var empty=ul.querySelector('.ls-no-results');
-                        if(empty)empty.style.display=any?'none':'';
-                      "
+                      data-pk-language-filter
                     />
                   </li>
                 <% end %>
@@ -379,19 +367,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
                     class="input input-sm w-full"
                     id="language-search-input"
                     autocomplete="off"
-                    oninput="
-                      var t=this.value.toLowerCase().trim();
-                      var ul=this.closest('ul');
-                      var any=false;
-                      ul.querySelectorAll('.language-item').forEach(function(i){
-                        var n=i.dataset.name||'',v=i.dataset.native||'';
-                        var m=!t||n.includes(t)||v.includes(t);
-                        i.style.display=m?'':'none';
-                        if(m)any=true;
-                      });
-                      var empty=ul.querySelector('.ls-no-results');
-                      if(empty)empty.style.display=any?'none':'';
-                    "
+                    data-pk-language-filter
                   />
                 </li>
               <% end %>

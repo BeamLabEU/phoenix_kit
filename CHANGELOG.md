@@ -16,11 +16,19 @@
   `conn` assign the host's own plug fills; every inline `<script>` and `<style>` the kit renders
   then has `nonce="…"`, in the kit's LiveViews after the socket connects as well
   (`PhoenixKitWeb.CSP`). Off by default, nothing changes without the setting. The HTML sitemap and
-  the public API guide (cached documents) and inline event handlers are not covered. Guide:
+  the public API guide (cached documents) are not covered. Guide:
   `guides/content-security-policy.md`.
 
 ### Changed
 
+- **The kit renders no inline event handlers.** The `onclick`, `onerror`, `onfocus`, `oninput`,
+  `onscroll` and `onsubmit` attributes of core's components (copy buttons, dropdowns that close
+  after a choice, broken-image fallbacks, `<.decimal_input>`'s zero, the language search, the
+  preview card's carousel, the cookie-consent buttons) are replaced by `data-pk-*` attributes and
+  listeners in `phoenix_kit.js`, so they work under a `script-src` without `'unsafe-inline'`. A
+  host that loads an older copy of `phoenix_kit.js` loses those behaviours until the file is
+  refreshed (`mix compile` or `mix phoenix_kit.update` does it). A handler a host passes to
+  `<.decimal_input>` is rendered unchanged and still runs after the kit's.
 - **The username suggested from an email address reads better.** A `+tag` is dropped
   (`john.doe+shop@` gives `john_doe`, was `john_doeshop`); dashes and other punctuation become one
   underscore (`first-last@` gives `first_last`, was `firstlast`), never doubled and never at the

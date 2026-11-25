@@ -607,7 +607,7 @@ defmodule PhoenixKitWeb.Components.AnnotationComposer do
                       phx-keyup="giphy_search"
                       phx-target={@myself}
                       phx-debounce="300"
-                      onkeydown="if(event.key === 'Enter') event.preventDefault()"
+                      data-pk-no-enter
                       autocomplete="off"
                     />
                     <div class="mt-2 max-h-72 overflow-y-auto">

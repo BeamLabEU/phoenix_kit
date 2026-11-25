@@ -170,7 +170,7 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
             alt={gettext("Avatar")}
             style={@crop_style}
             class={unless @crop_style, do: "absolute inset-0 w-full h-full object-cover"}
-            onerror="this.style.display='none';"
+            data-pk-img-error="hide"
           />
         <% else %>
           <span>{@initial}</span>
@@ -462,7 +462,7 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
       src={@face.url}
       alt=""
       class="absolute inset-0 h-full w-full object-cover"
-      onerror="this.remove()"
+      data-pk-img-error="remove"
     /></span>
     """
   end

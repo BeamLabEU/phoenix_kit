@@ -43,7 +43,8 @@ defmodule PhoenixKitWeb.CSP do
       <style nonce={PhoenixKitWeb.CSP.nonce(:style)}>
 
   `test/phoenix_kit_web/csp_inline_tags_test.exs` fails on an inline tag in `lib/` without one.
-  Inline event handlers (`onclick="…"`) cannot take a nonce at all.
+  Inline event handlers (`onclick="…"`) cannot take a nonce at all, so the kit renders none: the
+  same test fails on one, and `phoenix_kit.js` ("DECLARATIVE HANDLERS") does their work.
   """
 
   import Phoenix.Component, only: [assign: 3]

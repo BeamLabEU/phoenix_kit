@@ -7,7 +7,7 @@ This guide says what the kit's pages need from it.
 
 The kit's layouts and some components render inline `<script>` and `<style>` tags (the theme
 bootstrap that runs before first paint, the URL-prefix global, the sidebar state, the table's
-view toggle). A policy with `script-src 'self'` and nothing else blocks them, and the admin area
+view toggle). It renders no inline event handlers. A policy with `script-src 'self'` and nothing else blocks them, and the admin area
 loses its theme switch, sidebar memory and more.
 
 The kit writes nothing into the host's own pages: `PhoenixKitWeb.Plugs.Integration` leaves the
@@ -72,18 +72,28 @@ live_session :app,
 
 Without them the first render still has the nonce; tags added by live navigation do not.
 
+### Inline event handlers
+
+The kit renders none (`onclick="…"`, `onerror="…"`): no nonce can be put on an attribute, so what
+they did is now done by listeners in `phoenix_kit.js`, keyed on `data-pk-*` attributes. Your root
+layout must load that file (the installer adds it) for copy buttons, dropdowns that close after a
+choice, the decimal field's zero and the preview card's arrows to work.
+
+A handler you pass to a kit component yourself (`<.decimal_input onfocus="…">`) is rendered as
+you wrote it and is yours to allow.
+
 ### What a nonce does not cover
 
-- **Inline event handlers** (`onclick="…"`). A few kit components still use them; a nonce cannot
-  be attached to an attribute. Until they are replaced, the affected controls need
-  `'unsafe-inline'` (which a browser ignores once a nonce is present in the same directive) or
-  `'unsafe-hashes'` with their hashes.
-- **Inline `style="…"` attributes**, for the same reason: `style-src-attr 'unsafe-inline'`.
+- **Inline `style="…"` attributes.** The kit uses them (and so does the cookie-consent widget,
+  which also adds a `<style>` from script): `style-src-attr 'unsafe-inline'`, or
+  `style-src 'unsafe-inline'` if you do not split the directive.
 - **The HTML sitemap and the public API guide.** They are cached and the same for everyone, so
   they carry no nonce. Their inline style is a constant.
 - **Libraries fetched from a CDN** by some components. See
   [Public and admin JavaScript](public-and-admin-javascript.md) for serving them from your own
   origin.
+- **Module packages** (`phoenix_kit_*`) have inline code of their own; each is converted in its
+  own release.
 
 ## Option 2: allow inline code
 

@@ -526,7 +526,7 @@ defmodule PhoenixKitWeb.Live.Settings.Authorization do
                 <button
                   type="button"
                   class="btn btn-sm btn-square btn-outline"
-                  onclick={"navigator.clipboard.writeText('#{@callback_url}')"}
+                  data-pk-copy={@callback_url}
                   title={gettext("Copy to clipboard")}
                 >
                   <.icon name="hero-clipboard" class="h-4 w-4" />

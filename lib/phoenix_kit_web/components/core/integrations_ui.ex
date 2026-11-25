@@ -692,7 +692,7 @@ defmodule PhoenixKitWeb.Components.Core.IntegrationsUI do
             <button
               type="button"
               class="btn btn-xs btn-outline absolute top-2 right-2"
-              onclick={"navigator.clipboard.writeText(document.getElementById('#{@id}-#{document.kind}-json').textContent)"}
+              data-pk-copy-from={"#{@id}-#{document.kind}-json"}
             >
               <.icon name="hero-clipboard" class="w-3 h-3" /> {gettext("Copy")}
             </button>

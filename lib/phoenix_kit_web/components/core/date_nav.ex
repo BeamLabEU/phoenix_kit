@@ -145,7 +145,7 @@ defmodule PhoenixKitWeb.Components.Core.DateNav do
           phx-change={@pick_event}
           phx-target={@target}
           class="join-item"
-          onsubmit="return false"
+          data-pk-no-submit
         >
           <.date_input
             id={"#{@id}-date"}
