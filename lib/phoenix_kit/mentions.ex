@@ -570,29 +570,34 @@ defmodule PhoenixKit.Mentions do
     actor_uuid = Keyword.get(opts, :actor_uuid)
     tokens = text |> Token.parse() |> Enum.uniq_by(&{&1.type, &1.uuid})
 
-    existing = list_for_source(source_type, source_uuid, field)
-    existing_keys = MapSet.new(existing, &{&1.target_type, &1.target_uuid})
-
     token_keys = MapSet.new(tokens, &{&1.type, &1.uuid})
 
-    # A mention still in the text KEEPS its row (and its uuid): a save that
-    # replaced it made a concurrent save's claim on the old row miss, and
-    # the person was never told (codex, 2026-11-25). Rows whose mention left
-    # the text go; new ones are inserted. One row per key: an older
-    # duplicate goes too.
-    {keep, drop} =
-      existing
-      |> Enum.reduce({%{}, []}, fn m, {kept, dropped} ->
-        key = {m.target_type, m.target_uuid}
-
-        cond do
-          not MapSet.member?(token_keys, key) -> {kept, [m.uuid | dropped]}
-          Map.has_key?(kept, key) -> {kept, [m.uuid | dropped]}
-          true -> {Map.put(kept, key, m), dropped}
-        end
-      end)
-
+    # Two saves of one field at once (two tabs) both read the old index and
+    # each inserted its own replacement: both versions' people stayed
+    # indexed (codex, 2026-11-25). The index is read and written under one
+    # lock per source field, so the second save sees the first's rows.
     repo().transaction(fn ->
+      lock_source(source_type, source_uuid, field)
+      existing = list_for_source(source_type, source_uuid, field)
+      existing_keys = MapSet.new(existing, &{&1.target_type, &1.target_uuid})
+
+      # A mention still in the text KEEPS its row (and its uuid): a save that
+      # replaced it made a concurrent save's claim on the old row miss, and
+      # the person was never told (codex, 2026-11-25). Rows whose mention left
+      # the text go; new ones are inserted. One row per key: an older
+      # duplicate goes too.
+      {keep, drop} =
+        existing
+        |> Enum.reduce({%{}, []}, fn m, {kept, dropped} ->
+          key = {m.target_type, m.target_uuid}
+
+          cond do
+            not MapSet.member?(token_keys, key) -> {kept, [m.uuid | dropped]}
+            Map.has_key?(kept, key) -> {kept, [m.uuid | dropped]}
+            true -> {Map.put(kept, key, m), dropped}
+          end
+        end)
+
       if drop != [], do: repo().delete_all(from(m in Mention, where: m.uuid in ^drop))
 
       tokens
@@ -612,9 +617,10 @@ defmodule PhoenixKit.Mentions do
         |> repo().insert!()
       end)
       |> tap(fn _ -> relabel(keep, tokens) end)
+      |> then(&{&1, existing_keys, keep})
     end)
     |> case do
-      {:ok, inserted} ->
+      {:ok, {inserted, existing_keys, keep}} ->
         new =
           Enum.reject(inserted, &MapSet.member?(existing_keys, {&1.target_type, &1.target_uuid}))
 
@@ -788,9 +794,10 @@ defmodule PhoenixKit.Mentions do
           }
           |> Map.reject(fn {_key, value} -> is_nil(value) end)
       }
-      |> Activity.log()
+      |> log_unless_forgotten(mention)
       |> case do
-        {:ok, _entry} -> :ok
+        :ok -> :ok
+        :forgotten -> :ok
         # Claimed but not sent: give the claim back, or the person is never
         # told and no later save would try again (zai, 2026-11-25).
         _ -> release_claim(mention)
@@ -804,8 +811,44 @@ defmodule PhoenixKit.Mentions do
       :ok
   end
 
+  # The source's mentions stamped by `forget_source/2` (the record was
+  # deleted): never delivered, never retried. A timestamp no claim can write.
+  @forgotten ~U[1970-01-01 00:00:00Z]
+
+  # The activity is written while the mention row is locked, and not at all
+  # when `forget_source/2` marked it: a delete between the claim and the
+  # write found nothing to scrub, and the quote landed afterwards (codex,
+  # 2026-11-25). `forget_source/2` takes the same rows' locks, so it either
+  # runs first (marked: nothing written) or waits and then scrubs.
+  defp log_unless_forgotten(attrs, %Mention{uuid: uuid}) do
+    repo().transaction(fn ->
+      row =
+        from(m in Mention, where: m.uuid == ^uuid, lock: "FOR UPDATE", select: m.notified_at)
+        |> repo().one()
+
+      if is_nil(row) or row == @forgotten do
+        repo().rollback(:forgotten)
+      else
+        case Activity.log(attrs) do
+          {:ok, _entry} -> :ok
+          other -> repo().rollback(other)
+        end
+      end
+    end)
+    |> case do
+      {:ok, :ok} -> :ok
+      {:error, :forgotten} -> :forgotten
+      other -> other
+    end
+  end
+
+  defp lock_source(source_type, source_uuid, field) do
+    key = "pk_mentions:#{source_type}:#{source_uuid}:#{field}"
+    repo().query!("SELECT pg_advisory_xact_lock(hashtext($1))", [key])
+  end
+
   defp release_claim(%Mention{uuid: uuid}) do
-    from(m in Mention, where: m.uuid == ^uuid)
+    from(m in Mention, where: m.uuid == ^uuid and m.notified_at != ^@forgotten)
     |> repo().update_all(set: [notified_at: nil])
 
     :ok
@@ -848,6 +891,21 @@ defmodule PhoenixKit.Mentions do
   @spec forget_source(String.t(), String.t()) :: non_neg_integer()
   def forget_source(source_type, source_uuid)
       when is_binary(source_type) and is_binary(source_uuid) do
+    {:ok, count} = repo().transaction(fn -> forget_in_tx(source_type, source_uuid) end)
+    count
+  rescue
+    _ -> 0
+  catch
+    :exit, _ -> 0
+  end
+
+  defp forget_in_tx(source_type, source_uuid) do
+    # First the record's own mention rows: marked so no later delivery
+    # writes a quote, and taking each row's lock, so a delivery already
+    # writing finishes before the scrub below looks for its activity.
+    from(m in Mention, where: m.source_type == ^source_type and m.source_uuid == ^source_uuid)
+    |> repo().update_all(set: [notified_at: @forgotten])
+
     {count, _} =
       from(a in PhoenixKit.Activity.Entry,
         where:
@@ -862,10 +920,6 @@ defmodule PhoenixKit.Mentions do
       |> repo().update_all([])
 
     count
-  rescue
-    _ -> 0
-  catch
-    :exit, _ -> 0
   end
 
   # Can the mentioned person open the thing they're being told about?

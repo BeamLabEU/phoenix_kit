@@ -505,7 +505,11 @@ defmodule PhoenixKit.Notifications.Render do
         (link == prefix or
            String.starts_with?(link, [prefix <> "/", prefix <> "?", prefix <> "#"]))
 
-    under_prefix? or Routes.admin_area_path?(link)
+    # With a mount prefix, the prefix alone says which links are the kit's:
+    # a host page under its own `/et/admin/...` is not (the admin-area test
+    # matched it). Mounted at the root, the kit's admin area is the only
+    # part it can tell apart from the host's pages.
+    if prefix != "", do: under_prefix?, else: Routes.admin_area_path?(link)
   end
 
   defp local_link(meta, key) do

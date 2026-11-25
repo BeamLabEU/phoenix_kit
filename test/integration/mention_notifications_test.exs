@@ -6,10 +6,15 @@ defmodule PhoenixKit.Integration.MentionNotificationsTest do
   """
   use PhoenixKit.DataCase, async: false
 
+  import Ecto.Query
+
   alias PhoenixKit.Mentions
+  alias PhoenixKit.Mentions.Mention
+  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Notifications
   alias PhoenixKit.Notifications.{ChannelConfig, Render, Routing, Types}
   alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Utils.Routes
 
   defp user(attrs \\ %{}) do
     {:ok, user} =
@@ -307,13 +312,13 @@ defmodule PhoenixKit.Integration.MentionNotificationsTest do
   end
 
   test "the link follows the reader's language, not the author's" do
-    {:ok, _} = PhoenixKit.Modules.Languages.enable_system()
-    {:ok, _} = PhoenixKit.Modules.Languages.add_language("et")
+    {:ok, _} = Languages.enable_system()
+    {:ok, _} = Languages.add_language("et")
     author = user()
     ada = user()
 
     # Built in the author's Estonian page, as a caller builds it.
-    stored = PhoenixKit.Utils.Routes.path("/admin/posts/1?x=1#pk-comment-2", locale: "et")
+    stored = Routes.path("/admin/posts/1?x=1#pk-comment-2", locale: "et")
     assert stored =~ "/et/"
     mention(author, ada, link: stored)
 
@@ -337,7 +342,7 @@ defmodule PhoenixKit.Integration.MentionNotificationsTest do
     # not be written): nobody was told.
     assert [_] = Mentions.claim_for_delivery([m])
 
-    PhoenixKit.Mentions.Mention
+    Mention
     |> Ecto.Query.where([x], x.uuid == ^m.uuid)
     |> Repo.update_all(set: [notified_at: nil])
 
@@ -356,8 +361,8 @@ defmodule PhoenixKit.Integration.MentionNotificationsTest do
   end
 
   test "a host page's link is left as it is, whatever the reader's language" do
-    {:ok, _} = PhoenixKit.Modules.Languages.enable_system()
-    {:ok, _} = PhoenixKit.Modules.Languages.add_language("et")
+    {:ok, _} = Languages.enable_system()
+    {:ok, _} = Languages.add_language("et")
     author = user()
     ada = user()
 
@@ -368,5 +373,72 @@ defmodule PhoenixKit.Integration.MentionNotificationsTest do
 
     {[n], _} = Notifications.list_for_user(ada.uuid, status: :all)
     assert Render.render(n, "en").link == stored
+  end
+
+  test "with the kit mounted at /kit, a host's own /<lang>/admin page is left alone" do
+    {:ok, _} = Languages.enable_system()
+    {:ok, _} = Languages.add_language("et")
+    key = {PhoenixKit.Config, :url_prefix}
+    before = :persistent_term.get(key, :not_cached)
+    :persistent_term.put(key, "/kit")
+
+    on_exit(fn ->
+      if before == :not_cached,
+        do: :persistent_term.erase(key),
+        else: :persistent_term.put(key, before)
+    end)
+
+    author = user()
+    ada = user()
+
+    # The host's page under its own /admin, not the kit's (mounted at /kit).
+    stored = "/et/admin/host-page#pk-comment-2"
+    mention(author, ada, link: stored)
+
+    {[n], _} = Notifications.list_for_user(ada.uuid, status: :all)
+    assert Render.render(n, "en").link == stored
+  end
+
+  test "a source forgotten before its ping is delivered sends no ping and stores no quote" do
+    author = user()
+    ada = user()
+    source = Ecto.UUID.generate()
+    text = "Secret plan @[user:#{ada.uuid}|Ada]"
+
+    {:ok, new} = Mentions.sync("comment", source, text, field: "content", actor_uuid: author.uuid)
+
+    # The comment is deleted after its mentions were indexed, before delivery.
+    Mentions.forget_source("comment", source)
+    Mentions.notify(new, source_type: "comment", source_uuid: source, preview: text, quote: text)
+
+    assert inbox(ada) == []
+
+    refute Repo.exists?(
+             from(a in PhoenixKit.Activity.Entry,
+               where:
+                 a.action == "mention.created" and
+                   fragment("?->'quote'->>'text' = ?", a.metadata, ^text)
+             )
+           )
+  end
+
+  test "a forgotten source's mentions are not pinged again by a later save (a restore)" do
+    author = user()
+    ada = user()
+    source = Ecto.UUID.generate()
+    text = "Hi @[user:#{ada.uuid}|Ada]"
+
+    {:ok, new} = Mentions.sync("comment", source, text, field: "content", actor_uuid: author.uuid)
+    Mentions.notify(new, source_type: "open_thing", source_uuid: Ecto.UUID.generate())
+    assert length(inbox(ada)) == 1
+
+    Mentions.forget_source("comment", source)
+
+    {:ok, again} =
+      Mentions.sync("comment", source, text, field: "content", actor_uuid: author.uuid)
+
+    assert again == []
+    Mentions.notify(again, source_type: "open_thing", source_uuid: Ecto.UUID.generate())
+    assert length(inbox(ada)) == 1
   end
 end
