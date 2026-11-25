@@ -29412,3 +29412,10 @@ msgstr "您已以 %{email} 身份登录。"
 #, elixir-autogen, elixir-format
 msgid "Open profile"
 msgstr "打开个人资料"
+
+
+#: lib/phoenix_kit_web/components/core/user_info.ex:431
+#: lib/phoenix_kit_web/components/core/user_info.ex:438
+#, elixir-autogen, elixir-format
+msgid "Couldn't load this person."
+msgstr "无法加载此人的信息。"

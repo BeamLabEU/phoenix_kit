@@ -211,27 +211,38 @@
   })();
 
   // ============================================================================
-  // PERSON DRAWER
+  // PERSON CARD
   // ============================================================================
-  // A click on a mention chip (`[data-mention-user]`: core's <.mention_text>,
-  // the comments module's chips) opens a drawer with the person's card
-  // (PhoenixKitWeb.PersonCardController) instead of leaving the page for the
-  // profile (Max, 2026-11-24). Ctrl/⌘/Shift/middle clicks still follow the
-  // chip's link; a chip inside an editor is left to the editor.
+  // A click on a person chip (`[data-mention-user]`: core's <.person_chip>,
+  // which <.mention_text> renders, and the comments module's chips) opens
+  // that person's card in a small box next to the chip — above or below it,
+  // wherever there is room; a bottom sheet on a narrow screen (Max,
+  // 2026-11-25). The card is PhoenixKitWeb.PersonCardController's, fetched
+  // on every open (what a viewer may see is decided on the server).
   //
-  // The drawer is a <dialog> opened with showModal(), so it stacks above an
-  // open task popup (the browser's top layer, newest on top). Its card is
-  // fetched every time it opens: what a viewer may see (the email, the
-  // profile button, modules' actions) is decided on the server. A viewer
-  // with no card for that person (not signed in to the admin area, or the
-  // person is gone) just follows the link.
-  (function personDrawer() {
+  // Several people at once: any element with `data-people="uuid,uuid,…"`
+  // (a task's assignees, say) opens the side drawer with every person's
+  // card in it. A chip inside such an element still opens its own card.
+  //
+  //   <span data-people="uuid-1,uuid-2">…faces…</span>
+  //   window.PhoenixKitInternals.openPersonCard(uuid, anchorEl)
+  //   window.PhoenixKitInternals.openPeopleDrawer([uuid, …])
+  //
+  // Both are a <dialog> of their own opened with showModal(): over an open
+  // task popup only the TOPMOST modal is not inert, so a box appended
+  // anywhere else could be seen but not clicked. Esc and a click outside
+  // close it; focus goes back to the chip. Ctrl/⌘/Shift/middle clicks follow
+  // the chip's link; a chip inside an editor is left to the editor. A card
+  // that cannot be loaded says so — the page never navigates away.
+  (function personCard() {
     if (typeof window === "undefined" || window.PhoenixKitPersonDrawer) return;
     window.PhoenixKitPersonDrawer = true;
 
-    var dialog = null;
-    var body = null;
+    var pop = null;
+    var drawer = null;
+    var anchorEl = null;
     var seq = 0;
+    var MAX_PEOPLE = 20;
 
     function cardUrl(uuid) {
       var prefix = window.PHOENIX_KIT_PREFIX || "/phoenix_kit";
@@ -241,60 +252,178 @@
       return prefix + "/people/" + encodeURIComponent(uuid) + "/card" + (lang ? "?lang=" + encodeURIComponent(lang) : "");
     }
 
-    function build() {
-      dialog = document.createElement("dialog");
-      dialog.className = "modal modal-end pk-person-drawer";
-      dialog.setAttribute("aria-label", "Person");
-      dialog.innerHTML =
-        '<div class="modal-box h-full max-h-full w-80 max-w-[90vw] rounded-none p-5 relative">' +
-        '<button type="button" data-pk-drawer-close class="btn btn-ghost btn-sm btn-circle absolute right-3 top-3" aria-label="Close">✕</button>' +
-        '<div data-pk-drawer-body class="pt-6"></div>' +
-        "</div>" +
-        '<form method="dialog" class="modal-backdrop"><button aria-label="Close">close</button></form>';
-      body = dialog.querySelector("[data-pk-drawer-body]");
-      dialog.querySelector("[data-pk-drawer-close]").addEventListener("click", function () {
-        dialog.close();
+    function fetchCard(uuid) {
+      return fetch(cardUrl(uuid), { credentials: "same-origin", headers: { accept: "text/html" } }).then(
+        function (resp) {
+          if (!resp.ok) throw new Error("no card");
+          return resp.text();
+        }
+      );
+    }
+
+    function spinner() {
+      return '<div class="flex justify-center py-6"><span class="loading loading-spinner loading-md"></span></div>';
+    }
+
+    // The words come from the chip (<.person_chip> renders them translated);
+    // English for a chip that carries none.
+    function failure(href, chip) {
+      var said = function (attr, fallback) {
+        return (chip && chip.getAttribute && chip.getAttribute(attr)) || fallback;
+      };
+      var box = document.createElement("div");
+      box.className = "flex flex-col items-center gap-2 py-4 text-center text-sm";
+      var p = document.createElement("p");
+      p.className = "text-base-content/70";
+      p.textContent = said("data-card-error", "Couldn't load this person.");
+      box.appendChild(p);
+      // A same-site link only: the chip's own href, as it was rendered.
+      if (href && href.charAt(0) === "/" && href.charAt(1) !== "/") {
+        var a = document.createElement("a");
+        a.href = href;
+        a.className = "link link-primary";
+        a.textContent = said("data-card-profile", "Open profile");
+        box.appendChild(a);
+      }
+      return box;
+    }
+
+    // A dialog closes when its own element (the transparent backdrop area)
+    // is clicked, not its box; its links close it as they are followed.
+    function wireClose(dialog, body) {
+      dialog.addEventListener("click", function (e) {
+        if (e.target === dialog) {
+          dialog.close();
+          return;
+        }
+        var a = e.target.closest && e.target.closest("a[href]");
+        if (a && dialog.contains(a)) dialog.close();
       });
       dialog.addEventListener("close", function () {
         body.innerHTML = "";
       });
-      // A link in the card is followed with the drawer closed behind it.
-      dialog.addEventListener("click", function (e) {
-        var a = e.target.closest && e.target.closest("a[href]");
-        if (a && dialog.contains(a)) dialog.close();
-      });
-      document.body.appendChild(dialog);
     }
 
-    function spinner() {
-      return '<div class="flex justify-center py-10"><span class="loading loading-spinner loading-md"></span></div>';
+    function buildPop() {
+      pop = document.createElement("dialog");
+      pop.className = "pk-person-pop";
+      pop.setAttribute("aria-label", "Person");
+      // Its own placement: no centring, no UA margins, an invisible backdrop.
+      pop.style.cssText =
+        "position:fixed;margin:0;padding:0;border:0;background:transparent;max-width:none;max-height:none;overflow:visible;";
+      pop.innerHTML =
+        '<div data-pk-pop-box class="w-72 max-w-[calc(100vw-1rem)] rounded-box border border-base-300 bg-base-100 p-4 shadow-xl">' +
+        '<div data-pk-pop-body></div></div>';
+      document.body.appendChild(pop);
+      var style = document.createElement("style");
+      style.textContent = ".pk-person-pop::backdrop{background:transparent}";
+      pop.appendChild(style);
+      wireClose(pop, pop.querySelector("[data-pk-pop-body]"));
     }
 
-    function open(uuid, chip) {
-      if (!dialog || !dialog.isConnected) build();
+    // Below the chip when it fits, else above; left edge on the chip's,
+    // kept inside the viewport. Under 640 px wide: a sheet at the bottom.
+    function place(anchor) {
+      var box = pop.querySelector("[data-pk-pop-box]");
+      var vw = window.innerWidth;
+      var vh = window.innerHeight;
+      if (vw < 640 || !anchor || !anchor.isConnected) {
+        pop.style.left = "0.5rem";
+        pop.style.right = "0.5rem";
+        pop.style.top = "auto";
+        pop.style.bottom = "0.5rem";
+        box.style.width = "auto";
+        return;
+      }
+      box.style.width = "";
+      pop.style.right = "auto";
+      pop.style.bottom = "auto";
+      var r = anchor.getBoundingClientRect();
+      var w = box.offsetWidth;
+      var h = box.offsetHeight;
+      var gap = 6;
+      var top = r.bottom + gap;
+      if (top + h > vh - 8 && r.top - gap - h >= 8) top = r.top - gap - h;
+      top = Math.max(8, Math.min(top, vh - h - 8));
+      var left = Math.max(8, Math.min(r.left, vw - w - 8));
+      pop.style.top = top + "px";
+      pop.style.left = left + "px";
+    }
+
+    function openCard(uuid, anchor) {
+      if (!pop || !pop.isConnected) buildPop();
+      if (drawer && drawer.open) drawer.close();
+      var body = pop.querySelector("[data-pk-pop-body]");
       var mine = ++seq;
+      var href = anchor && anchor.getAttribute && anchor.getAttribute("href");
+      anchorEl = anchor || null;
       body.innerHTML = spinner();
-      if (!dialog.open) dialog.showModal();
+      if (!pop.open) pop.showModal();
+      place(anchor);
 
-      fetch(cardUrl(uuid), { credentials: "same-origin", headers: { accept: "text/html" } })
-        .then(function (resp) {
-          if (!resp.ok) throw new Error("no card");
-          return resp.text();
-        })
+      fetchCard(uuid)
         .then(function (html) {
-          if (mine !== seq || !dialog.open) return;
+          if (mine !== seq || !pop.open) return;
           body.innerHTML = html;
+          place(anchor);
           var first = body.querySelector("a[href], button");
           if (first) first.focus();
         })
         .catch(function () {
-          // Closed meanwhile: the person changed their mind, stay put.
-          if (mine !== seq || !dialog.open) return;
-          dialog.close();
-          // No card for this viewer: the chip does what it did before.
-          var href = chip.getAttribute("href");
-          if (href) window.location.assign(href);
+          if (mine !== seq || !pop.open) return;
+          body.innerHTML = "";
+          body.appendChild(failure(href, anchor));
+          place(anchor);
         });
+    }
+
+    function buildDrawer() {
+      drawer = document.createElement("dialog");
+      drawer.className = "modal modal-end pk-person-drawer";
+      drawer.setAttribute("aria-label", "People");
+      drawer.innerHTML =
+        '<div class="modal-box h-full max-h-full w-80 max-w-[90vw] rounded-none p-5 relative">' +
+        '<button type="button" data-pk-drawer-close class="btn btn-ghost btn-sm btn-circle absolute right-3 top-3" aria-label="Close">✕</button>' +
+        '<div data-pk-drawer-body class="pt-6 flex flex-col divide-y divide-base-200"></div>' +
+        "</div>" +
+        '<form method="dialog" class="modal-backdrop"><button aria-label="Close">close</button></form>';
+      document.body.appendChild(drawer);
+      var body = drawer.querySelector("[data-pk-drawer-body]");
+      drawer.querySelector("[data-pk-drawer-close]").addEventListener("click", function () {
+        drawer.close();
+      });
+      wireClose(drawer, body);
+    }
+
+    function openDrawer(uuids) {
+      uuids = uuids.filter(function (u, i) {
+        return u && uuids.indexOf(u) === i;
+      }).slice(0, MAX_PEOPLE);
+      if (!uuids.length) return;
+      if (!drawer || !drawer.isConnected) buildDrawer();
+      if (pop && pop.open) pop.close();
+      var body = drawer.querySelector("[data-pk-drawer-body]");
+      var mine = ++seq;
+      body.innerHTML = "";
+      var slots = uuids.map(function () {
+        var slot = document.createElement("div");
+        slot.className = "py-4 first:pt-0";
+        slot.innerHTML = spinner();
+        body.appendChild(slot);
+        return slot;
+      });
+      if (!drawer.open) drawer.showModal();
+      uuids.forEach(function (uuid, i) {
+        fetchCard(uuid)
+          .then(function (html) {
+            if (mine === seq && drawer.open) slots[i].innerHTML = html;
+          })
+          .catch(function () {
+            if (mine !== seq || !drawer.open) return;
+            slots[i].innerHTML = "";
+            slots[i].appendChild(failure(null, null));
+          });
+      });
     }
 
     document.addEventListener(
@@ -302,15 +431,32 @@
       function (e) {
         if (e.defaultPrevented || e.button !== 0) return;
         if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-        var chip = e.target.closest && e.target.closest("[data-mention-user]");
-        // Any editing value ("true", "", "plaintext-only"): the editor's own chip.
-        if (!chip || chip.closest("[contenteditable]:not([contenteditable='false']), textarea")) return;
-        var uuid = chip.getAttribute("data-mention-user");
-        if (!uuid) return;
-        // Ahead of LiveView's own link handling (it would navigate).
-        e.preventDefault();
-        e.stopPropagation();
-        open(uuid, chip);
+        var t = e.target;
+        if (!t || !t.closest) return;
+        // Any editing value ("true", "", "plaintext-only"): the editor's own.
+        if (t.closest("[contenteditable]:not([contenteditable='false']), textarea")) return;
+        // Inside an open card or drawer: its own links and buttons.
+        if (t.closest(".pk-person-pop, .pk-person-drawer")) return;
+
+        var chip = t.closest("[data-mention-user]");
+        var uuid = chip && chip.getAttribute("data-mention-user");
+        if (uuid) {
+          // Ahead of LiveView's own link handling (it would navigate).
+          e.preventDefault();
+          e.stopPropagation();
+          openCard(uuid, chip);
+          return;
+        }
+
+        var group = t.closest("[data-people]");
+        var list = group && (group.getAttribute("data-people") || "").split(",").map(function (s) {
+          return s.trim();
+        });
+        if (list && list.filter(Boolean).length) {
+          e.preventDefault();
+          e.stopPropagation();
+          openDrawer(list);
+        }
       },
       true
     );
@@ -318,11 +464,21 @@
     // A LiveView navigation (a server push_navigate) leaves no stale card open.
     window.addEventListener("phx:page-loading-start", function (e) {
       var kind = e.detail && e.detail.kind;
-      if (dialog && dialog.open && (kind === "redirect" || kind === "patch")) dialog.close();
+      if (kind !== "redirect" && kind !== "patch") return;
+      if (pop && pop.open) pop.close();
+      if (drawer && drawer.open) drawer.close();
+    });
+    window.addEventListener("resize", function () {
+      if (pop && pop.open) place(anchorEl);
     });
 
     window.PhoenixKitInternals = window.PhoenixKitInternals || {};
-    window.PhoenixKitInternals.openPersonDrawer = open;
+    window.PhoenixKitInternals.openPersonCard = openCard;
+    window.PhoenixKitInternals.openPeopleDrawer = openDrawer;
+    // The name the first version had.
+    window.PhoenixKitInternals.openPersonDrawer = function (uuid, chip) {
+      openCard(uuid, chip);
+    };
   })();
 
   // Initialize hooks collection
@@ -6105,6 +6261,27 @@
 })();
 
 // ---------------------------------------------------------------------------
+// A suggestion's face: the site's own picture, else initials on the
+// person's gradient. Built from text and a same-site URL only (no markup
+// from the server). Every class is written out whole so Tailwind sees it.
+function pkMentionFace(av) {
+  var face = document.createElement("span");
+  face.className =
+    "relative inline-flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-full text-[10px] font-bold text-white bg-gradient-to-br " +
+    (av.gradient || "from-primary to-secondary");
+  face.setAttribute("aria-hidden", "true");
+  face.textContent = av.initials || "?";
+  if (av.url) {
+    var img = document.createElement("img");
+    img.src = av.url;
+    img.alt = "";
+    img.className = "absolute inset-0 h-full w-full object-cover";
+    img.addEventListener("error", function () { img.remove(); });
+    face.appendChild(img);
+  }
+  return face;
+}
+
 // MentionInput — @ pings and # record links in any plain textarea.
 //
 // The surface this has to reach is ~70 ordinary `<textarea>` fields, not a
@@ -6286,16 +6463,22 @@
           var a = document.createElement("a");
           a.className = idx === self.cursor ? "active" : "";
           a.setAttribute("role", "option");
+          a.className += " flex items-center gap-2";
+          // A person's face beside the name (`avatar`: url | initials).
+          if (r.avatar) a.appendChild(pkMentionFace(r.avatar));
+          var text = document.createElement("span");
+          text.className = "flex flex-col min-w-0";
           var title = document.createElement("span");
           title.className = "font-medium truncate";
           title.textContent = r.title;
-          a.appendChild(title);
+          text.appendChild(title);
           if (r.subtitle) {
             var sub = document.createElement("span");
             sub.className = "text-xs opacity-60 truncate";
             sub.textContent = r.subtitle;
-            a.appendChild(sub);
+            text.appendChild(sub);
           }
+          a.appendChild(text);
           // mousedown, not click: click fires after blur, and blur has
           // already closed the menu by then.
           a.addEventListener("mousedown", function(e) {

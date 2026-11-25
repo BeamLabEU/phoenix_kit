@@ -29476,3 +29476,10 @@ msgstr "Jesteś zalogowany jako %{email}."
 #, elixir-autogen, elixir-format
 msgid "Open profile"
 msgstr "Otwórz profil"
+
+
+#: lib/phoenix_kit_web/components/core/user_info.ex:431
+#: lib/phoenix_kit_web/components/core/user_info.ex:438
+#, elixir-autogen, elixir-format
+msgid "Couldn't load this person."
+msgstr "Nie udało się wczytać tej osoby."

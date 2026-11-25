@@ -29392,3 +29392,10 @@ msgstr "Hai effettuato l'accesso come %{email}."
 #, elixir-autogen, elixir-format
 msgid "Open profile"
 msgstr "Apri profilo"
+
+
+#: lib/phoenix_kit_web/components/core/user_info.ex:431
+#: lib/phoenix_kit_web/components/core/user_info.ex:438
+#, elixir-autogen, elixir-format
+msgid "Couldn't load this person."
+msgstr "Impossibile caricare questa persona."
