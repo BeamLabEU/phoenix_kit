@@ -129,11 +129,22 @@ defmodule PhoenixKit.Integration.MentionNotificationsTest do
     def visible_resource_uuids(uuids, _opts), do: uuids
   end
 
+  defmodule GateHandler do
+    @moduledoc false
+    # Every record readable until the test closes the gate.
+    def visible_resource_uuids(uuids, _opts) do
+      if Application.get_env(:phoenix_kit, :mention_test_gate_closed), do: [], else: uuids
+    end
+  end
+
   describe "the comment as the notification's quote" do
     setup do
       previous = Application.get_env(:phoenix_kit, :comment_resource_handlers)
 
-      Application.put_env(:phoenix_kit, :comment_resource_handlers, %{"open_thing" => OpenHandler})
+      Application.put_env(:phoenix_kit, :comment_resource_handlers, %{
+        "open_thing" => OpenHandler,
+        "gated_thing" => GateHandler
+      })
 
       on_exit(fn ->
         if previous,
@@ -155,6 +166,45 @@ defmodule PhoenixKit.Integration.MentionNotificationsTest do
       assert q.author_uuid == author.uuid
     end
 
+    test "a reader who lost access by delivery time gets the line, not the quote" do
+      on_exit(fn -> Application.delete_env(:phoenix_kit, :mention_test_gate_closed) end)
+      author = user()
+      ada = user()
+      mention(author, ada, source_type: "gated_thing", quote: "the secret")
+
+      {[n], _} = Notifications.list_for_user(ada.uuid, status: :all)
+      assert Types.still_visible?("mentions", n, ada)
+
+      Application.put_env(:phoenix_kit, :mention_test_gate_closed, true)
+      refute Types.still_visible?("mentions", n, ada)
+    end
+
+    test "a deleted comment's words leave the mention; the ping stays" do
+      author = user()
+      ada = user()
+      source = Ecto.UUID.generate()
+      text = "Hi @[user:#{ada.uuid}|Ada], the client offered 40k"
+
+      {:ok, new} =
+        Mentions.sync("comment", source, text, field: "content", actor_uuid: author.uuid)
+
+      Mentions.notify(new,
+        source_type: "open_thing",
+        source_uuid: Ecto.UUID.generate(),
+        preview: text,
+        quote: text
+      )
+
+      {[n], _} = Notifications.list_for_user(ada.uuid, status: :all)
+      assert Render.quote(n).text =~ "40k"
+
+      assert Mentions.forget_source("comment", source) == 1
+
+      {[n], _} = Notifications.list_for_user(ada.uuid, status: :all)
+      assert Render.quote(n) == nil
+      assert Render.render(n, "en").text =~ "mentioned you"
+    end
+
     test "without a `:quote`, the uncut preview is the quote" do
       author = user()
       ada = user()
@@ -172,5 +222,66 @@ defmodule PhoenixKit.Integration.MentionNotificationsTest do
 
     {[n], _} = Notifications.list_for_user(ada.uuid, status: :all)
     assert Render.quote(n) == nil
+  end
+
+  test "with mentions switched off nobody is pinged" do
+    PhoenixKit.Settings.update_boolean_setting(Mentions.enabled_setting_key(), false)
+
+    on_exit(fn ->
+      PhoenixKit.Settings.update_boolean_setting(Mentions.enabled_setting_key(), true)
+    end)
+
+    author = user()
+    ada = user()
+    mention(author, ada, [])
+
+    assert inbox(ada) == []
+  end
+
+  test "a re-save keeps the row a mention already has (a pending claim still lands)" do
+    author = user()
+    ada = user()
+    source = Ecto.UUID.generate()
+    text = "Hi @[user:#{ada.uuid}|Ada]"
+
+    {:ok, [first]} =
+      Mentions.sync("comment", source, text, field: "content", actor_uuid: author.uuid)
+
+    # A second tab saves the same mention before the first one claims it.
+    {:ok, []} =
+      Mentions.sync("comment", source, text <> "!", field: "content", actor_uuid: author.uuid)
+
+    assert [%{uuid: uuid}] = Mentions.list_for_source("comment", source, "content")
+    assert uuid == first.uuid
+    assert [%{uuid: ^uuid}] = Mentions.claim_for_delivery([first])
+
+    # A renamed label is followed; a mention taken out goes.
+    {:ok, []} =
+      Mentions.sync("comment", source, "Hi @[user:#{ada.uuid}|Ada L.]", field: "content")
+
+    assert [%{uuid: ^uuid, label: "Ada L."}] =
+             Mentions.list_for_source("comment", source, "content")
+
+    {:ok, []} = Mentions.sync("comment", source, "nobody", field: "content")
+    assert Mentions.list_for_source("comment", source, "content") == []
+  end
+
+  test "the link follows the reader's language, not the author's" do
+    {:ok, _} = PhoenixKit.Modules.Languages.enable_system()
+    {:ok, _} = PhoenixKit.Modules.Languages.add_language("et")
+    author = user()
+    ada = user()
+
+    # Built in the author's Estonian page, as a caller builds it.
+    stored = PhoenixKit.Utils.Routes.path("/admin/posts/1?x=1#pk-comment-2", locale: "et")
+    assert stored =~ "/et/"
+    mention(author, ada, link: stored)
+
+    {[n], _} = Notifications.list_for_user(ada.uuid, status: :all)
+    link = Render.render(n, "en").link
+    refute link =~ "/et/"
+    assert link =~ "/admin/posts/1?x=1#pk-comment-2"
+
+    assert Render.render(n, "et").link == stored
   end
 end
