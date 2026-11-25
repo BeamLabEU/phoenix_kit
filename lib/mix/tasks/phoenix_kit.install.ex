@@ -54,6 +54,10 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     - Find main router using Phoenix conventions (MyAppWeb.Router)
     - Configure Swoosh.Adapters.Local for development in config/dev.exs
     - Provide production mailer setup instructions
+    - On a new installation, give stored credentials a dedicated encryption key:
+      generated in config/dev.exs and config/test.exs, read from
+      `PHOENIX_KIT_INTEGRATIONS_ENCRYPTION_KEY` in the `:prod` block of
+      config/runtime.exs (see `PhoenixKit.Install.EncryptionKeyConfig`)
 
     ## Note about warnings
 
@@ -76,6 +80,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       CssIntegration,
       DaisyUI,
       Deprecations,
+      EncryptionKeyConfig,
       EndpointIntegration,
       JsIntegration,
       LayoutConfig,
@@ -127,6 +132,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       |> MailerConfig.add_mailer_configuration()
       |> RateLimiterConfig.add_rate_limiter_configuration()
       |> OAuthConfig.add_oauth_configuration()
+      |> EncryptionKeyConfig.add_encryption_key()
       |> ObanConfig.add_oban_configuration(PrefixConfig.resolve_prefix(opts))
       |> ApplicationSupervisor.add_supervisor()
       |> BootHook.add_boot_hook()

@@ -1,5 +1,16 @@
 ## Unreleased
 
+### Added
+
+- **A new installation gets a dedicated key for stored credentials.** `mix phoenix_kit.install`
+  writes a generated `integrations_encryption_key` to `config/dev.exs` and `config/test.exs`, and
+  makes the `:prod` block of `config/runtime.exs` read `PHOENIX_KIT_INTEGRATIONS_ENCRYPTION_KEY`,
+  refusing to boot without it. The first saved integration is no longer met by the "protected only
+  by a shared application secret" warning. Existing installations are not touched (a project with a
+  PhoenixKit migration, an encryption key or a key store in its config is skipped, and
+  `mix phoenix_kit.update` does not add the key): there the way is still
+  `mix phoenix_kit.integrations.rotate_key`.
+
 ### Changed
 
 - **The username suggested from an email address reads better.** A `+tag` is dropped
