@@ -551,7 +551,10 @@ defmodule PhoenixKit.Mentions do
 
   @doc """
   Rebuilds the index for one field of one record from its text, and returns
-  the mentions that are NEW since last time.
+  the mentions to notify: the ones NEW since last time, plus any person still
+  mentioned whose ping was never delivered (a claim given back after a failed
+  write, a reader who could not see the record before). `notify/2` sends each
+  ping once whatever it is given.
 
   Call this from the durable save — creating or updating the comment, the
   task, the note. Never from a keystroke or an autosave draft: the return
@@ -612,8 +615,17 @@ defmodule PhoenixKit.Mentions do
     end)
     |> case do
       {:ok, inserted} ->
-        {:ok,
-         Enum.reject(inserted, &MapSet.member?(existing_keys, {&1.target_type, &1.target_uuid}))}
+        new =
+          Enum.reject(inserted, &MapSet.member?(existing_keys, {&1.target_type, &1.target_uuid}))
+
+        # A person mentioned before whose ping was never delivered (a claim
+        # given back when its activity failed to save, or a reader who could
+        # not see the record then) is tried again by the next save; the
+        # conditional claim in `notify/2` still sends each ping once.
+        undelivered =
+          keep |> Map.values() |> Enum.filter(&(&1.kind == "user" and is_nil(&1.notified_at)))
+
+        {:ok, new ++ undelivered}
 
       {:error, reason} ->
         {:error, reason}
@@ -825,8 +837,10 @@ defmodule PhoenixKit.Mentions do
   Forgets what mentions quoted from a deleted record: the comment text
   (`"quote"`, `"preview"`) leaves every `mention.created` activity written
   for a mention IN that record (a comment, by its own type and uuid) or
-  ABOUT it (the record the activity names). The ping stays, with its link;
-  the words go. Call it when the record is deleted — a deleted comment's
+  ABOUT it (the record the activity names). An activity written before
+  mentions recorded their source (2026-11-25) is found by its link, which
+  names the record (a comment's anchor, `#pk-comment-<uuid>`). The ping
+  stays, with its link; the words go. Call it when the record is deleted — a deleted comment's
   text otherwise stayed readable in the inbox and in mail sent later.
 
   Returns the number of activities changed; never raises.
@@ -840,7 +854,9 @@ defmodule PhoenixKit.Mentions do
           a.action == "mention.created" and
             ((a.resource_type == ^source_type and a.resource_uuid == ^source_uuid) or
                (fragment("?->>'mention_source_type'", a.metadata) == ^source_type and
-                  fragment("?->>'mention_source_uuid'", a.metadata) == ^source_uuid)),
+                  fragment("?->>'mention_source_uuid'", a.metadata) == ^source_uuid) or
+               (is_nil(fragment("?->>'mention_source_uuid'", a.metadata)) and
+                  fragment("strpos(?->>'notification_link', ?) > 0", a.metadata, ^source_uuid))),
         update: [set: [metadata: fragment("? - 'quote' - 'preview'", a.metadata)]]
       )
       |> repo().update_all([])
