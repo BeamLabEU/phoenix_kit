@@ -5,6 +5,11 @@ defmodule PhoenixKitWeb.Components.AuthPageWrapper do
   Reads branding settings (logo, background image/color) from Settings
   and renders a consistent layout with optional custom branding.
   Supports separate background images for desktop and mobile viewports.
+
+  The language switcher under the form is drawn when the
+  `auth_language_switcher_enabled` setting is on (the default), the Languages
+  system is on and more than one language is enabled. A caller can override all
+  of that for one page with the `show_language_switcher` attribute.
   """
   use Phoenix.Component
 
@@ -22,6 +27,10 @@ defmodule PhoenixKitWeb.Components.AuthPageWrapper do
   attr :phoenix_kit_current_scope, :any, default: nil
   attr :page_title, :string, required: true
   attr :current_path, :string, default: nil
+
+  attr :show_language_switcher, :boolean,
+    doc:
+      "Forces the language switcher on or off. When not given, the `auth_language_switcher_enabled` setting and the enabled languages decide."
 
   attr :dev_mailbox_message, :string,
     default: nil,
@@ -67,7 +76,8 @@ defmodule PhoenixKitWeb.Components.AuthPageWrapper do
       end)
       |> assign_new(:project_title, fn -> Settings.get_project_title() end)
       |> assign_new(:show_language_switcher, fn ->
-        Languages.enabled?() and length(Languages.get_enabled_languages()) > 1
+        Settings.get_boolean_setting("auth_language_switcher_enabled", true) and
+          Languages.enabled?() and length(Languages.get_enabled_languages()) > 1
       end)
 
     assigns =

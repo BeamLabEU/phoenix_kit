@@ -235,6 +235,20 @@ defmodule PhoenixKit.Integration.Users.SettingsSecurityPermissionTest do
       refute Settings.get_setting("crawlers_no_index") == "true"
     end
 
+    test "auth_language_switcher_enabled is a security key (the Authorization page writes it)" do
+      assert Settings.security_setting_key?("auth_language_switcher_enabled")
+      {:ok, _} = Settings.update_setting("auth_language_switcher_enabled", "true")
+      plain = Scope.for_user(user_with(role!(["settings"])))
+      secure = Scope.for_user(user_with(role!(["settings", "settings.security"])))
+      params = form_params(%{"auth_language_switcher_enabled" => "false"})
+
+      assert {:ok, _} = Settings.update_settings(params, scope: plain)
+      assert Settings.get_setting("auth_language_switcher_enabled") == "true"
+
+      assert {:ok, _} = Settings.update_settings(params, scope: secure)
+      assert Settings.get_setting("auth_language_switcher_enabled") == "false"
+    end
+
     test "with settings.security they are written" do
       scope = Scope.for_user(user_with(role!(["settings", "settings.security"])))
 

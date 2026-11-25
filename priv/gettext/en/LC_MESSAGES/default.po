@@ -29377,3 +29377,23 @@ msgstr ""
 #, elixir-autogen, elixir-format, fuzzy
 msgid "You are signed in as %{email}."
 msgstr ""
+
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:250
+#, elixir-autogen, elixir-format
+msgid "Language switcher"
+msgstr ""
+
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:253
+#, elixir-autogen, elixir-format
+msgid "The language list under the auth forms"
+msgstr ""
+
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:260
+#, elixir-autogen, elixir-format
+msgid "Show the language switcher on sign-in pages"
+msgstr ""
+
+#: lib/phoenix_kit_web/live/settings/authorization.html.heex:263
+#, elixir-autogen, elixir-format
+msgid "Covers sign-in, registration, magic link, password reset, email confirmation and QR sign-in pages. Shown only when Multiple languages is turned on and more than one language is enabled. Turn it off for a site that serves one language per domain."
+msgstr ""
