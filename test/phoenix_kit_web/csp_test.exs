@@ -204,10 +204,27 @@ defmodule PhoenixKitWeb.CSPTest do
     end
 
     test "a shape that would silently read as no nonce is named" do
-      for bad <- ["csp_nonce", %{scripts: :a}, %{script: "a"}, %{}, 1] do
+      for bad <- ["csp_nonce", %{scripts: :a}, %{script: "a"}, %{script: false}, %{}, 1] do
         Application.put_env(:phoenix_kit, :csp_nonce_assign_key, bad)
         assert is_binary(CSP.config_problem()), inspect(bad)
         assert CSP.nonce(conn(csp_nonce: "abc", a: "abc"), :script) == nil
+      end
+    end
+
+    test "true and false are not assign names, and the doctor does not raise on them" do
+      for key <- [false, true] do
+        Application.put_env(:phoenix_kit, :csp_nonce_assign_key, key)
+        problem = CSP.config_problem()
+        assert is_binary(problem), inspect(key)
+
+        # The same call as the doctor: `key && router` is `false` when the setting is `false`,
+        # which used to miss every clause of `csp_verdict/3` and raise.
+        assert {:warn, message} =
+                 Mix.Tasks.PhoenixKit.Doctor.csp_verdict(key, problem, key && "router source")
+
+        assert message =~ "not usable"
+        # A value stored under that key is still not the nonce.
+        assert CSP.nonce(conn([{key, "abc"}]), :script) == nil
       end
     end
   end

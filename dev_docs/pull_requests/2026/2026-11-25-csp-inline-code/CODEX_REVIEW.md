@@ -29,3 +29,19 @@ Make an explicit connection authoritative, including a missing assign. Keep proc
 ## Verification
 
 The six focused Elixir files in the handoff passed with PostgreSQL (63 tests). The declared-handler, admin-split and transport-cache JavaScript suites passed (72 tests). A separate test-router request inspected the scripts actually emitted on sign-in. An isolated HTTP fixture served the repository's public and admin bundles to headless Chromium with an enforcing header and a fresh nonce. It confirmed the two rejected stylesheets, the consent-script failure and successful delegated zero clearing. Browser coverage was limited to that fixture. The full suite and end-to-end host LiveView navigation were outside this run.
+
+## Recheck at `69531ff24`
+
+I would close the four findings above for the documented host setup. I found two follow-ups in the verification tooling.
+
+- **The browser harness exits successfully when a behavioral check fails.** `rec` accumulates failures, and the final block prints their count. Only an exception sets a failing exit status. The decimal-field check also prints whether the host's inline handler ran while its predicate checks only the clear and restore values. Set the exit code when `failed.length > 0`, and include `host === undefined` in that predicate. This run did produce zero failures and showed the handler blocked in all three modes. See [browser checks](../../../handoffs/2026-11-25-csp-browser-harness/run.cjs).
+- **The doctor's CSP check reports an internal exception for a boolean setting.** With `csp_nonce_assign_key: false`, `config_problem/0` returns `nil` because booleans are atoms. The expression `key && host_router_source()` then passes `false` as the router source, for which `csp_verdict/3` has no clause. I confirmed the `FunctionClauseError`. The doctor catches it and marks that check failed. Recommend rejecting boolean assign names with an actionable config warning and covering the path from the setting to the verdict. See [doctor](../../../../lib/mix/tasks/phoenix_kit.doctor.ex#L2620).
+
+### Independent verification
+
+- The focused Elixir suite passed 151 tests with PostgreSQL, and the four focused JavaScript suites passed 93 tests. The committed Chromium harness reported 43 checks and zero failures. Two of its 43 entries only log documented limitations.
+- In a separate Chromium fixture I enabled the core consent widget and clicked its Accept All button. Its stylesheet, the Fresco stylesheet and the gallery stylesheet all applied. The consented script carrying the original nonce executed. An otherwise equivalent unnonced control stayed blocked and accounted for the sole CSP violation.
+- I served the real kit router, Integration plug and fallback root in a temporary Phoenix endpoint with the PostgreSQL test repo and vendored assets. Chromium connected to the sign-in LiveView, then followed its magic-link navigation in the same document. The public bundle loaded once, ahead of the module bundle and app.js. Every style element on the destination retained the document nonce and had a stylesheet. Chromium reported zero CSP violations. The fixture used a minimal module bundle and logged that anonymous session tracking was unavailable.
+- The explicit-connection lookup now reads only from that connection. The focused tests cover the stale-value and split-nonce cases. On a bare host page with split nonces, the bundle still needs an existing nonced style element, as the guide documents.
+
+This recheck covers the core auth and consent paths above. The full suite, authenticated admin navigation, and external module packages were outside this run.

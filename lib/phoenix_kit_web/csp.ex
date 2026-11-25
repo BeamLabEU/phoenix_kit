@@ -181,18 +181,30 @@ defmodule PhoenixKitWeb.CSP do
       nil ->
         nil
 
+      # `true` and `false` are atoms. `false` is also what `key && router` turns into, so the
+      # doctor used to pass it where a router source belongs and raise.
+      key when is_boolean(key) ->
+        "expected an atom naming an assign, or a map with :script / :style, got #{inspect(key)}"
+
       key when is_atom(key) ->
         nil
 
       %{} = keys ->
         unknown = Map.keys(keys) -- [:script, :style]
-        bad = for {kind, key} <- keys, kind in [:script, :style], not is_atom(key), do: kind
+        bad = for {kind, key} <- keys, kind in [:script, :style], not assign_name?(key), do: kind
 
         cond do
-          unknown != [] -> "unknown keys #{inspect(unknown)}; the map takes :script and :style"
-          bad != [] -> "the assign names of #{inspect(bad)} must be atoms"
-          map_size(keys) == 0 -> "the map is empty; name :script and/or :style"
-          true -> nil
+          unknown != [] ->
+            "unknown keys #{inspect(unknown)}; the map takes :script and :style"
+
+          bad != [] ->
+            "the assign names of #{inspect(bad)} must be atoms other than true and false"
+
+          map_size(keys) == 0 ->
+            "the map is empty; name :script and/or :style"
+
+          true ->
+            nil
         end
 
       other ->
@@ -252,12 +264,21 @@ defmodule PhoenixKitWeb.CSP do
 
   defp assign_keys do
     case Application.get_env(:phoenix_kit, :csp_nonce_assign_key) do
-      nil -> []
-      key when is_atom(key) -> [script: key, style: key]
-      %{} = keys -> for kind <- [:script, :style], key = keys[kind], is_atom(key), do: {kind, key}
-      _ -> []
+      nil ->
+        []
+
+      key when is_atom(key) and not is_boolean(key) ->
+        [script: key, style: key]
+
+      %{} = keys ->
+        for kind <- [:script, :style], assign_name?(keys[kind]), do: {kind, keys[kind]}
+
+      _ ->
+        []
     end
   end
+
+  defp assign_name?(key), do: is_atom(key) and not is_boolean(key)
 
   defp usable?(value), do: is_binary(value) and value != ""
 end

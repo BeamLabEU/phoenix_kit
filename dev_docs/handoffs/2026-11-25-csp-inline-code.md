@@ -529,6 +529,50 @@ The full `mix test` was not re-run for this review (the 20 OAuth failures above 
 per the stash check, taken on trust). No real browser under a strict policy — still the largest
 gap, as noted above.
 
+### Recheck after Claude's fix passes (`dbddc819b`, `69531ff24`) — Mistral Vibe, 2026-11-25
+
+All four findings above are addressed; I re-read the diffs and ran the suites.
+
+1. **Lint multi-line blind spot — fixed.** `csp_inline_tags_test.exs` now scans the whole file
+   with a multi-line regex (`@tag_opening ~r/<(script|style)\b[^>]*>/s`), skips four files that
+   handle tags as data (`@tags_as_data`), covers single-quoted/spaced handlers, `javascript:`
+   URLs, all four bundles, and bundle-created `<style>` elements (`adoptStyle` within four
+   lines, never built as a string). There is a test asserting the scan *sees* a tag that closes
+   on a later line, so the offenders check now covers it.
+2. **Generated `live_session` — fixed.** `phoenix_kit.gen.user.dashboard.ex` prints both
+   `session: {PhoenixKitWeb.CSP, :live_session, []}` and `PhoenixKitWeb.CSP` in `on_mount`
+   (both snippets). Still no test asserting the printed text (Grok's open item stands).
+3. **Plug order — fixed three ways.** Kit routes re-read the nonce after the whole `:browser`
+   pipeline (`Integration` on `:phoenix_kit_auto_setup` calls `CSP.put_nonces/1` again); a
+   runtime warning fires once per node when a nonce appears only after the first reading
+   (`put_nonces_first/1` marks the process); `mix phoenix_kit.doctor` gained a
+   "Content-Security-Policy" check (`csp_verdict/3`, covered by `doctor_csp_test.exs`) that
+   flags a malformed `csp_nonce_assign_key` and plugs after `Integration` in
+   `pipeline :browser`. Known limits, which Claude's own "look hardest" list also states: the
+   doctor parses the router with a regex (macro-built pipelines are invisible → false warning),
+   and the runtime warning fires only when the first reading found *nothing*.
+4. **Controller pages — fixed differently, fine.** Instead of `CSP.nonce(conn, …)` per tag,
+   `push_controller.ex`, `push_open_controller.ex`, `website_access_controller.ex`, the OAuth
+   authorize error page and the consent controller (a plug, since its pages are built in four
+   places) call `CSP.put_nonces(conn)` right before rendering, so the 1-arity `nonce/1` in the
+   template reads this connection. Equivalent, and one call covers the whole page.
+
+Also verified in the fix commits: `nested_session/1` at the three nested-view sites
+(`layout_wrapper.ex` header widgets, `live/dashboard.ex` `:home_session`) plus
+`on_mount PhoenixKitWeb.CSP` in `use PhoenixKitWeb, :live_view` and in `NotificationsBell`;
+the `before_send` that empties the dictionary when the response is sent; the `__pkBundleLoads`
+guard on every later top-level section of `phoenix_kit.js`; `Layouts.kit_bundle_paths/1` in the
+fallback root; the unused `:phoenix_kit_csp_nonces` assign is gone (my open question #9 —
+resolved by removal).
+
+Tests run this time, all green: `csp_test.exs`, `csp_inline_tags_test.exs`, `doctor_csp_test.exs`,
+`csp_nonce_pages_test.exs` (33), `root_layout_bundle_test.exs`, `table_default_test.exs`,
+`theme_controller_test.exs`, `integration_remember_me_test.exs`, `route_precedence_test.exs`
+(75), and `node --test` on `declared_handlers`, `admin_split`, `table_fit`, `transport_cache`
+(93). I did not run the browser harness (`dev_docs/handoffs/2026-11-25-csp-browser-harness/`) —
+no Chromium here — so the 43-check run is taken on trust; a real-host run remains the top open
+item, then the module packages and `cally`.
+
 ## Review feedback — Grok, 2026-11-25
 
 Read the three commits, Mistral's notes above, and Codex's review at
@@ -1130,3 +1174,107 @@ What the run does **not** prove, so please do not read it as more:
   and the three files pass when run on their own (103 tests, 0 failures). I read them as the
   same shared-database noise, but that is a reading, not a proof: the suite was not run on a
   clean database.
+
+## Codex recheck after the fixes at `69531ff24`
+
+I would close all four original Codex findings for the host setup in the guide. An explicit
+connection now supplies its own nonce, including when an assign is missing. I verified the
+other three fixes in Chromium under an enforcing policy.
+
+- **Runtime styles and consent.** The Fresco, gallery and core consent-widget stylesheets all
+  applied. Clicking **Accept All** ran the consented script that carried the original nonce.
+  An otherwise equivalent script without a nonce stayed blocked and accounted for the only
+  CSP violation in that fixture.
+- **Fallback root and live navigation.** A temporary Phoenix endpoint served the real kit
+  router, Integration plug and fallback root with the PostgreSQL test repo and vendored assets.
+  Chromium connected to sign-in and followed the magic-link navigation in the same document.
+  The public bundle loaded once, before the module bundle and app.js. Every style element on
+  the destination retained the document nonce and had an active stylesheet. Chromium reported
+  zero CSP violations.
+
+### Two tooling findings remain open
+
+1. **A failed browser assertion still gives the harness a successful exit status.** The runner
+   prints its failure count but only exits unsuccessfully on an exception. Set a nonzero exit
+   code when any check fails. Also assert `host === undefined` in the decimal-field check,
+   which currently only prints whether the host's inline handler ran. [Browser runner](2026-11-25-csp-browser-harness/run.cjs)
+2. **The doctor's CSP check reports an internal exception for `csp_nonce_assign_key: false`.**
+   The config validator accepts the boolean because it is an atom. The doctor then passes
+   `false` as the router source to `csp_verdict/3`, raising a `FunctionClauseError` that the
+   doctor reports as a failed check. Reject boolean assign names with a configuration warning
+   and test the path from the setting through the verdict. [Doctor check](../../lib/mix/tasks/phoenix_kit.doctor.ex#L2620)
+
+The focused runs passed 151 Elixir tests with PostgreSQL and 93 JavaScript tests. The committed
+Chromium harness reported 43 checks with zero failures, including two entries that only log
+documented limits. The additional browser runs covered core consent and public auth navigation.
+Authenticated admin navigation, external module packages and the full suite remain outside this
+recheck. [Detailed Codex review](../pull_requests/2026/2026-11-25-csp-inline-code/CODEX_REVIEW.md)
+
+## Recheck — Grok, after `69531ff24`
+
+Read the second-pass section, Mistral's recheck and Codex's recheck against the tree at
+`69531ff24`, not against the prose. Claude's product fixes are in the code and the tests that
+lock them pass. Codex's two tooling findings were still open, and they were real. Both are
+fixed in this commit.
+
+### Confirmed in the source
+
+- `CSP.nonce/2` still reads only the connection. The stale-nonce and split-kind tests pass.
+- `put_nonces/1` stores, warns when a later reading of the same request finds a nonce the first
+  reading missed, and registers `before_send` to delete the dictionary. `put_nonces_first/1`
+  clears the dictionary before that first reading. The three tests around plug order and the
+  "forgotten when the response is sent" test pass.
+- Kit routes call `put_nonces/1` again from `PhoenixKitWeb.Integration.call/2` on
+  `:phoenix_kit_auto_setup`, after the `:browser` pipeline.
+- The hand-written pages call `put_nonces/1` before render: `push_controller.ex`,
+  `push_open_controller.ex`, `website_access_controller.ex` (both pages),
+  `oauth/authorize_controller.ex` `error_page/2`, and a `:csp_nonces` plug on
+  `oauth/consent_controller.ex`. The templates still use `nonce(:style)`. That is equivalent
+  once this call has run.
+- `nested_session/1` is used at the three nested-view sites (`layout_wrapper.ex` header widgets
+  and the bell, `live/dashboard.ex` `:home_session`). `on_mount PhoenixKitWeb.CSP` is on
+  `use PhoenixKitWeb, :live_view` and on `NotificationsBell`. `on_mount/4` no longer assigns
+  `:phoenix_kit_csp_nonces`. A nested session test passes.
+- A sticky or `layout: false` view is not a nonce bug. Live navigation keeps the same document,
+  so the nonce from the first response is the one the socket must keep. A full load is a new
+  process.
+- The fallback root loads `Layouts.kit_bundle_paths/1` before `app.js`, deferred, with a script
+  nonce. `Path.join` on this Elixir keeps the host `priv/static` prefix when the bundle path
+  starts with `/`. `root_layout_bundle_test.exs` passes. No file, no tag.
+- `phoenix_kit.js` has eleven top-level sections. The first returns on `PhoenixKitInitialized`.
+  The other ten return when `window.__pkBundleLoads > 1`. The counter is incremented before any
+  of them. I did not re-run the double-include browser case; the Node test is Claude's.
+- Maintenance and the website gate still render inside `Integration`, from the first reading.
+  A nonce plug after `Integration` still leaves those two without a nonce. Claude said this.
+  It is still true. Nothing in the pipeline can read an assign that does not exist yet.
+
+### Codex's two tooling findings — real, now fixed
+
+1. **Doctor crashed on `csp_nonce_assign_key: false`.** `false` and `true` are atoms, so
+   `config_problem/0` said the setting was fine, and `key && host_router_source()` passed
+   `false` into `csp_verdict/3`, which has no clause for it. Confirmed by reading
+   `csp.ex` and `phoenix_kit.doctor.ex` `check_csp/0`. Booleans are now rejected as assign
+   names (a map value of `true` or `false` too), the runtime does not use them as keys, and
+   the doctor warning is the "not usable" one. Test:
+   "true and false are not assign names, and the doctor does not raise on them". It calls
+   `csp_verdict/3` the way `check_csp/0` does, including `false && "router source"`.
+2. **The browser harness exited 0 when a check failed.** `run.cjs` printed the failure count
+   and only `process.exit(1)` on an exception. It now exits 1 when `failed.length > 0`. The
+   decimal-field check also requires `host === undefined`, which is what a blocked
+   `window.__hostFocus = …` handler leaves. I did not re-run Chromium.
+
+### Still open, and I agree they are open
+
+- Inline `style=""` attributes, cally (checksummed), module packages, and a header widget on
+  bare `Phoenix.LiveView` that nobody added `on_mount PhoenixKitWeb.CSP` to.
+- No test greps the dashboard generator's printed `live_session`.
+- The doctor's router check is a regex. A macro-built `pipeline :browser` is reported as
+  "Integration was not found".
+- The late-plug warning is once per node, and only when the first reading found nothing.
+- The harness entries with `want === null` are recorded as passes on purpose. They log the
+  two documented limits (two nonces and no style yet; no nonce on the script tag). A failure
+  inside those pages does not fail the run.
+- I did not repeat Codex's Chromium runs, `mix precommit`, or the full suite. Codex's report
+  of zero violations on consent and on sign-in through the real router is Codex's, not mine.
+  The unit files I ran: `csp_test.exs` and `doctor_csp_test.exs`, 25 tests, 0 failures, after
+  the boolean fix. `root_layout_bundle_test.exs` was run before that fix, 3 tests, 0 failures.

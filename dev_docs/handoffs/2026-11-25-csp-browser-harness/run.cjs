@@ -55,7 +55,7 @@ const color = (page, sel) => page.evaluate((s) => getComputedStyle(document.quer
     const host = await p.evaluate(() => window.__hostFocus);
     await p.focus("#ns");
     const restored = await p.inputValue("#qty");
-    rec(tag + "decimal input: zero clears on focus, returns on blur; the host's own onfocus is BLOCKED by the policy", focused === "" && restored === "0", "focused=" + JSON.stringify(focused) + " restored=" + JSON.stringify(restored) + " hostHandlerRan=" + (host !== undefined));
+    rec(tag + "decimal input: zero clears on focus, returns on blur; the host's own onfocus is BLOCKED by the policy", focused === "" && restored === "0" && host === undefined, "focused=" + JSON.stringify(focused) + " restored=" + JSON.stringify(restored) + " hostHandlerRan=" + (host !== undefined));
 
     await p.click("#copy");
     const c1 = await p.evaluate(() => navigator.clipboard.readText());
@@ -115,4 +115,5 @@ const color = (page, sel) => page.evaluate((s) => getComputedStyle(document.quer
   await browser.close();
   const failed = out.filter((o) => !o.ok);
   console.log("\n" + out.length + " checks, " + failed.length + " failed");
+  if (failed.length > 0) process.exit(1);
 })().catch((e) => { console.log("CRASH", e); process.exit(1); });

@@ -63,6 +63,9 @@
   showed.
 - A CSP nonce is dropped from the process when the response is sent, so a later request on the
   same connection that never reads one cannot render it.
+- `mix phoenix_kit.doctor` names `csp_nonce_assign_key: true` or `false` as an unusable setting.
+  `false` is an atom, so the check used to pass it where the router source belongs and report
+  an internal exception.
 - A copy button pointed at an element with a `value` property of its own (an `<li>`) copied that
   value instead of the text.
 - **Styles and scripts the kit's JavaScript inserts can carry the page's Content-Security-Policy nonce.**
