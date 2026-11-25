@@ -352,19 +352,26 @@ defmodule PhoenixKitWeb.Users.Registration do
 
   # While typing only: the changeset makes the username once the address has
   # its "@" (it must not mint one from a half-typed address it saves), so until
-  # then the field shows the name the typed part would give, and it fills in
-  # from the first letter. The save regenerates it from the final email.
+  # then the field shows the name the typed part would give. It is shown from
+  # the third letter, the first point at which it is a name the form accepts:
+  # padding the first two (`f_1`, `fo_1`) read as a broken suggestion. The save
+  # regenerates it from the final email.
   defp maybe_preview_username(%{"username" => ""} = user_params, false = _username_edited) do
     email = user_params["email"]
 
     if is_binary(email) and email != "" and not String.contains?(email, "@") do
-      Map.put(user_params, "username", User.generate_username_from_email(email) || "")
+      Map.put(user_params, "username", username_preview(email))
     else
       user_params
     end
   end
 
   defp maybe_preview_username(user_params, _username_edited), do: user_params
+
+  defp username_preview(typed) do
+    name = User.generate_username_from_email(typed, pad: false)
+    if String.length(name) >= 3, do: name, else: ""
+  end
 
   defp assign_form(socket, %Ecto.Changeset{} = changeset) do
     form = to_form(changeset, as: "user")

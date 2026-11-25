@@ -18,6 +18,12 @@ defmodule PhoenixKit.Integrations.Encryption do
            config :phoenix_kit,
              integrations_encryption_key: System.get_env("PHOENIX_KIT_INTEGRATIONS_ENCRYPTION_KEY")
 
+       `mix phoenix_kit.install` sets this up for a new installation (a
+       generated key for dev and test, the environment variable for
+       production: `PhoenixKit.Install.EncryptionKeyConfig`). An installation
+       made before that, or updated since, keeps the fallback below until the
+       key is rotated.
+
     2. **Legacy fallback** — the application's `secret_key_base`, looked up
        in this order:
 

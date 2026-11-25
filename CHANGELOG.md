@@ -1,3 +1,34 @@
+## Unreleased
+
+### Added
+
+- **A new installation gets a dedicated key for stored credentials.** `mix phoenix_kit.install`
+  writes a generated `integrations_encryption_key` to `config/dev.exs` and `config/test.exs`, and
+  makes the `:prod` block of `config/runtime.exs` read `PHOENIX_KIT_INTEGRATIONS_ENCRYPTION_KEY`,
+  refusing to boot without it. The first saved integration is no longer met by the "protected only
+  by a shared application secret" warning. Existing installations are not touched (a project with a
+  PhoenixKit migration, an encryption key or a key store in its config is skipped, and
+  `mix phoenix_kit.update` does not add the key): there the way is still
+  `mix phoenix_kit.integrations.rotate_key`.
+
+### Changed
+
+- **The username suggested from an email address reads better.** A `+tag` is dropped
+  (`john.doe+shop@` gives `john_doe`, was `john_doeshop`); dashes and other punctuation become one
+  underscore (`first-last@` gives `first_last`, was `firstlast`), never doubled and never at the
+  ends; a shared mailbox or a part shorter than three characters gets the domain's name
+  (`info@acme.com` gives `info_acme`, `jo@acme.com` gives `jo_acme`, was `jo_1`); a part with
+  nothing usable gives `user`, was `user_`; a long part is cut at a word boundary.
+  `User.generate_username_from_email/2` takes `pad: false` for showing a name while it is typed.
+  Existing usernames are not changed.
+
+### Fixed
+
+- The sign-up page no longer shows a padded name for the first two letters of the email (`f_1`,
+  `fo_1`): the username field fills in from the third letter.
+- A generated username with a number added for uniqueness stays within the 30-character limit
+  (a 30-character name became 32 characters, which the profile form refused to save again).
+
 ## 3.9.0 - 2026-11-24
 
 ### Added

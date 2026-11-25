@@ -74,8 +74,17 @@ defmodule PhoenixKitWeb.Integration.Users.UntouchedFieldErrorsTest do
       assert html =~ "must have the @ sign"
     end
 
-    test "the username follows the email from its first letters", %{conn: conn} do
+    test "the username follows the email from its third letter", %{conn: conn} do
       {:ok, view, _html} = live(conn, Routes.path("/users/register"))
+
+      # Too short to be a name yet: nothing, rather than a padded `fo_1`.
+      html =
+        render_change(view, "validate", %{
+          "_target" => ["user", "email"],
+          "user" => %{"email" => "fo", "username" => ""}
+        })
+
+      assert username_value(html) in [[""], [nil], []]
 
       # Before the "@": a preview from what is typed.
       html =

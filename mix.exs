@@ -200,7 +200,7 @@ defmodule PhoenixKit.MixProject do
       # `priv/static/assets/phoenix_kit.js` loads the browser half from the
       # host's own copy of the Hex package's file, so an open ceiling lets a
       # host float past the API phoenix_kit.js was written against.
-      # `~> 0.13.0` is `>= 0.13.0 and < 0.14.0`, so the next leaf minor needs a
+      # `~> 0.13.3` is `>= 0.13.3 and < 0.14.0`, so the next leaf minor needs a
       # requirement move and a read of phoenix_kit.js's use of it. No test
       # holds the ceiling (leaf_bundle_pin_test.exs went with the CDN pin).
       # 0.9 added tag previews and `media_url`; 0.10 sanitizes what it renders
@@ -212,9 +212,14 @@ defmodule PhoenixKit.MixProject do
       # pasted markdown as blocks, text pasted into code as text — the minimal
       # input is opt-in, and `height` still means 480px when not given.
       # phoenix_kit.js only looks up `window.LeafHooks.Leaf` to register the
-      # hook, unchanged in all five.
+      # hook, unchanged in all five. Within 0.13 the floor is 0.13.3: a message
+      # copied from Telegram Desktop (its HTML is only `<br>`-separated lines)
+      # pastes as its text, so a list in it becomes a list, and arrowing into a
+      # list item with a nested list no longer flattens that list into the
+      # item's line in hybrid mode. A host with 0.13.0-0.13.2 locked keeps
+      # them through `mix deps.update phoenix_kit` otherwise.
       {:leaf,
-       "~> 0.4.1 or ~> 0.5.0 or ~> 0.6.0 or ~> 0.7.0 or ~> 0.8.0 or ~> 0.9.0 or ~> 0.10.0 or ~> 0.11.0 or ~> 0.12.0 or ~> 0.13.0"},
+       "~> 0.4.1 or ~> 0.5.0 or ~> 0.6.0 or ~> 0.7.0 or ~> 0.8.0 or ~> 0.9.0 or ~> 0.10.0 or ~> 0.11.0 or ~> 0.12.0 or ~> 0.13.3"},
 
       # Markdown → HTML (comrak). Declared here in core so every module shares
       # one resolved version instead of each pulling its own and risking
@@ -415,7 +420,16 @@ defmodule PhoenixKit.MixProject do
       # shape with a comment thread is never deleted by a device that was
       # offline. An older Etcher warns about the attribute at compile time and
       # the viewer stays a spinner offline.
-      {:etcher, "~> 0.29.0"},
+      #
+      # 0.29.2 within it: offline, every zoom rung of a picture is kept (and a
+      # deep-zoom picture's tiles as they load), so zooming in with no
+      # connection reaches the sharpest one; a photo added offline is uploaded
+      # through the host's uploader before the sync (embedded, a phone photo
+      # made the save too big to arrive, and it never did); and "Synced"
+      # is said once the server has confirmed it. 0.29.1 adds
+      # `Etcher.offline.beforeLogout`, `forget`, and `pending` for clearing a
+      # device's offline copies on logout.
+      {:etcher, "~> 0.29.2"},
 
       # QR device-handoff login ("scan to sign in" on the login page).
       #

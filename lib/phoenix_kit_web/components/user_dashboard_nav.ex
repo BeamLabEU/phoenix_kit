@@ -240,7 +240,7 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
 
           <li :if={:logout in @authenticated_links}>
             <.link
-              navigate={Routes.path("/users/log-out")}
+              href={Routes.locale_aware_path(assigns, "/users/log-out")}
               method="delete"
               class="flex items-center gap-3 text-error hover:bg-error hover:text-error-content"
             >
@@ -252,7 +252,7 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
             :logout in @authenticated_links and @multi_session_allowed? and length(@accounts) > 1
           }>
             <.link
-              navigate={Routes.path("/users/log-out") <> "?all=1"}
+              href={Routes.locale_aware_path(assigns, "/users/log-out") <> "?all=1"}
               method="delete"
               class="flex items-center gap-3 text-error hover:bg-error hover:text-error-content"
             >
