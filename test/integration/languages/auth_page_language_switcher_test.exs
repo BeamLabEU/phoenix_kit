@@ -125,6 +125,13 @@ defmodule PhoenixKit.Integration.Languages.AuthPageLanguageSwitcherTest do
     end
   end
 
+  test "a single enabled language leaves the auth form without a switcher" do
+    {:ok, _} = Languages.enable_system()
+    assert [_] = Languages.get_enabled_languages()
+    set_switcher_setting("true")
+    refute switcher?(render_wrapper())
+  end
+
   describe "with the Languages module off" do
     test "no switcher whatever the setting says" do
       set_switcher_setting("true")
