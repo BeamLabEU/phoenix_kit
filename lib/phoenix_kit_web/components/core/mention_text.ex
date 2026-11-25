@@ -160,11 +160,11 @@ defmodule PhoenixKitWeb.Components.Core.MentionText do
       navigate={href(@info)}
       class="inline-flex items-center gap-1 align-middle rounded-full bg-base-200 hover:bg-base-300 py-0 pl-0 pr-2 font-medium no-underline"
       data-mention-user={@token.uuid}
-    ><.user_avatar user={@person} name={@info[:title]} size="xs" />{@info[:title]}</.link><span
+    ><.inline_avatar person={@person} name={@info[:title]} />{@info[:title]}</.link><span
       :if={is_nil(@info[:path])}
       class="inline-flex items-center gap-1 align-middle rounded-full bg-base-200 py-0 pl-0 pr-2 font-medium"
       data-mention-user={@token.uuid}
-    ><.user_avatar user={@person} name={@info[:title]} size="xs" />{@info[:title]}</span>
+    ><.inline_avatar person={@person} name={@info[:title]} />{@info[:title]}</span>
     """
   end
 
@@ -250,4 +250,33 @@ defmodule PhoenixKitWeb.Components.Core.MentionText do
 
   defp user_uuid(%{user: %{uuid: uuid}}), do: uuid
   defp user_uuid(_), do: nil
+
+  # Core's avatar, as spans. The chip sits inside running text, often in a
+  # <p> (a task description, a comment): the avatar's <div>s made the
+  # browser close the paragraph there and push the chip onto a line of its
+  # own, face and name apart. Every element's layout is in its classes
+  # (`avatar`, `flex`, sizes), so the spans look the same. The markup is
+  # the avatar component's own, from escaped values.
+  attr :person, :any, required: true
+  attr :name, :string, default: nil
+
+  defp inline_avatar(assigns) do
+    html =
+      assigns
+      |> avatar_markup()
+      |> Phoenix.HTML.Safe.to_iodata()
+      |> IO.iodata_to_binary()
+      |> String.replace("<div", "<span")
+      |> String.replace("</div>", "</span>")
+
+    assigns = assign(assigns, :html, Phoenix.HTML.raw(html))
+
+    ~H"{@html}"
+  end
+
+  defp avatar_markup(assigns) do
+    ~H"""
+    <.user_avatar user={@person} name={@name} size="xs" />
+    """
+  end
 end
