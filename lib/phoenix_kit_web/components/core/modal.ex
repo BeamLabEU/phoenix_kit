@@ -333,6 +333,11 @@ defmodule PhoenixKitWeb.Components.Core.Modal do
   attr :show_confirm, :boolean, default: true
   attr :closeable, :boolean, default: true
 
+  attr :id, :string,
+    default: nil,
+    doc:
+      "The dialog's id. Defaults to `pk-modal-<on_cancel>`: two confirm modals with the same cancel event in one document (a page and a dialog stacked over it) need ids of their own."
+
   slot :inner_block
 
   def confirm_modal(assigns) do
@@ -362,6 +367,7 @@ defmodule PhoenixKitWeb.Components.Core.Modal do
 
     ~H"""
     <.modal
+      id={@id}
       show={@show}
       on_close={@on_cancel}
       max_width="md"

@@ -135,7 +135,11 @@ defmodule PhoenixKitWeb.Components.Core.MentionTextTest do
 
       assert html =~ ~s(data-mention-user="#{user.uuid}")
       refute html =~ "<div"
-      assert html =~ "avatar"
+      # One look everywhere: the shared person chip, neutral, never underlined.
+      assert html =~ "pk-person-chip"
+      assert html =~ "no-underline!"
+      # The face is initials (or this site's picture), never Gravatar.
+      refute html =~ "gravatar"
     end
 
     test "on a public surface a person is a name, with no uuid and no face" do

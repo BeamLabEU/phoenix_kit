@@ -373,6 +373,129 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
   def initials(_), do: ""
 
   @doc """
+  A person as a small chip: their face and name, one piece on a line of
+  text. THE look for a person in running text and in lists of people: a
+  mention (`<.mention_text>`), a task's assignees, a reviewer — so a tag
+  and an assignee read the same.
+
+  * Sits on the text's baseline (the name lines up with the words around
+    it, the face is centred on it) and never makes the line taller: sizes
+    are in `em`, so it follows the text it is in.
+  * Neutral colour, never underlined, even inside markup that styles
+    every `<a>` as a link (a rendered description).
+  * Spans only: inside a `<p>` a `<div>` would close the paragraph.
+  * The face is a picture stored on this site, else initials (never
+    Gravatar or an OAuth provider: a page of people would make every
+    reader's browser contact a third party).
+  * With `uuid`, the chip carries `data-mention-user`: a click opens the
+    person's card (`phoenix_kit.js`); modifier clicks follow `href`.
+
+  ## Examples
+
+      <.person_chip person={@user} />
+      <.person_chip person={@user} name="Anna" href={@profile_path} />
+      <.person_chip uuid={uuid} name="Gone Person" />
+  """
+  attr :person, :any,
+    default: nil,
+    doc: "a user (or a map with the user's fields); nil for a name only"
+
+  attr :name, :string, default: nil, doc: "the name shown; defaults to the person's display name"
+  attr :uuid, :string, default: nil, doc: "the user's uuid: the click opens their card"
+  attr :href, :string, default: nil, doc: "a link (followed on a modifier click, or without JS)"
+  attr :class, :any, default: nil
+  attr :rest, :global
+
+  def person_chip(assigns) do
+    name = assigns.name || person_name(assigns.person) || ""
+    uuid = assigns.uuid || (is_map(assigns.person) && Map.get(assigns.person, :uuid)) || nil
+
+    assigns =
+      assign(assigns,
+        shown: name,
+        uuid: uuid,
+        face: avatar_brief(assigns.person, name),
+        chip_class: [
+          "pk-person-chip inline-flex items-baseline gap-[0.3em] max-w-full rounded-full",
+          "bg-base-200 pr-[0.5em] align-baseline font-medium whitespace-nowrap",
+          "no-underline! text-base-content!",
+          assigns.href && "hover:bg-base-300",
+          uuid && "cursor-pointer",
+          assigns.class
+        ]
+      )
+
+    ~H"""
+    <a
+      :if={@href}
+      href={@href}
+      class={@chip_class}
+      data-mention-user={@uuid}
+      data-card-error={@uuid && gettext("Couldn't load this person.")}
+      data-card-profile={@uuid && gettext("Open profile")}
+      {@rest}
+    ><.chip_face face={@face} /><span class="truncate">{@shown}</span></a><span
+      :if={!@href}
+      class={@chip_class}
+      data-mention-user={@uuid}
+      data-card-error={@uuid && gettext("Couldn't load this person.")}
+      {@rest}
+    ><.chip_face face={@face} /><span class="truncate">{@shown}</span></span>
+    """
+  end
+
+  attr :face, :map, required: true
+
+  defp chip_face(assigns) do
+    ~H"""
+    <span
+      aria-hidden="true"
+      class={[
+        "relative inline-flex self-center size-[1.35em] shrink-0 items-center justify-center",
+        "overflow-hidden rounded-full bg-gradient-to-br font-bold text-white",
+        @face.gradient
+      ]}
+    ><span class="text-[0.6em] leading-none">{@face.initials}</span><img
+      :if={@face.url}
+      src={@face.url}
+      alt=""
+      class="absolute inset-0 h-full w-full object-cover"
+      onerror="this.remove()"
+    /></span>
+    """
+  end
+
+  defp person_name(%User{} = user), do: User.display_name(user)
+  defp person_name(%{} = person), do: user_name(person)
+  defp person_name(_), do: ""
+
+  @doc """
+  The pieces of a person's small avatar, for places that draw it
+  themselves (the `@` suggestion list in the browser):
+  `%{url: url | nil, initials: "AK", gradient: "from-… to-…"}`.
+
+  `url` is ONLY a picture stored on this site (a signed URL, no crop).
+  Never the OAuth provider's or Gravatar: a list of people would make the
+  reader's browser contact a third party once per name.
+  """
+  @spec avatar_brief(map() | nil, String.t() | nil) :: %{
+          url: String.t() | nil,
+          initials: String.t(),
+          gradient: String.t()
+        }
+  def avatar_brief(user, name \\ nil) do
+    url =
+      case get_avatar_file_uuid(user) do
+        nil -> nil
+        file_id -> URLSigner.signed_url(file_id, storage_size("xs"))
+      end
+
+    %{url: url, initials: initials_for(name, user), gradient: gradient_for_email(get_email(user))}
+  rescue
+    _ -> %{url: nil, initials: initials_for(name, user), gradient: gradient_for_email(nil)}
+  end
+
+  @doc """
   Displays user's primary role name.
 
   The primary role is determined as the first role in the user's roles list.
