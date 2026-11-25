@@ -68,6 +68,9 @@ defmodule PhoenixKit.Users.Auth.User do
           updated_at: DateTime.t()
         }
 
+  @username_min_length 3
+  @username_max_length 30
+
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_users" do
@@ -1006,7 +1009,7 @@ defmodule PhoenixKit.Users.Auth.User do
 
   defp validate_username(changeset, opts) do
     changeset
-    |> validate_length(:username, min: 3, max: 30)
+    |> validate_length(:username, min: @username_min_length, max: @username_max_length)
     |> validate_format(:username, ~r/^[a-zA-Z][a-zA-Z0-9_]*$/,
       message:
         dgettext_noop(
@@ -1114,7 +1117,7 @@ defmodule PhoenixKit.Users.Auth.User do
   # maria herself, or every regeneration would walk her one suffix further
   # (`maria` → `maria_1` → `maria_2`).
   defp ensure_unique_username(base_username, attempt, own_uuid) do
-    username = if attempt == 0, do: base_username, else: "#{base_username}_#{attempt}"
+    username = numbered_username(base_username, attempt)
 
     case reserved_username?(username) ||
            PhoenixKit.RepoHelper.repo().get_by(__MODULE__, username: username) do
@@ -1125,57 +1128,165 @@ defmodule PhoenixKit.Users.Auth.User do
     end
   end
 
-  @doc """
-  Generate a username from an email address.
+  # The number counts against the length limit too: a 30-character name plus
+  # `_1` was stored as 32 characters, which the profile form then refused to
+  # save again.
+  defp numbered_username(base_username, 0), do: base_username
 
-  Takes the part before @ symbol, converts to lowercase, replaces dots with underscores,
-  and ensures it meets validation requirements.
+  defp numbered_username(base_username, attempt) do
+    suffix = "_#{attempt}"
+
+    base =
+      base_username
+      |> String.slice(0, @username_max_length - String.length(suffix))
+      |> String.trim_trailing("_")
+
+    base <> suffix
+  end
+
+  @doc """
+  Suggests a username for an email address.
+
+  The name is the part before the `@`, lower-cased and romanized, and then:
+
+    * a `+tag` is dropped (`john.doe+shop@` gives `john_doe`);
+    * dots, dashes and any other punctuation become one underscore each, never
+      two in a row and never at either end;
+    * a part that names a shared mailbox (`info@`, `sales@`) or is shorter than
+      three characters gets the name of the domain added (`info_acme`,
+      `jo_acme`), since on its own it tells one account from another poorly;
+    * a part that does not start with a letter gets `user_` in front, and one
+      with nothing usable in it becomes `user`;
+    * a part longer than 30 characters is cut at a word boundary when there is
+      one in its second half.
+
+  The result is always a valid username. It is a suggestion only: whether the
+  name is free or reserved is decided where the account is saved.
+
+  ## Options
+
+    * `:pad` - `false` returns the name as far as the text gives it, even when
+      it is still too short to be valid (or empty). For showing a name while
+      the address is being typed: `f`, `fo`, `fot`. Defaults to `true`.
 
   ## Examples
 
       iex> generate_username_from_email("john.doe@example.com")
       "john_doe"
 
-      iex> generate_username_from_email("user@example.com")
-      "user"
+      iex> generate_username_from_email("info@acme.com")
+      "info_acme"
+
+      iex> generate_username_from_email("fo", pad: false)
+      "fo"
   """
-  def generate_username_from_email(email) when is_binary(email) do
-    email
-    |> String.split("@")
-    |> List.first()
-    |> String.downcase()
-    # Fold accents and Cyrillic to ASCII before `clean_username/1` runs, or it
-    # simply deletes them: `ülo.kask@` yielded `lo_kask`, losing the first letter
-    # of the name, and a wholly non-Latin local part collapsed to nothing.
-    # Downcasing first is required — `transliterate/1` maps lowercase Cyrillic.
-    |> Slug.transliterate()
-    |> String.replace(".", "_")
-    |> clean_username()
+  @spec generate_username_from_email(term(), keyword()) :: String.t() | nil
+  def generate_username_from_email(email, opts \\ [])
+
+  def generate_username_from_email(email, opts) when is_binary(email) do
+    {local, domain} =
+      case String.split(email, "@", parts: 2) do
+        [local, domain] -> {local, domain}
+        [local] -> {local, ""}
+      end
+
+    name =
+      local
+      |> drop_plus_tag()
+      |> username_words()
+      |> add_domain_name(domain)
+      |> lead_with_letter()
+      |> cut_username()
+
+    if Keyword.get(opts, :pad, true), do: pad_username(name), else: name
   end
 
-  def generate_username_from_email(_), do: nil
+  def generate_username_from_email(_email, _opts), do: nil
 
-  # Clean username to ensure it meets validation rules
-  defp clean_username(username) do
-    # Remove any invalid characters and ensure it starts with a letter
-    cleaned =
-      username
-      |> String.replace(~r/[^a-zA-Z0-9_]/, "")
-      # Max length
-      |> String.slice(0, 30)
+  # Mailbox names many organizations have. As a username each is taken by the
+  # first one to sign up, and everyone after gets a bare number.
+  @shared_mailboxes ~w(info admin administrator contact contacts hello hi office sales
+                       support help mail email team me hr billing accounts accounting
+                       marketing webmaster postmaster noreply no_reply)
 
-    # Ensure it starts with a letter
-    case String.match?(cleaned, ~r/^[a-zA-Z]/) do
-      true -> cleaned
-      # Leave room for "user_" prefix
-      false -> "user_" <> String.slice(cleaned, 0, 25)
+  # Second-level labels of country domains (`acme.co.uk`): not the name.
+  @generic_domain_labels ~w(co com org net ac gov edu)
+
+  defp drop_plus_tag(local) do
+    case String.split(local, "+", parts: 2) do
+      [name, _tag] when name != "" -> name
+      _ -> local
     end
-    |> ensure_minimum_username_length()
   end
 
-  # Ensure username meets minimum length requirement
-  defp ensure_minimum_username_length(username) when byte_size(username) >= 3, do: username
-  defp ensure_minimum_username_length(username), do: username <> "_1"
+  # Lower-case first: `Slug.transliterate/1` maps lowercase Cyrillic. Romanizing
+  # before the cleanup is what keeps `ülo.kask` from losing its first letter.
+  defp username_words(text) do
+    text
+    |> String.downcase()
+    |> Slug.transliterate()
+    |> String.replace(~r/[^a-z0-9]+/, "_")
+    |> String.trim("_")
+  end
+
+  defp add_domain_name(name, domain) do
+    if name in @shared_mailboxes or String.length(name) < @username_min_length do
+      [name, domain_name(domain)] |> Enum.reject(&(&1 == "")) |> Enum.join("_")
+    else
+      name
+    end
+  end
+
+  # `mail.acme.co.uk` → `acme`. A domain still being typed (`acme`, `acme.c`)
+  # gives what is there so far, so the suggestion grows with the typing.
+  defp domain_name(domain) do
+    labels =
+      domain |> String.split(".") |> Enum.map(&username_words/1) |> Enum.reject(&(&1 == ""))
+
+    case labels do
+      [] -> ""
+      [only] -> only
+      labels -> labels |> Enum.drop(-1) |> registered_label()
+    end
+  end
+
+  defp registered_label(labels) do
+    case Enum.reverse(labels) do
+      [generic, name | _rest] when generic in @generic_domain_labels -> name
+      [name | _rest] -> name
+    end
+  end
+
+  defp lead_with_letter(""), do: ""
+
+  defp lead_with_letter(<<first, _rest::binary>> = name) when first in ?a..?z, do: name
+  defp lead_with_letter(name), do: "user_" <> name
+
+  defp cut_username(name) do
+    if String.length(name) <= @username_max_length do
+      name
+    else
+      cut = String.slice(name, 0, @username_max_length)
+
+      # A whole word less reads better than half a word, as long as most of
+      # the name survives.
+      kept =
+        case :binary.matches(cut, "_") do
+          [] -> cut
+          matches -> matches |> List.last() |> elem(0) |> then(&binary_part(cut, 0, &1))
+        end
+
+      if String.length(kept) >= div(@username_max_length, 2),
+        do: String.trim_trailing(kept, "_"),
+        else: String.trim_trailing(cut, "_")
+    end
+  end
+
+  defp pad_username(""), do: "user"
+
+  defp pad_username(name) do
+    if String.length(name) < @username_min_length, do: "user_" <> name, else: name
+  end
 
   # `country` is an ISO 3166-1 alpha-2 code known to BeamLabCountries, stored
   # upper-case; blank means "not chosen" and is stored as nil.

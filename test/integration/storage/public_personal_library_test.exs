@@ -211,11 +211,11 @@ defmodule PhoenixKit.Modules.Storage.PublicPersonalLibraryTest do
     end
 
     test "a name generated from an email address that is reserved gets a number" do
-      with_config(:reserved_usernames, ["billing"], fn ->
+      with_config(:reserved_usernames, ["bookings"], fn ->
         user =
-          register!(%{"email" => "billing@example-#{System.unique_integer([:positive])}.com"})
+          register!(%{"email" => "bookings@example-#{System.unique_integer([:positive])}.com"})
 
-        assert user.username == "billing_1"
+        assert user.username == "bookings_1"
       end)
     end
 

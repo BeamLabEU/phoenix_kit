@@ -1,3 +1,23 @@
+## Unreleased
+
+### Changed
+
+- **The username suggested from an email address reads better.** A `+tag` is dropped
+  (`john.doe+shop@` gives `john_doe`, was `john_doeshop`); dashes and other punctuation become one
+  underscore (`first-last@` gives `first_last`, was `firstlast`), never doubled and never at the
+  ends; a shared mailbox or a part shorter than three characters gets the domain's name
+  (`info@acme.com` gives `info_acme`, `jo@acme.com` gives `jo_acme`, was `jo_1`); a part with
+  nothing usable gives `user`, was `user_`; a long part is cut at a word boundary.
+  `User.generate_username_from_email/2` takes `pad: false` for showing a name while it is typed.
+  Existing usernames are not changed.
+
+### Fixed
+
+- The sign-up page no longer shows a padded name for the first two letters of the email (`f_1`,
+  `fo_1`): the username field fills in from the third letter.
+- A generated username with a number added for uniqueness stays within the 30-character limit
+  (a 30-character name became 32 characters, which the profile form refused to save again).
+
 ## 3.9.0 - 2026-11-24
 
 ### Added
