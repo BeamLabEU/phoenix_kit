@@ -211,6 +211,7 @@ defmodule PhoenixKit.Settings do
     auth_background_image_file_uuid
     auth_background_image_mobile_file_uuid
     auth_background_color
+    auth_language_switcher_enabled
     email_enabled
     email_save_body
     email_ses_events
@@ -367,6 +368,8 @@ defmodule PhoenixKit.Settings do
       "auth_background_image_file_uuid" => "",
       "auth_background_image_mobile_file_uuid" => "",
       "auth_background_color" => "",
+      # The language list under the auth forms (sign-in, registration, ...)
+      "auth_language_switcher_enabled" => "true",
       # Email Settings
       "email_enabled" => "false",
       "email_save_body" => "false",
@@ -1567,6 +1570,7 @@ defmodule PhoenixKit.Settings do
     auth_background_color
     auth_background_image_file_uuid
     auth_background_image_mobile_file_uuid
+    auth_language_switcher_enabled
     allow_registration
     new_user_default_role
     new_user_default_status

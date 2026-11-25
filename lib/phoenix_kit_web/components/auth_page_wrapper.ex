@@ -67,7 +67,8 @@ defmodule PhoenixKitWeb.Components.AuthPageWrapper do
       end)
       |> assign_new(:project_title, fn -> Settings.get_project_title() end)
       |> assign_new(:show_language_switcher, fn ->
-        Languages.enabled?() and length(Languages.get_enabled_languages()) > 1
+        Settings.get_boolean_setting("auth_language_switcher_enabled", true) and
+          Languages.enabled?() and length(Languages.get_enabled_languages()) > 1
       end)
 
     assigns =
