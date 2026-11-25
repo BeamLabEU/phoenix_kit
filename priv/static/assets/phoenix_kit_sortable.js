@@ -41,6 +41,8 @@
     stylesInjected = true;
 
     var style = document.createElement("style");
+    var adopt = window.PhoenixKitInternals && window.PhoenixKitInternals.adoptStyle;
+    if (adopt) adopt(style);
     style.textContent = [
       ".sortable-ghost { opacity: 0.5; }",
       ".sortable-chosen { outline: 2px solid oklch(var(--p)); outline-offset: 2px; }",

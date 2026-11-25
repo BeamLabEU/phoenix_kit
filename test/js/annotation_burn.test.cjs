@@ -449,10 +449,12 @@ for (const stage of ["clone", "styles"]) {
       getBoundingClientRect: () => ({ left: 0, top: 0 })
     };
     const capture = new Function(
-      "window", "document", "getComputedStyle", "BURN_STATE", "BURN_STYLE_PROPS",
+      "adoptStyle", "window", "document", "getComputedStyle", "BURN_STATE", "BURN_STYLE_PROPS",
       "burnViewAffine", "burnInkBounds",
       sliceFn("burnCapturePlan") + "\nreturn burnCapturePlan;"
     )(
+      // The bundle's CSP stamp for a style it creates; nothing to stamp here.
+      () => {},
       { Fresco: { viewerFor: () => ({ imageToScreen: (p) => p }) } },
       document,
       (el) => {

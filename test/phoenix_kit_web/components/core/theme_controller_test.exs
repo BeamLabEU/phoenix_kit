@@ -73,6 +73,21 @@ defmodule PhoenixKitWeb.Components.Core.ThemeControllerTest do
       end
     end
 
+    test "the toggle's style tag carries the page's nonce, never a literal expression" do
+      html = render_mode(["phoenix-light", "phoenix-dark"], :toggle)
+      assert html =~ "<style>"
+      refute html =~ "PhoenixKitWeb.CSP"
+
+      Application.put_env(:phoenix_kit, :csp_nonce_assign_key, :csp_nonce)
+      on_exit(fn -> Application.delete_env(:phoenix_kit, :csp_nonce_assign_key) end)
+
+      PhoenixKitWeb.CSP.put_nonces(
+        Plug.Conn.assign(Phoenix.ConnTest.build_conn(), :csp_nonce, "n1")
+      )
+
+      assert render_mode(["phoenix-light", "phoenix-dark"], :toggle) =~ ~s(<style nonce="n1">)
+    end
+
     test ":toggle on a pair renders the toggle" do
       html = render_mode(["phoenix-light", "phoenix-dark"], :toggle)
 

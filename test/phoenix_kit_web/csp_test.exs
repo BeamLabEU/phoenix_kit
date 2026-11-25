@@ -65,6 +65,32 @@ defmodule PhoenixKitWeb.CSPTest do
     assert CSP.nonce(:script) == nil
   end
 
+  test "a connection is authoritative, even when an earlier request left a nonce" do
+    Application.put_env(:phoenix_kit, :csp_nonce_assign_key, :csp_nonce)
+    CSP.put_nonces(conn(csp_nonce: "from-a"))
+
+    bare = conn([])
+    assert CSP.nonce(bare, :script) == nil
+    assert CSP.nonce(bare, :style) == nil
+    assert CSP.attr(bare, :script) == ""
+    # Components rendered with no conn still see the request that stored it.
+    assert CSP.nonce(:script) == "from-a"
+  end
+
+  test "a connection that names one kind does not borrow the other from the process" do
+    Application.put_env(:phoenix_kit, :csp_nonce_assign_key, %{
+      script: :script_nonce,
+      style: :style_nonce
+    })
+
+    CSP.put_nonces(conn(script_nonce: "s-old", style_nonce: "y-old"))
+
+    only_script = conn(script_nonce: "s-new")
+    assert CSP.nonce(only_script, :script) == "s-new"
+    assert CSP.nonce(only_script, :style) == nil
+    assert CSP.attr(only_script, :style) == ""
+  end
+
   test "the attribute is escaped" do
     Application.put_env(:phoenix_kit, :csp_nonce_assign_key, :csp_nonce)
 

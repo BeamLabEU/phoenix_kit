@@ -293,6 +293,12 @@ defmodule PhoenixKitWeb.Components.Core.TableDefaultTest do
       # the first-paint restore sits right after the wrapper it reads
       assert html =~ ~r{</table>\s*</div>\s*<script>}
       assert html =~ "phoenix_kit:table-fit:"
+      # column numbers are rebuilt into CSS; a stylesheet string from storage is never inserted
+      assert html =~ "saved.cols"
+      assert html =~ "style.nonce"
+      # the comparisons reach the browser as JavaScript, not as escaped text
+      assert html =~ "n < 500"
+      refute html =~ "saved.css"
       assert html =~ ~r/<th[^>]*data-col-lead[^>]*>\s*Name/
       assert html =~ ~r/<th[^>]*data-col-priority="3"[^>]*style="width: 8rem; min-width: 8rem"/
       assert html =~ ~r/<th[^>]*data-col-priority="1"/

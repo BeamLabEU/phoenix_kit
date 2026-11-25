@@ -26,6 +26,8 @@ defmodule PhoenixKitWeb.CSP do
       `on_mount/4` restores them, so a `<style>` patched into the page after the socket connects
       still has the nonce of the document it lands in.
     * A controller that writes a page by hand passes its `conn`: `nonce(conn, :style)`.
+      The connection is the whole answer: a missing assign is no nonce, not the one an
+      earlier request left in this process.
 
   A host's own live session that renders kit components (`LayoutWrapper`, the table, the theme
   controller) takes both halves:
@@ -62,12 +64,15 @@ defmodule PhoenixKitWeb.CSP do
   def nonce(kind) when kind in [:script, :style], do: Map.get(current(), kind)
 
   @doc """
-  The same, read from `conn` first: for a controller or plug that builds its page by hand and
-  may run before `put_nonces/1` did.
+  The nonce on `conn` for `kind`, or `nil` when that connection has none.
+
+  For a controller or plug that builds its page by hand and may run before `put_nonces/1`.
+  The connection is authoritative, a missing assign included: the process dictionary is
+  only for a render that has no `conn`, and a connection process serves many requests.
   """
   @spec nonce(Plug.Conn.t(), kind) :: String.t() | nil
   def nonce(%Plug.Conn{} = conn, kind) when kind in [:script, :style] do
-    Map.get(from_conn(conn), kind) || nonce(kind)
+    Map.get(from_conn(conn), kind)
   end
 
   @doc """

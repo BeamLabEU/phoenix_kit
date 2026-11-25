@@ -614,15 +614,20 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
   # of dictating it, which is what lets a long name truncate.
   # A hard page load paints before the hook can measure, so the table would
   # show every column for a frame and then lose some. The hook remembers the
-  # last stylesheet it settled on per table (localStorage); this puts it back
-  # while the page is still being parsed — only when the header row is the one
-  # it was computed for (same priorities in the same places), since the same
-  # id can show other columns on another page and the stylesheet is
-  # positional. It is still a guess about the width; the hook measures again
-  # on mount and corrects it. Inline because nothing
-  # else runs before first paint (a script LiveView inserts later is never
-  # executed, and by then the hook is already there). It names nothing from
-  # the server: it finds its table as the element just before it.
+  # last columns it hid per table (localStorage); this puts that back while
+  # the page is still being parsed — only when the header row is the one it
+  # was computed for (same priorities in the same places), since the same id
+  # can show other columns on another page and the stylesheet is positional.
+  # It is still a guess about the width; the hook measures again on mount and
+  # corrects it. Inline because nothing else runs before first paint (a script
+  # LiveView inserts later is never executed, and by then the hook is already
+  # there). It names nothing from the server: it finds its table as the
+  # element just before it.
+  #
+  # The remembered value is column numbers, and the rules are built here.
+  # Replaying a stylesheet string from localStorage under the page's nonce
+  # would make whatever is in that key an allowed stylesheet. The grammar is
+  # `fitHideCss` in phoenix_kit_admin.js; the two have to stay the same.
   defp fit_restore(assigns) do
     ~H"""
     <script nonce={PhoenixKitWeb.CSP.nonce(:script)}>
@@ -631,7 +636,15 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
           var wrap = document.currentScript && document.currentScript.previousElementSibling;
           if (!wrap || !wrap.id) return;
           var saved = JSON.parse(localStorage.getItem("phoenix_kit:table-fit:" + wrap.id) || "null");
-          if (!saved || typeof saved.css !== "string") return;
+          if (!saved || !saved.cols || !saved.cols.length || saved.cols.length > 100) return;
+          function whole(n) { return typeof n === "number" && n > 0 && n < 500 && (n | 0) === n; }
+          if (!whole(saved.headerCount)) return;
+          var cols = [];
+          for (var i = 0; i < saved.cols.length; i++) {
+            var col = saved.cols[i] || {};
+            if (!whole(col.index) || !whole(col.head)) return;
+            cols.push({ index: col.index, head: col.head });
+          }
           var row = wrap.querySelector(":scope > table > thead > tr");
           if (!row) return;
           var sig = Array.prototype.map.call(row.children, function (th) {
@@ -639,9 +652,34 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
             return (p === undefined ? "" : p) + (th.colSpan > 1 ? "x" + th.colSpan : "");
           }).join(",");
           if (sig !== saved.sig) return;
+          var id = (window.CSS && CSS.escape) ? CSS.escape(wrap.id) : String(wrap.id).replace(/^(\d)/, "\\3$1 ").replace(/([^\w\s\\-])/g, "\\$1");
+          var table = "#" + id + " > table";
+          var parts = [];
+          for (var j = 0; j < cols.length; j++) {
+            parts.push(table + " > thead > tr > :nth-child(" + cols[j].head + ")");
+            parts.push(table + " > :not(thead) > tr > :nth-child(" + cols[j].index + "):not([colspan])");
+          }
+          var badge = saved.headerCount;
+          while (badge > 0) {
+            var taken = false;
+            for (var k = 0; k < cols.length; k++) if (cols[k].head === badge) taken = true;
+            if (!taken) break;
+            badge--;
+          }
+          var more = badge > 0
+            ? table + " > thead > tr > :nth-child(" + badge + ')::before { content: "+' + cols.length + '"; margin-inline-end: 0.25rem; font-size: 0.6875rem; font-weight: 600; opacity: 0.6; white-space: nowrap; }'
+            : "";
+          var css = "@media screen {\n" + parts.join(",\n") + " { display: none; }\n" + more + "\n}";
           var style = document.createElement("style");
+          var nonce = "";
+          var prior = document.getElementsByTagName("style");
+          for (var s = 0; s < prior.length; s++) {
+            if (prior[s].nonce) { nonce = prior[s].nonce; break; }
+          }
+          if (!nonce && document.currentScript && document.currentScript.nonce) nonce = document.currentScript.nonce;
+          if (nonce) style.nonce = nonce;
           style.setAttribute("data-pk-table-fit", wrap.id);
-          style.textContent = saved.css;
+          style.textContent = css;
           document.head.appendChild(style);
         } catch (_e) {}
       })();

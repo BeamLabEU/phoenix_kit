@@ -317,6 +317,7 @@
         '<div data-pk-pop-body></div></div>';
       document.body.appendChild(pop);
       var style = document.createElement("style");
+      pkAdoptStyle(style);
       style.textContent = ".pk-person-pop::backdrop{background:transparent}";
       pop.appendChild(style);
       wireClose(pop, pop.querySelector("[data-pk-pop-body]"));
@@ -575,6 +576,30 @@
   var PK_SCRIPT_SRC = (document.currentScript && document.currentScript.src) || "";
   var PK_SCRIPT_NONCE = (document.currentScript && document.currentScript.nonce) || "";
   var PK_SCRIPT_IS_BUNDLE = /(^|\/)phoenix_kit(-[0-9a-f]{32})?\.js$/.test(PK_SCRIPT_SRC.split(/[?#]/)[0]);
+
+  // A <style> this file creates is dropped by style-src 'nonce-…' unless the
+  // element carries the document's style nonce before it is inserted. The
+  // nonce attribute is hidden from selectors and from getAttribute; the IDL
+  // property is what a script can read. A style already on the page wins, so
+  // a host with a different nonce per kind is not given the script's. The
+  // script nonce is only the fallback for one nonce used for both, put on
+  // the tag that loads this file (currentScript is null in every callback).
+  function pkStyleNonce() {
+    var list = document.getElementsByTagName ? document.getElementsByTagName("style") : [];
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].nonce) return list[i].nonce;
+    }
+    return PK_SCRIPT_NONCE;
+  }
+
+  function pkAdoptStyle(el) {
+    var nonce = el && pkStyleNonce();
+    if (nonce) el.nonce = nonce;
+    return el;
+  }
+
+  window.PhoenixKitInternals = window.PhoenixKitInternals || {};
+  window.PhoenixKitInternals.adoptStyle = pkAdoptStyle;
 
   function pkLibDir(src) {
     return src.split(/[?#]/)[0].replace(/[^\/]*$/, "") + "lib/";
@@ -1021,6 +1046,7 @@
       if (document.querySelector("style[data-phoenix-kit-fresco]")) return;
       var style = document.createElement("style");
       style.setAttribute("data-phoenix-kit-fresco", "");
+      pkAdoptStyle(style);
       style.textContent = [
         ".fresco-viewer[data-fresco-theme=\"inherit\"] {",
         "  --fresco-bg: var(--color-base-100);",
@@ -1257,6 +1283,10 @@
       );
       scripts.forEach(function(script) {
         var newScript = document.createElement("script");
+        // The nonce is not in the attribute list (the browser hides it), so a
+        // copy made from attributes loses it and a strict script-src drops the
+        // approved script. An original that had none stays without one.
+        if (script.nonce) newScript.nonce = script.nonce;
         Array.from(script.attributes).forEach(function(attr) {
           if (attr.name !== "type" && attr.name !== "data-blocked") {
             newScript.setAttribute(attr.name, attr.value);
@@ -1332,8 +1362,10 @@
       var cookiePolicyUrl = config.cookie_policy_url || '/legal/cookie-policy';
       var privacyPolicyUrl = config.privacy_policy_url || '/legal/privacy-policy';
 
-      // CSS Styles
-      var styles = '<style>' +
+      // The widget's rules. A <style> inside the HTML string below is ignored
+      // under a nonce policy (innerHTML cannot carry a nonce); injectWidget
+      // builds the element and stamps the page's style nonce on it.
+      var styles = 
         '.pk-consent-widget{' +
           '--pk-bg:oklch(var(--b1));' +
           '--pk-bg-alt:oklch(var(--b2));' +
@@ -1380,8 +1412,7 @@
         '.pk-category-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px oklch(var(--bc)/0.1)}' +
         '.pk-toggle-track{background:var(--pk-border);transition:background 0.2s}' +
         '.pk-toggle-track.active{background:var(--pk-primary)}' +
-        '.pk-toggle-thumb{background:var(--pk-bg);box-shadow:0 1px 3px oklch(var(--bc)/0.2)}' +
-      '</style>';
+        '.pk-toggle-thumb{background:var(--pk-bg);box-shadow:0 1px 3px oklch(var(--bc)/0.2)}';
 
       // Floating Icon (only shown in opt-in mode)
       var iconHTML = showIcon
@@ -1485,9 +1516,12 @@
         '</div>' +
       '</div>';
 
-      return '<div id="pk-consent-root" class="pk-consent-widget">' +
-        styles + iconHTML + bannerHTML + modalHTML +
-      '</div>';
+      return {
+        css: styles,
+        html: '<div id="pk-consent-root" class="pk-consent-widget">' +
+          iconHTML + bannerHTML + modalHTML +
+        '</div>'
+      };
     }
 
     // ---------------------------------------------------------------------------
@@ -1513,9 +1547,15 @@
       var existing = document.getElementById("pk-consent-root");
       if (existing) existing.remove();
 
+      var built = createWidgetHTML(config);
       var container = document.createElement("div");
-      container.innerHTML = createWidgetHTML(config);
-      document.body.appendChild(container.firstChild);
+      container.innerHTML = built.html;
+      var root = container.firstChild;
+      var style = document.createElement("style");
+      pkAdoptStyle(style);
+      style.textContent = built.css;
+      root.insertBefore(style, root.firstChild);
+      document.body.appendChild(root);
 
       log("Widget injected into DOM");
     }
@@ -6043,6 +6083,7 @@
   // this file, and a fresh object wiped them (grok, 2026-11-25).
   window.PhoenixKitInternals = Object.assign(window.PhoenixKitInternals || {}, {
     adminHookNames: ADMIN_HOOKS,
+    adoptStyle: pkAdoptStyle,
     lazyHook: lazyHook,
     loadChartJs: loadChartJs,
     loadVendored: loadVendored,
@@ -6288,6 +6329,9 @@
 
     var style = document.createElement("style");
     style.id = STYLE_ID;
+    if (window.PhoenixKitInternals && window.PhoenixKitInternals.adoptStyle) {
+      window.PhoenixKitInternals.adoptStyle(style);
+    }
     style.textContent =
       "@keyframes pk-cue-pulse {" +
       "  0% { box-shadow: 0 0 0 0 var(--pk-cue-color, oklch(0.7 0.15 250 / 0.55)); }" +
@@ -8003,6 +8047,9 @@ if (typeof window !== "undefined") {
     if (typeof document === "undefined" || document.getElementById(STYLE_ID)) return;
     var style = document.createElement("style");
     style.id = STYLE_ID;
+    if (window.PhoenixKitInternals && window.PhoenixKitInternals.adoptStyle) {
+      window.PhoenixKitInternals.adoptStyle(style);
+    }
     style.textContent = "[data-pk-crosshair] svg rect[data-x]{pointer-events:none}";
     document.head.appendChild(style);
   }

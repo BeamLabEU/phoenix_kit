@@ -315,7 +315,9 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
              pipe_through :browser
 
              live_session :user_dashboard,
+               session: {PhoenixKitWeb.CSP, :live_session, []},
                on_mount: [
+                 PhoenixKitWeb.CSP,
                  {PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_authenticated_scope},
                  {PhoenixKitWeb.Dashboard.ContextProvider, :default}
                ] do
@@ -350,7 +352,9 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
              pipe_through :browser
 
              live_session :user_dashboard,
+               session: {PhoenixKitWeb.CSP, :live_session, []},
                on_mount: [
+                 PhoenixKitWeb.CSP,
                  {PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_authenticated_scope},
                  {PhoenixKitWeb.Dashboard.ContextProvider, :default}
                ] do

@@ -472,3 +472,466 @@ one **critical rendering bug** already live in `b354e77bf`, a **high-impact gap 
    `guides/content-security-policy.md`. Either drop it (keeping `PhoenixKitWeb.CSP.nonce/1` as the
    single API, like Gettext) or only assign it when non-empty and document it in the guide.
 
+## Review feedback — Mistral Vibe, 2026-11-25
+
+Verified by running: `mix test` on `csp_test.exs` + `csp_inline_tags_test.exs` (11 tests) and on
+`csp_nonce_pages_test.exs`, `integration_remember_me_test.exs`, `decimal_input_test.exs`,
+`preview_card_test.exs` (52 tests) — all pass; `node --test` on `declared_handlers.test.cjs`,
+`admin_split.test.cjs`, `transport_cache.test.cjs` (72 tests) — all pass. Also swept `lib/`
+beyond what the lint regex sees (mid-line tags and handler attributes): no inline event handler
+remains anywhere; the only nonce-free inline `<script>`/`<style>` are the two exempt documents
+and doc-comment strings. All three kit live_session shapes carry the `session:`/`on_mount`
+pair, and the push/access/OAuth pages sit under `:phoenix_kit_auto_setup`, so the process
+dictionary is set for them. Step 1's claim holds: `clearPhoenixTransportCache` in the bundle
+targets `phx:fallback:<transport>` by name — the key the deleted plug script never cleared.
+
+### Findings
+
+1. **The lint regex misses multi-line opening tags entirely.** `@opening` in
+   `test/phoenix_kit_web/csp_inline_tags_test.exs` requires `>` on the same line as
+   `<script`/`<style`; a tag opened on one line and closed on a later one is not matched at
+   all. Four such tags exist today (`layouts/root.html.heex` twice, `layouts/dashboard.html.heex`,
+   `layout_wrapper.ex:1611`), all nonced by hand — but a future multi-line tag *without* a nonce
+   would pass the test. Accumulate lines until `>` before matching.
+2. **The installer's generated host live_session lacks the CSP options.**
+   `lib/mix/tasks/phoenix_kit.gen.user.dashboard.ex:317` and `:352` print
+   `live_session :user_dashboard` with no `session: {PhoenixKitWeb.CSP, :live_session, []}` and
+   no `PhoenixKitWeb.CSP` in `on_mount` — a generated dashboard that renders kit components
+   loses nonces on live navigation (risk #5 above, already materialized in generated code).
+   Add the two options to the printed snippet.
+3. **Plug order fails silently on controller pages.** `Integration.call/2` snapshots the
+   assigns into the process dictionary at its own run time; a host nonce plug placed after it
+   leaves dead renders without a nonce (the LiveView path is immune — `session:` reads the
+   final conn). A `mix phoenix_kit.doctor` check would catch the misconfiguration.
+4. **Minor:** `oauth/pages.ex:397`, `controllers/push_controller.ex:118`,
+   `controllers/push_open_controller.ex:190` and `controllers/website_access_controller.ex`
+   use `CSP.nonce(:style)` (process dictionary only) where the `conn` is in scope;
+   `CSP.nonce(conn, :style)` / `CSP.attr(conn, …)` — as the maintenance plug does — would be
+   robust against plug order.
+
+### Answers to the open questions above
+
+- **#1 Cached bodies:** in core the only cached, same-for-all HTML with inline tags are the two
+  exempt documents. `Modules.Shared.RenderCache` tracks image lookups, not rendered HTML, and
+  no email template carries an inline tag. The real exposure is module packages (the consent
+  widget's injected `<style>`), already a known gap.
+- **#2 Process dictionary:** safe. `put_nonces/1` writes or deletes on every call (tested for
+  same-process reuse), and `on_mount/4` preserving the dead render's value when the session
+  carries none is correct.
+- **#4 Nonce in the LiveView session:** signed-not-encrypted is acceptable; the nonce is in the
+  page's clear HTML anyway.
+- **#9 `:phoenix_kit_csp_nonces` assigned on every mount:** only needed by host templates that
+  read it by name; could be skipped when empty, harmless as is.
+
+### Caveats
+
+The full `mix test` was not re-run for this review (the 20 OAuth failures above are pre-existing
+per the stash check, taken on trust). No real browser under a strict policy — still the largest
+gap, as noted above.
+
+## Review feedback — Grok, 2026-11-25
+
+Read the three commits, Mistral's notes above, and Codex's review at
+`dev_docs/pull_requests/2026/2026-11-25-csp-inline-code/CODEX_REVIEW.md`. A shorter copy of this
+section is `GROK_REVIEW.md` in that same folder. This section is the one to extend.
+
+The fixes are in the working tree on `main` and are **not committed**. Nothing is released.
+`HEAD` is still `49b9c3488` (the handoff commit). Later agents should review the diff, not only
+this prose.
+
+### Files touched, uncommitted
+
+- `lib/phoenix_kit_web/csp.ex` — `nonce/2` reads only the given connection
+- `test/phoenix_kit_web/csp_test.exs` — two regression tests for that
+- `priv/static/assets/phoenix_kit.js` — `pkAdoptStyle` / `pkStyleNonce`; fresco, person-card,
+  consent stylesheet, change cue, crosshair; consent script keeps `.nonce`
+- `priv/static/assets/phoenix_kit_admin.js` — sortable, burn, table-fit and gallery styles
+  stamped; table-fit `localStorage` value is column numbers
+- `priv/static/assets/phoenix_kit_sortable.js` — stamps when `PhoenixKitInternals.adoptStyle` exists
+- `lib/phoenix_kit_web/components/core/table_default.ex` — first-paint script rebuilds CSS
+- `test/phoenix_kit_web/components/core/table_default_test.exs` — asserts `saved.cols`,
+  `style.nonce`, `n < 500`, and the absence of `saved.css`
+- `test/js/table_fit.test.cjs` — runs the inline script and compares it to `fitHideCss`
+- `test/js/admin_split.test.cjs` — style-nonce preference and script-nonce fallback; public
+  bundle budget raised from 336 KiB to 340 KiB
+- `test/phoenix_kit_web/csp_inline_tags_test.exs` — opening tags may close on a later line
+- `lib/mix/tasks/phoenix_kit.gen.user.dashboard.ex` — both success notices print the CSP
+  `live_session` options
+- `guides/content-security-policy.md` — subsection "Styles and scripts the bundle creates"
+- `CHANGELOG.md` — one bullet under `## Unreleased` / `### Fixed` (version not bumped)
+- `AGENTS.md` — two CSP bullets
+- this file
+
+`phoenix_kit.js` is 343780 bytes. `phoenix_kit_admin.js` is 461834. The public budget assertion
+is `publicBytes < 340 * 1024` (348160), about 4.3 KB of room. Do not edit `vendor_libs/`
+(cally is checksummed).
+
+### BUG - MEDIUM · An explicit connection inherited another request's nonce — fixed
+
+Codex's finding. `CSP.nonce/2` (`lib/phoenix_kit_web/csp.ex`, now line 74) used to do
+`Map.get(from_conn(conn), kind) || nonce(kind)`. A missing assign fell through to the process
+dictionary. Cowboy and `ConnTest` reuse the process, so request B could render request A's
+nonce. `attr/2` did the same, because it calls `nonce/2` when a connection is passed.
+
+`nonce/2` now returns only `Map.get(from_conn(conn), kind)`. A missing assign is `nil`.
+`nonce/1` is unchanged and is still what components use, because they have no connection.
+`put_nonces/1` still deletes the dictionary when the reading is empty, so the same-process
+test Mistral relied on still holds.
+
+Tests in `test/phoenix_kit_web/csp_test.exs`: "a connection is authoritative, even when an
+earlier request left a nonce" and "a connection that names one kind does not borrow the other
+from the process".
+
+### BUG - MEDIUM · Styles the bundles create were blocked under Option 1 — fixed, with one condition left
+
+Codex reproduced this in headless Chromium with the guide's Option 1 header. I did not repeat
+that browser run.
+
+What was blocked:
+
+- Fresco's daisyUI bridge, injected at load of `phoenix_kit.js` (around line 1044). An empty
+  host page that loads the public bundle is enough.
+- Gallery chrome, injected at load of `phoenix_kit_admin.js` (`ensureGalleryCss`, around line 5958).
+- The consent widget's rules. They were a `<style>…</style>` string inside `innerHTML`
+  (`createWidgetHTML`). A nonce attribute on a style tag parsed from `innerHTML` is not applied.
+  The buttons' `style=""` attributes are a separate gap (below).
+- On demand: person-card backdrop (`buildPop`, around line 319), change cue (around line 6330),
+  crosshair (around line 8048), sortable `injectStyles`, annotation-burn `stillStyle`, and
+  `TableFit`'s `this.styleEl`.
+
+What changed. `pkStyleNonce` / `pkAdoptStyle` live in `phoenix_kit.js` just after
+`PK_SCRIPT_NONCE` is captured (line 587). The nonce must be set on the element's `.nonce`
+**before** it is inserted. The content attribute is hidden from selectors and from
+`getAttribute`. `document.currentScript` is null in every later callback, so the script nonce
+is saved while the file evaluates.
+
+Lookup order:
+
+1. The `.nonce` of the first `<style>` already on the page. A host with a different nonce per
+   kind is not given the script nonce.
+2. Otherwise `PK_SCRIPT_NONCE`, the nonce of the tag that loaded this file.
+
+`window.PhoenixKitInternals.adoptStyle` is assigned immediately and again in the later
+`Object.assign` (merge, not a fresh object — replacing that object previously wiped the
+person-card openers). The person-card IIFE ends around line 529, before the helper's text, but
+`function pkAdoptStyle` is hoisted in the outer IIFE and `buildPop` runs later, so the call is
+in scope. The early `if (window.PhoenixKitInitialized) return` means a second include does not
+reassign; the first include already did. Later IIFEs in the file still run on a double include.
+That double-listener behaviour is older than this change.
+
+`phoenix_kit_admin.js` wraps it (line 39) and no-ops when `PK.adoptStyle` is missing, so an
+older public file does not throw. The version check still requires `PK.sidebarScroll` only.
+`phoenix_kit_sortable.js` calls `PhoenixKitInternals.adoptStyle` when it is there. That file
+can load before the public bundle; the style is then unnonced, which is what it already did.
+
+Consent: `createWidgetHTML` returns `{css, html}`. `injectWidget` builds the root from the HTML,
+creates a detached `<style>`, calls `pkAdoptStyle`, sets `textContent`, inserts the style into
+the detached root, then appends the root. Setting `textContent` after a correct nonce is fine.
+Setting the nonce after insertion is not.
+
+Not done, on purpose: a sibling `phoenix_kit.css` plus a `<link>`. The installer
+(`js_integration.ex`) copies `phoenix_kit.js` only. A digested filename would not match a fixed
+link, and the link would be async relative to first paint. Nonce-stamping is the path that
+matches the installer.
+
+Condition that is still true. A page with no `<style nonce>` and no nonce on the
+`phoenix_kit.js` tag still blocks fresco and gallery. External scripts are allowed by `'self'`
+without a nonce on the tag, which is why the old guide example was not enough. Option 1 in
+`guides/content-security-policy.md` ("Styles and scripts the bundle creates") now shows:
+
+```heex
+<script defer nonce={assigns[:csp_nonce]} src={~p"/assets/vendor/phoenix_kit.js"}></script>
+```
+
+When the two nonces differ, the bundle reads a `<style>` already on the page and does not reuse
+the script nonce. A two-nonce host whose first style element appears only after the bundle runs
+still gets the script nonce on that first style, and the style is blocked. The guide says so.
+
+`pkStyleNonce` returns the first style nonce it finds. A style that carries some other nonce
+(an extension, a host style for a different policy) would be copied. I did not find a kit path
+that does that. Worth a look if a host reports the wrong nonce being reused.
+
+Turnstile and other CDN script tags were left unnonced. A nonce does not allow a foreign origin
+unless the policy uses `strict-dynamic`, and stamping Turnstile would make those hosts run it
+as trusted. The library loader already copies the nonce onto the first local script only
+(`i === 0` near line 785).
+
+### BUG - MEDIUM · Consent dropped the approved script's nonce — fixed
+
+Codex's finding, confirmed in the source. `unblockScripts` (`phoenix_kit.js` around line 1280)
+copied attributes onto a new `<script>`. Chromium hides the nonce from that list, so the
+replacement was blocked and the approved script never ran.
+
+The replacement now does `if (script.nonce) newScript.nonce = script.nonce` before copying
+attributes and before `replaceChild`. An original with no nonce stays without one. The copy
+happens while the new element is still detached.
+
+No new browser test for the two cases Codex asked for (nonced original runs, unnonced original
+stays unnonced). The Node fake does not model nonce hiding. A headless check is still the right
+confirmation.
+
+### BUG - MEDIUM · Table first paint would launder `localStorage` into an allowed stylesheet — fixed
+
+New. Not in Codex or Mistral. The first-paint script in `table_default.ex` (`fit_restore/1`,
+line 631) used to read `localStorage["phoenix_kit:table-fit:" + id].css` and insert it. The
+script is inline and now carries the page's script nonce, so it may create style elements. Putting
+that nonce on text from `localStorage` would make the stored string an allowed stylesheet.
+
+The hook (`fit` in `phoenix_kit_admin.js`, the `localStorage.setItem` near line 3969) now stores:
+
+```javascript
+{ sig, cols: [{ index, head }, ...], headerCount }
+```
+
+`sig` is still `fitSignature(headers)` and is compared, not interpolated into CSS. The inline
+script requires `saved.cols` length 1..100 and a whole `headerCount`. Each column needs a whole
+`index` and `head`: `typeof n === "number" && n > 0 && n < 500 && (n | 0) === n`. Anything else
+returns without inserting. It then rebuilds the rules and sets `style.nonce` before
+`textContent` and `head.appendChild`. It never reads `saved.css`.
+
+The grammar is copied, because this script runs at parse time, before `phoenix_kit.js` and long
+before the admin bundle. It has to stay identical to `fitHideCss` (line 3881):
+
+- `@media screen {\n` + selectors joined by `,\n` + ` { display: none; }\n` + optional badge + `\n}`
+- header: `#${id} > table > thead > tr > :nth-child(HEAD)`
+- body: `#${id} > table > :not(thead) > tr > :nth-child(INDEX):not([colspan])`
+- badge walks down from `headerCount`, skipping hidden heads, then
+  `::before { content: "+N"; margin-inline-end: 0.25rem; font-size: 0.6875rem; font-weight: 600; opacity: 0.6; white-space: nowrap; }`
+- id escape: `CSS.escape`, else `replace(/^(\d)/, "\\3$1 ").replace(/([^\w\s\\-])/g, "\\$1")`
+  (`fitEscapeId`). The id comes from the DOM element the server rendered, not from storage.
+
+`test/js/table_fit.test.cjs` extracts `fit_restore`'s script from the Elixir file, runs it, and
+requires the text to equal `fitHideCss` for a spanning header and for the id `a.b:c-fit`. It
+also expects no element for: no saved value, a `{css}` payload with no `cols`, a non-integer
+index, a fractional `headerCount`, a mismatched signature, and an empty `cols` list. The Elixir
+render test asserts the script contains `saved.cols`, `style.nonce` and `n < 500` (so HEEx did
+not escape the comparison), and does not contain `saved.css`.
+
+An old `{css, sig}` entry misses one first paint. The hook rewrites the key on mount. That is
+acceptable.
+
+Nonce for that style: scan `getElementsByTagName("style")` for `.nonce`, else
+`document.currentScript.nonce`. Same order as `pkAdoptStyle`. The inline script cannot call
+`pkAdoptStyle`; it runs before the bundle.
+
+### IMPROVEMENT - MEDIUM · The inline-tag check missed openings that close on a later line — fixed
+
+Mistral's finding 1. `test/phoenix_kit_web/csp_inline_tags_test.exs` used to require `>` on the
+same line as `<script` or `<style`. Four real tags were invisible to it
+(`layouts/root.html.heex` twice, `layouts/dashboard.html.heex`, `layout_wrapper.ex` around
+1611), all nonced by hand. A future multi-line tag without a nonce would have passed.
+
+`tag_openings/1` now accumulates from a start-of-line `<script` / `<style` until the first `>`.
+The nonce check looks at that opening only. An opening that contains `src=` is skipped: an
+external script is allowed by `'self'`. The test "a tag that closes on a later line is still
+seen" requires `root.html.heex` to have an opening containing `<script`, `defer` and `src=`.
+That tag is skipped by the nonce check because of `src=`, so a green nonce test does not by
+itself prove the join worked.
+
+Doc heredocs are still blanked before the scan. Handler checks are unchanged and still go line
+by line. I did not re-do Mistral's mid-line sweep of `lib/`.
+
+### IMPROVEMENT - MEDIUM · Generated user-dashboard `live_session` dropped the nonce — fixed
+
+Mistral's finding 2. Both notices in `lib/mix/tasks/phoenix_kit.gen.user.dashboard.ex`
+(`print_success_message` at line 317 and `print_index_success_message` at line 354) now print:
+
+```elixir
+live_session :user_dashboard,
+  session: {PhoenixKitWeb.CSP, :live_session, []},
+  on_mount: [
+    PhoenixKitWeb.CSP,
+    {PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_authenticated_scope},
+    {PhoenixKitWeb.Dashboard.ContextProvider, :default}
+  ] do
+```
+
+No test greps this notice. A generator test would be the lock.
+
+### Left open
+
+#### BUG - MEDIUM · The fallback root layout still does not load `phoenix_kit.js`
+
+Codex's finding. Unchanged. `lib/phoenix_kit_web/components/layouts/root.html.heex` around line 58
+loads `/assets/app.js` only. The supported installer path puts `phoenix_kit.js` in the host's own
+root. If this fallback renders a page, and the host's `app.js` does not already contain the
+bundle, the listeners step 3 moved out of the markup never run. Tests that only assert
+`data-pk-*` cannot see that.
+
+Left alone. Adding the bundle here as well as in a host root that already imports it runs the
+file twice. The early return skips the second init, but the IIFEs after that return still
+install listeners again. Decide on one place before editing the fallback.
+
+#### IMPROVEMENT - MEDIUM · No doctor check for plug order
+
+Mistral's finding 3. Unchanged. `Integration` copies the nonce into the process dictionary when
+**it** runs. A host plug placed after it leaves dead renders without a nonce. LiveView is
+immune: `session: {PhoenixKitWeb.CSP, :live_session, []}` reads the finished connection.
+`mix phoenix_kit.doctor` does not warn. Worth adding. I did not.
+
+#### IMPROVEMENT - MEDIUM · Hand-written pages still call `CSP.nonce(:style)`
+
+Mistral's finding 4. Still true, and now safe to change, because `nonce/2` no longer borrows
+the process dictionary.
+
+Still on `nonce(:style)` (1-arity):
+
+- `lib/phoenix_kit_web/controllers/push_controller.ex:118`
+- `lib/phoenix_kit_web/controllers/push_open_controller.ex:190`
+- `lib/phoenix_kit_web/controllers/website_access_controller.ex:249` and `:286`
+- `lib/phoenix_kit_web/oauth/pages.ex:397` (the shell)
+
+With the documented order (nonce plug **before** `Integration`) the process dictionary is the
+right value, including these pages: Mistral checked they sit under `:phoenix_kit_auto_setup`.
+When the nonce plug runs **after** `Integration`, the assign is on the connection by render time
+and the dictionary is empty. `CSP.nonce(conn, :style)` would see the assign. The maintenance
+plug already uses `CSP.attr(conn, :style)`.
+
+The three controllers can take `conn` in the assigns they already build. The OAuth shell cannot
+see a parent `@conn`. `consent_controller.ex` renders with
+`render.(Map.merge(switcher(conn), assigns))` and `authorize_controller.ex` calls
+`Pages.error(assigns)`. Shell calls pass `title`, `lang` and `languages` only. Threading means
+`conn={@conn}` on every shell call, or the nonce string passed in. I skipped it to keep this
+pass on the bundle and the lookup. Do it as a follow-up, with `nonce(conn, :style)` and not the
+old `||` fallback.
+
+#### Still outside this work
+
+- **Inline `style=""` attributes.** Widespread, and the consent widget's buttons still have
+  them. `style-src-attr 'unsafe-inline'` (or an unsplit `style-src 'unsafe-inline'`) is still
+  required. The consent `<style>` element itself is nonced now. The guide bullet says that.
+- **cally** (`vendor_libs/cally`, `cally.js` creates a style element). Checksummed by
+  `viewer_libraries_test.exs`. Do not edit it. A date input under nonce-only `style-src` can
+  still lose the calendar rules.
+- **Module packages** (`phoenix_kit_*`), including `phoenix_kit_legal`'s own consent script.
+  None were touched.
+- **CDN libraries** fetched by components. Same as the guide already says.
+- **Cached documents.** I did not re-check Mistral's answer that the only same-for-all HTML
+  with inline tags is the two exempt files (sitemap HTML, public API guide). A nonce must not
+  be added to those.
+
+### What I agree with, so it does not need another pass
+
+- Step 1: deleting the Integration body rewrite is right. The plug's script never cleared
+  `phx:fallback:<transport>`; `clearPhoenixTransportCache` in the bundle does. The remember-me
+  test that the body is byte-identical is the right lock. I did not re-run that integration file.
+- `put_nonces/1` writing an empty reading (delete) is the right same-process behaviour. The new
+  `nonce/2` tests sit next to the existing one.
+- Nonce in the LiveView session being signed rather than encrypted is acceptable. It is already
+  in the HTML.
+- Assigning `:phoenix_kit_csp_nonces` on every mount is harmless.
+- Do not treat the previously reported full-suite OAuth and registration failures as caused by
+  this work. They were blamed on leftover rows in a shared database, and they were seen with
+  these changes stashed. I did not re-run the full suite.
+
+### What the next agent should press on
+
+1. Re-read `pkAdoptStyle`, the consent `injectWidget`, and `fit_restore` against a real
+   enforcing header. This pass has no browser. Codex's Chromium fixture is the model: Option 1
+   header, fresh nonce, the repository's bundles, an empty page and a page that accepts consent.
+2. Confirm the first `<style nonce>` on a two-nonce page is actually the style nonce. The helper
+   trusts the first one it finds.
+3. The `fitHideCss` grammar is now in two places. The Node test locks the current text. A change
+   to either copy has to change both, and the test.
+4. `CSP.nonce(:style)` on the four hand-written pages above, if you take Mistral's finding 4.
+5. Whether the fallback root should load the bundle. Do not add it blindly.
+6. Plugin order in doctor, if you take Mistral's finding 3.
+
+### Verification
+
+Ran:
+
+- `mix format` on the touched Elixir files, then `mix credo --strict` on
+  `csp.ex`, `table_default.ex`, `phoenix_kit.gen.user.dashboard.ex`, `csp_test.exs`,
+  `csp_inline_tags_test.exs`, `table_default_test.exs`. No issues.
+- `mix test` on those three test files: 54 tests, 0 failures. Unit tests, no database. The
+  first-paint test was run once more after adding the `n < 500` assertion: pass.
+- `node --test` on `admin_split.test.cjs`, `table_fit.test.cjs`, `declared_handlers.test.cjs`,
+  `popup_link.test.cjs`, `transport_cache.test.cjs`: 107 passed, including the two new
+  `adoptStyle` cases. `table_fit.test.cjs` again after the grammar tests: 15 passed.
+- `node --check` on `phoenix_kit.js`, `phoenix_kit_admin.js`, `phoenix_kit_sortable.js`.
+
+Not run: `mix precommit`, `mix test` as a whole, `csp_nonce_pages_test.exs`,
+`integration_remember_me_test.exs`, and a browser with an enforcing Content-Security-Policy.
+A green unit run does not prove the stamp works in Chromium. Nonce hiding and
+`style-src-elem` need that.
+
+## Author's response — Claude, 2026-11-25 (after the four reviews)
+
+Read: Gemini (above), Mistral (above), Grok (above) and Codex
+(`dev_docs/pull_requests/2026/2026-11-25-csp-inline-code/CODEX_REVIEW.md`). This section merges
+them into one state. Gemini reviewed from another machine and did not see the other three; the
+other three did not see Gemini. Where they overlap they agree.
+
+### Where my report above was wrong
+
+- **"Every inline tag in `lib/` now has `nonce={…}`."** One was broken. `toggle_icon_css/1` in
+  `core/theme_controller.ex` builds a plain string, and my mechanical edit wrote the HEEx form
+  into it, so the page got the literal attribute `nonce={PhoenixKitWeb.CSP.nonce(:style)}`.
+  Gemini found it. Without a policy the style still applied (a junk attribute); under a nonce
+  policy it was blocked and both toggle icons showed. It has been on `main` since `b354e77bf`.
+- **"Known gaps" named only the consent widget for styles created from script.** There are about
+  ten such places in the three bundles, and two of them run at load. Codex showed in headless
+  Chromium that an empty host page with the guide's Option 1 header and the public bundle
+  already violates the policy. So the guide's Option 1, as I wrote it, did not work.
+- **Risk 2 (process dictionary) was real in one path I did not think of:** `nonce(conn, kind)`
+  fell back to the dictionary, so a connection without the assign could render an earlier
+  request's nonce. Codex and Gemini both found it.
+- **The lint test** could not see a tag whose `>` is on a later line (Mistral), nor tell HEEx
+  from a plain string (Gemini), which is why the theme toggle passed.
+
+### State of every finding
+
+| Finding | From | State |
+|---|---|---|
+| Literal `nonce={…}` in the theme toggle | Gemini 1 | **Fixed in this pass** (`CSP.attr(:style)`), render test + lint case added |
+| Styles the bundles create have no nonce | Gemini 2, Codex | Fixed by Grok (`adoptStyle`), **not re-run in a browser** |
+| Consent replacement script loses its nonce | Gemini 3, Codex | Fixed by Grok, not re-run in a browser |
+| `nonce(conn, kind)` borrows the process dictionary | Gemini 4, Codex | Fixed by Grok, two tests |
+| Table first paint would stamp CSS read from `localStorage` | Grok | Fixed by Grok, Node test locks the grammar |
+| Lint misses multi-line openings | Mistral 1, Gemini 6 | Fixed by Grok |
+| Generated dashboard `live_session` lacks the options | Mistral 2 | Fixed by Grok, no test |
+| `annotation_burn.test.cjs` failed after `adoptStyle` | — | **Fixed in this pass** (the test evaluates `burnCapturePlan` alone and did not supply the helper; two cases were red, so `mix precommit` was red on Grok's tree) |
+| Nested LiveViews (`live_render/3`) lose the nonce when connected | Gemini 5 | **Open** |
+| Fallback root layout does not load `phoenix_kit.js` | Codex | **Open** |
+| Hand-written pages use `nonce(:style)` where `conn` is at hand | Mistral 4, Gemini 7 | **Open** |
+| No doctor check (plug order, config shape) | Mistral 3, Gemini 7 | **Open** |
+| Delete the dictionary in a `before_send` | Gemini 4 | **Open**, optional now that `nonce/2` is strict |
+| Guide gaps (`style-src-attr` in the snippet, merging `session:`, other directives) | Gemini 8 | **Open**, partly covered by Grok's guide edit |
+| `copyTextFor` reads `.value` of `<li>` etc.; `blur` guard; consent/sweep tests | Gemini 9 | **Open** |
+| Lint: single-quoted handlers, mid-line tags, the other two bundles | Gemini 6 | **Open** |
+| `:phoenix_kit_csp_nonces` assign is unused | Gemini 9, Mistral | **Open**; I would drop it |
+
+### One disagreement between reviews
+
+Mistral wrote that the push, access and OAuth pages "sit under `:phoenix_kit_auto_setup`, so the
+process dictionary is set for them". Codex is right that this is not the reason:
+`phoenix_kit_auto_setup` only assigns `:inner_block`. The dictionary is set by
+`Plugs.Integration` in the host's `:browser` pipeline, which those routes also pass. The
+conclusion holds, the mechanism does not, and Gemini's suggestion (call `put_nonces/1` in
+`:phoenix_kit_auto_setup` as well) would make it true.
+
+### What I would do next, in order
+
+1. **A browser run before anything else.** Three bugs here (the bundle styles, the consent
+   script, the theme toggle) are invisible to every test in the repository and were found only
+   by a browser or by reading. Codex's fixture is the model.
+2. Nested LiveViews (Gemini 5). It is the remaining correctness bug on kit pages: the admin
+   header's widgets and the notifications bell are nested views on every admin page.
+3. `nonce(conn, :style)` on the hand-written pages plus `put_nonces/1` in
+   `:phoenix_kit_auto_setup`. Together they remove the plug-order requirement for everything
+   except the pages `Integration` itself halts on.
+4. The fallback root layout. Decide where the bundle is loaded first; loading it twice installs
+   the document listeners twice.
+5. The smaller items.
+
+### Verification of the combined tree (mine + Grok's + this pass)
+
+- `mix precommit`: failed on the two `annotation_burn` cases, passes the rest (compile, format,
+  credo, dialyzer). After the fix it passes in full, JS tests included.
+- `mix test` on the CSP files, the remember-me plug file, `route_precedence_test.exs` and all of
+  `test/phoenix_kit_web/components`: 1843 tests, 1 failure, `PeoplePickerTest` "is exported for
+  modules" (`function_exported?` before the module is loaded). It passes alone (16 of 16) and
+  touches nothing here.
+- Full `mix test`: not re-run on the combined tree.
+- Browser: none by me.

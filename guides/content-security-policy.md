@@ -82,11 +82,37 @@ choice, the decimal field's zero and the preview card's arrows to work.
 A handler you pass to a kit component yourself (`<.decimal_input onfocus="…">`) is rendered as
 you wrote it and is yours to allow.
 
+### Styles and scripts the bundle creates
+
+`phoenix_kit.js` and `phoenix_kit_admin.js` also insert `<style>` elements after the page has
+loaded: the fresco theme bridge (on every page that loads the public bundle), the consent
+widget's rules, the change cue, gallery chrome, and the rules a table uses to hide columns.
+A nonce policy drops a style element that has none. The bundle stamps the document's **style**
+nonce on the element before inserting it — the nonce of a `<style>` already on the page, or,
+when the page has none, the nonce of the `<script>` tag that loaded the bundle. With one nonce
+for both, as in the plug above, put that nonce on the tag:
+
+```heex
+<script defer nonce={assigns[:csp_nonce]} src={~p"/assets/vendor/phoenix_kit.js"}></script>
+```
+
+A host page that has neither a nonced `<style>` nor a nonce on that script tag still blocks
+those rules. When the two nonces differ, a `<style>` already on the page is what the bundle
+reads; it does not reuse the script nonce in that case.
+
+A script the consent widget releases, once its category is accepted, keeps the nonce of the
+tag it replaces. The browser does not put that nonce in the attribute list, so copying the
+attributes is not enough.
+
+The table's first paint does not replay a stylesheet it stored. It rebuilds the rules from the
+column numbers and only then gives them the nonce. Text kept in the browser is not made an
+allowed stylesheet by the page holding a nonce.
+
 ### What a nonce does not cover
 
-- **Inline `style="…"` attributes.** The kit uses them (and so does the cookie-consent widget,
-  which also adds a `<style>` from script): `style-src-attr 'unsafe-inline'`, or
-  `style-src 'unsafe-inline'` if you do not split the directive.
+- **Inline `style="…"` attributes.** The kit uses them, and so does the cookie-consent widget
+  (its `<style>` element is nonced; the attributes on its buttons are not): `style-src-attr
+  'unsafe-inline'`, or `style-src 'unsafe-inline'` if you do not split the directive.
 - **The HTML sitemap and the public API guide.** They are cached and the same for everyone, so
   they carry no nonce. Their inline style is a constant.
 - **Libraries fetched from a CDN** by some components. See

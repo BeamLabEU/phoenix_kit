@@ -8,6 +8,9 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("fs");
+const path = require("path");
+const vm = require("vm");
 
 const noop = () => {};
 
@@ -154,4 +157,121 @@ test("the dropped-column count stays visible when the last headers are dropped",
 test("there is no badge target if every header is dropped", () => {
   const css = fitHideCss("t-fit", [col(1, 1)], 1);
   assert.ok(!css.includes("::before"));
+});
+
+// The first paint cannot call fitHideCss: its script runs as the table is
+// parsed, before phoenix_kit_admin.js. It is a second copy of that grammar.
+// Running the copy is what keeps the two from drifting, and what proves a
+// stylesheet string remembered in localStorage is never inserted.
+function firstPaintScript() {
+  const src = fs.readFileSync(
+    path.join(__dirname, "../../lib/phoenix_kit_web/components/core/table_default.ex"),
+    "utf8"
+  );
+  const from = src.indexOf("defp fit_restore");
+  const slice = src.slice(from);
+  const open = slice.indexOf("<script");
+  const bodyAt = slice.indexOf(">", open) + 1;
+  const bodyEnd = slice.indexOf("</script>", bodyAt);
+  assert.ok(from !== -1 && open !== -1 && bodyEnd !== -1, "fit_restore script is in table_default.ex");
+  return slice.slice(bodyAt, bodyEnd);
+}
+
+function runFirstPaint({ id, headers, saved, styleNonce, scriptNonce }) {
+  const styles = [];
+  const document = {
+    currentScript: {
+      previousElementSibling: {
+        id,
+        querySelector(sel) {
+          assert.equal(sel, ":scope > table > thead > tr");
+          return {
+            children: headers.map((h) => ({
+              colSpan: h.colSpan || 1,
+              dataset: h.priority === undefined ? {} : { colPriority: h.priority },
+            })),
+          };
+        },
+      },
+      nonce: scriptNonce || "",
+    },
+    head: { appendChild(el) { styles.push(el); return el; } },
+    getElementsByTagName(tag) {
+      return tag === "style" && styleNonce ? [{ nonce: styleNonce }] : [];
+    },
+    createElement(tag) {
+      assert.equal(tag, "style");
+      return {
+        nonce: "",
+        textContent: "",
+        setAttribute(name, value) { this[name] = value; },
+      };
+    },
+  };
+  const context = vm.createContext({
+    document,
+    localStorage: {
+      getItem(key) {
+        assert.equal(key, "phoenix_kit:table-fit:" + id);
+        return saved == null ? null : JSON.stringify(saved);
+      },
+    },
+    window: {},
+  });
+  vm.runInContext(firstPaintScript(), context);
+  return styles;
+}
+
+test("the first-paint script rebuilds fitHideCss and stamps the style nonce", () => {
+  const id = "a.b:c-fit";
+  const headers = [{ colSpan: 2 }, { colSpan: 1, priority: "1" }, { colSpan: 1, priority: "2" }];
+  const cols = [{ index: 3, head: 2 }];
+  const styles = runFirstPaint({
+    id,
+    headers,
+    styleNonce: "style-only",
+    scriptNonce: "script-only",
+    saved: {
+      sig: fitSignature(headers),
+      cols,
+      headerCount: headers.length,
+      css: "body{background:url(https://evil.example/x)}",
+    },
+  });
+  assert.equal(styles.length, 1);
+  assert.equal(styles[0].textContent, fitHideCss(id, cols, headers.length));
+  assert.equal(styles[0].nonce, "style-only");
+  assert.equal(styles[0]["data-pk-table-fit"], id);
+  assert.ok(!styles[0].textContent.includes("evil"));
+});
+
+test("the first-paint script uses the loading script's nonce when no style has one", () => {
+  const headers = [{ colSpan: 1, priority: "1" }, { colSpan: 1 }];
+  const cols = [{ index: 1, head: 1 }];
+  const styles = runFirstPaint({
+    id: "people-fit",
+    headers,
+    scriptNonce: "shared",
+    saved: { sig: fitSignature(headers), cols, headerCount: headers.length },
+  });
+  assert.equal(styles.length, 1);
+  assert.equal(styles[0].nonce, "shared");
+  assert.equal(styles[0].textContent, fitHideCss("people-fit", cols, headers.length));
+});
+
+test("the first-paint script inserts nothing it did not rebuild from column numbers", () => {
+  const headers = [{ colSpan: 1, priority: "1" }, { colSpan: 1, priority: "2" }];
+  const sig = fitSignature(headers);
+  const id = "people-fit";
+  const rejected = [
+    null,
+    { sig, css: "body{color:red}" },
+    { sig, cols: [{ index: "2);color:red", head: 2 }], headerCount: 2 },
+    { sig, cols: [{ index: 2, head: 2 }], headerCount: 2.5 },
+    { sig: "other", cols: [{ index: 2, head: 2 }], headerCount: 2 },
+    { sig, cols: [], headerCount: 2 },
+  ];
+  for (const saved of rejected) {
+    assert.deepEqual(runFirstPaint({ id, headers, saved, scriptNonce: "shared" }), []);
+  }
 });

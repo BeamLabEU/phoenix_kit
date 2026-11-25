@@ -34,6 +34,12 @@
     throw new Error("[PhoenixKit] phoenix_kit_admin.js and phoenix_kit.js are from different PhoenixKit versions");
   }
 
+  // Before the element is inserted. Missing on a public bundle from before it
+  // existed: the style is then unnonced, which is what that bundle already did.
+  function adoptStyle(el) {
+    if (PK.adoptStyle) PK.adoptStyle(el);
+  }
+
   window.PhoenixKitAdminHooks = window.PhoenixKitAdminHooks || {};
 
   // Shared with phoenix_kit.js.
@@ -82,6 +88,7 @@
       stylesInjected = true;
 
       var style = document.createElement("style");
+      adoptStyle(style);
       style.textContent = [
         ".sortable-ghost { opacity: 0.5; }",
         ".sortable-chosen { outline: 2px solid oklch(var(--p)); outline-offset: 2px; }",
@@ -2431,6 +2438,7 @@
     // of fading — and a text that happened to be selected when the session
     // ended was stored with its blue selection box drawn round it.
     var stillStyle = document.createElement("style");
+    adoptStyle(stillStyle);
     stillStyle.textContent = ".pk-burn-still, .pk-burn-still * { transition: none !important; }";
     document.head.appendChild(stillStyle);
     svg.classList.add("pk-burn-still");
@@ -3899,6 +3907,7 @@
           if (el.getAttribute("data-pk-table-fit") === this.el.id) el.remove();
         });
       this.styleEl = document.createElement("style");
+      adoptStyle(this.styleEl);
       this.styleEl.setAttribute("data-pk-table-fit", this.el.id);
       document.head.appendChild(this.styleEl);
       this.lastWidth = -1;
@@ -3953,9 +3962,17 @@
       try {
         const key = "phoenix_kit:table-fit:" + this.el.id;
         if (hidden.length > 0) {
+          // Column numbers, not the stylesheet text. The first-paint script
+          // rebuilds the rules and only then gives them the page's nonce:
+          // text kept in localStorage must not become an allowed stylesheet
+          // just because this page holds a nonce.
           localStorage.setItem(
             key,
-            JSON.stringify({ sig: fitSignature(headers), css: this.styleEl.textContent })
+            JSON.stringify({
+              sig: fitSignature(headers),
+              cols: hidden.map((c) => ({ index: c.index, head: c.head })),
+              headerCount: headers.length
+            })
           );
         } else {
           localStorage.removeItem(key);
@@ -5942,6 +5959,7 @@
     if (document.getElementById("pk-gallery-css")) return;
     var css = document.createElement("style");
     css.id = "pk-gallery-css";
+    adoptStyle(css);
     css.textContent = GALLERY_GRID_CSS;
     (document.head || document.documentElement).appendChild(css);
   }

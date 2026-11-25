@@ -233,7 +233,11 @@ test("a size budget keeps the public file public", () => {
   // the markup works under a Content-Security-Policy without 'unsafe-inline';
   // the components render on any page, and the consent widget's buttons are
   // public too. 341 670 B, so 336 KiB = 344 064 B leaves ~2.3 KB).
-  assert.ok(publicBytes < 336 * 1024, "phoenix_kit.js is " + publicBytes + " bytes");
+  // -> 340 (styles and scripts the bundle creates take the page's CSP nonce:
+  // adoptStyle, the consent widget's stylesheet moved out of the HTML string,
+  // and the approved script keeping its nonce. 343 780 B, so 340 KiB =
+  // 348 160 B leaves ~4.3 KB).
+  assert.ok(publicBytes < 340 * 1024, "phoenix_kit.js is " + publicBytes + " bytes");
   assert.ok(adminBytes > publicBytes / 2, "the admin file is where the weight went");
 });
 
@@ -624,6 +628,23 @@ test("and none when the loading script had none", () => {
   makeHook(env.window.PhoenixKitHooks.SortableGrid).mounted();
 
   assert.ok(!env.scripts[0].nonce);
+});
+
+test("a style the bundle creates takes a style nonce already on the page", () => {
+  const env = createEnv({ facts: FACTS });
+  env.load("phoenix_kit.js", { src: "https://app.test/assets/vendor/phoenix_kit.js", nonce: "script-only" });
+  env.document.getElementsByTagName = (tag) => (tag === "style" ? [{ nonce: "style-only" }] : []);
+  const el = env.document.createElement("style");
+  env.window.PhoenixKitInternals.adoptStyle(el);
+  assert.equal(el.nonce, "style-only");
+});
+
+test("and the loading script's nonce when the page has no style nonce", () => {
+  const env = createEnv({ facts: FACTS });
+  env.load("phoenix_kit.js", { src: "https://app.test/assets/vendor/phoenix_kit.js", nonce: "shared" });
+  const el = env.document.createElement("style");
+  env.window.PhoenixKitInternals.adoptStyle(el);
+  assert.equal(el.nonce, "shared");
 });
 
 // ── Hooks a module lists vs hooks its bundle exports ───────────────────────

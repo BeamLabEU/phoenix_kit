@@ -40,6 +40,17 @@
 
 ### Fixed
 
+- **Styles and scripts the kit's JavaScript inserts can carry the page's Content-Security-Policy nonce.**
+  A `<style>` created by `phoenix_kit.js` or `phoenix_kit_admin.js` takes the document's style
+  nonce before it is inserted, or the loading script's nonce when the page uses one nonce for
+  both and put it on that script tag. A script the consent widget approves keeps the nonce of
+  the tag it replaces (the browser hides it from the attribute list). The table's first paint
+  rebuilds its column rules from the stored column numbers, so a stylesheet string in browser
+  storage is never given the page's nonce. `PhoenixKitWeb.CSP.nonce/2` reads the connection it
+  is given and nothing else: a nonce left in the process by an earlier request cannot land on
+  the next one. The `live_session` printed by `mix phoenix_kit.gen.user.dashboard` carries the
+  nonce into the socket. The check for an inline tag without a nonce sees a tag that closes on
+  a later line.
 - **PhoenixKit no longer writes an inline script into the host's own pages.**
   `PhoenixKitWeb.Plugs.Integration` put a `<script>` after `<head>` on every HTML response of the
   `:browser` pipeline, which a `script-src` policy without `'unsafe-inline'` blocked on every page

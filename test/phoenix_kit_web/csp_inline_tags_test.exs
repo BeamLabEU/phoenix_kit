@@ -12,21 +12,60 @@ defmodule PhoenixKitWeb.CSPInlineTagsTest do
     "lib/phoenix_kit/api/public_discovery/guide_html.ex"
   ]
 
-  @opening ~r/^\s*"?<(script|style)\b([^>]*)>/
+  # The opening tag may close on a later line (`<script` … `>`). A check that
+  # requires `>` on the same line never sees that tag.
+  @tag_open ~r/^\s*"?<(script|style)\b/
 
   test "no inline <script> or <style> in lib/ is written without a nonce" do
     offenders =
       for path <- Path.wildcard("lib/**/*.{ex,heex}"),
           path not in @exempt,
-          {line, number} <- path |> File.read!() |> code_lines(),
-          [_, _kind, attrs] <- [Regex.run(@opening, line)],
-          not String.contains?(attrs, "src="),
-          not (line =~ "CSP.nonce(" or line =~ "CSP.attr("),
+          {text, number} <- tag_openings(path),
+          opening = opening_only(text),
+          not String.contains?(opening, "src="),
+          not (opening =~ "CSP.nonce(" or opening =~ "CSP.attr("),
           do: "#{path}:#{number}"
 
     assert offenders == [],
            "inline tags without `nonce={PhoenixKitWeb.CSP.nonce(kind)}`:\n" <>
              Enum.join(offenders, "\n")
+  end
+
+  test "a tag that closes on a later line is still seen" do
+    openings = tag_openings("lib/phoenix_kit_web/components/layouts/root.html.heex")
+
+    assert Enum.any?(openings, fn {text, _number} ->
+             opening = opening_only(text)
+             opening =~ "<script" and opening =~ "defer" and opening =~ "src="
+           end)
+  end
+
+  # `nonce={…}` is HEEx. In a plain string it is rendered as written, a literal
+  # attribute the browser cannot match (the theme toggle shipped that way once).
+  test "a `nonce={…}` attribute in an .ex file sits inside a ~H template" do
+    offenders =
+      for path <- Path.wildcard("lib/**/*.ex"),
+          lines = path |> File.read!() |> code_lines(),
+          {line, number} <- lines,
+          line =~ "nonce={PhoenixKitWeb.CSP",
+          not in_heex?(lines, number),
+          do: "#{path}:#{number}"
+
+    assert offenders == [],
+           "write `<style\#{PhoenixKitWeb.CSP.attr(:style)}>` in a plain string:\n" <>
+             Enum.join(offenders, "\n")
+  end
+
+  # The nearest heredoc opener above the line is a `~H`.
+  defp in_heex?(lines, number) do
+    lines
+    |> Enum.take(number - 1)
+    |> Enum.reverse()
+    |> Enum.find(fn {line, _} -> line =~ ~s(""") end)
+    |> case do
+      {opener, _} -> opener =~ ~s(~H""")
+      nil -> false
+    end
   end
 
   @handler ~r/\son[a-z]+=["{]/
@@ -57,6 +96,44 @@ defmodule PhoenixKitWeb.CSPInlineTagsTest do
           do: "#{file}:#{number}"
 
     assert offenders == [], Enum.join(offenders, "\n")
+  end
+
+  defp tag_openings(path) do
+    path |> File.read!() |> code_lines() |> accumulate_tags([])
+  end
+
+  defp accumulate_tags([], acc), do: Enum.reverse(acc)
+
+  defp accumulate_tags([{line, number} | rest], acc) do
+    if Regex.match?(@tag_open, line) do
+      {text, rest} = take_tag(line, rest)
+      accumulate_tags(rest, [{text, number} | acc])
+    else
+      accumulate_tags(rest, acc)
+    end
+  end
+
+  # The first `>` ends the opening tag. What follows on that line is the body.
+  defp take_tag(line, rest) do
+    if String.contains?(line, ">") do
+      {line, rest}
+    else
+      case rest do
+        [{next, _} | rest] ->
+          {more, rest} = take_tag(next, rest)
+          {line <> "\n" <> more, rest}
+
+        [] ->
+          {line, []}
+      end
+    end
+  end
+
+  defp opening_only(text) do
+    case String.split(text, ">", parts: 2) do
+      [open, _] -> open
+      [open] -> open
+    end
   end
 
   # Lines of the file with `@moduledoc`/`@doc` heredocs blanked: a tag in documentation is an
