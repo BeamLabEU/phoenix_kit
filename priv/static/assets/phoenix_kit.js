@@ -320,6 +320,20 @@
       style.textContent = ".pk-person-pop::backdrop{background:transparent}";
       pop.appendChild(style);
       wireClose(pop, pop.querySelector("[data-pk-pop-body]"));
+      // A scroll anywhere (the chip's own container too, so capture): the
+      // card follows its chip, and closes once the chip has left the view.
+      document.addEventListener("scroll", followAnchor, { capture: true, passive: true });
+    }
+
+    function followAnchor() {
+      if (!pop || !pop.open || !anchorEl) return;
+      if (!anchorEl.isConnected) return pop.close();
+      var r = anchorEl.getBoundingClientRect();
+      if (r.bottom < 0 || r.top > window.innerHeight || r.right < 0 || r.left > window.innerWidth) {
+        pop.close();
+      } else {
+        place(anchorEl);
+      }
     }
 
     // Below the chip when it fits, else above; left edge on the chip's,
@@ -333,9 +347,13 @@
         pop.style.right = "0.5rem";
         pop.style.top = "auto";
         pop.style.bottom = "0.5rem";
-        box.style.width = "auto";
+        // A modal dialog is width: fit-content in the browser's own styles,
+        // which beat left/right: the sheet was 173 px wide (grok).
+        pop.style.width = "calc(100vw - 1rem)";
+        box.style.width = "100%";
         return;
       }
+      pop.style.width = "";
       box.style.width = "";
       pop.style.right = "auto";
       pop.style.bottom = "auto";
@@ -5789,14 +5807,16 @@
   // What phoenix_kit_admin.js reads from this file. Not an API: it is the
   // closure this file's own helpers live in, handed to the one file that was
   // cut out of it.
-  window.PhoenixKitInternals = {
+  // Merged, never replaced: the person card put its openers here earlier in
+  // this file, and a fresh object wiped them (grok, 2026-11-25).
+  window.PhoenixKitInternals = Object.assign(window.PhoenixKitInternals || {}, {
     adminHookNames: ADMIN_HOOKS,
     lazyHook: lazyHook,
     loadChartJs: loadChartJs,
     loadVendored: loadVendored,
     pkLoaders: pkLoaders,
     sidebarScroll: SIDEBAR_SCROLL
-  };
+  });
 
 
 

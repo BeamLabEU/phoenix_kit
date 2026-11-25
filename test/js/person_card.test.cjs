@@ -54,6 +54,7 @@ function el(tag) {
 
 const docListeners = [];
 const keyListeners = [];
+const scrollListeners = [];
 
 global.document = {
   documentElement: { getAttribute: (k) => (k === "lang" ? "et" : null) },
@@ -67,6 +68,7 @@ global.document = {
   addEventListener(type, fn, capture) {
     if (type === "click" && capture === true) docListeners.push(fn);
     if (type === "keydown" && capture === true) keyListeners.push(fn);
+    if (type === "scroll" && capture && capture.capture === true) scrollListeners.push(fn);
   },
   removeEventListener: noop,
   readyState: "complete",
@@ -222,4 +224,48 @@ test("a close event that arrives after the card reopened does not empty it", asy
   assert.equal(pop.open, true);
   (pop.listeners.close || []).forEach((fn) => fn({}));
   assert.equal(body.innerHTML, "<p>card</p>");
+});
+
+test("the openers survive the rest of the file: PhoenixKitInternals is merged, not replaced", () => {
+  const internals = global.window.PhoenixKitInternals;
+  assert.equal(typeof internals.openPersonCard, "function");
+  assert.equal(typeof internals.openPeopleDrawer, "function");
+  assert.equal(typeof internals.openPersonDrawer, "function");
+  // …and the admin file's own entries, set later in the same file.
+  assert.ok(Array.isArray(internals.adminHookNames));
+});
+
+test("under 640 px the card is a sheet as wide as the screen", async () => {
+  global.window.innerWidth = 500;
+  try {
+    const c = chip("n-1");
+    click({ "[data-mention-user]": c });
+    const pop = lastDialog("pk-person-pop");
+    assert.equal(pop.style.width, "calc(100vw - 1rem)");
+    assert.equal(pop.style.bottom, "0.5rem");
+  } finally {
+    global.window.innerWidth = 1280;
+  }
+  // Back on a wide screen the explicit width goes again.
+  const c2 = chip("n-2");
+  click({ "[data-mention-user]": c2 });
+  assert.equal(lastDialog("pk-person-pop").style.width, "");
+});
+
+test("the card follows its chip on scroll and closes when the chip leaves the view", async () => {
+  const c = chip("s-1", { href: "/admin/users/view/s-1" });
+  click({ "[data-mention-user]": c });
+  const pop = lastDialog("pk-person-pop");
+  assert.ok(scrollListeners.length > 0);
+
+  // The chip's container scrolled: the card moves with it.
+  c.getBoundingClientRect = () => ({ top: 300, bottom: 324, left: 200, right: 260 });
+  scrollListeners.forEach((fn) => fn({}));
+  assert.equal(pop.style.top, "330px");
+  assert.equal(pop.open, true);
+
+  // Scrolled out of view: closed.
+  c.getBoundingClientRect = () => ({ top: -80, bottom: -56, left: 200, right: 260 });
+  scrollListeners.forEach((fn) => fn({}));
+  assert.equal(pop.open, false);
 });
