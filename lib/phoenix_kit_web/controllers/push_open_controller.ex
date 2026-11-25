@@ -118,11 +118,16 @@ defmodule PhoenixKitWeb.PushOpenController do
 
   # A summary opens the inbox for someone who may open it; anything else
   # opens the notification's own page (a path on this site only), else the
-  # site's home.
+  # site's home. The inbox is a personal page: the admin area is the whole
+  # gate (the same question its own mount asks), not the `notifications`
+  # permission, which is the administrative all-users view.
   defp destination(scope, %{summary?: true} = opened) do
-    if Scope.can?(scope, "notifications"),
-      do: Routes.path("/admin/notifications"),
-      else: opened.link || Routes.path("/")
+    if WebAuth.can_access_admin_view?(
+         scope,
+         PhoenixKitWeb.Live.Notifications.Inbox
+       ) and PhoenixKit.Notifications.enabled?(),
+       do: Routes.path("/admin/notifications"),
+       else: opened.link || Routes.path("/")
   end
 
   defp destination(_scope, opened), do: opened.link || Routes.path("/")

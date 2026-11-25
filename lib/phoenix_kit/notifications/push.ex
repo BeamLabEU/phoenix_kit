@@ -706,7 +706,14 @@ defmodule PhoenixKit.Notifications.Push do
 
   def same_site_link(_), do: nil
 
+  # The fragment is kept: a mention's link ends in `#pk-comment-<uuid>`, the
+  # anchor the comment thread scrolls to; without it a push opened the record
+  # at its top.
   defp path_of(%URI{path: nil}), do: nil
-  defp path_of(%URI{path: path, query: nil}), do: path
-  defp path_of(%URI{path: path, query: query}), do: path <> "?" <> query
+
+  defp path_of(%URI{path: path, query: query, fragment: fragment}) do
+    path
+    |> then(&if(is_binary(query), do: &1 <> "?" <> query, else: &1))
+    |> then(&if(is_binary(fragment) and fragment != "", do: &1 <> "#" <> fragment, else: &1))
+  end
 end
