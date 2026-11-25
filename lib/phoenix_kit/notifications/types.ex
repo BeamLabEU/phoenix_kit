@@ -389,7 +389,10 @@ defmodule PhoenixKit.Notifications.Types do
         description: gettext_noop("When someone mentions you with @"),
         example: gettext_noop("Max wrote “@Anna, can you check this?” in a comment."),
         actions: ["mention.created"],
-        default: true
+        default: true,
+        # Asked again at delivery: a queued email or push to someone who lost
+        # access in between carries the line, not the quote.
+        visible: {PhoenixKit.Mentions, :still_visible?}
       }
     ]
   end

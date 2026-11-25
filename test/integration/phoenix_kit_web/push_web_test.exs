@@ -149,6 +149,33 @@ defmodule PhoenixKitWeb.PushWebTest do
       assert redirected_to(conn) == "/admin/projects?x=1"
     end
 
+    test "a summary opens the inbox for anyone in the admin area, no grant needed", %{
+      conn: conn
+    } do
+      # The inbox is personal: the admin area is its whole gate. One unrelated
+      # permission puts this account there; it holds no `notifications` key.
+      user = user!()
+
+      {:ok, role} =
+        PhoenixKit.Users.Roles.create_role(%{name: "Push #{System.unique_integer([:positive])}"})
+
+      {:ok, _} = PhoenixKit.Users.Permissions.grant_permission(role.uuid, "media")
+      {:ok, _} = PhoenixKit.Users.Roles.assign_role(user, role.name)
+
+      conn = conn |> login(user) |> get(open_path(handle(user.uuid, "/admin/projects?x=1", true)))
+      assert redirected_to(conn) == Routes.path("/admin/notifications")
+
+      # Outside the admin area there is no inbox to open: the notice's own link.
+      plain = user!()
+
+      conn =
+        build_conn()
+        |> login(plain)
+        |> get(open_path(handle(plain.uuid, "/admin/projects?x=1", true)))
+
+      assert redirected_to(conn) == "/admin/projects?x=1"
+    end
+
     test "anyone else gets one page that names no one", %{conn: conn} do
       owner = user!()
       stranger = user!()

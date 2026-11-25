@@ -62,7 +62,13 @@ defmodule PhoenixKit.Mentions.Token do
   @uuid "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
   @label "[^\\]|]{1,120}"
 
-  @pattern ~r/(?<esc>\\?)(?<trigger>[@#])\[(?<type>[a-z][a-z0-9_]*):(?<uuid>#{@uuid})\|(?<label>#{@label})\]/
+  # Unicode mode: `{1,120}` counts characters (codepoints), as `to_string/4`
+  # cuts the label. Without it the count was in BYTES, so a picked name of 61
+  # two-byte letters ("Õ…") was built into a token the parser then refused,
+  # and the mention was stored as text and pinged nobody. Text that is not
+  # valid UTF-8 (which `/u` refuses to scan) is read with the byte form.
+  @pattern ~r/(?<esc>\\?)(?<trigger>[@#])\[(?<type>[a-z][a-z0-9_]*):(?<uuid>#{@uuid})\|(?<label>#{@label})\]/u
+  @byte_pattern ~r/(?<esc>\\?)(?<trigger>[@#])\[(?<type>[a-z][a-z0-9_]*):(?<uuid>#{@uuid})\|(?<label>#{@label})\]/
 
   @max_label 120
 
@@ -82,7 +88,8 @@ defmodule PhoenixKit.Mentions.Token do
   """
   @spec parse(String.t() | nil) :: [t()]
   def parse(text) when is_binary(text) do
-    @pattern
+    text
+    |> pattern_for()
     |> Regex.scan(text, capture: :all_names)
     |> Enum.flat_map(fn captures ->
       # capture: :all_names returns groups sorted by name — esc, label, trigger,
@@ -107,7 +114,15 @@ defmodule PhoenixKit.Mentions.Token do
   """
   @spec to_string(kind(), String.t(), String.t(), String.t()) :: {:ok, String.t()} | :error
   def to_string(kind, type, uuid, label) do
-    label = label |> Kernel.to_string() |> String.trim() |> String.slice(0, @max_label)
+    # Cut in codepoints, the unit the parser counts.
+    label =
+      label
+      |> Kernel.to_string()
+      |> String.trim()
+      |> String.codepoints()
+      |> Enum.take(@max_label)
+      |> Enum.join()
+
     trigger = if kind == :user, do: "@", else: "#"
 
     cond do
@@ -128,19 +143,21 @@ defmodule PhoenixKit.Mentions.Token do
   """
   @spec split(String.t() | nil) :: [String.t() | t()]
   def split(text) when is_binary(text) do
-    @pattern
+    pattern = pattern_for(text)
+
+    pattern
     |> Regex.split(text, include_captures: true, trim: false)
-    |> Enum.flat_map(&split_piece/1)
+    |> Enum.flat_map(&split_piece(&1, pattern))
   end
 
   def split(_), do: []
 
-  defp split_piece("") do
+  defp split_piece("", _pattern) do
     []
   end
 
-  defp split_piece(piece) do
-    case Regex.run(@pattern, piece, capture: :all_names) do
+  defp split_piece(piece, pattern) do
+    case Regex.run(pattern, piece, capture: :all_names) do
       nil ->
         [piece]
 
@@ -183,4 +200,6 @@ defmodule PhoenixKit.Mentions.Token do
       piece -> piece
     end)
   end
+
+  defp pattern_for(text), do: if(String.valid?(text), do: @pattern, else: @byte_pattern)
 end
