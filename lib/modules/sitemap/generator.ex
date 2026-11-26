@@ -585,17 +585,39 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
   # write: a source that shrank from three files to two, or switched between
   # one file and several, left the others on disk — and index mode serves
   # every module file there is.
+  #
+  # A file that is another known source's own bare file is left alone: a host
+  # source may name itself `products-2` (`source_name/0` is any atom and
+  # `sitemap_filename/0` any string), and its `sitemap-products-2.xml` has the
+  # shape of `sitemap-products`'s second chunk. Without the guard, `products`
+  # shrinking to one file deleted the other source's sitemap.
   defp delete_other_files(filename, infos) do
     written = MapSet.new(infos, & &1.filename)
     numbered = ~r/^#{Regex.escape(filename)}-\d+$/
+    others = MapSet.delete(known_source_filenames(), filename)
 
     for file <- FileStorage.list_module_files(),
         file == filename or Regex.match?(numbered, file),
-        not MapSet.member?(written, file) do
+        not MapSet.member?(written, file),
+        not MapSet.member?(others, file) do
       FileStorage.delete_module(file)
     end
 
     :ok
+  end
+
+  # The base filename of every configured source; one whose callbacks raise
+  # names nothing.
+  defp known_source_filenames do
+    get_sources()
+    |> Enum.flat_map(&source_filename/1)
+    |> MapSet.new()
+  end
+
+  defp source_filename(source) do
+    if Source.valid_source?(source), do: [Source.get_sitemap_filename(source)], else: []
+  rescue
+    _ -> []
   end
 
   # Collect entries for a single source using multilingual collection

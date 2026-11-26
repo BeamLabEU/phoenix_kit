@@ -91,6 +91,19 @@ defmodule PhoenixKit.Modules.Sitemap.StreamingSourceTest do
     def collect(_opts), do: [UrlEntry.new(%{loc: "https://example.test/collected"})]
   end
 
+  # A host source whose name has the shape of CollectSource's second chunk.
+  defmodule CollectSourceTwo do
+    @moduledoc false
+    @behaviour Source
+
+    @impl true
+    def source_name, do: :"stream_test_collect-2"
+    @impl true
+    def enabled?, do: true
+    @impl true
+    def collect(_opts), do: [UrlEntry.new(%{loc: "https://example.test/collected-2"})]
+  end
+
   defmodule BrokenStreamCall do
     @moduledoc false
     @behaviour Source
@@ -267,6 +280,33 @@ defmodule PhoenixKit.Modules.Sitemap.StreamingSourceTest do
                FileStorage.list_module_files(),
                &String.starts_with?(&1, "sitemap-stream_test_collect")
              ) == ["sitemap-stream_test_collect"]
+    end
+
+    # `sitemap-stream_test_collect-2` is both CollectSource's second chunk and
+    # CollectSourceTwo's own file; the cleanup used to delete the latter.
+    test "the cleanup keeps another known source's file of the numbered shape" do
+      sitemap = Application.get_env(:phoenix_kit, :sitemap)
+
+      Application.put_env(:phoenix_kit, :sitemap,
+        sources: [CollectSource, CollectSourceTwo],
+        extra_sources: []
+      )
+
+      try do
+        FileStorage.save_module("sitemap-stream_test_collect-3", "<urlset/>")
+        assert [_] = Generator.generate_module(CollectSourceTwo, xsl_enabled: false)
+        assert [_] = Generator.generate_module(CollectSource, xsl_enabled: false)
+
+        assert Enum.filter(
+                 FileStorage.list_module_files(),
+                 &String.starts_with?(&1, "sitemap-stream_test_collect")
+               )
+               |> Enum.sort() == ["sitemap-stream_test_collect", "sitemap-stream_test_collect-2"]
+      after
+        if sitemap,
+          do: Application.put_env(:phoenix_kit, :sitemap, sitemap),
+          else: Application.delete_env(:phoenix_kit, :sitemap)
+      end
     end
 
     test "duplicate locs within a chunk are dropped, stream order is kept" do
