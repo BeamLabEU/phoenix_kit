@@ -82,6 +82,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       Deprecations,
       EncryptionKeyConfig,
       EndpointIntegration,
+      IgniterHelpers,
       JsIntegration,
       LayoutConfig,
       MailerConfig,
@@ -154,6 +155,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       |> MigrationStrategy.create_phoenix_kit_migration_only(opts)
       |> add_completion_notice(opts)
       |> queue_post_install(opts)
+      |> IgniterHelpers.tidy_messages()
     end
 
     # The migration prompt and asset rebuild have to happen AFTER the file

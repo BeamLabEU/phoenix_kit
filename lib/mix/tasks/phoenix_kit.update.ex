@@ -212,6 +212,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         |> EndpointIntegration.add_pdfjs_static_mount()
         |> EndpointIntegration.add_body_guard()
         |> perform_igniter_update(opts)
+        |> IgniterHelpers.tidy_messages()
       end
     end
 

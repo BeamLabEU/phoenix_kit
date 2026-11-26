@@ -45,6 +45,35 @@ if Code.ensure_loaded?(Igniter) do
     def dry_run?(_igniter), do: false
 
     @doc """
+    Trims the blank lines around every notice, warning and issue.
+
+    Igniter prints each one as `"* " <> message`, so a message written as a
+    heredoc that starts with an empty line (most of the kit's do) came out as
+    a bare `* ` bullet with the text on the lines below it. Run last in a
+    task's `igniter/1`. Non-string entries (an exception as a warning) are
+    left as they are; messages that become identical are kept once.
+    """
+    @spec tidy_messages(Igniter.t()) :: Igniter.t()
+    def tidy_messages(igniter) do
+      %{
+        igniter
+        | notices: tidy_list(igniter.notices),
+          warnings: tidy_list(igniter.warnings),
+          issues: tidy_list(igniter.issues)
+      }
+    end
+
+    defp tidy_list(messages) do
+      messages
+      |> Enum.map(fn
+        message when is_binary(message) -> String.trim(message)
+        other -> other
+      end)
+      |> Enum.reject(&(&1 == ""))
+      |> Enum.uniq()
+    end
+
+    @doc """
     Gets the parent application name (atom) from the Igniter project.
 
     Uses Igniter's application detection to determine the OTP application name.
