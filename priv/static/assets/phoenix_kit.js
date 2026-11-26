@@ -9205,6 +9205,8 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
         // A click, not a drag: keep what was there.
         if (rect.w < 0.5 || rect.h < 0.5) { self._showCrop(self._state.crop); return; }
         self._setCrop(rect);
+        // A new crop is a new edit: a smaller one may encode where the last failed.
+        self._failed(false);
       };
       frame.addEventListener("pointerup", end);
       frame.addEventListener("pointercancel", function () {

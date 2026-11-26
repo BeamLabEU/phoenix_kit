@@ -307,13 +307,20 @@ function fakeEditor({ multiple = true, accept = null } = {}) {
     apply: button("data-pk-edit-apply"),
   };
   const message = { hidden: true, textContent: "" };
+  const frameListeners = {};
+  const frame = {
+    addEventListener(t, fn) { frameListeners[t] = fn; },
+    setAttribute: noop,
+    setPointerCapture: noop,
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: 100, height: 100 }),
+  };
   const parts = {
     "[data-pk-edit-canvas]": fakeCanvas(),
     "[data-pk-edit-crop]": { hidden: true, style: {} },
     "[data-pk-edit-name]": { textContent: "" },
     "[data-pk-edit-progress]": { textContent: "" },
     "[data-pk-edit-error]": message,
-    "[data-pk-edit-frame]": { addEventListener: noop, setAttribute: noop },
+    "[data-pk-edit-frame]": frame,
   };
   const dialog = {
     open: false,
@@ -341,7 +348,13 @@ function fakeEditor({ multiple = true, accept = null } = {}) {
   // Clicking a disabled button does nothing in a browser; the hook must also
   // refuse it when a click gets through (a stale event, a script).
   const forcePress = (b) => dlgListeners.click({ target: { closest: () => b }, preventDefault: noop });
-  return { hook, input, uploads, pick, press, forcePress, buttons, dialog, message };
+  // Drag a crop across the frame, in percent of its 100x100 box.
+  const drag = (x0, y0, x1, y1) => {
+    const ev = (x, y) => ({ clientX: x, clientY: y, button: 0, pointerId: 1, preventDefault: noop });
+    frameListeners.pointerdown(ev(x0, y0));
+    frameListeners.pointerup(ev(x1, y1));
+  };
+  return { hook, input, uploads, pick, press, forcePress, buttons, dialog, message, drag };
 }
 
 test("the next photo cannot be confirmed before its preview has loaded", () => {
@@ -429,6 +442,22 @@ test("an edit the browser cannot save is reported, not swapped for the original"
   e.press(e.buttons.original);
   assert.deepEqual(e.uploads, [["photos", [a]]]);
   assert.equal(e.message.hidden, true);
+});
+
+test("a new crop after a failed save clears the message and brings Upload back", () => {
+  images.length = 0;
+  const e = fakeEditor();
+  e.pick({ name: "huge.jpg", type: "image/jpeg" });
+  images[0].onload();
+  e.press(e.buttons.rotR);
+  encode = () => null;
+  try { e.press(e.buttons.apply); } finally { encode = (type) => ({ type, size: 10 }); }
+  assert.equal(e.message.hidden, false);
+  assert.equal(e.buttons.apply.disabled, true);
+  // A smaller crop is a new edit that may encode: the message goes.
+  e.drag(10, 10, 60, 60);
+  assert.equal(e.message.hidden, true);
+  assert.equal(e.buttons.apply.disabled, false);
 });
 
 test("a WebP edit encoded as PNG goes up as the PNG it is, or is reported", () => {
