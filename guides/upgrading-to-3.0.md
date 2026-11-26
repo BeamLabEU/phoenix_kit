@@ -58,6 +58,29 @@ So for a staged rollout, walk each environment through the pins of the table abo
 step files of a later pin before every environment has passed the earlier one. Rebuilding an empty database from old
 step files is covered in [Fresh databases and old host migrations](#fresh-databases-and-old-host-migrations).
 
+## Edits the updater makes to your project
+
+Besides migrations, `mix phoenix_kit.update` keeps a few optional pieces of your project in step with the kit. Each has
+a stable ID, and the update records in **`.phoenix_kit.exs`** (project root — commit it) which ones it applied and which
+you declined:
+
+| ID | the edit |
+|---|---|
+| `module_js_seed` | the module-hooks `<script>` tag in the root layout, and the seeded `phoenix_kit_modules.js` |
+| `oban_queues`, `oban_queues:<queue>` | the Oban queues core and your *installed* packages declare (never removed, limits never changed) |
+| `daisyui_themes` | `themes: false` → `themes: all` on the daisyUI plugin in `app.css` |
+| `css_sources_import` | `@import "./_phoenix_kit_sources.css";` in `app.css` |
+| `theme_bootstrap` | the theme bootstrap in your root layout (opt-in only, see below) |
+
+- **Removed one on purpose?** It stays removed. An edit recorded as applied that is gone on a later run is treated as
+  declined, not re-added, and the run lists it with `mix phoenix_kit.update --repair-patch ID` to bring it back.
+- **Decline one up front:** `mix phoenix_kit.update --skip-patch ID` (repeatable), or an inline marker in the file it
+  edits: `# phoenix_kit:skip oban_queues:posts` in `config.exs`, `/* phoenix_kit:skip daisyui_themes */` in `app.css`,
+  `<%!-- phoenix_kit:skip module_js_seed --%>` in the root layout.
+- **No `.phoenix_kit.exs` yet:** the first run behaves exactly as before and then records what is present.
+- Required configuration (Ueberauth, Hammer, the Oban block and its supervisor child, the compilers, the boot hook) and
+  the security-relevant endpoint guard (`body_guard`) cannot be declined.
+
 ## Order of operations
 
 1. **Get to 2.65.0 first.** 3.0 upgrades an existing database only from **V225**, the last 2.x version.

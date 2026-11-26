@@ -89,6 +89,10 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       * `--yes` / `-y` - Skip confirmation prompts and run migrations automatically
       * `--no-start` - Migrate the database without starting the host
         application. See "When the application will not start" above.
+      * `--skip-patch ID` - Decline an optional project edit and record it
+        in `.phoenix_kit.exs` (repeatable). See "The patch ledger" below.
+      * `--repair-patch ID` - Apply an optional edit again although the
+        ledger says it was removed or declined (repeatable).
       * `--dry-run` - Show what would change and write nothing: Igniter
         prints the diff of every project file it would edit, and the steps
         that write outside Igniter (app.css, the vendored JS, the asset
@@ -101,6 +105,22 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     whose config.exs lacks the Ueberauth, Hammer or Oban configuration: that
     configuration is added first, and nothing else, because the version can
     only be read once the app starts with it.
+
+    ## The patch ledger (`.phoenix_kit.exs`)
+
+    The optional edits this task makes to your project have stable IDs
+    (`module_js_seed`, `oban_queues` / `oban_queues:<queue>`,
+    `daisyui_themes`, `css_sources_import`, `theme_bootstrap`), and the
+    task records in `.phoenix_kit.exs` which it applied and which you
+    declined. Commit the file. An edit recorded as applied that you later
+    remove is treated as declined — not re-added — and listed at the end of
+    the run with the `--repair-patch ID` hint. `--skip-patch ID` and an
+    inline marker (`# phoenix_kit:skip ID`, `<%!-- phoenix_kit:skip ID --%>`)
+    decline one up front. The first run without a ledger behaves exactly as
+    before and records what is present. Required configuration and
+    security-relevant edits (`body_guard`) are never declinable. Oban
+    queues are added only for packages that are installed, and an existing
+    queue is never removed. Details: `PhoenixKit.Install.PatchLedger`.
 
     ## Examples
 
@@ -173,6 +193,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       MigrationStrategy,
       MissingIgniter,
       ObanConfig,
+      PatchLedger,
       PrefixConfig,
       RateLimiterConfig,
       TestFixturesIntegration
@@ -203,7 +224,9 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           skip_assets: :boolean,
           yes: :boolean,
           no_start: :boolean,
-          dry_run: :boolean
+          dry_run: :boolean,
+          skip_patch: :keep,
+          repair_patch: :keep,
         ],
         aliases: [
           p: :prefix,
@@ -288,7 +311,9 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
               # Igniter's own global switch (it shows the diff and writes
               # nothing); declared here too so the post-Igniter steps, which
               # write outside Igniter, can honour it.
-              dry_run: :boolean
+              dry_run: :boolean,
+              skip_patch: :keep,
+              repair_patch: :keep,
             ],
             aliases: [
               p: :prefix,
@@ -297,6 +322,11 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
               y: :yes
             ]
           )
+
+        # A bad patch ID stops the run before anything starts.
+        Enum.each([:skip_patch, :repair_patch], fn key ->
+          opts |> elem(0) |> Keyword.get_values(key) |> PatchLedger.validate_ids!()
+        end)
 
         # The Igniter pass of the second pass, handed to `full_update/2`
         # (which decides whether it runs at all).
@@ -378,15 +408,36 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
       steps.start_app.()
       refuse_below_floor!(opts, steps.installation_status)
-      result = steps.igniter.()
+      # The patch ledger (`.phoenix_kit.exs`): read after the refusal, so a
+      # refused run neither reads nor writes it.
+      PatchLedger.begin(opts, steps.root)
 
-      if Keyword.get(opts, :dry_run, false) do
-        report_dry_run(opts)
-      else
-        steps.finish.(opts)
+      try do
+        result = steps.igniter.()
+
+        if Keyword.get(opts, :dry_run, false) do
+          report_dry_run(opts)
+        else
+          finish_with_ledger(opts, steps.finish)
+        end
+
+        result
+      after
+        PatchLedger.abandon()
       end
+    end
 
-      result
+    # The ledger is written even when the migration step raises (a declined
+    # migration ends in Mix.raise/1): the project edits it records were made.
+    defp finish_with_ledger(opts, finish) do
+      finish.(opts)
+    after
+      PatchLedger.flush()
+
+      case PatchLedger.summary() do
+        "" -> :ok
+        summary -> Mix.shell().info(summary)
+      end
     end
 
     defp default_full_update_steps do
@@ -394,7 +445,8 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         start_app: &start_app_for_update/0,
         installation_status: &Common.check_installation_status/1,
         igniter: fn -> raise ArgumentError, "the Igniter pass is run/1's super/1" end,
-        finish: &finish_update/1
+        finish: &finish_update/1,
+        root: File.cwd!()
       }
     end
 
@@ -1267,7 +1319,26 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
                                 vendored JS, migrations and module
                                 migration files are listed and skipped
 
+        --skip-patch ID         Decline an optional project edit (repeatable)
+                                and record it in .phoenix_kit.exs, so later
+                                runs leave it out too. IDs: module_js_seed,
+                                oban_queues (or oban_queues:<queue>),
+                                daisyui_themes, css_sources_import,
+                                theme_bootstrap. Required and security
+                                edits (body_guard, …) cannot be declined.
+                                An inline marker does the same:
+                                # phoenix_kit:skip ID  /  <%!-- phoenix_kit:skip ID --%>
+
+        --repair-patch ID       Apply an optional edit again although the
+                                ledger says it was removed or declined
+
         -h, --help              Show this help message
+
+      PATCH LEDGER (.phoenix_kit.exs — commit it)
+        The update records which optional edits it made (applied) and which
+        you declined. One you remove after an update is not added back; the
+        run lists it with the --repair-patch hint. The first run without the
+        file behaves as before and records what is present.
 
       EXAMPLES
         # Update PhoenixKit to latest version (uses default "public" schema)
@@ -1969,7 +2040,10 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       end
     end
 
-    # Update CSS integration during PhoenixKit updates
+    # Update CSS integration during PhoenixKit updates. Two optional patches
+    # (`PhoenixKit.Install.PatchLedger`): `daisyui_themes` (themes: false →
+    # all) and `css_sources_import` (the generated sources @import). A host
+    # that undid either after an earlier update keeps it undone.
     defp update_css_integration do
       css_paths = [
         "assets/css/app.css",
@@ -1983,72 +2057,107 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           :ok
 
         css_path ->
-          # Update CSS file to enable daisyUI themes if disabled
-          content = File.read!(css_path)
-          existing = CssIntegration.check_existing_integration(content)
+          original = File.read!(css_path)
 
           content =
-            if existing.daisyui_themes_disabled do
-              pattern = ~r/@plugin\s+(["'][^"']*daisyui["'])\s*\{([^}]*themes:\s*)false([^}]*)\}/
+            original
+            |> enable_daisyui_themes(css_path)
+            |> add_css_sources_import(css_path)
 
-              updated =
-                String.replace(content, pattern, fn match ->
-                  String.replace(match, ~r/(themes:\s*)false/, "\\1all")
-                end)
-
-              Mix.shell().info("""
-
-              ✅ Updated daisyUI configuration to enable all themes!
-              File: #{css_path}
-              Changed: themes: false → themes: all
-              """)
-
-              updated
-            else
-              content
-            end
-
-          # Ensure auto-generated CSS sources import is present
-          content =
-            if String.contains?(content, "_phoenix_kit_sources.css") do
-              content
-            else
-              updated =
-                String.replace(
-                  content,
-                  ~r/(@source\s+["'][^"']*phoenix_kit["'];)/,
-                  "\\1\n@import \"./_phoenix_kit_sources.css\";",
-                  global: false
-                )
-
-              Mix.shell().info("""
-
-              ✅ Added auto-generated CSS sources import!
-              File: #{css_path}
-              Added: @import "./_phoenix_kit_sources.css";
-              """)
-
-              updated
-            end
-
-          File.write!(css_path, content)
+          if content != original, do: File.write!(css_path, content)
 
           # Ensure the generated CSS sources file exists so @import doesn't fail
-          generated_path = Path.join(Path.dirname(css_path), "_phoenix_kit_sources.css")
-
-          unless File.exists?(generated_path) do
-            File.write!(generated_path, """
-            /* Auto-generated by PhoenixKit — do not edit manually.
-               Regenerated on each compilation from css_sources/0 callbacks. */
-            """)
-
-            Mix.shell().info("✅ Created #{generated_path} (will be updated on next compilation)")
-          end
+          if String.contains?(content, "_phoenix_kit_sources.css"),
+            do: ensure_css_sources_file(css_path)
       end
     rescue
       error ->
         # Non-critical error - log and continue
         Mix.shell().info("ℹ️  Could not update CSS integration: #{inspect(error)}")
+    end
+
+    @doc false
+    def enable_daisyui_themes(content, css_path) do
+      disabled? = CssIntegration.check_existing_integration(content).daisyui_themes_disabled
+
+      case PatchLedger.decide("daisyui_themes", not disabled?, content) do
+        :apply ->
+          pattern = ~r/@plugin\s+(["'][^"']*daisyui["'])\s*\{([^}]*themes:\s*)false([^}]*)\}/
+
+          updated =
+            String.replace(content, pattern, fn match ->
+              String.replace(match, ~r/(themes:\s*)false/, "\\1all")
+            end)
+
+          if updated != content do
+            PatchLedger.record("daisyui_themes", :applied)
+
+            Mix.shell().info("""
+
+            ✅ Updated daisyUI configuration to enable all themes!
+            File: #{css_path}
+            Changed: themes: false → themes: all
+            """)
+          end
+
+          updated
+
+        {:declined, reason} ->
+          Mix.shell().info(JsIntegration.declined_notice("daisyui_themes", reason))
+          content
+
+        :present ->
+          content
+      end
+    end
+
+    @doc false
+    def add_css_sources_import(content, css_path) do
+      present? = String.contains?(content, "_phoenix_kit_sources.css")
+
+      case PatchLedger.decide("css_sources_import", present?, content) do
+        :apply ->
+          updated =
+            String.replace(
+              content,
+              ~r/(@source\s+["'][^"']*phoenix_kit["'];)/,
+              "\\1\n@import \"./_phoenix_kit_sources.css\";",
+              global: false
+            )
+
+          if updated != content do
+            PatchLedger.record("css_sources_import", :applied)
+
+            Mix.shell().info("""
+
+            ✅ Added auto-generated CSS sources import!
+            File: #{css_path}
+            Added: @import "./_phoenix_kit_sources.css";
+            """)
+          end
+
+          updated
+
+        {:declined, reason} ->
+          Mix.shell().info(JsIntegration.declined_notice("css_sources_import", reason))
+          content
+
+        :present ->
+          content
+      end
+    end
+
+    defp ensure_css_sources_file(css_path) do
+      generated_path = Path.join(Path.dirname(css_path), "_phoenix_kit_sources.css")
+
+      unless File.exists?(generated_path) do
+        File.write!(generated_path, """
+        /* Auto-generated by PhoenixKit — do not edit manually.
+           Regenerated on each compilation from css_sources/0 callbacks. */
+        """)
+
+        Mix.shell().info("✅ Created #{generated_path} (will be updated on next compilation)")
+      end
     end
 
     # Check if migration can be run interactively

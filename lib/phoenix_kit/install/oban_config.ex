@@ -61,6 +61,7 @@ if Code.ensure_loaded?(Igniter) do
     alias PhoenixKit.Install.ConfigSplice
     alias PhoenixKit.Install.ConfigVerify
     alias PhoenixKit.Install.IgniterHelpers
+    alias PhoenixKit.Install.PatchLedger
     alias PhoenixKit.Migrations.Repair.Environment
 
     # Lifeline rescues purely by elapsed time, with no check that the node
@@ -505,7 +506,10 @@ if Code.ensure_loaded?(Igniter) do
     def ensure_declared_queues(content, app_name, declared \\ nil) do
       {declared, conflicts} =
         case declared do
-          nil -> PhoenixKit.ObanQueues.resolve()
+          # Only the queues of packages that are installed: the fallback entry
+          # for a package the host does not have (`ObanQueues.required/2`) is
+          # a queue nothing can enqueue into.
+          nil -> PhoenixKit.ObanQueues.resolve() |> then(fn {d, c} -> {required(d), c} end)
           list -> {list, []}
         end
 
@@ -521,10 +525,55 @@ if Code.ensure_loaded?(Igniter) do
         content
       else
         Enum.reduce(declared, content, fn spec, acc ->
-          ensure_queue(acc, app_name, Atom.to_string(spec.name), spec.limit)
+          ensure_ledgered_queue(acc, app_name, Atom.to_string(spec.name), spec.limit)
         end)
       end
     end
+
+    defp required(declared), do: PhoenixKit.ObanQueues.required(declared)
+
+    defp queue_on_disk?(app_name, queue) do
+      case File.read("config/config.exs") do
+        {:ok, content} -> queue_configured?(content, app_name, queue)
+        _ -> false
+      end
+    end
+
+    # Each queue is patch `oban_queues:<name>` in `PhoenixKit.Install.PatchLedger`:
+    # a queue the host removed after an earlier update, declined with
+    # `--skip-patch`, or marked `# phoenix_kit:skip oban_queues:<name>` is not
+    # added back. An existing queue is never removed or changed.
+    defp ensure_ledgered_queue(content, app_name, queue, limit) do
+      id = "oban_queues:" <> queue
+
+      case PatchLedger.decide(id, queue_configured?(content, app_name, queue), content) do
+        :present ->
+          Mix.shell().info("  ℹ️  #{queue} queue already configured")
+          content
+
+        :apply ->
+          updated = ensure_queue(content, app_name, queue, limit)
+
+          # Recorded only if config.exs on disk shows it when the ledger is
+          # written: this edit sits in Igniter's buffer until the run's
+          # changes are accepted.
+          if queue_configured?(updated, app_name, queue),
+            do: PatchLedger.record(id, :applied, fn -> queue_on_disk?(app_name, queue) end)
+
+          updated
+
+        {:declined, reason} ->
+          Mix.shell().info("  ↷ Left out the #{queue} queue (#{declined_why(id, reason)})")
+          content
+      end
+    end
+
+    defp declined_why(id, :flag), do: "--skip-patch #{id}"
+    defp declined_why(id, :marker), do: "phoenix_kit:skip #{id} marker"
+    defp declined_why(_id, :ledger), do: "declined in #{PatchLedger.file_name()}"
+
+    defp declined_why(id, :removed),
+      do: "removed after an earlier update; --repair-patch #{id} adds it back"
 
     @doc false
     # `queues: false`, `queues: []` — Oban's two spellings of "this node runs
@@ -542,7 +591,9 @@ if Code.ensure_loaded?(Igniter) do
     # The queue lines of a freshly generated Oban block, one per declared
     # queue, with who asked for it. The comma goes BEFORE the comment — after
     # it, it would be part of the comment and the list would not parse.
-    def generated_queue_lines(declared \\ PhoenixKit.ObanQueues.declared()) do
+    def generated_queue_lines(
+          declared \\ PhoenixKit.ObanQueues.required(PhoenixKit.ObanQueues.declared())
+        ) do
       last = length(declared) - 1
 
       declared

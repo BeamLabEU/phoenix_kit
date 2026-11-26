@@ -29,6 +29,7 @@ defmodule PhoenixKit.Install.JsIntegration do
 
   alias Mix.Tasks.Compile.PhoenixKitJsSources
   alias PhoenixKit.Install.IgniterHelpers
+  alias PhoenixKit.Install.PatchLedger
 
   # Igniter is optional (see mix.exs) and this module cannot be guarded away
   # like the `PhoenixKit.Install.*` helpers — `mix phoenix_kit.assets.rebuild`
@@ -257,9 +258,66 @@ defmodule PhoenixKit.Install.JsIntegration do
   installed before this feature pick it up on their next update.
   """
   def ensure_module_js_integration(igniter) do
+    case module_js_decision() do
+      {:declined, reason} ->
+        Igniter.add_notice(igniter, declined_notice("module_js_seed", reason))
+
+      _ ->
+        igniter
+        |> seed_modules_js_file()
+        |> add_modules_script_tag_to_layout()
+        |> record_module_js()
+    end
+  end
+
+  # The patch ledger (`PhoenixKit.Install.PatchLedger`) decides on the layout's
+  # state: the tag is the patch, the seeded file follows it. No layout found:
+  # nothing to decide, the notice below says what to add by hand.
+  defp module_js_decision do
+    case find_existing_file(root_layout_paths()) do
+      {:ok, layout_path} ->
+        content = File.read!(layout_path)
+
+        PatchLedger.decide(
+          "module_js_seed",
+          String.contains?(content, @modules_filename),
+          content
+        )
+
+      {:error, :not_found} ->
+        :no_layout
+    end
+  end
+
+  defp record_module_js(igniter) do
+    with false <- IgniterHelpers.dry_run?(igniter),
+         {:ok, layout_path} <- find_existing_file(root_layout_paths()),
+         true <- String.contains?(File.read!(layout_path), @modules_filename) do
+      PatchLedger.record("module_js_seed", :applied)
+    end
+
     igniter
-    |> seed_modules_js_file()
-    |> add_modules_script_tag_to_layout()
+  end
+
+  defp root_layout_paths do
+    [
+      "lib/#{Mix.Phoenix.otp_app()}_web/components/layouts/root.html.heex",
+      "lib/#{Mix.Phoenix.otp_app()}_web/templates/layout/root.html.heex"
+    ]
+  end
+
+  @doc false
+  # One line for a patch the ledger, a flag or an inline marker declined.
+  def declined_notice(id, reason) do
+    why =
+      case reason do
+        :flag -> "--skip-patch #{id}"
+        :marker -> "the phoenix_kit:skip #{id} marker"
+        :ledger -> "declined in #{PatchLedger.file_name()}"
+        :removed -> "removed after an earlier update"
+      end
+
+    "↷ Left out #{id} (#{why}); mix phoenix_kit.update --repair-patch #{id} adds it back"
   end
 
   @doc """
