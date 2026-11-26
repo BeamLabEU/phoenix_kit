@@ -45,14 +45,18 @@ the settings and functions renamed on the way are in [Renamed and removed since 
 
 ### Generated step migrations belong to the pin that wrote them
 
-`mix phoenix_kit.update` writes `..._phoenix_kit_update_vNN_to_vMM.exs`, which calls
-`PhoenixKit.Migrations.up(version: MM)`. That file works only with a release whose chain has version MM and accepts a
-database at NN:
+`mix phoenix_kit.update` writes `..._phoenix_kit_update_vNN_to_vMM.exs`. Files written by this release call
+`PhoenixKit.Migrations.up_to!(MM, prefix: ...)`; earlier releases wrote `PhoenixKit.Migrations.up(version: MM)` (those
+files are left as they are). Either works only with a release whose chain has version MM and accepts a database at NN:
 
-- **Forward:** after you move the pin on, a database still at NN raises `BelowFloorError` on that file. Apply each step
-  file on every environment while it is still on the pin that wrote it.
-- **Backward:** an older pin does not have the versions the file names, so the app no longer builds after a rollback
-  until the file is moved out of `priv/repo/migrations`.
+- **Already there:** on a database at MM or later (another environment's later step file already ran, or the whole
+  chain built a fresh database) `up_to!/2` does nothing.
+- **Forward:** after you move the pin on, a database still at NN raises `BelowFloorError` on that file, naming the
+  bridge release to install first; the migration never reports success. Apply each step file on every environment while
+  it is still on the pin that wrote it.
+- **Backward:** an older pin does not have the versions the file names. Its migration raises `TargetAheadError`
+  ("this release's chain ends at V…") instead of failing half-way; move the file out of `priv/repo/migrations` while
+  that pin is in use.
 
 So for a staged rollout, walk each environment through the pins of the table above one at a time; do not commit the
 step files of a later pin before every environment has passed the earlier one. Rebuilding an empty database from old

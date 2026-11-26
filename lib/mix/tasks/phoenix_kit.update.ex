@@ -146,9 +146,14 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     server loads from restarts it onto half-upgraded code.
 
     The `..._phoenix_kit_update_vNN_to_vMM.exs` file this writes calls
-    `PhoenixKit.Migrations.up(version: MM)`, so it works only with a release
-    whose chain has MM and accepts NN: apply it on every environment before
-    moving the pin on. From 1.7.x the route is `1.7.236` (until V135), then
+    `PhoenixKit.Migrations.up_to!(MM, ...)`: a no-op on a database already at
+    MM or later, a `BelowFloorError` naming the bridge release on one below
+    this release's floor, and a `TargetAheadError` under a pin whose chain
+    stops before MM. It still needs a release that accepts NN: apply it on
+    every environment before moving the pin on. (Files written by earlier
+    releases call `PhoenixKit.Migrations.up(version: MM)` and are left as they
+    are; they raise the same two errors.) From 1.7.x the route is `1.7.236`
+    (until V135), then
     `2.65.0` (until V225), then 3.x — see the "Upgrading to PhoenixKit 3.0"
     guide (`guides/upgrading-to-3.0.md`), which also lists the settings keys
     and functions renamed on the way.
@@ -835,64 +840,11 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
            force,
            opts
          ) do
-      # An update implies an existing installation, so the schema exists —
-      # never ask the chain to create it (CREATE SCHEMA fails for
-      # low-privilege roles even with IF NOT EXISTS).
-      create_schema = false
-
-      # Generate timestamp and migration file name using Ecto format
-      timestamp = Common.generate_timestamp()
-      action = if force, do: "force_update", else: "update"
-
-      # Create padded version variables for shorter strings
-      current_version_padded = Common.pad_version(current_version)
-      target_version_padded = Common.pad_version(target_version)
-
-      migration_name =
-        "#{timestamp}_phoenix_kit_#{action}_v#{current_version_padded}_to_v#{target_version_padded}.exs"
-
-      # Generate module name
-      module_name =
-        "PhoenixKit#{String.capitalize(action)}V#{current_version_padded}ToV#{target_version_padded}"
-
-      # Create migration content
-      # @disable_ddl_transaction is critical: without it, Ecto wraps the entire
-      # migration in a single transaction.  ALTER TABLE requires AccessExclusiveLock,
-      # which blocks (and is blocked by) every other connection on the table.
-      # A long-running transaction holding such locks on dozens of tables will deadlock
-      # with the production app's normal queries — even on an empty database.
-      # With DDL transaction disabled each statement auto-commits, so locks are held
-      # only for milliseconds per ALTER TABLE.  PhoenixKit migrations are already
-      # fully idempotent (IF NOT EXISTS / IF EXISTS guards), so partial runs are safe.
-      migration_content = """
-      defmodule Ecto.Migrations.#{module_name} do
-        @moduledoc false
-        use Ecto.Migration
-
-        @disable_ddl_transaction true
-
-        def up do
-          # PhoenixKit Update Migration: V#{current_version_padded} -> V#{target_version_padded}
-          PhoenixKit.Migrations.up([
-            prefix: "#{prefix}",
-            version: #{target_version},
-            create_schema: #{create_schema}
-          ])
-        end
-
-        def down do
-          # Rollback PhoenixKit to V#{current_version_padded}
-          PhoenixKit.Migrations.down([
-            prefix: "#{prefix}",
-            version: #{current_version}
-          ])
-        end
-      end
-      """
+      {migration_name, migration_content} =
+        update_migration(prefix, current_version, target_version, force)
 
       # Check for existing migration with same version range to prevent duplicates
-      existing_pattern =
-        "phoenix_kit_#{action}_v#{current_version_padded}_to_v#{target_version_padded}.exs"
+      existing_pattern = update_migration_suffix(current_version, target_version, force)
 
       existing_migration =
         Path.wildcard("priv/repo/migrations/*#{existing_pattern}")
@@ -914,6 +866,72 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         |> add_migration_created_notice(migration_name, current_version, target_version)
         |> add_post_igniter_instructions(opts)
       end
+    end
+
+    @doc false
+    # The core step-up migration: `{file name, content}`. Pure.
+    #
+    # `@disable_ddl_transaction` is critical: without it, Ecto wraps the entire
+    # migration in a single transaction. ALTER TABLE requires AccessExclusiveLock,
+    # which blocks (and is blocked by) every other connection on the table. A
+    # long-running transaction holding such locks on dozens of tables deadlocks
+    # with the production app's normal queries — even on an empty database. With
+    # DDL transaction disabled each statement auto-commits. PhoenixKit migrations
+    # are idempotent (IF NOT EXISTS / IF EXISTS guards), so partial runs are safe.
+    #
+    # An update implies an existing installation, so the schema exists — never
+    # ask the chain to create it (CREATE SCHEMA fails for low-privilege roles
+    # even with IF NOT EXISTS).
+    #
+    # The file calls the floor-aware `up_to!/2`: a no-op on a database already
+    # at the target, a BelowFloorError naming the bridge below the floor.
+    def update_migration(prefix, current_version, target_version, force) do
+      action = if force, do: "force_update", else: "update"
+      current_padded = Common.pad_version(current_version)
+      target_padded = Common.pad_version(target_version)
+
+      name =
+        "#{Common.generate_timestamp()}_" <>
+          update_migration_suffix(current_version, target_version, force)
+
+      module_name = "PhoenixKit#{String.capitalize(action)}V#{current_padded}ToV#{target_padded}"
+
+      content = """
+      defmodule Ecto.Migrations.#{module_name} do
+        @moduledoc false
+        use Ecto.Migration
+
+        @disable_ddl_transaction true
+
+        def up do
+          # PhoenixKit Update Migration: V#{current_padded} -> V#{target_padded}
+          # A no-op on a database already at V#{target_padded} or later; below the
+          # release floor it raises naming the bridge release (up_to!/2).
+          PhoenixKit.Migrations.up_to!(#{target_version},
+            prefix: "#{prefix}",
+            create_schema: false
+          )
+        end
+
+        def down do
+          # Rollback PhoenixKit to V#{current_padded}
+          PhoenixKit.Migrations.down([
+            prefix: "#{prefix}",
+            version: #{current_version}
+          ])
+        end
+      end
+      """
+
+      {name, content}
+    end
+
+    @doc false
+    def update_migration_suffix(current_version, target_version, force) do
+      action = if force, do: "force_update", else: "update"
+
+      "phoenix_kit_#{action}_v#{Common.pad_version(current_version)}" <>
+        "_to_v#{Common.pad_version(target_version)}.exs"
     end
 
     # Add notices for different scenarios

@@ -1199,6 +1199,17 @@ defmodule PhoenixKit.Migrations.Postgres do
     acquire_chain_lock!()
     initial = migrated_version(opts)
 
+    # A step file written by a later release than the one pinned now asks for
+    # versions this chain does not have: say which release it needs, rather
+    # than fail on a missing `V…` module half-way through. A database already
+    # there needs nothing (`:noop` below).
+    if opts.version > @current_version and initial < opts.version do
+      raise PhoenixKit.Migrations.TargetAheadError,
+        target: opts.version,
+        chain_version: @current_version,
+        db_version: initial
+    end
+
     plan = plan_up(initial, opts.version, @initial_version, @minimum_upgrade_version)
 
     # A fresh install that stopped part-way (a failed migration leaves the

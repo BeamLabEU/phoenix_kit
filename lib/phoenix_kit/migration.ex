@@ -2,6 +2,7 @@ defmodule PhoenixKit.Migrations do
   @moduledoc false
 
   defdelegate up(opts \\ []), to: PhoenixKit.Migration
+  defdelegate up_to!(version, opts \\ []), to: PhoenixKit.Migration
   defdelegate down(opts \\ []), to: PhoenixKit.Migration
 end
 
@@ -216,6 +217,36 @@ defmodule PhoenixKit.Migration do
   """
   def up(opts \\ []) when is_list(opts) do
     migrator().up(opts)
+  end
+
+  @doc """
+  Brings the database up to `version`, and never past it — the call the step
+  migrations `mix phoenix_kit.update` writes
+  (`..._phoenix_kit_update_vNN_to_vMM.exs`) make.
+
+    * Already at or above `version` → nothing to do (`:ok`). A step file
+      replayed on an environment that a later file already moved on, or
+      on a fresh database built by the whole chain, is a no-op.
+    * Below this release's floor → raises `PhoenixKit.Migrations.BelowFloorError`
+      naming the bridge release to install first; never reported as success.
+    * `version` is newer than this release's chain (the file was written by a
+      later PhoenixKit than the one now pinned) → raises
+      `PhoenixKit.Migrations.TargetAheadError` saying which release it needs.
+    * Otherwise runs the chain up to `version`, exactly as `up(version: version)`.
+
+  Options as `up/1` (`:prefix`, `:create_schema`). Run it from inside a
+  migration, like `up/1`.
+
+      def up, do: PhoenixKit.Migrations.up_to!(237, prefix: "public", create_schema: false)
+  """
+  @spec up_to!(pos_integer(), keyword()) :: :ok
+  def up_to!(version, opts \\ []) when is_integer(version) and version > 0 and is_list(opts) do
+    opts = Keyword.put(opts, :version, version)
+
+    case migrator().migrated_version(Keyword.take(opts, [:prefix])) do
+      current when is_integer(current) and current >= version -> :ok
+      _ -> migrator().up(opts) && :ok
+    end
   end
 
   @doc """
