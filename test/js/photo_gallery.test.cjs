@@ -316,3 +316,32 @@ test("a resize after removal tears down too, without an observer", () => {
     global.MutationObserver = saved;
   }
 });
+
+test("a resize keeps a zoomed photo on screen", () => {
+  const f = fakeGallery(1);
+  (winListeners["phx:pk:photo-gallery-open"] || []).forEach((fn) => fn({ detail: { id: "trip", index: 0 } }));
+  // A 1,000px-wide fitted photo, zoomed 4× and panned to its limit.
+  let fitted = 1000;
+  f.imgs[0].getBoundingClientRect = () => {
+    const z = (f.imgs[0].style.transform || "").match(/translate3d\((-?[\d.]+)px,(-?[\d.]+)px,0\) scale\(([\d.]+)\)/);
+    const s = z ? +z[3] : 1, x = z ? +z[1] : 0;
+    return { left: x - (fitted * s - f.viewport.clientWidth) / 2, top: 0, width: fitted * s, height: 600 * s };
+  };
+  const key = (k) => (f.dialog.listeners.keydown || []).forEach((fn) => fn({ key: k, target: f.dialog, preventDefault: noop }));
+  key("+"); key("+"); key("+"); key("+");
+  const max0 = (1000 * 4 - 1000) / 2;
+  // Pan as far right as it goes.
+  const viewportFire = (t, e) => (f.viewport.listeners[t] || []).forEach((fn) => fn(e));
+  viewportFire("pointerdown", { pointerId: 1, clientX: 0, clientY: 0, target: f.imgs[0] });
+  viewportFire("pointermove", { pointerId: 1, clientX: 5000, clientY: 0, preventDefault: noop });
+  viewportFire("pointerup", { pointerId: 1, clientX: 5000, clientY: 0 });
+  assert.match(f.imgs[0].style.transform, new RegExp("translate3d\\(" + max0 + "px"));
+
+  // The window shrinks to 320px; the photo now fits at 320px.
+  f.viewport.clientWidth = 320;
+  fitted = 320;
+  winListeners.resize.slice().forEach((fn) => fn({}));
+  const x = +f.imgs[0].style.transform.match(/translate3d\((-?[\d.]+)px/)[1];
+  assert.equal(x, (320 * 4 - 320) / 2, "panned back inside the new bounds");
+  f.dialog.close();
+});

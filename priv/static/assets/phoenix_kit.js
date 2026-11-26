@@ -8525,7 +8525,7 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
     on(p.dialog, "keydown", function(e) { self.key(e); });
     // Esc: the dialog's own cancel. Closed however it was: tidy up.
     on(p.dialog, "close", function() { self.closed(); });
-    on(window, "resize", function() { if (!self.gone()) self.layout(false); });
+    on(window, "resize", function() { if (!self.gone()) self.resized(); });
     // Removed while open (a live navigation or a patch) fires no `close`:
     // watch for the dialog leaving the page and tidy up then.
     var mo = null;
@@ -8591,6 +8591,13 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
     this.transition(t, animate);
     var x = -this.index * this.width() + (offset || 0);
     t.style.transform = "translate3d(" + x + "px,0,0)";
+  };
+
+  // A new viewport: the strip moves with it and a zoomed photo is kept
+  // within the new bounds (the old pan could leave it off-screen).
+  Gallery.prototype.resized = function() {
+    this.layout(false);
+    if (this.z.scale > 1) this.applyZoom(this.z, false);
   };
 
   Gallery.prototype.go = function(index, animate) {
