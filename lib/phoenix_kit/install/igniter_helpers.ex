@@ -29,6 +29,22 @@ if Code.ensure_loaded?(Igniter) do
     alias Igniter.Project.Module, as: IgniterModule
 
     @doc """
+    Whether the task was started with Igniter's `--dry-run`.
+
+    Igniter honours the flag for every change made through its buffer; a step
+    that writes to disk directly (the root-layout and `app.js` splices in
+    `PhoenixKit.Install.JsIntegration`) must ask this first and only describe
+    the change.
+    """
+    @spec dry_run?(Igniter.t()) :: boolean()
+    def dry_run?(%{args: %{options: options, argv: argv}}) do
+      Keyword.get(List.wrap(options), :dry_run, false) == true or
+        "--dry-run" in List.wrap(argv)
+    end
+
+    def dry_run?(_igniter), do: false
+
+    @doc """
     Gets the parent application name (atom) from the Igniter project.
 
     Uses Igniter's application detection to determine the OTP application name.
