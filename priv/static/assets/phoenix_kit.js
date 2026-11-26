@@ -8938,6 +8938,9 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
   // ── Pure helpers (exported for test/js/upload_edit.test.cjs) ───────────
 
   var EDITABLE = ["image/jpeg", "image/png", "image/webp"];
+  // Every dialog button but Remove: off while a photo decodes.
+  var EDIT_CONTROLS = "[data-pk-edit-rotate],[data-pk-edit-flip],[data-pk-edit-aspect]," +
+    "[data-pk-edit-reset],[data-pk-edit-original],[data-pk-edit-apply]";
 
   function uploadEditable(file) {
     return !!file && EDITABLE.indexOf(String(file.type).toLowerCase()) !== -1;
@@ -9113,6 +9116,9 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
         var t = e.target && e.target.closest ? e.target.closest("button") : null;
         if (!t || !self._current) return;
         e.preventDefault();
+        // Until the photo shown is the current one, only Remove works: the
+        // dialog may still show the previous photo.
+        if (!self._img && !t.hasAttribute("data-pk-edit-skip")) return;
         var s = self._state;
         if (t.hasAttribute("data-pk-edit-rotate")) {
           s.rotation = uploadEditRotate(s.rotation, parseInt(t.getAttribute("data-pk-edit-rotate"), 10) || 0);
@@ -9151,7 +9157,7 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
       var frame = d.querySelector("[data-pk-edit-frame]");
       if (!frame) return;
       frame.addEventListener("pointerdown", function (e) {
-        if (!self._current || (e.button && e.button !== 0)) return;
+        if (!self._current || !self._img || (e.button && e.button !== 0)) return;
         e.preventDefault();
         self._box = frame.getBoundingClientRect();
         self._start = self._point(e);
@@ -9222,7 +9228,9 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
         return;
       }
       this._current = file;
+      this._img = null;
       this._resetState();
+      this._loading(true);
       var name = d.querySelector("[data-pk-edit-name]");
       if (name) name.textContent = file.name || "";
       var progress = d.querySelector("[data-pk-edit-progress]");
@@ -9236,6 +9244,7 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
       img.onload = function () {
         if (self._current !== file) return;
         self._img = img;
+        self._loading(false);
         self._draw();
         if (!d.open && typeof d.showModal === "function") d.showModal();
       };
@@ -9244,6 +9253,24 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
         if (self._current === file) self._finish(file);
       };
       img.src = this._url;
+    },
+
+    // While the next photo decodes: the previous preview is cleared and
+    // everything but Remove is disabled, so nothing is confirmed unseen.
+    _loading(on) {
+      var d = this._dialog();
+      if (!d) return;
+      d.querySelectorAll(EDIT_CONTROLS).forEach(function (b) { b.disabled = on; });
+      var frame = d.querySelector("[data-pk-edit-frame]");
+      if (frame && frame.setAttribute) frame.setAttribute("aria-busy", String(on));
+      if (!on) return;
+      this._showCrop(null);
+      var canvas = d.querySelector("[data-pk-edit-canvas]");
+      var ctx = canvas && canvas.getContext && canvas.getContext("2d");
+      if (ctx) {
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
     },
 
     // The preview: the whole turned frame, fitted to at most 1600px across.
@@ -9270,7 +9297,8 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
     _apply() {
       var self = this;
       var file = this._current, img = this._img, s = this._state;
-      if (!img || !uploadEditChanged(s)) { this._finish(file); return; }
+      if (!img) return;
+      if (!uploadEditChanged(s)) { this._finish(file); return; }
       var dims = uploadEditDims(img.naturalWidth, img.naturalHeight, s.rotation);
       var c = uploadEditCropPixels(s.crop, dims[0], dims[1]);
       var out = document.createElement("canvas");

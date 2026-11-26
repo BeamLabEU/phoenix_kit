@@ -213,3 +213,115 @@ test("a drop on the drop zone is taken before LiveView tracks it", () => {
   assert.deepEqual(removed, ["phx-drop-target-active"]);
   assert.deepEqual(uploads, [["photos", [pdf]]]);
 });
+
+// ── The editor dialog, against a fake DOM ───────────────────────────────
+
+const images = [];
+global.Image = class {
+  constructor() { this.naturalWidth = 400; this.naturalHeight = 300; images.push(this); }
+};
+global.URL = { createObjectURL: (f) => "blob:" + f.name, revokeObjectURL: noop };
+
+// The canvas the edited photo is drawn on; `encode` answers its toBlob.
+let encode = (type) => ({ type, size: 10 });
+const realCreate = global.document.createElement;
+global.document.createElement = (tag) => (tag === "canvas" ? fakeCanvas() : realCreate(tag));
+function fakeCanvas() {
+  const ctx = { setTransform: noop, clearRect: noop, drawImage: noop };
+  return {
+    width: 0, height: 0, getContext: () => ctx,
+    toBlob(cb, type) { cb(encode(type)); },
+  };
+}
+
+function button(attr, value) {
+  return {
+    attr, disabled: false, attrs: { [attr]: value == null ? "" : value },
+    hasAttribute(k) { return k in this.attrs; },
+    getAttribute(k) { return k in this.attrs ? this.attrs[k] : null; },
+    setAttribute(k, v) { this.attrs[k] = String(v); },
+  };
+}
+
+function fakeEditor({ multiple = true, accept = null } = {}) {
+  const listeners = {};
+  const dlgListeners = {};
+  const input = {
+    type: "file", files: [], value: "x",
+    hasAttribute: (k) => (k === "multiple" ? multiple : k === "accept" ? accept != null : false),
+    getAttribute: (k) => (k === "accept" ? accept : null),
+  };
+  const buttons = {
+    rotR: button("data-pk-edit-rotate", "90"), rotL: button("data-pk-edit-rotate", "-90"),
+    flip: button("data-pk-edit-flip"), reset: button("data-pk-edit-reset"),
+    skip: button("data-pk-edit-skip"), original: button("data-pk-edit-original"),
+    apply: button("data-pk-edit-apply"),
+  };
+  const message = { hidden: true, textContent: "" };
+  const parts = {
+    "[data-pk-edit-canvas]": fakeCanvas(),
+    "[data-pk-edit-crop]": { hidden: true, style: {} },
+    "[data-pk-edit-name]": { textContent: "" },
+    "[data-pk-edit-progress]": { textContent: "" },
+    "[data-pk-edit-error]": message,
+    "[data-pk-edit-frame]": { addEventListener: noop, setAttribute: noop },
+  };
+  const dialog = {
+    open: false,
+    showModal() { this.open = true; },
+    close() { this.open = false; },
+    addEventListener(t, fn) { dlgListeners[t] = fn; },
+    querySelector: (s) => parts[s] || null,
+    querySelectorAll: (s) => Object.values(buttons).filter((b) => s.split(",").includes("[" + b.attr + "]")),
+  };
+  const el = {
+    dataset: { uploadName: "photos" },
+    addEventListener(t, fn) { (listeners[t] = listeners[t] || []).push(fn); },
+    removeEventListener: noop,
+    contains: (x) => x === input,
+    querySelector: (s) => (s === 'input[type="file"]' ? input : s === "[data-pk-edit-dialog]" ? dialog : null),
+  };
+  const uploads = [];
+  const hook = Object.assign(Object.create(Hook), { el, upload: (name, files) => uploads.push([name, files]) });
+  hook.mounted();
+  const pick = (...files) => {
+    input.files = files;
+    (listeners.input || []).forEach((fn) => fn({ target: input, stopPropagation: noop }));
+  };
+  const press = (b) => { if (!b.disabled) dlgListeners.click({ target: { closest: () => b }, preventDefault: noop }); };
+  // Clicking a disabled button does nothing in a browser; the hook must also
+  // refuse it when a click gets through (a stale event, a script).
+  const forcePress = (b) => dlgListeners.click({ target: { closest: () => b }, preventDefault: noop });
+  return { hook, input, uploads, pick, press, forcePress, buttons, dialog, message };
+}
+
+test("the next photo cannot be confirmed before its preview has loaded", () => {
+  images.length = 0;
+  const e = fakeEditor();
+  const a = { name: "a.jpg", type: "image/jpeg" };
+  const b = { name: "b.jpg", type: "image/jpeg" };
+  e.pick(a, b);
+  assert.equal(e.buttons.apply.disabled, true, "nothing to confirm while a decodes");
+  images[0].onload();
+  assert.equal(e.dialog.open, true);
+  assert.equal(e.buttons.apply.disabled, false);
+  e.press(e.buttons.rotR);
+  e.press(e.buttons.apply);
+  // b is decoding; the dialog still shows a.
+  assert.equal(images.length, 2);
+  assert.equal(e.buttons.apply.disabled, true);
+  assert.equal(e.buttons.original.disabled, true);
+  assert.equal(e.buttons.rotR.disabled, true);
+  assert.equal(e.buttons.skip.disabled, false, "Remove still works");
+  e.forcePress(e.buttons.apply);
+  e.forcePress(e.buttons.original);
+  assert.deepEqual(e.uploads, [], "b is not accepted unseen");
+  images[1].onload();
+  assert.equal(e.hook._state.rotation, 0, "a's turn is not carried to b");
+  e.press(e.buttons.apply);
+  assert.equal(e.uploads.length, 1);
+  const [edA, sentB] = e.uploads[0][1];
+  assert.equal(edA.name, "a.jpg");
+  assert.notEqual(edA, a, "a was edited");
+  assert.equal(sentB, b, "b, unchanged, goes up as it was");
+});
