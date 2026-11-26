@@ -148,6 +148,9 @@ defmodule PhoenixKit.Modules.Crawlers.LlmsTxt do
         # reuses for the next request.
         receive do
           {:DOWN, ^monitor, :process, ^pid, _reason} -> :ok
+        after
+          # A process stuck in native code cannot take the kill; do not wait on it.
+          1_000 -> Process.demonitor(monitor, [:flush])
         end
 
         receive do
