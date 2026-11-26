@@ -2,6 +2,9 @@
   # Mix functions are only available during Mix compilation context
   {"lib/mix/tasks/phoenix_kit.gen.migration.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.media.reorganize.ex", :unknown_function},
+  {"lib/mix/tasks/phoenix_kit.create_owner.ex", :unknown_function},
+  # Mix.env/0 read at runtime (absent from a release, guarded by function_exported?)
+  {"lib/phoenix_kit/users/setup.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.storage.backfill_capture_dates.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.cdn.check_origin.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.doctor.ex", :unknown_function},
@@ -38,6 +41,7 @@
   {"lib/mix/tasks/phoenix_kit.release_check.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.gen.migration.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.media.reorganize.ex", :callback_info_missing, 1},
+  {"lib/mix/tasks/phoenix_kit.create_owner.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.storage.backfill_capture_dates.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.cdn.check_origin.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.install.ex", :callback_info_missing, 2},
