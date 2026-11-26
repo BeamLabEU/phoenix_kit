@@ -45,7 +45,6 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   import PhoenixKitWeb.Components.Dashboard.AdminSidebar, only: [admin_sidebar: 1]
   import PhoenixKitWeb.Components.InvitationBanner, only: [invitation_banners: 1]
 
-  alias Phoenix.HTML
   alias Phoenix.LiveView.TagEngine
   alias PhoenixKit.Config
   alias PhoenixKit.HeaderWidget
@@ -54,7 +53,6 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Storage.URLSigner
-  alias PhoenixKit.ThemeConfig
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.PhoenixVersion
   alias PhoenixKit.Utils.Routes
@@ -1023,9 +1021,13 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
             <%!-- Globals + favicon needed here for render_admin_with_parent path where parent layout may not set them --%>
             <.phoenix_kit_globals />
             <.phoenix_kit_favicon />
-            <style nonce={PhoenixKitWeb.CSP.nonce(:style)} data-phoenix-kit-themes>
-              <%= HTML.raw(ThemeConfig.custom_theme_css()) %>
-            </style>
+            <%!-- The admin shell carries its own pre-paint theme stamp (palettes
+                 + script, once per page), so the host's root layout needs no
+                 theme snippet: `mix phoenix_kit.update` no longer injects one
+                 there. With a root copy present the one-instance guard makes
+                 this a no-op; the theme controller at the end of the shell
+                 applies the same saved theme either way. --%>
+            <PhoenixKitWeb.Components.ThemeBootstrap.theme_bootstrap />
             <style nonce={PhoenixKitWeb.CSP.nonce(:style)}>
               /* Custom sidebar control for desktop - override lg:drawer-open grid layout when closed */
               @media (min-width: 1024px) {
@@ -1715,7 +1717,12 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
       #
       # Flash renders HERE, inside the LiveView tree — a copy in the root layout
       # freezes at its dead-render value (see `render_with_phoenix_kit_layout/1`).
+      #
+      # The theme stamp comes first: the host's root layout may have no theme
+      # snippet (the updater stopped putting one there), and `if_unset` keeps
+      # a host's own theme script in charge where it has one.
       ~H"""
+      <PhoenixKitWeb.Components.ThemeBootstrap.theme_bootstrap if_unset />
       <.flash_group flash={@flash} />
       <.library_load_notice scope={assigns[:phoenix_kit_current_scope]} />
       <.timezone_detector

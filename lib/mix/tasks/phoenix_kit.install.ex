@@ -44,6 +44,10 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       config.exs and test.exs), baked into the generated migration, and
       written into the generated Oban config as `prefix:`.
     * `--create-schema` - Create schema if using custom prefix (default: true for non-public prefixes)
+    * `--install-root-theme` - Also put `PhoenixKitWeb.Components.ThemeBootstrap`
+      in the root layout, so the host's public pages follow the kit's saved
+      theme. Off by default: the kit's admin and auth pages stamp the theme
+      themselves.
     * `--trusted-proxy CIDR` - A reverse proxy whose `X-Forwarded-For` /
       `X-Real-IP` headers may be believed (repeatable). Written as
       `config :phoenix_kit, trusted_proxies: [...]`. Without the flag the
@@ -121,6 +125,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           create_schema: :boolean,
           skip_assets: :boolean,
           trusted_proxy: :keep,
+          install_root_theme: :boolean
         ],
         aliases: [
           r: :router_path,
@@ -156,6 +161,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       ])
       |> CssIntegration.add_automatic_css_integration()
       |> JsIntegration.add_js_integration()
+      |> maybe_install_root_theme(opts)
       |> warn_if_daisyui_outdated()
       |> warn_user_dashboard_deprecated()
       |> RouterIntegration.add_router_integration(opts[:router_path])
@@ -167,6 +173,15 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       |> add_completion_notice(opts)
       |> queue_post_install(opts)
       |> IgniterHelpers.tidy_messages()
+    end
+
+    # The theme bootstrap in the host's root layout is opt-in: the kit's own
+    # admin and auth pages stamp the theme themselves, and a root copy would
+    # re-theme the host's public site too.
+    defp maybe_install_root_theme(igniter, opts) do
+      if opts[:install_root_theme],
+        do: JsIntegration.ensure_theme_bootstrap(igniter),
+        else: igniter
     end
 
     # The migration prompt and asset rebuild have to happen AFTER the file
@@ -374,6 +389,11 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
         --skip-assets           Skip automatic asset rebuild check
                                 Default: false
+
+        --install-root-theme    Also put the theme bootstrap (pre-paint
+                                theme stamp) in your root layout, so your
+                                public pages follow the saved theme. The
+                                admin and auth pages carry their own.
 
         --trusted-proxy CIDR    A reverse proxy whose X-Forwarded-For header
                                 is believed (repeatable), e.g.

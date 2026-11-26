@@ -89,6 +89,11 @@ you declined:
 - Required configuration (Ueberauth, Hammer, the Oban block and its supervisor child, the compilers, the boot hook) and
   the security-relevant endpoint guard (`body_guard`) cannot be declined.
 
+**The theme bootstrap is no longer put in your root layout.** The kit's admin and auth pages stamp the saved theme
+themselves; a root-layout copy also stamped `data-theme` on your public pages. A snippet an earlier update injected stays
+(nothing is removed for you); `mix phoenix_kit.update --remove-root-theme` removes it when it carries the kit's marker
+comment, and `--install-root-theme` adds it for a site that wants its public pages to follow the kit's theme.
+
 ## Order of operations
 
 1. **Get to 2.65.0 first.** 3.0 upgrades an existing database only from **V225**, the last 2.x version.

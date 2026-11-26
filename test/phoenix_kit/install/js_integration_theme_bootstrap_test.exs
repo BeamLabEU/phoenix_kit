@@ -185,4 +185,33 @@ defmodule PhoenixKit.Install.JsIntegrationThemeBootstrapTest do
       assert before =~ "ThemeBootstrap.theme_bootstrap"
     end
   end
+
+  describe "removing the kit's root snippet (--remove-root-theme)" do
+    @marked """
+    <head>
+      <%!-- PhoenixKit theme bootstrap: pre-paint theme stamp --%>
+      <PhoenixKitWeb.Components.ThemeBootstrap.theme_bootstrap />
+      <title>x</title>
+    </head>
+    """
+
+    test "removes the marker and the component line, nothing else" do
+      assert {:ok, updated} = JsIntegration.remove_theme_bootstrap_from(@marked)
+      refute updated =~ "ThemeBootstrap"
+      refute updated =~ "PhoenixKit theme bootstrap"
+      assert updated =~ "<title>x</title>"
+    end
+
+    test "a host's own unmarked bootstrap is not the kit's and stays" do
+      html = "<head>\n  <PhoenixKitWeb.Components.ThemeBootstrap.theme_bootstrap />\n</head>\n"
+      assert JsIntegration.remove_theme_bootstrap_from(html) == :not_found
+    end
+
+    test "inject then remove round-trips the layout" do
+      html = "<head>\n  <title>x</title>\n</head>\n"
+      injected = JsIntegration.inject_theme_bootstrap_into(html)
+      assert injected =~ "ThemeBootstrap"
+      assert {:ok, ^html} = JsIntegration.remove_theme_bootstrap_from(injected)
+    end
+  end
 end

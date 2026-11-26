@@ -58,6 +58,7 @@
     // One instance per page — a host layout and a kit layout can
     // both render this; a second copy would double the storage listener.
     if (window.__pkThemeBootstrap) return;
+    
     window.__pkThemeBootstrap = true;
 
     var KEY = 'phx:theme';
@@ -183,6 +184,7 @@
   window.addEventListener("phx:page-loading-start",function(e){if(e.detail&&e.detail.kind==="initial")e.stopImmediatePropagation()},true);
 </script>
 
+
 <style data-phoenix-kit-themes>
   [data-theme=phoenix-dark]
 {
@@ -234,6 +236,60 @@
   color-scheme: light;
 }
 </style>
+<script>
+  (function () {
+    // One instance per page — a host layout and a kit layout can
+    // both render this; a second copy would double the storage listener.
+    if (window.__pkThemeBootstrap) return;
+    
+    window.__pkThemeBootstrap = true;
+
+    var KEY = 'phx:theme';
+    var LEGACY_KEY = 'phoenix_kit_theme';
+    var LIGHT = 'phoenix-light';
+    var DARK = 'phoenix-dark';
+    var BASES = {"corporate":"light","pastel":"light","abyss":"dark","retro":"light","nord":"dark","black":"dark","lemonade":"light","synthwave":"dark","night":"dark","business":"dark","lofi":"light","valentine":"light","autumn":"light","sunset":"dark","dark":"dark","aqua":"light","phoenix-dark":"dark","wireframe":"light","light":"light","coffee":"dark","dracula":"dark","phoenix-light":"light","bumblebee":"light","fantasy":"light","forest":"dark","cmyk":"light","cupcake":"light","luxury":"dark","acid":"light","garden":"light","winter":"light","silk":"light","emerald":"light","caramellatte":"light","cyberpunk":"light","dim":"dark","halloween":"dark"};
+
+    function resolve(theme) {
+      if (!theme || theme === 'system') {
+        return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+          ? DARK
+          : LIGHT;
+      }
+      return theme;
+    }
+
+    function apply(theme) {
+      var resolved = resolve(theme);
+      var el = document.documentElement;
+      el.setAttribute('data-theme', resolved);
+      el.style.colorScheme = BASES[resolved] || 'light';
+    }
+
+    var saved = null;
+    try {
+      saved = localStorage.getItem(KEY);
+      // The deleted static phoenix_kit_themes.js wrote this older key.
+      // Promote it once so an upgrade does not reset the saved choice.
+      if (!saved) {
+        var legacy = localStorage.getItem(LEGACY_KEY);
+        if (legacy) {
+          saved = legacy;
+          localStorage.setItem(KEY, legacy);
+        }
+      }
+    } catch (e) {
+      /* storage blocked: fall through to system */
+    }
+
+    apply(saved);
+
+    // A theme picked in another tab follows into this one.
+    window.addEventListener('storage', function (e) {
+      if (e.key === KEY || e.key === LEGACY_KEY) apply(e.newValue);
+    });
+  })();
+</script>
 <style>
   /* Custom sidebar control for desktop - override lg:drawer-open grid layout when closed */
   @media (min-width: 1024px) {

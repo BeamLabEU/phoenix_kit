@@ -36,7 +36,17 @@ defmodule PhoenixKitWeb.Components.ThemeBootstrap do
 
   @doc """
   The blocking head setup (palettes + stamp script). Render in `<head>`.
+
+  `if_unset` (default `false`) makes the stamp yield to a theme the page
+  already has: when `<html>` carries `data-theme` by the time the script
+  runs (the host's own theme script, or `<html data-theme=…>` in its root
+  layout), it changes nothing. The kit's auth pages render it that way at
+  the top of their content, so a host root layout without the bootstrap
+  still gets the saved theme there, and one with its own theme handling
+  keeps it.
   """
+  attr :if_unset, :boolean, default: false
+
   def theme_bootstrap(assigns) do
     {light, dark} = ThemeConfig.system_pair()
 
@@ -62,6 +72,11 @@ defmodule PhoenixKitWeb.Components.ThemeBootstrap do
         // One instance per page — a host layout and a kit layout can
         // both render this; a second copy would double the storage listener.
         if (window.__pkThemeBootstrap) return;
+        <%= if @if_unset do %>
+        // The page already has a theme (a host script or the layout's own
+        // attribute): leave it.
+        if (document.documentElement.hasAttribute('data-theme')) return;
+        <% end %>
         window.__pkThemeBootstrap = true;
 
         var KEY = 'phx:theme';

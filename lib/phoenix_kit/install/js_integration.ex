@@ -62,16 +62,21 @@ defmodule PhoenixKit.Install.JsIntegration do
     |> add_script_tag_to_layout()
     |> add_hooks_to_app_js()
     |> ensure_module_js_integration()
-    |> ensure_theme_bootstrap()
   end
 
   @doc """
-  Ensures the host root layout stamps the saved theme before first paint.
+  Puts the theme bootstrap in the host's ROOT layout, so every page rendered
+  with it — the host's public site included — gets the saved theme stamped
+  before first paint. **Opt-in** (`--install-root-theme` on
+  `mix phoenix_kit.install` / `mix phoenix_kit.update`, or
+  `--repair-patch theme_bootstrap`): neither task calls it otherwise. The
+  kit's own admin and auth pages carry their own stamp
+  (`PhoenixKitWeb.Components.LayoutWrapper`), so they need none of this.
+  A snippet an earlier release injected is left where it is;
+  `remove_theme_bootstrap/1` takes a kit-marked one out.
 
-  Renders `PhoenixKitWeb.Components.ThemeBootstrap` at the top of `<head>`.
-  Without it, admin pages served under the host's root layout paint in the
-  default theme and swap after load — the one page class the kit's own
-  layouts (which all render the bootstrap themselves) cannot cover.
+  Patch `theme_bootstrap` in `PhoenixKit.Install.PatchLedger`: an inline
+  `phoenix_kit:skip theme_bootstrap` marker or `--skip-patch` still declines it.
 
   Skipped when the layout already renders the component. A stock
   `phx:theme` script (phx.new 1.8) is NOT a substitute: it treats
@@ -94,9 +99,15 @@ defmodule PhoenixKit.Install.JsIntegration do
         content = File.read!(layout_path)
 
         case theme_bootstrap_plan(content) do
-          :already_present -> igniter
-          :host_managed -> host_managed_notice(igniter, layout_path, content)
-          _ -> inject_theme_bootstrap(igniter, layout_path, content)
+          :already_present ->
+            PatchLedger.record("theme_bootstrap", :applied)
+            igniter
+
+          :host_managed ->
+            host_managed_notice(igniter, layout_path, content)
+
+          _ ->
+            add_root_theme_bootstrap(igniter, layout_path, content)
         end
 
       {:error, :not_found} ->
@@ -111,6 +122,74 @@ defmodule PhoenixKit.Install.JsIntegration do
           """
         )
     end
+  end
+
+  # `--skip-patch theme_bootstrap` or the inline marker still wins over the
+  # opt-in flag.
+  defp add_root_theme_bootstrap(igniter, layout_path, content) do
+    if PatchLedger.skip?("theme_bootstrap") or PatchLedger.marker?(content, "theme_bootstrap") do
+      Igniter.add_notice(igniter, declined_notice("theme_bootstrap", :flag))
+    else
+      igniter = inject_theme_bootstrap(igniter, layout_path, content)
+
+      unless IgniterHelpers.dry_run?(igniter),
+        do: PatchLedger.record("theme_bootstrap", :applied)
+
+      igniter
+    end
+  end
+
+  @doc """
+  Takes the kit's theme bootstrap out of the host's root layout — only a
+  snippet PhoenixKit put there, recognised by its marker comment
+  (`<%!-- PhoenixKit theme bootstrap: pre-paint theme stamp --%>`) directly
+  above the component. A bootstrap the host wrote itself, without the
+  marker, is left alone and reported. Records `theme_bootstrap` as declined,
+  so later updates leave the layout as it is now.
+  """
+  def remove_theme_bootstrap(igniter) do
+    case find_existing_file(root_layout_paths()) do
+      {:ok, layout_path} ->
+        content = File.read!(layout_path)
+
+        case remove_theme_bootstrap_from(content) do
+          {:ok, updated} ->
+            unless IgniterHelpers.dry_run?(igniter),
+              do: PatchLedger.record("theme_bootstrap", :declined)
+
+            replace_host_file(
+              igniter,
+              layout_path,
+              updated,
+              "the PhoenixKit theme bootstrap"
+            )
+
+          :not_found ->
+            Igniter.add_notice(
+              igniter,
+              "ℹ️  No kit-marked theme bootstrap in #{layout_path}; nothing removed." <>
+                if(String.contains?(content, "ThemeBootstrap"),
+                  do: " (A ThemeBootstrap without the kit's marker is yours; left alone.)",
+                  else: ""
+                )
+            )
+        end
+
+      {:error, :not_found} ->
+        Igniter.add_notice(igniter, "ℹ️  Could not find the root layout; nothing removed.")
+    end
+  end
+
+  @doc false
+  # Pure: the layout without the kit-marked bootstrap (the marker line and the
+  # component line right after it), or `:not_found`.
+  def remove_theme_bootstrap_from(content) do
+    pattern =
+      ~r/^[ \t]*#{Regex.escape(@bootstrap_marker)}[ \t]*\r?\n[ \t]*<PhoenixKitWeb\.Components\.ThemeBootstrap\.theme_bootstrap\s*\/>[ \t]*\r?\n?/m
+
+    if Regex.match?(pattern, content),
+      do: {:ok, Regex.replace(pattern, content, "", global: false)},
+      else: :not_found
   end
 
   # Where the bootstrap should land. Public so the placement rules can be
@@ -598,6 +677,15 @@ defmodule PhoenixKit.Install.JsIntegration do
           "⚠️  Could not seed #{@modules_filename} (#{inspect(reason)}). " <>
             "It will be created on the next `mix compile`."
         )
+    end
+  end
+
+  defp replace_host_file(igniter, path, content, what) do
+    if IgniterHelpers.dry_run?(igniter) do
+      Igniter.add_notice(igniter, "🔍 Dry run: would remove #{what} from #{path} (not written)")
+    else
+      File.write!(path, content)
+      Igniter.add_notice(igniter, "✅ Removed #{what} from #{path}")
     end
   end
 

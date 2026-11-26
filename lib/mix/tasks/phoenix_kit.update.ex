@@ -106,6 +106,10 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       * `--migrate-only` - Run every database step — PhoenixKit's step-up,
         Oban's schema, the installed modules' migrations (their files are
         written too) — with only the repo started. See "Database only" below.
+      * `--install-root-theme` - Add the theme bootstrap to the host's ROOT
+        layout (opt-in; see "Theme bootstrap" below).
+      * `--remove-root-theme` - Remove a kit-marked theme bootstrap from the
+        root layout and record `theme_bootstrap` as declined.
       * `--skip-patch ID` - Decline an optional project edit and record it
         in `.phoenix_kit.exs` (repeatable). See "The patch ledger" below.
       * `--repair-patch ID` - Apply an optional edit again although the
@@ -122,6 +126,17 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     whose config.exs lacks the Ueberauth, Hammer or Oban configuration: that
     configuration is added first, and nothing else, because the version can
     only be read once the app starts with it.
+
+    ## Theme bootstrap
+
+    The update no longer puts `PhoenixKitWeb.Components.ThemeBootstrap` in
+    your root layout: the kit's admin pages and auth pages stamp the saved
+    theme themselves (`PhoenixKitWeb.Components.LayoutWrapper`), and a root
+    copy stamped `data-theme` on your public site as well. A snippet an
+    earlier update injected stays where it is (nothing is removed
+    automatically); `--remove-root-theme` removes it when it carries the
+    kit's marker comment. `--install-root-theme` adds it, for a site that
+    wants its public pages to follow the kit's saved theme.
 
     ## The patch ledger (`.phoenix_kit.exs`)
 
@@ -250,6 +265,8 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           dry_run: :boolean,
           skip_patch: :keep,
           repair_patch: :keep,
+          install_root_theme: :boolean,
+          remove_root_theme: :boolean
         ],
         aliases: [
           p: :prefix,
@@ -336,6 +353,8 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
               dry_run: :boolean,
               skip_patch: :keep,
               repair_patch: :keep,
+              install_root_theme: :boolean,
+              remove_root_theme: :boolean
             ],
             aliases: [
               p: :prefix,
@@ -756,7 +775,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       # (aggregate file, script tag). Picks up the feature on hosts installed
       # before it existed.
       igniter = JsIntegration.ensure_module_js_integration(igniter)
-      igniter = JsIntegration.ensure_theme_bootstrap(igniter)
+      igniter = root_theme(igniter, opts)
       igniter = TestFixturesIntegration.ensure_conn_case_import(igniter)
 
       # Second pass only (the first stops at `add_missing_configuration/2`):
@@ -768,6 +787,24 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         force,
         opts
       )
+    end
+
+    @doc false
+    # The theme bootstrap in the host's ROOT layout is opt-in: the kit's admin
+    # and auth pages stamp the theme themselves, and a root copy re-themes the
+    # host's public site. A snippet an earlier update injected is left in
+    # place; `--remove-root-theme` takes a kit-marked one out.
+    def root_theme(igniter, opts) do
+      cond do
+        opts[:remove_root_theme] ->
+          JsIntegration.remove_theme_bootstrap(igniter)
+
+        opts[:install_root_theme] == true or PatchLedger.repair?("theme_bootstrap") ->
+          JsIntegration.ensure_theme_bootstrap(igniter)
+
+        true ->
+          igniter
+      end
     end
 
     # Split out of `perform_igniter_update/2` to keep its cyclomatic
@@ -1362,6 +1399,16 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
                                 files it would edit; the asset rebuild,
                                 vendored JS, migrations and module
                                 migration files are listed and skipped
+
+        --install-root-theme    Put the theme bootstrap (pre-paint theme
+                                stamp) in your ROOT layout, so your public
+                                pages follow the saved theme too. Not done
+                                otherwise: the admin and auth pages carry
+                                their own.
+
+        --remove-root-theme     Remove a theme bootstrap an earlier update
+                                put in the root layout (only the kit-marked
+                                one) and record it as declined
 
         --skip-patch ID         Decline an optional project edit (repeatable)
                                 and record it in .phoenix_kit.exs, so later
