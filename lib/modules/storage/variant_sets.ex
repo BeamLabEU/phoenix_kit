@@ -231,7 +231,7 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
   end
 
   defp do_update_variant_set(set, attrs, opts) do
-    changeset = VariantSet.changeset(set, attrs)
+    changeset = set |> VariantSet.changeset(attrs) |> validate_watermark_logo()
 
     transact(fn ->
       with {:ok, updated} <- repo().update(changeset) do
@@ -310,6 +310,70 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
     do: Watermark.for_size(watermark, dimension)
 
   def watermark_for(_set, _dimension), do: nil
+
+  # An enabled watermark's logo must be one the site may show to anyone
+  # (`watermark_logo/1`): its pixels go into public renditions.
+  defp validate_watermark_logo(
+         %Ecto.Changeset{changes: %{watermark: %Ecto.Changeset{valid?: true} = watermark}} =
+           changeset
+       ) do
+    uuid = Ecto.Changeset.get_field(watermark, :logo_file_uuid)
+
+    with true <- Ecto.Changeset.get_field(watermark, :enabled) and not is_nil(uuid),
+         {:error, reason} <- watermark_logo(uuid) do
+      watermark = Ecto.Changeset.add_error(watermark, :logo_file_uuid, logo_error(reason))
+      %{changeset | changes: Map.put(changeset.changes, :watermark, watermark), valid?: false}
+    else
+      _ -> changeset
+    end
+  end
+
+  defp validate_watermark_logo(changeset), do: changeset
+
+  defp logo_error(:logo_not_found), do: "no stored file has this ID"
+  defp logo_error(:logo_not_an_image), do: "must be an image"
+
+  defp logo_error(:logo_not_public),
+    do: "must be in a site library everyone can see (not a user's or a hidden one)"
+
+  @doc """
+  The stored file `uuid` names, when a watermark may draw it as its logo:
+  an image (not system-managed, not in the trash) in a library whose files
+  anyone may see. A user's library and a private one (a hidden system library,
+  one trashed or suspended, one open to signed-in users only) are refused,
+  by the rule of the site's listings (`Libraries.user_or_hidden_among/1`):
+  the logo's pixels go into renditions served to everyone. Checked when the
+  watermark is saved and again when it is drawn.
+  """
+  @spec watermark_logo(term()) ::
+          {:ok, StorageFile.t()}
+          | {:error, :logo_not_found | :logo_not_an_image | :logo_not_public}
+  def watermark_logo(uuid) do
+    with {:ok, uuid} <- cast_logo_uuid(uuid),
+         %StorageFile{} = file <- repo().get(StorageFile, uuid) || {:error, :logo_not_found},
+         :ok <- logo_image(file),
+         :ok <- logo_public(file) do
+      {:ok, file}
+    end
+  end
+
+  defp cast_logo_uuid(uuid) do
+    case Ecto.UUID.cast(uuid) do
+      {:ok, uuid} -> {:ok, uuid}
+      :error -> {:error, :logo_not_found}
+    end
+  end
+
+  defp logo_image(%StorageFile{status: "trashed"}), do: {:error, :logo_not_found}
+
+  defp logo_image(%StorageFile{file_type: "image", system_managed: false}), do: :ok
+  defp logo_image(_file), do: {:error, :logo_not_an_image}
+
+  defp logo_public(%StorageFile{library_uuid: library_uuid}) do
+    if Libraries.user_or_hidden_among([library_uuid]) == [],
+      do: :ok,
+      else: {:error, :logo_not_public}
+  end
 
   @doc """
   `watermark` with its logo's content checksum (`Watermark.logo_checksum`, the

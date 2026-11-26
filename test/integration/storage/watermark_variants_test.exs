@@ -15,11 +15,13 @@ defmodule PhoenixKit.Modules.Storage.WatermarkVariantsTest do
 
   alias PhoenixKit.Modules.Storage.{
     Libraries,
+    Library,
     Manager,
     ProcessFileJob,
     Profiles,
     Reconciler,
-    VariantSets
+    VariantSets,
+    Watermark
   }
 
   alias PhoenixKit.Users.Auth
@@ -150,9 +152,61 @@ defmodule PhoenixKit.Modules.Storage.WatermarkVariantsTest do
     assert size(file, "wm_small") == {100, 50}
   end
 
+  # Writes the watermark as it is, past the checks of a save: what a logo whose
+  # file has changed since it was saved looks like at drawing time.
+  defp force_watermark!(ctx, attrs) do
+    {:ok, watermark} =
+      %Watermark{}
+      |> Watermark.changeset(Map.merge(%{"enabled" => "true", "text" => "example.com"}, attrs))
+      |> Ecto.Changeset.apply_action(:insert)
+
+    ctx.set.uuid
+    |> VariantSets.get_variant_set()
+    |> Ecto.Changeset.change()
+    |> Ecto.Changeset.put_embed(:watermark, watermark)
+    |> PhoenixKit.RepoHelper.repo().update!()
+  end
+
+  defp move_to_library!(file, library_uuid) do
+    {1, _} =
+      PhoenixKit.RepoHelper.repo().update_all(
+        Ecto.Query.from(f in Storage.File, where: f.uuid == ^file.uuid),
+        set: [library_uuid: library_uuid]
+      )
+  end
+
+  defp hidden_library! do
+    n = System.unique_integer([:positive])
+
+    {:ok, hidden} =
+      Libraries.create_system_library(%{name: "Hidden #{n}", slug: "hidden-wm-#{n}"},
+        hidden: true
+      )
+
+    hidden
+  end
+
+  defp user_library!(user) do
+    n = System.unique_integer([:positive])
+
+    PhoenixKit.RepoHelper.repo().insert!(%Library{
+      name: "Mine #{n}",
+      slug: "mine-wm-#{n}",
+      kind: "user",
+      visibility: "private",
+      owner_uuid: user.uuid,
+      key_prefix: "u#{n}"
+    })
+  end
+
+  defp logo_error(changeset) do
+    {message, _} = changeset.changes.watermark.errors[:logo_file_uuid]
+    message
+  end
+
   test "a watermark that cannot be drawn leaves a clean size, a logged error and a working upload",
        ctx do
-    watermark!(ctx, %{
+    force_watermark!(ctx, %{
       "text" => "",
       "logo_file_uuid" => Ecto.UUID.generate(),
       "dimensions" => ["wm_big"]
@@ -171,7 +225,10 @@ defmodule PhoenixKit.Modules.Storage.WatermarkVariantsTest do
     dir = Path.join(ctx.dir, "logo")
     File.mkdir_p!(dir)
     path = Path.join(dir, "logo#{System.unique_integer([:positive])}.png")
-    {_, 0} = System.cmd("convert", ["-size", "60x60", "xc:#{colour}", path])
+    # A comment of its own: two logos of one colour are two files, not a duplicate.
+    {_, 0} =
+      System.cmd("convert", ["-size", "60x60", "xc:#{colour}", "-set", "comment", path, path])
+
     sha = :sha256 |> :crypto.hash(File.read!(path)) |> Base.encode16(case: :lower)
 
     {:ok, logo} =
@@ -247,6 +304,73 @@ defmodule PhoenixKit.Modules.Storage.WatermarkVariantsTest do
     refute instance(file, "wm_big").file_name == old_key
     assert corner_mean(file, "g") > 0.9
     assert corner_mean(file, "b") < 0.1
+  end
+
+  describe "the logo must be one anyone may see" do
+    test "a missing file, a file that is not an image, a user's or a hidden library's is refused at save",
+         ctx do
+      set = VariantSets.get_variant_set(ctx.set.uuid)
+
+      attrs =
+        &%{"enabled" => "true", "text" => "", "logo_file_uuid" => &1, "dimensions" => ["wm_big"]}
+
+      assert {:error, cs} = VariantSets.update_watermark(set, attrs.(Ecto.UUID.generate()))
+      assert logo_error(cs) =~ "no stored file"
+
+      {:ok, doc} =
+        Storage.store_file_in_buckets(
+          Path.join(File.cwd!(), "mix.exs"),
+          "document",
+          ctx.user.uuid,
+          String.duplicate("d", 64),
+          "txt",
+          "notes.txt",
+          library_uuid: ctx.library.uuid
+        )
+
+      assert {:error, cs} = VariantSets.update_watermark(set, attrs.(doc.uuid))
+      assert logo_error(cs) =~ "must be an image"
+
+      hidden_logo = store_logo!(ctx, "blue")
+      move_to_library!(hidden_logo, hidden_library!().uuid)
+      assert {:error, cs} = VariantSets.update_watermark(set, attrs.(hidden_logo.uuid))
+      assert logo_error(cs) =~ "site library everyone can see"
+
+      user_logo = store_logo!(ctx, "blue")
+      move_to_library!(user_logo, user_library!(ctx.user).uuid)
+      assert {:error, cs} = VariantSets.update_watermark(set, attrs.(user_logo.uuid))
+      assert logo_error(cs) =~ "site library everyone can see"
+
+      assert VariantSets.get_variant_set(ctx.set.uuid).watermark == nil
+
+      # Off, it is not checked (nothing is drawn); a site library's image is fine.
+      assert {:ok, _} =
+               VariantSets.update_watermark(set, %{
+                 attrs.(user_logo.uuid)
+                 | "enabled" => "false"
+               })
+
+      assert {:ok, _} =
+               VariantSets.update_watermark(
+                 VariantSets.get_variant_set(ctx.set.uuid),
+                 attrs.(store_logo!(ctx, "blue").uuid)
+               )
+    end
+
+    test "a logo that has become private since it was saved is not drawn", ctx do
+      logo = store_logo!(ctx, "blue")
+      corner_logo!(ctx, logo)
+      move_to_library!(logo, hidden_library!().uuid)
+
+      log = capture_log(fn -> send(self(), {:uploaded, upload!(ctx)}) end)
+      assert_received {:uploaded, {file, _source}}
+
+      assert log =~ "logo_refused"
+      assert log =~ "logo_not_public"
+      # The clean size, under its clean hash.
+      assert instance(file, "wm_big").spec_hash == VariantSets.spec_hash(ctx.big)
+      assert corner_mean(file, "b") < 0.1
+    end
   end
 
   test "a renamed size keeps its place in the watermark", ctx do

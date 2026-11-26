@@ -20,6 +20,7 @@ defmodule PhoenixKit.Modules.Storage.WatermarkRenderer do
 
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.ImageProcessor
+  alias PhoenixKit.Modules.Storage.VariantSets
   alias PhoenixKit.Modules.Storage.Watermark
 
   @max_pixels 100_000_000
@@ -33,7 +34,8 @@ defmodule PhoenixKit.Modules.Storage.WatermarkRenderer do
 
     * `:quality` — the output quality (default 85);
     * `:logo_path` — a logo already on disk; without it the logo is read from
-      `watermark.logo_file_uuid` (the stored file's original) and removed after.
+      `watermark.logo_file_uuid` (the stored file's original) and removed after,
+      once `VariantSets.watermark_logo/1` allows it (an image anyone may see).
 
   Returns `{:ok, path}` or `{:error, reason}`; on an error `path` is untouched.
   """
@@ -66,21 +68,32 @@ defmodule PhoenixKit.Modules.Storage.WatermarkRenderer do
         fun.(path)
 
       nil ->
-        case Storage.retrieve_original(uuid) do
-          {:ok, path, %{file_type: "image"}, _instance} ->
-            try do
-              fun.(path)
-            after
+        # Checked again here, not only when saved: the logo's file may have moved
+        # to a private library, or its library been hidden, since.
+        with {:ok, _file} <- logo_allowed(uuid) do
+          case Storage.retrieve_original(uuid) do
+            {:ok, path, %{file_type: "image"}, _instance} ->
+              try do
+                fun.(path)
+              after
+                File.rm(path)
+              end
+
+            {:ok, path, _file, _instance} ->
               File.rm(path)
-            end
+              {:error, :logo_not_an_image}
 
-          {:ok, path, _file, _instance} ->
-            File.rm(path)
-            {:error, :logo_not_an_image}
-
-          {:error, reason} ->
-            {:error, {:logo_unavailable, reason}}
+            {:error, reason} ->
+              {:error, {:logo_unavailable, reason}}
+          end
         end
+    end
+  end
+
+  defp logo_allowed(uuid) do
+    case VariantSets.watermark_logo(uuid) do
+      {:ok, file} -> {:ok, file}
+      {:error, reason} -> {:error, {:logo_refused, reason}}
     end
   end
 

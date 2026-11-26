@@ -519,7 +519,13 @@ stops serving them, and the ones made stay stored.
   ImageMagick) leaves the clean rendition, recorded under the clean spec hash,
   with an error in the log; the next check of the set's files tries again. The
   text is hashed as written: a new site address reaches existing renditions on
-  "Check every file". Admin: the Watermark card of a rendition profile.
+  "Check every file". The logo counts by its content too (its file's
+  `file_checksum`, `Watermark.logo_checksum`), so a logo edited in place reaches
+  them on that check as well. ⚠️ The logo must be an image anyone may see
+  (`VariantSets.watermark_logo/1`: not in a user library or a private one, by the
+  rule of `Libraries.user_or_hidden_among/1`), since its pixels go into public
+  renditions: refused when saved, and again when drawn (then the clean rendition
+  and a logged `logo_refused`). Admin: the Watermark card of a rendition profile.
 - **Cropping around the subject** (V210, `Storage.FocalPoint`). A fixed image
   rendition (a box the photo is scaled to fill and cropped to) has a
   `crop_mode`: `center` (the default: every existing rendition) or `focus`, which
