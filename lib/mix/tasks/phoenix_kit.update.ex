@@ -275,14 +275,12 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     # found missing.
     defp add_missing_configuration(igniter, opts) do
       prefix = PrefixConfig.resolve_prefix(opts)
-      config_exists = ObanConfig.oban_config_exists?(igniter)
 
       igniter
       |> PrefixConfig.add_prefix_configuration(opts[:prefix])
       |> validate_and_fix_ueberauth_config()
       |> validate_and_add_hammer_config()
       |> ObanConfig.add_oban_configuration(prefix)
-      |> maybe_add_oban_config_notice(config_exists)
     end
 
     # Override run/1 to handle post-igniter interactive migration and asset rebuild
@@ -2936,17 +2934,15 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     end
 
     defp validate_and_add_oban_config(igniter, prefix) do
-      config_exists = ObanConfig.oban_config_exists?(igniter)
       supervisor_exists = ObanConfig.oban_supervisor_exists?(igniter)
 
       # Always call add_oban_configuration - it handles both:
       # - Adding new configuration if missing
       # - Adding any declared queue (PhoenixKit.ObanQueues) the existing
       #   configuration is missing, without changing limits already set
-      igniter =
-        igniter
-        |> ObanConfig.add_oban_configuration(prefix)
-        |> maybe_add_oban_config_notice(config_exists)
+      # and reports the result in one line (ObanConfig.report_patch/2): an
+      # edit that would not parse is skipped and listed in the closing summary.
+      igniter = ObanConfig.add_oban_configuration(igniter, prefix)
 
       # Check and add supervisor separately
       if supervisor_exists do
@@ -2956,51 +2952,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         |> ObanConfig.add_oban_supervisor()
         |> add_oban_supervisor_added_notice()
       end
-    end
-
-    # Add appropriate notice based on whether config existed
-    defp maybe_add_oban_config_notice(igniter, config_existed) do
-      if config_existed do
-        # Config existed, might have been updated with new queues
-        add_oban_config_updated_notice(igniter)
-      else
-        # Config was newly added
-        add_oban_config_added_notice(igniter)
-      end
-    end
-
-    # Add notice about Oban configuration being added
-    defp add_oban_config_added_notice(igniter) do
-      notice = """
-      ⚠️  Added missing Oban configuration to config.exs
-         IMPORTANT: Restart your server if it's currently running.
-         Without Oban, the storage system cannot process uploaded files.
-      """
-
-      Igniter.add_notice(igniter, String.trim(notice))
-    end
-
-    # Add notice about Oban configuration being updated with new queues
-    defp add_oban_config_updated_notice(igniter) do
-      headline =
-        case ObanConfig.manual_step_count() do
-          0 ->
-            "⚙️  Oban configuration verified/updated in config.exs"
-
-          n ->
-            "⚙️  Oban configuration checked in config.exs — #{n} step(s) need you (listed below)"
-        end
-
-      notice = """
-      #{headline}
-         Any queue PhoenixKit or an installed module declares was added if it
-         was missing (existing limits are never changed). Cron entries that
-         installed modules declare were added the same way; an entry you
-         commented out of the crontab is left out.
-         IMPORTANT: If your server is running, restart it to apply changes.
-      """
-
-      Igniter.add_notice(igniter, String.trim(notice))
     end
 
     # Add notice about Oban supervisor being added
