@@ -326,3 +326,29 @@ test("a stale draft leaves the fields the person did not touch to the server", a
   assert.deepEqual(JSON.parse(local.getItem(KEY)).fields, { "post[title]": "Edited title" },
     "the restored fields stay in the draft");
 });
+
+test("an exclusion patched in after mount is honoured at save and restore", async () => {
+  local.m.clear();
+  const f = fakeForm();
+  f.hook.mounted();
+  // LiveView patches the form: email is now excluded, and its input appears.
+  f.el.dataset.draftExclude = "email";
+  const email = field("user[email]", { value: "" });
+  f.els.push(email);
+  email.value = "me@example.com";
+  f.listeners.input({ target: email });
+  f.els[0].value = "Title";
+  f.listeners.input({ target: f.els[0] });
+  await waitSave();
+  assert.deepEqual(JSON.parse(local.getItem(KEY)).fields, { "post[title]": "Title" }, "email is never stored");
+  f.hook.destroyed();
+
+  // A draft written before the exclusion is not put back into it either.
+  local.setItem(KEY, JSON.stringify({ v: 1, t: Date.now(), fields: { "post[title]": "T", "user[email]": "old@x" } }));
+  const g = fakeForm({ elements: [field("post[title]"), field("user[email]")] });
+  g.hook.mounted();
+  g.el.dataset.draftExclude = "email";
+  g.barListeners.click(g.button("data-pk-draft-restore"));
+  assert.equal(g.els[0].value, "T");
+  assert.equal(g.els[1].value, "", "excluded field left alone");
+});

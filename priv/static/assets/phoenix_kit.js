@@ -9566,7 +9566,6 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
   window.PhoenixKitHooks.FormDraft = {
     mounted() {
       var self = this;
-      this._exclude = draftExcludeList(this.el.dataset.draftExclude);
       this._key = draftKey(window.location && window.location.pathname, this.el.id, this.el.dataset.draftKey);
       this._store = store(this.el.dataset.draftStorage);
       this._initial = this._snapshot();
@@ -9576,7 +9575,7 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
       this._submitted = false;
 
       this._onEdit = function (e) {
-        if (!e.target || !draftEligible(e.target, self._exclude)) return;
+        if (!e.target || !draftEligible(e.target, self._excluded())) return;
         self._dirty[e.target.name] = true;
         // Typing after a submit means that submit did not end the editing.
         self._submitted = false;
@@ -9627,8 +9626,13 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
         (id ? document.getElementById(id + "-draft-bar") : null);
     },
 
+    // Read on every use, not cached at mount: a patch can change it.
+    _excluded() {
+      return draftExcludeList(this.el.dataset.draftExclude);
+    },
+
     _snapshot() {
-      return draftSerialize(this.el.elements || [], this._exclude);
+      return draftSerialize(this.el.elements || [], this._excluded());
     },
 
     _read() {
@@ -9683,7 +9687,7 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
       this._pending = null;
       this._prompt(false);
       if (!d) return;
-      var changed = draftApply(this.el.elements || [], d.fields, this._exclude);
+      var changed = draftApply(this.el.elements || [], d.fields, this._excluded());
       var dirty = this._dirty;
       Object.keys(d.fields).forEach(function (n) { dirty[n] = true; });
       // One input event: LiveView sends the whole form to phx-change.
