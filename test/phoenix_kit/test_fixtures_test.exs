@@ -71,6 +71,36 @@ defmodule PhoenixKit.TestFixturesTest do
     end
   end
 
+  describe "log_in_user/2 on a conn without a session" do
+    test "a plain build_conn() conn works: the session is started for it" do
+      user = confirmed_user_fixture()
+      conn = Phoenix.ConnTest.build_conn() |> log_in_user(user)
+
+      token = Plug.Conn.get_session(conn, :user_token)
+      assert Auth.get_user_by_session_token(token).uuid == user.uuid
+
+      assert Plug.Conn.get_session(conn, :live_socket_id) ==
+               "phoenix_kit_sessions:#{Base.url_encode64(token)}"
+    end
+
+    test "an existing session is kept, not replaced" do
+      user = confirmed_user_fixture()
+
+      conn =
+        Phoenix.ConnTest.build_conn()
+        |> Plug.Test.init_test_session(%{"return_to" => "/somewhere"})
+        |> log_in_user(user)
+
+      assert Plug.Conn.get_session(conn, "return_to") == "/somewhere"
+      assert is_binary(Plug.Conn.get_session(conn, :user_token))
+    end
+
+    test "register_and_log_in_user/1 composes with a plain conn too" do
+      context = register_and_log_in_user(%{conn: Phoenix.ConnTest.build_conn()})
+      assert is_binary(Plug.Conn.get_session(context.conn, :user_token))
+    end
+  end
+
   describe "register_and_log_in_user/1" do
     test "returns a confirmed, logged-in user and composes as a setup" do
       conn = Phoenix.ConnTest.build_conn() |> init_session()

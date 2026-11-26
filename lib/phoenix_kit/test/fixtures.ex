@@ -115,15 +115,27 @@ defmodule PhoenixKit.Test.Fixtures do
   reason this helper exists: without it `PhoenixKitWeb.Endpoint.broadcast` has
   no topic to reach the socket on, so logging out never disconnects the
   LiveView — and nothing but a session-invalidation test would reveal it.
+
+  Takes a plain `build_conn()` conn: when the conn has no session yet it
+  starts a test session (`Plug.Test.init_test_session/2`) first. A session
+  already on the conn (from your own `init_test_session/2`) is kept, and the
+  two keys are added to it.
   """
   @spec log_in_user(Plug.Conn.t(), Auth.User.t()) :: Plug.Conn.t()
   def log_in_user(conn, user) do
     token = Auth.generate_user_session_token(user)
 
     conn
+    |> ensure_test_session()
     |> put_session(:user_token, token)
     |> put_session(:live_socket_id, Sessions.live_socket_id(token))
   end
+
+  # A conn straight from `build_conn()` has no session, and `put_session/3`
+  # raises "session not fetched" on it. `init_test_session/2` with nothing to
+  # add starts an empty one, or fetches one a session plug has set up.
+  defp ensure_test_session(%Plug.Conn{private: %{plug_session: _}} = conn), do: conn
+  defp ensure_test_session(conn), do: Plug.Test.init_test_session(conn, %{})
 
   @doc """
   A real `%Scope{}` for `user`, with roles and permissions loaded.
