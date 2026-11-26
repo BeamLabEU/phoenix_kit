@@ -181,7 +181,7 @@ Core and always on — **not** a feature module (no Modules card, not in `Module
 
 - ⚠️ **A menu or switcher reads `Languages.get_enabled_languages/0`, never `get_display_languages/0`** — the latter returns hardcoded defaults while the switch is off (languages with no route behind them).
 - ⚠️ **The page must stay reachable while the switch is off** (it holds the switch). That is why the key is core: `Auth` refuses a page whose key is `feature_enabled?` false.
-- ⚠️ **Switch off = single-language: no URL carries a locale segment**, for any locale (`Routes.path/2` emits none; the locale plug 302s `/<code>/…` to the clean path on kit routes). The site's language is `Languages.primary_language_code/0` — never `get_default_language/0` (nil while off) with a hardcoded `"en"` fallback. Host-owned `/:locale` scopes are the host's to handle: `guides/locale-routing.md`.
+- ⚠️ **Switch off = single-language: no URL carries a locale segment**, for any locale (`Routes.path/2` emits none; the locale plug 302s `/<code>/…` to the clean path on kit routes). The site's language is `Languages.primary_language_code/0` — never `get_default_language/0` (nil while off) with a hardcoded `"en"` fallback. Host-owned `/:locale` scopes are the host's to handle — `PhoenixKitWeb.Plugs.HostLocale` (plug + on_mount, 404 on an unserved segment) and `PhoenixKit.I18n` (`enabled_locales/0`, `localized_url/3`, `hreflang_links/2`, `language_links/2`, always with a host URL builder or an explicit `strategy:`) do it from the kit's languages: `guides/locale-routing.md`, "Host locale routes".
 
 ## Integrations System
 
