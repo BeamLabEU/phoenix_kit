@@ -15,9 +15,9 @@ defmodule PhoenixKit.Users.CommentResources do
 
   import Ecto.Query, only: [from: 2]
 
-  alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.RepoHelper
   alias PhoenixKit.Users.Auth.User
+  alias PhoenixKitWeb.Components.Core.UserInfo
 
   @spec resolve_comment_resources([binary()]) :: %{binary() => map()}
   def resolve_comment_resources(resource_uuids) when is_list(resource_uuids) do
@@ -34,7 +34,8 @@ defmodule PhoenixKit.Users.CommentResources do
       info =
         case avatar_thumb(user) do
           nil -> info
-          url -> Map.put(info, :thumb_url, url)
+          {url, nil} -> Map.put(info, :thumb_url, url)
+          {url, style} -> info |> Map.put(:thumb_url, url) |> Map.put(:thumb_style, style)
         end
 
       {user.uuid, info}
@@ -49,17 +50,14 @@ defmodule PhoenixKit.Users.CommentResources do
   # address for any commenter who had not set a name.
   defp display_name(user), do: User.display_name(user)
 
-  # Same avatar precedence the `user_avatar` component uses: an uploaded avatar
-  # (storage thumbnail), then an OAuth avatar URL, else none (chip shows a badge).
-  defp avatar_thumb(%{custom_fields: %{"avatar_file_uuid" => file_id}})
-       when is_binary(file_id) and file_id != "" do
-    URLSigner.signed_url(file_id, "thumbnail")
+  # The person's picture by the rule of every face (`UserInfo.avatar_brief/2`:
+  # uploaded with its crop, the OAuth provider's, Gravatar), so the comments
+  # list shows the same face as a chip or a card (Max, 2026-11-26). It used
+  # to skip Gravatar and the crop.
+  defp avatar_thumb(user) do
+    case UserInfo.avatar_brief(user) do
+      %{url: url, style: style} when is_binary(url) -> {url, style}
+      _ -> nil
+    end
   end
-
-  defp avatar_thumb(%{custom_fields: %{"oauth_avatar_url" => url}})
-       when is_binary(url) and url != "" do
-    url
-  end
-
-  defp avatar_thumb(_user), do: nil
 end

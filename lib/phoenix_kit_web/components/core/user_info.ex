@@ -84,38 +84,9 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
 
   def user_avatar(assigns) do
     email = get_email(assigns.user)
-    avatar_result = get_avatar_source(assigns.user, assigns.size)
 
-    # A stored crop only applies to the uploaded file it was made against —
-    # OAuth and Gravatar avatars have no variants and no crop.
-    crop =
-      case avatar_result do
-        {:storage, _file_id, _variant} -> AvatarCrop.from_user(assigns.user)
-        _ -> nil
-      end
-
-    avatar_url =
-      case avatar_result do
-        {:storage, file_id, variant} ->
-          # A zoomed crop shows only part of the source, so it may need a
-          # bigger variant than the box alone would: the geometry is free,
-          # the sharpness has to come from somewhere.
-          variant =
-            if crop,
-              do: AvatarCrop.variant_for(box_px(assigns.size), crop["zoom"], crop["ar"]),
-              else: variant
-
-          URLSigner.signed_url(file_id, variant)
-
-        {:url, url} ->
-          url
-
-        {:gravatar, url} ->
-          url
-
-        nil ->
-          nil
-      end
+    %{source: avatar_result, url: avatar_url, crop: crop} =
+      picture(assigns.user, assigns.size)
 
     peek_url = if assigns.peek, do: peek_url(avatar_result, crop, email)
 
@@ -178,6 +149,46 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
       </div>
     </div>
     """
+  end
+
+  # A person's picture, by the one rule every face follows (`user_avatar`,
+  # `person_chip`, `avatar_brief`): an uploaded file (with its crop), the
+  # OAuth provider's picture, Gravatar, or none. A stored crop only applies
+  # to the uploaded file it was made against: OAuth and Gravatar pictures
+  # have no variants and no crop.
+  defp picture(user, size) do
+    source = get_avatar_source(user, size)
+
+    crop =
+      case source do
+        {:storage, _file_id, _variant} -> AvatarCrop.from_user(user)
+        _ -> nil
+      end
+
+    url =
+      case source do
+        {:storage, file_id, variant} ->
+          # A zoomed crop shows only part of the source, so it may need a
+          # bigger variant than the box alone would: the geometry is free,
+          # the sharpness has to come from somewhere.
+          variant =
+            if crop,
+              do: AvatarCrop.variant_for(box_px(size), crop["zoom"], crop["ar"]),
+              else: variant
+
+          URLSigner.signed_url(file_id, variant)
+
+        {:url, url} ->
+          url
+
+        {:gravatar, url} ->
+          url
+
+        nil ->
+          nil
+      end
+
+    %{source: source, url: url, crop: crop}
   end
 
   # The hover preview loads a picture sized for itself; the small avatar's
@@ -384,9 +395,11 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
   * Neutral colour, never underlined, even inside markup that styles
     every `<a>` as a link (a rendered description).
   * Spans only: inside a `<p>` a `<div>` would close the paragraph.
-  * The face is a picture stored on this site, else initials (never
-    Gravatar or an OAuth provider: a page of people would make every
-    reader's browser contact a third party).
+  * The face is the person's picture by the same rule as `user_avatar/1`
+    (uploaded, with its crop; the OAuth provider's; Gravatar), else
+    initials: one person looks the same in a chip, a list and a card (Max,
+    2026-11-26). Public surfaces show a name only and never reach here
+    (`mention_text/1` withholds the chip there).
   * With `uuid`, the chip carries `data-mention-user`: a click opens the
     person's card (`phoenix_kit.js`); modifier clicks follow `href`.
 
@@ -461,7 +474,8 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
       :if={@face.url}
       src={@face.url}
       alt=""
-      class="absolute inset-0 h-full w-full object-cover"
+      style={@face[:style]}
+      class={unless @face[:style], do: "absolute inset-0 h-full w-full object-cover"}
       data-pk-img-error="remove"
     /></span>
     """
@@ -473,28 +487,40 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
 
   @doc """
   The pieces of a person's small avatar, for places that draw it
-  themselves (the `@` suggestion list in the browser):
-  `%{url: url | nil, initials: "AK", gradient: "from-… to-…"}`.
+  themselves (`person_chip/1`, the `@` suggestion list in the browser):
+  `%{url: url | nil, style: css | nil, initials: "AK", gradient: "from-… to-…"}`.
 
-  `url` is ONLY a picture stored on this site (a signed URL, no crop).
-  Never the OAuth provider's or Gravatar: a list of people would make the
-  reader's browser contact a third party once per name.
+  `url` is the person's picture by the same rule as `user_avatar/1`: an
+  uploaded file, the OAuth provider's picture, Gravatar (which answers a
+  transparent image when there is none, so the initials behind it show).
+  `style` places an uploaded picture by its stored crop (an absolutely
+  positioned `<img>` in a `relative overflow-hidden` frame); nil means
+  `object-cover`. Set it through the style API in a script, not as an
+  attribute, so a policy without inline style attributes still applies it.
   """
   @spec avatar_brief(map() | nil, String.t() | nil) :: %{
           url: String.t() | nil,
+          style: String.t() | nil,
           initials: String.t(),
           gradient: String.t()
         }
   def avatar_brief(user, name \\ nil) do
-    url =
-      case get_avatar_file_uuid(user) do
-        nil -> nil
-        file_id -> URLSigner.signed_url(file_id, storage_size("xs"))
-      end
+    %{url: url, crop: crop} = picture(user, "xs")
 
-    %{url: url, initials: initials_for(name, user), gradient: gradient_for_email(get_email(user))}
+    %{
+      url: url,
+      style: crop && AvatarCrop.img_style(crop),
+      initials: initials_for(name, user),
+      gradient: gradient_for_email(get_email(user))
+    }
   rescue
-    _ -> %{url: nil, initials: initials_for(name, user), gradient: gradient_for_email(nil)}
+    _ ->
+      %{
+        url: nil,
+        style: nil,
+        initials: initials_for(name, user),
+        gradient: gradient_for_email(nil)
+      }
   end
 
   @doc """

@@ -6610,9 +6610,11 @@ if (typeof window !== "undefined") window.__pkBundleLoads = (window.__pkBundleLo
 })();
 
 // ---------------------------------------------------------------------------
-// A suggestion's face: the site's own picture, else initials on the
-// person's gradient. Built from text and a same-site URL only (no markup
-// from the server). Every class is written out whole so Tailwind sees it.
+// A suggestion's face: the person's picture (the rule of every face,
+// `UserInfo.avatar_brief/2`), else initials on the person's gradient. Built
+// from text and a URL only (no markup from the server); a stored crop goes
+// on through the style API, which a policy without inline style attributes
+// still allows. Every class is written out whole so Tailwind sees it.
 function pkMentionFace(av) {
   var face = document.createElement("span");
   face.className =
@@ -6624,7 +6626,8 @@ function pkMentionFace(av) {
     var img = document.createElement("img");
     img.src = av.url;
     img.alt = "";
-    img.className = "absolute inset-0 h-full w-full object-cover";
+    if (av.style) img.style.cssText = av.style;
+    else img.className = "absolute inset-0 h-full w-full object-cover";
     img.addEventListener("error", function () { img.remove(); });
     face.appendChild(img);
   }

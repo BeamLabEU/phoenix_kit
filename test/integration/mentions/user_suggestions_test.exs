@@ -2,8 +2,8 @@ defmodule PhoenixKit.Mentions.UserSuggestionsTest do
   @moduledoc """
   The `@` list's people (Max, 2026-11-25): a face, the name and the
   @username for everyone; the email only for a searcher who manages users
-  (the person card's rule). The face is a picture stored on this site or
-  initials, never a third party's.
+  (the person card's rule). The face is the person's picture by the rule
+  of every face (`UserInfo.avatar_brief/2`), over their initials.
   """
 
   use PhoenixKitWeb.ConnCase, async: false
@@ -58,8 +58,10 @@ defmodule PhoenixKit.Mentions.UserSuggestionsTest do
     assert r.subtitle == "@#{anna.username} · #{anna.email}"
     assert r.avatar.initials == "AK"
     assert is_binary(r.avatar.gradient)
-    # No stored picture: initials, and no Gravatar URL in its place.
-    assert r.avatar.url == nil
+    # No stored picture: Gravatar (transparent when there is none, so the
+    # initials show), as everywhere else the person is shown.
+    assert r.avatar.url =~ "gravatar.com/avatar/"
+    assert r.avatar.style == nil
   end
 
   test "anyone else sees the @username but never the email", %{anna: anna} do
