@@ -383,7 +383,7 @@ defmodule PhoenixKit.I18n do
       end
 
     query = if query == %{}, do: nil, else: URI.encode_query(query)
-    URI.to_string(%URI{path: uri.path || "/", query: query, fragment: uri.fragment})
+    URI.to_string(%{uri | path: uri.path || "/", query: query})
   end
 
   defp maybe_absolute(url, opts) do
@@ -440,7 +440,6 @@ defmodule PhoenixKit.I18n do
   end
 
   defp plain_map(%_{} = struct), do: Map.from_struct(struct)
-  defp plain_map(%{} = map), do: map
   defp plain_map(_), do: %{}
 
   # The dialect the kit serves a segment as: a sibling segment names its
