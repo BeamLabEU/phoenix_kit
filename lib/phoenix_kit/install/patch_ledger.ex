@@ -99,10 +99,16 @@ defmodule PhoenixKit.Install.PatchLedger do
     with {:ok, quoted} <- Code.string_to_quoted(content),
          true <- Macro.quoted_literal?(quoted),
          {%{} = map, _} <- Code.eval_quoted(quoted) do
-      Map.update(map, :patches, %{}, fn
-        patches when is_map(patches) -> patches
-        _ -> %{}
-      end)
+      case Map.get(map, :patches, %{}) do
+        patches when is_map(patches) ->
+          Map.put(map, :patches, patches)
+
+        other ->
+          Mix.raise("""
+          #{path}: `patches:` must be a map of patch ID => :applied | :declined,
+          got #{inspect(other)}. Fix it (or delete the file to start over).
+          """)
+      end
     else
       _ ->
         Mix.raise("""
@@ -251,6 +257,18 @@ defmodule PhoenixKit.Install.PatchLedger do
     case Process.get(@state_key) do
       nil -> false
       state -> matches?(state.repair, id)
+    end
+  end
+
+  @doc """
+  Whether the ledger of this run records `id` (or its group) as `:declined`.
+  `false` outside a run.
+  """
+  @spec declined?(String.t()) :: boolean()
+  def declined?(id) do
+    case Process.get(@state_key) do
+      nil -> false
+      state -> recorded(state.ledger.patches, id) == :declined
     end
   end
 
