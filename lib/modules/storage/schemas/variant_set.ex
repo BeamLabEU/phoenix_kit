@@ -28,6 +28,8 @@ defmodule PhoenixKit.Modules.Storage.VariantSet do
   use PhoenixKit.SchemaPrefix
   import Ecto.Changeset
 
+  alias PhoenixKit.Modules.Storage.Watermark
+
   @primary_key {:uuid, UUIDv7, autogenerate: true}
   @foreign_key_type UUIDv7
 
@@ -39,7 +41,7 @@ defmodule PhoenixKit.Modules.Storage.VariantSet do
           generate_variants: boolean(),
           generate_tiles: boolean(),
           revision: pos_integer(),
-          watermark: PhoenixKit.Modules.Storage.Watermark.t() | nil,
+          watermark: Watermark.t() | nil,
           dimensions: [PhoenixKit.Modules.Storage.Dimension.t()] | Ecto.Association.NotLoaded.t(),
           inserted_at: DateTime.t() | nil,
           updated_at: DateTime.t() | nil
@@ -53,7 +55,7 @@ defmodule PhoenixKit.Modules.Storage.VariantSet do
     field :generate_tiles, :boolean, default: false
     field :revision, :integer, default: 1
 
-    embeds_one :watermark, PhoenixKit.Modules.Storage.Watermark, on_replace: :update
+    embeds_one :watermark, Watermark, on_replace: :update
 
     has_many :dimensions, PhoenixKit.Modules.Storage.Dimension,
       foreign_key: :variant_set_uuid,
@@ -69,7 +71,7 @@ defmodule PhoenixKit.Modules.Storage.VariantSet do
   def changeset(set, attrs) do
     set
     |> cast(attrs, [:name, :selectable, :generate_variants, :generate_tiles])
-    |> cast_embed(:watermark, with: &PhoenixKit.Modules.Storage.Watermark.changeset/2)
+    |> cast_embed(:watermark, with: &Watermark.changeset/2)
     |> update_change(:name, &String.trim/1)
     |> validate_required([:name])
     |> validate_length(:name, max: 255)
