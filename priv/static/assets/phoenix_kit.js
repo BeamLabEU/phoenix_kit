@@ -9008,6 +9008,27 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
     return parts.length === 2 && parts[0] > 0 && parts[1] > 0 ? parts : null;
   }
 
+  // Whether an `accept` attribute ("" when none) lets a PNG through.
+  function uploadEditAcceptsPng(accept) {
+    var list = String(accept || "").split(",").map(function (x) { return x.trim().toLowerCase(); }).filter(Boolean);
+    if (!list.length) return true;
+    return list.some(function (x) { return x === ".png" || x === "image/png" || x === "image/*" || x === "*/*"; });
+  }
+
+  // What the encoded edit goes up as — {type, name} — or null when it cannot
+  // go up: no blob (a canvas too large to encode), or a type other than the
+  // one asked for. A browser without a WebP encoder answers PNG; that PNG is
+  // the edit, so it goes up named .png when the input accepts PNG.
+  function uploadEditEncoded(blob, type, name, accept) {
+    if (!blob) return null;
+    if (!blob.type || blob.type === type) return { type: type, name: name };
+    if (type === "image/webp" && blob.type === "image/png" && uploadEditAcceptsPng(accept)) {
+      var base = String(name || "photo").replace(/\.[^./\\]*$/, "");
+      return { type: "image/png", name: (base || "photo") + ".png" };
+    }
+    return null;
+  }
+
   // Whether anything was changed at all: an unchanged photo goes up as it was.
   function uploadEditChanged(state) {
     return !!state && (state.rotation !== 0 || !!state.flip || !!(state.crop && state.crop.w >= 0.5 && state.crop.h >= 0.5));
@@ -9019,7 +9040,7 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
       editable: uploadEditable, rotate: uploadEditRotate, turn: uploadEditTurn, dims: uploadEditDims,
       matrix: uploadEditMatrix, cropPixels: uploadEditCropPixels,
       centeredCrop: uploadEditCenteredCrop, aspect: uploadEditAspect,
-      changed: uploadEditChanged
+      changed: uploadEditChanged, encoded: uploadEditEncoded, acceptsPng: uploadEditAcceptsPng
     };
   }
 
@@ -9128,6 +9149,8 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
         // dialog may still show the previous photo.
         if (!self._img && !t.hasAttribute("data-pk-edit-skip")) return;
         var s = self._state;
+        if (!t.hasAttribute("data-pk-edit-apply") && !t.hasAttribute("data-pk-edit-original") &&
+          !t.hasAttribute("data-pk-edit-skip")) self._failed(false);
         if (t.hasAttribute("data-pk-edit-rotate")) {
           s.rotation = uploadEditTurn(s.rotation, s.flip, parseInt(t.getAttribute("data-pk-edit-rotate"), 10) || 0);
           s.crop = null;
@@ -9237,6 +9260,7 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
       }
       this._current = file;
       this._img = null;
+      this._failed(false);
       this._resetState();
       this._loading(true);
       var name = d.querySelector("[data-pk-edit-name]");
@@ -9317,23 +9341,38 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
       ctx.setTransform(m[0], m[1], m[2], m[3], m[4], m[5]);
       ctx.drawImage(img, 0, 0);
       var type = file.type === "image/png" || file.type === "image/webp" ? file.type : "image/jpeg";
+      var input = this._input();
+      var accept = input && input.getAttribute ? input.getAttribute("accept") : "";
       out.toBlob(function (blob) {
         if (self._current !== file) return;
-        // A browser that cannot encode the type (no WebP encoder) answers
-        // null or PNG; the original then goes up rather than a surprise.
-        if (!blob || (blob.type && blob.type !== type)) { self._finish(file); return; }
+        var as = uploadEditEncoded(blob, type, file.name, accept);
+        // Not saved: say so, and let the person choose Upload original or
+        // Remove rather than dropping the edit without a word.
+        if (!as) { self._failed(true); return; }
         var edited;
         try {
-          edited = new File([blob], file.name, { type: type, lastModified: Date.now() });
+          edited = new File([blob], as.name, { type: as.type, lastModified: Date.now() });
         } catch (_) {
           edited = blob;
-          edited.name = file.name;
+          edited.name = as.name;
         }
         self._finish(edited);
       }, type, 0.92);
     },
 
+    // The "could not save the edit" message, with Upload off while it shows
+    // (another change — a smaller crop — may encode, and turns it back on).
+    _failed(on) {
+      var d = this._dialog();
+      if (!d) return;
+      var msg = d.querySelector("[data-pk-edit-error]");
+      if (msg) msg.hidden = !on;
+      var apply = d.querySelector("[data-pk-edit-apply]");
+      if (apply) apply.disabled = on;
+    },
+
     _finish(result) {
+      this._failed(false);
       if (result) this._done.push(result);
       this._current = null;
       this._img = null;

@@ -320,7 +320,7 @@ function fakeEditor({ multiple = true, accept = null } = {}) {
     showModal() { this.open = true; },
     close() { this.open = false; },
     addEventListener(t, fn) { dlgListeners[t] = fn; },
-    querySelector: (s) => parts[s] || null,
+    querySelector: (s) => parts[s] || Object.values(buttons).find((b) => s === "[" + b.attr + "]") || null,
     querySelectorAll: (s) => Object.values(buttons).filter((b) => s.split(",").includes("[" + b.attr + "]")),
   };
   const el = {
@@ -385,4 +385,67 @@ test("in the dialog, Flip then Rotate right stores the turn that looks clockwise
   assert.equal(e.hook._state.rotation, u.turn(0, true, 90));
   assert.equal(e.hook._state.rotation, 270);
   e.press(e.buttons.skip);
+});
+
+test("what an encoded edit goes up as", () => {
+  assert.deepEqual(u.encoded({ type: "image/jpeg" }, "image/jpeg", "a.jpg", ""), { type: "image/jpeg", name: "a.jpg" });
+  assert.deepEqual(u.encoded({ type: "" }, "image/png", "a.png", ""), { type: "image/png", name: "a.png" });
+  assert.equal(u.encoded(null, "image/jpeg", "a.jpg", ""), null, "too large to encode");
+  // No WebP encoder: the PNG it made instead is the edit.
+  assert.deepEqual(u.encoded({ type: "image/png" }, "image/webp", "trip.photo.webp", ".jpg,.png,.webp"),
+    { type: "image/png", name: "trip.photo.png" });
+  assert.deepEqual(u.encoded({ type: "image/png" }, "image/webp", "x.webp", "image/*").name, "x.png");
+  assert.deepEqual(u.encoded({ type: "image/png" }, "image/webp", "x.webp", null).name, "x.png");
+  assert.equal(u.encoded({ type: "image/png" }, "image/webp", "x.webp", ".webp"), null, "a PNG would be refused");
+  assert.equal(u.encoded({ type: "image/png" }, "image/jpeg", "x.jpg", ""), null);
+  assert.equal(u.acceptsPng(" .JPG , .PNG "), true);
+  assert.equal(u.acceptsPng(".jpg"), false);
+});
+
+test("an edit the browser cannot save is reported, not swapped for the original", () => {
+  images.length = 0;
+  const e = fakeEditor();
+  const a = { name: "huge.jpg", type: "image/jpeg" };
+  e.pick(a);
+  images[0].onload();
+  e.press(e.buttons.rotR);
+  encode = () => null;
+  try {
+    e.press(e.buttons.apply);
+  } finally {
+    encode = (type) => ({ type, size: 10 });
+  }
+  assert.deepEqual(e.uploads, [], "nothing went up behind the person's back");
+  assert.equal(e.message.hidden, false, "the dialog says so");
+  assert.equal(e.buttons.apply.disabled, true);
+  assert.equal(e.dialog.open, true);
+  // A further change may encode: the message goes and Upload comes back.
+  e.press(e.buttons.rotL);
+  assert.equal(e.message.hidden, true);
+  assert.equal(e.buttons.apply.disabled, false);
+  // Or the person picks Upload original.
+  encode = () => null;
+  try { e.press(e.buttons.rotR); e.press(e.buttons.apply); } finally { encode = (type) => ({ type, size: 10 }); }
+  e.press(e.buttons.original);
+  assert.deepEqual(e.uploads, [["photos", [a]]]);
+  assert.equal(e.message.hidden, true);
+});
+
+test("a WebP edit encoded as PNG goes up as the PNG it is, or is reported", () => {
+  for (const [accept, sent] of [[".jpg,.png,.webp", "x.png"], [".webp", null]]) {
+    images.length = 0;
+    const e = fakeEditor({ accept });
+    e.pick({ name: "x.webp", type: "image/webp" });
+    images[0].onload();
+    e.press(e.buttons.flip);
+    encode = () => ({ type: "image/png", size: 10 });
+    try { e.press(e.buttons.apply); } finally { encode = (type) => ({ type, size: 10 }); }
+    if (sent) {
+      assert.equal(e.uploads[0][1][0].name, sent);
+      assert.equal(e.uploads[0][1][0].type, "image/png");
+    } else {
+      assert.deepEqual(e.uploads, []);
+      assert.equal(e.message.hidden, false);
+    }
+  }
 });

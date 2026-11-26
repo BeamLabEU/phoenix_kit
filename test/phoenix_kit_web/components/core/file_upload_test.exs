@@ -140,6 +140,8 @@ defmodule PhoenixKitWeb.Components.Core.FileUploadTest do
       assert html =~ ~s(data-pk-edit-apply)
       assert html =~ ~s(data-pk-edit-original)
       assert html =~ ~s(data-pk-edit-skip)
+      # Where the editor says it could not save the edit (hidden until then).
+      assert html =~ ~r/<p data-pk-edit-error hidden role="alert"/
 
       # The hook element holds both the drop target and the file input.
       [_, inside] = String.split(html, ~s(phx-hook="PkUploadEdit"), parts: 2)

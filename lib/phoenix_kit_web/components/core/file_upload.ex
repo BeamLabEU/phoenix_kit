@@ -335,6 +335,11 @@ defmodule PhoenixKitWeb.Components.Core.FileUpload do
           <p class="text-xs text-base-content/60">
             {gettext("Drag on the photo to crop it.")}
           </p>
+          <p data-pk-edit-error hidden role="alert" class="text-sm text-error">
+            {gettext(
+              "This browser could not save the edited photo. Upload the original, or remove it."
+            )}
+          </p>
 
           <div class="flex flex-wrap items-center gap-1" role="toolbar" aria-label={gettext("Edit")}>
             <button type="button" class="btn btn-sm" data-pk-edit-rotate="-90">
