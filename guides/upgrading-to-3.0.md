@@ -15,6 +15,49 @@ module you install creates its own.
 
 The machine API also lost its deprecated shop names (see "Removed" below).
 
+## Coming from 1.7.x
+
+There is one route, three pins, run in this order on **every** database (development, test, staging, production):
+
+| database at | pin | run until `mix phoenix_kit.status` reports |
+|---|---|---|
+| below V135 (any 1.7.x before 1.7.236) | `{:phoenix_kit, "== 1.7.236"}` | V135 or higher |
+| V135 to V224 (1.7.236, any 2.x) | `{:phoenix_kit, "== 2.65.0"}` | V225 |
+| V225 | the 3.x release you want | the current version |
+
+At each pin: `mix deps.get`, then `mix phoenix_kit.update`, then commit what it wrote. An older release's
+`mix phoenix_kit.status` compares the database only with its own chain, so on 1.7.x "Next: Ready" means "current for
+1.7.x", not for 3.x. The breaking changes of 2.0 are in
+[Upgrading to 2.0](https://github.com/BeamLabEU/phoenix_kit/blob/main/dev_docs/guides/2026-08-07-upgrading-to-2.0-guide.md);
+the settings and functions renamed on the way are in [Renamed and removed since 1.7](#renamed-and-removed-since-17).
+
+## Before you run the update
+
+- **Stop the application first, or work on a separate checkout.** The update compiles and boots the app. Recompiling a
+  `_build/prod` that a running, supervised server loads from can restart it on half-upgraded code against the old
+  database, and it keeps serving without complaint. Upgrade a copy, deploy the result.
+- **Preview it,** where the release has the flag (`mix phoenix_kit.update --help` lists it):
+  `mix phoenix_kit.update --dry-run` shows the diff of every project file it would edit, lists the steps it would run,
+  and writes nothing.
+- A database below the release's floor is refused. Releases up to 3.9.0 refused only after editing `config/config.exs`
+  and writing module migration files; if such a run left files behind, delete them before you run it again, or the next
+  run writes a second set. Later releases refuse before writing anything.
+
+### Generated step migrations belong to the pin that wrote them
+
+`mix phoenix_kit.update` writes `..._phoenix_kit_update_vNN_to_vMM.exs`, which calls
+`PhoenixKit.Migrations.up(version: MM)`. That file works only with a release whose chain has version MM and accepts a
+database at NN:
+
+- **Forward:** after you move the pin on, a database still at NN raises `BelowFloorError` on that file. Apply each step
+  file on every environment while it is still on the pin that wrote it.
+- **Backward:** an older pin does not have the versions the file names, so the app no longer builds after a rollback
+  until the file is moved out of `priv/repo/migrations`.
+
+So for a staged rollout, walk each environment through the pins of the table above one at a time; do not commit the
+step files of a later pin before every environment has passed the earlier one. Rebuilding an empty database from old
+step files is covered in [Fresh databases and old host migrations](#fresh-databases-and-old-host-migrations).
+
 ## Order of operations
 
 1. **Get to 2.65.0 first.** 3.0 upgrades an existing database only from **V225**, the last 2.x version.
@@ -45,6 +88,21 @@ The machine API also lost its deprecated shop names (see "Removed" below).
    no way to read the table through the application, and an edit that lives only in the table stops being sent.
    Commit the files. The table itself is not touched or dropped.
 
+   **Without the emails module** (a core-only host) the export task is not there. Core 3.0 sends the shipped default
+   copy, or your override files ([Email templates](email-templates.md)). To keep a template that was edited through an
+   earlier release's editor, list the candidates (a seeded row that nobody edited has `is_system = true` and no
+   `updated_by_user_uuid`):
+
+   ```sql
+   SELECT name, status, is_system, version, updated_by_user_uuid, updated_at
+   FROM phoenix_kit_email_templates
+   WHERE NOT is_system OR updated_by_user_uuid IS NOT NULL OR updated_at > inserted_at;
+   ```
+
+   and copy each one's `subject` and `text_body` / `html_body` (stored per language) into
+   `priv/phoenix_kit_templates/<email>/` files (`subject.txt`, `text.txt`, `html.html`; `subject.de.txt` for one
+   language). Compare with the default first: a row can differ only in whitespace.
+
 3. **Move everything together.** Core 3.0 and every installed module must be on a release that accepts core 3.x (their
    core requirement reads `>= <floor> and < 4.0.0`). Update all `phoenix_kit*` dependencies in one commit; a module
    still on an older release keeps resolving core 2.x and `mix deps.get` will say so. `phoenix_kit_emails` needs core
@@ -72,6 +130,44 @@ The machine API also lost its deprecated shop names (see "Removed" below).
   `check_new_rows/1`.
 - **Email provider callbacks** `get_active_template_by_name/1`, `render_template/2,3`, `track_usage/1` and
   `get_source_module/1`, and `PhoenixKit.Mailer.track_usage_after_delivery/2`. A custom provider drops them.
+
+## Renamed and removed since 1.7
+
+The migrations rename these rows for you. Code of yours that reads one by its old name
+(`PhoenixKit.Settings.get_setting/2`, a raw query) silently gets `nil`, so search your app for every old name.
+
+**Settings keys** (`phoenix_kit_settings.key`):
+
+| old key | new key | migration |
+|---|---|---|
+| `db_sync_enabled` | `sync_enabled` | V44 (1.7.x) |
+| `db_sync_incoming_mode` | `sync_incoming_mode` | V44 (1.7.x) |
+| `db_sync_incoming_password` | `sync_incoming_password` | V44 (1.7.x) |
+| `storage_default_bucket_id` | `storage_default_bucket_uuid` | V76 (1.7.x) |
+| `publishing_translation_endpoint_id` | `publishing_translation_endpoint_uuid` | V76 (1.7.x) |
+| `tickets_enabled` | `customer_support_enabled` | V77, then V109 (1.7.x) |
+| `tickets_per_page` | `customer_support_per_page` | V77, then V109 |
+| `tickets_comments_enabled` | `customer_support_comments_enabled` | V77, then V109 |
+| `tickets_internal_notes_enabled` | `customer_support_internal_notes_enabled` | V77, then V109 |
+| `tickets_attachments_enabled` | `customer_support_attachments_enabled` | V77, then V109 |
+| `tickets_allow_reopen` | `customer_support_allow_reopen` | V77, then V109 |
+| `auto_granted_perm:tickets` | `auto_granted_perm:customer_support` | V77, then V109 |
+| `seo_module_enabled` | `crawlers_module_enabled` | V172 (2.x) |
+| `seo_no_index` | `crawlers_no_index` | V172 (2.x) |
+
+V77 renamed the `tickets_*` keys to `customer_service_*` and V109 renamed those to `customer_support_*`; a host that
+read the in-between names needs the same change. The role permission `module_key` moved the same way
+(`tickets` → `customer_service` → `customer_support`, and `seo` → `crawlers`, where V172 keeps the old `seo` rows).
+V114 replaced the `integration:<provider>:<name>` keys of integration rows with the row's uuid; read connections
+through `PhoenixKit.Integrations`, never by key.
+
+**Removed, with no replacement key:** `shop_currency` (V184) and `billing_default_currency` (V189). Neither was read;
+the default currency is the `is_default` row of `phoenix_kit_currencies` (`PhoenixKitBilling.get_default_currency/0`).
+
+**Functions:** `PhoenixKit.Users.Auth.Scope.user_id/1` is `user_uuid/1` (since 1.7.63). It shows up only as a compile
+warning, and an app compiled with warnings allowed gets `nil` in its place: build once with
+`mix compile --warnings-as-errors` after the upgrade. The test LiveViews older installers generated
+(`...PhoenixKitLive.Test*AuthLive`) call it too; `mix phoenix_kit.doctor` flags them, delete them.
 
 ## Fresh databases and old host migrations
 

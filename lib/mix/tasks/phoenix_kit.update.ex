@@ -114,6 +114,20 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         # Force update with automatic migration
         mix phoenix_kit.update --force -y
 
+    ## Upgrading across releases
+
+    Stop the application first (or run this on a separate checkout): the task
+    compiles and boots the app, and recompiling a `_build/prod` that a running
+    server loads from restarts it onto half-upgraded code.
+
+    The `..._phoenix_kit_update_vNN_to_vMM.exs` file this writes calls
+    `PhoenixKit.Migrations.up(version: MM)`, so it works only with a release
+    whose chain has MM and accepts NN: apply it on every environment before
+    moving the pin on. From 1.7.x the route is `1.7.236` (until V135), then
+    `2.65.0` (until V225), then 3.x — see the "Upgrading to PhoenixKit 3.0"
+    guide (`guides/upgrading-to-3.0.md`), which also lists the settings keys
+    and functions renamed on the way.
+
     ## Version Management
 
     PhoenixKit uses a versioned migration system. Each version contains specific

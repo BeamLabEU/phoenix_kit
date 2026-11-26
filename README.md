@@ -90,7 +90,16 @@ database layer for email templates and the deprecated shop names of the machine 
 **V225 (PhoenixKit 2.65.0)** before it upgrades; 3.0 refuses a lower database. In short: pin `== 2.65.0` and run
 `mix phoenix_kit.update` until it reports V225, export any email templates you edited
 (`mix phoenix_kit_emails.templates.export`), then update core and all installed modules together and run
-`mix phoenix_kit.update` again. The full recipe is in [Upgrading to PhoenixKit 3.0](guides/upgrading-to-3.0.md).
+`mix phoenix_kit.update` again. The full recipe is in [Upgrading to PhoenixKit 3.0](guides/upgrading-to-3.0.md)
+(also in the Hex package, under `deps/phoenix_kit/guides/`).
+
+**From 1.7.x** there is one route, walked by every database (dev, test, staging, production) in turn:
+`== 1.7.236` until V135, then `== 2.65.0` until V225, then 3.x, running `mix phoenix_kit.update` at each pin. Stop the
+app first (or upgrade a separate checkout); never recompile a `_build/prod` a running server loads from. The step
+migrations each pin writes only work with that pin, so apply them everywhere before moving on. Settings keys and
+functions renamed on the way (`Scope.user_id/1` is `user_uuid/1`; `tickets_*` are `customer_support_*`; the two `seo_*`
+keys are `crawlers_*`) are listed in the guide's
+[Renamed and removed since 1.7](guides/upgrading-to-3.0.md#renamed-and-removed-since-17).
 
 ## Upgrading to 2.0 (historical)
 
