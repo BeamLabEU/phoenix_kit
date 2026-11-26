@@ -349,8 +349,16 @@ defmodule PhoenixKit.I18n do
 
     builder
     |> run_builder(segment, lang, context, opts)
+    |> local_path(builder)
     |> maybe_absolute(opts)
   end
+
+  # A strategy builds from the request's own path, which is the visitor's to shape:
+  # `/et//evil.com` routes as `/:locale/:slug`, and with the segment replaced it is
+  # `//evil.com`, a link to another site. A leading run of slashes (or backslashes, which
+  # browsers read as slashes) becomes one slash. The host's own `url:` builder is trusted.
+  defp local_path(url, {:fun, _fun}), do: url
+  defp local_path(url, _strategy), do: String.replace(url, ~r{\A[/\\]+}, "/")
 
   defp run_builder({:fun, fun}, segment, _lang, _context, _opts) when is_function(fun, 1),
     do: to_string(fun.(segment))

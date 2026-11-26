@@ -158,6 +158,24 @@ defmodule PhoenixKit.I18nTest do
       assert I18n.localized_url(%{current_path: "/products?locale=et"}, "en", strategy: :query) ==
                "/products"
     end
+
+    test "a request path shaped as //host never becomes a link to another site" do
+      for path <- ["/et//evil.com", "/et/\\evil.com", "/et///evil.com/x"],
+          strategy <- [:path, :kit] do
+        url = I18n.localized_url(%{current_path: path}, "en", strategy: strategy)
+        assert String.starts_with?(url, "/"), inspect({path, strategy, url})
+        refute String.starts_with?(url, "//"), inspect({path, strategy, url})
+        refute String.starts_with?(url, "/\\"), inspect({path, strategy, url})
+
+        [%{href: href} | _] =
+          I18n.hreflang_links(%{current_path: path}, strategy: strategy, base_url: @base)
+
+        assert String.starts_with?(href, @base <> "/"), inspect({path, strategy, href})
+      end
+
+      url = I18n.localized_url(%{current_path: "//evil.com/x?locale=et"}, "en", strategy: :query)
+      refute String.starts_with?(url, "//")
+    end
   end
 
   describe "sibling dialects" do
