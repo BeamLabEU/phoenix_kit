@@ -55,6 +55,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         $ mix phoenix_kit.update --skip-assets
         $ mix phoenix_kit.update -y
         $ mix phoenix_kit.update --no-start
+        $ mix phoenix_kit.update --migrate-only
         $ mix phoenix_kit.update --dry-run
 
     ## When the application will not start (`--no-start`)
@@ -77,6 +78,19 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     them needs the app. Run the full `mix phoenix_kit.update` once the host
     boots again.
 
+    ## Database only (`--migrate-only`)
+
+    The default update boots the whole host application, which starts the
+    host's own children too: pollers, bots, a Telegram `getUpdates` loop that
+    then conflicts with the copy already running in production.
+    `--migrate-only` starts only the repo (`Ecto.Migrator.with_repo/3`): it
+    refuses a database below the floor, writes the PhoenixKit step-up
+    migration from the version the database reports, writes an Oban schema
+    step-up when one is due, runs `mix ecto.migrate`, then writes and runs the
+    installed modules' migrations and checks their versions. No project file
+    other than those migrations is touched, and nothing is prompted. The
+    default (no flag) is unchanged, and `--no-start` keeps its meaning.
+
     ## Options
 
       * `--prefix` - Database schema prefix. When omitted, resolves from
@@ -89,6 +103,9 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       * `--yes` / `-y` - Skip confirmation prompts and run migrations automatically
       * `--no-start` - Migrate the database without starting the host
         application. See "When the application will not start" above.
+      * `--migrate-only` - Run every database step — PhoenixKit's step-up,
+        Oban's schema, the installed modules' migrations (their files are
+        written too) — with only the repo started. See "Database only" below.
       * `--skip-patch ID` - Decline an optional project edit and record it
         in `.phoenix_kit.exs` (repeatable). See "The patch ledger" below.
       * `--repair-patch ID` - Apply an optional edit again although the
@@ -229,6 +246,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           skip_assets: :boolean,
           yes: :boolean,
           no_start: :boolean,
+          migrate_only: :boolean,
           dry_run: :boolean,
           skip_patch: :keep,
           repair_patch: :keep,
@@ -311,6 +329,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
               skip_assets: :boolean,
               yes: :boolean,
               no_start: :boolean,
+              migrate_only: :boolean,
               # Igniter's own global switch (it shows the diff and writes
               # nothing); declared here too so the post-Igniter steps, which
               # write outside Igniter, can honour it.
@@ -340,6 +359,9 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           Keyword.get(elem(opts, 0), :status) ->
             show_status(elem(opts, 0))
             :ok
+
+          Keyword.get(elem(opts, 0), :migrate_only) ->
+            migrate_only_update(elem(opts, 0))
 
           Keyword.get(elem(opts, 0), :no_start) ->
             schema_only_update(elem(opts, 0))
@@ -1329,6 +1351,12 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
                                 and module migrations, which all need the
                                 application. Re-run the full update after.
 
+        --migrate-only          Run only the database steps, with only the
+                                repo started (the host app does not boot):
+                                core step-up, Oban schema, module migrations
+                                (files written, then migrated). No prompt;
+                                config, layout and assets are left alone.
+
         --dry-run               Show what would change, write nothing
                                 Igniter prints the diff of the project
                                 files it would edit; the asset rebuild,
@@ -1976,6 +2004,137 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         gen_migration: &Mix.Task.run("phoenix_kit.gen.migration", &1),
         migrate: fn -> Mix.Task.run("ecto.migrate") end
       }
+    end
+
+    # `--migrate-only`: every database step of the full update — core's
+    # step-up, Oban's schema, the module migrations (files written, then
+    # migrated) — with only the repo started. Nothing of the host app boots:
+    # no pollers, bots or Telegram getUpdates competing with the running app,
+    # and no Igniter pass (configuration, layout, assets are left alone).
+    defp migrate_only_update(opts) do
+      if Keyword.get(opts, :dry_run, false) do
+        Mix.shell().info("""
+
+        🔍 Dry run (--dry-run --migrate-only): nothing was written or migrated.
+        Without --dry-run this would start only the repo and, in order:
+          • refuse a database below this release's floor
+          • write the PhoenixKit step-up migration (if behind)
+          • write an Oban schema step-up (if behind)
+          • run mix ecto.migrate
+          • write and run the migrations of installed PhoenixKit modules
+        """)
+      else
+        run_migrate_only_update(opts)
+      end
+
+      :ok
+    end
+
+    @doc false
+    # `steps` replaces any of the steps (tests observe what runs, and that
+    # the app is never started).
+    def run_migrate_only_update(opts, steps \\ %{}) do
+      steps = Map.merge(default_migrate_only_steps(), steps)
+      prefix = PrefixConfig.resolve_prefix(opts)
+
+      Mix.shell().info("""
+
+      🔧 PhoenixKit update — database only (--migrate-only)
+
+      Starting only the repo (not #{Mix.Project.config()[:app]}) to run PhoenixKit's,
+      Oban's and the installed modules' migrations.
+      """)
+
+      steps.app_config.()
+
+      steps.with_repo.(fn ->
+        status = steps.installation_status.(prefix)
+        refuse_below_floor!(opts, fn _prefix -> status end)
+        steps.core_migration.(status, prefix)
+
+        run_schema_steps(opts, %{
+          stage_oban: steps.stage_oban,
+          migrate: fn _opts -> steps.migrate.() end,
+          verify_oban: steps.verify_oban,
+          modules: steps.modules
+        })
+      end)
+
+      Mix.shell().info("""
+
+      ✅ Database migrations done. Not run (they need the application or edit
+      project files): configuration repair, layout/JS/CSS integration, the
+      asset rebuild. Run the full `mix phoenix_kit.update` for those when the
+      app can start.
+      """)
+    end
+
+    defp default_migrate_only_steps do
+      %{
+        app_config: fn -> Mix.Task.run("app.config") end,
+        with_repo: &with_host_repo/1,
+        installation_status: &Common.check_installation_status/1,
+        core_migration: &write_core_migration_file/2,
+        stage_oban: &stage_oban_schema_migrations/1,
+        migrate: fn -> migrate_host_repo() end,
+        verify_oban: &verify_oban_schema_migrations/1,
+        modules: &run_module_migrations/1
+      }
+    end
+
+    # The repo PhoenixKit uses, started on its own (`Ecto.Migrator.with_repo/3`
+    # starts the adapter's applications and the repo, nothing else, and stops
+    # the repo afterwards). `ecto.migrate` inside reuses it.
+    defp with_host_repo(fun) do
+      repo = resolve_host_repo_module() || PhoenixKit.RepoHelper.repo()
+
+      case Ecto.Migrator.with_repo(repo, fn _repo -> fun.() end, pool_size: 2) do
+        {:ok, result, _apps} -> result
+        {:error, reason} -> Mix.raise("Could not start #{inspect(repo)}: #{inspect(reason)}")
+      end
+    end
+
+    @doc false
+    # The core step-up file for `--migrate-only`, from the version the
+    # DATABASE reports (the full update writes the same file through Igniter;
+    # `--no-start` reads filenames instead). Same name, same content, same
+    # duplicate guard as `create_update_migration_with_igniter/6`.
+    def write_core_migration_file({:current_version, current}, prefix) do
+      target = Common.current_version()
+
+      if current < target do
+        {name, content} = update_migration(prefix, current, target, false)
+        dir = Path.join(["priv", "repo", "migrations"])
+
+        existing =
+          Path.wildcard(Path.join(dir, "*" <> update_migration_suffix(current, target, false)))
+
+        case existing do
+          [file | _] ->
+            Mix.shell().info("  Migration already exists: #{file} (reused)")
+
+          [] ->
+            File.mkdir_p!(dir)
+            File.write!(Path.join(dir, name), content)
+            Mix.shell().info("📦 PhoenixKit Update Migration Created: #{name}")
+        end
+      else
+        Mix.shell().info("✅ PhoenixKit is already up to date (V#{Common.pad_version(current)}).")
+      end
+    end
+
+    def write_core_migration_file({:not_installed}, prefix) do
+      Mix.raise(
+        "No PhoenixKit installation found at schema prefix #{inspect(prefix)} — " <>
+          "--migrate-only updates an existing install (pass --prefix if it lives elsewhere)."
+      )
+    end
+
+    def write_core_migration_file(other, _prefix) do
+      Mix.raise(
+        "Cannot read the installed PhoenixKit version (#{inspect(other)}); " <>
+          "run mix phoenix_kit.doctor."
+      )
     end
 
     # Starts the repo alone, as `ecto.migrate` is about to, to read the

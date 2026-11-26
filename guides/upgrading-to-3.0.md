@@ -39,6 +39,10 @@ the settings and functions renamed on the way are in [Renamed and removed since 
 - **Preview it,** where the release has the flag (`mix phoenix_kit.update --help` lists it):
   `mix phoenix_kit.update --dry-run` shows the diff of every project file it would edit, lists the steps it would run,
   and writes nothing.
+- **Only the database, without booting the app:** `mix phoenix_kit.update --migrate-only` starts the repo alone and runs
+  PhoenixKit's step-up, Oban's schema step-up and the installed modules' migrations (writing their files). Use it when
+  starting the app is unwelcome on that machine (bots, pollers, a Telegram `getUpdates` loop competing with production),
+  then run the full update where the app may start, for the configuration and asset steps.
 - A database below the release's floor is refused. Releases up to 3.9.0 refused only after editing `config/config.exs`
   and writing module migration files; if such a run left files behind, delete them before you run it again, or the next
   run writes a second set. Later releases refuse before writing anything.
