@@ -8298,3 +8298,543 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
     module.exports.crosshairText = crosshairText;
   }
 })();
+
+// ---------------------------------------------------------------------------
+// PHOTO GALLERY — the client half of `<.photo_gallery>`
+// (PhoenixKitWeb.Components.Core.PhotoGallery).
+//
+// Delegated, not a hook: the component renders on controller pages too.
+//
+//   [data-pk-gallery-root]            one gallery (its id is the gallery's)
+//   [data-pk-gallery-open="2"]        a click opens photo 2 (inside the root,
+//                                     or anywhere with data-pk-gallery="<id>")
+//   "pk:photo-gallery-open" event     on the root, detail {index}
+//                                     (PhotoGallery.open/3, a JS.dispatch)
+//   "phx:pk:photo-gallery-open"       push_event(socket, …, %{id:, index:})
+//
+// The lightbox is a native <dialog> (showModal: the page behind is inert, so
+// the focus cannot leave it). What moves — the strip of slides, a zoomed
+// photo, the drag-down — is style on elements under a phx-update="ignore"
+// container, so a LiveView patch never undoes it. Every listener of an open
+// gallery is added on open and removed on close.
+// ---------------------------------------------------------------------------
+(function () {
+  if (typeof window !== "undefined" && window.__pkBundleLoads > 1) return;
+  if (typeof window === "undefined") return;
+
+  var SWIPE_COMMIT = 0.25;   // of the width, to settle on a neighbour
+  var FLICK = 0.35;          // px/ms — a quick flick settles too
+  var DISMISS_COMMIT = 0.18; // of the height, to close by dragging down
+  var DISMISS_FLICK = 0.5;   // px/ms
+  var AXIS_SLOP = 8;         // px before a drag picks a direction
+  var TAP_SLOP = 10;         // px a tap may wander
+  var DOUBLE_TAP_MS = 300;
+  var DOUBLE_TAP_SCALE = 2.5;
+  var EASE = "cubic-bezier(0.22, 0.8, 0.25, 1)";
+  var SLIDE_MS = 300;
+
+  // ── Pure helpers (exported for test/js/photo_gallery.test.cjs) ─────────
+
+  function galleryClamp(index, count) {
+    if (!(count > 0)) return 0;
+    index = Math.round(Number(index) || 0);
+    return Math.max(0, Math.min(count - 1, index));
+  }
+
+  // "x" or "y" once the pointer has moved past the slop, else null.
+  function galleryAxis(dx, dy, slop) {
+    var ax = Math.abs(dx), ay = Math.abs(dy);
+    if (Math.max(ax, ay) < (slop == null ? AXIS_SLOP : slop)) return null;
+    return ax >= ay ? "x" : "y";
+  }
+
+  // Past the first or the last photo the strip gives way only a little.
+  function galleryRubber(dx, index, count) {
+    if ((index <= 0 && dx > 0) || (index >= count - 1 && dx < 0)) return dx * 0.35;
+    return dx;
+  }
+
+  // Where a horizontal drag of dx px (negative: towards the next photo),
+  // let go at vx px/ms, settles.
+  function gallerySwipeTarget(index, count, dx, vx, width) {
+    var far = Math.abs(dx) > (width || 1) * SWIPE_COMMIT;
+    var flick = Math.abs(vx) > FLICK && Math.abs(dx) > TAP_SLOP && (vx < 0) === (dx < 0);
+    if (!far && !flick) return galleryClamp(index, count);
+    return galleryClamp(index + (dx < 0 ? 1 : -1), count);
+  }
+
+  // Whether a downward drag of dy px, let go at vy px/ms, closes the lightbox.
+  function galleryDismiss(dy, vy, height) {
+    if (dy <= 0) return false;
+    return dy > (height || 1) * DISMISS_COMMIT || (vy > DISMISS_FLICK && dy > 30);
+  }
+
+  // The backdrop fades as the photo is dragged away.
+  function galleryDismissOpacity(dy, height) {
+    var h = height || 1;
+    return Math.max(0.15, 1 - Math.abs(dy) / (h * 0.6));
+  }
+
+  // A zoom {scale, x, y} (x, y: px the photo's centre is moved) kept so the
+  // photo, `w` × `h` at scale 1, covers what it can of a `vw` × `vh` box.
+  function galleryClampPan(z, w, h, vw, vh) {
+    var maxX = Math.max(0, (w * z.scale - vw) / 2);
+    var maxY = Math.max(0, (h * z.scale - vh) / 2);
+    return {
+      scale: z.scale,
+      x: Math.max(-maxX, Math.min(maxX, z.x)),
+      y: Math.max(-maxY, Math.min(maxY, z.y))
+    };
+  }
+
+  // Zoom to `scale` (clamped to 1…max) keeping the point (px, py) — measured
+  // from the photo's unzoomed centre — under the pointer.
+  function galleryZoomAt(z, scale, px, py, max) {
+    var s = Math.max(1, Math.min(max || 4, scale));
+    var k = s / z.scale;
+    if (s === 1) return { scale: 1, x: 0, y: 0 };
+    return { scale: s, x: px - (px - z.x) * k, y: py - (py - z.y) * k };
+  }
+
+  function galleryWheelScale(scale, deltaY, deltaMode) {
+    var per = deltaMode === 1 ? 0.05 : deltaMode === 2 ? 0.5 : 0.002;
+    var d = Math.max(-300, Math.min(300, deltaY));
+    return scale * Math.exp(-d * per);
+  }
+
+  function galleryDoubleTapScale(scale, max) {
+    return scale > 1.01 ? 1 : Math.min(DOUBLE_TAP_SCALE, max || 4);
+  }
+
+  // What a key does; ← and → swap on a right-to-left page.
+  function galleryKeyAction(key, rtl) {
+    switch (key) {
+      case "ArrowLeft": return rtl ? "next" : "prev";
+      case "ArrowRight": return rtl ? "prev" : "next";
+      case "Home": return "first";
+      case "End": return "last";
+      case "+": case "=": return "zoomIn";
+      case "-": case "_": return "zoomOut";
+      case "0": return "reset";
+      default: return null;
+    }
+  }
+
+  // The photos to load now: the one shown and its neighbours.
+  function galleryNeighbours(index, count) {
+    var out = [];
+    for (var i = index - 1; i <= index + 1; i++) if (i >= 0 && i < count) out.push(i);
+    return out;
+  }
+
+  function galleryFormat(template, n, count) {
+    return String(template || "{n} / {count}").replace("{n}", n).replace("{count}", count);
+  }
+
+  if (typeof module === "object" && module.exports) {
+    module.exports.photoGallery = {
+      clamp: galleryClamp, axis: galleryAxis, rubber: galleryRubber,
+      swipeTarget: gallerySwipeTarget, dismiss: galleryDismiss,
+      dismissOpacity: galleryDismissOpacity, clampPan: galleryClampPan,
+      zoomAt: galleryZoomAt, wheelScale: galleryWheelScale,
+      doubleTapScale: galleryDoubleTapScale, keyAction: galleryKeyAction,
+      neighbours: galleryNeighbours, format: galleryFormat
+    };
+  }
+
+  if (typeof document === "undefined" || !document.addEventListener) return;
+
+  // ── The lightbox ────────────────────────────────────────────────────────
+
+  function reducedMotion() {
+    return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  }
+
+  function isRtl(el) {
+    var d = el && el.closest && el.closest("[dir]");
+    return !!d && String(d.getAttribute("dir")).toLowerCase() === "rtl";
+  }
+
+  function Gallery(root) {
+    this.root = root;
+    this.index = 0;
+    this.z = { scale: 1, x: 0, y: 0 };
+    this.pointers = {};
+    this.gesture = null;
+    this.lastTap = null;
+    this.opener = null;
+    this.listeners = null;
+  }
+
+  Gallery.prototype.parts = function() {
+    var dialog = this.root.querySelector("[data-pk-gallery-dialog]");
+    var stage = dialog && dialog.querySelector("[data-pk-gallery-stage]");
+    if (!stage) return null;
+    return {
+      dialog: dialog,
+      stage: stage,
+      viewport: stage.querySelector("[data-pk-gallery-viewport]"),
+      track: stage.querySelector("[data-pk-gallery-track]"),
+      backdrop: stage.querySelector("[data-pk-gallery-backdrop]"),
+      slides: stage.querySelectorAll("[data-pk-gallery-slide]"),
+      count: stage.querySelectorAll("[data-pk-gallery-slide]").length
+    };
+  };
+
+  Gallery.prototype.maxZoom = function() {
+    var m = parseFloat(this.root.getAttribute("data-pk-gallery-max-zoom"));
+    return m >= 1 ? m : 4;
+  };
+
+  Gallery.prototype.open = function(index, opener) {
+    var p = this.parts();
+    if (!p || !p.count) return;
+    this.p = p;
+    this.opener = opener || document.activeElement;
+    this.rtl = isRtl(this.root);
+    if (!p.dialog.open) {
+      if (typeof p.dialog.showModal === "function") p.dialog.showModal();
+      else p.dialog.setAttribute("open", "");
+      this.bind();
+    }
+    this.go(index, false);
+    var close = p.stage.querySelector("[data-pk-gallery-close]");
+    if (close && close.focus) close.focus({ preventScroll: true });
+  };
+
+  Gallery.prototype.bind = function() {
+    var self = this, p = this.p;
+    var ctl = typeof AbortController === "function" ? new AbortController() : null;
+    var list = [];
+    function on(el, type, fn, opts) {
+      if (!el) return;
+      opts = opts || {};
+      if (ctl) opts.signal = ctl.signal;
+      el.addEventListener(type, fn, opts);
+      list.push([el, type, fn, opts]);
+    }
+    on(p.viewport, "pointerdown", function(e) { self.down(e); });
+    on(p.viewport, "pointermove", function(e) { self.move(e); });
+    on(p.viewport, "pointerup", function(e) { self.up(e); });
+    on(p.viewport, "pointercancel", function(e) { self.up(e, true); });
+    on(p.viewport, "wheel", function(e) { self.wheel(e); }, { passive: false });
+    on(p.viewport, "dragstart", function(e) { e.preventDefault(); });
+    on(p.stage, "click", function(e) { self.click(e); });
+    on(p.dialog, "keydown", function(e) { self.key(e); });
+    // Esc: the dialog's own cancel. Closed however it was: tidy up.
+    on(p.dialog, "close", function() { self.closed(); });
+    on(window, "resize", function() { self.layout(false); });
+    this.listeners = { ctl: ctl, list: list };
+  };
+
+  Gallery.prototype.unbind = function() {
+    var l = this.listeners;
+    this.listeners = null;
+    if (!l) return;
+    if (l.ctl) { l.ctl.abort(); return; }
+    l.list.forEach(function(x) { x[0].removeEventListener(x[1], x[2], x[3]); });
+  };
+
+  Gallery.prototype.close = function() {
+    var p = this.p;
+    if (p && p.dialog.open && typeof p.dialog.close === "function") p.dialog.close();
+    else this.closed();
+  };
+
+  Gallery.prototype.closed = function() {
+    this.unbind();
+    this.resetZoom(false);
+    this.dragY(0, false);
+    this.pointers = {};
+    this.gesture = null;
+    if (this.p && this.p.dialog.hasAttribute("open") && typeof this.p.dialog.close !== "function") {
+      this.p.dialog.removeAttribute("open");
+    }
+    var back = this.opener;
+    this.opener = null;
+    if (back && back.isConnected !== false && back.focus) back.focus({ preventScroll: true });
+  };
+
+  Gallery.prototype.width = function() {
+    return (this.p && this.p.viewport && this.p.viewport.clientWidth) || window.innerWidth || 1;
+  };
+
+  Gallery.prototype.height = function() {
+    return (this.p && this.p.viewport && this.p.viewport.clientHeight) || window.innerHeight || 1;
+  };
+
+  Gallery.prototype.transition = function(el, animate, prop) {
+    el.style.transition = animate && !reducedMotion() ? (prop || "transform") + " " + SLIDE_MS + "ms " + EASE : "none";
+  };
+
+  Gallery.prototype.layout = function(animate, offset) {
+    var t = this.p && this.p.track;
+    if (!t) return;
+    this.transition(t, animate);
+    var x = -this.index * this.width() + (offset || 0);
+    t.style.transform = "translate3d(" + x + "px,0,0)";
+  };
+
+  Gallery.prototype.go = function(index, animate) {
+    var p = this.p;
+    if (!p) return;
+    var next = galleryClamp(index, p.count);
+    var changed = next !== this.index;
+    if (changed) this.resetZoom(false);
+    this.index = next;
+    this.layout(animate !== false);
+    var near = galleryNeighbours(next, p.count);
+    p.slides.forEach(function(slide, i) {
+      var on = i === next;
+      if (on) { slide.removeAttribute("aria-hidden"); slide.removeAttribute("inert"); }
+      else { slide.setAttribute("aria-hidden", "true"); slide.setAttribute("inert", ""); }
+      if (near.indexOf(i) !== -1) {
+        var img = slide.querySelector("img");
+        if (img && img.getAttribute("loading") === "lazy") img.setAttribute("loading", "eager");
+      }
+    });
+    p.stage.setAttribute("data-index", String(next));
+    p.stage.querySelectorAll("[data-pk-gallery-caption],[data-pk-gallery-actions]").forEach(function(el) {
+      var i = parseInt(el.getAttribute("data-pk-gallery-caption") || el.getAttribute("data-pk-gallery-actions"), 10);
+      el.hidden = i !== next;
+    });
+    var counter = p.stage.querySelector("[data-pk-gallery-counter]");
+    if (counter) counter.textContent = galleryFormat(counter.getAttribute("data-template"), next + 1, p.count);
+    var prev = p.stage.querySelector("[data-pk-gallery-prev]");
+    var fwd = p.stage.querySelector("[data-pk-gallery-next]");
+    if (prev) prev.disabled = next === 0;
+    if (fwd) fwd.disabled = next === p.count - 1;
+    var live = p.stage.querySelector("[data-pk-gallery-live]");
+    if (live && changed) live.textContent = p.slides[next].getAttribute("aria-label") || "";
+  };
+
+  Gallery.prototype.img = function() {
+    var slide = this.p && this.p.slides[this.index];
+    return slide && slide.querySelector("[data-pk-gallery-img]");
+  };
+
+  // The photo's size at scale 1 and its unzoomed centre on screen.
+  Gallery.prototype.base = function() {
+    var img = this.img();
+    if (!img) return null;
+    var r = img.getBoundingClientRect();
+    var s = this.z.scale;
+    return {
+      w: r.width / s, h: r.height / s,
+      cx: r.left + r.width / 2 - this.z.x, cy: r.top + r.height / 2 - this.z.y
+    };
+  };
+
+  Gallery.prototype.applyZoom = function(z, animate) {
+    var img = this.img();
+    var b = this.base();
+    if (b) z = galleryClampPan(z, b.w, b.h, this.width(), this.height());
+    this.z = z;
+    if (!img) return;
+    this.transition(img, animate);
+    img.style.transform = z.scale === 1 ? "" : "translate3d(" + z.x + "px," + z.y + "px,0) scale(" + z.scale + ")";
+    img.style.cursor = z.scale > 1 ? "grab" : "";
+  };
+
+  Gallery.prototype.zoomTo = function(scale, clientX, clientY, animate) {
+    var b = this.base();
+    if (!b) return;
+    var px = clientX == null ? 0 : clientX - b.cx;
+    var py = clientY == null ? 0 : clientY - b.cy;
+    this.applyZoom(galleryZoomAt(this.z, scale, px, py, this.maxZoom()), animate);
+  };
+
+  Gallery.prototype.resetZoom = function(animate) {
+    var img = this.img();
+    this.z = { scale: 1, x: 0, y: 0 };
+    if (img) { this.transition(img, animate); img.style.transform = ""; img.style.cursor = ""; }
+  };
+
+  Gallery.prototype.dragY = function(dy, animate) {
+    var p = this.p;
+    if (!p) return;
+    var slide = p.slides[this.index];
+    var box = slide && slide.querySelector("[data-pk-gallery-zoom]");
+    if (box) {
+      this.transition(box, animate);
+      box.style.transform = dy ? "translate3d(0," + dy + "px,0) scale(" + (1 - Math.min(0.25, Math.abs(dy) / (this.height() * 3))) + ")" : "";
+    }
+    if (p.backdrop) {
+      this.transition(p.backdrop, animate, "opacity");
+      p.backdrop.style.opacity = dy ? String(galleryDismissOpacity(dy, this.height())) : "";
+    }
+  };
+
+  // ── Pointers ────────────────────────────────────────────────────────────
+
+  function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+  function mid(a, b) { return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; }
+  function pts(map) { return Object.keys(map).map(function(k) { return map[k]; }); }
+
+  Gallery.prototype.down = function(e) {
+    if (e.button && e.button !== 0) return;
+    if (e.target && e.target.closest && e.target.closest("a,button,input,textarea,select,label")) return;
+    this.pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+    try { this.p.viewport.setPointerCapture(e.pointerId); } catch (_) { /* not capturable */ }
+    var list = pts(this.pointers);
+    var now = e.timeStamp || Date.now();
+    if (list.length >= 2) {
+      var c = mid(list[0], list[1]);
+      this.layout(false);
+      this.dragY(0, false);
+      this.gesture = { kind: "pinch", d0: dist(list[0], list[1]) || 1, c0: c, z0: this.z, base: this.base() };
+    } else {
+      this.gesture = {
+        kind: "drag", axis: null, x0: e.clientX, y0: e.clientY, t0: now,
+        lx: e.clientX, ly: e.clientY, lt: now, vx: 0, vy: 0, z0: this.z,
+        onImg: !!(e.target && e.target.closest && e.target.closest("[data-pk-gallery-img]")),
+        moved: false
+      };
+    }
+  };
+
+  Gallery.prototype.move = function(e) {
+    if (!this.pointers[e.pointerId]) return;
+    this.pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var g = this.gesture;
+    if (!g) return;
+    e.preventDefault();
+    if (g.kind === "pinch") {
+      var list = pts(this.pointers);
+      if (list.length < 2 || !g.base) return;
+      var c = mid(list[0], list[1]);
+      var scale = g.z0.scale * dist(list[0], list[1]) / g.d0;
+      var z = galleryZoomAt(g.z0, scale, g.c0.x - g.base.cx, g.c0.y - g.base.cy, this.maxZoom());
+      z.x += c.x - g.c0.x;
+      z.y += c.y - g.c0.y;
+      if (z.scale === 1) { z.x = 0; z.y = 0; }
+      this.applyZoom(z, false);
+      return;
+    }
+    var now = e.timeStamp || Date.now();
+    var dt = Math.max(1, now - g.lt);
+    g.vx = (e.clientX - g.lx) / dt;
+    g.vy = (e.clientY - g.ly) / dt;
+    g.lx = e.clientX; g.ly = e.clientY; g.lt = now;
+    var dx = e.clientX - g.x0, dy = e.clientY - g.y0;
+    if (Math.abs(dx) > TAP_SLOP || Math.abs(dy) > TAP_SLOP) g.moved = true;
+    if (g.z0.scale > 1) {
+      this.applyZoom({ scale: g.z0.scale, x: g.z0.x + dx, y: g.z0.y + dy }, false);
+      return;
+    }
+    if (!g.axis) g.axis = galleryAxis(dx, dy);
+    if (g.axis === "x") this.layout(false, galleryRubber(dx, this.index, this.p.count));
+    else if (g.axis === "y") this.dragY(dy > 0 ? dy : dy * 0.2, false);
+  };
+
+  Gallery.prototype.up = function(e, cancelled) {
+    if (!this.pointers[e.pointerId]) return;
+    delete this.pointers[e.pointerId];
+    var g = this.gesture;
+    if (!g) return;
+    if (g.kind === "pinch") {
+      // One finger stays down: nothing more until both are lifted.
+      if (pts(this.pointers).length) { this.gesture = null; return; }
+      this.gesture = null;
+      if (this.z.scale < 1.02) this.resetZoom(true);
+      return;
+    }
+    this.gesture = null;
+    var dx = e.clientX - g.x0, dy = e.clientY - g.y0;
+    if (cancelled) { this.layout(true); this.dragY(0, true); return; }
+    if (g.axis === "x" && g.z0.scale === 1) {
+      this.go(gallerySwipeTarget(this.index, this.p.count, dx, g.vx, this.width()), true);
+      this.suppressClick = true;
+      return;
+    }
+    if (g.axis === "y" && g.z0.scale === 1) {
+      this.suppressClick = true;
+      if (galleryDismiss(dy, g.vy, this.height())) this.close();
+      else this.dragY(0, true);
+      return;
+    }
+    if (g.moved) { this.suppressClick = true; return; }
+    // A tap: twice on the photo zooms there, once beside it closes.
+    var now = e.timeStamp || Date.now();
+    var last = this.lastTap;
+    if (g.onImg) {
+      if (last && now - last.t < DOUBLE_TAP_MS && Math.hypot(e.clientX - last.x, e.clientY - last.y) < TAP_SLOP * 3) {
+        this.lastTap = null;
+        this.zoomTo(galleryDoubleTapScale(this.z.scale, this.maxZoom()), e.clientX, e.clientY, true);
+      } else {
+        this.lastTap = { t: now, x: e.clientX, y: e.clientY };
+      }
+    } else if (this.z.scale === 1) {
+      this.close();
+    }
+  };
+
+  Gallery.prototype.wheel = function(e) {
+    e.preventDefault();
+    this.zoomTo(galleryWheelScale(this.z.scale, e.deltaY, e.deltaMode), e.clientX, e.clientY, false);
+  };
+
+  Gallery.prototype.click = function(e) {
+    var t = e.target;
+    if (this.suppressClick) { this.suppressClick = false; if (t && t.closest && t.closest("[data-pk-gallery-viewport]")) return; }
+    if (!t || !t.closest) return;
+    if (t.closest("[data-pk-gallery-close]")) { e.preventDefault(); this.close(); }
+    else if (t.closest("[data-pk-gallery-prev]")) { e.preventDefault(); this.go(this.index - 1, true); }
+    else if (t.closest("[data-pk-gallery-next]")) { e.preventDefault(); this.go(this.index + 1, true); }
+  };
+
+  Gallery.prototype.key = function(e) {
+    var t = e.target;
+    if (t && t.closest && t.closest("input,textarea,select,[contenteditable]")) return;
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    var a = galleryKeyAction(e.key, this.rtl);
+    if (!a) return;
+    e.preventDefault();
+    if (a === "prev") this.go(this.index - 1, true);
+    else if (a === "next") this.go(this.index + 1, true);
+    else if (a === "first") this.go(0, true);
+    else if (a === "last") this.go(this.p.count - 1, true);
+    else if (a === "zoomIn") this.zoomTo(this.z.scale * 1.5, null, null, true);
+    else if (a === "zoomOut") this.zoomTo(this.z.scale / 1.5, null, null, true);
+    else if (a === "reset") this.resetZoom(true);
+  };
+
+  function galleryFor(root) {
+    if (!root) return null;
+    if (!root._pkGallery) root._pkGallery = new Gallery(root);
+    return root._pkGallery;
+  }
+
+  function rootOf(el) {
+    if (!el || !el.closest) return null;
+    var named = el.getAttribute && el.getAttribute("data-pk-gallery");
+    if (named) {
+      var r = document.getElementById(named);
+      if (r && r.hasAttribute("data-pk-gallery-root")) return r;
+    }
+    return el.closest("[data-pk-gallery-root]");
+  }
+
+  document.addEventListener("click", function(e) {
+    var btn = e.target && e.target.closest && e.target.closest("[data-pk-gallery-open]");
+    if (!btn) return;
+    var g = galleryFor(rootOf(btn));
+    if (!g) return;
+    e.preventDefault();
+    g.open(parseInt(btn.getAttribute("data-pk-gallery-open"), 10) || 0, btn);
+  });
+
+  document.addEventListener("pk:photo-gallery-open", function(e) {
+    var g = galleryFor(e.target && e.target.closest && e.target.closest("[data-pk-gallery-root]"));
+    if (g) g.open((e.detail && parseInt(e.detail.index, 10)) || 0, document.activeElement);
+  });
+
+  window.addEventListener("phx:pk:photo-gallery-open", function(e) {
+    var id = e.detail && e.detail.id;
+    var root = typeof id === "string" && id ? document.getElementById(id) : null;
+    if (root && root.hasAttribute("data-pk-gallery-root")) {
+      galleryFor(root).open(parseInt(e.detail.index, 10) || 0, document.activeElement);
+    }
+  });
+})();
+

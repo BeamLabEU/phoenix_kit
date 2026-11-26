@@ -29432,12 +29432,56 @@ msgstr ""
 msgid "Open profile"
 msgstr "打开个人资料"
 
-
 #: lib/phoenix_kit_web/components/core/user_info.ex:431
 #: lib/phoenix_kit_web/components/core/user_info.ex:438
 #, elixir-autogen, elixir-format
 msgid "Couldn't load this person."
 msgstr "无法加载此人的信息。"
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "Photo gallery"
+msgstr "照片库"
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "carousel"
+msgstr "轮播"
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "slide"
+msgstr "幻灯片"
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "Previous photo"
+msgstr "上一张照片"
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "Next photo"
+msgstr "下一张照片"
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "%{n} / %{count}"
+msgstr "%{n} / %{count}"
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "Photo %{n} of %{count}"
+msgstr "第 %{n} 张，共 %{count} 张"
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "Open photo %{n} of %{count}: %{alt}"
+msgstr "打开第 %{n} 张照片（共 %{count} 张）：%{alt}"
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "Open photo %{n} of %{count}"
+msgstr "打开第 %{n} 张照片（共 %{count} 张）"
 
 #: lib/phoenix_kit_web/components/account_menu.ex:69
 #: lib/phoenix_kit_web/components/core/theme_controller.ex:179

@@ -29398,6 +29398,51 @@ msgstr ""
 msgid "Covers sign-in, registration, magic link, password reset, email confirmation and QR sign-in pages. Shown only when Multiple languages is turned on and more than one language is enabled. Turn it off for a site that serves one language per domain."
 msgstr ""
 
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "Photo gallery"
+msgstr ""
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "carousel"
+msgstr ""
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "slide"
+msgstr ""
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "Previous photo"
+msgstr ""
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "Next photo"
+msgstr ""
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "%{n} / %{count}"
+msgstr ""
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "Photo %{n} of %{count}"
+msgstr ""
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "Open photo %{n} of %{count}: %{alt}"
+msgstr ""
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "Open photo %{n} of %{count}"
+msgstr ""
+
 #: lib/phoenix_kit_web/components/account_menu.ex:69
 #: lib/phoenix_kit_web/components/core/theme_controller.ex:179
 #, elixir-autogen, elixir-format

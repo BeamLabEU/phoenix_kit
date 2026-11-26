@@ -128,6 +128,7 @@ defmodule PhoenixKitWeb do
       import PhoenixKitWeb.Components.Core.Badge
       import PhoenixKitWeb.Components.Core.StatCard
       import PhoenixKitWeb.Components.Core.Chart
+      import PhoenixKitWeb.Components.Core.PhotoGallery, only: [photo_gallery: 1]
       # `only:` for the same reason as NavTabs below: a later helper on the
       # module must not silently join every LiveView's namespace.
       import PhoenixKitWeb.Components.Core.ChartLanes, only: [chart_lanes: 1]

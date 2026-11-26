@@ -29412,12 +29412,56 @@ msgstr ""
 msgid "Open profile"
 msgstr "Apri profilo"
 
-
 #: lib/phoenix_kit_web/components/core/user_info.ex:431
 #: lib/phoenix_kit_web/components/core/user_info.ex:438
 #, elixir-autogen, elixir-format
 msgid "Couldn't load this person."
 msgstr "Impossibile caricare questa persona."
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "Photo gallery"
+msgstr "Galleria fotografica"
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "carousel"
+msgstr "carosello"
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "slide"
+msgstr "diapositiva"
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "Previous photo"
+msgstr "Foto precedente"
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "Next photo"
+msgstr "Foto successiva"
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "%{n} / %{count}"
+msgstr "%{n} / %{count}"
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "Photo %{n} of %{count}"
+msgstr "Foto %{n} di %{count}"
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "Open photo %{n} of %{count}: %{alt}"
+msgstr "Apri la foto %{n} di %{count}: %{alt}"
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "Open photo %{n} of %{count}"
+msgstr "Apri la foto %{n} di %{count}"
 
 #: lib/phoenix_kit_web/components/account_menu.ex:69
 #: lib/phoenix_kit_web/components/core/theme_controller.ex:179

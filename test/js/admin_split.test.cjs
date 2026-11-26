@@ -237,7 +237,12 @@ test("a size budget keeps the public file public", () => {
   // adoptStyle, the consent widget's stylesheet moved out of the HTML string,
   // and the approved script keeping its nonce. 343 780 B, so 340 KiB =
   // 348 160 B leaves ~4.3 KB).
-  assert.ok(publicBytes < 340 * 1024, "phoenix_kit.js is " + publicBytes + " bytes");
+  // -> 392 (three opt-in public components, ~50 KB with their notes:
+  // `<.photo_gallery>`'s lightbox (~20 KB), `<.file_upload edit_images>`'s
+  // PkUploadEdit with the crop geometry moved here from the admin ImageEditor
+  // (~15 KB) and the FormDraft hook (~11 KB); all render on public pages.
+  // ~395 500 B, so 392 KiB = 401 408 B leaves ~5.9 KB).
+  assert.ok(publicBytes < 392 * 1024, "phoenix_kit.js is " + publicBytes + " bytes");
   assert.ok(adminBytes > publicBytes / 2, "the admin file is where the weight went");
 });
 
