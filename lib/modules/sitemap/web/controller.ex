@@ -95,7 +95,9 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Controller do
         # must stay reachable even when the site runs in flat mode.
         serve_domain_file(conn, host, filename, nil)
 
-      Sitemap.flat_mode?() ->
+      # Generator.flat_mode?/0, not Sitemap.flat_mode?/0: a streaming source
+      # forces index mode, and its per-module files must then be served.
+      Generator.flat_mode?() ->
         send_plain_error(
           conn,
           404,

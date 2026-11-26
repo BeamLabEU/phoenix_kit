@@ -22,7 +22,9 @@ defmodule PhoenixKit.Modules.Sitemap.HtmlGenerator do
 
   ## Parameters
 
-  - `opts` - Options (`:style`, `:title`)
+  - `opts` - Options (`:style`, `:title`, `:streamed_files` — the XML files
+    of streaming sources, `[%{filename, url_count, loc}]`, shown as links
+    with their URL counts instead of their URLs)
   - `entries` - Pre-collected URL entries
   - `cache_key` - Atom key for ETS cache storage
   - `cache_opts` - Optional: `[cache: false]` to skip caching
@@ -32,12 +34,13 @@ defmodule PhoenixKit.Modules.Sitemap.HtmlGenerator do
     style = Keyword.get(opts, :style, "hierarchical")
     title = Keyword.get(opts, :title, "Sitemap")
     cache_enabled = Keyword.get(cache_opts, :cache, true)
+    streamed = streamed_section(Keyword.get(opts, :streamed_files, []))
 
     html =
       case style do
-        "hierarchical" -> render_hierarchical(entries, title)
-        "grouped" -> render_grouped(entries, title)
-        "flat" -> render_flat(entries, title)
+        "hierarchical" -> render_hierarchical(entries, title, streamed)
+        "grouped" -> render_grouped(entries, title, streamed)
+        "flat" -> render_flat(entries, title, streamed)
       end
 
     if cache_enabled, do: Cache.put(cache_key, html)
@@ -47,7 +50,7 @@ defmodule PhoenixKit.Modules.Sitemap.HtmlGenerator do
 
   # ── Internal: rendering ───────────────────────────────────────────
 
-  defp render_hierarchical(entries, title) do
+  defp render_hierarchical(entries, title, streamed) do
     grouped =
       entries
       |> Enum.group_by(fn entry -> entry.category || "Other" end)
@@ -103,13 +106,14 @@ defmodule PhoenixKit.Modules.Sitemap.HtmlGenerator do
           <div class="grid md:grid-cols-2 gap-4">
     #{category_sections}
           </div>
+    #{streamed}
         </div>
       </body>
     </html>
     """
   end
 
-  defp render_grouped(entries, title) do
+  defp render_grouped(entries, title, streamed) do
     grouped =
       entries
       |> Enum.group_by(fn entry ->
@@ -148,13 +152,14 @@ defmodule PhoenixKit.Modules.Sitemap.HtmlGenerator do
         <div class="container px-4 py-8 max-w-4xl">
           <h1 class="text-4xl font-bold mb-8 text-center">#{UrlEntry.escape_xml(title)}</h1>
     #{sections}
+    #{streamed}
         </div>
       </body>
     </html>
     """
   end
 
-  defp render_flat(entries, title) do
+  defp render_flat(entries, title, streamed) do
     links =
       entries
       |> Enum.sort_by(fn entry -> entry.title || entry.loc end)
@@ -176,6 +181,7 @@ defmodule PhoenixKit.Modules.Sitemap.HtmlGenerator do
               </ul>
             </div>
           </div>
+    #{streamed}
         </div>
       </body>
     </html>
@@ -183,6 +189,30 @@ defmodule PhoenixKit.Modules.Sitemap.HtmlGenerator do
   end
 
   # ── Shared helpers ────────────────────────────────────────────────
+
+  # Streaming sources can hold millions of URLs: link their XML files with a
+  # count rather than rendering one <li> per URL.
+  defp streamed_section([]), do: ""
+
+  defp streamed_section(files) do
+    items =
+      Enum.map_join(files, "\n          ", fn file ->
+        count = if is_integer(file.url_count), do: " (#{file.url_count} pages)", else: ""
+
+        ~s(<li><a href="#{UrlEntry.escape_xml(file.loc)}" class="link">#{UrlEntry.escape_xml(file.filename)}.xml</a>#{count}</li>)
+      end)
+
+    """
+          <div class="card mb-6" id="sitemap-streamed-files">
+            <div class="card-body">
+              <h2 class="card-title">More pages</h2>
+              <ul class="list-disc list-inside space-y-2 mt-2">
+          #{items}
+              </ul>
+            </div>
+          </div>
+    """
+  end
 
   defp render_link(entry) do
     display_title = entry.title || entry.loc
