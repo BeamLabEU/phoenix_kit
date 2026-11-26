@@ -369,8 +369,8 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           opts |> elem(0) |> Keyword.get_values(key) |> PatchLedger.validate_ids!()
         end)
 
-        # The Igniter pass of the second pass, handed to `full_update/2`
-        # (which decides whether it runs at all).
+        # The Igniter pass: the first pass runs it inside the ledger window, the
+        # second hands it to `full_update/2` (which decides whether it runs at all).
         igniter_pass = fn -> super(argv) end
 
         # If --status flag, handle directly and exit
@@ -400,7 +400,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
                 # Store config status in Process dictionary for igniter/1 to read
                 Process.put(:phoenix_kit_config_status, :missing)
                 show_missing_config_message(argv)
-                result = first_pass_with_ledger(elem(opts, 0), fn -> super(argv) end)
+                result = first_pass_with_ledger(elem(opts, 0), igniter_pass)
 
                 Process.delete(:phoenix_kit_config_status)
 
