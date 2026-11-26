@@ -202,6 +202,11 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   # access to; the real-database integration suite re-ran clean against a DB
   # migrated through V196, which is the property s7/s8 exist to prove.
   #
+  # V237 (2026-11-26, variant set watermark) adds a generated overlay, `ExpectedSchema.V237`
+  # (dev_docs/squash/generate_v237_manifest.exs: the catalog diff V236 -> V237 in a scratch
+  # schema), merged after `V236`: the column `phoenix_kit_variant_sets.watermark`. No seed rows.
+  # Kept honest by `PhoenixKit.Migrations.Postgres.V237Test`. `chain_hash` restamped.
+  #
   # V236 (2026-11-22, cross-domain handoff) adds a generated overlay, `ExpectedSchema.V236`
   # (dev_docs/squash/generate_v236_manifest.exs: the catalog diff V235 -> V236 in a scratch
   # schema), merged after `V235`: the table `phoenix_kit_handoff_tokens`. No seed rows. Kept honest by
@@ -730,12 +735,13 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   alias PhoenixKit.Migrations.ExpectedSchema.V234
   alias PhoenixKit.Migrations.ExpectedSchema.V235
   alias PhoenixKit.Migrations.ExpectedSchema.V236
+  alias PhoenixKit.Migrations.ExpectedSchema.V237
   alias PhoenixKit.Migrations.Postgres.Helpers
 
   @schema_token "__SCHEMA__"
   @name_marker_exempt "__PK_NAME_EXEMPT__"
   @name_marker_always "__PK_NAME_ALWAYS__"
-  @chain_hash "5be94366e189a3183c1c10f9d22c2503df413c9565e00d5cbc96c3b2616af372"
+  @chain_hash "e3096d8cbc8e61ad079b6894299f78db0cc80e5f4249d741c18d75b1263673a2"
 
   def objects(prefix) do
     prefix = normalize_prefix!(prefix)
@@ -752,6 +758,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
     |> V234.merge()
     |> V235.merge()
     |> V236.merge()
+    |> V237.merge()
     |> Enum.reject(&module_owned_object?/1)
     |> Enum.map(&materialize_object(&1, prefix))
   end
@@ -818,6 +825,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
       |> V234.merge()
       |> V235.merge()
       |> V236.merge()
+      |> V237.merge()
 
     for %{class: :table, check: {:catalog, %{name: name}}} <- objects,
         into: MapSet.new(),
