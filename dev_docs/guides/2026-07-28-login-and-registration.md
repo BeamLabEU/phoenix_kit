@@ -119,6 +119,30 @@ A LiveView test that submits the signup form needs
 tracks the anonymous visitor, and the suite does not start what a host app
 supervises.
 
+## The first Owner
+
+Public sign-up never makes the first registrant the Owner (`PhoenixKit.Users.Setup`,
+policy `config :phoenix_kit, first_owner: :auto | :token | :open`, default `:auto`).
+While no active Owner exists, the kit's three sign-up doors — the registration form,
+magic-link registration (request and completion) and OAuth sign-up — **refuse** a
+registration that proves nothing; the proof is the one-time setup token from the boot
+log (`/users/register?setup=TOKEN`, consumed by the grant, hashed in the setting
+`first_owner_setup_token_hash`, replaced at every boot while there is no Owner) or, under
+`:auto`, a dev server (`Mix.env() == :dev`) reached at a loopback host from a loopback
+(or unknown) peer. Each door builds its claim with `Setup.claim_from_socket/2` in
+`mount/3` (the peer is readable only there) or `Setup.claim_from_conn/2`, and passes it
+as `first_owner:` to `Auth.register_user/3`.
+
+- ⚠️ **A new sign-up door passes `first_owner:`.** `register_user/3` holds a request
+  with `site_wide: true` and no `first_owner:` to the public claim, and lets any other
+  code-level caller (seeds, fixtures, imports) make the first user Owner (`:allow`).
+  `admin_create_user/2` passes `:deny`.
+- The decision is taken twice: `Setup.check_registration/1` before the insert (so a
+  refused sign-up leaves no account), then `Setup.grant_first_owner?/2` inside
+  `Roles.ensure_first_user_is_owner/2` under the Owner-role lock, which consumes the
+  token. A token lost to a race there gives a plain user, never an Owner.
+- The console: `mix phoenix_kit.create_owner EMAIL` / `Setup.create_owner/2`.
+
 ## Post-auth destination
 
 One resolver — `Routes.post_auth_path/1` — takes candidate destinations in

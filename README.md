@@ -382,6 +382,7 @@ For full control, skip the installer entirely:
 3. Configure repository: `config :phoenix_kit, repo: MyApp.Repo`
 4. Add `phoenix_kit_routes()` to your router
 5. Run `mix ecto.migrate`
+6. Create the first Owner: `mix phoenix_kit.create_owner you@example.com`
 
 ## Quick Start
 
@@ -391,6 +392,33 @@ Visit these URLs after installation:
 - `http://localhost:4000/{prefix}/users/log-in` - User login
 
 Where `{prefix}` is your configured PhoenixKit URL prefix (default: `/phoenix_kit`).
+
+### The first Owner
+
+A fresh install has no Owner, and **public sign-up does not make one**: on a
+public URL that would hand the site to whoever registers first. Create it in
+one of these ways:
+
+```bash
+# From the project (generates a password and prints it once):
+mix phoenix_kit.create_owner you@example.com
+
+# In a running release (rpc runs inside the node, so the repo is up):
+bin/my_app rpc 'PhoenixKit.Users.Setup.create_owner("you@example.com") |> IO.inspect()'
+```
+
+Or open the one-time setup link the server logs at boot while there is no
+Owner (`{prefix}/users/register?setup=…`) and register through it. On a dev
+server reached at `localhost`, the first account registered becomes the Owner
+as before. The rule is configurable:
+
+```elixir
+config :phoenix_kit, first_owner: :auto   # default: setup link, console, or dev on localhost
+config :phoenix_kit, first_owner: :token  # setup link or console only, also in dev
+config :phoenix_kit, first_owner: :open   # old behaviour: the first registrant is Owner
+```
+
+Details: `PhoenixKit.Users.Setup` and `mix help phoenix_kit.create_owner`.
 
 ## Configuration
 
@@ -599,7 +627,7 @@ installed, so a core-only app carries no tables it does not use. The main ones:
 
 ### System Roles
 
-- **Owner** - Full system access (first user)
+- **Owner** - Full system access (see [The first Owner](#the-first-owner))
 - **Admin** - Management privileges
 - **User** - Standard access (default)
 
