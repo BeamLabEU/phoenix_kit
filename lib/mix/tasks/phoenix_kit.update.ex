@@ -400,7 +400,18 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
                 # Store config status in Process dictionary for igniter/1 to read
                 Process.put(:phoenix_kit_config_status, :missing)
                 show_missing_config_message(argv)
-                result = super(argv)
+                # The first pass backfills an existing Oban block's queues too, so it
+                # reads the patch ledger and the patch flags like the full update; it
+                # records nothing (the second pass reads the file again).
+                PatchLedger.begin(elem(opts, 0))
+
+                result =
+                  try do
+                    super(argv)
+                  after
+                    PatchLedger.abandon()
+                  end
+
                 Process.delete(:phoenix_kit_config_status)
 
                 after_first_pass(elem(opts, 0), result, argv)
