@@ -350,12 +350,66 @@ test("a second include of the bundle installs no listener twice", () => {
   const env = createEnv({});
   env.load("phoenix_kit.js");
 
-  const names = ["click", "error", "submit", "keydown", "focus", "blur", "input", "scroll"];
-  const count = () => names.map((n) => [env.listenerCount("document", n), env.listenerCount("window", n)]);
-  const once = count();
-  assert.ok(once[0][0] > 0, "the bundle listens for clicks");
+  const once = env.listenerCounts();
+  assert.ok(once.document.click > 0, "the bundle listens for clicks");
+  assert.equal(once.window["phx:phoenix_kit:set_input"], 1);
 
   env.load("phoenix_kit.js");
-  assert.deepEqual(count(), once);
+  assert.deepEqual(env.listenerCounts(), once);
   assert.deepEqual(env.errors, []);
+});
+
+test("consent script replacement skips the hidden nonce attribute and copies script.nonce", () => {
+  const { createEnv } = require("./support/pk_env.cjs");
+  const env = createEnv({});
+  env.load("phoenix_kit.js");
+
+  const replaced = [];
+  const origCreate = env.document.createElement;
+  env.document.createElement = (tag) => {
+    const el = origCreate(tag);
+    el.nonce = "";
+    const origSet = el.setAttribute.bind(el);
+    el.setAttribute = (k, v) => {
+      // Model HTMLOrSVGElement attribute change steps: setting `nonce=""`
+      // clears the internal nonce on spec-compliant engines.
+      if (k === "nonce") el.nonce = String(v);
+      origSet(k, v);
+    };
+    return el;
+  };
+
+  const blocked = {
+    nonce: "page-nonce-123",
+    src: "",
+    textContent: "window.__ran = true;",
+    attributes: [
+      { name: "type", value: "text/plain" },
+      { name: "data-consent-category", value: "analytics" },
+      { name: "data-blocked", value: "true" },
+      { name: "nonce", value: "" },
+    ],
+    parentNode: { replaceChild: (next, prev) => replaced.push({ next, prev }) },
+  };
+  const unnonced = {
+    nonce: "",
+    src: "",
+    textContent: "window.__unnonced = true;",
+    attributes: [
+      { name: "type", value: "text/plain" },
+      { name: "data-consent-category", value: "analytics" },
+      { name: "data-blocked", value: "true" },
+    ],
+    parentNode: { replaceChild: (next, prev) => replaced.push({ next, prev }) },
+  };
+
+  env.document.querySelectorAll = (sel) =>
+    sel.includes('data-consent-category="analytics"') ? [blocked, unnonced] : [];
+
+  env.window.PhoenixKitConsent.acceptAll();
+
+  assert.equal(replaced.length, 2);
+  assert.equal(replaced[0].next.nonce, "page-nonce-123");
+  assert.equal("nonce" in replaced[0].next.attrs, false);
+  assert.equal(replaced[1].next.nonce, "");
 });

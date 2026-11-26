@@ -1289,15 +1289,17 @@ if (typeof window !== "undefined") window.__pkBundleLoads = (window.__pkBundleLo
       );
       scripts.forEach(function(script) {
         var newScript = document.createElement("script");
-        // The nonce is not in the attribute list (the browser hides it), so a
-        // copy made from attributes loses it and a strict script-src drops the
-        // approved script. An original that had none stays without one.
-        if (script.nonce) newScript.nonce = script.nonce;
         Array.from(script.attributes).forEach(function(attr) {
-          if (attr.name !== "type" && attr.name !== "data-blocked") {
+          if (attr.name !== "type" && attr.name !== "data-blocked" && attr.name !== "nonce") {
             newScript.setAttribute(attr.name, attr.value);
           }
         });
+        // The browser hides a script's nonce in its content attribute (`nonce=""`)
+        // while keeping the value on `script.nonce`. Skipping "nonce" above
+        // avoids `setAttribute("nonce", "")` clearing it on spec-compliant
+        // engines, and copying `.nonce` preserves it. An original with none
+        // stays without one.
+        if (script.nonce) newScript.nonce = script.nonce;
         if (script.src) {
           newScript.src = script.src;
         } else {
@@ -7857,7 +7859,7 @@ function pkMentionFace(av) {
 // and the person who clicked the hint is no longer in it: a blur is fired too,
 // so the change goes now instead of at the submit.
 // ---------------------------------------------------------------------------
-if (typeof window !== "undefined") {
+if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
   window.addEventListener("phx:phoenix_kit:set_input", function (event) {
     var detail = event.detail || {};
     var el = typeof detail.id === "string" ? document.getElementById(detail.id) : null;

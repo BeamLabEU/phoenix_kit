@@ -205,11 +205,39 @@ defmodule PhoenixKitWeb.CSPTest do
     end
 
     test "a shape that would silently read as no nonce is named" do
-      for bad <- ["csp_nonce", %{scripts: :a}, %{script: "a"}, %{script: false}, %{}, 1] do
+      for bad <- [
+            "csp_nonce",
+            %{scripts: :a},
+            %{script: "a"},
+            %{script: false},
+            %{script: nil},
+            %{script: nil, style: nil},
+            %{},
+            1
+          ] do
         Application.put_env(:phoenix_kit, :csp_nonce_assign_key, bad)
         assert is_binary(CSP.config_problem()), inspect(bad)
-        assert CSP.nonce(conn(csp_nonce: "abc", a: "abc"), :script) == nil
+
+        assert CSP.nonce(conn([{nil, "leaked"}, {:csp_nonce, "abc"}, {:a, "abc"}]), :script) ==
+                 nil
       end
+    end
+
+    test "a single-kind map does not read nil as the other kind's assign" do
+      Application.put_env(:phoenix_kit, :csp_nonce_assign_key, %{script: :script_nonce})
+      assert CSP.config_problem() == nil
+
+      c = conn([{nil, "leaked"}, {:script_nonce, "s1"}])
+      assert CSP.nonce(c, :script) == "s1"
+      assert CSP.nonce(c, :style) == nil
+    end
+
+    test "put_nonces_first does not raise on an already-sent connection" do
+      Application.put_env(:phoenix_kit, :csp_nonce_assign_key, :csp_nonce)
+      sent = conn(csp_nonce: "abc") |> Plug.Conn.send_resp(200, "ok")
+
+      assert %Plug.Conn{state: :sent} = CSP.put_nonces_first(sent)
+      assert CSP.nonce(:script) == "abc"
     end
 
     test "true and false are not assign names, and the doctor does not raise on them" do

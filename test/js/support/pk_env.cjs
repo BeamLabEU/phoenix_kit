@@ -208,6 +208,11 @@ function createEnv(opts) {
     fireDocument,
     // How many listeners the page holds for an event, on the document and on the window.
     listenerCount: (target, name) => ((target === "window" ? winListeners : docListeners)[name] || []).length,
+    // Every event name that has at least one listener, mapped to its count.
+    listenerCounts: () => ({
+      document: Object.fromEntries(Object.entries(docListeners).map(([k, v]) => [k, v.length])),
+      window: Object.fromEntries(Object.entries(winListeners).map(([k, v]) => [k, v.length])),
+    }),
     markAdminLayout: () => { marked.admin = true; },
     window: sandbox,
     document,

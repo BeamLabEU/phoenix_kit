@@ -146,10 +146,14 @@ defmodule PhoenixKitWeb.CSP do
     # Marked after the reading: this one is the first, never "late".
     Process.put(@integration_ran_key, true)
 
-    Plug.Conn.register_before_send(conn, fn conn ->
-      Process.delete(@integration_ran_key)
+    if conn.state in [:unset, :set] do
+      Plug.Conn.register_before_send(conn, fn conn ->
+        Process.delete(@integration_ran_key)
+        conn
+      end)
+    else
       conn
-    end)
+    end
   end
 
   @doc """
@@ -198,7 +202,7 @@ defmodule PhoenixKitWeb.CSP do
             "unknown keys #{inspect(unknown)}; the map takes :script and :style"
 
           bad != [] ->
-            "the assign names of #{inspect(bad)} must be atoms other than true and false"
+            "the assign names of #{inspect(bad)} must be atoms other than nil, true and false"
 
           map_size(keys) == 0 ->
             "the map is empty; name :script and/or :style"
@@ -278,7 +282,7 @@ defmodule PhoenixKitWeb.CSP do
     end
   end
 
-  defp assign_name?(key), do: is_atom(key) and not is_boolean(key)
+  defp assign_name?(key), do: is_atom(key) and not is_nil(key) and not is_boolean(key)
 
   defp usable?(value), do: is_binary(value) and value != ""
 end

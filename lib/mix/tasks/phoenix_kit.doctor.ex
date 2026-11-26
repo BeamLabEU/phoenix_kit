@@ -2603,7 +2603,7 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
     case Regex.run(~r/pipeline\s+:browser\s+do\b(.*?)\n\s*end\b/s, router_source) do
       [_, body] ->
         plugs =
-          ~r/^\s*plug\s+\(?\s*([^\n,)]+)/m
+          ~r/^\s*plug\s+\(?\s*([^\n,)#]+)/m
           |> Regex.scan(body, capture: :all_but_first)
           |> Enum.map(fn [name] -> String.trim(name) end)
 

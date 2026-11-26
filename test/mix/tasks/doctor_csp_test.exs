@@ -32,23 +32,30 @@ defmodule Mix.Tasks.PhoenixKit.DoctorCspTest do
     assert message =~ "expected an atom"
   end
 
-  test "Integration last in the browser pipeline passes" do
-    source = router([":fetch_session", "MyAppWeb.Plugs.CSP", "PhoenixKitWeb.Plugs.Integration"])
+  test "Integration last in the browser pipeline passes, even with an inline comment" do
+    source =
+      router([
+        ":fetch_session",
+        "MyAppWeb.Plugs.CSP",
+        "PhoenixKitWeb.Plugs.Integration  # ← Added automatically"
+      ])
+
     assert {:pass, message} = Doctor.csp_verdict(:csp_nonce, nil, source)
     assert message =~ "last plug"
   end
 
-  test "plugs after Integration are listed" do
+  test "plugs after Integration are listed without trailing comments" do
     source =
       router([
         ":fetch_session",
-        "PhoenixKitWeb.Plugs.Integration",
-        "MyAppWeb.Plugs.CSP",
+        "PhoenixKitWeb.Plugs.Integration # kit",
+        "MyAppWeb.Plugs.CSP # assigns nonce",
         ":other, 1"
       ])
 
     assert {:warn, message} = Doctor.csp_verdict(:csp_nonce, nil, source)
     assert message =~ "MyAppWeb.Plugs.CSP, :other"
+    refute message =~ "# assigns nonce"
   end
 
   test "a browser pipeline without Integration is said" do

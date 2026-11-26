@@ -1304,3 +1304,62 @@ Not re-run: the full `mix test`. The change since the last full run is the boole
 
 The open list is unchanged: a signed-in admin session in a browser on a real host, inline
 `style` attributes, `cally`, the module packages, and the tooling limits Grok lists above.
+
+## Recheck & follow-up fixes — Gemini, 2026-11-26 (after `40aaae8e6`)
+
+Rechecked commits `dbddc819b`, `69531ff24`, `5ba471979`, and `40aaae8e6` against the source and
+ran the JS and Elixir suites. All earlier findings from Gemini, Codex, Mistral, and Grok are
+genuinely addressed (including Grok's table-fit `localStorage` grammar rewrite, which removes a
+CSS-laundering vector). Four small bugs turned up in the follow-up commits and are fixed in this
+pass:
+
+1. **`BUG - MEDIUM` · `phx:phoenix_kit:set_input` missed the `__pkBundleLoads` double-include guard.**
+   - **Where:** `priv/static/assets/phoenix_kit.js:7860-7871`
+   - All ten top-level IIFEs got `window.__pkBundleLoads > 1`, but the top-level
+     `if (typeof window !== "undefined") { window.addEventListener("phx:phoenix_kit:set_input", …) }`
+     block did not, so a double include registered it twice and dispatched duplicate `input`/`blur`
+     events. `declared_handlers.test.cjs` missed it because its double-include test checked only 8
+     hardcoded event names.
+   - **Fix:** Guard the block with `!(window.__pkBundleLoads > 1)` and expose `env.listenerCounts()`
+     in `test/js/support/pk_env.cjs` so `declared_handlers.test.cjs` compares *every* registered
+     `document` and `window` event name.
+
+2. **`BUG - MEDIUM` · `unblockScripts` ran `setAttribute("nonce", "")` after copying `script.nonce`.**
+   - **Where:** `priv/static/assets/phoenix_kit.js:1292-1300`
+   - Browsers hide a parsed `<script>`'s nonce by setting its content attribute to `nonce=""` while
+     keeping the value in `script.nonce`. Because the attribute copy loop skipped only `"type"` and
+     `"data-blocked"`, it ran `newScript.setAttribute("nonce", "")` *after*
+     `newScript.nonce = script.nonce`. That survived in Chromium only due to Blink's quirk ignoring
+     empty-string writes to `nonce`; per HTMLOrSVGElement attribute change steps (non-Blink
+     engines), setting `nonce=""` clears `[[CryptographicNonce]]`.
+   - **Fix:** Skip `attr.name !== "nonce"` in the loop and assign `if (script.nonce) newScript.nonce = script.nonce`
+     after copying attributes. Added a regression test in `test/js/declared_handlers.test.cjs` that
+     models spec-compliant `setAttribute("nonce", "")` clearing `el.nonce` for both nonced and
+     unnonced scripts.
+
+3. **`BUG - LOW` · `mix phoenix_kit.doctor` misread `Plugs.Integration` lines with trailing `#` comments.**
+   - **Where:** `lib/mix/tasks/phoenix_kit.doctor.ex:2606`
+   - `~r/^\s*plug\s+\(?\s*([^\n,)]+)/m` did not stop at `#`, so a trailing comment — including the
+     kit's own moduledoc example `plug PhoenixKitWeb.Plugs.Integration  # ← Added automatically`
+     (`lib/phoenix_kit_web/plugs/integration.ex:53`) — caused a false `"was not found"` warning,
+     and trailing comments on later plugs leaked into the warning message.
+   - **Fix:** Stop the capture before `#` (`[^\n,)#]+`), covered in `test/mix/tasks/doctor_csp_test.exs`.
+
+4. **`BUG - LOW` · `CSP.assign_name?/1` accepted `nil` and `put_nonces_first/1` lacked a `conn.state` guard.**
+   - **Where:** `lib/phoenix_kit_web/csp.ex:149, 204, 281`
+   - `is_atom(nil)` is `true`, so `config :phoenix_kit, csp_nonce_assign_key: %{script: nil}` passed
+     `CSP.config_problem/0` with no `doctor` warning, and single-kind maps like `%{script: :a}`
+     included `{:style, nil}` in `assign_keys/0` (performing an extra `conn.assigns[nil]` lookup on
+     every request). Also `put_nonces_first/1` called `Plug.Conn.register_before_send/2` without
+     the `conn.state in [:unset, :set]` guard used in `put_nonces/1`.
+   - **Fix:** Reject `nil` in `assign_name?/1`, update the `config_problem/0` message, guard
+     `register_before_send/2` in `put_nonces_first/1`, and add regression tests in
+     `test/phoenix_kit_web/csp_test.exs`.
+
+### Verification (Gemini, 2026-11-26)
+
+- `node --check priv/static/assets/phoenix_kit.js` and `node --test test/js/*.test.cjs`: **1003 passed, 0 failed** (including the stricter full-event double-include check and the consent nonce-attribute hiding regression test).
+- `mix format --check-formatted` and `mix credo --strict` on `lib/phoenix_kit_web/csp.ex`, `lib/mix/tasks/phoenix_kit.doctor.ex`, `test/phoenix_kit_web/csp_test.exs`, and `test/mix/tasks/doctor_csp_test.exs`: **0 issues** (full `mix precommit` stopped on 4 pre-existing unrelated files due to Elixir 1.18.4 formatter differences, left untouched).
+- `mix test` on `csp_test.exs`, `csp_inline_tags_test.exs`, `doctor_csp_test.exs`, `theme_controller_test.exs`, `table_default_test.exs`, `root_layout_bundle_test.exs`, and `route_precedence_test.exs`: **102 tests, 0 failures**.
+- Not run: DB-backed integration tests, Dialyzer, and headless Chromium harness (leaving the working tree ready for other agents' review).
+
