@@ -353,9 +353,12 @@ defmodule PhoenixKit.Users.Setup do
     Process.sleep(Keyword.get(opts, :delay, :timer.seconds(3)))
 
     if policy() != :open and not test_runtime?() and Roles.count_active_owners() == 0 do
-      case generate_setup_token() do
+      case refresh_setup_token() do
         {:ok, token} ->
           Logger.warning(boot_message(token))
+
+        {:error, :owner_exists} ->
+          :ok
 
         {:error, reason} ->
           Logger.error("[PhoenixKit] Could not make a setup token: #{inspect(reason)}")
@@ -369,6 +372,27 @@ defmodule PhoenixKit.Users.Setup do
       :ok
   catch
     :exit, _reason -> :ok
+  end
+
+  @doc false
+  # The boot path's token write: the active-Owner count and the write share
+  # the Owner-role lock `Roles.ensure_first_user_is_owner/2` and
+  # `create_owner/2` take, so a token is never minted (and logged) after
+  # another node committed the first Owner. A token left behind that way
+  # outlived the Owner's grant and could make a second Owner once the first
+  # went inactive.
+  @spec refresh_setup_token() :: {:ok, String.t()} | {:error, :owner_exists | term()}
+  def refresh_setup_token do
+    repo = RepoHelper.repo()
+
+    repo.transaction(fn ->
+      if Roles.count_active_owners_locked() > 0, do: repo.rollback(:owner_exists)
+
+      case generate_setup_token() do
+        {:ok, token} -> token
+        {:error, reason} -> repo.rollback(reason)
+      end
+    end)
   end
 
   @doc false

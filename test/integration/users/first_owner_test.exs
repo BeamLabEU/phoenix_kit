@@ -309,6 +309,32 @@ defmodule PhoenixKit.Integration.Users.FirstOwnerTest do
     end
   end
 
+  describe "the boot path's token write (refresh_setup_token/0)" do
+    setup :no_owner
+
+    test "with no Owner it stores a new token" do
+      assert {:ok, token} = Setup.refresh_setup_token()
+      assert Setup.setup_token_valid?(token)
+    end
+
+    # The boot task counted Owners unlocked, then wrote: a first Owner
+    # committed in between (another node's registration) left a fresh token
+    # behind, logged and valid for a later grant once that Owner went inactive.
+    test "writes nothing once an Owner exists, and decides under the Owner-role lock" do
+      {:ok, _} = Setup.create_owner(email())
+      assert token_row_count() == 0
+
+      log =
+        PhoenixKit.DataCase.capture_debug_log(fn ->
+          send(self(), Setup.refresh_setup_token())
+        end)
+
+      assert_received {:error, :owner_exists}
+      assert token_row_count() == 0
+      assert log =~ "FOR NO KEY UPDATE"
+    end
+  end
+
   describe "Setup.create_owner/2" do
     setup :no_owner
 
