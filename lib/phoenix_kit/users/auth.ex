@@ -523,14 +523,7 @@ defmodule PhoenixKit.Users.Auth do
           do_register_user(attrs, first_owner: first_owner)
         else
           {:error, :setup_required} ->
-            {:error,
-             registration_refusal(
-               attrs,
-               dgettext_noop(
-                 "errors",
-                 "This site has no owner yet, so sign-up is closed. Its operator creates the owner with the setup link printed in the server log, or with mix phoenix_kit.create_owner."
-               )
-             )}
+            {:error, setup_required_refusal(attrs)}
 
           {:error, :no_mail_host} ->
             {:error,
@@ -550,6 +543,16 @@ defmodule PhoenixKit.Users.Auth do
            dgettext_noop("errors", "Too many registration attempts. Please try again later.")
          )}
     end
+  end
+
+  defp setup_required_refusal(attrs) do
+    registration_refusal(
+      attrs,
+      dgettext_noop(
+        "errors",
+        "This site has no owner yet, so sign-up is closed. Its operator creates the owner with the setup link printed in the server log, or with mix phoenix_kit.create_owner."
+      )
+    )
   end
 
   # A refusal made before any insert. The action is what makes a form show the
@@ -690,6 +693,13 @@ defmodule PhoenixKit.Users.Auth do
             Events.broadcast_user_created(user)
 
             {:ok, user}
+
+          {:error, :setup_required} ->
+            # The setup token passed the preflight but not the locked grant
+            # (rotated or spent in between): refused like a sign-up without
+            # it, and the account goes, so the address stays free.
+            Repo.delete(user)
+            {:error, setup_required_refusal(attrs)}
 
           {:error, reason} ->
             # Role assignment failed - this is critical

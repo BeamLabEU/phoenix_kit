@@ -140,7 +140,12 @@ as `first_owner:` to `Auth.register_user/3`.
 - The decision is taken twice: `Setup.check_registration/1` before the insert (so a
   refused sign-up leaves no account), then `Setup.grant_first_owner?/2` inside
   `Roles.ensure_first_user_is_owner/2` under the Owner-role lock, which consumes the
-  token. A token lost to a race there gives a plain user, never an Owner.
+  token. A token lost to a race there (rotated or spent between the two checks) is
+  refused like no token: `ensure_first_user_is_owner/2` answers
+  `{:error, :setup_required}` and `register_user/3` deletes the account it had just
+  inserted, so the address stays free for the real setup.
+- The boot task writes its token under the same lock (`Setup.refresh_setup_token/0`),
+  so no token is minted after another node committed the first Owner.
 - The console: `mix phoenix_kit.create_owner EMAIL` / `Setup.create_owner/2`.
 
 ## Post-auth destination

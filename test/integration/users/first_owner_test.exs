@@ -26,6 +26,32 @@ defmodule PhoenixKit.Integration.Users.FirstOwnerTest do
 
   @password "ValidPassword123!"
 
+  defmodule RotatingDns do
+    @moduledoc false
+    # Answers like a domain that takes mail, after replacing the setup token:
+    # another node booting while the registration is between its checks.
+    def resolve(_domain, :mx) do
+      {:ok, _} = Setup.generate_setup_token()
+      {:ok, ["mx.mail.test"]}
+    end
+
+    def resolve(_domain, _type), do: {:ok, ["address"]}
+  end
+
+  defp with_env(pairs, fun) do
+    previous = for {key, _} <- pairs, do: {key, Application.fetch_env(:phoenix_kit, key)}
+    Enum.each(pairs, fn {key, value} -> Application.put_env(:phoenix_kit, key, value) end)
+
+    try do
+      fun.()
+    after
+      Enum.each(previous, fn
+        {key, {:ok, value}} -> Application.put_env(:phoenix_kit, key, value)
+        {key, :error} -> Application.delete_env(:phoenix_kit, key)
+      end)
+    end
+  end
+
   setup do
     previous = Application.fetch_env(:phoenix_kit, :first_owner)
 
@@ -214,6 +240,30 @@ defmodule PhoenixKit.Integration.Users.FirstOwnerTest do
                Auth.register_user(attrs(second), nil, site_wide: true, first_owner: claim)
 
       refute Auth.get_user_by_email(second)
+    end
+
+    # The preflight (`Setup.check_registration/1`) and the locked grant are
+    # apart by the email-domain lookup; a boot on another node can rotate the
+    # token in between. The account used to be inserted anyway with the
+    # default role, holding the address the setup link was meant for.
+    test "a token rotated between the preflight and the grant: refused, and no account is left" do
+      {:ok, token} = Setup.generate_setup_token()
+      claim = %{setup_token: token, local: false}
+      address = email()
+
+      with_env([email_domain_check: true, email_domain_resolver: {RotatingDns, :resolve}], fn ->
+        assert {:error, %Ecto.Changeset{} = changeset} =
+                 Auth.register_user(attrs(address), nil,
+                   site_wide: true,
+                   first_owner: claim,
+                   check_email_domain: true
+                 )
+
+        assert errors_on(changeset).email |> Enum.any?(&(&1 =~ "no owner yet"))
+      end)
+
+      refute Auth.get_user_by_email(address)
+      assert Roles.count_active_owners() == 0
     end
 
     test ":token policy ignores the local case built by claim/4" do

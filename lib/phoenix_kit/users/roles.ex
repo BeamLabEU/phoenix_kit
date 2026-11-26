@@ -975,6 +975,8 @@ defmodule PhoenixKit.Users.Roles do
 
   - `{:ok, :owner}` if user became Owner
   - `{:ok, :user}` if user became regular User
+  - `{:error, :setup_required}` when no active Owner exists and a request's
+    claim no longer proves the right (nothing is assigned)
   - `{:error, reason}` on failure
 
   ## Examples
@@ -1011,6 +1013,14 @@ defmodule PhoenixKit.Users.Roles do
             repo.rollback(reason)
         end
       else
+        # A request's claim reaches here with no Owner only when its proof
+        # went stale after `Setup.check_registration/1` let it in (the token
+        # was rotated or spent in between). The caller removes the account it
+        # just inserted: a plain account would hold the address the setup
+        # link was meant for.
+        if owner_count == 0 and is_map(first_owner) and Setup.policy() != :open,
+          do: repo.rollback(:setup_required)
+
         if owner_count == 0 do
           Logger.warning(
             "PhoenixKit: no active Owner exists and #{user.uuid} did not prove the right to " <>
