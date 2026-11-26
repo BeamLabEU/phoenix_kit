@@ -29463,6 +29463,26 @@ msgstr "Foto %{n} von %{count} öffnen: %{alt}"
 msgid "Open photo %{n} of %{count}"
 msgstr "Foto %{n} von %{count} öffnen"
 
+#: lib/phoenix_kit_web/components/core/file_upload.ex
+#, elixir-autogen, elixir-format
+msgid "Edit photo before upload"
+msgstr "Foto vor dem Hochladen bearbeiten"
+
+#: lib/phoenix_kit_web/components/core/file_upload.ex
+#, elixir-autogen, elixir-format
+msgid "Drag on the photo to crop it."
+msgstr "Zum Zuschneiden auf dem Foto ziehen."
+
+#: lib/phoenix_kit_web/components/core/file_upload.ex
+#, elixir-autogen, elixir-format
+msgid "Upload original"
+msgstr "Original hochladen"
+
+#: lib/phoenix_kit_web/components/core/file_upload.ex
+#, elixir-autogen, elixir-format
+msgid "Upload"
+msgstr "Hochladen"
+
 #: lib/phoenix_kit_web/components/account_menu.ex:69
 #: lib/phoenix_kit_web/components/core/theme_controller.ex:179
 #, elixir-autogen, elixir-format

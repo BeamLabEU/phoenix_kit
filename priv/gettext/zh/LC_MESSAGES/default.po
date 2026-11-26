@@ -29483,6 +29483,26 @@ msgstr "打开第 %{n} 张照片（共 %{count} 张）：%{alt}"
 msgid "Open photo %{n} of %{count}"
 msgstr "打开第 %{n} 张照片（共 %{count} 张）"
 
+#: lib/phoenix_kit_web/components/core/file_upload.ex
+#, elixir-autogen, elixir-format
+msgid "Edit photo before upload"
+msgstr "上传前编辑照片"
+
+#: lib/phoenix_kit_web/components/core/file_upload.ex
+#, elixir-autogen, elixir-format
+msgid "Drag on the photo to crop it."
+msgstr "在照片上拖动以裁剪。"
+
+#: lib/phoenix_kit_web/components/core/file_upload.ex
+#, elixir-autogen, elixir-format
+msgid "Upload original"
+msgstr "上传原图"
+
+#: lib/phoenix_kit_web/components/core/file_upload.ex
+#, elixir-autogen, elixir-format
+msgid "Upload"
+msgstr "上传"
+
 #: lib/phoenix_kit_web/components/account_menu.ex:69
 #: lib/phoenix_kit_web/components/core/theme_controller.ex:179
 #, elixir-autogen, elixir-format

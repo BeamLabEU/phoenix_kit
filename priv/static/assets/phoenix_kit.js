@@ -37,6 +37,7 @@
  *     LibraryLoadNotice
  *   - MentionInput ............ @ and # menu in plain textareas
  *   - UploadStats, UploadGuard  Transfer line under an upload bar; leave-page guard
+ *   - PkUploadEdit ............ Crop/turn a photo before upload (<.file_upload edit_images>)
  *   - AudioRecorder ........... Microphone recorder behind <.audio_recorder>
  *   - PasskeySignIn, PasskeyRegister  Passkeys of the sign-in page and the Security tab
  *   - Turnstile ............... Cloudflare bot check on the public sign-up, magic-link,
@@ -8836,5 +8837,448 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
       galleryFor(root).open(parseInt(e.detail.index, 10) || 0, document.activeElement);
     }
   });
+})();
+
+// ---------------------------------------------------------------------------
+// PkUploadEdit — `<.file_upload edit_images>`: crop, turn and flip a photo
+// in the browser before it is uploaded.
+//
+// The hook wraps the live file input (and its drop zone). A selection or a
+// drop is taken in the capture phase, before LiveView's window listeners see
+// it; each JPEG/PNG/WebP is shown in the dialog the component rendered; the
+// results go to LiveView through the hook's `upload(name, files)`, as if the
+// person had chosen them. Anything else goes up untouched.
+//
+// The crop geometry (`imageEditorRect`) is the stored-image editor's
+// (ImageEditor in phoenix_kit_admin.js reads it from PhoenixKitInternals).
+// ---------------------------------------------------------------------------
+(function () {
+  if (typeof window !== "undefined" && window.__pkBundleLoads > 1) return;
+  if (typeof window === "undefined") return;
+  window.PhoenixKitHooks = window.PhoenixKitHooks || {};
+
+  function clamp(v, lo, hi) {
+    return Math.min(hi, Math.max(lo, v));
+  }
+
+  // The rectangle spanned by two points (percent of the frame), kept inside
+  // the frame. `aspect` is [w, h] in pixels and `frame` the frame's pixel
+  // size: the rectangle then has that shape, grown from `start` toward
+  // `end` and shrunk (not distorted) where it would leave the frame.
+  function imageEditorRect(start, end, aspect, frame) {
+    var a = { x: clamp(start.x, 0, 100), y: clamp(start.y, 0, 100) };
+    var b = { x: clamp(end.x, 0, 100), y: clamp(end.y, 0, 100) };
+
+    if (!aspect || !frame) {
+      return {
+        x: Math.min(a.x, b.x),
+        y: Math.min(a.y, b.y),
+        w: Math.abs(b.x - a.x),
+        h: Math.abs(b.y - a.y)
+      };
+    }
+
+    var ratio = aspect[0] / aspect[1];
+    var dirX = b.x < a.x ? -1 : 1;
+    var dirY = b.y < a.y ? -1 : 1;
+    // Room from the start point to the frame edge in the drag direction, px.
+    var roomW = ((dirX < 0 ? a.x : 100 - a.x) / 100) * frame[0];
+    var roomH = ((dirY < 0 ? a.y : 100 - a.y) / 100) * frame[1];
+
+    var wPx = (Math.abs(b.x - a.x) / 100) * frame[0];
+    var hPx = (Math.abs(b.y - a.y) / 100) * frame[1];
+    // The larger side of the drag decides the size.
+    if (wPx / ratio >= hPx) {
+      hPx = wPx / ratio;
+    } else {
+      wPx = hPx * ratio;
+    }
+    // Shrink to fit, keeping the shape.
+    var fit = Math.min(1, wPx > 0 ? roomW / wPx : 1, hPx > 0 ? roomH / hPx : 1);
+    wPx *= fit;
+    hPx *= fit;
+
+    var w = (wPx / frame[0]) * 100;
+    var h = (hPx / frame[1]) * 100;
+    return {
+      x: dirX < 0 ? a.x - w : a.x,
+      y: dirY < 0 ? a.y - h : a.y,
+      w: w,
+      h: h
+    };
+  }
+
+  window.PhoenixKitInternals = window.PhoenixKitInternals || {};
+  window.PhoenixKitInternals.imageEditorRect = imageEditorRect;
+
+  // ── Pure helpers (exported for test/js/upload_edit.test.cjs) ───────────
+
+  var EDITABLE = ["image/jpeg", "image/png", "image/webp"];
+
+  function uploadEditable(file) {
+    return !!file && EDITABLE.indexOf(String(file.type).toLowerCase()) !== -1;
+  }
+
+  // A quarter turn more (dir 90) or less (-90), kept in 0…270.
+  function uploadEditRotate(rotation, dir) {
+    return (((rotation + dir) % 360) + 360) % 360;
+  }
+
+  // The picture's size once turned.
+  function uploadEditDims(w, h, rotation) {
+    return rotation === 90 || rotation === 270 ? [h, w] : [w, h];
+  }
+
+  // The canvas transform drawing a `w` × `h` source turned `rotation`
+  // degrees clockwise, mirrored when `flip`, at `scale`, with the frame's
+  // point (ox, oy) — in turned, unscaled pixels — at the canvas origin.
+  function uploadEditMatrix(w, h, rotation, flip, scale, ox, oy) {
+    var m;
+    if (rotation === 90) m = [0, 1, -1, 0, h, 0];
+    else if (rotation === 180) m = [-1, 0, 0, -1, w, h];
+    else if (rotation === 270) m = [0, -1, 1, 0, 0, w];
+    else m = [1, 0, 0, 1, 0, 0];
+    if (flip) {
+      var W = uploadEditDims(w, h, rotation)[0];
+      m = [-m[0], m[1], -m[2], m[3], W - m[4], m[5]];
+    }
+    var s = scale || 1;
+    return [m[0] * s, m[1] * s, m[2] * s, m[3] * s, (m[4] - (ox || 0)) * s, (m[5] - (oy || 0)) * s];
+  }
+
+  // A crop in percent of the turned frame as whole pixels inside it; the
+  // whole frame when there is none (or it is too small to mean anything).
+  function uploadEditCropPixels(rect, W, H) {
+    if (!rect || rect.w < 0.5 || rect.h < 0.5) return { x: 0, y: 0, w: W, h: H };
+    var x = clamp(Math.round(rect.x / 100 * W), 0, W - 1);
+    var y = clamp(Math.round(rect.y / 100 * H), 0, H - 1);
+    var w = clamp(Math.round(rect.w / 100 * W), 1, W - x);
+    var h = clamp(Math.round(rect.h / 100 * H), 1, H - y);
+    return { x: x, y: y, w: w, h: h };
+  }
+
+  // The largest crop of `aspect` ([w, h]) centred in a `W` × `H` frame, in percent.
+  function uploadEditCenteredCrop(aspect, W, H) {
+    if (!aspect) return null;
+    var ratio = aspect[0] / aspect[1];
+    var w = W, h = W / ratio;
+    if (h > H) { h = H; w = H * ratio; }
+    var pw = w / W * 100, ph = h / H * 100;
+    return { x: (100 - pw) / 2, y: (100 - ph) / 2, w: pw, h: ph };
+  }
+
+  function uploadEditAspect(value) {
+    if (!value) return null;
+    var parts = String(value).split("/").map(Number);
+    return parts.length === 2 && parts[0] > 0 && parts[1] > 0 ? parts : null;
+  }
+
+  // Whether anything was changed at all: an unchanged photo goes up as it was.
+  function uploadEditChanged(state) {
+    return !!state && (state.rotation !== 0 || !!state.flip || !!(state.crop && state.crop.w >= 0.5 && state.crop.h >= 0.5));
+  }
+
+  if (typeof module === "object" && module.exports) {
+    module.exports.imageEditorRect = imageEditorRect;
+    module.exports.uploadEdit = {
+      editable: uploadEditable, rotate: uploadEditRotate, dims: uploadEditDims,
+      matrix: uploadEditMatrix, cropPixels: uploadEditCropPixels,
+      centeredCrop: uploadEditCenteredCrop, aspect: uploadEditAspect,
+      changed: uploadEditChanged
+    };
+  }
+
+  // ── The hook ────────────────────────────────────────────────────────────
+
+  window.PhoenixKitHooks.PkUploadEdit = {
+    mounted() {
+      var self = this;
+      this._queue = [];
+      this._done = [];
+      this._passing = false;
+
+      // A selection from the file chooser.
+      this._onInput = function (e) {
+        if (self._passing) return;
+        var input = e.target;
+        if (!input || input.type !== "file" || !self.el.contains(input)) return;
+        e.stopPropagation();
+        var files = Array.prototype.slice.call(input.files || []);
+        // The same selection fires `input` and then `change`; take it once.
+        try { input.value = ""; } catch (_) { /* read-only in old browsers */ }
+        if (files.length) self._take(files);
+      };
+      // A drop on the drop zone, before LiveView tracks it.
+      this._onDrop = function (e) {
+        var zone = e.target && e.target.closest && e.target.closest("[phx-drop-target],[data-phx-drop-target]");
+        var files = e.dataTransfer && e.dataTransfer.files;
+        if (!zone || !files || !files.length) return;
+        e.preventDefault();
+        e.stopPropagation();
+        zone.classList.remove("phx-drop-target-active");
+        self._take(Array.prototype.slice.call(files));
+      };
+
+      this.el.addEventListener("input", this._onInput, true);
+      this.el.addEventListener("change", this._onInput, true);
+      this.el.addEventListener("drop", this._onDrop, true);
+      this._bindDialog();
+    },
+
+    destroyed() {
+      this.el.removeEventListener("input", this._onInput, true);
+      this.el.removeEventListener("change", this._onInput, true);
+      this.el.removeEventListener("drop", this._onDrop, true);
+      this._release();
+    },
+
+    _input() {
+      return this.el.querySelector('input[type="file"]');
+    },
+
+    _take(files) {
+      var input = this._input();
+      if (input && !input.hasAttribute("multiple")) files = files.slice(0, 1);
+      this._queue = this._queue.concat(files);
+      if (!this._current) this._next();
+    },
+
+    _next() {
+      while (this._queue.length && !uploadEditable(this._queue[0])) this._done.push(this._queue.shift());
+      if (!this._queue.length) {
+        this._closeDialog();
+        this._send();
+        return;
+      }
+      this._edit(this._queue.shift());
+    },
+
+    _send() {
+      var files = this._done;
+      this._done = [];
+      if (!files.length) return;
+      this._passing = true;
+      try {
+        this.upload(this.el.dataset.uploadName, files);
+      } finally {
+        this._passing = false;
+      }
+    },
+
+    _dialog() {
+      return this.el.querySelector("[data-pk-edit-dialog]");
+    },
+
+    _bindDialog() {
+      var self = this;
+      var d = this._dialog();
+      if (!d || d._pkUploadEdit) return;
+      d._pkUploadEdit = true;
+      d.addEventListener("click", function (e) {
+        var t = e.target && e.target.closest ? e.target.closest("button") : null;
+        if (!t || !self._current) return;
+        e.preventDefault();
+        var s = self._state;
+        if (t.hasAttribute("data-pk-edit-rotate")) {
+          s.rotation = uploadEditRotate(s.rotation, parseInt(t.getAttribute("data-pk-edit-rotate"), 10) || 0);
+          s.crop = null;
+          self._draw();
+          if (s.aspect) self._setCrop(uploadEditCenteredCrop(s.aspect, self._frame[0], self._frame[1]));
+        } else if (t.hasAttribute("data-pk-edit-flip")) {
+          s.flip = !s.flip;
+          t.setAttribute("aria-pressed", String(s.flip));
+          if (s.crop) s.crop = { x: 100 - s.crop.x - s.crop.w, y: s.crop.y, w: s.crop.w, h: s.crop.h };
+          self._draw();
+        } else if (t.hasAttribute("data-pk-edit-aspect")) {
+          s.aspect = uploadEditAspect(t.getAttribute("data-pk-edit-aspect"));
+          d.querySelectorAll("[data-pk-edit-aspect]").forEach(function (b) {
+            b.setAttribute("aria-pressed", String(b === t));
+          });
+          self._setCrop(uploadEditCenteredCrop(s.aspect, self._frame[0], self._frame[1]));
+        } else if (t.hasAttribute("data-pk-edit-reset")) {
+          self._resetState();
+          self._draw();
+        } else if (t.hasAttribute("data-pk-edit-skip")) {
+          self._finish(null);
+        } else if (t.hasAttribute("data-pk-edit-original")) {
+          self._finish(self._current);
+        } else if (t.hasAttribute("data-pk-edit-apply")) {
+          self._apply();
+        }
+      });
+      // Esc closes the dialog: the photo is not uploaded (nothing goes up
+      // that the person did not confirm).
+      d.addEventListener("cancel", function (e) {
+        e.preventDefault();
+        if (self._current) self._finish(null);
+      });
+
+      var frame = d.querySelector("[data-pk-edit-frame]");
+      if (!frame) return;
+      frame.addEventListener("pointerdown", function (e) {
+        if (!self._current || (e.button && e.button !== 0)) return;
+        e.preventDefault();
+        self._box = frame.getBoundingClientRect();
+        self._start = self._point(e);
+        try { frame.setPointerCapture(e.pointerId); } catch (_) { /* not capturable */ }
+      });
+      frame.addEventListener("pointermove", function (e) {
+        if (!self._start) return;
+        self._showCrop(self._rectTo(self._point(e)));
+      });
+      var end = function (e) {
+        if (!self._start) return;
+        var rect = self._rectTo(self._point(e));
+        self._start = null;
+        // A click, not a drag: keep what was there.
+        if (rect.w < 0.5 || rect.h < 0.5) { self._showCrop(self._state.crop); return; }
+        self._setCrop(rect);
+      };
+      frame.addEventListener("pointerup", end);
+      frame.addEventListener("pointercancel", function () {
+        self._start = null;
+        self._showCrop(self._state && self._state.crop);
+      });
+    },
+
+    _point(e) {
+      var b = this._box;
+      return { x: (e.clientX - b.left) / b.width * 100, y: (e.clientY - b.top) / b.height * 100 };
+    },
+
+    _rectTo(end) {
+      return imageEditorRect(this._start, end, this._state.aspect, this._frame);
+    },
+
+    _setCrop(rect) {
+      this._state.crop = rect;
+      this._showCrop(rect);
+    },
+
+    _showCrop(rect) {
+      var d = this._dialog();
+      var box = d && d.querySelector("[data-pk-edit-crop]");
+      if (!box) return;
+      if (!rect || rect.w < 0.5 || rect.h < 0.5) { box.hidden = true; return; }
+      box.hidden = false;
+      box.style.left = rect.x + "%";
+      box.style.top = rect.y + "%";
+      box.style.width = rect.w + "%";
+      box.style.height = rect.h + "%";
+    },
+
+    _resetState() {
+      this._state = { rotation: 0, flip: false, crop: null, aspect: null };
+      var d = this._dialog();
+      if (!d) return;
+      d.querySelectorAll("[data-pk-edit-aspect]").forEach(function (b) {
+        b.setAttribute("aria-pressed", String(b.getAttribute("data-pk-edit-aspect") === ""));
+      });
+      var flip = d.querySelector("[data-pk-edit-flip]");
+      if (flip) flip.setAttribute("aria-pressed", "false");
+    },
+
+    _edit(file) {
+      var self = this;
+      var d = this._dialog();
+      if (!d || typeof URL === "undefined" || !URL.createObjectURL) {
+        this._done.push(file);
+        this._next();
+        return;
+      }
+      this._current = file;
+      this._resetState();
+      var name = d.querySelector("[data-pk-edit-name]");
+      if (name) name.textContent = file.name || "";
+      var progress = d.querySelector("[data-pk-edit-progress]");
+      if (progress) {
+        var total = this._done.length + this._queue.length + 1;
+        progress.textContent = total > 1 ? (this._done.length + 1) + " / " + total : "";
+      }
+      this._release();
+      this._url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () {
+        if (self._current !== file) return;
+        self._img = img;
+        self._draw();
+        if (!d.open && typeof d.showModal === "function") d.showModal();
+      };
+      // A picture the browser cannot draw goes up as it is.
+      img.onerror = function () {
+        if (self._current === file) self._finish(file);
+      };
+      img.src = this._url;
+    },
+
+    // The preview: the whole turned frame, fitted to at most 1600px across.
+    _draw() {
+      var d = this._dialog();
+      var canvas = d && d.querySelector("[data-pk-edit-canvas]");
+      var img = this._img;
+      if (!canvas || !img) return;
+      var s = this._state;
+      var dims = uploadEditDims(img.naturalWidth, img.naturalHeight, s.rotation);
+      this._frame = dims;
+      var scale = Math.min(1, 1600 / Math.max(dims[0], dims[1]));
+      canvas.width = Math.max(1, Math.round(dims[0] * scale));
+      canvas.height = Math.max(1, Math.round(dims[1] * scale));
+      var ctx = canvas.getContext("2d");
+      var m = uploadEditMatrix(img.naturalWidth, img.naturalHeight, s.rotation, s.flip, scale, 0, 0);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.setTransform(m[0], m[1], m[2], m[3], m[4], m[5]);
+      ctx.drawImage(img, 0, 0);
+      this._showCrop(s.crop);
+    },
+
+    _apply() {
+      var self = this;
+      var file = this._current, img = this._img, s = this._state;
+      if (!img || !uploadEditChanged(s)) { this._finish(file); return; }
+      var dims = uploadEditDims(img.naturalWidth, img.naturalHeight, s.rotation);
+      var c = uploadEditCropPixels(s.crop, dims[0], dims[1]);
+      var out = document.createElement("canvas");
+      out.width = c.w;
+      out.height = c.h;
+      var ctx = out.getContext("2d");
+      var m = uploadEditMatrix(img.naturalWidth, img.naturalHeight, s.rotation, s.flip, 1, c.x, c.y);
+      ctx.setTransform(m[0], m[1], m[2], m[3], m[4], m[5]);
+      ctx.drawImage(img, 0, 0);
+      var type = file.type === "image/png" || file.type === "image/webp" ? file.type : "image/jpeg";
+      out.toBlob(function (blob) {
+        if (self._current !== file) return;
+        // A browser that cannot encode the type (no WebP encoder) answers
+        // null or PNG; the original then goes up rather than a surprise.
+        if (!blob || (blob.type && blob.type !== type)) { self._finish(file); return; }
+        var edited;
+        try {
+          edited = new File([blob], file.name, { type: type, lastModified: Date.now() });
+        } catch (_) {
+          edited = blob;
+          edited.name = file.name;
+        }
+        self._finish(edited);
+      }, type, 0.92);
+    },
+
+    _finish(result) {
+      if (result) this._done.push(result);
+      this._current = null;
+      this._img = null;
+      this._release();
+      this._next();
+    },
+
+    _closeDialog() {
+      var d = this._dialog();
+      if (d && d.open && typeof d.close === "function") d.close();
+    },
+
+    _release() {
+      if (this._url && typeof URL !== "undefined" && URL.revokeObjectURL) URL.revokeObjectURL(this._url);
+      this._url = null;
+    }
+  };
 })();
 

@@ -44,7 +44,7 @@ const PUBLIC = `LibraryLoadNotice CookieConsent FlashAutoDismiss TimezoneOffset 
   SelectOnMount TimeAgo CopyToClipboard FadeOut PreserveScroll InfiniteScroll PageSizeAutoFit
   MaintenanceCountdown PkShiftEnter PkUrlMirror PhoenixKitUrlState PkCheckboxIndeterminate PkDateInput
   PkChartCrosshair ViewportPopover Leaf FrescoViewer FrescoCanvas TesseraLayer EtcherLayer
-  MentionInput UploadStats UploadGuard AudioRecorder PasskeySignIn PasskeyRegister Turnstile PkFitHeight
+  MentionInput UploadStats UploadGuard PkUploadEdit AudioRecorder PasskeySignIn PasskeyRegister Turnstile PkFitHeight
   PkResizable`.split(/\s+/);
 
 const ADMIN = `SortableGrid MediaImageZoom MarkdownEditor InstantViewer ViewerKeydown ViewerPaneFit
@@ -79,7 +79,7 @@ const plain = (v) => JSON.parse(JSON.stringify(v));
 // ── The inventory ──────────────────────────────────────────────────────────
 
 test("the two lists are disjoint and together are the 82 hooks the bundle has", () => {
-  assert.equal(PUBLIC.length, 40);
+  assert.equal(PUBLIC.length, 41);
   assert.equal(ADMIN.length, 42);
   assert.deepEqual(PUBLIC.filter((n) => ADMIN.includes(n)), []);
 });
