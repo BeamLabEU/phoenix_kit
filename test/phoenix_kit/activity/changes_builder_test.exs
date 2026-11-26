@@ -190,6 +190,14 @@ defmodule PhoenixKit.Activity.ChangesBuilderTest do
       cs = change(updated_at: ~U[2026-11-26 10:00:00Z], name: "New")
       assert Map.keys(Activity.changes(cs)) == ["name"]
     end
+
+    test "timestamps are never reported from string-keyed maps either" do
+      before = %{"updated_at" => 1, "inserted_at" => 1, "name" => "a"}
+      later = %{"updated_at" => 2, "inserted_at" => 2, "name" => "b"}
+
+      assert Map.keys(Activity.changes(before, later)) == ["name"]
+      assert Map.keys(Activity.changes(before, later, only: ["updated_at", "name"])) == ["name"]
+    end
   end
 
   describe "changes/2,3 with before and after" do

@@ -43,7 +43,8 @@ defmodule PhoenixKit.Activity.Changes do
   @max_depth 4
 
   # Never worth a line in an audit diff: the entry's own timestamp says when.
-  @always_skipped [:__meta__, :__struct__, :inserted_at, :updated_at]
+  # Compared by name: a plain map from params or JSON has string keys.
+  @always_skipped ~w(__meta__ __struct__ inserted_at updated_at)
 
   # Errs toward redacting: a flagged field still says it changed. The short
   # words only as a whole `_`-separated part (`pin`, not `pinned`; `otp`, not
@@ -144,7 +145,7 @@ defmodule PhoenixKit.Activity.Changes do
 
     fields
     |> Enum.uniq()
-    |> Enum.reject(&(&1 in @always_skipped))
+    |> Enum.reject(&always_skipped?/1)
     |> Enum.filter(fn field ->
       name = to_string(field)
       (allowed == nil or MapSet.member?(allowed, name)) and not MapSet.member?(except, name)
@@ -161,6 +162,10 @@ defmodule PhoenixKit.Activity.Changes do
     end)
     |> cap_fields(Keyword.get(opts, :max_fields, @default_max_fields))
   end
+
+  defp always_skipped?(field) when is_atom(field), do: Atom.to_string(field) in @always_skipped
+  defp always_skipped?(field) when is_binary(field), do: field in @always_skipped
+  defp always_skipped?(_field), do: false
 
   defp diff_field(_key, %Ecto.Association.NotLoaded{}, _new, _redact, _max), do: nil
   defp diff_field(_key, _old, %Ecto.Association.NotLoaded{}, _redact, _max), do: nil
