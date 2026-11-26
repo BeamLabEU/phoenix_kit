@@ -181,6 +181,19 @@ defmodule PhoenixKit.API.ToolAliasesTest do
       put_setting("api_disabled_tools", "call_endpoint")
       assert Registry.find("callEndpoint", :admin) == {:error, :not_found}
     end
+
+    test "a tool listed in api_disabled_tools by one of its aliases is hidden too" do
+      put_setting("api_disabled_tools", "legacyhost.call")
+
+      for name <- ["call_endpoint", "callEndpoint", "legacyhost.call"] do
+        assert Registry.find(name, :admin) == {:error, :not_found}
+      end
+    end
+
+    test "MCP reaches a dotted alias by its underscore form too" do
+      assert Names.resolve("legacyhost_call", :admin) == "legacyhost.call"
+      assert {:ok, %Tool{name: "call_endpoint"}} = Registry.find("legacyhost.call", :admin)
+    end
   end
 
   describe "the collision check" do
