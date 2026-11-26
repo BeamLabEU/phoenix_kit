@@ -61,14 +61,16 @@ defmodule PhoenixKitWeb.Components.Core.FormDraft do
   """
   @spec attrs(keyword()) :: map()
   def attrs(opts \\ []) do
+    # Atom keys: `<.form>` hands its extra attributes to `to_form/2` as a
+    # keyword list, which a string key breaks.
     %{
-      "phx-hook" => "FormDraft",
-      "data-draft-storage" => storage(Keyword.get(opts, :storage, :local)),
-      "data-draft-ttl" => to_string(Keyword.get(opts, :ttl, @default_ttl)),
-      "data-draft-exclude" => opts |> Keyword.get(:exclude, []) |> Enum.join(",")
+      "phx-hook": "FormDraft",
+      "data-draft-storage": storage(Keyword.get(opts, :storage, :local)),
+      "data-draft-ttl": to_string(Keyword.get(opts, :ttl, @default_ttl)),
+      "data-draft-exclude": opts |> Keyword.get(:exclude, []) |> Enum.join(",")
     }
-    |> put_present("data-draft-key", Keyword.get(opts, :key))
-    |> put_present("data-draft-event", Keyword.get(opts, :event))
+    |> put_present(:"data-draft-key", Keyword.get(opts, :key))
+    |> put_present(:"data-draft-event", Keyword.get(opts, :event))
   end
 
   defp storage(:session), do: "session"
