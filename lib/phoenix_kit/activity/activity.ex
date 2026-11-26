@@ -28,6 +28,7 @@ defmodule PhoenixKit.Activity do
   use Gettext, backend: PhoenixKitWeb.Gettext
   require Logger
 
+  alias PhoenixKit.Activity.Changes
   alias PhoenixKit.Activity.Entry
   alias PhoenixKit.PubSub.Manager, as: PubSubManager
   alias PhoenixKit.Settings
@@ -74,6 +75,10 @@ defmodule PhoenixKit.Activity do
   - `:permanent` — never pruned (default false). For an entry that is a
     record, not news: a settings change is one (`PhoenixKit.Settings.History`),
     and any module may keep an entry the same way.
+  - `:changes` — what changed, stored under `metadata["changes"]`: an
+    `Ecto.Changeset`, a `{before, after}` (or `{before, after, opts}`) pair, or a
+    map built with `changes/2,3`. See `changes/2`. Nothing is stored when nothing
+    moved.
 
   Returns `{:ok, entry}` or `{:error, changeset}`. Failures are logged but never crash.
   """
@@ -283,6 +288,7 @@ defmodule PhoenixKit.Activity do
           | {:resource_uuid, String.t()}
           | {:target_uuid, String.t()}
           | {:metadata, map()}
+          | {:changes, Ecto.Changeset.t() | {map(), map()} | {map(), map(), keyword()} | map()}
           | {:permanent, boolean()}
 
   @doc """
@@ -293,7 +299,9 @@ defmodule PhoenixKit.Activity do
   Options: `:actor_uuid`, `:acting_user_uuid` and `:impersonated_by_uuid` (merged into
   metadata), `:mode` (default `"manual"`), `:resource_type`,
   `:resource_uuid`, `:target_uuid`, `:metadata` (a map, or a keyword or
-  pair list; keep it PII-free) and `:permanent` (only `true` keeps the
+  pair list; keep it PII-free), `:changes` (what changed — a changeset, a
+  `{before, after}` pair or a map from `changes/2,3`; stored under
+  `metadata["changes"]`, see `changes/2`) and `:permanent` (only `true` keeps the
   entry from being pruned). Same result and same never-crash guarantee as `log/1`:
   a blank module key or a non-list `opts` is `{:error, :invalid_arguments}`,
   logged, not a raise.
@@ -302,6 +310,16 @@ defmodule PhoenixKit.Activity do
         actor_uuid: PhoenixKitWeb.Actor.uuid(socket),
         resource_type: "company",
         resource_uuid: company.uuid
+      )
+
+  An update says what moved by passing the changeset it saved:
+
+      PhoenixKit.Activity.log("crm", "crm.company_updated",
+        actor_uuid: PhoenixKitWeb.Actor.uuid(socket),
+        resource_type: "company",
+        resource_uuid: company.uuid,
+        metadata: %{"name" => company.name},
+        changes: changeset
       )
   """
   @spec log(String.t(), String.t(), [log_opt()]) :: {:ok, Entry.t()} | {:error, term()}
@@ -333,6 +351,7 @@ defmodule PhoenixKit.Activity do
       resource_uuid: Keyword.get(opts, :resource_uuid),
       target_uuid: Keyword.get(opts, :target_uuid),
       metadata: metadata_opt(opts),
+      changes: Keyword.get(opts, :changes),
       permanent: Keyword.get(opts, :permanent) == true
     }
     |> log()
@@ -394,14 +413,16 @@ defmodule PhoenixKit.Activity do
   @doc """
   Logs a user change with automatic from/to diff extraction from a changeset.
 
-  Extracts changed fields from the changeset and builds `field_from` / `field_to`
-  metadata pairs. Skips logging if nothing actually changed.
+  Compares each field the changeset changes with its value on `user` and
+  records the moved ones under `metadata["changes"]` (see `changes/2`: values
+  JSON-safe, secret fields flagged without their values, long values cut).
+  Skips logging (`:noop`) if nothing actually changed.
 
   ## Options
 
   - `:actor_uuid` — who performed the action (default: the user's own UUID)
   - `:target_uuid` — who was affected (default: nil)
-  - `:mode` — "auto" or "manual" (default: "auto")
+  - `:mode` — "auto" or "manual" (default: "manual")
   - `:actor_role` — "user" or "admin" (default: "user")
   - `:extra_metadata` — additional metadata to merge in (default: %{})
   - `:skip_fields` — fields to exclude from diff (default: [:custom_fields])
@@ -413,17 +434,15 @@ defmodule PhoenixKit.Activity do
         opts \\ []
       ) do
     skip_fields = Keyword.get(opts, :skip_fields, [:custom_fields])
+    fields = changeset.changes |> Map.drop(skip_fields) |> Map.keys()
 
-    changed_fields =
-      changeset.changes
-      |> Map.drop(skip_fields)
-      |> Enum.flat_map(fn {k, new_val} ->
-        old_val = Map.get(user, k)
-        [{"#{k}_from", to_string(old_val || "")}, {"#{k}_to", to_string(new_val)}]
-      end)
-      |> Map.new()
+    changes =
+      case fields do
+        [] -> %{}
+        fields -> changes(user, Ecto.Changeset.apply_changes(changeset), only: fields)
+      end
 
-    if changed_fields == %{} do
+    if changes == %{} do
       :noop
     else
       actor_uuid = Keyword.get(opts, :actor_uuid, user_uuid)
@@ -433,9 +452,9 @@ defmodule PhoenixKit.Activity do
       extra = Keyword.get(opts, :extra_metadata, %{})
 
       metadata =
-        changed_fields
-        |> Map.put("actor_role", actor_role)
+        %{"actor_role" => actor_role}
         |> Map.merge(extra)
+        |> Map.delete(changes_key())
 
       log(%{
         action: action,
@@ -445,7 +464,8 @@ defmodule PhoenixKit.Activity do
         resource_type: "user",
         resource_uuid: user_uuid,
         target_uuid: target_uuid,
-        metadata: metadata
+        metadata: metadata,
+        changes: changes
       })
     end
   end
@@ -719,6 +739,73 @@ defmodule PhoenixKit.Activity do
   def changes_key, do: "changes"
 
   @doc """
+  The field-level "what changed" map of an update, in the shape the Activity
+  pages render: `%{"field" => %{"from" => old, "to" => new}}`.
+
+  Takes the `Ecto.Changeset` that was (or is about to be) saved — every field
+  in its `changes` is compared with the record it started from — or, with
+  `changes/3`, the record before and after plus options.
+
+      changeset = Post.changeset(post, params)
+      {:ok, post} = Repo.update(changeset)
+
+      PhoenixKit.Activity.changes(changeset, except: [:body])
+      #=> %{"title" => %{"from" => "Draft", "to" => "Hello"},
+      #     "published_on" => %{"from" => nil, "to" => "2026-11-26"}}
+
+      PhoenixKit.Activity.log("blog", "post.updated",
+        resource_type: "post",
+        resource_uuid: post.uuid,
+        changes: changeset
+      )
+
+  Returns `%{}` when nothing moved.
+
+  ## Rules
+
+    * Values are JSON-safe: dates and times as ISO 8601, a `Decimal` as its
+      number, an atom as its name, a list of scalars as a list, any other map,
+      list or schema as JSON text, and a struct with no `String.Chars` only by
+      its name. Associations that were not loaded are not compared.
+    * A field whose name looks like a secret (`password`, `hashed_password`,
+      `token`, `secret`, `api_key`, `private_key`, `access_key`, `credential`,
+      `salt`, `encrypted…`, `totp`) is recorded as `%{"changed" => true}` —
+      never its value. This cannot be turned off.
+    * A string over `:max_length` characters is cut with a trailing `"…"`; at
+      most `:max_fields` fields are kept. `inserted_at` / `updated_at` are never
+      reported.
+
+  ## Options
+
+    * `:only` — the fields to consider (an allowlist)
+    * `:except` — fields to leave out
+    * `:redact` — more fields to record as changed without their values (a long
+      body, a personal detail)
+    * `:max_length` — longest string kept per side, default 500
+    * `:max_fields` — most fields kept, default 50
+  """
+  @spec changes(Ecto.Changeset.t() | map(), keyword() | map()) :: map()
+  def changes(changeset_or_before, opts_or_after \\ [])
+
+  def changes(%Ecto.Changeset{} = changeset, opts) when is_list(opts),
+    do: Changes.from_changeset(changeset, opts)
+
+  def changes(before, later) when is_map(before) and is_map(later),
+    do: Changes.from_values(before, later, [])
+
+  @doc """
+  The "what changed" map between a record (or plain map) `before` and `later`.
+
+  Without `:only`, a schema struct compares its schema fields and a plain map
+  every key either side has. Same rules and options as `changes/2`.
+
+      PhoenixKit.Activity.changes(old_settings, new_settings, only: [:theme, :page_size])
+  """
+  @spec changes(map(), map(), keyword()) :: map()
+  def changes(before, later, opts) when is_map(before) and is_map(later) and is_list(opts),
+    do: Changes.from_values(before, later, opts)
+
+  @doc """
   Splits an entry's metadata into `{changes, everything_else}`.
 
   The Activity detail page leads with the changes and keeps the rest as
@@ -923,8 +1010,28 @@ defmodule PhoenixKit.Activity do
 
   defp acting_metadata(attrs) do
     attrs
+    |> put_changes()
     |> pop_into_metadata(:acting_user_uuid, "acting_user_uuid")
     |> pop_into_metadata(:impersonated_by_uuid, "impersonated_by_uuid")
+  end
+
+  # The `:changes` option lands under the reserved key, and only when something
+  # moved: an untouched save carries no empty "What changed" section.
+  defp put_changes(attrs) do
+    case Map.pop(attrs, :changes) do
+      {nil, attrs} ->
+        attrs
+
+      {changes, attrs} ->
+        case Changes.build_option(changes) do
+          empty when map_size(empty) == 0 ->
+            attrs
+
+          diff ->
+            metadata = Map.get(attrs, :metadata) || %{}
+            Map.put(attrs, :metadata, Map.put(metadata, changes_key(), diff))
+        end
+    end
   end
 
   defp pop_into_metadata(attrs, key, name) do
