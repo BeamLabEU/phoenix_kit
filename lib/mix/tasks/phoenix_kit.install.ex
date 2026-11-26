@@ -410,8 +410,10 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         2. Start your Phoenix server:
            mix phx.server
 
-        3. Visit registration page:
-           http://localhost:4000/phoenix_kit/users/register
+        3. Create the first Owner:
+           mix phoenix_kit.create_owner you@example.com
+           (in dev on localhost, the first account registered at
+           http://localhost:4000/phoenix_kit/users/register becomes it too)
 
         4. Check the install:
            mix phoenix_kit.doctor
@@ -570,7 +572,8 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         ✅ PhoenixKit ready! Next:
           • mix ecto.migrate (only if you skipped the migration prompt above)
           • mix phx.server
-          • Visit /users/register (or with your configured URL prefix)
+          • mix phoenix_kit.create_owner you@example.com (the first Owner; in dev on
+            localhost, registering at <url_prefix>/users/register also makes it)
           • mix phoenix_kit.doctor
         #{prefix_note}
         """

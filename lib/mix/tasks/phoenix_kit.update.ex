@@ -151,8 +151,12 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     alias PhoenixKit.Migrations.Modules, as: MigrationModules
     alias PhoenixKit.Migrations.Postgres, as: MigrationsPostgres
     alias PhoenixKit.ObanSchema
-    # NOTE: Do NOT alias PhoenixKit.Utils.Routes here — it depends on
-    # application config that isn't available during mix task execution.
+    alias PhoenixKit.Users.Roles
+    # NOTE: PhoenixKit.Utils.Routes depends on application config that isn't
+    # always available during mix task execution: use only `path/2` with
+    # `locale: :none` (reads the `url_prefix` config, nothing else), and
+    # only through `app_path/1`, which falls back when that fails.
+    alias PhoenixKit.Utils.Routes
 
     @shortdoc "Updates PhoenixKit to the latest version"
 
@@ -766,7 +770,8 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           After update completes:
             1. Run migrations if not done automatically: mix ecto.migrate
             2. Restart your Phoenix server: mix phx.server
-            3. Visit your application: #{build_app_path(opts, "/users/register")}
+            3. Visit your application: #{app_path("/users/register")}
+               No Owner yet? mix phoenix_kit.create_owner you@example.com
           """
 
       Igniter.add_notice(igniter, final_instructions)
@@ -1105,8 +1110,9 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         2. Restart your Phoenix server:
            mix phx.server
 
-        3. Visit your application:
-           http://localhost:4000/phoenix_kit/users/register
+        3. Create the first Owner (a fresh install has none, and public sign-up
+           does not make one):
+           mix phoenix_kit.create_owner you@example.com
 
       CI/CD USAGE
         For automated deployments, use the --yes flag to skip prompts:
@@ -1809,7 +1815,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     end
 
     # Execute migration with feedback
-    defp run_migration_with_feedback(opts) do
+    defp run_migration_with_feedback(_opts) do
       Mix.shell().info("\n⏳ Running database migration...")
 
       try do
@@ -1836,7 +1842,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         end
 
         Mix.shell().info("\n✅ Migration completed successfully!")
-        show_update_success_notice(opts)
+        show_update_success_notice()
       rescue
         error ->
           Mix.shell().info("\n⚠️  Migration failed: #{Exception.message(error)}")
@@ -1854,24 +1860,56 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     # Not a plain "success" while config edits are still waiting on the host:
     # the closing "Manual steps needed" block follows, and this line must not
     # read as the last word before it.
-    defp show_update_success_notice(opts) do
+    defp show_update_success_notice do
       case ObanConfig.manual_step_count() do
         0 ->
           Mix.shell().info("""
-          🎉 PhoenixKit updated successfully! Visit: #{build_app_path(opts, "/users/register")}
+          🎉 PhoenixKit updated successfully! #{next_step_line()}
           """)
 
         n ->
           Mix.shell().info("""
-          PhoenixKit updated — #{n} manual step(s) below. Visit: #{build_app_path(opts, "/users/register")}
+          PhoenixKit updated — #{n} manual step(s) below. #{next_step_line()}
           """)
       end
     end
 
-    defp build_app_path(opts, path) do
-      prefix = if is_list(opts), do: opts[:prefix] || "public", else: "public"
-      base = if prefix == "public", do: "", else: "/#{prefix}"
-      "#{base}#{path}"
+    @doc false
+    # The closing pointer: the admin area when an Owner exists, the console
+    # task when none does (public sign-up no longer makes the first registrant
+    # the Owner, see `PhoenixKit.Users.Setup`), both when the count cannot be
+    # read. Paths carry the configured `url_prefix` (`Routes.path/2`) — the
+    # earlier `--prefix` (a database schema) was never a URL.
+    @spec next_step_line(:none | :exists | :unknown) :: String.t()
+    def next_step_line(owner_state \\ owner_state()) do
+      case owner_state do
+        :exists ->
+          "Visit: #{app_path("/admin")}"
+
+        :none ->
+          "This site has no Owner yet — create it with: " <>
+            "mix phoenix_kit.create_owner you@example.com"
+
+        :unknown ->
+          "Visit: #{app_path("/admin")} " <>
+            "(no Owner yet? mix phoenix_kit.create_owner you@example.com)"
+      end
+    end
+
+    defp owner_state do
+      if Roles.count_active_owners() > 0, do: :exists, else: :none
+    rescue
+      _ -> :unknown
+    catch
+      :exit, _ -> :unknown
+    end
+
+    # See the note at the aliases. A config that cannot be read falls back to
+    # the default prefix.
+    defp app_path(path) do
+      Routes.path(path, locale: :none)
+    rescue
+      _ -> "/phoenix_kit" <> path
     end
 
     # Resolve the host application's Ecto repo module name as a string.
