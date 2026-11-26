@@ -433,6 +433,24 @@ config :phoenix_kit, first_owner: :open   # old behaviour: the first registrant 
 
 Details: `PhoenixKit.Users.Setup` and `mix help phoenix_kit.create_owner`.
 
+### Settings and modules from the console
+
+With nobody to sign in yet (or from a script), the same validation as the admin pages:
+
+```bash
+mix phoenix_kit.settings list
+mix phoenix_kit.settings get project_title
+mix phoenix_kit.settings set project_title "Acme Print"
+mix phoenix_kit.settings set oauth_github_client_secret --stdin < secret.txt
+mix phoenix_kit.modules list
+mix phoenix_kit.modules enable crawlers      # disable works the same way
+```
+
+Only the keys the settings forms own are accepted, and secrets are never printed. The
+tasks start the repo and a few kit processes, not your application; with `MIX_ENV=prod`
+a write needs `--yes`. In a release, call `PhoenixKit.Console` through `rpc`
+(`bin/my_app rpc 'PhoenixKit.Console.module_enable("crawlers") |> IO.inspect()'`).
+
 ## Configuration
 
 ### Basic Setup
