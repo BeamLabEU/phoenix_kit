@@ -323,7 +323,10 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
 
           set
           |> Ecto.Changeset.change()
-          |> Ecto.Changeset.put_embed(:watermark, %{watermark | dimensions: Enum.uniq(renamed)})
+          |> Ecto.Changeset.put_embed(:watermark, %{
+            Map.from_struct(watermark)
+            | dimensions: Enum.uniq(renamed)
+          })
           |> repo().update!()
         end
 

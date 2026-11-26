@@ -197,7 +197,8 @@ defmodule PhoenixKit.Modules.Storage.WatermarkVariantsTest do
     {out, 0} =
       System.cmd("convert", [big, "-crop", "20x20+5+5", "-format", "%[fx:mean.b]", "info:"])
 
-    assert String.to_float(String.trim(out)) > 0.9
+    {blue, _} = out |> String.trim() |> Float.parse()
+    assert blue > 0.9
   end
 
   test "a renamed size keeps its place in the watermark", ctx do
