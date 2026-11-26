@@ -79,7 +79,11 @@ defmodule PhoenixKit.Test.Fixtures do
     # would put every fixture in the same bucket and fail the eleventh one under
     # `async: true`. A nil IP skips the IP-keyed half; the per-email half is
     # naturally distinct because the emails are.
-    {:ok, user} = Auth.register_user(attrs, nil)
+    #
+    # `first_owner: :allow`: as before, the first user of an empty database
+    # becomes the Owner (the setup-token rule is for public sign-up, see
+    # `PhoenixKit.Users.Setup`).
+    {:ok, user} = Auth.register_user(attrs, nil, first_owner: :allow)
     user
   end
 

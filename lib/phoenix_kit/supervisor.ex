@@ -142,6 +142,16 @@ defmodule PhoenixKit.Supervisor do
         start: {Task, :start_link, [__MODULE__, :oban_boot_checks, []]},
         restart: :temporary
       },
+      # Once per boot: while there is no active Owner, replace the one-time
+      # setup token and log the link that registers the Owner (see
+      # PhoenixKit.Users.Setup). Delayed a little so the line lands after the
+      # endpoint's own start-up lines; silent under `first_owner: :open`, in
+      # tests, and when the database cannot be read.
+      %{
+        id: :first_owner_setup,
+        start: {Task, :start_link, [PhoenixKit.Users.Setup, :announce_at_boot, []]},
+        restart: :temporary
+      },
       # Once per boot: queue the storage location backfill (V204) while any
       # stored object has no location row, and the checksum backfill while
       # any file still has the upload API's old MD5 checksum, and the storage

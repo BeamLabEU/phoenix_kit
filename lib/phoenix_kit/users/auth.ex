@@ -87,6 +87,7 @@ defmodule PhoenixKit.Users.Auth do
     Referrals,
     Role,
     Roles,
+    Setup,
     WelcomeEmail
   }
 
@@ -463,8 +464,9 @@ defmodule PhoenixKit.Users.Auth do
   Registers a user with automatic role assignment.
 
   Role assignment is handled by Elixir application logic:
-  - First user receives Owner role
-  - Subsequent users receive User role
+  - While no active Owner exists, the first user receives the Owner role only
+    when allowed — see `:first_owner` below and `PhoenixKit.Users.Setup`
+  - Other users receive the default role
   - Uses database transactions to prevent race conditions
 
   This function includes rate limiting protection to prevent spam account creation.
@@ -480,6 +482,13 @@ defmodule PhoenixKit.Users.Auth do
     * `:check_email_domain` - `true` for the same kind of request: the
       address's domain is asked for in DNS and a domain that cannot receive
       mail is refused (`PhoenixKit.Users.EmailDomain.check/1`). Default `false`.
+    * `:first_owner` - who may become the first Owner while none exists
+      (`PhoenixKit.Users.Setup`): `:allow` (trusted code: seeds, fixtures),
+      `:deny`, or a request's claim (`Setup.claim_from_socket/2`,
+      `Setup.claim_from_conn/2`). With a claim that proves nothing — no valid
+      setup token, not a local dev request — the registration is **refused**
+      while there is no Owner. Default: the public claim when `:site_wide` is
+      true, else `:allow`.
     * `:rate_limit` - `false` skips the limiter altogether. Only for a caller
       whose request was already limited and whose address is already proven:
       the completion of a mailed registration link, charged when the link was
@@ -507,9 +516,21 @@ defmodule PhoenixKit.Users.Auth do
     case registration_rate_limit(email, ip_address, attrs, opts) do
       :ok ->
         # After the limiter: a refused request must not cost a DNS lookup.
-        case registration_email_domain(email, opts) do
-          :ok ->
-            do_register_user(attrs)
+        first_owner = Setup.resolve(opts)
+
+        with :ok <- Setup.check_registration(first_owner),
+             :ok <- registration_email_domain(email, opts) do
+          do_register_user(attrs, first_owner: first_owner)
+        else
+          {:error, :setup_required} ->
+            {:error,
+             registration_refusal(
+               attrs,
+               dgettext_noop(
+                 "errors",
+                 "This site has no owner yet, so sign-up is closed. Its operator creates the owner with the setup link printed in the server log, or with mix phoenix_kit.create_owner."
+               )
+             )}
 
           {:error, :no_mail_host} ->
             {:error,
@@ -623,7 +644,10 @@ defmodule PhoenixKit.Users.Auth do
       {:error, %Ecto.Changeset{}}
   """
   def admin_create_user(attrs, %User{uuid: actor_uuid}) when is_map(attrs) do
-    with {:ok, user} <- do_register_user(attrs, created_by_uuid: actor_uuid) do
+    # `:deny`: an admin is not an Owner, so a user an admin adds never becomes
+    # the first Owner (`PhoenixKit.Users.Setup`).
+    with {:ok, user} <-
+           do_register_user(attrs, created_by_uuid: actor_uuid, first_owner: :deny) do
       admit_admin_created(user)
     end
   end
@@ -646,14 +670,16 @@ defmodule PhoenixKit.Users.Auth do
     end
   end
 
-  defp do_register_user(attrs, opts \\ []) do
+  defp do_register_user(attrs, opts) do
     case %User{}
          |> User.registration_changeset(attrs)
          |> Ecto.Changeset.put_change(:created_by_uuid, Keyword.get(opts, :created_by_uuid))
          |> Repo.insert() do
       {:ok, user} ->
         # Safely assign Owner role to first user, User role to others
-        case Roles.ensure_first_user_is_owner(user) do
+        case Roles.ensure_first_user_is_owner(user,
+               first_owner: Keyword.get(opts, :first_owner, :allow)
+             ) do
           {:ok, role_type} ->
             # Log successful role assignment for security audit
             Logger.info(
