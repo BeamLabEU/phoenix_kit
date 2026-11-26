@@ -341,6 +341,10 @@ mix igniter.install phoenix_kit --prefix "auth" --create-schema
 
 # Specify custom router file path
 mix igniter.install phoenix_kit --router-path lib/my_app_web/router.ex
+
+# Behind a reverse proxy: believe X-Forwarded-For only from these peers
+# (repeatable; without it the installer asks, default "no proxy" = [])
+mix igniter.install phoenix_kit --trusted-proxy 127.0.0.1/8 --trusted-proxy ::1/128
 ```
 
 The same flags work with `mix phoenix_kit.install` if the dep is already in your project.

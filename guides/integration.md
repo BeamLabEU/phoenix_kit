@@ -328,7 +328,15 @@ loopback or private peer.
   proxy. The first request that relies on this logs one warning per VM.
 - **A list.** Headers are believed only when the peer is inside one of the
   blocks, public or private. A malformed entry matches nothing.
-- **`[]`.** Nobody is trusted.
+- **`[]`.** Nobody is trusted: the client is the peer. This is the explicit
+  "clients connect directly" answer, and it silences the warning.
+
+`mix phoenix_kit.install` settles it for a new app: `--trusted-proxy CIDR`
+(repeatable) writes exactly those blocks; without the flag it asks in a
+terminal whether the app runs behind a reverse proxy. The default answer, no,
+writes `[]`; yes writes the loopback blocks (`127.0.0.1/8`, `::1/128`) and
+offers the private ranges as a separate choice. With no terminal and no flag
+nothing is written. `mix phoenix_kit.update` never writes this key.
 
 Set it in production to the address(es) your proxy connects from. The same rule
 covers LiveView sockets (`client_address_from_socket/1`).

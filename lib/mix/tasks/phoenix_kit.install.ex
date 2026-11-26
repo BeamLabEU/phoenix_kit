@@ -44,6 +44,11 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       config.exs and test.exs), baked into the generated migration, and
       written into the generated Oban config as `prefix:`.
     * `--create-schema` - Create schema if using custom prefix (default: true for non-public prefixes)
+    * `--trusted-proxy CIDR` - A reverse proxy whose `X-Forwarded-For` /
+      `X-Real-IP` headers may be believed (repeatable). Written as
+      `config :phoenix_kit, trusted_proxies: [...]`. Without the flag the
+      installer asks in a terminal (default: no proxy, which writes `[]`);
+      with no terminal it writes nothing. See `PhoenixKit.Install.InstallDefaults`.
 
     ## Auto-detection
 
@@ -83,6 +88,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       EncryptionKeyConfig,
       EndpointIntegration,
       IgniterHelpers,
+      InstallDefaults,
       JsIntegration,
       LayoutConfig,
       MailerConfig,
@@ -111,7 +117,8 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           repo: :string,
           prefix: :string,
           create_schema: :boolean,
-          skip_assets: :boolean
+          skip_assets: :boolean,
+          trusted_proxy: :keep,
         ],
         aliases: [
           r: :router_path,
@@ -132,6 +139,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       |> PrefixConfig.add_prefix_configuration(opts[:prefix])
       |> MailerConfig.add_mailer_configuration()
       |> RateLimiterConfig.add_rate_limiter_configuration()
+      |> InstallDefaults.add_trusted_proxies(opts[:trusted_proxy] || [])
       |> OAuthConfig.add_oauth_configuration()
       |> EncryptionKeyConfig.add_encryption_key()
       |> ObanConfig.add_oban_configuration(PrefixConfig.resolve_prefix(opts))
@@ -292,6 +300,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
             # Clean up retry flag on successful completion
             Process.delete(:phoenix_kit_retry_pass)
             Process.delete(@migrate_answer_key)
+            InstallDefaults.forget_answers()
             result
 
           {:missing, true} ->
@@ -311,6 +320,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
             Process.delete(:phoenix_kit_retry_pass)
             Process.delete(@migrate_answer_key)
+            InstallDefaults.forget_answers()
             :error
         end
       end
@@ -361,6 +371,14 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
         --skip-assets           Skip automatic asset rebuild check
                                 Default: false
+
+        --trusted-proxy CIDR    A reverse proxy whose X-Forwarded-For header
+                                is believed (repeatable), e.g.
+                                --trusted-proxy 127.0.0.1/8 --trusted-proxy 10.0.0.0/8
+                                Written as config :phoenix_kit, trusted_proxies:.
+                                Without it the installer asks (default: no
+                                proxy, which writes trusted_proxies: []);
+                                with no terminal it writes nothing.
 
         -h, --help              Show this help message
 
