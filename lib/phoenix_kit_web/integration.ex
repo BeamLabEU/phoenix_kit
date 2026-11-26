@@ -106,6 +106,7 @@ defmodule PhoenixKitWeb.Integration do
   """
 
   alias PhoenixKit.API.Paths
+  alias PhoenixKit.Dashboard.Tab
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb
 
@@ -1441,7 +1442,6 @@ defmodule PhoenixKitWeb.Integration do
   end
 
   defp collect_module_tabs(mod, callback) do
-    alias PhoenixKit.Dashboard.Tab
     context = tab_callback_context(callback)
 
     if function_exported?(mod, callback, 0) do
@@ -1513,9 +1513,14 @@ defmodule PhoenixKitWeb.Integration do
     end
   end
 
+  # A relative `path:` ("analytics", the documented style) resolves under
+  # `/admin` exactly as the sidebar resolves it (`Tab.resolve_path/2`); it
+  # used to be routed as written, outside the admin area, with Phoenix's
+  # "router paths should begin with a forward slash" warning.
   defp tab_to_route(tab) do
     {module, action} = tab.live_view
     path = tab[:path] || raise "Tab #{tab[:id]} has :live_view but no :path"
+    path = Tab.resolve_path_string(path, :admin)
     route_opts = if tab[:id], do: [as: tab[:id]], else: []
 
     quote do

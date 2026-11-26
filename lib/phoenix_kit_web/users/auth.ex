@@ -59,6 +59,7 @@ defmodule PhoenixKitWeb.Users.Auth do
   alias PhoenixKit.Admin.Events
   alias PhoenixKit.Admin.Presence
   alias PhoenixKit.Dashboard.Registry, as: TabRegistry
+  alias PhoenixKit.Dashboard.Tab
   alias PhoenixKit.Dashboard.TabHelpers
   alias PhoenixKit.ModuleRegistry
   alias PhoenixKit.Modules.Crawlers
@@ -2295,12 +2296,14 @@ defmodule PhoenixKitWeb.Users.Auth do
       tabs when is_list(tabs) ->
         tabs
         |> Enum.filter(fn tab ->
-          is_map(tab) and is_binary(tab[:permission]) and
+          is_map(tab) and is_binary(tab[:permission]) and is_binary(tab[:path]) and
             tab[:parent] == nil and
             not MapSet.member?(builtin, tab[:permission])
         end)
         |> Enum.sort_by(& &1[:priority])
-        |> Enum.map(fn tab -> {tab.permission, tab.path} end)
+        |> Enum.map(fn tab ->
+          {tab.permission, Tab.resolve_path_string(tab.path, :admin)}
+        end)
 
       _ ->
         []
