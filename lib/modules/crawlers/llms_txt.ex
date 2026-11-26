@@ -141,7 +141,14 @@ defmodule PhoenixKit.Modules.Crawlers.LlmsTxt do
     after
       timeout() ->
         Process.exit(pid, :kill)
-        Process.demonitor(monitor, [:flush])
+
+        # Wait for the `:DOWN`: a reply the callback sent before it was killed reaches this
+        # mailbox before that message, so the drain below finds it. Without the wait a late
+        # reply could land after the drain and stay in a request process that keep-alive
+        # reuses for the next request.
+        receive do
+          {:DOWN, ^monitor, :process, ^pid, _reason} -> :ok
+        end
 
         receive do
           {^ref, _late} -> :ok

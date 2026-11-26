@@ -147,6 +147,15 @@ defmodule PhoenixKitWeb.LlmsTxtSectionsTest do
     assert log =~ "did not answer within 50 ms"
   end
 
+  test "a cut-off callback leaves nothing in the caller's mailbox" do
+    sections(:slow)
+    Application.put_env(:phoenix_kit, :llms_txt_sections_timeout, 20)
+    ctx = %{base_url: "https://shop.test", host: "late.test", locale: "en"}
+
+    capture_log(fn -> assert LlmsTxt.host_sections(ctx) == nil end)
+    assert Process.info(self(), :message_queue_len) == {:message_queue_len, 0}
+  end
+
   test "an answer is cached per host and locale; a failure is not" do
     sections(:list)
     ctx = %{base_url: "https://shop.test", host: "shop.test", locale: "en"}
