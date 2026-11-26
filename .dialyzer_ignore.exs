@@ -20,6 +20,7 @@
   {"lib/phoenix_kit/install/migration_strategy.ex", :unknown_function},
   {"lib/phoenix_kit/install/missing_igniter.ex", :unknown_function},
   {"lib/phoenix_kit/install/js_integration.ex", :unknown_function},
+  {"lib/phoenix_kit/install/asset_rebuild.ex", :unknown_function},
   {"lib/phoenix_kit/install/viewer_libraries.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.status.ex", :unknown_function},
   {"lib/phoenix_kit/migrations/postgres.ex", :unknown_function},
@@ -59,6 +60,10 @@
   {"lib/mix/tasks/phoenix_kit.integrations.rotate_key.ex", :callback_info_missing, 1},
 
   # Publishing module (extracted) — dynamic dispatch through publishing_module() helper
+  # Phoenix.LiveView.JS is @opaque-ish (`ops: internal()`); JS.dispatch/3 with a
+  # `detail:` map widens the success typing, so the documented JS.t() contract of
+  # PhotoGallery.open/2,3 reads as violated. Same shape as audio_recorder's start/2.
+  ~r/lib\/phoenix_kit_web\/components\/core\/photo_gallery\.ex:.*contract_with_opaque/,
   # Ecto.Multi opaque type false positives (code works correctly)
   ~r/lib\/phoenix_kit\/users\/auth\.ex:.*call_without_opaque/,
 
