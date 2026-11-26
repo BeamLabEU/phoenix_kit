@@ -39,7 +39,8 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
     DimensionOptions,
     Library,
     VariantGenerator,
-    VariantSet
+    VariantSet,
+    Watermark
   }
 
   alias PhoenixKit.Modules.Storage.File, as: StorageFile
@@ -250,7 +251,10 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
           "storage_variant_set",
           set.uuid,
           opts,
-          Audit.changes(changeset, @audited_fields),
+          Map.merge(
+            Audit.changes(changeset, @audited_fields),
+            watermark_change(changeset, set)
+          ),
           %{"name" => set.name}
         )
 
@@ -258,6 +262,75 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
 
       error ->
         error
+    end
+  end
+
+  # The watermark is an embedded struct: written to the history as its fields.
+  defp watermark_change(
+         %Ecto.Changeset{changes: %{watermark: _}, data: before},
+         %VariantSet{} = set
+       ),
+       do: %{
+         "watermark" => %{
+           "from" => watermark_map(before.watermark),
+           "to" => watermark_map(set.watermark)
+         }
+       }
+
+  defp watermark_change(_changeset, _set), do: %{}
+
+  defp watermark_map(nil), do: nil
+
+  defp watermark_map(%Watermark{} = watermark) do
+    watermark
+    |> Map.from_struct()
+    |> Map.new(fn {key, value} -> {Atom.to_string(key), value} end)
+  end
+
+  @doc """
+  Saves a set's watermark (`PhoenixKit.Modules.Storage.Watermark`): the same
+  as `update_variant_set/3` with only `watermark` in the attributes. A change
+  bumps the set's revision, and the reconciler remakes the sizes whose pixels
+  it changes (the sizes it adds to or takes off, and every watermarked one
+  when its look changes); the others stay as they are.
+  """
+  @spec update_watermark(VariantSet.t(), map(), keyword()) ::
+          {:ok, VariantSet.t()} | {:error, Ecto.Changeset.t() | :not_found}
+  def update_watermark(%VariantSet{} = set, attrs, opts \\ []) do
+    update_variant_set(set, %{"watermark" => attrs}, opts)
+  end
+
+  @doc """
+  The watermark `dimension` gets from its set, or nil: what
+  `VariantGenerator` puts in the size's virtual `watermark` field before it
+  makes or checks the size.
+  """
+  @spec watermark_for(VariantSet.t() | nil, Dimension.t()) :: Watermark.t() | nil
+  def watermark_for(%VariantSet{watermark: watermark}, %Dimension{} = dimension),
+    do: Watermark.for_size(watermark, dimension)
+
+  def watermark_for(_set, _dimension), do: nil
+
+  @doc false
+  # A size renamed: its place in the set's watermark follows it. Called by
+  # `Storage.update_dimension/3` in the same transaction.
+  @spec rename_watermark_size(term(), String.t(), String.t()) :: :ok
+  def rename_watermark_size(set_uuid, old_name, new_name) do
+    case get_variant_set(set_uuid) do
+      %VariantSet{watermark: %Watermark{dimensions: names} = watermark} = set ->
+        if old_name in names do
+          renamed = Enum.map(names, &if(&1 == old_name, do: new_name, else: &1))
+
+          set
+          |> Ecto.Changeset.change()
+          |> Ecto.Changeset.put_embed(:watermark, %{watermark | dimensions: Enum.uniq(renamed)})
+          |> repo().update!()
+        end
+
+        :ok
+
+      _ ->
+        :ok
     end
   end
 
@@ -821,7 +894,8 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
   The spec hash of the variant `dimension` makes in `format` (its own
   format when not given; nil keeps the original's). Only what changes the
   pixels counts: width, height, quality, format and whether the aspect
-  ratio is kept — plus `@pipeline`, the version of the rendering rules
+  ratio is kept, the watermark the size carries (its virtual `watermark`
+  field, V237) — plus `@pipeline`, the version of the rendering rules
   themselves.
 
   V205 stamped existing instances with the `v1` text in SQL
@@ -842,6 +916,7 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
     |> Kernel.<>(crop_part(d))
     |> Kernel.<>(fit_part(d))
     |> Kernel.<>(alpha_part(format))
+    |> Kernel.<>(watermark_part(d))
     |> then(&:crypto.hash(:md5, &1))
     |> Base.encode16(case: :lower)
   end
@@ -870,6 +945,14 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
   end
 
   defp alpha_part(_format), do: ""
+
+  # A watermarked size (the generator puts the set's watermark in the size's
+  # virtual field) has other pixels; an unwatermarked one adds nothing, so every
+  # hash made before watermarks is unchanged.
+  defp watermark_part(%Dimension{watermark: %Watermark{} = watermark}),
+    do: "|wm=" <> Watermark.hash_text(watermark)
+
+  defp watermark_part(_d), do: ""
 
   @doc false
   # The pipeline-1 text V205 stamped in SQL, kept so its migration test can

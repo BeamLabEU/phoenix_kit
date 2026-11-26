@@ -45,6 +45,8 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
   alias PhoenixKit.Modules.Storage.VariantSets
   alias PhoenixKit.Modules.Storage.VideoHdrPoster
   alias PhoenixKit.Modules.Storage.VideoSource
+  alias PhoenixKit.Modules.Storage.Watermark
+  alias PhoenixKit.Modules.Storage.WatermarkRenderer
   alias PhoenixKit.Utils.FileHash
 
   require Logger
@@ -244,10 +246,12 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
               ""
             end
 
-          variant_filename =
-            "#{base_name}_#{variant_name}#{key_suffix}#{focus_suffix}.#{variant_ext}"
-
-          variant_storage_path = "#{file.file_path}/#{variant_filename}"
+          # A watermarked size (V237) is drawn after it is made, on the rendition
+          # only. When drawing fails the clean rendition is kept, under the key and
+          # the spec hash of the size without a watermark: the next check of the
+          # set's files tries again. An animation that stays animated is not
+          # watermarked (by design, see `Watermark`).
+          watermark = if animated?, do: nil, else: Map.get(dimension, :watermark)
 
           with {:ok, variant_path} <-
                  make_variant(
@@ -258,6 +262,16 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
                    focal,
                    animated?
                  ),
+               {:ok, variant_path, watermarked?} <-
+                 apply_watermark(file, variant_path, watermark, dimension),
+               hash_dimension =
+                 if(watermark && not watermarked?,
+                   do: %{dimension | watermark: nil},
+                   else: dimension
+                 ),
+               wm_suffix = watermark_suffix(watermarked?, watermark),
+               variant_storage_path =
+                 "#{file.file_path}/#{base_name}_#{variant_name}#{key_suffix}#{focus_suffix}#{wm_suffix}.#{variant_ext}",
                {:ok, file_stats} <- get_variant_file_stats(variant_path),
                variant_storage_path <- safe_variant_key(variant_storage_path, file_stats.checksum),
                {:ok, storage_info} <-
@@ -270,7 +284,7 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
                 variant_mime_type,
                 variant_ext,
                 file_stats,
-                VariantSets.spec_hash(dimension, format_override)
+                VariantSets.spec_hash(hash_dimension, format_override)
               ),
               storage_info.bucket_ids,
               source_key,
@@ -296,6 +310,36 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
         error
     end
   end
+
+  # Draws the size's watermark on the rendition just made: `{:ok, path, true}` when
+  # drawn, `{:ok, path, false}` when the size has none or drawing failed (logged; the
+  # clean rendition stands, an upload never fails on a watermark).
+  defp apply_watermark(_file, path, nil, _dimension), do: {:ok, path, false}
+
+  defp apply_watermark(file, path, watermark, dimension) do
+    case WatermarkRenderer.render(path, watermark, quality: dimension.quality || 85) do
+      {:ok, path} ->
+        {:ok, path, true}
+
+      {:error, reason} ->
+        Logger.error(
+          "Watermark of #{dimension.name} for file #{file.uuid} failed, kept without it: #{inspect(reason)}"
+        )
+
+        {:ok, path, false}
+    end
+  end
+
+  # A watermarked rendition gets a key of its own: the same size of the same bytes
+  # in a set without the watermark (another library) is another picture.
+  defp watermark_suffix(true, watermark) do
+    "_wm" <>
+      (:crypto.hash(:md5, Watermark.hash_text(watermark))
+       |> Base.encode16(case: :lower)
+       |> String.slice(0, 8))
+  end
+
+  defp watermark_suffix(_watermarked?, _watermark), do: ""
 
   # A rendition of a photo with an HDR gain map keeps the map (`HdrResize` for a JPEG,
   # `HeifHdr` for a HEIC or AVIF) when its size says so (`Dimension.keep_hdr`, set in
@@ -409,8 +453,11 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
     end
   end
 
+  # A watermarked size is made the ordinary way: ImageMagick cannot carry the gain
+  # map through the drawing.
   defp hdr_rendition?(file, dimension) do
-    Application.get_env(:phoenix_kit, :hdr_renditions, true) and
+    is_nil(Map.get(dimension, :watermark)) and
+      Application.get_env(:phoenix_kit, :hdr_renditions, true) and
       file.file_type == "image" and
       hdr_size?(dimension)
   end
@@ -711,8 +758,27 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
       end
 
     # Filter out the "original" dimension as that's handled separately
-    Enum.filter(dimensions, &(&1.name != "original" and shape_fits?(&1, file)))
+    dimensions
+    |> Enum.filter(&(&1.name != "original" and shape_fits?(&1, file)))
+    |> with_watermarks(file)
   end
+
+  # The set's watermark goes into each size of an image that carries it (V237): the
+  # virtual `watermark` field, read by the spec hash and by `do_generate_variant`.
+  # A video's or a PDF's sizes never carry one.
+  defp with_watermarks([], _file), do: []
+
+  defp with_watermarks(dimensions, %{file_type: "image"} = file) do
+    case VariantSets.for_file(file) do
+      %{watermark: %Watermark{enabled: true}} = set ->
+        Enum.map(dimensions, &%{&1 | watermark: VariantSets.watermark_for(set, &1)})
+
+      _ ->
+        dimensions
+    end
+  end
+
+  defp with_watermarks(dimensions, _file), do: dimensions
 
   # A size limited to wide (or tall) pictures is made only for those. The shape
   # is read from the file's row when the struct in hand predates its size (a

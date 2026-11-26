@@ -12,7 +12,9 @@ defmodule PhoenixKit.Modules.Storage.VariantSet do
     * `generate_tiles` — zoomable tiles are made on request (what
       `storage_tile_generation_enabled` was). Legacy: deep zoom is a library
       setting now (`Libraries.setting(library, :deep_zoom)`), and this flag is
-      only what a library that has not chosen follows.
+      only what a library that has not chosen follows;
+    * `watermark` — what the set stamps on the sizes it names (V237,
+      `PhoenixKit.Modules.Storage.Watermark`); nil is none.
 
   `revision` goes up on every change to the set or its sizes. A file
   records the set and revision its variants were made by, and is stale,
@@ -37,6 +39,7 @@ defmodule PhoenixKit.Modules.Storage.VariantSet do
           generate_variants: boolean(),
           generate_tiles: boolean(),
           revision: pos_integer(),
+          watermark: PhoenixKit.Modules.Storage.Watermark.t() | nil,
           dimensions: [PhoenixKit.Modules.Storage.Dimension.t()] | Ecto.Association.NotLoaded.t(),
           inserted_at: DateTime.t() | nil,
           updated_at: DateTime.t() | nil
@@ -50,6 +53,8 @@ defmodule PhoenixKit.Modules.Storage.VariantSet do
     field :generate_tiles, :boolean, default: false
     field :revision, :integer, default: 1
 
+    embeds_one :watermark, PhoenixKit.Modules.Storage.Watermark, on_replace: :update
+
     has_many :dimensions, PhoenixKit.Modules.Storage.Dimension,
       foreign_key: :variant_set_uuid,
       references: :uuid
@@ -57,10 +62,14 @@ defmodule PhoenixKit.Modules.Storage.VariantSet do
     timestamps(type: :utc_datetime)
   end
 
-  @doc "Name and flags. `is_default` and `revision` are never cast."
+  @doc """
+  Name, flags and the watermark (only when `attrs` names one). `is_default`
+  and `revision` are never cast.
+  """
   def changeset(set, attrs) do
     set
     |> cast(attrs, [:name, :selectable, :generate_variants, :generate_tiles])
+    |> cast_embed(:watermark, with: &PhoenixKit.Modules.Storage.Watermark.changeset/2)
     |> update_change(:name, &String.trim/1)
     |> validate_required([:name])
     |> validate_length(:name, max: 255)
