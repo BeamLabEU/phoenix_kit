@@ -386,8 +386,10 @@ defmodule PhoenixKit.API.MCP do
     end
   end
 
-  defp charge(conn, :admin),
-    do: RateLimit.check_admin(conn.assigns.phoenix_kit_api_actor.key_uuid, 1)
+  defp charge(conn, :admin) do
+    actor = conn.assigns.phoenix_kit_api_actor
+    RateLimit.check_admin(actor.key_uuid, 1, actor.rate_limit_per_minute)
+  end
 
   defp charge(conn, :public),
     do: RateLimit.check_public(conn.assigns.phoenix_kit_api_actor.ip || "unknown", nil, 1)

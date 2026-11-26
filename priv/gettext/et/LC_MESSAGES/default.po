@@ -29628,6 +29628,41 @@ msgstr "Salvesta vesimärk"
 msgid "Watermark saved"
 msgstr "Vesimärk salvestatud"
 
+#: lib/phoenix_kit_web/live/settings/api.ex
+#, elixir-autogen, elixir-format
+msgid "The rate limit was saved."
+msgstr "Päringute piirang salvestati."
+
+#: lib/phoenix_kit_web/live/settings/api.ex
+#, elixir-autogen, elixir-format
+msgid "The rate limit must be a whole number from 1 to 1000000, or empty."
+msgstr "Päringute piirang peab olema täisarv 1 kuni 1000000 või tühi."
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Own limit: %{limit} a minute"
+msgstr "Oma piirang: %{limit} minutis"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Rate limit"
+msgstr "Päringute piirang"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Own rate limit a minute (optional)"
+msgstr "Oma päringute piirang minutis (valikuline)"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Empty uses the shared limit. A number holds this key below it; it never lifts the key above the shared limit."
+msgstr "Tühi kasutab ühist piirangut. Arv hoiab selle võtme sellest allpool; ühisest piirangust kõrgemale see võtit ei tõsta."
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Rate limit of this key"
+msgstr "Selle võtme päringute piirang"
+
 #: lib/phoenix_kit_web/components/account_menu.ex:69
 #: lib/phoenix_kit_web/components/core/theme_controller.ex:179
 #, elixir-autogen, elixir-format

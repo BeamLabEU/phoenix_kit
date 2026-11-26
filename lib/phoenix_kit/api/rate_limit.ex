@@ -11,7 +11,7 @@ defmodule PhoenixKit.API.RateLimit do
   | Bucket | Window | Counts | Setting |
   |---|---|---|---|
   | admin pre-auth, per client network | 1 min | **failed** authentications only | `api_admin_preauth_fail_per_min` |
-  | admin, per key | 1 min | cost units | `api_admin_rate_per_min` |
+  | admin, per key | 1 min | cost units | `api_admin_rate_per_min`, or the key's own `rate_limit_per_minute` when lower |
   | admin, per user acting through a live session | 1 min | cost units | `api_admin_rate_per_min` |
   | public, per client token | 1 min | cost units | `api_public_token_rate_per_min` |
   | public, per client network | 1 min | cost units | `api_public_ip_rate_per_min` |
@@ -99,16 +99,28 @@ defmodule PhoenixKit.API.RateLimit do
   @doc """
   Charges `cost` units to the admin bucket of a key.
 
+  `key_limit` is the key's own limit (`rate_limit_per_minute`, V238; `nil`, the default, for
+  none). The bucket's limit is the smaller of it and the shared `api_admin_rate_per_min`:
+  a key's own limit holds one key below the others, and never lifts it above them, so
+  however many keys an install issues, none gets more than the shared limit. A key
+  without one is limited exactly as before.
+
   Returns the headers to send, or `{:error, retry_after_s, headers}` when the key
   is over its limit.
   """
-  @spec check_admin(String.t(), pos_integer()) ::
+  @spec check_admin(String.t(), pos_integer(), pos_integer() | nil) ::
           {:ok, headers()} | {:error, pos_integer(), headers()}
-  def check_admin(key_uuid, cost) when is_binary(key_uuid) and is_integer(cost) and cost > 0 do
+  def check_admin(key_uuid, cost, key_limit \\ nil)
+      when is_binary(key_uuid) and is_integer(cost) and cost > 0 do
     ("api:admin:key:" <> key_uuid)
-    |> charge(@minute, Config.rate_limits().admin_per_min, cost)
+    |> charge(@minute, admin_limit(key_limit), cost)
     |> result()
   end
+
+  defp admin_limit(key_limit) when is_integer(key_limit) and key_limit > 0,
+    do: min(key_limit, Config.rate_limits().admin_per_min)
+
+  defp admin_limit(_none), do: Config.rate_limits().admin_per_min
 
   @doc """
   Charges `cost` units to the admin bucket of a user acting through a live session

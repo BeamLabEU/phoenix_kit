@@ -29638,6 +29638,41 @@ msgstr "保存水印"
 msgid "Watermark saved"
 msgstr "水印已保存"
 
+#: lib/phoenix_kit_web/live/settings/api.ex
+#, elixir-autogen, elixir-format
+msgid "The rate limit was saved."
+msgstr "速率限制已保存。"
+
+#: lib/phoenix_kit_web/live/settings/api.ex
+#, elixir-autogen, elixir-format
+msgid "The rate limit must be a whole number from 1 to 1000000, or empty."
+msgstr "速率限制必须是 1 到 1000000 之间的整数，或留空。"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Own limit: %{limit} a minute"
+msgstr "自有限制：每分钟 %{limit}"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Rate limit"
+msgstr "速率限制"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Own rate limit a minute (optional)"
+msgstr "每分钟自有速率限制（可选）"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Empty uses the shared limit. A number holds this key below it; it never lifts the key above the shared limit."
+msgstr "留空则使用共享限制。填写数字会让此密钥低于共享限制；绝不会让它高于共享限制。"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Rate limit of this key"
+msgstr "此密钥的速率限制"
+
 #: lib/phoenix_kit_web/components/account_menu.ex:69
 #: lib/phoenix_kit_web/components/core/theme_controller.ex:179
 #, elixir-autogen, elixir-format

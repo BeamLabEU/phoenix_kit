@@ -622,6 +622,20 @@ redirect do too. Details: `PhoenixKitWeb.Integration`, "Files at the site root".
 - `{prefix}/api/admin/v1`, `{prefix}/api/public/v1` - REST, each with an `openapi.json`
 - `POST {prefix}/mcp/admin`, `POST {prefix}/mcp/public` - MCP for AI agents
 
+Each key can carry its own rate limit (Settings → API → the key's "Rate limit"); it only
+ever lowers the shared limit for that key. For your own routes:
+
+```elixir
+plug PhoenixKit.Plugs.RateLimit, bucket: :partner_api, key: :ip, limit: {60, :minute}
+```
+
+`key:` is `:ip`, `:user` or `&MyApp.fun/1`; over the limit the plug answers `429` with
+`retry-after`. Counters are per node (ETS); a fault of the plug lets the request
+through. Details: `PhoenixKit.Plugs.RateLimit`.
+
+Host tools may keep undotted names (`call_endpoint`) and declare `aliases:`, checked
+for collisions at boot: `PhoenixKit.API.Tool`, "Undotted names and aliases".
+
 Companion packages register their own routes under `{prefix}/admin/*` automatically through module discovery.
 
 ## API Usage

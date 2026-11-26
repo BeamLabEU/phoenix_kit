@@ -7,7 +7,13 @@ defmodule PhoenixKit.Migrations.Postgres do
 
   ## Migration Versions
 
-  ### V237 - A watermark on a variant set ⚡ LATEST
+  ### V238 - A rate limit of its own on an API key ⚡ LATEST
+
+  `phoenix_kit_api_keys.rate_limit_per_minute` (integer, nullable, `> 0`): a key's own limit in cost units a
+  minute (`PhoenixKit.API.RateLimit`). NULL is the shared limit, so every existing key is unchanged; a set value
+  only lowers the shared limit for that key, never raises it. Additive, no backfill.
+
+  ### V237 - A watermark on a variant set
 
   `phoenix_kit_variant_sets.watermark` (jsonb, nullable): what the set stamps on the renditions it names
   (`PhoenixKit.Modules.Storage.Watermark`): a strip along the bottom or a mark in a corner, with text and/or a
@@ -1122,7 +1128,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   alias PhoenixKit.Migrations.Repair.Environment
 
   @initial_version 135
-  @current_version 237
+  @current_version 238
 
   # Core 3.0 no longer creates or changes any module's table (plan
   # `dev_docs/plans/2026-10-25-module-table-ownership.md`, step 8): V135..V225

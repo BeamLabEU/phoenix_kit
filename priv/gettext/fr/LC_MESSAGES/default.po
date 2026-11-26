@@ -29618,6 +29618,41 @@ msgstr "Enregistrer le filigrane"
 msgid "Watermark saved"
 msgstr "Filigrane enregistré"
 
+#: lib/phoenix_kit_web/live/settings/api.ex
+#, elixir-autogen, elixir-format
+msgid "The rate limit was saved."
+msgstr "La limite de débit a été enregistrée."
+
+#: lib/phoenix_kit_web/live/settings/api.ex
+#, elixir-autogen, elixir-format
+msgid "The rate limit must be a whole number from 1 to 1000000, or empty."
+msgstr "La limite de débit doit être un nombre entier de 1 à 1000000, ou rester vide."
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Own limit: %{limit} a minute"
+msgstr "Limite propre : %{limit} par minute"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Rate limit"
+msgstr "Limite de débit"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Own rate limit a minute (optional)"
+msgstr "Limite de débit propre par minute (facultatif)"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Empty uses the shared limit. A number holds this key below it; it never lifts the key above the shared limit."
+msgstr "Vide utilise la limite commune. Un nombre maintient cette clé en dessous ; il ne la place jamais au-dessus de la limite commune."
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Rate limit of this key"
+msgstr "Limite de débit de cette clé"
+
 #: lib/phoenix_kit_web/components/account_menu.ex:69
 #: lib/phoenix_kit_web/components/core/theme_controller.ex:179
 #, elixir-autogen, elixir-format

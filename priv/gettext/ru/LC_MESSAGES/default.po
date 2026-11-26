@@ -29716,6 +29716,41 @@ msgstr "Сохранить водяной знак"
 msgid "Watermark saved"
 msgstr "Водяной знак сохранён"
 
+#: lib/phoenix_kit_web/live/settings/api.ex
+#, elixir-autogen, elixir-format
+msgid "The rate limit was saved."
+msgstr "Лимит запросов сохранён."
+
+#: lib/phoenix_kit_web/live/settings/api.ex
+#, elixir-autogen, elixir-format
+msgid "The rate limit must be a whole number from 1 to 1000000, or empty."
+msgstr "Лимит запросов должен быть целым числом от 1 до 1000000 или пустым."
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Own limit: %{limit} a minute"
+msgstr "Свой лимит: %{limit} в минуту"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Rate limit"
+msgstr "Лимит запросов"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Own rate limit a minute (optional)"
+msgstr "Свой лимит запросов в минуту (необязательно)"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Empty uses the shared limit. A number holds this key below it; it never lifts the key above the shared limit."
+msgstr "Пустое значение — общий лимит. Число держит этот ключ ниже него; выше общего лимита оно ключ не поднимает."
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Rate limit of this key"
+msgstr "Лимит запросов этого ключа"
+
 #: lib/phoenix_kit_web/components/account_menu.ex:69
 #: lib/phoenix_kit_web/components/core/theme_controller.ex:179
 #, elixir-autogen, elixir-format

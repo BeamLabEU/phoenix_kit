@@ -29627,6 +29627,41 @@ msgstr "Guardar marca de agua"
 msgid "Watermark saved"
 msgstr "Marca de agua guardada"
 
+#: lib/phoenix_kit_web/live/settings/api.ex
+#, elixir-autogen, elixir-format
+msgid "The rate limit was saved."
+msgstr "Se guardó el límite de frecuencia."
+
+#: lib/phoenix_kit_web/live/settings/api.ex
+#, elixir-autogen, elixir-format
+msgid "The rate limit must be a whole number from 1 to 1000000, or empty."
+msgstr "El límite de frecuencia debe ser un número entero de 1 a 1000000, o quedar vacío."
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Own limit: %{limit} a minute"
+msgstr "Límite propio: %{limit} por minuto"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Rate limit"
+msgstr "Límite de frecuencia"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Own rate limit a minute (optional)"
+msgstr "Límite de frecuencia propio por minuto (opcional)"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Empty uses the shared limit. A number holds this key below it; it never lifts the key above the shared limit."
+msgstr "Vacío usa el límite compartido. Un número mantiene esta clave por debajo; nunca la eleva por encima del límite compartido."
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Rate limit of this key"
+msgstr "Límite de frecuencia de esta clave"
+
 #: lib/phoenix_kit_web/components/account_menu.ex:69
 #: lib/phoenix_kit_web/components/core/theme_controller.ex:179
 #, elixir-autogen, elixir-format

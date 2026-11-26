@@ -137,6 +137,10 @@ The public audience has two buckets per call: one per client token (when the too
 
 A module that creates rows for a caller without a key charges a shared quota: `PhoenixKit.API.RateLimit.check_new_rows/1` (`:ok` or `{:error, retry_after_seconds}`) counts a new row against `api_public_new_rows_per_ip_hour` (per client network) and `api_public_new_rows_global_hour` (all clients). The module calls it when it creates the row; core never does. The quota is one for every module, not one per module.
 
+**A key's own limit (V238).** Every admin key has its own bucket, limited by the shared `api_admin_rate_per_min`. A key can also carry `rate_limit_per_minute` (Settings -> API, the key's "Rate limit" action; `Keys.update_rate_limit/3`; `create_key/4` takes it too): its bucket is then limited to the **smaller** of the two, so a key can be held below the others but never lifted above them, and issuing many keys never multiplies what one key gets. Empty (`nil`, every key made before V238) is the shared limit, exactly as before. Zero and negative values are refused (by `Keys` and by a CHECK in the database). A rotated key keeps its limit; every change is a permanent `api.key_rate_limit_updated` activity entry.
+
+**The host's own routes.** `plug PhoenixKit.Plugs.RateLimit, bucket: :partner_api, key: :ip | :user | &Mod.fun/1, limit: {60, :minute}` limits any route of the host on the same ETS counters (per node; the moduledoc has the options). Over the limit it answers `429` with `retry-after`; a fault of its own (a key function that raises, an unreachable counter) lets the request through with a logged warning.
+
 A call that is refused before the limiter (an unknown, hidden, forbidden or disabled-module admin tool) costs one unit, over REST and MCP alike, and answers the same refusal (`404` or `403`), or `429` once the key's budget is spent; it writes no audit entry. A key therefore cannot loop on invented tool names for free.
 
 ## Declaring tools (module authors)

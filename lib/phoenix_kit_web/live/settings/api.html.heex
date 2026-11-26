@@ -377,6 +377,13 @@
                   <span :if={key.personal} class="badge badge-outline badge-xs mt-1">
                     {gettext("Personal key")}
                   </span>
+                  <span
+                    :if={key.rate_limit_per_minute}
+                    id={"api-key-rate-limit-#{key.uuid}"}
+                    class="badge badge-ghost badge-xs mt-1"
+                  >
+                    {gettext("Own limit: %{limit} a minute", limit: key.rate_limit_per_minute)}
+                  </span>
                 </.table_default_cell>
                 <.table_default_cell class="text-sm">
                   {Map.get(@owner_labels, key.user_uuid)}
@@ -457,6 +464,12 @@
                         phx-value-uuid={key.uuid}
                         icon="hero-adjustments-horizontal"
                         label={gettext("Edit scopes")}
+                      />
+                      <.table_row_menu_button
+                        phx-click="request_edit_rate_limit"
+                        phx-value-uuid={key.uuid}
+                        icon="hero-clock"
+                        label={gettext("Rate limit")}
                       />
                       <.table_row_menu_button
                         phx-click="request_rotate"
@@ -960,6 +973,21 @@
         label={gettext("Expires on (optional)")}
         value={@key_params["expires_on"]}
       />
+
+      <.input
+        id="api-key-rate-limit"
+        wrap_label
+        name="key[rate_limit]"
+        type="number"
+        min="1"
+        label={gettext("Own rate limit a minute (optional)")}
+        value={@key_params["rate_limit"]}
+      />
+      <p class="text-xs text-base-content/60 -mt-2">
+        {gettext(
+          "Empty uses the shared limit. A number holds this key below it; it never lifts the key above the shared limit."
+        )}
+      </p>
     </form>
 
     <:actions>
@@ -1037,6 +1065,56 @@
     <:actions>
       <.button id="new-api-token-done" type="button" phx-click="dismiss_token">
         {gettext("I have stored the key")}
+      </.button>
+    </:actions>
+  </.modal>
+
+  <%!-- A key's own rate limit --%>
+  <.modal
+    show={@rate_limit_form.show}
+    on_close="cancel_edit_rate_limit"
+    id="edit-key-rate-limit-modal"
+  >
+    <:title>
+      <.icon name="hero-clock" class="w-5 h-5" />
+      {gettext("Rate limit of this key")}
+    </:title>
+
+    <form id="edit-key-rate-limit-form" phx-submit="save_key_rate_limit" class="space-y-4">
+      <p :if={@rate_limit_form[:name]} class="font-medium">{@rate_limit_form[:name]}</p>
+
+      <div
+        :if={Map.get(@rate_limit_form, :errors, []) != []}
+        id="edit-key-rate-limit-errors"
+        class="alert alert-error text-sm"
+      >
+        <ul class="list-disc pl-4">
+          <li :for={message <- Map.get(@rate_limit_form, :errors, [])}>{message}</li>
+        </ul>
+      </div>
+
+      <.input
+        id="edit-key-rate-limit-value"
+        wrap_label
+        name="key_rate_limit[value]"
+        type="number"
+        min="1"
+        label={gettext("Own rate limit a minute (optional)")}
+        value={Map.get(@rate_limit_form, :value, "")}
+      />
+      <p class="text-xs text-base-content/60">
+        {gettext(
+          "Empty uses the shared limit. A number holds this key below it; it never lifts the key above the shared limit."
+        )}
+      </p>
+    </form>
+
+    <:actions>
+      <.button type="button" variant="ghost" phx-click="cancel_edit_rate_limit">
+        {gettext("Cancel")}
+      </.button>
+      <.button type="submit" form="edit-key-rate-limit-form" id="edit-key-rate-limit-submit">
+        {gettext("Save")}
       </.button>
     </:actions>
   </.modal>
