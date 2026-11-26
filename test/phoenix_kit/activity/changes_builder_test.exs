@@ -191,6 +191,22 @@ defmodule PhoenixKit.Activity.ChangesBuilderTest do
       assert Map.keys(Activity.changes(cs)) == ["name"]
     end
 
+    # `User` defaults `is_active` to true; an insert setting it false was
+    # logged "from true", a value that never was in the database.
+    test "an insert changeset is recorded from nil, not from the schema defaults" do
+      cs = Ecto.Changeset.change(%PhoenixKit.Users.Auth.User{}, is_active: false, email: "a@x.ee")
+
+      assert Activity.changes(cs) == %{
+               "is_active" => %{"from" => nil, "to" => false},
+               "email" => %{"from" => nil, "to" => "a@x.ee"}
+             }
+
+      loaded = Ecto.put_meta(%PhoenixKit.Users.Auth.User{email: "a@x.ee"}, state: :loaded)
+
+      assert Activity.changes(Ecto.Changeset.change(loaded, is_active: false)) ==
+               %{"is_active" => %{"from" => true, "to" => false}}
+    end
+
     test "timestamps are never reported from string-keyed maps either" do
       before = %{"updated_at" => 1, "inserted_at" => 1, "name" => "a"}
       later = %{"updated_at" => 2, "inserted_at" => 2, "name" => "b"}

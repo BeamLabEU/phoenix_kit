@@ -12,7 +12,8 @@ defmodule PhoenixKit.Activity.Changes do
 
     * **Only what moved.** A field whose value is the same on both sides is left
       out, so an untouched save yields `%{}` (and `log/3` then writes no
-      `"changes"` key at all).
+      `"changes"` key at all). The changeset of an insert (a struct not loaded
+      from the database) is recorded from `nil`, not from the schema defaults.
     * **JSON-safe values.** The metadata column is JSONB. Dates and times become
       ISO 8601 strings, a `Decimal` its plain number string, an atom its name, a
       raw 16-byte UUID its text form; a list of scalars stays a list, any other
@@ -69,8 +70,14 @@ defmodule PhoenixKit.Activity.Changes do
 
     changeset.changes
     |> Map.keys()
-    |> build(changeset.data, applied, opts)
+    |> build(before_of(changeset.data), applied, opts)
   end
+
+  # A record not yet inserted had no values: its struct holds the schema's
+  # defaults (`is_active: true`), which never were in the database. An insert
+  # is recorded from nil.
+  defp before_of(%{__meta__: %Ecto.Schema.Metadata{state: :built}}), do: %{}
+  defp before_of(data), do: data
 
   @doc "See `PhoenixKit.Activity.changes/3`."
   @spec from_values(map(), map(), opts()) :: %{optional(String.t()) => map()}
