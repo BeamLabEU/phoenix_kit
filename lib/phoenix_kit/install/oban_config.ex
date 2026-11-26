@@ -663,6 +663,11 @@ if Code.ensure_loaded?(Igniter) do
 
     defp required(declared), do: PhoenixKit.ObanQueues.required(declared)
 
+    defp queue_declined?(%{name: name}) do
+      id = "oban_queues:#{name}"
+      PatchLedger.skip?(id) or PatchLedger.declined?(id)
+    end
+
     defp queue_on_disk?(app_name, queue) do
       case File.read("config/config.exs") do
         {:ok, content} -> queue_configured?(content, app_name, queue)
@@ -722,9 +727,18 @@ if Code.ensure_loaded?(Igniter) do
     # The queue lines of a freshly generated Oban block, one per declared
     # queue, with who asked for it. The comma goes BEFORE the comment — after
     # it, it would be part of the comment and the list would not parse.
-    def generated_queue_lines(
-          declared \\ PhoenixKit.ObanQueues.required(PhoenixKit.ObanQueues.declared())
-        ) do
+    #
+    # The default leaves out a queue the host declined (`--skip-patch oban_queues[:name]` or
+    # `:declined` in `.phoenix_kit.exs`): a missing block is required configuration, its
+    # queues are not. A queue recorded as applied is written back, since the whole block
+    # went, not that queue.
+    def generated_queue_lines(declared \\ nil) do
+      declared =
+        declared ||
+          PhoenixKit.ObanQueues.declared()
+          |> PhoenixKit.ObanQueues.required()
+          |> Enum.reject(&queue_declined?/1)
+
       last = length(declared) - 1
 
       declared
