@@ -371,6 +371,14 @@ defmodule PhoenixKit.Users.Auth.Scope do
   def user_uuid(_), do: nil
 
   @doc """
+  Deprecated name of `user_uuid/1`, kept so code written before the rename
+  still compiles. It returns the user's **UUID** (a string), not an integer id.
+  """
+  @deprecated "Use user_uuid/1"
+  @spec user_id(t() | nil) :: String.t() | nil
+  def user_id(scope), do: user_uuid(scope)
+
+  @doc """
   The link of an acting session (`PhoenixKit.Users.ActingLink`): its `type_key`,
   `can_manage?`, `all_roles?` and `role_uuids`. `nil` outside an acting session.
   """
