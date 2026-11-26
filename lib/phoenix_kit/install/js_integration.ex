@@ -226,7 +226,8 @@ defmodule PhoenixKit.Install.JsIntegration do
         igniter,
         layout_path,
         updated,
-        "the PhoenixKit theme bootstrap (pre-paint theme stamp)"
+        "the PhoenixKit theme bootstrap (pre-paint theme stamp)",
+        theme_opt_out_hint()
       )
     else
       Igniter.add_warning(
@@ -545,14 +546,32 @@ defmodule PhoenixKit.Install.JsIntegration do
   # These splices write straight to disk rather than through Igniter's buffer
   # (several of them read the same root layout back), so Igniter's
   # `--dry-run` cannot stop them: under it, describe the change instead.
-  defp write_host_file(igniter, path, content, what) do
+  defp write_host_file(igniter, path, content, what, hint \\ "") do
     if IgniterHelpers.dry_run?(igniter) do
-      Igniter.add_notice(igniter, "🔍 Dry run: would add #{what} to #{path} (not written)")
+      Igniter.add_notice(igniter, "🔍 Dry run: would add #{what} to #{path} (not written)#{hint}")
     else
       File.write!(path, content)
-      Igniter.add_notice(igniter, "✅ Added #{what} to #{path}")
+      Igniter.add_notice(igniter, "✅ Added #{what} to #{path}#{hint}")
     end
   end
+
+  # The bootstrap stamps `data-theme` on every page of the layout, the host's
+  # public pages included. A host whose own theme handling went unrecognised
+  # (NordAPI's script) needs to know how to keep the kit out for good —
+  # otherwise every update puts it back.
+  defp theme_opt_out_hint do
+    """
+
+       It stamps data-theme on every page rendered with this layout. If your
+       site sets its own theme, delete the two added lines and put this in
+       <head> instead; mix phoenix_kit.update then leaves the layout alone:
+
+           #{@host_managed_marker}\
+    """
+  end
+
+  @doc false
+  def host_managed_marker, do: @host_managed_marker
 
   # Add the (stable) aggregate-module-hooks <script> tag to the root layout,
   # after phoenix_kit.js (so it augments window.PhoenixKitHooks) and before app.js.

@@ -233,12 +233,26 @@ defmodule Mix.Tasks.PhoenixKit.Update.FloorAndDryRunTest do
          %{tmp_dir: tmp_dir} do
       probe_project(tmp_dir)
 
-      File.cd!(tmp_dir, fn -> run_splices([]) end)
+      igniter = File.cd!(tmp_dir, fn -> run_splices([]) end)
 
       layout = File.read!(Path.join(tmp_dir, @layout))
       assert layout =~ "ThemeBootstrap.theme_bootstrap"
       assert layout =~ "phoenix_kit_modules.js"
       assert File.exists?(Path.join(tmp_dir, "priv/static/assets/vendor/phoenix_kit_modules.js"))
+
+      # The notice names the marker that keeps the bootstrap out for good.
+      added = Enum.find(igniter.notices, &(&1 =~ "Added the PhoenixKit theme bootstrap"))
+      assert added =~ JsIntegration.host_managed_marker()
+
+      # ...and the marker does what the notice says.
+      with_marker =
+        String.replace(
+          @layout_content,
+          "<title>",
+          JsIntegration.host_managed_marker() <> "\n<title>"
+        )
+
+      assert JsIntegration.theme_bootstrap_plan(with_marker) == :host_managed
     end
 
     test "dry_run?/1 reads the flag from argv or options" do
