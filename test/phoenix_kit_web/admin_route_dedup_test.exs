@@ -338,4 +338,11 @@ defmodule PhoenixKitWeb.AdminRouteDedupTest do
     assert Enum.all?(matches, &String.ends_with?(&1.path, "/admin/relative-host-probe")),
            "routed outside /admin: #{inspect(Enum.map(matches, & &1.path))}"
   end
+
+  # The guard itself (any failure answers "recompile") cannot be provoked from
+  # here without unloading PhoenixKit; this pins that the generated function
+  # still compiles in a host router and answers a boolean.
+  test "the router's __mix_recompile__?/0 answers a boolean" do
+    assert is_boolean(DedupProbeRouter.__mix_recompile__?())
+  end
 end

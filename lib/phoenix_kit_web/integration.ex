@@ -2231,6 +2231,13 @@ defmodule PhoenixKitWeb.Integration do
       # compiled without the routes until something unrelated forced a
       # recompile — which is the whole reason the setting is worth having now
       # that it defaults to `false`.
+      #
+      # Every call below is into the PhoenixKit that is installed NOW, which
+      # need not be the one that compiled this router: after pinning back to
+      # an older release (an aborted upgrade) a function may be gone, and an
+      # UndefinedFunctionError here killed `mix compile` with no hint (the
+      # way out was `rm -rf _build/<env>/lib/<app>`). Any failure answers
+      # "recompile", which rebuilds the router against the installed release.
       @doc false
       def __mix_recompile__? do
         unquote(current_hash) != PhoenixKit.ModuleDiscovery.module_hash_fast() or
@@ -2241,6 +2248,10 @@ defmodule PhoenixKitWeb.Integration do
             PhoenixKit.Config.user_dashboard_enabled?() or
           unquote(:erlang.phash2(PhoenixKit.ProfileSettingsTab.config_entries())) !=
             :erlang.phash2(PhoenixKit.ProfileSettingsTab.config_entries())
+      rescue
+        _ -> true
+      catch
+        _, _ -> true
       end
 
       # Compile-time dependency on each route module (see the comment at
