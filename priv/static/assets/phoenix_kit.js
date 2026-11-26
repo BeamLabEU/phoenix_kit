@@ -9470,6 +9470,29 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
     return JSON.stringify(sortKeys(a || {})) === JSON.stringify(sortKeys(b || {}));
   }
 
+  function sameValue(a, b) {
+    return JSON.stringify(a === undefined ? null : a) === JSON.stringify(b === undefined ? null : b);
+  }
+
+  // The fields of `current` named in `names` (the ones the person edited)
+  // that differ from `initial` (what was rendered). Only these are kept, so
+  // a field the person never touched takes whatever the server renders
+  // when the draft is restored.
+  function draftPick(current, initial, names) {
+    var out = {};
+    for (var i = 0; i < names.length; i++) {
+      var n = names[i];
+      if (Object.prototype.hasOwnProperty.call(current, n) && !sameValue(current[n], initial[n])) out[n] = current[n];
+    }
+    return out;
+  }
+
+  // Whether every field of a draft already has its value in `current`:
+  // nothing to restore.
+  function draftCovered(fields, current) {
+    return Object.keys(fields).every(function (n) { return sameValue(fields[n], current[n]); });
+  }
+
   function sortKeys(o) {
     var out = {};
     Object.keys(o).sort().forEach(function (k) { out[k] = o[k]; });
@@ -9524,7 +9547,8 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
     module.exports.formDraft = {
       excludeList: draftExcludeList, nameExcluded: draftNameExcluded,
       eligible: draftEligible, serialize: draftSerialize, equal: draftEqual,
-      apply: draftApply, key: draftKey, parse: draftParse
+      apply: draftApply, key: draftKey, parse: draftParse,
+      pick: draftPick, covered: draftCovered
     };
   }
 
@@ -9546,11 +9570,14 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
       this._key = draftKey(window.location && window.location.pathname, this.el.id, this.el.dataset.draftKey);
       this._store = store(this.el.dataset.draftStorage);
       this._initial = this._snapshot();
+      // Names of the fields the person changed: the only ones a draft keeps.
+      this._dirty = {};
       this._pending = null;
       this._submitted = false;
 
       this._onEdit = function (e) {
         if (!e.target || !draftEligible(e.target, self._exclude)) return;
+        self._dirty[e.target.name] = true;
         // Typing after a submit means that submit did not end the editing.
         self._submitted = false;
         clearTimeout(self._timer);
@@ -9615,8 +9642,8 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
 
     _save() {
       if (!this._store || this._pending) return;
-      var fields = this._snapshot();
-      if (draftEqual(fields, this._initial)) { this._remove(); return; }
+      var fields = draftPick(this._snapshot(), this._initial, Object.keys(this._dirty));
+      if (!Object.keys(fields).length) { this._remove(); return; }
       try {
         this._store.setItem(this._key, JSON.stringify({ v: 1, t: Date.now(), fields: fields }));
       } catch (_) { /* full or blocked: no draft */ }
@@ -9631,7 +9658,7 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
       var self = this;
       var d = this._read();
       if (!d) return;
-      if (draftEqual(d.fields, this._initial)) { this._remove(); return; }
+      if (draftCovered(d.fields, this._initial)) { this._remove(); return; }
       this._pending = d;
       var event = this.el.dataset.draftEvent;
       if (event) {
@@ -9657,6 +9684,8 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
       this._prompt(false);
       if (!d) return;
       var changed = draftApply(this.el.elements || [], d.fields, this._exclude);
+      var dirty = this._dirty;
+      Object.keys(d.fields).forEach(function (n) { dirty[n] = true; });
       // One input event: LiveView sends the whole form to phx-change.
       if (changed.length && typeof Event === "function") {
         changed[0].dispatchEvent(new Event("input", { bubbles: true }));

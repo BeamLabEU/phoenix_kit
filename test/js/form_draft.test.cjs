@@ -197,7 +197,7 @@ test("typing saves a draft; nothing changed saves none", async () => {
   f.els[0].value = "Hello";
   f.listeners.input({ target: f.els[0] });
   await waitSave();
-  assert.deepEqual(JSON.parse(local.getItem(KEY)).fields, { "post[title]": "Hello", "post[body]": "" });
+  assert.deepEqual(JSON.parse(local.getItem(KEY)).fields, { "post[title]": "Hello" }, "only what was edited");
   f.els[0].value = "";
   f.listeners.input({ target: f.els[0] });
   await waitSave();
@@ -275,6 +275,7 @@ test("cleared by the server, or when a submitted form leaves the page", async ()
   const f = fakeForm();
   f.hook.mounted();
   f.els[0].value = "Hello";
+  f.listeners.input({ target: f.els[0] });
   f.listeners.submit({});
   assert.ok(local.getItem(KEY), "kept until the save is known to have worked");
   f.handlers["pk:form-draft"]({ id: "other-form", action: "clear" });
@@ -293,4 +294,35 @@ test("cleared by the server, or when a submitted form leaves the page", async ()
   await waitSave();
   g.hook.destroyed();
   assert.ok(local.getItem(KEY), "left without submitting: the draft stays");
+});
+
+test("pick keeps edited fields that differ; covered means nothing to restore", () => {
+  const initial = { a: "1", b: ["x"], c: null };
+  assert.deepEqual(d.pick({ a: "2", b: ["x"], c: "on" }, initial, ["a", "b"]), { a: "2" });
+  assert.deepEqual(d.pick({ a: "1", b: ["x", "y"] }, initial, ["a", "b", "gone"]), { b: ["x", "y"] });
+  assert.deepEqual(d.pick({ n: "" }, initial, ["n"]), { n: "" }, "a field the server did not render is new");
+  assert.equal(d.covered({ a: "1" }, initial), true);
+  assert.equal(d.covered({ a: "1", b: [] }, initial), false);
+});
+
+test("a stale draft leaves the fields the person did not touch to the server", async () => {
+  local.m.clear();
+  const status = () => field("post[status]", { value: "pending" });
+  const f = fakeForm({ elements: [field("post[title]", { value: "" }), status()] });
+  f.hook.mounted();
+  f.els[0].value = "Edited title";
+  f.listeners.input({ target: f.els[0] });
+  await waitSave();
+  assert.deepEqual(JSON.parse(local.getItem(KEY)).fields, { "post[title]": "Edited title" });
+  f.hook.destroyed();
+
+  // Meanwhile the server approved the post.
+  const g = fakeForm({ elements: [field("post[title]", { value: "" }), field("post[status]", { value: "approved" })] });
+  g.hook.mounted();
+  assert.equal(g.prompt.hidden, false);
+  g.barListeners.click(g.button("data-pk-draft-restore"));
+  assert.equal(g.els[0].value, "Edited title");
+  assert.equal(g.els[1].value, "approved", "the untouched field keeps the server's value");
+  assert.deepEqual(JSON.parse(local.getItem(KEY)).fields, { "post[title]": "Edited title" },
+    "the restored fields stay in the draft");
 });
