@@ -114,6 +114,26 @@ defmodule PhoenixKit.Activity.ChangesBuilderTest do
       refute json =~ "pk_live"
     end
 
+    test "more secret-looking names are flagged, whole words only for the short ones" do
+      secret =
+        ~w(passphrase encryption_key otp otp_code pin signature key ssh_key cookie
+           session_id authorization)
+
+      plain = ~w(pinned key_name footprint monkey spinner)
+      before = Map.new(secret ++ plain, &{&1, "old"})
+      later = Map.new(secret ++ plain, &{&1, "hunter2"})
+
+      changes = Activity.changes(before, later)
+
+      for field <- secret, do: assert(changes[field] == %{"changed" => true}, field)
+
+      for field <- plain,
+          do: assert(changes[field] == %{"from" => "old", "to" => "hunter2"}, field)
+
+      nested = Activity.changes(%{cfg: %{}}, %{cfg: %{"passphrase" => "hunter2"}})
+      refute Jason.encode!(nested) =~ "hunter2"
+    end
+
     test "secret keys inside a map value are filtered" do
       changes = Activity.changes(change(settings: %{"theme" => "x", "smtp_password" => "pw"}))
       refute changes["settings"]["to"] =~ "pw\""

@@ -20,8 +20,10 @@ defmodule PhoenixKit.Activity.Changes do
       `String.Chars` is never dumped raw (`"%MyStruct{}"`). An association that
       was not loaded is not compared at all.
     * **No secrets.** A field whose name looks like a secret (`password`,
-      `hashed_password`, `token`, `secret`, `api_key`, `private_key`,
-      `access_key`, `credential`, `salt`, `encrypted…`, `totp`) is recorded as
+      `hashed_password`, `passphrase`, `token`, `secret`, `api_key`,
+      `private_key`, `access_key`, `credential`, `salt`, `encrypt…`, `totp`,
+      `otp`, `pin`, `signature`, `cookie`, `authorization`, `session_id`, and
+      `key` or any `…_key`) is recorded as
       `%{"changed" => true}`, never with its values. The rule cannot be turned
       off; `:redact` adds more fields to it. Inside a map or schema value, a key
       that looks like a secret is written as `"[FILTERED]"`.
@@ -43,7 +45,11 @@ defmodule PhoenixKit.Activity.Changes do
   # Never worth a line in an audit diff: the entry's own timestamp says when.
   @always_skipped [:__meta__, :__struct__, :inserted_at, :updated_at]
 
-  @secret_pattern ~r/password|passwd|secret|token|api_?key|private_?key|access_?key|credential|salt|encrypted|totp/i
+  # Errs toward redacting: a flagged field still says it changed. The short
+  # words only as a whole `_`-separated part (`pin`, not `pinned`; `otp`, not
+  # `footprint`), and `key` only as the last part (`key`, `ssh_key`, not
+  # `key_name` or `monkey`).
+  @secret_pattern ~r/password|passwd|passphrase|secret|token|credential|salt|encrypt|totp|signature|cookie|authorization|api_?key|private_?key|access_?key|session_?id|(^|_)otp($|_)|(^|_)pin($|_)|(^|_)key$/i
 
   @flag %{"changed" => true}
 
