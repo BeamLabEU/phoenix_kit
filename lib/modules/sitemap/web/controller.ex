@@ -162,33 +162,52 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Controller do
   Redirects to XML sitemap (deprecated).
   """
   def html(conn, _params) do
-    # Routes.path/2 drops a root prefix ("/"); gluing it on by hand gave
-    # "//sitemap.xml", which redirect/2 refuses.
-    redirect(conn, to: Routes.path("/sitemap.xml", locale: :none))
+    if hidden?() do
+      send_plain_error(conn, 404, "Sitemap not available")
+    else
+      # Routes.path/2 drops a root prefix ("/"); gluing it on by hand gave
+      # "//sitemap.xml", which redirect/2 refuses.
+      redirect(conn, to: Routes.path("/sitemap.xml", locale: :none))
+    end
   end
+
+  # `config :phoenix_kit, hide_disabled_routes: true` (off by default): the stylesheets and
+  # the redirect above answer `404` too while the module is off, like the sitemap files do.
+  # `Sitemap.enabled?/0` reads the settings cache, which a toggle refreshes.
+  defp hidden?, do: PhoenixKit.Config.hide_disabled_routes?() and not Sitemap.enabled?()
 
   @doc """
   Serves XSL stylesheet files for urlset display.
 
   Available styles: table, minimal
   """
-  def xsl_stylesheet(conn, %{"style" => style}) when style in @valid_xsl_styles do
-    serve_xsl_file(conn, "sitemap-#{style}.xsl")
-  end
+  def xsl_stylesheet(conn, params) do
+    cond do
+      hidden?() ->
+        send_plain_error(conn, 404, "Stylesheet not found")
 
-  def xsl_stylesheet(conn, _params) do
-    serve_xsl_file(conn, "sitemap-table.xsl")
+      params["style"] in @valid_xsl_styles ->
+        serve_xsl_file(conn, "sitemap-#{params["style"]}.xsl")
+
+      true ->
+        serve_xsl_file(conn, "sitemap-table.xsl")
+    end
   end
 
   @doc """
   Serves XSL stylesheet files for sitemapindex display.
   """
-  def xsl_index_stylesheet(conn, %{"style" => style}) when style in @valid_xsl_styles do
-    serve_xsl_file(conn, "sitemap-index-#{style}.xsl")
-  end
+  def xsl_index_stylesheet(conn, params) do
+    cond do
+      hidden?() ->
+        send_plain_error(conn, 404, "Stylesheet not found")
 
-  def xsl_index_stylesheet(conn, _params) do
-    serve_xsl_file(conn, "sitemap-index-table.xsl")
+      params["style"] in @valid_xsl_styles ->
+        serve_xsl_file(conn, "sitemap-index-#{params["style"]}.xsl")
+
+      true ->
+        serve_xsl_file(conn, "sitemap-index-table.xsl")
+    end
   end
 
   @doc """

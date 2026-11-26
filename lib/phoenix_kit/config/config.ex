@@ -914,6 +914,19 @@ defmodule PhoenixKit.Config do
   end
 
   @doc """
+  Whether a root file of a switched-off module answers `404` even where it used to answer
+  anyway (`config :phoenix_kit, hide_disabled_routes: true`; default `false`). Today that is
+  the sitemap's stylesheets and its `sitemap.html` redirect while the Sitemap module is off;
+  every other root file already answers `404` while its module is off. Runtime config: it is
+  read on each request. It answers from the kit's route, so the path is not freed for the
+  host: `phoenix_kit_routes(root: ...)` does that (see `PhoenixKitWeb.Integration`).
+  """
+  @spec hide_disabled_routes?() :: boolean()
+  def hide_disabled_routes? do
+    get_boolean(:hide_disabled_routes, false)
+  end
+
+  @doc """
   Whether the host has said anything at all about `:user_dashboard_enabled`.
 
   Distinguishes "took the new default" from "explicitly chose `false`", which

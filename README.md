@@ -597,6 +597,26 @@ without the sections. Answers are cached per host and language for five minutes
 - `GET {prefix}/admin/modules` - Enable/disable modules
 - `GET {prefix}/admin/settings` - Settings (see "Built-in Admin Interface" below)
 
+### Files at the site root
+
+Crawlers and AI tools look for some files at the site root, so the kit declares them
+there as well as under `{prefix}`: `/llms.txt`, `/sitemap.xml` (+ `/sitemap.html`,
+`/sitemaps/*`, `/sitemap.xsl`), `/assets/sitemap*/:style`, `GET /mcp` (the public API
+guide) and `/.well-known/*` (API catalog, OAuth metadata). Choose which ones:
+
+```elixir
+phoenix_kit_routes()                                # default, root: :all (as before)
+phoenix_kit_routes(root: [:sitemap, :llms])         # groups: :mcp, :llms, :sitemap, :well_known, :sitemap_assets
+phoenix_kit_routes(root: false)                     # none at the root
+```
+
+A group left out is not declared at all, which is the only way to serve that path from
+your own router after `phoenix_kit_routes()`. While a module is off, its files answer
+`404` (from the kit's route, so the path stays the kit's); with
+`config :phoenix_kit, hide_disabled_routes: true` (written by `mix phoenix_kit.install`
+for new apps, off for upgraded ones) the sitemap's stylesheets and old `sitemap.html`
+redirect do too. Details: `PhoenixKitWeb.Integration`, "Files at the site root".
+
 ### Machine API (when switched on)
 
 - `{prefix}/api/admin/v1`, `{prefix}/api/public/v1` - REST, each with an `openapi.json`
