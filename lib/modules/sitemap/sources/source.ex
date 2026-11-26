@@ -9,7 +9,9 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Source do
 
   - `source_name/0` - Unique atom identifier for the source
   - `enabled?/0` - Whether this source is active
-  - `collect/1` - Collect URL entries from this source
+  - `collect/1` - Collect URL entries from this source. With Languages on it is
+    called once per language and must return only `opts[:language]`'s entries
+    (see `c:collect/1`).
 
   ## Optional Callbacks
 
@@ -51,7 +53,28 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Source do
   @callback enabled?() :: boolean()
 
   @doc """
-  Collects all URL entries from this source.
+  Collects the URL entries of this source.
+
+  ## Options the generator passes
+
+    * `:base_url` — the site's base URL, for building absolute `loc`s.
+    * `:language` — set only when the Languages module is on with more than
+      one language. The generator then calls `collect/1` **once per enabled
+      language**, and each call must return **only the entries of that
+      language** (its locale-prefixed URLs, or the prefix-free ones for the
+      default language), each with a `canonical_path` (the path without the
+      locale segment) so the generator can link the translations to each other
+      with hreflang alternates.
+    * `:is_default_language` — whether `:language` is the site's default.
+    * `:all_languages` — every enabled language code, for reference.
+
+  When `:language` is absent the site is single-language: return every entry
+  once, without a locale segment.
+
+  A source written while Languages was off often ignores `:language` and
+  returns every URL on each call. The generator drops the repeats (each `loc`
+  is listed once, each alternate once), but the source still does the work
+  once per language; honour `opts[:language]`.
   """
   @callback collect(opts :: keyword()) :: [UrlEntry.t()]
 

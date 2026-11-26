@@ -737,9 +737,15 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
           acc
       end)
 
+    # A source is called once per language and should return only that
+    # language's entries. One that ignores `:language` (written while
+    # Languages was off) returns everything on every call, so the same `loc`
+    # arrives once per language; collapsed here, or every alternate below
+    # would be listed once per language too.
     all_entries =
       entries_by_language
       |> Enum.flat_map(fn {_lang, entries} -> entries end)
+      |> UrlEntry.dedupe_by_loc()
 
     non_default_codes =
       languages
@@ -770,6 +776,7 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
             lang_code = extract_language_from_entry(entry, base_url)
             %{hreflang: lang_code, href: entry.loc}
           end)
+          |> Enum.uniq()
 
         alternates =
           if default_entry do
