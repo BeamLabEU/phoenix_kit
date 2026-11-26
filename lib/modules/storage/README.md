@@ -500,6 +500,26 @@ stops serving them, and the ones made stay stored.
   with its gain map (scaled so SDR white, 203 nits, is 1.0). Anything that fails, a
   missing `vix` or `uhdrsave` (libvips 8.17+) included, makes the tone-mapped SDR poster
   instead. PQ and Dolby Vision profile 5 sources keep the SDR poster.
+- **A watermark on chosen renditions** (V237, `Storage.Watermark`, drawn by
+  `WatermarkRenderer`). A set's `watermark` (a JSON column, NULL = none) is a
+  **strip** along the bottom (`below` the picture, which makes the rendition
+  taller and covers nothing, or `over` its bottom, with a background opacity) or a
+  **corner** mark (corner, width share, opacity, margin), with a text
+  (`{site_url}`, `{site_name}`) and/or a logo (a stored image's uuid, read from
+  its original), and the names of the sizes that get it. Only still renditions of
+  an image are drawn on, after they are made; the original, the other sizes, video
+  renditions, PDF thumbnails and animations that stay animated are not.
+  `VariantGenerator` puts the watermark into each size's virtual `watermark`
+  field, which is part of its spec hash, so a change (saved with
+  `VariantSets.update_watermark/3`, which bumps the revision) remakes only the
+  sizes whose pixels change. A watermarked size is never an HDR rendition, and
+  gets a key of its own (`_wm<hash>`). ImageMagick runs with the pinned decoder
+  and the usual limits; the text is escaped for `label:` (no `%` escapes, no
+  `@file`). A watermark that cannot be drawn (a missing logo, a failing
+  ImageMagick) leaves the clean rendition, recorded under the clean spec hash,
+  with an error in the log; the next check of the set's files tries again. The
+  text is hashed as written: a new site address reaches existing renditions on
+  "Check every file". Admin: the Watermark card of a rendition profile.
 - **Cropping around the subject** (V210, `Storage.FocalPoint`). A fixed image
   rendition (a box the photo is scaled to fill and cropped to) has a
   `crop_mode`: `center` (the default: every existing rendition) or `focus`, which
