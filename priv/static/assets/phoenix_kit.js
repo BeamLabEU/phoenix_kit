@@ -8951,6 +8951,14 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
     return (((rotation + dir) % 360) + 360) % 360;
   }
 
+  // The stored turn after the person turns the picture on screen by `dir`
+  // (90 = clockwise). The transform mirrors after it turns, and a mirror
+  // reverses a turn, so with the mirror on the stored turn goes the other
+  // way: what is shown always turns the way the button says.
+  function uploadEditTurn(rotation, flip, dir) {
+    return uploadEditRotate(rotation, flip ? -dir : dir);
+  }
+
   // The picture's size once turned.
   function uploadEditDims(w, h, rotation) {
     return rotation === 90 || rotation === 270 ? [h, w] : [w, h];
@@ -9008,7 +9016,7 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
   if (typeof module === "object" && module.exports) {
     module.exports.imageEditorRect = imageEditorRect;
     module.exports.uploadEdit = {
-      editable: uploadEditable, rotate: uploadEditRotate, dims: uploadEditDims,
+      editable: uploadEditable, rotate: uploadEditRotate, turn: uploadEditTurn, dims: uploadEditDims,
       matrix: uploadEditMatrix, cropPixels: uploadEditCropPixels,
       centeredCrop: uploadEditCenteredCrop, aspect: uploadEditAspect,
       changed: uploadEditChanged
@@ -9121,7 +9129,7 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
         if (!self._img && !t.hasAttribute("data-pk-edit-skip")) return;
         var s = self._state;
         if (t.hasAttribute("data-pk-edit-rotate")) {
-          s.rotation = uploadEditRotate(s.rotation, parseInt(t.getAttribute("data-pk-edit-rotate"), 10) || 0);
+          s.rotation = uploadEditTurn(s.rotation, s.flip, parseInt(t.getAttribute("data-pk-edit-rotate"), 10) || 0);
           s.crop = null;
           self._draw();
           if (s.aspect) self._setCrop(uploadEditCenteredCrop(s.aspect, self._frame[0], self._frame[1]));

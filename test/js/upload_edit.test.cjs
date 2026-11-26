@@ -90,6 +90,55 @@ test("the transform puts the source's corners where a turn and a flip put them",
   assert.deepEqual(apply(u.matrix(w, h, 0, false, 0.5, 0, 0), w, h), [200, 150]);
 });
 
+// Where a picture `W` × `H` on screen sends (x, y) when turned a quarter
+// clockwise (dir 90) or counterclockwise (-90).
+function turnShown([x, y], W, H, dir) {
+  return dir === 90 ? [H - y, x] : [y, W - x];
+}
+
+test("Rotate right after Flip still turns what is shown clockwise", () => {
+  const w = 400, h = 300;
+  // A mark at the top, left of centre: the asymmetric case.
+  const mark = [100, 0];
+  // Flipped: the mark is at the top, right of centre.
+  assert.deepEqual(apply(u.matrix(w, h, 0, true, 1, 0, 0), ...mark), [300, 0]);
+  // Rotate right: top-right goes to the right edge, low down.
+  const r = u.turn(0, true, 90);
+  assert.deepEqual(apply(u.matrix(w, h, r, true, 1, 0, 0), ...mark), [300, 300]);
+  assert.notDeepEqual(apply(u.matrix(w, h, u.rotate(0, 90), true, 1, 0, 0), ...mark), [300, 300],
+    "the plain stored turn would have gone counterclockwise");
+
+  // Every state, both buttons: the new picture is the old one turned on screen.
+  for (const rot of [0, 90, 180, 270]) {
+    for (const flip of [false, true]) {
+      for (const dir of [90, -90]) {
+        const [W, H] = u.dims(w, h, rot);
+        const next = u.turn(rot, flip, dir);
+        for (const p of [[0, 0], [w, 0], [0, h], [100, 0], [w, h]]) {
+          const before = apply(u.matrix(w, h, rot, flip, 1, 0, 0), ...p);
+          const after = apply(u.matrix(w, h, next, flip, 1, 0, 0), ...p);
+          assert.deepEqual(after, turnShown(before, W, H, dir), `${rot} ${flip} ${dir} ${p}`);
+        }
+      }
+    }
+  }
+});
+
+test("the uploaded photo is drawn with the preview's transform", () => {
+  const w = 400, h = 300;
+  for (const rot of [0, 90, 180, 270]) {
+    for (const flip of [false, true]) {
+      const scale = 0.5;
+      const preview = u.matrix(w, h, rot, flip, scale, 0, 0);
+      const full = u.matrix(w, h, rot, flip, 1, 0, 0);
+      for (const p of [[0, 0], [100, 0], [w, h]]) {
+        const a = apply(preview, ...p), b = apply(full, ...p);
+        assert.deepEqual([a[0] / scale, a[1] / scale], b);
+      }
+    }
+  }
+});
+
 test("a crop in percent becomes whole pixels inside the frame", () => {
   assert.deepEqual(u.cropPixels({ x: 10, y: 20, w: 50, h: 50 }, 1000, 500), { x: 100, y: 100, w: 500, h: 250 });
   assert.deepEqual(u.cropPixels(null, 1000, 500), { x: 0, y: 0, w: 1000, h: 500 });
@@ -324,4 +373,16 @@ test("the next photo cannot be confirmed before its preview has loaded", () => {
   assert.equal(edA.name, "a.jpg");
   assert.notEqual(edA, a, "a was edited");
   assert.equal(sentB, b, "b, unchanged, goes up as it was");
+});
+
+test("in the dialog, Flip then Rotate right stores the turn that looks clockwise", () => {
+  images.length = 0;
+  const e = fakeEditor();
+  e.pick({ name: "a.jpg", type: "image/jpeg" });
+  images[0].onload();
+  e.press(e.buttons.flip);
+  e.press(e.buttons.rotR);
+  assert.equal(e.hook._state.rotation, u.turn(0, true, 90));
+  assert.equal(e.hook._state.rotation, 270);
+  e.press(e.buttons.skip);
 });
