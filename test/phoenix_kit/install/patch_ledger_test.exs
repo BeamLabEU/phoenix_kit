@@ -133,6 +133,11 @@ defmodule PhoenixKit.Install.PatchLedgerTest do
       assert_raise Mix.Error, ~r/not a literal Elixir map/, fn -> PatchLedger.load(root) end
     end
 
+    test "patches: that is not a map is refused, not read as an empty ledger", %{root: root} do
+      File.write!(ledger_file(root), ~s(%{patches: [{"module_js_seed", :declined}]}))
+      assert_raise Mix.Error, ~r/must be a map/, fn -> PatchLedger.load(root) end
+    end
+
     test "the first run records what is present; a run with nothing new writes nothing",
          %{root: root} do
       PatchLedger.begin([], root)
@@ -265,6 +270,26 @@ defmodule PhoenixKit.Install.PatchLedgerTest do
       assert PatchLedger.load(root).patches == %{"oban_queues:default" => :applied}
     end
 
+    test "a regenerated Oban block leaves out the queues the host declined", %{root: root} do
+      PatchLedger.save(
+        %{
+          patches: %{
+            "oban_queues:file_processing" => :declined,
+            "oban_queues:default" => :applied
+          }
+        },
+        root
+      )
+
+      PatchLedger.begin([skip_patch: "oban_queues:sitemap"], root)
+      lines = ObanConfig.generated_queue_lines()
+
+      refute lines =~ "file_processing:"
+      refute lines =~ "sitemap:"
+      # applied once and gone with the whole block: written back
+      assert lines =~ "default:"
+    end
+
     test "only installed packages' fallback queues are generated or added" do
       lines = ObanConfig.generated_queue_lines()
       # core's own queues are always there
@@ -375,6 +400,20 @@ defmodule PhoenixKit.Install.PatchLedgerTest do
 
       capture_io(fn -> send(self(), {:css, Update.enable_daisyui_themes(@css, "app.css")}) end)
       assert_received {:css, @css}
+    end
+
+    test "an app.css edit that never reached the disk is not recorded", %{root: root} do
+      css_path = Path.join(root, "app.css")
+      File.write!(css_path, @css)
+      PatchLedger.begin([], root)
+
+      capture_io(fn ->
+        @css |> Update.enable_daisyui_themes(css_path) |> Update.add_css_sources_import(css_path)
+      end)
+
+      # The write failed: app.css still has themes: false and no import.
+      PatchLedger.flush()
+      assert PatchLedger.load(root).patches == %{}
     end
 
     test "the CSS marker declines the import" do
