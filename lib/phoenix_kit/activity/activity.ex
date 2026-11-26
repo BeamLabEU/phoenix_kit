@@ -1043,10 +1043,20 @@ defmodule PhoenixKit.Activity do
   defp without_nul(value) when is_binary(value), do: String.replace(value, <<0>>, "\uFFFD")
 
   defp without_nul(%{} = map) when not is_struct(map),
-    do: Map.new(map, fn {key, item} -> {without_nul(key), without_nul(item)} end)
+    do: Map.new(map, fn {key, item} -> {key_without_nul(key), without_nul(item)} end)
 
   defp without_nul([head | tail]), do: [without_nul(head) | without_nul(tail)]
   defp without_nul(value), do: value
+
+  # An atom key reaches the JSON as its name, NUL included
+  # (`String.to_atom(<<"a", 0, "b">>)`): such a key becomes its scrubbed name
+  # as a string. Every other atom key is left as it is.
+  defp key_without_nul(key) when is_atom(key) do
+    name = Atom.to_string(key)
+    if String.contains?(name, <<0>>), do: without_nul(name), else: key
+  end
+
+  defp key_without_nul(key), do: without_nul(key)
 
   # The `:changes` option lands under the reserved key, and only when something
   # moved: an untouched save carries no empty "What changed" section.

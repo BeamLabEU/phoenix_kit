@@ -66,6 +66,18 @@ defmodule PhoenixKit.Integration.ActivityChangesTest do
       assert {:ok, [_]} = Activity.log_many([%{action: "x.updated", metadata: %{"n" => "\0"}}])
     end
 
+    # An atom key keeps its NUL into the JSON: the scrub used to pass atoms by.
+    test "a NUL inside an atom metadata key does not lose the entry" do
+      key = String.to_atom(<<"a", 0, "b">>)
+
+      assert {:ok, entry} =
+               Activity.log("shop", "order.updated", metadata: %{key => 1, nested: %{key => 2}})
+
+      stored = Repo.get!(Activity.Entry, entry.uuid)
+      assert stored.metadata["a\uFFFDb"] == 1
+      assert stored.metadata["nested"]["a\uFFFDb"] == 2
+    end
+
     test "log/1 and log_many/2 take the :changes key too" do
       {:ok, entry} = Activity.log(%{action: "x.updated", changes: {%{a: 1}, %{a: 2}}})
 
