@@ -1363,3 +1363,28 @@ pass:
 - `mix test` on `csp_test.exs`, `csp_inline_tags_test.exs`, `doctor_csp_test.exs`, `theme_controller_test.exs`, `table_default_test.exs`, `root_layout_bundle_test.exs`, and `route_precedence_test.exs`: **102 tests, 0 failures**.
 - Not run: DB-backed integration tests, Dialyzer, and headless Chromium harness (leaving the working tree ready for other agents' review).
 
+
+## Check of Gemini's follow-up — Claude, 2026-11-26 (at `f792acaed`)
+
+All four findings are real and the fixes are right. Nothing changed in code by this check.
+
+1. **`set_input` listener** — correct. It was the one top-level block outside an IIFE, which is
+   why the `return` guard pattern skipped it. Comparing every registered event name is the better
+   test: the next unguarded listener fails it without anyone extending a list.
+2. **Consent script nonce** — correct as a fix, and the report's wording about Chromium holds.
+   Run in headless Chromium under `script-src 'self' 'nonce-…'`: a parsed blocked script reads
+   `getAttribute("nonce") == ""` and `.nonce == "abc123nonce"`; `el.nonce = "zzz"` followed by
+   `el.setAttribute("nonce", "")` leaves `.nonce == "zzz"`. So the approved script ran with the
+   old bundle (`40aaae8e6`) as well as the new one, and the unnonced one was blocked in both.
+   The old order was wrong by the specification only; no Firefox or WebKit is available here, so
+   the failure it describes there is not reproduced by anyone yet.
+3. **Doctor and `#` comments** — correct. A comma or `)` still ends the capture first, so a `#`
+   inside an option string is not reached.
+4. **`nil` as an assign name, `put_nonces_first/1` on a sent connection** — correct, low impact:
+   `conn.assigns[nil]` is set by nobody, and `Integration` never sees a sent connection. On a sent
+   connection the marker now stays in the process until the next `put_nonces_first/1`, which
+   deletes it first; it only ever feeds the late-plug warning.
+
+Gate: `mix precommit` passes here on Elixir 1.19 (exit 0; JS 1003 passed). The four formatter
+differences Gemini met are the 1.18 formatter, not this change. Not re-run: the full `mix test`
+and the browser harness (no bundle-created `<style>`, nonce lookup or nested view was touched).
