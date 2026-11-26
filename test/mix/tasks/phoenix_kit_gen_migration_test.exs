@@ -15,6 +15,15 @@ defmodule Mix.Tasks.PhoenixKit.Gen.MigrationTest do
     assert content =~ "create_schema: true"
   end
 
+  test "the up step calls the floor-aware up_to!/2 with the target version" do
+    content =
+      Migration.migration_content("MyApp", "phoenix_kit_update_v236_to_v238", 236, 238, "public")
+
+    assert content =~ "PhoenixKit.Migrations.up_to!(238,"
+    refute content =~ "PhoenixKit.Migrations.up("
+    assert {:ok, _} = Code.string_to_quoted(content)
+  end
+
   test "prefixed upgrade never asks the chain to create the schema" do
     content =
       Migration.migration_content("MyApp", "phoenix_kit_update_v140_to_v142", 140, 142, "auth")
