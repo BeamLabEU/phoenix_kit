@@ -547,13 +547,14 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     # PhoenixKit relies on the host's vendored daisyUI being reasonably modern
     # (modal scrollbar-gutter handling; see PhoenixKit.Install.DaisyUI). The
     # host owns that file — we only warn, never touch it.
+    #
+    # The heads-up band (a fresh phx.new app is in it) prints once per
+    # {kit, daisyUI} version pair, remembered in .phoenix_kit.exs; not
+    # remembered on a dry run, which writes nothing.
     defp warn_if_daisyui_outdated(igniter) do
-      case DaisyUI.check() do
-        {:outdated, version} ->
-          Igniter.add_warning(igniter, DaisyUI.outdated_warning(version))
-
-        _ ->
-          igniter
+      case DaisyUI.notice_once(not IgniterHelpers.dry_run?(igniter)) do
+        nil -> igniter
+        warning -> Igniter.add_warning(igniter, warning)
       end
     end
 

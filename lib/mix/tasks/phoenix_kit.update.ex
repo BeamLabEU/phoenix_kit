@@ -2012,10 +2012,14 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     # Advisory only — the host owns its daisyUI; PhoenixKit's
     # modals rely on daisyUI >= DaisyUI.minimum_version() for correct modal
     # scrollbar-gutter handling (see PhoenixKit.Install.DaisyUI).
+    #
+    # The heads-up band prints once per {kit, daisyUI} version pair (kept in
+    # the patch ledger, written with the rest of it); below the gutter fix it
+    # prints every run.
     defp warn_if_daisyui_outdated do
-      case DaisyUI.check() do
-        {:outdated, version} -> Mix.shell().info(DaisyUI.outdated_warning(version))
-        _ -> :ok
+      case DaisyUI.notice_once() do
+        nil -> :ok
+        warning -> Mix.shell().info(warning)
       end
     end
 
