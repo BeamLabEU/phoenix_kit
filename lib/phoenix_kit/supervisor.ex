@@ -108,6 +108,12 @@ defmodule PhoenixKit.Supervisor do
         {PhoenixKit.Cache, name: :login_country_lookups, ttl: :timer.hours(24)},
         id: :login_country_lookups_cache
       ),
+      # The host's `/llms.txt` sections (`llms_txt_sections`), per host and locale; each entry
+      # carries its own expiry (`PhoenixKit.Modules.Crawlers.LlmsTxt`).
+      Supervisor.child_spec(
+        {PhoenixKit.Cache, name: :llms_txt_sections, ttl: :timer.minutes(5)},
+        id: :llms_txt_sections_cache
+      ),
       # API key rows (`PhoenixKit.API.Keys`), for 60 seconds, so that verifying a
       # bearer token is not a query per request. Owner rights are never cached.
       # The second child drops a row when another node revokes or rotates the key.

@@ -6,6 +6,9 @@ defmodule PhoenixKit.Modules.Crawlers.Web.Controller do
   `/sitemap.xml`'s reasoning: tools look for these files at the root, and the
   prefixed copy exists so prefix-only installs still have the endpoint.
 
+  Sections from the host application (`config :phoenix_kit, llms_txt_sections:`)
+  are described in `PhoenixKit.Modules.Crawlers.LlmsTxt`.
+
   404s when the Crawlers module is disabled — a policy document served from a
   switched-off policy module would be a lie about who is deciding.
   """
@@ -14,6 +17,7 @@ defmodule PhoenixKit.Modules.Crawlers.Web.Controller do
   alias PhoenixKit.API.PublicDiscovery
   alias PhoenixKit.Modules.Crawlers
   alias PhoenixKit.Modules.Crawlers.LlmsTxt
+  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.WebsiteAccess.Gate
 
   @cache_max_age 3600
@@ -34,19 +38,54 @@ defmodule PhoenixKit.Modules.Crawlers.Web.Controller do
   # website gate on that depends on the client address, so a shared cache must
   # not keep the answer.
   defp put_api_section(conn) do
+    host_sections = host_sections(conn)
+
     case PublicDiscovery.check(conn) do
       {:ok, _tools} ->
         origin = PublicDiscovery.origin(conn)
 
+        body =
+          LlmsTxt.build(
+            host_sections: host_sections,
+            api_section: PublicDiscovery.llms_section(origin)
+          )
+
         conn
         |> PublicDiscovery.put_link(PublicDiscovery.catalog_link(origin))
         |> put_gate_cache_control()
-        |> send_resp(200, LlmsTxt.build(api_section: PublicDiscovery.llms_section(origin)))
+        |> send_resp(200, body)
 
       :hidden ->
-        send_resp(conn, 200, LlmsTxt.build())
+        send_resp(conn, 200, LlmsTxt.build(host_sections: host_sections))
     end
   end
+
+  # The host's own sections (`config :phoenix_kit, llms_txt_sections:`), nothing when unset.
+  # The origin is the one discovery documents use, which never trusts an unknown `Host`.
+  defp host_sections(conn) do
+    if Application.get_env(:phoenix_kit, :llms_txt_sections) do
+      origin = PublicDiscovery.origin(conn)
+
+      LlmsTxt.host_sections(%{
+        base_url: origin,
+        host: URI.parse(origin).host,
+        locale: locale(conn)
+      })
+    end
+  end
+
+  # `?lang=` when it names an enabled language, else the site's primary language.
+  defp locale(conn) do
+    conn = fetch_query_params(conn)
+    enabled = Languages.enabled_locale_codes()
+
+    case conn.query_params["lang"] do
+      code when is_binary(code) -> if code in enabled, do: code, else: primary()
+      _other -> primary()
+    end
+  end
+
+  defp primary, do: Languages.primary_language_code()
 
   defp put_gate_cache_control(conn) do
     if Gate.enabled?(),

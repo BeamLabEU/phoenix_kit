@@ -537,6 +537,28 @@ proxy_set_header X-Forwarded-Proto $scheme;
 
 See [OAuth Setup Guide](guides/oauth-and-magic-link-setup.md) for details.
 
+### llms.txt sections from your app
+
+`/llms.txt` (Crawlers module) is the project title and the text an admin typed on
+Settings → Crawlers. Your app can add sections of its own, built per request:
+
+```elixir
+config :phoenix_kit, llms_txt_sections: {MyApp.LlmsTxt, :sections}
+
+defmodule MyApp.LlmsTxt do
+  # ctx: %{base_url: "https://shop.example", host: "shop.example", locale: "en"}
+  def sections(%{base_url: base}) do
+    [%{title: "Products", body: "- [Catalogue](#{base}/products)"}]
+  end
+end
+```
+
+Return markdown or a list of `%{title:, body:}`. The call has a deadline
+(`llms_txt_sections_timeout`, 2000 ms); a failure is logged and the file is served
+without the sections. Answers are cached per host and language for five minutes
+(`llms_txt_sections_ttl`). Unset, the file is exactly as before. Details:
+`PhoenixKit.Modules.Crawlers.LlmsTxt`.
+
 ### Advanced Options
 
 - Custom URL prefix: `phoenix_kit_routes("/authentication")`
