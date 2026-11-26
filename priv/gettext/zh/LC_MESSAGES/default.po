@@ -29673,6 +29673,21 @@ msgstr "留空则使用共享限制。填写数字会让此密钥低于共享限
 msgid "Rate limit of this key"
 msgstr "此密钥的速率限制"
 
+#: lib/phoenix_kit_web/users/registration.ex
+#, elixir-autogen, elixir-format
+msgid "This site already has an owner. The setup link is no longer needed."
+msgstr "此网站已有所有者。不再需要设置链接。"
+
+#: lib/phoenix_kit_web/users/registration.ex
+#, elixir-autogen, elixir-format
+msgid "Setup link accepted: the account you register here becomes the site's owner."
+msgstr "设置链接已接受：您在此注册的账户将成为网站的所有者。"
+
+#: lib/phoenix_kit_web/users/registration.ex
+#, elixir-autogen, elixir-format
+msgid "This setup link is not valid. Use the most recent link from the server log."
+msgstr "此设置链接无效。请使用服务器日志中最新的链接。"
+
 #: lib/phoenix_kit_web/components/account_menu.ex:69
 #: lib/phoenix_kit_web/components/core/theme_controller.ex:179
 #, elixir-autogen, elixir-format

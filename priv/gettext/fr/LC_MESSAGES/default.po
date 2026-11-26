@@ -29653,6 +29653,21 @@ msgstr "Vide utilise la limite commune. Un nombre maintient cette clé en dessou
 msgid "Rate limit of this key"
 msgstr "Limite de débit de cette clé"
 
+#: lib/phoenix_kit_web/users/registration.ex
+#, elixir-autogen, elixir-format
+msgid "This site already has an owner. The setup link is no longer needed."
+msgstr "Ce site a déjà un propriétaire. Le lien de configuration n'est plus nécessaire."
+
+#: lib/phoenix_kit_web/users/registration.ex
+#, elixir-autogen, elixir-format
+msgid "Setup link accepted: the account you register here becomes the site's owner."
+msgstr "Lien de configuration accepté : le compte que vous créez ici deviendra le propriétaire du site."
+
+#: lib/phoenix_kit_web/users/registration.ex
+#, elixir-autogen, elixir-format
+msgid "This setup link is not valid. Use the most recent link from the server log."
+msgstr "Ce lien de configuration n'est pas valide. Utilisez le lien le plus récent du journal du serveur."
+
 #: lib/phoenix_kit_web/components/account_menu.ex:69
 #: lib/phoenix_kit_web/components/core/theme_controller.ex:179
 #, elixir-autogen, elixir-format

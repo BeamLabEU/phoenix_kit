@@ -29737,6 +29737,21 @@ msgstr "Puste oznacza wspólny limit. Liczba utrzymuje ten klucz poniżej niego;
 msgid "Rate limit of this key"
 msgstr "Limit zapytań tego klucza"
 
+#: lib/phoenix_kit_web/users/registration.ex
+#, elixir-autogen, elixir-format
+msgid "This site already has an owner. The setup link is no longer needed."
+msgstr "Ta witryna ma już właściciela. Link konfiguracyjny nie jest już potrzebny."
+
+#: lib/phoenix_kit_web/users/registration.ex
+#, elixir-autogen, elixir-format
+msgid "Setup link accepted: the account you register here becomes the site's owner."
+msgstr "Link konfiguracyjny zaakceptowany: konto zarejestrowane tutaj zostanie właścicielem witryny."
+
+#: lib/phoenix_kit_web/users/registration.ex
+#, elixir-autogen, elixir-format
+msgid "This setup link is not valid. Use the most recent link from the server log."
+msgstr "Ten link konfiguracyjny jest nieprawidłowy. Użyj najnowszego linku z dziennika serwera."
+
 #: lib/phoenix_kit_web/components/account_menu.ex:69
 #: lib/phoenix_kit_web/components/core/theme_controller.ex:179
 #, elixir-autogen, elixir-format

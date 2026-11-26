@@ -29662,6 +29662,21 @@ msgstr "Vacío usa el límite compartido. Un número mantiene esta clave por deb
 msgid "Rate limit of this key"
 msgstr "Límite de frecuencia de esta clave"
 
+#: lib/phoenix_kit_web/users/registration.ex
+#, elixir-autogen, elixir-format
+msgid "This site already has an owner. The setup link is no longer needed."
+msgstr "Este sitio ya tiene un propietario. El enlace de configuración ya no es necesario."
+
+#: lib/phoenix_kit_web/users/registration.ex
+#, elixir-autogen, elixir-format
+msgid "Setup link accepted: the account you register here becomes the site's owner."
+msgstr "Enlace de configuración aceptado: la cuenta que registre aquí será la propietaria del sitio."
+
+#: lib/phoenix_kit_web/users/registration.ex
+#, elixir-autogen, elixir-format
+msgid "This setup link is not valid. Use the most recent link from the server log."
+msgstr "Este enlace de configuración no es válido. Use el enlace más reciente del registro del servidor."
+
 #: lib/phoenix_kit_web/components/account_menu.ex:69
 #: lib/phoenix_kit_web/components/core/theme_controller.ex:179
 #, elixir-autogen, elixir-format

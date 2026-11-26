@@ -29751,6 +29751,21 @@ msgstr "Пустое значение — общий лимит. Число де
 msgid "Rate limit of this key"
 msgstr "Лимит запросов этого ключа"
 
+#: lib/phoenix_kit_web/users/registration.ex
+#, elixir-autogen, elixir-format
+msgid "This site already has an owner. The setup link is no longer needed."
+msgstr "У этого сайта уже есть владелец. Ссылка для настройки больше не нужна."
+
+#: lib/phoenix_kit_web/users/registration.ex
+#, elixir-autogen, elixir-format
+msgid "Setup link accepted: the account you register here becomes the site's owner."
+msgstr "Ссылка для настройки принята: учётная запись, которую вы здесь зарегистрируете, станет владельцем сайта."
+
+#: lib/phoenix_kit_web/users/registration.ex
+#, elixir-autogen, elixir-format
+msgid "This setup link is not valid. Use the most recent link from the server log."
+msgstr "Эта ссылка для настройки недействительна. Используйте самую свежую ссылку из журнала сервера."
+
 #: lib/phoenix_kit_web/components/account_menu.ex:69
 #: lib/phoenix_kit_web/components/core/theme_controller.ex:179
 #, elixir-autogen, elixir-format

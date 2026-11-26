@@ -29663,6 +29663,21 @@ msgstr "Tühi kasutab ühist piirangut. Arv hoiab selle võtme sellest allpool; 
 msgid "Rate limit of this key"
 msgstr "Selle võtme päringute piirang"
 
+#: lib/phoenix_kit_web/users/registration.ex
+#, elixir-autogen, elixir-format
+msgid "This site already has an owner. The setup link is no longer needed."
+msgstr "Sellel saidil on juba omanik. Seadistuslinki pole enam vaja."
+
+#: lib/phoenix_kit_web/users/registration.ex
+#, elixir-autogen, elixir-format
+msgid "Setup link accepted: the account you register here becomes the site's owner."
+msgstr "Seadistuslink on vastu võetud: siin registreeritud kontost saab saidi omanik."
+
+#: lib/phoenix_kit_web/users/registration.ex
+#, elixir-autogen, elixir-format
+msgid "This setup link is not valid. Use the most recent link from the server log."
+msgstr "See seadistuslink ei kehti. Kasuta serveri logist kõige uuemat linki."
+
 #: lib/phoenix_kit_web/components/account_menu.ex:69
 #: lib/phoenix_kit_web/components/core/theme_controller.ex:179
 #, elixir-autogen, elixir-format

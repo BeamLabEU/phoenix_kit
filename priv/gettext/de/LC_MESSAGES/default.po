@@ -29653,6 +29653,21 @@ msgstr "Leer bedeutet das gemeinsame Limit. Eine Zahl hält diesen Schlüssel da
 msgid "Rate limit of this key"
 msgstr "Ratenlimit dieses Schlüssels"
 
+#: lib/phoenix_kit_web/users/registration.ex
+#, elixir-autogen, elixir-format
+msgid "This site already has an owner. The setup link is no longer needed."
+msgstr "Diese Website hat bereits einen Eigentümer. Der Einrichtungslink wird nicht mehr benötigt."
+
+#: lib/phoenix_kit_web/users/registration.ex
+#, elixir-autogen, elixir-format
+msgid "Setup link accepted: the account you register here becomes the site's owner."
+msgstr "Einrichtungslink akzeptiert: Das Konto, das Sie hier registrieren, wird Eigentümer der Website."
+
+#: lib/phoenix_kit_web/users/registration.ex
+#, elixir-autogen, elixir-format
+msgid "This setup link is not valid. Use the most recent link from the server log."
+msgstr "Dieser Einrichtungslink ist ungültig. Verwenden Sie den neuesten Link aus dem Serverprotokoll."
+
 #: lib/phoenix_kit_web/components/account_menu.ex:69
 #: lib/phoenix_kit_web/components/core/theme_controller.ex:179
 #, elixir-autogen, elixir-format

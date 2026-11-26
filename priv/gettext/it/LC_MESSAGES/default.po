@@ -29653,6 +29653,21 @@ msgstr "Vuoto usa il limite condiviso. Un numero tiene questa chiave al di sotto
 msgid "Rate limit of this key"
 msgstr "Limite di frequenza di questa chiave"
 
+#: lib/phoenix_kit_web/users/registration.ex
+#, elixir-autogen, elixir-format
+msgid "This site already has an owner. The setup link is no longer needed."
+msgstr "Questo sito ha già un proprietario. Il link di configurazione non è più necessario."
+
+#: lib/phoenix_kit_web/users/registration.ex
+#, elixir-autogen, elixir-format
+msgid "Setup link accepted: the account you register here becomes the site's owner."
+msgstr "Link di configurazione accettato: l'account che registri qui diventerà il proprietario del sito."
+
+#: lib/phoenix_kit_web/users/registration.ex
+#, elixir-autogen, elixir-format
+msgid "This setup link is not valid. Use the most recent link from the server log."
+msgstr "Questo link di configurazione non è valido. Usa il link più recente dal log del server."
+
 #: lib/phoenix_kit_web/components/account_menu.ex:69
 #: lib/phoenix_kit_web/components/core/theme_controller.ex:179
 #, elixir-autogen, elixir-format
