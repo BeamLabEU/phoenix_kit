@@ -167,8 +167,18 @@ defmodule PhoenixKit.Squash.GenerateModule do
     history = Differ.history([{1, snapshot}])
     %{objects: objects} = Differ.catalog(history, snapshot)
 
+    # `inspect/1` alone cuts lists at 50 items and strings at 4096 bytes, so
+    # an object added past the 50th (the catalogue's V7) left the hash as it
+    # was. Unlimited, the text covers every object; for a manifest that was
+    # never cut it is the same text as before, so its hash does not move.
     hash =
-      :crypto.hash(:sha256, inspect(Emitter.build_objects(objects, owner: config.app)))
+      :crypto.hash(
+        :sha256,
+        inspect(Emitter.build_objects(objects, owner: config.app),
+          limit: :infinity,
+          printable_limit: :infinity
+        )
+      )
       |> Base.encode16(case: :lower)
 
     meta = %{initial: 1, current: 1, file_count: 0, chain_hash: hash}
