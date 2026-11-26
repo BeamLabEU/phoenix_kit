@@ -93,9 +93,11 @@ defmodule PhoenixKit.API.Registry do
     end
   end
 
+  # A tool is hidden by its name or by any of its aliases (`api_disabled_tools` is a plain
+  # list a host may edit by hand, and an alias is a name the tool answers to).
   defp callable_tools(hidden, hidden_modules) do
     (ModuleRegistry.all_api_tools(hidden_modules) ++ CoreTools.tools())
-    |> Enum.reject(&MapSet.member?(hidden, &1.name))
+    |> Enum.reject(fn tool -> Enum.any?(Tool.names(tool), &MapSet.member?(hidden, &1)) end)
   end
 
   # The name first, then an alias (`PhoenixKit.API.Tool` `:aliases`): the tool found carries
