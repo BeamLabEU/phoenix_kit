@@ -25,6 +25,14 @@ defmodule PhoenixKitWeb.Components.Core.Accordion do
   keeper in `priv/static/assets/phoenix_kit.js` holds the page height instead,
   so the reader stays put. It keys off `class="collapse"` on the `<details>`,
   which this component always emits.
+
+  ## Look
+
+  By default the section is drawn like core's own cards: `bg-base-100` with a
+  `border-base-300` edge and `shadow-sm`. On the dark themes `base-200` sits
+  within a few hundredths of lightness of `base-100`, so a `border-base-200`
+  edge vanished against the page. A caller that wants a flat, filled section
+  passes its own classes (e.g. `class="bg-base-200 border-0 shadow-none"`).
   """
 
   use Phoenix.Component
@@ -56,7 +64,7 @@ defmodule PhoenixKitWeb.Components.Core.Accordion do
       open={@open}
       data-change-region={@cue && @id}
       phx-mounted={JS.ignore_attributes(cue_owned_attributes(@cue))}
-      class={["collapse collapse-arrow border border-base-200 bg-base-100", @class]}
+      class={["collapse collapse-arrow border border-base-300 bg-base-100 shadow-sm", @class]}
     >
       <%!-- Opening a cued region is the reader SEEING it, which is what
            resets its baseline server-side. Alongside the native toggle,
