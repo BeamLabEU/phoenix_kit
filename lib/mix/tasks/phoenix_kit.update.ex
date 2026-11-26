@@ -1103,8 +1103,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           After update completes:
             1. Run migrations if not done automatically: mix ecto.migrate
             2. Restart your Phoenix server: mix phx.server
-            3. Visit your application: #{app_path("/users/register")}
-               No Owner yet? mix phoenix_kit.create_owner you@example.com
+            3. #{next_step_line()}
           """
 
       Igniter.add_notice(igniter, final_instructions)
