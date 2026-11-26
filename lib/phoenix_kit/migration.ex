@@ -240,7 +240,12 @@ defmodule PhoenixKit.Migration do
   end
 
   @doc """
-  Check the latest version the database is migrated to.
+  Check the latest version the database is migrated to, **from inside a
+  migration** (it queries through the running `Ecto.Migration` runner, and
+  raises on a missing or unreadable version comment rather than guess).
+
+  Anywhere else (a release script, a deploy check, IEx) use
+  `installed_version/1`.
 
   ## Example
 
@@ -249,6 +254,52 @@ defmodule PhoenixKit.Migration do
   def migrated_version(opts \\ []) when is_list(opts) do
     migrator().migrated_version(opts)
   end
+
+  @doc """
+  The PhoenixKit schema version installed in the database, read at runtime.
+
+  For scripts and deploy checks outside a migration: a staged rollout can
+  compare it with `current_version/0` (what this release ships) before and
+  after `mix phoenix_kit.update`. It reads the version comment on the
+  `phoenix_kit` table through the configured repo (`config :phoenix_kit,
+  repo:`), starting the repo when needed; `mix phoenix_kit.status` and the
+  admin dashboard show the same number.
+
+  Returns `0` when PhoenixKit is not installed in that schema **and** when
+  the version cannot be read (database unreachable, no repo configured): it
+  never raises for those. Check that the database is reachable before
+  reading `0` as "not installed"; `mix phoenix_kit.doctor` tells the two
+  apart. A `phoenix_kit` table without a version comment reports `1` (and
+  warns).
+
+  ## Options
+
+    * `:prefix` — the Postgres schema PhoenixKit lives in (default
+      `"public"`). An invalid prefix raises `ArgumentError`.
+
+  ## Example
+
+      PhoenixKit.Migration.installed_version()
+      #=> 236
+
+      PhoenixKit.Migration.installed_version(prefix: "auth")
+      #=> 0
+
+      if PhoenixKit.Migration.installed_version() < PhoenixKit.Migration.current_version() do
+        # this environment still needs `mix phoenix_kit.update`
+      end
+  """
+  @spec installed_version(keyword()) :: non_neg_integer()
+  def installed_version(opts \\ []) when is_list(opts) do
+    PhoenixKit.Migrations.Postgres.migrated_version_runtime(opts)
+  end
+
+  @doc """
+  The latest schema version this PhoenixKit release ships: what
+  `installed_version/1` reads once the database is fully migrated.
+  """
+  @spec current_version() :: pos_integer()
+  def current_version, do: PhoenixKit.Migrations.Postgres.current_version()
 
   @doc """
   Idempotently brings `repo` up to the latest PhoenixKit migration version.
