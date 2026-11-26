@@ -844,6 +844,13 @@ like an upload (`:library_uuid`, `:allowed_types` — default `["image/"]` —,
 `:filename`). It blocks for the whole download: call it from a Task or a
 job, never a LiveView event handler.
 
+- **A host or a module can refuse to serve a file**:
+  `config :phoenix_kit, :file_access_guard, {MyApp.Files, :access}` (or a list),
+  or a module's optional `file_access_guard/2` callback, is asked by
+  `/file/...` (every variant), the info and unedited endpoints and the tiles.
+  It answers `:allow`, `:private` (served `private, no-store`, never redirected
+  to a bucket URL) or `:deny` (the 404 of a missing file). Contract:
+  `PhoenixKit.Modules.Storage.AccessGuard`.
 - **The fetch never reaches the server's own network.**
   `Storage.RemoteFetch.download/2` allows https only (`allow_http:`), ports
   80/443 (`allowed_ports:`), resolves the host once, requires every address
