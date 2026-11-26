@@ -29586,6 +29586,136 @@ msgstr "Загрузить"
 msgid "Restore your unsaved draft?"
 msgstr "Восстановить несохранённый черновик?"
 
+#: lib/modules/storage/web/renditions_component.ex:489
+#, elixir-autogen, elixir-format
+msgid "Watermark"
+msgstr "Водяной знак"
+
+#: lib/modules/storage/web/renditions_component.ex:493
+#, elixir-autogen, elixir-format
+msgid "Drawn on the image renditions you choose when they are made. The original upload is never watermarked, and renditions left unticked stay clean. Saving remakes the affected renditions in the background."
+msgstr "Наносится на выбранные вами варианты изображения при их создании. Загруженный оригинал никогда не получает водяной знак, а неотмеченные варианты остаются чистыми. При сохранении затронутые варианты пересоздаются в фоне."
+
+#: lib/modules/storage/web/renditions_component.ex:507
+#, elixir-autogen, elixir-format
+msgid "Watermark this profile's renditions"
+msgstr "Добавлять водяной знак к вариантам этого профиля"
+
+#: lib/modules/storage/web/renditions_component.ex:512
+#, elixir-autogen, elixir-format
+msgid "Style"
+msgstr "Стиль"
+
+#: lib/modules/storage/web/renditions_component.ex:514
+#, elixir-autogen, elixir-format
+msgid "Strip along the bottom"
+msgstr "Полоса внизу"
+
+#: lib/modules/storage/web/renditions_component.ex:515
+#, elixir-autogen, elixir-format
+msgid "Mark in a corner"
+msgstr "Знак в углу"
+
+#: lib/modules/storage/web/renditions_component.ex:526
+#, elixir-autogen, elixir-format
+msgid "Logo (a stored image's file ID, optional)"
+msgstr "Логотип (ID файла сохранённого изображения, необязательно)"
+
+#: lib/modules/storage/web/renditions_component.ex:531
+#, elixir-autogen, elixir-format
+msgid "In the text, {site_url} becomes the site's address and {site_name} its name. Leave the text blank for a logo alone."
+msgstr "В тексте {site_url} заменяется адресом сайта, а {site_name} — его названием. Оставьте текст пустым, чтобы использовать только логотип."
+
+#: lib/modules/storage/web/renditions_component.ex:538
+#, elixir-autogen, elixir-format
+msgid "Corner"
+msgstr "Угол"
+
+#: lib/modules/storage/web/renditions_component.ex:540
+#, elixir-autogen, elixir-format
+msgid "Bottom right"
+msgstr "Снизу справа"
+
+#: lib/modules/storage/web/renditions_component.ex:541
+#, elixir-autogen, elixir-format
+msgid "Bottom left"
+msgstr "Снизу слева"
+
+#: lib/modules/storage/web/renditions_component.ex:542
+#, elixir-autogen, elixir-format
+msgid "Top right"
+msgstr "Сверху справа"
+
+#: lib/modules/storage/web/renditions_component.ex:543
+#, elixir-autogen, elixir-format
+msgid "Top left"
+msgstr "Сверху слева"
+
+#: lib/modules/storage/web/renditions_component.ex:549
+#, elixir-autogen, elixir-format
+msgid "Width (% of the picture)"
+msgstr "Ширина (% от изображения)"
+
+#: lib/modules/storage/web/renditions_component.ex:556
+#, elixir-autogen, elixir-format
+msgid "Opacity (%)"
+msgstr "Непрозрачность (%)"
+
+#: lib/modules/storage/web/renditions_component.ex:563
+#, elixir-autogen, elixir-format
+msgid "Margin (% of the width)"
+msgstr "Отступ (% от ширины)"
+
+#: lib/modules/storage/web/renditions_component.ex:570
+#, elixir-autogen, elixir-format
+msgid "Position"
+msgstr "Положение"
+
+#: lib/modules/storage/web/renditions_component.ex:572
+#, elixir-autogen, elixir-format
+msgid "Below the picture (the rendition gets taller)"
+msgstr "Под изображением (вариант становится выше)"
+
+#: lib/modules/storage/web/renditions_component.ex:573
+#, elixir-autogen, elixir-format
+msgid "Over the bottom of the picture"
+msgstr "Поверх нижней части изображения"
+
+#: lib/modules/storage/web/renditions_component.ex:579
+#, elixir-autogen, elixir-format
+msgid "Height (% of the width)"
+msgstr "Высота (% от ширины)"
+
+#: lib/modules/storage/web/renditions_component.ex:585
+#, elixir-autogen, elixir-format
+msgid "Background colour"
+msgstr "Цвет фона"
+
+#: lib/modules/storage/web/renditions_component.ex:591
+#, elixir-autogen, elixir-format
+msgid "Background opacity (%, over the picture only)"
+msgstr "Непрозрачность фона (%, только поверх изображения)"
+
+#: lib/modules/storage/web/renditions_component.ex:598
+#, elixir-autogen, elixir-format
+msgid "Text colour"
+msgstr "Цвет текста"
+
+#: lib/modules/storage/web/renditions_component.ex:604
+#, elixir-autogen, elixir-format
+msgid "Renditions that get the watermark"
+msgstr "Варианты с водяным знаком"
+
+#: lib/modules/storage/web/renditions_component.ex:634
+#, elixir-autogen, elixir-format
+msgid "Save watermark"
+msgstr "Сохранить водяной знак"
+
+#: lib/modules/storage/web/renditions_component.ex:198
+#, elixir-autogen, elixir-format
+msgid "Watermark saved"
+msgstr "Водяной знак сохранён"
+
 #: lib/phoenix_kit_web/components/account_menu.ex:69
 #: lib/phoenix_kit_web/components/core/theme_controller.ex:179
 #, elixir-autogen, elixir-format

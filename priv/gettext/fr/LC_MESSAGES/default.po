@@ -29488,6 +29488,136 @@ msgstr "Envoyer"
 msgid "Restore your unsaved draft?"
 msgstr "Restaurer le brouillon non enregistré ?"
 
+#: lib/modules/storage/web/renditions_component.ex:489
+#, elixir-autogen, elixir-format
+msgid "Watermark"
+msgstr "Filigrane"
+
+#: lib/modules/storage/web/renditions_component.ex:493
+#, elixir-autogen, elixir-format
+msgid "Drawn on the image renditions you choose when they are made. The original upload is never watermarked, and renditions left unticked stay clean. Saving remakes the affected renditions in the background."
+msgstr "Appliqué aux variantes d'image choisies lors de leur création. L'original téléversé n'est jamais filigrané, et les variantes non cochées restent intactes. L'enregistrement refait les variantes concernées en arrière-plan."
+
+#: lib/modules/storage/web/renditions_component.ex:507
+#, elixir-autogen, elixir-format
+msgid "Watermark this profile's renditions"
+msgstr "Filigraner les variantes de ce profil"
+
+#: lib/modules/storage/web/renditions_component.ex:512
+#, elixir-autogen, elixir-format
+msgid "Style"
+msgstr "Style"
+
+#: lib/modules/storage/web/renditions_component.ex:514
+#, elixir-autogen, elixir-format
+msgid "Strip along the bottom"
+msgstr "Bandeau en bas"
+
+#: lib/modules/storage/web/renditions_component.ex:515
+#, elixir-autogen, elixir-format
+msgid "Mark in a corner"
+msgstr "Marque dans un coin"
+
+#: lib/modules/storage/web/renditions_component.ex:526
+#, elixir-autogen, elixir-format
+msgid "Logo (a stored image's file ID, optional)"
+msgstr "Logo (identifiant de fichier d'une image stockée, facultatif)"
+
+#: lib/modules/storage/web/renditions_component.ex:531
+#, elixir-autogen, elixir-format
+msgid "In the text, {site_url} becomes the site's address and {site_name} its name. Leave the text blank for a logo alone."
+msgstr "Dans le texte, {site_url} devient l'adresse du site et {site_name} son nom. Laissez le texte vide pour un logo seul."
+
+#: lib/modules/storage/web/renditions_component.ex:538
+#, elixir-autogen, elixir-format
+msgid "Corner"
+msgstr "Coin"
+
+#: lib/modules/storage/web/renditions_component.ex:540
+#, elixir-autogen, elixir-format
+msgid "Bottom right"
+msgstr "En bas à droite"
+
+#: lib/modules/storage/web/renditions_component.ex:541
+#, elixir-autogen, elixir-format
+msgid "Bottom left"
+msgstr "En bas à gauche"
+
+#: lib/modules/storage/web/renditions_component.ex:542
+#, elixir-autogen, elixir-format
+msgid "Top right"
+msgstr "En haut à droite"
+
+#: lib/modules/storage/web/renditions_component.ex:543
+#, elixir-autogen, elixir-format
+msgid "Top left"
+msgstr "En haut à gauche"
+
+#: lib/modules/storage/web/renditions_component.ex:549
+#, elixir-autogen, elixir-format
+msgid "Width (% of the picture)"
+msgstr "Largeur (% de l'image)"
+
+#: lib/modules/storage/web/renditions_component.ex:556
+#, elixir-autogen, elixir-format
+msgid "Opacity (%)"
+msgstr "Opacité (%)"
+
+#: lib/modules/storage/web/renditions_component.ex:563
+#, elixir-autogen, elixir-format
+msgid "Margin (% of the width)"
+msgstr "Marge (% de la largeur)"
+
+#: lib/modules/storage/web/renditions_component.ex:570
+#, elixir-autogen, elixir-format
+msgid "Position"
+msgstr "Position"
+
+#: lib/modules/storage/web/renditions_component.ex:572
+#, elixir-autogen, elixir-format
+msgid "Below the picture (the rendition gets taller)"
+msgstr "Sous l'image (la variante devient plus haute)"
+
+#: lib/modules/storage/web/renditions_component.ex:573
+#, elixir-autogen, elixir-format
+msgid "Over the bottom of the picture"
+msgstr "Par-dessus le bas de l'image"
+
+#: lib/modules/storage/web/renditions_component.ex:579
+#, elixir-autogen, elixir-format
+msgid "Height (% of the width)"
+msgstr "Hauteur (% de la largeur)"
+
+#: lib/modules/storage/web/renditions_component.ex:585
+#, elixir-autogen, elixir-format
+msgid "Background colour"
+msgstr "Couleur de fond"
+
+#: lib/modules/storage/web/renditions_component.ex:591
+#, elixir-autogen, elixir-format
+msgid "Background opacity (%, over the picture only)"
+msgstr "Opacité du fond (%, sur l'image uniquement)"
+
+#: lib/modules/storage/web/renditions_component.ex:598
+#, elixir-autogen, elixir-format
+msgid "Text colour"
+msgstr "Couleur du texte"
+
+#: lib/modules/storage/web/renditions_component.ex:604
+#, elixir-autogen, elixir-format
+msgid "Renditions that get the watermark"
+msgstr "Variantes qui reçoivent le filigrane"
+
+#: lib/modules/storage/web/renditions_component.ex:634
+#, elixir-autogen, elixir-format
+msgid "Save watermark"
+msgstr "Enregistrer le filigrane"
+
+#: lib/modules/storage/web/renditions_component.ex:198
+#, elixir-autogen, elixir-format
+msgid "Watermark saved"
+msgstr "Filigrane enregistré"
+
 #: lib/phoenix_kit_web/components/account_menu.ex:69
 #: lib/phoenix_kit_web/components/core/theme_controller.ex:179
 #, elixir-autogen, elixir-format

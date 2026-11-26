@@ -29488,6 +29488,136 @@ msgstr "Carica"
 msgid "Restore your unsaved draft?"
 msgstr "Ripristinare la bozza non salvata?"
 
+#: lib/modules/storage/web/renditions_component.ex:489
+#, elixir-autogen, elixir-format
+msgid "Watermark"
+msgstr "Filigrana"
+
+#: lib/modules/storage/web/renditions_component.ex:493
+#, elixir-autogen, elixir-format
+msgid "Drawn on the image renditions you choose when they are made. The original upload is never watermarked, and renditions left unticked stay clean. Saving remakes the affected renditions in the background."
+msgstr "Applicata alle varianti dell'immagine scelte quando vengono create. L'originale caricato non riceve mai la filigrana e le varianti non selezionate restano pulite. Il salvataggio rigenera in background le varianti interessate."
+
+#: lib/modules/storage/web/renditions_component.ex:507
+#, elixir-autogen, elixir-format
+msgid "Watermark this profile's renditions"
+msgstr "Applica la filigrana alle varianti di questo profilo"
+
+#: lib/modules/storage/web/renditions_component.ex:512
+#, elixir-autogen, elixir-format
+msgid "Style"
+msgstr "Stile"
+
+#: lib/modules/storage/web/renditions_component.ex:514
+#, elixir-autogen, elixir-format
+msgid "Strip along the bottom"
+msgstr "Striscia in basso"
+
+#: lib/modules/storage/web/renditions_component.ex:515
+#, elixir-autogen, elixir-format
+msgid "Mark in a corner"
+msgstr "Marchio in un angolo"
+
+#: lib/modules/storage/web/renditions_component.ex:526
+#, elixir-autogen, elixir-format
+msgid "Logo (a stored image's file ID, optional)"
+msgstr "Logo (ID file di un'immagine archiviata, facoltativo)"
+
+#: lib/modules/storage/web/renditions_component.ex:531
+#, elixir-autogen, elixir-format
+msgid "In the text, {site_url} becomes the site's address and {site_name} its name. Leave the text blank for a logo alone."
+msgstr "Nel testo, {site_url} diventa l'indirizzo del sito e {site_name} il suo nome. Lascia il testo vuoto per usare solo un logo."
+
+#: lib/modules/storage/web/renditions_component.ex:538
+#, elixir-autogen, elixir-format
+msgid "Corner"
+msgstr "Angolo"
+
+#: lib/modules/storage/web/renditions_component.ex:540
+#, elixir-autogen, elixir-format
+msgid "Bottom right"
+msgstr "In basso a destra"
+
+#: lib/modules/storage/web/renditions_component.ex:541
+#, elixir-autogen, elixir-format
+msgid "Bottom left"
+msgstr "In basso a sinistra"
+
+#: lib/modules/storage/web/renditions_component.ex:542
+#, elixir-autogen, elixir-format
+msgid "Top right"
+msgstr "In alto a destra"
+
+#: lib/modules/storage/web/renditions_component.ex:543
+#, elixir-autogen, elixir-format
+msgid "Top left"
+msgstr "In alto a sinistra"
+
+#: lib/modules/storage/web/renditions_component.ex:549
+#, elixir-autogen, elixir-format
+msgid "Width (% of the picture)"
+msgstr "Larghezza (% dell'immagine)"
+
+#: lib/modules/storage/web/renditions_component.ex:556
+#, elixir-autogen, elixir-format
+msgid "Opacity (%)"
+msgstr "Opacità (%)"
+
+#: lib/modules/storage/web/renditions_component.ex:563
+#, elixir-autogen, elixir-format
+msgid "Margin (% of the width)"
+msgstr "Margine (% della larghezza)"
+
+#: lib/modules/storage/web/renditions_component.ex:570
+#, elixir-autogen, elixir-format
+msgid "Position"
+msgstr "Posizione"
+
+#: lib/modules/storage/web/renditions_component.ex:572
+#, elixir-autogen, elixir-format
+msgid "Below the picture (the rendition gets taller)"
+msgstr "Sotto l'immagine (la variante diventa più alta)"
+
+#: lib/modules/storage/web/renditions_component.ex:573
+#, elixir-autogen, elixir-format
+msgid "Over the bottom of the picture"
+msgstr "Sopra la parte inferiore dell'immagine"
+
+#: lib/modules/storage/web/renditions_component.ex:579
+#, elixir-autogen, elixir-format
+msgid "Height (% of the width)"
+msgstr "Altezza (% della larghezza)"
+
+#: lib/modules/storage/web/renditions_component.ex:585
+#, elixir-autogen, elixir-format
+msgid "Background colour"
+msgstr "Colore di sfondo"
+
+#: lib/modules/storage/web/renditions_component.ex:591
+#, elixir-autogen, elixir-format
+msgid "Background opacity (%, over the picture only)"
+msgstr "Opacità dello sfondo (%, solo sopra l'immagine)"
+
+#: lib/modules/storage/web/renditions_component.ex:598
+#, elixir-autogen, elixir-format
+msgid "Text colour"
+msgstr "Colore del testo"
+
+#: lib/modules/storage/web/renditions_component.ex:604
+#, elixir-autogen, elixir-format
+msgid "Renditions that get the watermark"
+msgstr "Varianti che ricevono la filigrana"
+
+#: lib/modules/storage/web/renditions_component.ex:634
+#, elixir-autogen, elixir-format
+msgid "Save watermark"
+msgstr "Salva filigrana"
+
+#: lib/modules/storage/web/renditions_component.ex:198
+#, elixir-autogen, elixir-format
+msgid "Watermark saved"
+msgstr "Filigrana salvata"
+
 #: lib/phoenix_kit_web/components/account_menu.ex:69
 #: lib/phoenix_kit_web/components/core/theme_controller.ex:179
 #, elixir-autogen, elixir-format
