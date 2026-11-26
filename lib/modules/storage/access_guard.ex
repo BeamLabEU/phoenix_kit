@@ -47,11 +47,22 @@ defmodule PhoenixKit.Modules.Storage.AccessGuard do
 
   `GET /file/:uuid/:variant/:token` (the original and every variant,
   thumbnails included), `GET /api/files/:uuid/info`,
-  `GET /api/files/:uuid/unedited` and the image tiles
-  (`/tiles/...`). Not guarded: a file in a public bucket reached at the
-  bucket's own URL (`Storage.get_public_url/2` and a CDN URL point there, past
-  the app), which a guarded file should therefore not be given; and the kit's
-  own admin screens (the media browser), whose access is the admin's.
+  `GET /api/files/:uuid/unedited` and the image tiles (`/tiles/...`: the
+  manifest and every tile is a response of its own, so one deep-zoom view asks
+  the guards dozens of times — cache a per-file answer if it costs a query).
+
+  The kit's own screens load files through the same route: the media browser's
+  thumbnails, the media pickers, the image editor. A guard that denies by file
+  ("this picture belongs to a protected post") must still answer `:allow` or
+  `:private` to the people who manage it (for instance a scope that holds
+  `media`, `PhoenixKit.Users.Auth.Scope.has_module_access?/2`), or their
+  thumbnails turn into 404s.
+
+  Not guarded: a file in a public bucket reached at the bucket's own URL.
+  `Storage.get_public_url/1`, `Storage.get_public_url_by_uuid/1,2`, the
+  shared `PhoenixKit.Modules.Shared.Components.Image` component and a CDN URL
+  can point there, past the app, on an install with a public bucket. Give a guarded file signed kit URLs
+  (`PhoenixKit.Modules.Storage.URLSigner.signed_url/3`) instead.
 
   ## Fails closed
 
