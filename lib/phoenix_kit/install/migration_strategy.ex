@@ -318,6 +318,30 @@ defmodule PhoenixKit.Install.MigrationStrategy do
     end
   end
 
+  @doc """
+  Asks a yes/no question whose default is yes, and says whether anyone answered.
+
+  `:yes` for `y`, `yes` or a bare Enter, `:no` for anything else typed, and
+  `:no_input` when there was nothing to read. `Mix.shell().prompt/1` does not
+  raise on a closed or redirected standard input (`< /dev/null`, a finished
+  pipe): it RETURNS `:eof` or `{:error, reason}`, so a `rescue` around it
+  catches nothing and the value must be matched. No input is never a yes — the
+  default belongs to a person who pressed Enter.
+  """
+  @spec confirm(String.t()) :: :yes | :no | :no_input
+  def confirm(question) do
+    case Mix.shell().prompt(question) do
+      answer when is_binary(answer) ->
+        if String.downcase(String.trim(answer)) in ["", "y", "yes"], do: :yes, else: :no
+
+      _eof_or_error ->
+        :no_input
+    end
+  rescue
+    # A shell that cannot ask at all (Mix.Shell.Process with nothing queued).
+    _ -> :no_input
+  end
+
   # Interactive migration functions (called outside igniter)
 
   defp prompt_if_possible(migration_file) do
@@ -359,18 +383,10 @@ defmodule PhoenixKit.Install.MigrationStrategy do
 
     IO.puts(prompt)
 
-    case (try do
-            Mix.shell().prompt("Run migration? [Y/n]")
-          rescue
-            _ -> "n"
-          end)
-         |> String.trim()
-         |> String.downcase() do
-      response when response in ["", "y", "yes"] ->
-        run_migration_with_feedback_simple()
-
-      _ ->
-        manual_migration_notice_simple()
+    case confirm("Run migration? [Y/n]") do
+      :yes -> run_migration_with_feedback_simple()
+      :no -> manual_migration_notice_simple()
+      :no_input -> fallback_migration_notice_simple("no answer on standard input")
     end
   end
 

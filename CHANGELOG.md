@@ -55,6 +55,14 @@
 
 ### Fixed
 
+- **`mix phoenix_kit.update` no longer crashes when nobody can answer its migration question.**
+  With standard input closed or redirected (`< /dev/null`, a tool runner, a finished pipe) the
+  prompt returned `:eof` and the task died with a `FunctionClauseError`, before it wrote the
+  module migration files and before it said what to run. It now checks that standard input is a
+  terminal before asking, and treats no answer as "not confirmed", never as the Enter default:
+  the task stops with the usual "not migrated" error that names `--yes` and `mix ecto.migrate`.
+  The install path had the same unmatched `:eof` behind its terminal check. (#1066)
+
 - **Nested LiveViews lost the CSP nonce once the socket connected**: the header widgets, the
   notifications bell and the admin home are processes of their own and never ran the live
   session's `on_mount`. Their session now carries the nonce and the view restores it.

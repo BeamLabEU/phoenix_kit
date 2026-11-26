@@ -140,6 +140,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       IgniterHelpers,
       JsIntegration,
       MailerConfig,
+      MigrationStrategy,
       MissingIgniter,
       ObanConfig,
       PrefixConfig,
@@ -908,14 +909,19 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         - n/no:  Skip migration (you can run it manually later)
         """)
 
-        case Mix.shell().prompt("Run migration? [Y/n]")
-             |> String.trim()
-             |> String.downcase() do
-          response when response in ["", "y", "yes"] ->
+        case MigrationStrategy.confirm("Run migration? [Y/n]") do
+          :yes ->
             run_migration_with_feedback(opts)
 
-          _ ->
+          :no ->
             raise_pending_migration("Migration skipped at your request.", opts)
+
+          # Never a yes: the Enter default is for a person who pressed Enter.
+          :no_input ->
+            raise_pending_migration(
+              "Migration not run: no answer on standard input (not a terminal).",
+              opts
+            )
         end
       end
     end
@@ -1789,9 +1795,11 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           {:error, "No app name found"}
 
         _app ->
-          # Check if we're in interactive environment
-          if System.get_env("CI") || !System.get_env("TERM") do
-            {:error, "Non-interactive environment"}
+          # TERM alone cannot tell (`mix phoenix_kit.update < /dev/null`, a
+          # tool runner's pipe): ask whether standard input is a terminal.
+          if System.get_env("CI") || !System.get_env("TERM") ||
+               !MigrationStrategy.interactive_terminal?() do
+            {:error, "no interactive terminal"}
           else
             :ok
           end
