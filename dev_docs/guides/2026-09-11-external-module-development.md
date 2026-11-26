@@ -40,6 +40,31 @@ hooks: { ...window.PhoenixKitHooks, ...colocatedHooks }
 Templates in module packages use the same Layout Wrapper as core — see
 `dev_docs/guides/2026-09-11-core-components.md` → "Layout Wrapper".
 
+## Content-Security-Policy in a module
+
+A host may send `script-src 'self' 'nonce-…'` (core: `guides/content-security-policy.md`,
+`PhoenixKitWeb.CSP`). A module has to work under it **and** on a core older than the one that
+introduced the nonce, so it never raises its core floor for this:
+
+- **Inline `<script>` / `<style>`** take `nonce={MyModule.Web.CSP.nonce(:style)}` from a small
+  helper of the module's own that reaches `PhoenixKitWeb.CSP.nonce/1` through `apply/3` behind
+  `Code.ensure_loaded?/1` + `function_exported?/3` and answers `nil` otherwise (`nonce={nil}`
+  renders no attribute). A direct call does not pass dialyzer on the older core. The model is
+  `phoenix_kit_hello_world` (`lib/phoenix_kit_hello_world/web/csp.ex`).
+- **No inline event handlers.** In order: a `phx-` binding (`phx-submit={%JS{}}` replaces
+  `onsubmit="return false"`; an empty `phx-click={%JS{}}` on a wrapper keeps a click from the
+  row's own `phx-click`, where `event.stopPropagation()` also hid it from LiveView); else a
+  delegated listener in the module's own bundle (`js_sources/0`) on an attribute of the
+  module's own (`data-pkb-print`, not `data-pk-*`: core's listeners are absent from an older
+  core). `phoenix_kit_sync` is the small reference.
+- **A `<style>` the bundle creates** is stamped before insertion:
+  `window.PhoenixKitInternals && PhoenixKitInternals.adoptStyle && PhoenixKitInternals.adoptStyle(el)`.
+- **A view embedded with `live_render/3` on bare `Phoenix.LiveView`** restores the nonce with
+  the helper's own `on_mount` (feature-detected the same way).
+- **Never in a cached body, never in an e-mail body.**
+- Each module has `test/**/csp_inline_tags_test.exs`, a copy of core's lint; a new module
+  copies hello_world's.
+
 ## Route Discovery
 
 Routes auto-discovered at compile time via `ModuleDiscovery` beam scanning. The host router auto-recompiles when module deps change — `phoenix_kit_routes()` injects `__mix_recompile__?/0` with a hash of the discovered set.

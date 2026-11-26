@@ -183,8 +183,12 @@ allowed stylesheet by the page holding a nonce.
 - **Libraries fetched from a CDN** by some components. See
   [Public and admin JavaScript](public-and-admin-javascript.md) for serving them from your own
   origin.
-- **Module packages** (`phoenix_kit_*`) have inline code of their own; each is converted in its
-  own release.
+- **Module packages** (`phoenix_kit_*`) are converted on their `main` branches (their inline
+  handlers are gone, their inline tags and bundle-created styles take the nonce); each reaches
+  you with its own next release. Where a module's handler moved into its own JavaScript
+  (billing, inbox, ecommerce, sync, document creator and others), the page has to load
+  `phoenix_kit_modules.js`. Styles a module appends to a cached body (publishing's post styles)
+  carry no nonce, like the sitemap's.
 - **The calendar popup of date fields** (the vendored `cally` library) creates a style element
   of its own, without a nonce.
 
