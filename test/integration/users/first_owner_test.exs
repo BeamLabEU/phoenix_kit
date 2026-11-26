@@ -38,6 +38,32 @@ defmodule PhoenixKit.Integration.Users.FirstOwnerTest do
     def resolve(_domain, _type), do: {:ok, ["address"]}
   end
 
+  # The INSERT/DELETE statements on the users table this process runs in `fun`.
+  defp record_user_writes(fun) do
+    test_pid = self()
+    handler = "first-owner-user-writes-#{System.unique_integer([:positive])}"
+    agent = start_supervised!({Agent, fn -> [] end})
+
+    :telemetry.attach(
+      handler,
+      [:phoenix_kit, :test, :repo, :query],
+      fn _event, _measurements, metadata, _config ->
+        if self() == test_pid and
+             metadata.query =~ ~r/^(INSERT INTO|DELETE FROM) "phoenix_kit_users"/ do
+          Agent.update(agent, &[metadata.query | &1])
+        end
+      end,
+      nil
+    )
+
+    try do
+      fun.()
+      Agent.get(agent, & &1)
+    after
+      :telemetry.detach(handler)
+    end
+  end
+
   defp with_env(pairs, fun) do
     previous = for {key, _} <- pairs, do: {key, Application.fetch_env(:phoenix_kit, key)}
     Enum.each(pairs, fn {key, value} -> Application.put_env(:phoenix_kit, key, value) end)
@@ -264,6 +290,34 @@ defmodule PhoenixKit.Integration.Users.FirstOwnerTest do
 
       refute Auth.get_user_by_email(address)
       assert Roles.count_active_owners() == 0
+    end
+
+    # The refusal used to come from a compensating `Repo.delete(user)` after
+    # the grant had rolled back and released the Owner lock: in that gap
+    # `create_owner` could promote the visible row, which the delete then
+    # removed (or the delete failed on a dependency and the registration still
+    # reported a refusal). The insert and the grant now share a transaction, so
+    # the refusal rolls the insert back and no DELETE is ever issued.
+    test "a stale claim's refusal rolls the insert back instead of deleting the account" do
+      {:ok, token} = Setup.generate_setup_token()
+      claim = %{setup_token: token, local: false}
+      address = email()
+
+      queries =
+        with_env([email_domain_check: true, email_domain_resolver: {RotatingDns, :resolve}], fn ->
+          record_user_writes(fn ->
+            assert {:error, %Ecto.Changeset{}} =
+                     Auth.register_user(attrs(address), nil,
+                       site_wide: true,
+                       first_owner: claim,
+                       check_email_domain: true
+                     )
+          end)
+        end)
+
+      assert Enum.any?(queries, &(&1 =~ "INSERT")), "the account was inserted"
+      refute Enum.any?(queries, &(&1 =~ "DELETE")), "no compensating delete"
+      refute Auth.get_user_by_email(address)
     end
 
     test ":token policy ignores the local case built by claim/4" do

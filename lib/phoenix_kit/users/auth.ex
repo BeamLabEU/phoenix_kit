@@ -674,6 +674,73 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   defp do_register_user(attrs, opts) do
+    first_owner = Keyword.get(opts, :first_owner, :allow)
+
+    result =
+      if is_map(first_owner),
+        do: register_with_claim(attrs, opts),
+        else: insert_and_assign_role(attrs, opts, false)
+
+    case result do
+      {:ok, user, role_type} ->
+        # Log successful role assignment for security audit (`:none`: the
+        # failure was logged where it happened)
+        if role_type != :none,
+          do:
+            Logger.info(
+              "PhoenixKit: User #{user.uuid} (#{user.email}) assigned #{role_type} role"
+            )
+
+        # Broadcast user creation event
+        Events.broadcast_user_created(user)
+
+        {:ok, user}
+
+      {:error, :setup_required} ->
+        {:error, setup_required_refusal(attrs)}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:error, changeset}
+
+      {:error, reason} ->
+        Logger.error("PhoenixKit: Registration could not assign a role: #{inspect(reason)}")
+
+        {:error,
+         registration_refusal(
+           attrs,
+           dgettext_noop("errors", "Registration could not be completed. Please try again.")
+         )}
+    end
+  end
+
+  # A request's claim (a public door): the insert and the grant share one
+  # transaction. A claim whose proof went stale after
+  # `Setup.check_registration/1` (the token rotated or spent in between) makes
+  # the locked grant refuse, and the refusal rolls the insert back: the account
+  # is never visible, so `create_owner` cannot promote it in between and
+  # nothing has to be deleted afterwards (a compensating delete could remove a
+  # row promoted in that gap, or fail and still report a refusal).
+  #
+  # While no Owner exists the Owner-role lock is taken before the insert: the
+  # order `create_owner` uses (lock, then the account), so the two cannot
+  # deadlock on the address's unique index. With an Owner present no lock is
+  # taken, as before.
+  defp register_with_claim(attrs, opts) do
+    Repo.transaction(fn ->
+      if Roles.count_active_owners() == 0, do: Roles.count_active_owners_locked()
+
+      case insert_and_assign_role(attrs, opts, true) do
+        {:ok, user, role_type} -> {user, role_type}
+        {:error, reason} -> Repo.rollback(reason)
+      end
+    end)
+    |> case do
+      {:ok, {user, role_type}} -> {:ok, user, role_type}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp insert_and_assign_role(attrs, opts, in_claim_transaction?) do
     case %User{}
          |> User.registration_changeset(attrs)
          |> Ecto.Changeset.put_change(:created_by_uuid, Keyword.get(opts, :created_by_uuid))
@@ -684,22 +751,12 @@ defmodule PhoenixKit.Users.Auth do
                first_owner: Keyword.get(opts, :first_owner, :allow)
              ) do
           {:ok, role_type} ->
-            # Log successful role assignment for security audit
-            Logger.info(
-              "PhoenixKit: User #{user.uuid} (#{user.email}) assigned #{role_type} role"
-            )
-
-            # Broadcast user creation event
-            Events.broadcast_user_created(user)
-
-            {:ok, user}
+            {:ok, user, role_type}
 
           {:error, :setup_required} ->
-            # The setup token passed the preflight but not the locked grant
-            # (rotated or spent in between): refused like a sign-up without
-            # it, and the account goes, so the address stays free.
-            Repo.delete(user)
-            {:error, setup_required_refusal(attrs)}
+            # Only a request's claim is refused, inside
+            # `register_with_claim/2`'s transaction, which rolls the insert back.
+            {:error, :setup_required}
 
           {:error, reason} ->
             # Role assignment failed - this is critical
@@ -707,9 +764,10 @@ defmodule PhoenixKit.Users.Auth do
               "PhoenixKit: Failed to assign role to user #{user.uuid}: #{inspect(reason)}"
             )
 
-            # User was created but role assignment failed
-            # In production, you might want to delete the user or mark as needs_role_assignment
-            {:ok, user}
+            # Inside a claim's transaction the error rolls the account back
+            # (the inner transaction's rollback has already aborted it); for
+            # trusted callers the account stays, as it always has.
+            if in_claim_transaction?, do: {:error, reason}, else: {:ok, user, :none}
         end
 
       {:error, changeset} ->
