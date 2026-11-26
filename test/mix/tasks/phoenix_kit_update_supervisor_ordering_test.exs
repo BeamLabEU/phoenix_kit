@@ -185,4 +185,85 @@ defmodule Mix.Tasks.PhoenixKit.Update.SupervisorOrderingTest do
              "an already-correct order with a foreign child must be left untouched:\n#{content}"
     end)
   end
+
+  describe "a children list the line-based rewrite does not understand" do
+    # NordAPI builds its list with `++`; the old rewrite crashed on it
+    # (ArithmeticError) or, with the lines to move in different parts, could
+    # duplicate a child. Such a file is now left exactly as it is.
+    @concatenated """
+    defmodule ProbeApp.Application do
+      use Application
+
+      @impl true
+      def start(_type, _args) do
+        children = [
+          PhoenixKit.Supervisor,
+          ProbeApp.Repo,
+        ] ++ [ProbeAppWeb.Endpoint] ++ [{Oban, Application.get_env(:probe_app, Oban)}]
+
+        Supervisor.start_link(children, strategy: :one_for_one)
+      end
+    end
+    """
+
+    @opened_on_next_line """
+    defmodule ProbeApp.Application do
+      use Application
+
+      @impl true
+      def start(_type, _args) do
+        children =
+          [
+            PhoenixKit.Supervisor,
+            ProbeApp.Repo,
+            ProbeAppWeb.Endpoint
+          ]
+
+        Supervisor.start_link(children, strategy: :one_for_one)
+      end
+    end
+    """
+
+    test "reorder_supervisors/2 answers :unsafe instead of rewriting" do
+      assert Update.reorder_supervisors(@concatenated, :probe_app) == :unsafe
+      assert Update.reorder_supervisors(@opened_on_next_line, :probe_app) == :unsafe
+    end
+
+    test "fix_supervisor_ordering/1 leaves the file untouched and says what to move",
+         %{tmp_dir: tmp_dir} do
+      for content <- [@concatenated, @opened_on_next_line] do
+        File.write!(Path.join(tmp_dir, @app_file), content)
+
+        File.cd!(tmp_dir, fn ->
+          igniter = Igniter.new() |> Update.fix_supervisor_ordering()
+
+          assert final_content(igniter) == content
+          assert Enum.any?(igniter.warnings, &(&1 =~ "NOT changed"))
+          refute Enum.any?(igniter.notices, &(&1 =~ "CRITICAL FIX APPLIED"))
+        end)
+      end
+    end
+
+    test "a plain list is still reordered" do
+      plain = """
+      defmodule ProbeApp.Application do
+        use Application
+
+        def start(_type, _args) do
+          children = [
+            PhoenixKit.Supervisor,
+            ProbeApp.Repo,
+            ProbeAppWeb.Endpoint
+          ]
+
+          Supervisor.start_link(children, strategy: :one_for_one)
+        end
+      end
+      """
+
+      assert {:ok, fixed} = Update.reorder_supervisors(plain, :probe_app)
+      assert index_of!(fixed, "ProbeApp.Repo") < index_of!(fixed, "PhoenixKit.Supervisor")
+      assert index_of!(fixed, "PhoenixKit.Supervisor") < index_of!(fixed, "ProbeAppWeb.Endpoint")
+    end
+  end
 end

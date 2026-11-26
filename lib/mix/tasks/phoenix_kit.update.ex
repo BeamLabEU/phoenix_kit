@@ -140,6 +140,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       AssetRebuild,
       BasicConfiguration,
       BootHook,
+      ChildOrder,
       Common,
       ConfigVerify,
       CssIntegration,
@@ -2395,10 +2396,18 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
             igniter
 
           {:needs_fix, reason} ->
-            # Order is incorrect, attempt to fix using Igniter API
-            igniter
-            |> fix_application_supervisor_order(app_name, reason)
-            |> add_supervisor_ordering_fixed_notice(reason)
+            # Order is incorrect: rewrite the list only when its shape is
+            # one the line-based rewrite understands, otherwise say what to
+            # move and leave the file alone.
+            case reorder_supervisors(content, app_name) do
+              {:ok, fixed_content} ->
+                igniter
+                |> fix_application_supervisor_order(app_file, fixed_content)
+                |> add_supervisor_ordering_fixed_notice(reason)
+
+              :unsafe ->
+                add_supervisor_ordering_manual_notice(igniter, app_file, reason)
+            end
 
           :cannot_determine ->
             # Cannot determine order (unusual setup), skip silently
@@ -2508,18 +2517,41 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     # Fix the supervisor ordering using manual reordering
     # Note: We can't use Igniter.Project.Application.add_new_child to reorder existing children,
     # so we need to manually reorder the children list
-    defp fix_application_supervisor_order(igniter, app_name, _reason) do
-      app_file = "lib/#{app_name}/application.ex"
-
+    defp fix_application_supervisor_order(igniter, app_file, fixed_content) do
       Igniter.update_file(igniter, app_file, fn source ->
-        content = Rewrite.Source.get(source, :content)
-        fixed_content = reorder_supervisors(content, app_name)
         Rewrite.Source.update(source, :content, fixed_content)
       end)
     end
 
-    # Reorder supervisors in application.ex to correct order
-    defp reorder_supervisors(content, app_name) do
+    @doc false
+    # Reorders the supervisors of `application.ex` — `{:ok, content}`, or
+    # `:unsafe` when the children list is not one plain `children = [ ... ]`
+    # holding every line it would move (a list built with `++`, a child
+    # spread over several lines, a list it cannot find). The rewrite is
+    # line-based, so on any other shape it could duplicate or drop a child:
+    # the host's file is then left exactly as it is. The result must also
+    # parse and keep the same children, or it is `:unsafe` too.
+    def reorder_supervisors(content, app_name) do
+      with :literal <- ChildOrder.list_shape(content),
+           {:ok, fixed} <- reorder_supervisor_lines(content, app_name),
+           true <- fixed != content,
+           true <- same_children?(content, fixed) do
+        {:ok, fixed}
+      else
+        _ -> :unsafe
+      end
+    end
+
+    defp same_children?(before, after_reorder) do
+      with {:ok, old_children} <- ChildOrder.ordered_children(before),
+           {:ok, new_children} <- ChildOrder.ordered_children(after_reorder) do
+        Enum.sort(old_children) == Enum.sort(new_children)
+      else
+        _ -> false
+      end
+    end
+
+    defp reorder_supervisor_lines(content, app_name) do
       lines = String.split(content, "\n")
 
       # Convert snake_case app_name to PascalCase module name
@@ -2532,11 +2564,18 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       {oban_line, oban_index} =
         extract_supervisor(lines, ~r/\{Oban,|Application\.get_env\(:#{app_name}, Oban\)/)
 
-      # Determine children list boundaries
+      # Determine children list boundaries. No `children = [` line (the list
+      # opens on the next line, or is built some other way) used to reach
+      # `find_children_list_end/2` as `nil + 1` — an ArithmeticError.
       children_start = find_children_list_start(lines)
-      children_end = find_children_list_end(lines, children_start)
 
-      if is_integer(children_start) and is_integer(children_end) do
+      children_end =
+        if is_integer(children_start), do: find_children_list_end(lines, children_start)
+
+      supervisor_indexes = Enum.reject([repo_index, pk_index, oban_index], &is_nil/1)
+
+      if is_integer(children_start) and is_integer(children_end) and
+           Enum.all?(supervisor_indexes, &(&1 in (children_start + 2)..children_end//1)) do
         # Build new children list with correct order
         supervisors = %{
           repo: {repo_line, repo_index},
@@ -2547,10 +2586,11 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         new_lines =
           rebuild_children_list(lines, children_start, children_end, supervisors)
 
-        Enum.join(new_lines, "\n")
+        {:ok, Enum.join(new_lines, "\n")}
       else
-        # Cannot find children list boundaries, return unchanged
-        content
+        # A line to move sits outside the list this found (or no list was
+        # found): rewriting would duplicate or lose a child.
+        :unsafe
       end
     end
 
@@ -2660,6 +2700,22 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         nil -> {children, []}
         index -> Enum.split(children, index)
       end
+    end
+
+    defp add_supervisor_ordering_manual_notice(igniter, app_file, reason) do
+      Igniter.add_warning(igniter, """
+      ⚠️  The children list in #{app_file} looks misordered (#{reason}), but it is
+         not a single plain `children = [ ... ]` list (it is built with `++`, a
+         child spans several lines, or the list could not be found), so it was
+         NOT changed. Reorder it by hand to:
+
+           1. YourApp.Repo
+           2. PhoenixKit.Supervisor   (before the Endpoint)
+           3. YourAppWeb.Endpoint
+           4. {Oban, ...}
+
+         `mix phoenix_kit.doctor` checks the order afterwards.
+      """)
     end
 
     # Add notice about supervisor ordering being fixed
