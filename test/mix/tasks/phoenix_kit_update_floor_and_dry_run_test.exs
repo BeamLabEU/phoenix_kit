@@ -116,6 +116,60 @@ defmodule Mix.Tasks.PhoenixKit.Update.FloorAndDryRunTest do
     end
   end
 
+  describe "--no-start below the floor" do
+    defp schema_only_steps(test_pid, status) do
+      %{
+        app_config: fn -> send(test_pid, {:step, :app_config}) end,
+        installation_status: fn prefix ->
+          send(test_pid, {:step, {:status, prefix}})
+          status
+        end,
+        gen_migration: fn args -> send(test_pid, {:step, {:gen_migration, args}}) end,
+        migrate: fn -> send(test_pid, {:step, :migrate}) end
+      }
+    end
+
+    # `phoenix_kit.gen.migration` reads the version off filenames, so it wrote
+    # a step-up migration for a below-floor database, and ecto.migrate then
+    # failed with a raw BelowFloorError instead of the bridge message.
+    test "refuses with the bridge message before generating a migration" do
+      floor = MigrationsPostgres.minimum_version()
+
+      error =
+        assert_raise Mix.Error, fn ->
+          capture_io(fn ->
+            Update.run_schema_only_update(
+              [prefix: "public"],
+              schema_only_steps(self(), {:current_version, floor - 1})
+            )
+          end)
+        end
+
+      assert error.message =~ "below this release's floor"
+      assert error.message =~ MigrationsPostgres.bridge_version()
+      assert error.message =~ "Nothing was changed."
+      assert steps_run() == [:app_config, {:status, "public"}]
+    end
+
+    test "at the floor it generates and migrates" do
+      floor = MigrationsPostgres.minimum_version()
+
+      capture_io(fn ->
+        Update.run_schema_only_update(
+          [prefix: "public"],
+          schema_only_steps(self(), {:current_version, floor})
+        )
+      end)
+
+      assert steps_run() == [
+               :app_config,
+               {:status, "public"},
+               {:gen_migration, ["--prefix", "public"]},
+               :migrate
+             ]
+    end
+  end
+
   describe "--dry-run" do
     test "runs Igniter's preview and none of the post-Igniter steps", %{tmp_dir: tmp_dir} do
       floor = MigrationsPostgres.minimum_version()

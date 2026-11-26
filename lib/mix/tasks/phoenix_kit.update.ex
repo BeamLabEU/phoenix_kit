@@ -70,7 +70,9 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     `--no-start` runs the two steps that need no application: it generates the
     chain step-up migration (`mix phoenix_kit.gen.migration` reads the current
     version off the migration FILENAMES, never the database) and applies it
-    with `mix ecto.migrate`, which starts the repo alone. Configuration repair,
+    with `mix ecto.migrate`, which starts the repo alone. Before generating, it
+    starts the repo the same way to read the installed version, and refuses a
+    database below this release's floor like the full update does. Configuration repair,
     asset rebuild and module migrations are skipped and reported — every one of
     them needs the app. Run the full `mix phoenix_kit.update` once the host
     boots again.
@@ -1816,7 +1818,14 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       :ok
     end
 
-    defp run_schema_only_update(opts) do
+    @doc false
+    # `steps` replaces any of the four (tests observe what runs). The floor is
+    # checked before the migration file is generated: below it,
+    # `phoenix_kit.gen.migration` (which reads only filenames) wrote a step-up
+    # that `ecto.migrate` then failed with a raw BelowFloorError.
+    def run_schema_only_update(opts, steps \\ %{}) do
+      steps = Map.merge(default_schema_only_steps(), steps)
+
       Mix.shell().info("""
 
       🔧 PhoenixKit update — schema only (--no-start)
@@ -1829,11 +1838,12 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       # Loads config/*.exs (including runtime.exs) and compiles, without
       # starting any application — `--prefix` still resolves through
       # `config :phoenix_kit, :prefix` below.
-      Mix.Task.run("app.config")
+      steps.app_config.()
+      refuse_below_floor!(opts, steps.installation_status)
 
       gen_args = if opts[:prefix], do: ["--prefix", opts[:prefix]], else: []
-      Mix.Task.run("phoenix_kit.gen.migration", gen_args)
-      Mix.Task.run("ecto.migrate")
+      steps.gen_migration.(gen_args)
+      steps.migrate.()
 
       Mix.shell().info("""
 
@@ -1852,6 +1862,27 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
           mix phoenix_kit.update
       """)
+    end
+
+    defp default_schema_only_steps do
+      %{
+        app_config: fn -> Mix.Task.run("app.config") end,
+        installation_status: &schema_only_installation_status/1,
+        gen_migration: &Mix.Task.run("phoenix_kit.gen.migration", &1),
+        migrate: fn -> Mix.Task.run("ecto.migrate") end
+      }
+    end
+
+    # Starts the repo alone, as `ecto.migrate` is about to, to read the
+    # installed version. A repo that will not start is left to `ecto.migrate`
+    # to report.
+    defp schema_only_installation_status(prefix) do
+      case Ecto.Migrator.with_repo(PhoenixKit.RepoHelper.repo(), fn _repo ->
+             Common.check_installation_status(prefix)
+           end) do
+        {:ok, status, _apps} -> status
+        {:error, reason} -> {:unreachable, reason}
+      end
     end
 
     defp show_status(opts) do
