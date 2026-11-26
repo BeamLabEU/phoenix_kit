@@ -29,10 +29,20 @@ if Code.ensure_loaded?(Igniter) do
         set the key.
 
     An entry the host already has is never replaced.
+
+    ## Project title
+
+    `config :phoenix_kit, project_title:` gets the host app's humanized name
+    (`:my_shop` → `"My Shop"`), so a new site does not introduce itself as
+    "PhoenixKit" in its e-mails, admin header and `/llms.txt`. The runtime
+    fallback for a host that never sets it stays `"PhoenixKit"`;
+    `project_title: :host_app` derives the name at runtime instead
+    (`PhoenixKit.Config.project_title/0`).
     """
 
     alias Igniter.Project.Config
     alias PhoenixKit.API.Keys.CIDR
+    alias PhoenixKit.Install.IgniterHelpers
     alias PhoenixKit.Install.MigrationStrategy
 
     @loopback ["127.0.0.1/8", "::1/128"]
@@ -133,6 +143,22 @@ if Code.ensure_loaded?(Igniter) do
     def write_trusted_proxies(igniter, {:write, blocks}) do
       # configure_new leaves an existing entry alone.
       Config.configure_new(igniter, "config.exs", :phoenix_kit, [:trusted_proxies], blocks)
+    end
+
+    @doc """
+    Writes `config :phoenix_kit, project_title:` with the host app's humanized
+    name for a new install, unless one is configured already.
+    """
+    def add_project_title(igniter) do
+      app = IgniterHelpers.get_parent_app_name(igniter)
+
+      Config.configure_new(
+        igniter,
+        "config.exs",
+        :phoenix_kit,
+        [:project_title],
+        PhoenixKit.Config.humanize_app_name(app)
+      )
     end
 
     defp interactive_terminal? do

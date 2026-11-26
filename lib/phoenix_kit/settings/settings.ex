@@ -263,7 +263,7 @@ defmodule PhoenixKit.Settings do
   """
   def get_defaults do
     %{
-      "project_title" => "PhoenixKit",
+      "project_title" => PhoenixKit.Config.project_title(),
       # The "Admin Panel" chip beside the project name in the admin header.
       # On by default — this is the shipped appearance, and the row is absent
       # on every existing install, so `get_boolean_setting/2`'s default is what
@@ -518,7 +518,8 @@ defmodule PhoenixKit.Settings do
 
   Checks in order:
   1. Settings database (runtime customizable via admin panel)
-  2. Config `:phoenix_kit, :project_title` (compile-time setting)
+  2. Config `:phoenix_kit, :project_title`, through `PhoenixKit.Config.project_title/0`
+     (a string, or `:host_app` for the host app's humanized name)
   3. Default "PhoenixKit"
 
   This ensures users who set `config :phoenix_kit, project_title: "My App"`
@@ -540,7 +541,7 @@ defmodule PhoenixKit.Settings do
     case get_setting("project_title") do
       nil ->
         # Fall back to Config (compile-time setting)
-        PhoenixKit.Config.get(:project_title, "PhoenixKit")
+        PhoenixKit.Config.project_title()
 
       value ->
         value

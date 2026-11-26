@@ -138,6 +138,7 @@ checks the setup (configuration, assets, hooks, Oban) and says what to fix.
 | `admin_path` | string | "/admin" | Top-level segment of the admin area, inside `url_prefix` |
 | `layout` | tuple | PhoenixKit default | `{LayoutModule, :template}` |
 | `root_layout` | tuple | PhoenixKit default | Root layout for pages |
+| `project_title` | string or `:host_app` | "PhoenixKit" | The site's name in the admin header, e-mails, `/llms.txt` and the API documents. `:host_app` uses your OTP app name, humanized (`:my_shop` → "My Shop"). `mix phoenix_kit.install` writes the humanized name for a new app; the admin panel's Settings value wins over this |
 | `secret_key_base` | string | your Endpoint's | Secret behind signed tokens and, without `integrations_encryption_key`, the secret the key for stored integration credentials is derived from. See below |
 
 ### What your layouts receive

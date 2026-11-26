@@ -59,6 +59,8 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     - Find main router using Phoenix conventions (MyAppWeb.Router)
     - Configure Swoosh.Adapters.Local for development in config/dev.exs
     - Provide production mailer setup instructions
+    - Name the site after the app: `config :phoenix_kit, project_title: "My App"`
+      (humanized OTP app name; an existing entry is kept)
     - On a new installation, give stored credentials a dedicated encryption key:
       generated in config/dev.exs and config/test.exs, read from
       `PHOENIX_KIT_INTEGRATIONS_ENCRYPTION_KEY` in the `:prod` block of
@@ -140,6 +142,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       |> MailerConfig.add_mailer_configuration()
       |> RateLimiterConfig.add_rate_limiter_configuration()
       |> InstallDefaults.add_trusted_proxies(opts[:trusted_proxy] || [])
+      |> InstallDefaults.add_project_title()
       |> OAuthConfig.add_oauth_configuration()
       |> EncryptionKeyConfig.add_encryption_key()
       |> ObanConfig.add_oban_configuration(PrefixConfig.resolve_prefix(opts))

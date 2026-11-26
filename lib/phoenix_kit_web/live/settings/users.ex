@@ -71,7 +71,7 @@ defmodule PhoenixKitWeb.Live.Settings.Users do
       |> assign(:saving, false)
       |> assign(
         :project_title,
-        merged_settings["project_title"] || PhoenixKit.Config.get(:project_title, "PhoenixKit")
+        merged_settings["project_title"] || PhoenixKit.Config.project_title()
       )
       |> assign(:field_definitions, field_definitions)
       |> assign(:editing_field, nil)
