@@ -826,10 +826,21 @@ defmodule PhoenixKit.Activity do
       end
 
     {legacy, rest} = legacy_changes(rest)
-    {Map.merge(legacy, changes), rest}
+    {legacy |> Map.merge(changes) |> redact_secret_changes(), rest}
   end
 
   def split_changes(_metadata), do: {%{}, %{}}
+
+  # Rows written before `Changes` flagged secrets (the flat pairs of the old
+  # `log_user_change/4` included `hashed_password_from/_to`) carry the values;
+  # they are shown as changed, never with them.
+  defp redact_secret_changes(changes) do
+    Map.new(changes, fn {field, change} ->
+      if Changes.secret_field?(field),
+        do: {field, %{"changed" => true}},
+        else: {field, change}
+    end)
+  end
 
   # `log_user_change/4` and older module writers record a diff as two FLAT
   # keys — `email_from` / `email_to` — rather than the reserved map. Folding

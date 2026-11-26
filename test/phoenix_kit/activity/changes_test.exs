@@ -65,6 +65,25 @@ defmodule PhoenixKit.Activity.ChangesTest do
       assert rest == %{"actor_role" => "admin"}, "the pair is consumed, the context stays"
     end
 
+    # The old `log_user_change/4` wrote every changed field as a flat pair,
+    # bcrypt hashes included; the "What changed" table showed them.
+    test "a secret-looking field is shown as changed, never with its values" do
+      metadata = %{
+        "hashed_password_from" => "$2b$12$old",
+        "hashed_password_to" => "$2b$12$new",
+        "changes" => %{"api_key" => %{"from" => "pk_1", "to" => "pk_2"}}
+      }
+
+      assert {changes, rest} = Activity.split_changes(metadata)
+
+      assert changes == %{
+               "hashed_password" => %{"changed" => true},
+               "api_key" => %{"changed" => true}
+             }
+
+      assert rest == %{}
+    end
+
     test "a half pair is left alone rather than guessed at" do
       metadata = %{"email_from" => "a@x.ee", "note" => "n"}
 
