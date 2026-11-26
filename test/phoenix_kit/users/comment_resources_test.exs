@@ -20,8 +20,11 @@ defmodule PhoenixKit.Users.CommentResourcesTest do
     refute title =~ "@"
     # Raw path — comments applies Routes.path/1 when rendering the chip.
     assert path == "/admin/users/view/#{user.uuid}"
-    # No avatar configured → no thumbnail key (chip falls back to a badge).
-    refute Map.has_key?(result[user.uuid], :thumb_url)
+    # No uploaded picture: the face by the rule of every face (Max,
+    # 2026-11-26), here Gravatar, uncropped. Only the comments admin list
+    # reads the thumbnail; mentions use the title.
+    assert result[user.uuid].thumb_url =~ "gravatar.com/avatar/"
+    refute Map.has_key?(result[user.uuid], :thumb_style)
   end
 
   test "unknown or empty uuid lists resolve to an empty map" do
