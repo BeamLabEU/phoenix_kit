@@ -462,8 +462,16 @@ defmodule PhoenixKit.Users.Setup do
 
     case result do
       {:ok, {user, created?, password}} ->
-        clear_setup_token(repo)
-        if created?, do: Events.broadcast_user_created(user)
+        # The Owner is committed: nothing after this may lose the generated
+        # password, which exists nowhere else (a retry answers :owner_exists).
+        after_owner_created(fn -> clear_setup_token(repo) end, "clear the setup token")
+
+        if created?,
+          do:
+            after_owner_created(
+              fn -> Events.broadcast_user_created(user) end,
+              "broadcast the new account"
+            )
 
         Logger.info(
           "[PhoenixKit] #{user.uuid} (#{user.email}) made Owner from the console" <>
@@ -475,6 +483,18 @@ defmodule PhoenixKit.Users.Setup do
       {:error, reason} ->
         {:error, reason}
     end
+  end
+
+  defp after_owner_created(fun, what) do
+    fun.()
+  rescue
+    error ->
+      Logger.error(
+        "[PhoenixKit] Owner created, but could not #{what}: #{Exception.message(error)}"
+      )
+  catch
+    :exit, reason ->
+      Logger.error("[PhoenixKit] Owner created, but could not #{what}: #{inspect(reason)}")
   end
 
   defp owner_account!(repo, email, given_password) do

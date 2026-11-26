@@ -401,6 +401,34 @@ defmodule PhoenixKit.Integration.Users.FirstOwnerTest do
       assert token_row_count() == 0
     end
 
+    # The Owner is committed before the token cleanup runs. A cleanup that
+    # raised (a dropped connection) took the generated password with it, and
+    # a retry answered :owner_exists.
+    test "a failing token cleanup after the commit still returns the generated password" do
+      Repo.query!("""
+      CREATE FUNCTION pk_test_refuse_token_delete() RETURNS trigger AS $$
+      BEGIN RAISE EXCEPTION 'cleanup failed'; END $$ LANGUAGE plpgsql
+      """)
+
+      Repo.query!("""
+      CREATE TRIGGER pk_test_refuse_token_delete BEFORE DELETE ON phoenix_kit_settings
+      FOR EACH ROW WHEN (OLD.key = 'first_owner_setup_token_hash')
+      EXECUTE FUNCTION pk_test_refuse_token_delete()
+      """)
+
+      {:ok, _token} = Setup.generate_setup_token()
+      address = email()
+
+      log =
+        capture_log(fn ->
+          send(self(), Setup.create_owner(address))
+        end)
+
+      assert_received {:ok, %{user: %{email: ^address}, created: true, password: password}}
+      assert is_binary(password)
+      assert log =~ "could not clear the setup token"
+    end
+
     test "uses a given password" do
       address = email()
       assert {:ok, %{password: @password}} = Setup.create_owner(address, password: @password)
