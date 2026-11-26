@@ -255,6 +255,59 @@ defmodule Mix.Tasks.PhoenixKit.Update.FloorAndDryRunTest do
       assert JsIntegration.theme_bootstrap_plan(with_marker) == :host_managed
     end
 
+    # The first pass (config.exs missing Ueberauth/Hammer/Oban) runs before
+    # the app starts, so the floor cannot be checked yet. It used to run the
+    # whole Igniter pipeline, writing the layout and app.js straight to disk
+    # (and staging mix.exs/application.ex edits) before the second pass
+    # refused a below-floor database with "Only the missing configuration
+    # added above was written."
+    test "the missing-config first pass writes the configuration and nothing else",
+         %{tmp_dir: tmp_dir} do
+      probe_project(tmp_dir)
+
+      File.write!(Path.join(tmp_dir, "mix.exs"), """
+      defmodule Probe.MixProject do
+        use Mix.Project
+        def project, do: [app: :probe, version: "0.1.0"]
+      end
+      """)
+
+      File.mkdir_p!(Path.join(tmp_dir, "config"))
+      File.write!(Path.join(tmp_dir, "config/config.exs"), "import Config\n")
+
+      Process.put(:phoenix_kit_config_status, :missing)
+
+      igniter =
+        try do
+          File.cd!(tmp_dir, fn ->
+            Update.igniter(%{Igniter.new() | args: %Igniter.Mix.Task.Args{argv: []}})
+          end)
+        after
+          Process.delete(:phoenix_kit_config_status)
+        end
+
+      assert File.read!(Path.join(tmp_dir, @layout)) == @layout_content
+      assert File.read!(Path.join(tmp_dir, "assets/js/app.js")) == @app_js
+      refute File.exists?(Path.join(tmp_dir, "priv/static/assets/vendor/phoenix_kit_modules.js"))
+
+      # Igniter's buffer: config.exs is written (created here), no other file.
+      edited =
+        igniter.rewrite
+        |> Rewrite.sources()
+        |> Enum.filter(
+          &(Rewrite.Source.updated?(&1) or not File.exists?(Path.join(tmp_dir, &1.path)))
+        )
+        |> Enum.map(& &1.path)
+
+      assert "config/config.exs" in edited
+      assert Enum.all?(edited, &String.starts_with?(&1, "config/")), inspect(edited)
+
+      config =
+        igniter.rewrite |> Rewrite.source!("config/config.exs") |> Rewrite.Source.get(:content)
+
+      assert config =~ "Hammer"
+    end
+
     test "dry_run?/1 reads the flag from argv or options" do
       assert IgniterHelpers.dry_run?(%{
                Igniter.new()

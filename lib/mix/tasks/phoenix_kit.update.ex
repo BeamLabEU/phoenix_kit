@@ -94,8 +94,11 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         skipped. The application still starts, to read the database.
 
     A database below this release's migration floor is refused before
-    anything is written (no config edit, no migration file); the message
-    names the bridge release to install first.
+    anything is written (no project edit, no migration file); the message
+    names the bridge release to install first. The one exception is a run
+    whose config.exs lacks the Ueberauth, Hammer or Oban configuration: that
+    configuration is added first, and nothing else, because the version can
+    only be read once the app starts with it.
 
     ## Examples
 
@@ -213,22 +216,48 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     def igniter(igniter) do
       opts = igniter.args.options
 
-      # Handle --status flag
-      if opts[:status] do
-        show_status(opts)
-        igniter
-      else
-        igniter
-        |> BasicConfiguration.add_basic_config()
-        |> AdminLabelConfig.add_admin_label_options()
-        |> ApplicationSupervisor.add_supervisor()
-        |> BootHook.add_boot_hook()
-        |> MailerConfig.repair_runtime_import_order()
-        |> EndpointIntegration.add_pdfjs_static_mount()
-        |> EndpointIntegration.add_body_guard()
-        |> perform_igniter_update(opts)
-        |> IgniterHelpers.tidy_messages()
+      cond do
+        opts[:status] ->
+          show_status(opts)
+          igniter
+
+        # The first pass (config.exs lacks Ueberauth/Hammer/Oban) runs before
+        # the app can start, so nothing can know yet whether the database is
+        # below this release's floor. It adds that configuration and nothing
+        # else: the layout, app.js, mix.exs, application.ex and endpoint edits
+        # wait for the second pass, which refuses a below-floor database
+        # before making them.
+        Process.get(:phoenix_kit_config_status, :ok) == :missing ->
+          igniter
+          |> add_missing_configuration(opts)
+          |> IgniterHelpers.tidy_messages()
+
+        true ->
+          igniter
+          |> BasicConfiguration.add_basic_config()
+          |> AdminLabelConfig.add_admin_label_options()
+          |> ApplicationSupervisor.add_supervisor()
+          |> BootHook.add_boot_hook()
+          |> MailerConfig.repair_runtime_import_order()
+          |> EndpointIntegration.add_pdfjs_static_mount()
+          |> EndpointIntegration.add_body_guard()
+          |> perform_igniter_update(opts)
+          |> IgniterHelpers.tidy_messages()
       end
+    end
+
+    # The first pass: only the config.exs entries `check_required_configuration/0`
+    # found missing.
+    defp add_missing_configuration(igniter, opts) do
+      prefix = PrefixConfig.resolve_prefix(opts)
+      config_exists = ObanConfig.oban_config_exists?(igniter)
+
+      igniter
+      |> PrefixConfig.add_prefix_configuration(opts[:prefix])
+      |> validate_and_fix_ueberauth_config()
+      |> validate_and_add_hammer_config()
+      |> ObanConfig.add_oban_configuration(prefix)
+      |> maybe_add_oban_config_notice(config_exists)
     end
 
     # Override run/1 to handle post-igniter interactive migration and asset rebuild
@@ -633,25 +662,15 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       igniter = JsIntegration.ensure_theme_bootstrap(igniter)
       igniter = TestFixturesIntegration.ensure_conn_case_import(igniter)
 
-      # Check if this is the first pass (config missing) or second pass (config exists)
-      config_status = Process.get(:phoenix_kit_config_status, :ok)
-
-      case config_status do
-        :missing ->
-          # First pass: Only add configuration, skip migration creation
-          # Migration will be created in second pass after app is started
-          igniter
-
-        :ok ->
-          # Second pass: Configuration exists, app is started, proceed with migration
-          handle_installation_status(
-            Common.check_installation_status(prefix),
-            igniter,
-            prefix,
-            force,
-            opts
-          )
-      end
+      # Second pass only (the first stops at `add_missing_configuration/2`):
+      # configuration exists and the app is started, so the version is readable.
+      handle_installation_status(
+        Common.check_installation_status(prefix),
+        igniter,
+        prefix,
+        force,
+        opts
+      )
     end
 
     # Split out of `perform_igniter_update/2` to keep its cyclomatic
