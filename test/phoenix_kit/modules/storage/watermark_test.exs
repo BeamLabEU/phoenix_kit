@@ -8,6 +8,8 @@ defmodule PhoenixKit.Modules.Storage.WatermarkTest do
   """
   use ExUnit.Case, async: true
 
+  import ExUnit.CaptureLog
+
   alias PhoenixKit.Modules.Storage.{Dimension, VariantSets, Watermark, WatermarkRenderer}
 
   @moduletag :tmp_dir
@@ -272,6 +274,44 @@ defmodule PhoenixKit.Modules.Storage.WatermarkTest do
 
       assert {:error, _} = WatermarkRenderer.render(path, wm)
       assert File.read!(path) == "not a picture"
+    end
+
+    test "the temp output is removed when it cannot be moved into place", %{tmp_dir: dir} do
+      path = picture!(dir, "g.png", "40x20", "red")
+      out = Path.join(dir, "g.wm.png")
+      before = File.read!(path)
+
+      # convert exits 0 without writing the output.
+      quiet = fn "convert", _args, _opts -> {"", 0} end
+
+      capture_log(fn ->
+        assert {:error, :watermark_failed} = WatermarkRenderer.run_convert([], out, path, quiet)
+      end)
+
+      assert File.read!(path) == before
+      refute File.exists?(out)
+
+      # The output is written, but the move fails (here: onto a directory that is
+      # not empty, as a full disk or a vanished directory would).
+      busy = Path.join(dir, "busy")
+      File.mkdir_p!(Path.join(busy, "inside"))
+      writes = fn "convert", _args, _opts -> {File.write!(out, "x") && "", 0} end
+
+      capture_log(fn ->
+        assert {:error, :watermark_failed} = WatermarkRenderer.run_convert([], out, busy, writes)
+      end)
+
+      refute File.exists?(out)
+
+      # Anything raising on the way still removes it.
+      raises = fn "convert", _args, _opts ->
+        File.write!(out, "x")
+        raise "boom"
+      end
+
+      assert_raise RuntimeError, fn -> WatermarkRenderer.run_convert([], out, path, raises) end
+      refute File.exists?(out)
+      assert File.read!(path) == before
     end
 
     test "nothing to draw is an error", %{tmp_dir: dir} do

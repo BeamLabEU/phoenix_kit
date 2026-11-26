@@ -103,17 +103,34 @@ defmodule PhoenixKit.Modules.Storage.WatermarkRenderer do
           [input, "+repage"] ++
           layers ++ ["+repage", "-quality", Integer.to_string(quality), "#{format}:#{out}"]
 
-      case System.cmd("convert", args, stderr_to_stdout: true) do
-        {_output, 0} ->
-          File.rename!(out, path)
-          {:ok, path}
-
-        {output, code} ->
-          File.rm(out)
-          Logger.error("Watermark failed (#{code}): #{String.slice(output, 0, 500)}")
-          {:error, :watermark_failed}
-      end
+      run_convert(args, out, path)
     end
+  end
+
+  @doc false
+  # Runs `convert` (or the `cmd` given: a test's stand-in) to write `out`, then
+  # moves `out` over `path`. `out` is removed on every path but the move itself:
+  # a failed exit, a move that fails (convert can exit 0 without writing `out`,
+  # or the disk is full) and anything that raises. After a move there is no
+  # `out` left and the removal does nothing.
+  def run_convert(args, out, path, cmd \\ &System.cmd/3) do
+    case cmd.("convert", args, stderr_to_stdout: true) do
+      {_output, 0} ->
+        case File.rename(out, path) do
+          :ok ->
+            {:ok, path}
+
+          {:error, reason} ->
+            Logger.error("Watermark could not be moved into place: #{inspect(reason)}")
+            {:error, :watermark_failed}
+        end
+
+      {output, code} ->
+        Logger.error("Watermark failed (#{code}): #{String.slice(output, 0, 500)}")
+        {:error, :watermark_failed}
+    end
+  after
+    File.rm(out)
   end
 
   defp logo_input(nil), do: {:ok, nil}
