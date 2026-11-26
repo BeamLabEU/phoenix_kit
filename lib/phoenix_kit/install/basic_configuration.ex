@@ -42,5 +42,17 @@ if Code.ensure_loaded?(Igniter) do
         "/phoenix_kit"
       )
     end
+
+    @doc """
+    The defaults a NEW application gets that an upgraded one does not: `mix phoenix_kit.install`
+    calls this, `mix phoenix_kit.update` never does (an existing host keeps today's behaviour
+    unless it opts in).
+
+      * `hide_disabled_routes: true` - the root files of a switched-off module answer `404`
+        (`PhoenixKit.Config.hide_disabled_routes?/0`).
+    """
+    def add_new_app_defaults(igniter) do
+      Config.configure_new(igniter, "config.exs", :phoenix_kit, [:hide_disabled_routes], true)
+    end
   end
 end

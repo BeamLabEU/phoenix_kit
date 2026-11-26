@@ -141,6 +141,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
       igniter
       |> BasicConfiguration.add_basic_config()
+      |> BasicConfiguration.add_new_app_defaults()
       |> AdminLabelConfig.add_admin_label_options()
       |> RepoDetection.add_phoenix_kit_configuration(opts[:repo])
       |> PrefixConfig.add_prefix_configuration(opts[:prefix])
