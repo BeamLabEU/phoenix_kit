@@ -333,8 +333,12 @@ defmodule PhoenixKitWeb.Components.Core.PhotoGallery do
 
       <button phx-click={PhotoGallery.open("trip", 2)}>Photo 3</button>
   """
+  @spec open(String.t(), non_neg_integer()) :: JS.t()
+  def open(id, index \\ 0) when is_binary(id) and is_integer(index), do: open(%JS{}, id, index)
+
+  @doc "As `open/2`, added to an existing `js`."
   @spec open(JS.t(), String.t(), non_neg_integer()) :: JS.t()
-  def open(js \\ %JS{}, id, index \\ 0) when is_binary(id) and is_integer(index) do
+  def open(%JS{} = js, id, index) when is_binary(id) and is_integer(index) do
     JS.dispatch(js, "pk:photo-gallery-open", to: "#" <> id, detail: %{index: index})
   end
 

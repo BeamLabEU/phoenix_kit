@@ -154,6 +154,10 @@ defmodule PhoenixKitWeb.Components.Core.PhotoGalleryTest do
 
     assert [["dispatch", %{event: "pk:photo-gallery-open", to: "#trip", detail: %{index: 2}}]] =
              js.ops
+
+    chained = "x" |> Phoenix.LiveView.JS.push() |> PhotoGallery.open("trip", 0)
+    assert [["push", _], ["dispatch", %{detail: %{index: 0}}]] = chained.ops
+    assert [["dispatch", %{detail: %{index: 0}}]] = PhotoGallery.open("trip").ops
   end
 
   test "an empty gallery renders no grid" do
