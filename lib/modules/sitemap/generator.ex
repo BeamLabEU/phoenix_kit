@@ -73,6 +73,15 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
         ],
         total_urls: 150
       }}
+
+  While the Crawlers module's `noindex` directive is on (and the sitemap is
+  not exempted from it), the result is an empty sitemap and carries
+  `reason: :no_index`, so a caller can tell "the site asked not to be
+  indexed" from "the sources found nothing":
+
+      {:ok, %{index_xml: "<?xml ...<urlset...", modules: [], total_urls: 0, reason: :no_index}}
+
+  A normal run has no `:reason` key.
   """
   @spec generate_all(keyword()) :: {:ok, map()} | {:error, any()}
   def generate_all(opts \\ []) do
@@ -117,7 +126,10 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
   # it cannot fire on its own, and the meta directive itself is untouched by
   # it — so the lockstep still holds for every install that hasn't set it.
   defp do_generate_no_index(xsl_style, xsl_enabled) do
-    Logger.debug("Sitemap: crawlers_no_index active — publishing empty sitemap")
+    Logger.info(
+      "Sitemap: publishing an empty sitemap (0 URLs) because the Crawlers noindex " <>
+        "switch is on; turn it off, or exempt the sitemap from it, to list URLs"
+    )
 
     xml = build_urlset_xml([], xsl_style, xsl_enabled)
     FileStorage.save_index(xml)
@@ -132,7 +144,7 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
 
     cleanup_stale_domain_dirs()
 
-    {:ok, %{index_xml: xml, modules: [], total_urls: 0}}
+    {:ok, %{index_xml: xml, modules: [], total_urls: 0, reason: :no_index}}
   end
 
   # Defensive: never let a Crawlers lookup error break sitemap generation.
