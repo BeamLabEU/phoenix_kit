@@ -9062,7 +9062,14 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
 
     _take(files) {
       var input = this._input();
-      if (input && !input.hasAttribute("multiple")) files = files.slice(0, 1);
+      // Several files on a single-entry input (a drop: the chooser cannot
+      // pick more than one): hand LiveView the whole drop, unedited, so its
+      // max_entries rule rejects it with :too_many_files as it would
+      // without the editor, instead of quietly keeping only the first.
+      if (input && !input.hasAttribute("multiple") && files.length > 1) {
+        this._handOver(files);
+        return;
+      }
       this._queue = this._queue.concat(files);
       if (!this._current) this._next();
     },
@@ -9080,6 +9087,10 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
     _send() {
       var files = this._done;
       this._done = [];
+      this._handOver(files);
+    },
+
+    _handOver(files) {
       if (!files.length) return;
       this._passing = true;
       try {

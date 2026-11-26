@@ -178,13 +178,23 @@ test("a photo waits for the editor; the hand-over is not taken again", () => {
   assert.equal(stopped, false);
 });
 
-test("a single-file input keeps only the first file", () => {
-  const { input, uploads, fire } = fakeHook({ multiple: false });
-  const a = { name: "a.pdf", type: "application/pdf" };
+test("several files on a single-file input all reach LiveView, unedited, for its max_entries error", () => {
+  const { hook, input, uploads, fire } = fakeHook({ multiple: false });
+  const a = { name: "a.jpg", type: "image/jpeg" };
   const b = { name: "b.pdf", type: "application/pdf" };
-  input.files = [a, b];
+  let edited = 0;
+  hook._edit = () => { edited++; };
+  fire("drop", {
+    target: { closest: () => ({ classList: { remove: noop } }) },
+    dataTransfer: { files: [a, b] },
+    preventDefault: noop, stopPropagation: noop,
+  });
+  assert.deepEqual(uploads, [["photos", [a, b]]], "nothing silently dropped");
+  assert.equal(edited, 0, "no editor for a drop LiveView will refuse");
+  // One file on the same input still goes through the editor.
+  input.files = [a];
   fire("input", { target: input, stopPropagation: noop });
-  assert.deepEqual(uploads, [["photos", [a]]]);
+  assert.equal(edited, 1);
 });
 
 test("a drop on the drop zone is taken before LiveView tracks it", () => {
