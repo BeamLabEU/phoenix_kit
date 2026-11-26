@@ -512,19 +512,22 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
           {Enum.uniq_by(chunk, & &1.loc), index + 1, infos}
         end)
 
-      case {last, count} do
-        {nil, _} ->
-          FileStorage.delete_module(filename)
-          []
+      infos =
+        case {last, count} do
+          {nil, _} ->
+            []
 
-        {chunk, 1} ->
-          [write_chunk(chunk, filename, xsl_style, xsl_enabled)]
+          {chunk, 1} ->
+            [write_chunk(chunk, filename, xsl_style, xsl_enabled)]
 
-        {chunk, index} ->
-          Enum.reverse([
-            write_chunk(chunk, "#{filename}-#{index}", xsl_style, xsl_enabled) | infos
-          ])
-      end
+          {chunk, index} ->
+            Enum.reverse([
+              write_chunk(chunk, "#{filename}-#{index}", xsl_style, xsl_enabled) | infos
+            ])
+        end
+
+      delete_other_files(filename, infos)
+      infos
     end
 
     infos = in_stream_transaction(Source.stream_repo(source_module), write)
@@ -574,14 +577,25 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
         "#{filename}.xml: #{inspect(reason)} — its files are left out of this run"
     )
 
+    delete_other_files(filename, [])
+    []
+  end
+
+  # Deletes the files of `filename` (bare or numbered) that this run did not
+  # write: a source that shrank from three files to two, or switched between
+  # one file and several, left the others on disk — and index mode serves
+  # every module file there is.
+  defp delete_other_files(filename, infos) do
+    written = MapSet.new(infos, & &1.filename)
     numbered = ~r/^#{Regex.escape(filename)}-\d+$/
 
     for file <- FileStorage.list_module_files(),
-        file == filename or Regex.match?(numbered, file) do
+        file == filename or Regex.match?(numbered, file),
+        not MapSet.member?(written, file) do
       FileStorage.delete_module(file)
     end
 
-    []
+    :ok
   end
 
   # Collect entries for a single source using multilingual collection
@@ -598,9 +612,13 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
 
   # Build urlset XML, auto-split at 50k, save files, return module_info list
   defp build_and_save_module_files(entries, filename, xsl_style, xsl_enabled) do
+    infos = save_module_files(entries, filename, xsl_style, xsl_enabled)
+    delete_other_files(filename, infos)
+    infos
+  end
+
+  defp save_module_files(entries, filename, xsl_style, xsl_enabled) do
     if entries == [] do
-      # Clean up any existing file for empty source
-      FileStorage.delete_module(filename)
       []
     else
       if length(entries) > @max_urls_per_file do

@@ -214,6 +214,61 @@ defmodule PhoenixKit.Modules.Sitemap.StreamingSourceTest do
       refute FileStorage.module_exists?("sitemap-stream_test_big")
     end
 
+    # A source's earlier, differently sized run left files this run does not
+    # write; index mode serves every module file on disk, so they were served.
+    test "files of an earlier, larger or differently split run are removed" do
+      seed = fn names -> for n <- names, do: FileStorage.save_module(n, "<urlset/>") end
+
+      files = fn ->
+        Enum.filter(
+          FileStorage.list_module_files(),
+          &String.starts_with?(&1, "sitemap-stream_test_big")
+        )
+        |> Enum.sort()
+      end
+
+      old_split =
+        ~w(sitemap-stream_test_big-1 sitemap-stream_test_big-2 sitemap-stream_test_big-3)
+
+      # Another source's file whose name only starts the same way stays.
+      FileStorage.save_module("sitemap-stream_test_bigger", "<urlset/>")
+
+      # Empty now: every numbered file goes.
+      seed.(old_split)
+      assert Generator.generate_module(BigSource, xsl_enabled: false) == []
+      assert files.() == ["sitemap-stream_test_bigger"]
+
+      # Fits one file now: the bare file stays, the numbered ones go.
+      seed.(old_split)
+      :ets.insert(:stream_test_probe, [{:size, 50_000}, {:starts, 0}])
+      Generator.generate_module(BigSource, xsl_enabled: false)
+      assert files.() == ["sitemap-stream_test_big", "sitemap-stream_test_bigger"]
+
+      # Two files now: the old bare file and the old third file go.
+      seed.(["sitemap-stream_test_big-3"])
+      :ets.insert(:stream_test_probe, [{:size, 50_001}, {:starts, 0}])
+      Generator.generate_module(BigSource, xsl_enabled: false)
+
+      assert files.() == [
+               "sitemap-stream_test_big-1",
+               "sitemap-stream_test_big-2",
+               "sitemap-stream_test_bigger"
+             ]
+    end
+
+    test "a collected source drops the numbered files of an earlier split run" do
+      for n <- ~w(sitemap-stream_test_collect-1 sitemap-stream_test_collect-2),
+          do: FileStorage.save_module(n, "<urlset/>")
+
+      assert [%{filename: "sitemap-stream_test_collect"}] =
+               Generator.generate_module(CollectSource, xsl_enabled: false)
+
+      assert Enum.filter(
+               FileStorage.list_module_files(),
+               &String.starts_with?(&1, "sitemap-stream_test_collect")
+             ) == ["sitemap-stream_test_collect"]
+    end
+
     test "duplicate locs within a chunk are dropped, stream order is kept" do
       assert [%{url_count: 3}] = Generator.generate_module(DuplicateSource, xsl_enabled: false)
 
