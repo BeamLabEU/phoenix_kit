@@ -205,10 +205,52 @@ defmodule PhoenixKitWeb.Plugs.HostLocaleTest do
       assert socket.assigns.current_locale == "en-US"
     end
 
-    test "an unknown segment raises the 404 error" do
+    test "an unknown segment raises the 404 error in handle_params, before the first render" do
+      # At mount the params merge path and query, so an unknown value is the primary there.
+      {:cont, socket} = HostLocale.on_mount(:default, %{"locale" => "zz"}, %{}, socket())
+      assert socket.assigns.current_locale == "en-US"
+      [hook] = socket.private.lifecycle.handle_params
+
       assert_raise HostLocale.NotFoundError, fn ->
-        HostLocale.on_mount(:default, %{"locale" => "zz"}, %{}, socket())
+        hook.function.(%{"locale" => "zz"}, "http://localhost/zz/products", socket)
       end
+    end
+
+    test "a ?locale= query parameter is not a locale segment, as for the plug" do
+      for value <- ["zz", "et"] do
+        {:cont, socket} = HostLocale.on_mount(:default, %{"locale" => value}, %{}, socket())
+        [hook] = socket.private.lifecycle.handle_params
+
+        {:cont, socket} =
+          hook.function.(
+            %{"locale" => value},
+            "http://localhost/products?locale=#{value}",
+            socket
+          )
+
+        assert socket.assigns.current_locale == "en-US"
+        assert request("/products?locale=#{value}").resp_body == "en-US|en"
+      end
+    end
+
+    test "a nested live_render view keeps the strict decision at mount" do
+      assert_raise HostLocale.NotFoundError, fn ->
+        HostLocale.on_mount(:default, %{"locale" => "zz"}, %{}, %{socket() | router: nil})
+      end
+    end
+
+    test "the segment's own spelling is recorded for the strategy builders" do
+      {:cont, socket} = HostLocale.on_mount(:default, %{}, %{}, socket())
+      [hook] = socket.private.lifecycle.handle_params
+
+      {:cont, socket} =
+        hook.function.(%{"locale" => "ET"}, "http://localhost/ET/products", socket)
+
+      assert socket.assigns.current_locale == "et"
+      assert socket.assigns.phoenix_kit_locale_segment == "ET"
+
+      assert PhoenixKit.I18n.localized_url(socket, "en", strategy: :path) == "/en/products"
+      assert PhoenixKit.I18n.localized_url(socket, "ru", strategy: :path) == "/ru/products"
     end
 
     test "options are accepted as the hook argument" do

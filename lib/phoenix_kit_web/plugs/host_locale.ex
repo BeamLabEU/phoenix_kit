@@ -77,7 +77,11 @@ defmodule PhoenixKitWeb.Plugs.HostLocale do
   The hook also keeps `:phoenix_kit_current_path` (path and query of the
   current URL) up to date on every `handle_params`, so `PhoenixKit.I18n`'s
   `strategy: :path` / `:query` builders find the current page from the socket,
-  and re-reads the locale on a live patch.
+  and re-reads the locale on a live patch. The hook reads the segment from the
+  route's path parameters, never from the query string (a LiveView's `params`
+  merge both, so `?locale=et` on `/products` is the primary language, as for the
+  plug); at mount, before that hook runs, an unknown value is the primary rather
+  than a 404, and the hook raises the 404 before the first render.
   """
 
   @behaviour Plug
@@ -167,10 +171,20 @@ defmodule PhoenixKitWeb.Plugs.HostLocale do
   """
   def on_mount(arg, params, _session, socket) do
     opts = normalize!(arg)
-    socket = mount_language(socket, params, opts)
+    socket = mount_language(socket, mount_segment(socket, params, opts), mount_opts(socket, opts))
 
     {:cont, maybe_attach_params_hook(socket, opts)}
   end
+
+  # A LiveView's `params` merge the path and the query, so at mount `?locale=zz` on a
+  # route without a `:locale` segment looks like a segment. The `handle_params` hook,
+  # which runs before the first render, decides from the route's own path parameters
+  # (as the plug does); until then an unknown value is the primary, not a 404.
+  defp mount_segment(_socket, params, opts) when is_map(params), do: params[opts.param]
+  defp mount_segment(_socket, _not_mounted_at_router, _opts), do: nil
+
+  defp mount_opts(%{router: nil}, opts), do: opts
+  defp mount_opts(_socket, opts), do: %{opts | on_unknown: :primary}
 
   # `handle_params` hooks exist only for a view mounted at the router; a
   # nested `live_render` view gets the language at mount and nothing more.
@@ -182,20 +196,33 @@ defmodule PhoenixKitWeb.Plugs.HostLocale do
         socket =
           socket
           |> Phoenix.Component.assign(:phoenix_kit_current_path, path_of(uri))
-          |> mount_language(params, opts)
+          |> mount_language(path_segment(socket, uri, params, opts), opts)
 
         {:cont, socket}
     end)
   end
 
-  defp mount_language(socket, params, opts) do
-    segment = if is_map(params), do: params[opts.param], else: nil
+  # The segment from the route's path parameters only, never from the query string.
+  defp path_segment(socket, uri, params, opts) do
+    %URI{path: path, host: host} = URI.parse(uri)
 
+    case Phoenix.Router.route_info(socket.router, "GET", path || "/", host) do
+      %{path_params: path_params} -> path_params[opts.param]
+      _no_route -> if is_map(params), do: params[opts.param]
+    end
+  rescue
+    _ -> nil
+  end
+
+  defp mount_language(socket, segment, opts) do
     lang =
       case decide(segment, opts) do
         {:not_found, segment} -> raise NotFoundError, segment: segment
         {_serve_strip_or_canonical, lang} -> lang
       end
+
+    socket =
+      Phoenix.Component.assign(socket, :phoenix_kit_locale_segment, segment_of(segment, lang))
 
     if socket.assigns[:current_language] == lang do
       socket
@@ -209,6 +236,13 @@ defmodule PhoenixKitWeb.Plugs.HostLocale do
       )
     end
   end
+
+  # The segment as the URL spells it (`ET` for `/ET/...`), so `PhoenixKit.I18n`'s
+  # `strategy: :path` replaces that spelling; nil when the language came from elsewhere.
+  defp segment_of(segment, _lang) when is_binary(segment),
+    do: if(I18n.find_language(segment), do: segment)
+
+  defp segment_of(_segment, _lang), do: nil
 
   defp path_of(uri) do
     case URI.parse(uri) do
