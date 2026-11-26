@@ -89,7 +89,10 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     step-up when one is due, runs `mix ecto.migrate`, then writes and runs the
     installed modules' migrations and checks their versions. No project file
     other than those migrations is touched, and nothing is prompted. The
-    default (no flag) is unchanged, and `--no-start` keeps its meaning.
+    default (no flag) is unchanged, and `--no-start` keeps its meaning. A repo
+    configured with `start_apps_before_migration:` gets those applications
+    started first, as `mix ecto.migrate` does: leave the host app out of that
+    list for `--migrate-only` to keep it stopped.
 
     ## Options
 
@@ -2331,7 +2334,11 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
             end)
 
           if updated != content do
-            PatchLedger.record("daisyui_themes", :applied)
+            # Recorded only if app.css on disk shows it when the ledger is written: a write
+            # that fails leaves `themes: false`, which the next run would read as removed.
+            PatchLedger.record("daisyui_themes", :applied, fn ->
+              not CssIntegration.check_existing_integration(File.read!(css_path)).daisyui_themes_disabled
+            end)
 
             Mix.shell().info("""
 
@@ -2367,7 +2374,9 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
             )
 
           if updated != content do
-            PatchLedger.record("css_sources_import", :applied)
+            PatchLedger.record("css_sources_import", :applied, fn ->
+              css_path |> File.read!() |> String.contains?("_phoenix_kit_sources.css")
+            end)
 
             Mix.shell().info("""
 
