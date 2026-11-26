@@ -29561,6 +29561,11 @@ msgstr "Завантажити оригінал"
 msgid "Upload"
 msgstr "Завантажити"
 
+#: lib/phoenix_kit_web/components/core/form_draft.ex
+#, elixir-autogen, elixir-format
+msgid "Restore your unsaved draft?"
+msgstr "Відновити незбережену чернетку?"
+
 #: lib/phoenix_kit_web/components/account_menu.ex:69
 #: lib/phoenix_kit_web/components/core/theme_controller.ex:179
 #, elixir-autogen, elixir-format

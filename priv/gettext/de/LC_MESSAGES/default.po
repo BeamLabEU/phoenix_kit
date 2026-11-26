@@ -29483,6 +29483,11 @@ msgstr "Original hochladen"
 msgid "Upload"
 msgstr "Hochladen"
 
+#: lib/phoenix_kit_web/components/core/form_draft.ex
+#, elixir-autogen, elixir-format
+msgid "Restore your unsaved draft?"
+msgstr "Ungespeicherten Entwurf wiederherstellen?"
+
 #: lib/phoenix_kit_web/components/account_menu.ex:69
 #: lib/phoenix_kit_web/components/core/theme_controller.ex:179
 #, elixir-autogen, elixir-format

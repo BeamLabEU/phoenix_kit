@@ -38,6 +38,7 @@
  *   - MentionInput ............ @ and # menu in plain textareas
  *   - UploadStats, UploadGuard  Transfer line under an upload bar; leave-page guard
  *   - PkUploadEdit ............ Crop/turn a photo before upload (<.file_upload edit_images>)
+ *   - FormDraft ............... Opt-in drafts of a form's fields in the browser
  *   - AudioRecorder ........... Microphone recorder behind <.audio_recorder>
  *   - PasskeySignIn, PasskeyRegister  Passkeys of the sign-in page and the Security tab
  *   - Turnstile ............... Cloudflare bot check on the public sign-up, magic-link,
@@ -9282,3 +9283,282 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
   };
 })();
 
+// ---------------------------------------------------------------------------
+// FormDraft — opt-in drafts of a form's fields in the browser
+// (PhoenixKitWeb.Components.Core.FormDraft, `<.simple_form draft>`).
+//
+//   data-draft-key        what it is stored under (default: path + form id)
+//   data-draft-storage    "local" (default) | "session"
+//   data-draft-exclude    "name,other" — never stored
+//   data-draft-ttl        seconds a draft is offered for
+//   data-draft-event      ask the server first: {restore: true|false} or {}
+//
+// Saved (debounced) on input/change, offered back on mount through the bar
+// `<.form_draft_bar>` renders, cleared when a submitted form leaves the page
+// or the server pushes "pk:form-draft" {id, action: "clear"}.
+// ---------------------------------------------------------------------------
+(function () {
+  if (typeof window !== "undefined" && window.__pkBundleLoads > 1) return;
+  if (typeof window === "undefined") return;
+  window.PhoenixKitHooks = window.PhoenixKitHooks || {};
+
+  var PREFIX = "pk:draft:";
+  var SAVE_MS = 400;
+  var SKIP_TYPES = ["password", "hidden", "file", "submit", "button", "reset", "image"];
+
+  // ── Pure helpers (exported for test/js/form_draft.test.cjs) ────────────
+
+  function draftExcludeList(value) {
+    return String(value || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean);
+  }
+
+  // "email" matches "email" and "user[email]"; "user[email]" only itself.
+  function draftNameExcluded(name, exclude) {
+    for (var i = 0; i < exclude.length; i++) {
+      var x = exclude[i];
+      if (name === x) return true;
+      if (x.indexOf("[") === -1 && new RegExp("\\[" + x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\](\\[\\])?$").test(name)) return true;
+    }
+    return false;
+  }
+
+  function draftEligible(el, exclude) {
+    if (!el || !el.name || el.disabled) return false;
+    var tag = String(el.tagName || "").toUpperCase();
+    if (tag !== "INPUT" && tag !== "TEXTAREA" && tag !== "SELECT") return false;
+    var type = String(el.type || "").toLowerCase();
+    if (SKIP_TYPES.indexOf(type) !== -1) return false;
+    if (el.name.charAt(0) === "_" || /csrf/i.test(el.name)) return false;
+    if (el.hasAttribute && el.hasAttribute("data-draft-skip")) return false;
+    return !draftNameExcluded(el.name, exclude || []);
+  }
+
+  // {name: value}: a string, or a list for checkboxes and multiple selects.
+  function draftSerialize(elements, exclude) {
+    var out = {};
+    for (var i = 0; i < elements.length; i++) {
+      var el = elements[i];
+      if (!draftEligible(el, exclude)) continue;
+      var type = String(el.type || "").toLowerCase();
+      if (type === "checkbox") {
+        if (!Array.isArray(out[el.name])) out[el.name] = [];
+        if (el.checked) out[el.name].push(el.value == null ? "on" : String(el.value));
+      } else if (type === "radio") {
+        if (!(el.name in out)) out[el.name] = null;
+        if (el.checked) out[el.name] = String(el.value);
+      } else if (type === "select-multiple" || (String(el.tagName).toUpperCase() === "SELECT" && el.multiple)) {
+        var vals = [];
+        for (var j = 0; j < el.options.length; j++) if (el.options[j].selected) vals.push(String(el.options[j].value));
+        out[el.name] = vals;
+      } else {
+        out[el.name] = el.value == null ? "" : String(el.value);
+      }
+    }
+    return out;
+  }
+
+  function draftEqual(a, b) {
+    return JSON.stringify(sortKeys(a || {})) === JSON.stringify(sortKeys(b || {}));
+  }
+
+  function sortKeys(o) {
+    var out = {};
+    Object.keys(o).sort().forEach(function (k) { out[k] = o[k]; });
+    return out;
+  }
+
+  // Puts `fields` back; returns the elements whose value changed.
+  function draftApply(elements, fields, exclude) {
+    var changed = [];
+    for (var i = 0; i < elements.length; i++) {
+      var el = elements[i];
+      if (!draftEligible(el, exclude) || !Object.prototype.hasOwnProperty.call(fields, el.name)) continue;
+      var v = fields[el.name];
+      var type = String(el.type || "").toLowerCase();
+      if (type === "checkbox") {
+        var on = Array.isArray(v) && v.indexOf(el.value == null ? "on" : String(el.value)) !== -1;
+        if (el.checked !== on) { el.checked = on; changed.push(el); }
+      } else if (type === "radio") {
+        var pick = v === String(el.value);
+        if (el.checked !== pick) { el.checked = pick; changed.push(el); }
+      } else if (type === "select-multiple" || (String(el.tagName).toUpperCase() === "SELECT" && el.multiple)) {
+        var any = false;
+        for (var j = 0; j < el.options.length; j++) {
+          var sel = Array.isArray(v) && v.indexOf(String(el.options[j].value)) !== -1;
+          if (el.options[j].selected !== sel) { el.options[j].selected = sel; any = true; }
+        }
+        if (any) changed.push(el);
+      } else if (typeof v === "string" && el.value !== v) {
+        el.value = v;
+        changed.push(el);
+      }
+    }
+    return changed;
+  }
+
+  function draftKey(pathname, formId, key) {
+    return PREFIX + (key ? String(key) : String(pathname || "") + "#" + String(formId || ""));
+  }
+
+  // A stored draft, or null when it is missing, unreadable or too old.
+  function draftParse(raw, now, ttlSeconds) {
+    if (!raw) return null;
+    var d;
+    try { d = JSON.parse(raw); } catch (_) { return null; }
+    if (!d || d.v !== 1 || typeof d.t !== "number" || !d.fields || typeof d.fields !== "object") return null;
+    var ttl = ttlSeconds > 0 ? ttlSeconds * 1000 : 7 * 24 * 3600 * 1000;
+    if (now - d.t > ttl || d.t > now + 60000) return null;
+    return d;
+  }
+
+  if (typeof module === "object" && module.exports) {
+    module.exports.formDraft = {
+      excludeList: draftExcludeList, nameExcluded: draftNameExcluded,
+      eligible: draftEligible, serialize: draftSerialize, equal: draftEqual,
+      apply: draftApply, key: draftKey, parse: draftParse
+    };
+  }
+
+  // ── The hook ────────────────────────────────────────────────────────────
+
+  function store(kind) {
+    try {
+      var s = kind === "session" ? window.sessionStorage : window.localStorage;
+      return s || null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  window.PhoenixKitHooks.FormDraft = {
+    mounted() {
+      var self = this;
+      this._exclude = draftExcludeList(this.el.dataset.draftExclude);
+      this._key = draftKey(window.location && window.location.pathname, this.el.id, this.el.dataset.draftKey);
+      this._store = store(this.el.dataset.draftStorage);
+      this._initial = this._snapshot();
+      this._pending = null;
+      this._submitted = false;
+
+      this._onEdit = function (e) {
+        if (!e.target || !draftEligible(e.target, self._exclude)) return;
+        // Typing after a submit means that submit did not end the editing.
+        self._submitted = false;
+        clearTimeout(self._timer);
+        self._timer = setTimeout(function () { self._save(); }, SAVE_MS);
+      };
+      this._onSubmit = function () {
+        self._save();
+        self._submitted = true;
+      };
+      this.el.addEventListener("input", this._onEdit);
+      this.el.addEventListener("change", this._onEdit);
+      this.el.addEventListener("submit", this._onSubmit);
+
+      this._onBar = function (e) {
+        var t = e.target && e.target.closest && e.target.closest("[data-pk-draft-restore],[data-pk-draft-discard]");
+        if (!t) return;
+        e.preventDefault();
+        if (t.hasAttribute("data-pk-draft-restore")) self._restore();
+        else self._discard();
+      };
+      this._bar = this._findBar();
+      if (this._bar) this._bar.addEventListener("click", this._onBar);
+
+      this.handleEvent("pk:form-draft", function (p) {
+        if (!p || p.id !== self.el.id) return;
+        if (p.action === "clear" || p.action === "discard") self._discard();
+        else if (p.action === "restore") self._restore();
+      });
+
+      this._offer();
+    },
+
+    destroyed() {
+      clearTimeout(this._timer);
+      this.el.removeEventListener("input", this._onEdit);
+      this.el.removeEventListener("change", this._onEdit);
+      this.el.removeEventListener("submit", this._onSubmit);
+      if (this._bar) this._bar.removeEventListener("click", this._onBar);
+      // Submitted and gone: the save went through (a failed one re-renders
+      // the form in place). A form that leaves unsubmitted keeps its draft.
+      if (this._submitted) this._remove();
+    },
+
+    _findBar() {
+      var id = this.el.id;
+      return this.el.querySelector('[data-pk-draft-bar="' + id + '"]') ||
+        (id ? document.getElementById(id + "-draft-bar") : null);
+    },
+
+    _snapshot() {
+      return draftSerialize(this.el.elements || [], this._exclude);
+    },
+
+    _read() {
+      if (!this._store) return null;
+      var raw = null;
+      try { raw = this._store.getItem(this._key); } catch (_) { return null; }
+      var d = draftParse(raw, Date.now(), parseInt(this.el.dataset.draftTtl, 10));
+      if (!d && raw) this._remove();
+      return d;
+    },
+
+    _save() {
+      if (!this._store || this._pending) return;
+      var fields = this._snapshot();
+      if (draftEqual(fields, this._initial)) { this._remove(); return; }
+      try {
+        this._store.setItem(this._key, JSON.stringify({ v: 1, t: Date.now(), fields: fields }));
+      } catch (_) { /* full or blocked: no draft */ }
+    },
+
+    _remove() {
+      if (!this._store) return;
+      try { this._store.removeItem(this._key); } catch (_) { /* blocked */ }
+    },
+
+    _offer() {
+      var self = this;
+      var d = this._read();
+      if (!d) return;
+      if (draftEqual(d.fields, this._initial)) { this._remove(); return; }
+      this._pending = d;
+      var event = this.el.dataset.draftEvent;
+      if (event) {
+        this.pushEvent(event, { id: this.el.id, saved_at: d.t, fields: Object.keys(d.fields) }, function (reply) {
+          if (!self._pending) return;
+          if (reply && reply.restore === true) self._restore();
+          else if (reply && reply.restore === false) self._discard();
+          else self._prompt(true);
+        });
+      } else {
+        this._prompt(true);
+      }
+    },
+
+    _prompt(show) {
+      var p = this._bar && this._bar.querySelector("[data-pk-draft-prompt]");
+      if (p) p.hidden = !show;
+    },
+
+    _restore() {
+      var d = this._pending || this._read();
+      this._pending = null;
+      this._prompt(false);
+      if (!d) return;
+      var changed = draftApply(this.el.elements || [], d.fields, this._exclude);
+      // One input event: LiveView sends the whole form to phx-change.
+      if (changed.length && typeof Event === "function") {
+        changed[0].dispatchEvent(new Event("input", { bubbles: true }));
+      }
+      this._save();
+    },
+
+    _discard() {
+      this._pending = null;
+      this._prompt(false);
+      this._remove();
+    }
+  };
+})();
