@@ -82,6 +82,32 @@ defmodule Mix.Tasks.PhoenixKit.Update.FloorAndDryRunTest do
       assert File.ls!(tmp_dir) == []
     end
 
+    # After the first pass wrote the missing configuration (Oban config, no
+    # Oban supervisor child yet), a refusal in the second pass used to say
+    # only what was written, not that the host is left half-updated.
+    test "a refusal after the first pass says the update is not finished", %{tmp_dir: tmp_dir} do
+      floor = MigrationsPostgres.minimum_version()
+      Process.put(:phoenix_kit_retry_pass, true)
+
+      error =
+        try do
+          assert_raise Mix.Error, fn ->
+            Update.full_update(
+              [prefix: "public"],
+              steps(self(), tmp_dir, {:current_version, floor - 1})
+            )
+          end
+        after
+          Process.delete(:phoenix_kit_retry_pass)
+        end
+
+      assert error.message =~ "Only the missing configuration added above was written."
+      assert error.message =~ "NOT finished"
+      assert error.message =~ "Oban"
+      assert error.message =~ "mix phoenix_kit.update"
+      assert steps_run() == [:start_app, {:status, "public"}]
+    end
+
     test "a dry run below the floor is refused the same way", %{tmp_dir: tmp_dir} do
       floor = MigrationsPostgres.minimum_version()
 

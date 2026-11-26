@@ -437,7 +437,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           # the app can start, so it cannot know the version yet.
           changed =
             if Process.get(:phoenix_kit_retry_pass, false),
-              do: "Only the missing configuration added above was written.",
+              do: unfinished_after_first_pass(),
               else: "Nothing was changed."
 
           Mix.raise(below_floor_message(current, floor_version) <> "\n" <> changed)
@@ -512,8 +512,9 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         # Automatic restart instead of manual prompt
         Mix.shell().info("""
 
-        ✅ Configuration added successfully!
-        🔄 Automatically restarting to complete the update...
+        ✅ Configuration added (step 1 of 2).
+        🔄 Automatically restarting for step 2 — the update is not finished
+           until it completes.
         """)
 
         Process.put(:phoenix_kit_retry_pass, true)
@@ -523,7 +524,11 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       end
     end
 
-    # Display message about missing configuration
+    # Display message about missing configuration. The second pass follows in
+    # the same invocation (`after_first_pass/3` re-enters `run/1`), but it can
+    # still stop (a below-floor database, a declined prompt, an interrupt):
+    # the first pass alone leaves e.g. Oban configured with no Oban child in
+    # the supervisor, so the message says the update is in two parts.
     defp show_missing_config_message(argv) do
       Mix.shell().info("""
 
@@ -534,11 +539,24 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       - Hammer (rate limiting)
       - Oban (background jobs for file processing)
 
-      This configuration will be added now.
-
-      After this completes, please run the update command again:
+      Step 1 of 2: this configuration will be added now. Step 2 (the
+      supervisor, layout, endpoint and migration changes) then runs
+      automatically. If the update stops before step 2 finishes, it is NOT
+      complete: run it again with
         mix phoenix_kit.update #{Enum.join(argv, " ")}
       """)
+    end
+
+    # What a refusal in the second pass says when the first pass wrote the
+    # missing configuration: the host is half-updated (Oban configured, but no
+    # Oban child in its supervisor yet) until a later run completes.
+    defp unfinished_after_first_pass do
+      """
+      Only the missing configuration added above was written. The update is
+      NOT finished: the supervisor (Oban child), layout, endpoint and migration
+      changes were not applied, so Oban jobs will not run on this host yet.
+      Run `mix phoenix_kit.update` again once the database is at the floor.\
+      """
     end
 
     # Check if all required configuration exists
