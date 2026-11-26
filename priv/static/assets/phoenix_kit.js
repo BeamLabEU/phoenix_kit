@@ -8525,14 +8525,30 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
     on(p.dialog, "keydown", function(e) { self.key(e); });
     // Esc: the dialog's own cancel. Closed however it was: tidy up.
     on(p.dialog, "close", function() { self.closed(); });
-    on(window, "resize", function() { self.layout(false); });
-    this.listeners = { ctl: ctl, list: list };
+    on(window, "resize", function() { if (!self.gone()) self.layout(false); });
+    // Removed while open (a live navigation or a patch) fires no `close`:
+    // watch for the dialog leaving the page and tidy up then.
+    var mo = null;
+    if (typeof MutationObserver === "function" && document.body) {
+      mo = new MutationObserver(function() { self.gone(); });
+      mo.observe(document.body, { childList: true, subtree: true });
+    }
+    this.listeners = { ctl: ctl, list: list, mo: mo };
+  };
+
+  // True (and the lightbox torn down) once its dialog is no longer in the page.
+  Gallery.prototype.gone = function() {
+    var d = this.p && this.p.dialog;
+    if (!d || d.isConnected !== false) return false;
+    this.closed();
+    return true;
   };
 
   Gallery.prototype.unbind = function() {
     var l = this.listeners;
     this.listeners = null;
     if (!l) return;
+    if (l.mo) l.mo.disconnect();
     if (l.ctl) { l.ctl.abort(); return; }
     l.list.forEach(function(x) { x[0].removeEventListener(x[1], x[2], x[3]); });
   };

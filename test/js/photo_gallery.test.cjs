@@ -48,8 +48,11 @@ global.document = {
 const storage = { getItem: () => null, setItem: noop, removeItem: noop };
 
 global.window = {
-  addEventListener: (type, fn) => { (winListeners[type] = winListeners[type] || []).push(fn); },
-  removeEventListener: noop,
+  addEventListener: (type, fn, opts) => {
+    (winListeners[type] = winListeners[type] || []).push(fn);
+    if (opts && opts.signal) opts.signal.addEventListener("abort", () => global.window.removeEventListener(type, fn));
+  },
+  removeEventListener: (type, fn) => { winListeners[type] = (winListeners[type] || []).filter((f) => f !== fn); },
   matchMedia: () => ({ matches: false, addEventListener: noop, removeEventListener: noop }),
   localStorage: storage,
   sessionStorage: storage,
@@ -63,6 +66,15 @@ global.window = {
 };
 
 global.localStorage = storage;
+
+// The lightbox watches the page while open; tests trigger it by hand.
+const observers = [];
+global.MutationObserver = class {
+  constructor(cb) { this.cb = cb; this.on = false; observers.push(this); }
+  observe() { this.on = true; }
+  disconnect() { this.on = false; }
+};
+function mutate() { observers.filter((o) => o.on).forEach((o) => o.cb([])); }
 global.sessionStorage = storage;
 
 const g = require("../../priv/static/assets/phoenix_kit.js").photoGallery;
@@ -268,4 +280,39 @@ test("a server push opens a gallery by id", () => {
   assert.equal(f.dialog.open, true);
   assert.equal(f.stage.getAttribute("data-index"), "1");
   f.dialog.close();
+});
+
+test("a lightbox removed while open (navigation, patch) lets go of the window", () => {
+  const f = fakeGallery(2);
+  const before = (winListeners.resize || []).length;
+  (winListeners["phx:pk:photo-gallery-open"] || []).forEach((fn) => fn({ detail: { id: "trip", index: 0 } }));
+  assert.equal(f.dialog.open, true);
+  assert.equal(winListeners.resize.length, before + 1);
+  assert.equal(observers.filter((o) => o.on).length, 1);
+
+  // Still in the page: a mutation changes nothing.
+  mutate();
+  assert.equal(winListeners.resize.length, before + 1);
+
+  // LiveView takes it out of the page; no `close` event fires.
+  f.dialog.isConnected = false;
+  mutate();
+  assert.equal(winListeners.resize.length, before, "the resize listener is gone");
+  assert.equal(observers.filter((o) => o.on).length, 0, "the observer is gone");
+  assert.deepEqual(f.dialog.listeners.keydown || [], []);
+});
+
+test("a resize after removal tears down too, without an observer", () => {
+  const saved = global.MutationObserver;
+  global.MutationObserver = undefined;
+  try {
+    const f = fakeGallery(2);
+    const before = (winListeners.resize || []).length;
+    (winListeners["phx:pk:photo-gallery-open"] || []).forEach((fn) => fn({ detail: { id: "trip", index: 1 } }));
+    f.dialog.isConnected = false;
+    winListeners.resize.slice().forEach((fn) => fn({}));
+    assert.equal(winListeners.resize.length, before);
+  } finally {
+    global.MutationObserver = saved;
+  }
 });
