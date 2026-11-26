@@ -5,6 +5,7 @@ defmodule PhoenixKitWeb.Components.Core.PhotoGalleryTest do
   import Phoenix.LiveViewTest, only: [rendered_to_string: 1]
   import PhoenixKitWeb.Components.Core.PhotoGallery
 
+  alias Phoenix.LiveView.JS
   alias PhoenixKitWeb.Components.Core.PhotoGallery
 
   defp render(template), do: rendered_to_string(template)
@@ -155,7 +156,7 @@ defmodule PhoenixKitWeb.Components.Core.PhotoGalleryTest do
     assert [["dispatch", %{event: "pk:photo-gallery-open", to: "#trip", detail: %{index: 2}}]] =
              js.ops
 
-    chained = "x" |> Phoenix.LiveView.JS.push() |> PhotoGallery.open("trip", 0)
+    chained = "x" |> JS.push() |> PhotoGallery.open("trip", 0)
     assert [["push", _], ["dispatch", %{detail: %{index: 0}}]] = chained.ops
     assert [["dispatch", %{detail: %{index: 0}}]] = PhotoGallery.open("trip").ops
   end
