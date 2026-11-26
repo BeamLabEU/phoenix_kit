@@ -218,6 +218,42 @@ defmodule PhoenixKit.Utils.LocaleSwitchPathTest do
     end
   end
 
+  describe "prefix: false (a host page outside the kit's url_prefix)" do
+    test "builds the host path without the mount prefix" do
+      assert Routes.locale_switch_path("/masinad", "ru", prefix: false) == "/ru/masinad"
+      # the default is unchanged
+      assert Routes.locale_switch_path("/masinad", "ja") == "/phoenix_kit/ja/masinad"
+    end
+
+    test "replaces the locale segment rather than stacking it" do
+      assert Routes.locale_switch_path("/ja/masinad?x=1", "es", prefix: false) ==
+               "/es/masinad?x=1"
+
+      assert Routes.locale_switch_path("/ja", "es", prefix: false) == "/es"
+      assert Routes.locale_switch_path("/ja/masinad", :none, prefix: false) == "/masinad"
+    end
+
+    test "the primary language gets no segment when the site serves it prefixless" do
+      PhoenixKit.Cache.put(:settings, "default_language_no_prefix", "true")
+
+      assert Routes.locale_switch_path("/ja/masinad", "en", prefix: false) == "/masinad"
+      assert Routes.locale_switch_path("/masinad", "ja", prefix: false) == "/ja/masinad"
+    end
+
+    test "a host path that happens to start like the prefix is not rewritten" do
+      assert Routes.locale_switch_path("/phoenix_kit/ja/admin", "es", prefix: false) ==
+               "/es/phoenix_kit/ja/admin"
+    end
+
+    test "honours :current_locale, and nil or relative paths do not raise" do
+      assert Routes.locale_switch_path("/zz/masinad", "ja", prefix: false, current_locale: "zz") ==
+               "/ja/masinad"
+
+      assert Routes.locale_switch_path(nil, "ja", prefix: false) == "/ja"
+      assert Routes.locale_switch_path("masinad", "ja", prefix: false) == "/ja/masinad"
+    end
+  end
+
   describe "domain_page_path/2" do
     test "drops the language's own leading segment, after the prefix when the path has it" do
       assert Routes.domain_page_path("/phoenix_kit/de/docs/x?y=1", "de-DE") ==

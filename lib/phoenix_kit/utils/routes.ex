@@ -901,14 +901,32 @@ defmodule PhoenixKit.Utils.Routes do
     * `:current_locale` — the locale the page is being viewed in. Included in
       the strip set, so an active locale is removed even if it has since been
       disabled.
+    * `:prefix` — `false` to build a link to one of the **host's** pages, which
+      live outside the kit's `url_prefix`. The path is taken as it is (no mount
+      prefix is split off or added, no admin or reserved-path handling); only
+      the locale logic applies: the leading locale segment is replaced, and the
+      primary language gets none when the site serves it prefixless. Default
+      `true`, a kit path.
+
+          Routes.locale_switch_path("/masinad", "ru")                  # "/phoenix_kit/ru/masinad"
+          Routes.locale_switch_path("/masinad", "ru", prefix: false)   # "/ru/masinad"
+          Routes.locale_switch_path("/ru/masinad", "et", prefix: false) # "/et/masinad" ("/masinad" when et is a prefixless primary)
   """
   @spec locale_switch_path(String.t() | nil, String.t() | :none, keyword()) :: String.t()
   def locale_switch_path(current_path, locale, opts \\ []) do
-    {_prefix, rest} = split_page_prefix(current_path || "")
+    if Keyword.get(opts, :prefix, true) == false do
+      current_path
+      |> Kernel.||("")
+      |> rooted()
+      |> strip_locale_segment(opts[:current_locale])
+      |> then(&build_path_with_locale("", &1, resolve_locale(locale: locale)))
+    else
+      {_prefix, rest} = split_page_prefix(current_path || "")
 
-    rest
-    |> strip_locale_segment(opts[:current_locale])
-    |> path(locale: locale)
+      rest
+      |> strip_locale_segment(opts[:current_locale])
+      |> path(locale: locale)
+    end
   end
 
   @doc """
