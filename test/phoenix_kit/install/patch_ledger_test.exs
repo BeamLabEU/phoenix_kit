@@ -202,6 +202,28 @@ defmodule PhoenixKit.Install.PatchLedgerTest do
       assert out =~ "--repair-patch oban_queues:sitemap"
     end
 
+    test "the update's first pass reads the ledger and the flags, and records nothing",
+         %{root: root} do
+      PatchLedger.save(%{patches: %{"oban_queues:sitemap" => :applied}}, root)
+      before = File.read!(ledger_file(root))
+
+      backfill = fn ->
+        capture_io(fn ->
+          send(self(), {:result, ObanConfig.ensure_declared_queues(@host, "my_app", @declared)})
+        end)
+      end
+
+      Update.first_pass_with_ledger([], backfill, root)
+      assert_received {:result, @host}
+      refute PatchLedger.active?()
+      assert File.read!(ledger_file(root)) == before
+
+      File.rm!(ledger_file(root))
+      Update.first_pass_with_ledger([skip_patch: "oban_queues:sitemap"], backfill, root)
+      assert_received {:result, @host}
+      refute File.exists?(ledger_file(root))
+    end
+
     test "an inline marker in config.exs declines one queue" do
       content = "# phoenix_kit:skip oban_queues:sitemap\n" <> @host
 

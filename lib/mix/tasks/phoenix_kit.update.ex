@@ -400,17 +400,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
                 # Store config status in Process dictionary for igniter/1 to read
                 Process.put(:phoenix_kit_config_status, :missing)
                 show_missing_config_message(argv)
-                # The first pass backfills an existing Oban block's queues too, so it
-                # reads the patch ledger and the patch flags like the full update; it
-                # records nothing (the second pass reads the file again).
-                PatchLedger.begin(elem(opts, 0))
-
-                result =
-                  try do
-                    super(argv)
-                  after
-                    PatchLedger.abandon()
-                  end
+                result = first_pass_with_ledger(elem(opts, 0), fn -> super(argv) end)
 
                 Process.delete(:phoenix_kit_config_status)
 
@@ -599,6 +589,21 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     after
       # Clean retry flag
       Process.delete(:phoenix_kit_retry_pass)
+    end
+
+    @doc false
+    # The first pass backfills an existing Oban block's queues too, so it reads the
+    # patch ledger (`.phoenix_kit.exs`) and `--skip-patch` / `--repair-patch` like the
+    # full update: a queue the host declined or removed is not written back. It records
+    # nothing; the second pass reads the file again and records what is present then.
+    def first_pass_with_ledger(opts, pass, root \\ File.cwd!()) do
+      PatchLedger.begin(opts, root)
+
+      try do
+        pass.()
+      after
+        PatchLedger.abandon()
+      end
     end
 
     # After the first pass added the missing configuration: restart into the
