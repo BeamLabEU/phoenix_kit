@@ -7,7 +7,13 @@ defmodule PhoenixKit.Migrations.Postgres do
 
   ## Migration Versions
 
-  ### V236 - Cross-domain handoff ⚡ LATEST
+  ### V237 - A watermark on a variant set ⚡ LATEST
+
+  `phoenix_kit_variant_sets.watermark` (jsonb, nullable): what the set stamps on the renditions it names
+  (`PhoenixKit.Modules.Storage.Watermark`): a strip along the bottom or a mark in a corner, with text and/or a
+  logo. NULL is no watermark, so every existing set is unchanged. Additive, no backfill.
+
+  ### V236 - Cross-domain handoff
 
   One table for `PhoenixKit.Handoff`: `phoenix_kit_handoff_tokens`, the short-lived (60 seconds), single-use rows that
   carry a visitor from one of the site's domains to another. The raw token is never stored (`token_hash`, unique);
@@ -1116,7 +1122,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   alias PhoenixKit.Migrations.Repair.Environment
 
   @initial_version 135
-  @current_version 236
+  @current_version 237
 
   # Core 3.0 no longer creates or changes any module's table (plan
   # `dev_docs/plans/2026-10-25-module-table-ownership.md`, step 8): V135..V225
