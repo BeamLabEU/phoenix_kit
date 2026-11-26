@@ -18,6 +18,7 @@ if Code.ensure_loaded?(Ueberauth) do
     alias PhoenixKit.Users.RateLimiter
     alias PhoenixKit.Users.Referrals
     alias PhoenixKit.Users.Sessions.Revocation
+    alias PhoenixKit.Users.Setup
     alias PhoenixKit.Utils.Routes
 
     require Logger
@@ -30,10 +31,13 @@ if Code.ensure_loaded?(Ueberauth) do
       track_geolocation = Keyword.get(opts, :track_geolocation, false)
       ip_address = Keyword.get(opts, :ip_address)
       referral_code = Keyword.get(opts, :referral_code)
+      # A public door: with no Owner yet, only the callback's own claim (the
+      # local dev case) lets a new account become it (`PhoenixKit.Users.Setup`).
+      first_owner = Keyword.get(opts, :first_owner, Setup.public_claim())
 
       Revocation.transaction(fn ->
         with {:ok, user, status} <-
-               find_or_create_user(oauth_data, track_geolocation, ip_address),
+               find_or_create_user(oauth_data, track_geolocation, ip_address, first_owner),
              {:ok, _provider} <- link_oauth_provider(user, oauth_data),
              {:ok, user} <- maybe_fill_google_email(user, oauth_data),
              {:ok, user} <- maybe_save_oauth_avatar(user, oauth_data),
@@ -68,7 +72,12 @@ if Code.ensure_loaded?(Ueberauth) do
     verification claim; it is a deliberate, operator-visible decision rather
     than a silent default.
     """
-    def find_or_create_user(oauth_data, track_geolocation \\ false, ip_address \\ nil) do
+    def find_or_create_user(
+          oauth_data,
+          track_geolocation \\ false,
+          ip_address \\ nil,
+          first_owner \\ Setup.public_claim()
+        ) do
       cond do
         linked_user = user_by_provider_identity(oauth_data) ->
           found(linked_user)
@@ -92,7 +101,7 @@ if Code.ensure_loaded?(Ueberauth) do
           {:error, :registration_disabled}
 
         true ->
-          case register_oauth_user(oauth_data, track_geolocation, ip_address) do
+          case register_oauth_user(oauth_data, track_geolocation, ip_address, first_owner) do
             {:ok, user} -> {:ok, user, :created}
             {:error, reason} -> {:error, reason}
           end
@@ -398,7 +407,7 @@ if Code.ensure_loaded?(Ueberauth) do
 
     defp get_token_expires_at(_), do: nil
 
-    defp register_oauth_user(oauth_data, track_geolocation, ip_address) do
+    defp register_oauth_user(oauth_data, track_geolocation, ip_address, first_owner) do
       attrs = %{
         email: oauth_data.email,
         password: generate_random_password(),
@@ -411,7 +420,7 @@ if Code.ensure_loaded?(Ueberauth) do
       # into it too — so a check at this level charges every OAuth signup TWICE
       # against a 3-per-email/10-per-IP budget, quietly turning it into 1 and 5.
       # (The gate work assumed this path was unlimited. It never was.)
-      case do_register_oauth_user(attrs, track_geolocation, ip_address) do
+      case do_register_oauth_user(attrs, track_geolocation, ip_address, first_owner) do
         # Auto-confirm only on a provider assertion. A new account whose address
         # the provider did not vouch for goes through the ordinary confirmation
         # mail instead — registering is still allowed, but the address is not
@@ -462,11 +471,11 @@ if Code.ensure_loaded?(Ueberauth) do
 
     defp deliver_oauth_confirmation(_user), do: :ok
 
-    defp do_register_oauth_user(attrs, track_geolocation, ip_address) do
+    defp do_register_oauth_user(attrs, track_geolocation, ip_address, first_owner) do
       if track_geolocation && ip_address do
-        Auth.register_user_with_geolocation(attrs, ip_address)
+        Auth.register_user_with_geolocation(attrs, ip_address, first_owner: first_owner)
       else
-        Auth.register_user(attrs, ip_address)
+        Auth.register_user(attrs, ip_address, first_owner: first_owner)
       end
     end
 

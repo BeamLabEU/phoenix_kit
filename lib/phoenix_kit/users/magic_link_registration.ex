@@ -20,6 +20,7 @@ defmodule PhoenixKit.Users.MagicLinkRegistration do
   alias PhoenixKit.Users.EmailDomain
   alias PhoenixKit.Users.RateLimiter
   alias PhoenixKit.Users.Referrals
+  alias PhoenixKit.Users.Setup
   alias PhoenixKit.Users.WelcomeEmail
   alias PhoenixKit.Utils.RecipientLocale
   alias PhoenixKit.Utils.Routes
@@ -89,8 +90,13 @@ defmodule PhoenixKit.Users.MagicLinkRegistration do
 
   @doc """
   Completes user registration using a magic link token.
+
+  `opts[:first_owner]` is the completing request's claim
+  (`PhoenixKit.Users.Setup.claim_from_socket/2`); without it the request is
+  held to `Setup.public_claim/0`, so on an install with no Owner yet the
+  registration is refused unless the claim is the local dev case.
   """
-  def complete_registration(token, attrs, ip_address \\ nil)
+  def complete_registration(token, attrs, ip_address \\ nil, opts \\ [])
       when is_binary(token) and is_map(attrs) do
     case verify_registration_token(token) do
       {:ok, email} ->
@@ -100,7 +106,7 @@ defmodule PhoenixKit.Users.MagicLinkRegistration do
             {:error, :email_already_exists}
 
           nil ->
-            do_complete_registration(email, attrs, ip_address, token)
+            do_complete_registration(email, attrs, ip_address, token, opts)
         end
 
       {:error, reason} ->
@@ -179,7 +185,7 @@ defmodule PhoenixKit.Users.MagicLinkRegistration do
     end
   end
 
-  defp do_complete_registration(email, attrs, ip_address, token) do
+  defp do_complete_registration(email, attrs, ip_address, token, opts) do
     {referral_code, attrs} = Map.pop(attrs, "referral_code")
 
     # `confirmed_at` is NOT settable here: `registration_changeset/3` casts a
@@ -193,11 +199,20 @@ defmodule PhoenixKit.Users.MagicLinkRegistration do
     # site-wide cap), and holding the token proves the address. Charging the
     # address bucket here as well left a person two tries at the form before
     # "too many registration attempts".
+    #
+    # A public door: while there is no Owner, only the claim the page built
+    # (`PhoenixKit.Users.Setup`) can let this account become it; without one
+    # the sign-up is refused.
+    register_opts = [
+      rate_limit: false,
+      first_owner: Keyword.get(opts, :first_owner, Setup.public_claim())
+    ]
+
     result =
       if track_geolocation && ip_address do
-        Auth.register_user_with_geolocation(attrs, ip_address, rate_limit: false)
+        Auth.register_user_with_geolocation(attrs, ip_address, register_opts)
       else
-        Auth.register_user(attrs, ip_address, rate_limit: false)
+        Auth.register_user(attrs, ip_address, register_opts)
       end
 
     case result do

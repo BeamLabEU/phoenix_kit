@@ -11,6 +11,7 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistrationRequest do
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.EmailDomain
   alias PhoenixKit.Users.MagicLinkRegistration
+  alias PhoenixKit.Users.Setup
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Users.Auth
@@ -41,6 +42,7 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistrationRequest do
            |> assign(:email, "")
            |> assign(:email_suggestion, nil)
            |> assign(:ip_address, IpAddress.extract_from_socket(socket))
+           |> assign(:first_owner_claim, Setup.claim_from_socket(socket, nil))
            |> assign(:email_sent, false)
            |> assign(:error_message, nil)
            |> assign(:loading, false)
@@ -89,6 +91,17 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistrationRequest do
          socket
          |> put_flash(:error, gettext("User registration is currently disabled."))
          |> redirect(to: Routes.path("/users/log-in"))}
+
+      # On an install with no Owner yet, a public sign-up is refused
+      # (`PhoenixKit.Users.Setup`); the completion page refuses it too, but
+      # saying so here spares the visitor a mail that leads nowhere.
+      Setup.check_registration(socket.assigns[:first_owner_claim]) != :ok ->
+        message =
+          gettext(
+            "This site has no owner yet, so sign-up is closed. Its operator creates the owner with the setup link printed in the server log, or with mix phoenix_kit.create_owner."
+          )
+
+        {:noreply, error_state(socket, message, message)}
 
       # The success screen has no widget: the first submit already passed the
       # check for this address, and the send is still rate-limited. A different
