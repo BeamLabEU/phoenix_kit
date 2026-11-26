@@ -1013,7 +1013,24 @@ defmodule PhoenixKit.Activity do
     |> put_changes()
     |> pop_into_metadata(:acting_user_uuid, "acting_user_uuid")
     |> pop_into_metadata(:impersonated_by_uuid, "impersonated_by_uuid")
+    |> scrub_nul()
   end
+
+  # PostgreSQL's jsonb refuses U+0000 (valid UTF-8, so nothing upstream
+  # catches it, and Jason writes it as `\u0000`): one NUL anywhere in the
+  # metadata failed the insert and the entry was lost. Each one becomes U+FFFD.
+  defp scrub_nul(%{metadata: %{} = metadata} = attrs) when not is_struct(metadata),
+    do: %{attrs | metadata: without_nul(metadata)}
+
+  defp scrub_nul(attrs), do: attrs
+
+  defp without_nul(value) when is_binary(value), do: String.replace(value, <<0>>, "\uFFFD")
+
+  defp without_nul(%{} = map) when not is_struct(map),
+    do: Map.new(map, fn {key, item} -> {without_nul(key), without_nul(item)} end)
+
+  defp without_nul([head | tail]), do: [without_nul(head) | without_nul(tail)]
+  defp without_nul(value), do: value
 
   # The `:changes` option lands under the reserved key, and only when something
   # moved: an untouched save carries no empty "What changed" section.

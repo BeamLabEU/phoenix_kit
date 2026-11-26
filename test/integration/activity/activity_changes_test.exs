@@ -48,6 +48,24 @@ defmodule PhoenixKit.Integration.ActivityChangesTest do
       assert stored.metadata["actor_role"] == "admin"
     end
 
+    # U+0000 is valid UTF-8, Jason writes it as \u0000, and jsonb refuses
+    # that: the insert failed and the entry was lost.
+    test "a NUL in a value or in the metadata does not lose the entry" do
+      assert {:ok, entry} =
+               Activity.log("shop", "order.updated",
+                 metadata: %{"note" => "x\0y", "tags" => ["a\0"], "k\0" => 1},
+                 changes: {%{note: "ok"}, %{note: "a\0b"}}
+               )
+
+      stored = Repo.get!(Activity.Entry, entry.uuid)
+      assert stored.metadata["changes"]["note"]["to"] == "a\uFFFDb"
+      assert stored.metadata["note"] == "x\uFFFDy"
+      assert stored.metadata["tags"] == ["a\uFFFD"]
+      assert stored.metadata["k\uFFFD"] == 1
+
+      assert {:ok, [_]} = Activity.log_many([%{action: "x.updated", metadata: %{"n" => "\0"}}])
+    end
+
     test "log/1 and log_many/2 take the :changes key too" do
       {:ok, entry} = Activity.log(%{action: "x.updated", changes: {%{a: 1}, %{a: 2}}})
 

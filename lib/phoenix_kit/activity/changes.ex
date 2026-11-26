@@ -305,12 +305,13 @@ defmodule PhoenixKit.Activity.Changes do
         match?(%Decimal{}, value) or match?(%Date{}, value) or match?(%DateTime{}, value) or
         match?(%NaiveDateTime{}, value) or match?(%Time{}, value)
 
-  # Invalid UTF-8 cannot go into JSONB. A 16-byte binary is most likely a raw
-  # UUID; anything else is described, not stored.
+  # Invalid UTF-8 cannot go into JSONB, nor can U+0000 (it becomes U+FFFD).
+  # A 16-byte binary is most likely a raw UUID; anything else is described,
+  # not stored.
   defp text(value) do
     cond do
       String.valid?(value) ->
-        value
+        String.replace(value, <<0>>, "\uFFFD")
 
       byte_size(value) == 16 ->
         case Ecto.UUID.load(value) do
