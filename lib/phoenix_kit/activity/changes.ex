@@ -23,11 +23,18 @@ defmodule PhoenixKit.Activity.Changes do
     * **No secrets.** A field whose name looks like a secret (`password`,
       `hashed_password`, `passphrase`, `token`, `secret`, `api_key`,
       `private_key`, `access_key`, `credential`, `salt`, `encrypt…`, `totp`,
-      `otp`, `pin`, `signature`, `cookie`, `authorization`, `session_id`, and
-      `key` or any `…_key`) is recorded as
-      `%{"changed" => true}`, never with its values. The rule cannot be turned
-      off; `:redact` adds more fields to it. Inside a map or schema value, a key
-      that looks like a secret is written as `"[FILTERED]"`.
+      `otp`, `pin`, `signature`, `cookie`, `authorization`, `session_id`, a
+      whole name or last part `auth` / `session`, a bare `key`, and the
+      secret-key shapes `secret_key`, `api_key`, `private_key`, `access_key`,
+      `signing_key`, `encryption_key`, `master_key`, `license_key`, `ssh_key`,
+      `hmac_key`, `client_key`, `auth_key`, `session_key`) is recorded as
+      `%{"changed" => true}`, never with its values. A boolean is never
+      redacted by name: `true`/`false` cannot be a secret, and flags such as
+      `encryption_enabled` or `cookie_consent` are worth seeing. Ordinary keys
+      (`sort_key`, `primary_key`, `foreign_key`, `storage_key`, …) are shown.
+      The rule cannot be turned off; `:redact` adds more fields to it (and
+      redacts booleans too). Inside a map or schema value, a key that looks
+      like a secret is written as `"[FILTERED]"`.
     * **Bounded size.** A string longer than `:max_length` (500) characters is
       cut and ends in `"…"`; when both sides cut to the same text the field is
       recorded as `%{"changed" => true}`. A list keeps its first 50 items, the
@@ -49,9 +56,13 @@ defmodule PhoenixKit.Activity.Changes do
 
   # Errs toward redacting: a flagged field still says it changed. The short
   # words only as a whole `_`-separated part (`pin`, not `pinned`; `otp`, not
-  # `footprint`), and `key` only as the last part (`key`, `ssh_key`, not
-  # `key_name` or `monkey`).
-  @secret_pattern ~r/password|passwd|passphrase|secret|token|credential|salt|encrypt|totp|signature|cookie|authorization|api_?key|private_?key|access_?key|session_?id|(^|_)otp($|_)|(^|_)pin($|_)|(^|_)key$/i
+  # `footprint`); `auth` and `session` only as the whole name or its last part
+  # (`basic_auth`, not `author` or `session_count`). `key` is a secret only
+  # bare or in a known secret-key shape (`ssh_key`, `signing_key`); a key that
+  # names something (`sort_key`, `primary_key`, `foreign_key`,
+  # `translation_key`, `storage_key`) is not. `secret_key` and `encryption_key`
+  # are caught by `secret` and `encrypt`. Booleans are exempt (`secret?/4`).
+  @secret_pattern ~r/password|passwd|passphrase|secret|token|credential|salt|encrypt|totp|signature|cookie|authorization|api_?key|private_?key|access_?key|session_?id|(^|_)otp($|_)|(^|_)pin($|_)|(^|_)(auth|session)$|^key$|(^|_)(signing|master|license|ssh|hmac|client|auth|session)_?key$/i
 
   @flag %{"changed" => true}
 
@@ -106,8 +117,10 @@ defmodule PhoenixKit.Activity.Changes do
     |> Enum.map(fn {field, change} ->
       key = to_string(field)
 
+      {from, to} = sides(change)
+
       value =
-        if secret?(key, redact),
+        if secret?(key, redact, from, to),
           do: @flag,
           else: normalize_change(change, max)
 
@@ -140,6 +153,19 @@ defmodule PhoenixKit.Activity.Changes do
   @doc "Whether a field name looks like it holds a secret."
   @spec secret_field?(atom() | String.t()) :: boolean()
   def secret_field?(field), do: Regex.match?(@secret_pattern, to_string(field))
+
+  @doc """
+  Whether a change of `field` from `from` to `to` hides its values: the name
+  looks like a secret (`secret_field?/1`) and the values are not booleans. A
+  boolean (or nil) on both sides is never a secret.
+  """
+  @spec secret_change?(atom() | String.t(), term(), term()) :: boolean()
+  def secret_change?(field, from, to), do: secret_field?(field) and not flags?(from, to)
+
+  defp flags?(from, to),
+    do: flag_value?(from) and flag_value?(to) and (is_boolean(from) or is_boolean(to))
+
+  defp flag_value?(value), do: is_nil(value) or is_boolean(value)
 
   # ── Building ─────────────────────────────────────────────────────────
 
@@ -182,7 +208,7 @@ defmodule PhoenixKit.Activity.Changes do
       same?(old, new) ->
         nil
 
-      secret?(key, redact) ->
+      secret?(key, redact, old, new) ->
         @flag
 
       true ->
@@ -235,7 +261,8 @@ defmodule PhoenixKit.Activity.Changes do
   defp same?(%Decimal{} = a, %Decimal{} = b), do: Decimal.equal?(a, b)
   defp same?(a, b), do: a === b
 
-  defp secret?(key, redact), do: MapSet.member?(redact, key) or secret_field?(key)
+  defp secret?(key, redact, from, to),
+    do: MapSet.member?(redact, key) or secret_change?(key, from, to)
 
   defp name_set(names), do: names |> List.wrap() |> MapSet.new(&to_string/1)
 
@@ -268,6 +295,16 @@ defmodule PhoenixKit.Activity.Changes do
     do: Enum.any?(["from", "to", :from, :to], &Map.has_key?(change, &1))
 
   defp side(change, string, atom), do: Map.get(change, string, Map.get(change, atom))
+
+  # The two sides of a ready change entry, for the boolean exemption; anything
+  # that is not a pair has none (and stays redacted by name).
+  defp sides(%{} = change) when not is_struct(change) do
+    if has_side?(change),
+      do: {side(change, "from", :from), side(change, "to", :to)},
+      else: {:none, :none}
+  end
+
+  defp sides(_change), do: {:none, :none}
 
   # ── Values ───────────────────────────────────────────────────────────
 
@@ -385,7 +422,7 @@ defmodule PhoenixKit.Activity.Changes do
     Map.new(value, fn {key, item} ->
       key = if is_binary(key), do: text(key), else: inspect_key(key)
 
-      if secret_field?(key),
+      if secret_field?(key) and not is_boolean(item),
         do: {key, "[FILTERED]"},
         else: {key, to_term(item, depth + 1)}
     end)

@@ -134,6 +134,53 @@ defmodule PhoenixKit.Activity.ChangesBuilderTest do
       refute Jason.encode!(nested) =~ "hunter2"
     end
 
+    # The `key` rule used to hide every `…_key`, and `encrypt`/`cookie`/
+    # `signature` hid plain flags: an audit of a sort-order change said only
+    # "changed".
+    test "ordinary keys and boolean flags are not hidden" do
+      plain = ~w(sort_key primary_key foreign_key translation_key storage_key
+                 session_count author authority)
+
+      before = Map.new(plain, &{&1, "old"})
+      later = Map.new(plain, &{&1, "new"})
+      changes = Activity.changes(before, later)
+
+      for field <- plain,
+          do: assert(changes[field] == %{"from" => "old", "to" => "new"}, field)
+
+      flags = ~w(cookie_consent signature_required encryption_enabled password_set)
+      changes = Activity.changes(Map.new(flags, &{&1, false}), Map.new(flags, &{&1, true}))
+
+      for field <- flags, do: assert(changes[field] == %{"from" => false, "to" => true}, field)
+
+      assert Activity.changes(%{"encryption_enabled" => nil}, %{"encryption_enabled" => true}) ==
+               %{"encryption_enabled" => %{"from" => nil, "to" => true}}
+
+      # A non-boolean value under such a name stays hidden, and `:redact`
+      # still hides a boolean.
+      assert Activity.changes(%{"cookie_consent" => "a"}, %{"cookie_consent" => "b"}) ==
+               %{"cookie_consent" => %{"changed" => true}}
+
+      assert Activity.changes(%{flag: false}, %{flag: true}, redact: [:flag]) ==
+               %{"flag" => %{"changed" => true}}
+
+      nested = Activity.changes(%{cfg: %{}}, %{cfg: %{"signature_required" => true}})
+      assert nested["cfg"]["to"] =~ "signature_required\":true"
+    end
+
+    test "secret-key shapes and whole-part auth/session are hidden" do
+      secret =
+        ~w(key secret_key api_key apikey private_key access_key signing_key encryption_key
+           master_key license_key ssh_key hmac_key client_key auth_key session_key
+           auth basic_auth session user_session)
+
+      before = Map.new(secret, &{&1, "old"})
+      later = Map.new(secret, &{&1, "hunter2"})
+      changes = Activity.changes(before, later)
+
+      for field <- secret, do: assert(changes[field] == %{"changed" => true}, field)
+    end
+
     test "secret keys inside a map value are filtered" do
       changes = Activity.changes(change(settings: %{"theme" => "x", "smtp_password" => "pw"}))
       refute changes["settings"]["to"] =~ "pw\""

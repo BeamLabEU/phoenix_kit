@@ -836,11 +836,16 @@ defmodule PhoenixKit.Activity do
   # they are shown as changed, never with them.
   defp redact_secret_changes(changes) do
     Map.new(changes, fn {field, change} ->
-      if Changes.secret_field?(field),
+      if legacy_secret?(field, change),
         do: {field, %{"changed" => true}},
         else: {field, change}
     end)
   end
+
+  defp legacy_secret?(field, %{} = change) when not is_struct(change),
+    do: Changes.secret_change?(field, Map.get(change, "from"), Map.get(change, "to"))
+
+  defp legacy_secret?(field, _change), do: Changes.secret_field?(field)
 
   # `log_user_change/4` and older module writers record a diff as two FLAT
   # keys — `email_from` / `email_to` — rather than the reserved map. Folding

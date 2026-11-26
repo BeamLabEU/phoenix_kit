@@ -84,6 +84,13 @@ defmodule PhoenixKit.Activity.ChangesTest do
       assert rest == %{}
     end
 
+    test "a boolean change under a secret-looking name is shown with its values" do
+      metadata = %{"changes" => %{"encryption_enabled" => %{"from" => false, "to" => true}}}
+
+      assert {%{"encryption_enabled" => %{"from" => false, "to" => true}}, %{}} =
+               Activity.split_changes(metadata)
+    end
+
     test "a half pair is left alone rather than guessed at" do
       metadata = %{"email_from" => "a@x.ee", "note" => "n"}
 
