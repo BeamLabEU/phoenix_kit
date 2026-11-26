@@ -179,7 +179,7 @@ defmodule PhoenixKit.Modules.Storage.Watermark do
   The watermark `dimension` (a size, or its name) gets from `watermark`: the
   watermark itself when it is on and names the size, else nil.
   """
-  @spec for_size(t() | nil, %{name: String.t()} | String.t()) :: t() | nil
+  @spec for_size(t() | nil, map() | String.t()) :: t() | nil
   def for_size(%__MODULE__{enabled: true, dimensions: names} = watermark, name)
       when is_binary(name),
       do: if(name in (names || []), do: watermark)
@@ -231,7 +231,7 @@ defmodule PhoenixKit.Modules.Storage.Watermark do
   end
 
   defp site_name do
-    to_string(Settings.get_project_title() || "")
+    to_string(Settings.get_project_title())
   rescue
     _ -> ""
   end
