@@ -127,6 +127,7 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
   alias PhoenixKit.API.PersonalKeysConfig
   alias PhoenixKit.API.Registry
   alias PhoenixKit.API.ServiceUsers
+  alias PhoenixKit.API.Tool
   alias PhoenixKit.ModuleRegistry
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
@@ -1224,9 +1225,7 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
     end
   end
 
-  defp tool_name?(name) do
-    String.length(name) <= 100 and Regex.match?(~r/\A[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*\z/, name)
-  end
+  defp tool_name?(name), do: Tool.valid_name?(name)
 
   # An origin is a scheme and a host (and maybe a port): no path, query or login.
   defp origin?(value) do

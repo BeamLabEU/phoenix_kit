@@ -28,7 +28,10 @@ defmodule PhoenixKit.API.MCP.Names do
   @doc """
   The dotted name for `name`, which may be given in either form.
 
-  A name that has a `.` is returned as it is. An underscore name is mapped to
+  A name that has a `.` is returned as it is, and so is a name that is itself the
+  undotted name or an alias of a tool of `audience` (`PhoenixKit.API.Tool`, "Undotted
+  names and aliases"); `PhoenixKit.API.Registry.find/2` resolves an alias. Any other
+  underscore name is mapped to
   the dotted name of a tool **of `audience`**: a live one, or one whose module
   is switched off (so that `PhoenixKit.API.Executor` can say `module_disabled`
   instead of `not_found`). That is decided by `PhoenixKit.API.Registry.find/2`,
@@ -43,10 +46,11 @@ defmodule PhoenixKit.API.MCP.Names do
   """
   @spec resolve(String.t(), Tool.audience()) :: String.t()
   def resolve(name, audience) when is_binary(name) do
-    if String.contains?(name, ".") do
-      name
-    else
-      name |> candidates() |> Enum.find(name, &known?(&1, audience))
+    cond do
+      String.contains?(name, ".") -> name
+      # An undotted name or an alias of a tool of this audience is a name of its own.
+      known?(name, audience) -> name
+      true -> name |> candidates() |> Enum.find(name, &known?(&1, audience))
     end
   end
 

@@ -252,6 +252,33 @@ defmodule MyApp.API.Tools do
 end
 ```
 
+#### Undotted names and aliases (moving an existing MCP server)
+
+A host tool may keep the name its clients already call: an **undotted** name of letters,
+digits, `_` and `-` (`call_endpoint`, `callEndpoint`) is accepted for it, and `aliases:` lists
+further names the tool answers to (dotted or not). PhoenixKit's own packages keep dotted names.
+
+```elixir
+PhoenixKit.API.Tool.new!(
+  name: "call_endpoint",
+  aliases: ["callEndpoint", "orders.call"],
+  # ...audience, scope, permission, handler as above
+)
+```
+
+An alias is resolved before anything else looks at the call, so the key's scopes, the owner's
+rights, the rate limit, confirmations, approvals and the log all see the tool's own name.
+Listings (`tools/list`, `GET /`, OpenAPI) show only the name.
+
+Every name and alias goes through one collision check (`ModuleRegistry.check_api_tool_names!/1`)
+when the registry starts, and in `ModuleRegistry.register/1` and `rescan/1`. It raises with both
+tools named, so the host does not boot with a clash, when an undotted name or an alias is already
+another tool's name, MCP name (`.` read as `_`) or alias in the same audience, or when it starts
+with a reserved namespace: `system`, or the namespace of a dotted tool another module declares
+(`catalogue_x` while a package declares `catalogue.*`). Dotted names alone keep the older rule
+(ToolLint reports two that share an MCP name; the first one wins at run time), so an install
+without undotted names or aliases is unchanged.
+
 - `module_name/0` is what admins read: name it after what the tools do.
 - Without `permission_metadata/0` the module has no card on the Modules page and no permission key of its own. A tool uses a key the host already has, or one it registers at start with `PhoenixKit.Users.Permissions.register_custom_key/2`; pass `auto_grant_admin: false` unless every Admin should get it.
 - A handler reads and writes only what `ctx.scope` may reach, and answers nothing without one.

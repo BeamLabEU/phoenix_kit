@@ -89,9 +89,10 @@ defmodule PhoenixKit.API.ToolTest do
       assert "permission is required for an admin tool" in messages
     end
 
-    test "rejects a name that is not namespace.verb_noun" do
+    # An undotted name (`list_products`) is a host tool's name now: see tool_aliases_test.exs.
+    test "rejects a name that is neither namespace.verb_noun nor an undotted name" do
       bad_names = [
-        "list_products",
+        "list products",
         "Catalogue.list",
         "catalogue.List",
         "a.b.c",
@@ -306,7 +307,7 @@ defmodule PhoenixKit.API.ToolTest do
     end
 
     test "reports every problem at once" do
-      assert {:error, messages} = Tool.new(name: "Bad", audience: :nobody, handler: :nope)
+      assert {:error, messages} = Tool.new(name: "B a d", audience: :nobody, handler: :nope)
 
       assert Enum.any?(messages, &(&1 =~ "name must look like"))
       assert Enum.any?(messages, &(&1 =~ "audience must be :admin or :public"))
@@ -396,7 +397,7 @@ defmodule PhoenixKit.API.ToolTest do
 
     test "raises with every message when the tool is invalid" do
       assert_raise ArgumentError, ~r/invalid API tool: .*name must look like/, fn ->
-        Tool.new!(Keyword.put(@admin_tool, :name, "nope"))
+        Tool.new!(Keyword.put(@admin_tool, :name, "no pe"))
       end
     end
   end

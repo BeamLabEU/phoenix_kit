@@ -44,7 +44,8 @@ defmodule PhoenixKit.API.Registry do
   end
 
   @doc """
-  Finds the callable tool `name` of `audience`.
+  Finds the callable tool `name` of `audience`. `name` may also be one of a tool's
+  `:aliases`; the tool comes back under its own name.
 
   Answers `{:error, :module_disabled}` when a registered module that is switched off
   declares a tool of that name, and `{:error, :not_found}` for every other miss: an unknown
@@ -97,11 +98,12 @@ defmodule PhoenixKit.API.Registry do
     |> Enum.reject(&MapSet.member?(hidden, &1.name))
   end
 
+  # The name first, then an alias (`PhoenixKit.API.Tool` `:aliases`): the tool found carries
+  # its own name, so everything after the lookup sees that and never the alias.
   defp find_callable(name, audience, hidden, hidden_modules) do
-    case Enum.find(
-           callable_tools(hidden, hidden_modules),
-           &(&1.name == name and &1.audience == audience)
-         ) do
+    tools = Enum.filter(callable_tools(hidden, hidden_modules), &(&1.audience == audience))
+
+    case Enum.find(tools, &(&1.name == name)) || Enum.find(tools, &Tool.answers_to?(&1, name)) do
       %Tool{} = tool -> {:ok, tool}
       nil -> {:error, miss_reason(name, audience, hidden, hidden_modules)}
     end

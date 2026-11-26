@@ -106,8 +106,10 @@ defmodule PhoenixKit.API.ToolLint do
 
   @doc """
   Checks every tool of a set and the names across the set: a name declared
-  twice in one audience, and two names of one audience that are the same on
-  MCP.
+  twice in one audience, two names of one audience that are the same on
+  MCP, and an undotted name or an alias that another tool of the set already answers
+  to (the collision part of `PhoenixKit.ModuleRegistry.check_api_tool_names!/1`; the
+  reserved namespaces need the whole registry and are checked there).
   """
   @spec check_tools([Tool.t()]) :: :ok | {:error, [String.t()]}
   def check_tools(tools) when is_list(tools) do
@@ -119,7 +121,10 @@ defmodule PhoenixKit.API.ToolLint do
         end
       end)
 
-    case per_tool ++ name_messages(tools) do
+    valid = Enum.filter(tools, &match?({:ok, _}, Tool.validate(&1)))
+    aliases = PhoenixKit.ModuleRegistry.api_name_problems(valid, reserved: false)
+
+    case per_tool ++ name_messages(tools) ++ aliases do
       [] -> :ok
       messages -> {:error, messages}
     end
