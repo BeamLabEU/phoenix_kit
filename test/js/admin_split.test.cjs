@@ -242,7 +242,12 @@ test("a size budget keeps the public file public", () => {
   // PkUploadEdit with the crop geometry moved here from the admin ImageEditor
   // (~15 KB) and the FormDraft hook (~11 KB); all render on public pages.
   // ~395 500 B, so 392 KiB = 401 408 B leaves ~5.9 KB).
-  assert.ok(publicBytes < 392 * 1024, "phoenix_kit.js is " + publicBytes + " bytes");
+  // -> 400 (the review fixes of those three, ~6.4 KB with their notes: the
+  // lightbox letting go when LiveView removes it and re-clamping a zoom on
+  // resize; the upload editor's loading lock, flip-aware turn, encode-failure
+  // message and multi-file hand-over; the draft keeping only edited fields.
+  // 401 898 B, so 400 KiB = 409 600 B leaves ~7.5 KB).
+  assert.ok(publicBytes < 400 * 1024, "phoenix_kit.js is " + publicBytes + " bytes");
   assert.ok(adminBytes > publicBytes / 2, "the admin file is where the weight went");
 });
 
