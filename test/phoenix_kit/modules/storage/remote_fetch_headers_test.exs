@@ -2,7 +2,7 @@ defmodule PhoenixKit.Modules.Storage.RemoteFetchHeadersTest do
   @moduledoc """
   `RemoteFetch.download/2` with `return_headers: true`: the response headers come back with the
   file, so a caller that caches (the client metadata documents of the OAuth server) can read
-  `Cache-Control`. Against a loopback server, reached through the test-only `:unsafe_resolver`;
+  `Cache-Control`. Against a loopback server, reached through `:unsafe_resolver` (the old name of `resolver:`);
   nothing leaves the machine.
   """
   use ExUnit.Case, async: true
@@ -60,6 +60,51 @@ defmodule PhoenixKit.Modules.Storage.RemoteFetchHeadersTest do
     on_exit(fn -> File.rm(path) end)
 
     refute Map.has_key?(result, :headers)
+  end
+
+  describe "resolver:" do
+    test "is called with the host and its address is the one connected to", %{url: url} do
+      port = URI.parse(url).port
+      me = self()
+
+      opts = [
+        allow_http: true,
+        allowed_ports: [port],
+        resolver: fn host ->
+          send(me, {:resolved, host})
+          {:ok, {127, 0, 0, 1}}
+        end
+      ]
+
+      assert {:ok, %{path: path}} = RemoteFetch.download(url, opts)
+      on_exit(fn -> File.rm(path) end)
+      assert_received {:resolved, "localhost"}
+      assert File.read!(path) == ~s({"a":1})
+    end
+
+    test "an error from it stops the download with that reason", %{url: url} do
+      port = URI.parse(url).port
+
+      opts = [
+        allow_http: true,
+        allowed_ports: [port],
+        resolver: fn _ -> {:error, :blocked_host} end
+      ]
+
+      assert {:error, :blocked_host} = RemoteFetch.download(url, opts)
+    end
+
+    test "wins over the old :unsafe_resolver name", %{url: url, local: local} do
+      opts = [resolver: fn _ -> {:error, :nxdomain} end] ++ local
+      assert {:error, :nxdomain} = RemoteFetch.download(url, opts)
+    end
+
+    test "without it a loopback host is refused", %{url: url} do
+      port = URI.parse(url).port
+
+      assert {:error, :blocked_host} =
+               RemoteFetch.download(url, allow_http: true, allowed_ports: [port])
+    end
   end
 
   describe "what the caller may ask of the request" do

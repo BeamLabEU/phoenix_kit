@@ -851,8 +851,11 @@ job, never a LiveView event handler.
   address it checked; redirects are followed by hand and re-checked; the body
   is capped (`max_bytes`, 25 MB) within one `timeout` (15 s). A network with
   its own internal ranges (a NAT64 prefix that is not `64:ff9b::/96`) lists
-  them in `config :phoenix_kit, :blocked_ip_ranges, ["…/96"]`. Never fetch a
-  user-supplied URL with a plain HTTP client.
+  them in `config :phoenix_kit, :blocked_ip_ranges, ["…/96"]`. A caller with
+  its own allowlist (a LAN host it trusts) passes `resolver: fn host -> … end`,
+  called for every hop's host and answering `{:ok, ip}` or `{:error, reason}`
+  (see the `RemoteFetch` moduledoc; `:unsafe_resolver` is its old name). Never
+  fetch a user-supplied URL with a plain HTTP client.
 - **The stored type comes from the bytes** (`Storage.Sniff`), not the
   response's `Content-Type` or the name; an unknown or disallowed type is
   `{:error, :unsupported_type}`. The stored name is the URL's last path
