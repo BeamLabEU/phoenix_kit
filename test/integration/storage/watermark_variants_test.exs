@@ -167,18 +167,22 @@ defmodule PhoenixKit.Modules.Storage.WatermarkVariantsTest do
     assert instance(file, "wm_big").spec_hash == VariantSets.spec_hash(ctx.big)
   end
 
-  test "a logo from storage is drawn", ctx do
+  defp store_logo!(ctx, colour, library_uuid \\ nil) do
     dir = Path.join(ctx.dir, "logo")
     File.mkdir_p!(dir)
-    path = Path.join(dir, "logo.png")
-    {_, 0} = System.cmd("convert", ["-size", "60x60", "xc:blue", path])
+    path = Path.join(dir, "logo#{System.unique_integer([:positive])}.png")
+    {_, 0} = System.cmd("convert", ["-size", "60x60", "xc:#{colour}", path])
     sha = :sha256 |> :crypto.hash(File.read!(path)) |> Base.encode16(case: :lower)
 
     {:ok, logo} =
       Storage.store_file_in_buckets(path, "image", ctx.user.uuid, sha, "png", "logo.png",
-        library_uuid: ctx.library.uuid
+        library_uuid: library_uuid || ctx.library.uuid
       )
 
+    logo
+  end
+
+  defp corner_logo!(ctx, logo) do
     watermark!(ctx, %{
       "mode" => "corner",
       "corner" => "top_left",
@@ -188,17 +192,61 @@ defmodule PhoenixKit.Modules.Storage.WatermarkVariantsTest do
       "margin_percent" => "0",
       "dimensions" => ["wm_big"]
     })
+  end
 
-    {file, _source} = upload!(ctx)
-    assert size(file, "wm_big") == {300, 150}
-
+  # The mean of one channel (0-1) of the top-left corner of `file`'s `wm_big`.
+  defp corner_mean(file, channel) do
     {:ok, big} = Manager.retrieve_file(instance(file, "wm_big").file_name)
 
     {out, 0} =
-      System.cmd("convert", [big, "-crop", "20x20+5+5", "-format", "%[fx:mean.b]", "info:"])
+      System.cmd("convert", [
+        big,
+        "-crop",
+        "20x20+5+5",
+        "-format",
+        "%[fx:mean.#{channel}]",
+        "info:"
+      ])
 
-    {blue, _} = out |> String.trim() |> Float.parse()
-    assert blue > 0.9
+    {mean, _} = out |> String.trim() |> Float.parse()
+    mean
+  end
+
+  test "a logo from storage is drawn", ctx do
+    corner_logo!(ctx, store_logo!(ctx, "blue"))
+
+    {file, _source} = upload!(ctx)
+    assert size(file, "wm_big") == {300, 150}
+    assert corner_mean(file, "b") > 0.9
+  end
+
+  test "a logo whose pixels change under the same file is redrawn on the next check", ctx do
+    logo = store_logo!(ctx, "blue")
+    set = corner_logo!(ctx, logo)
+    {file, _source} = upload!(ctx)
+    assert corner_mean(file, "b") > 0.9
+    old_key = instance(file, "wm_big").file_name
+
+    # The logo edited in place, as an image edit does: new bytes under its
+    # original's key... (here written over the object) and a new checksum.
+    original = instance(logo, "original")
+    green = Path.join(ctx.dir, "green.png")
+    {_, 0} = System.cmd("convert", ["-size", "60x60", "xc:lime", green])
+    File.cp!(green, Path.join(ctx.dir, original.file_name))
+    sha = :sha256 |> :crypto.hash(File.read!(green)) |> Base.encode16(case: :lower)
+
+    {1, _} =
+      PhoenixKit.RepoHelper.repo().update_all(
+        Ecto.Query.from(f in Storage.File, where: f.uuid == ^logo.uuid),
+        set: [file_checksum: sha]
+      )
+
+    :ok = VariantSets.check_files(set)
+    assert Reconciler.reconcile_file(Storage.get_file(file.uuid)) == :reconciled
+
+    refute instance(file, "wm_big").file_name == old_key
+    assert corner_mean(file, "g") > 0.9
+    assert corner_mean(file, "b") < 0.1
   end
 
   test "a renamed size keeps its place in the watermark", ctx do

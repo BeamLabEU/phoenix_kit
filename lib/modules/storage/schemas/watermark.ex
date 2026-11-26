@@ -74,6 +74,12 @@ defmodule PhoenixKit.Modules.Storage.Watermark do
     field :mark_size_percent, :integer, default: 20
     field :opacity, :integer, default: 70
     field :margin_percent, :integer, default: 3
+
+    # The logo file's content checksum (`Storage.File.file_checksum`), put here
+    # by `VariantGenerator` when it reads the set for a file; never stored. It is
+    # part of the spec hash, so a logo whose pixels change under the same file
+    # (an image edit) reaches the renditions on the next check of the set's files.
+    field :logo_checksum, :string, virtual: true
   end
 
   @type t :: %__MODULE__{}
@@ -189,7 +195,8 @@ defmodule PhoenixKit.Modules.Storage.Watermark do
 
   @doc """
   The text of what changes the pixels, in a fixed order: part of the spec hash
-  of a watermarked size (`VariantSets.spec_hash/2`). The text is hashed as
+  of a watermarked size (`VariantSets.spec_hash/2`). With a logo, its content
+  checksum (`logo_checksum`) counts too, not only its file uuid. The text is hashed as
   written, so a new site address reaches the renditions on the next check of
   the set's files (`VariantSets.check_files/2`), not by itself.
   """
@@ -197,8 +204,13 @@ defmodule PhoenixKit.Modules.Storage.Watermark do
   def hash_text(%__MODULE__{} = watermark) do
     Enum.map_join(@pixel_fields, "|", fn field ->
       "#{field}=#{Map.get(watermark, field)}"
-    end)
+    end) <> logo_part(watermark)
   end
+
+  # The logo's content (`logo_checksum`), when there is a logo: its file uuid alone
+  # would not change when its pixels do.
+  defp logo_part(%__MODULE__{logo_file_uuid: nil}), do: ""
+  defp logo_part(%__MODULE__{logo_checksum: checksum}), do: "|logo_checksum=#{checksum}"
 
   @doc """
   The text to draw: `{site_url}` and `{site_name}` filled in, control

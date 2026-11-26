@@ -311,6 +311,23 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
 
   def watermark_for(_set, _dimension), do: nil
 
+  @doc """
+  `watermark` with its logo's content checksum (`Watermark.logo_checksum`, the
+  logo file's `file_checksum`) filled in, so that the spec hash follows the
+  logo's pixels and not only its file uuid. Nil when there is no logo, or no
+  such file.
+  """
+  @spec with_logo_checksum(Watermark.t()) :: Watermark.t()
+  def with_logo_checksum(%Watermark{logo_file_uuid: nil} = watermark),
+    do: %{watermark | logo_checksum: nil}
+
+  def with_logo_checksum(%Watermark{logo_file_uuid: uuid} = watermark) do
+    checksum =
+      repo().one(from(f in StorageFile, where: f.uuid == ^uuid, select: f.file_checksum))
+
+    %{watermark | logo_checksum: checksum}
+  end
+
   @doc false
   # A size renamed: its place in the set's watermark follows it. Called by
   # `Storage.update_dimension/3` in the same transaction.

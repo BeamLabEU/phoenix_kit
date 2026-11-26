@@ -100,6 +100,20 @@ defmodule PhoenixKit.Modules.Storage.WatermarkTest do
       refute VariantSets.spec_hash(%{size | watermark: %{on | text: "y"}}) == marked
       refute VariantSets.spec_hash(%{size | watermark: %{on | mode: "corner"}}) == marked
     end
+
+    test "with a logo, its content counts, not only its file" do
+      size = %Dimension{name: "large", width: 1200, quality: 85, format: "jpg"}
+      on = watermark!(%{enabled: true, text: "x", dimensions: ["large"]})
+
+      # No logo: a checksum left over changes nothing.
+      assert VariantSets.spec_hash(%{size | watermark: %{on | logo_checksum: "aa"}}) ==
+               VariantSets.spec_hash(%{size | watermark: on})
+
+      logo = %{on | logo_file_uuid: Ecto.UUID.generate(), logo_checksum: "aa"}
+
+      refute VariantSets.spec_hash(%{size | watermark: logo}) ==
+               VariantSets.spec_hash(%{size | watermark: %{logo | logo_checksum: "bb"}})
+    end
   end
 
   describe "escape_text/1" do

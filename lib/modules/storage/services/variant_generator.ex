@@ -770,7 +770,8 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
 
   defp with_watermarks(dimensions, %{file_type: "image"} = file) do
     case VariantSets.for_file(file) do
-      %{watermark: %Watermark{enabled: true}} = set ->
+      %{watermark: %Watermark{enabled: true} = watermark} = set ->
+        set = %{set | watermark: VariantSets.with_logo_checksum(watermark)}
         Enum.map(dimensions, &%{&1 | watermark: VariantSets.watermark_for(set, &1)})
 
       _ ->
