@@ -59,9 +59,11 @@ defmodule PhoenixKit.API.MCP.Names do
   def dedupe(tools) when is_list(tools), do: Enum.uniq_by(tools, &to_mcp(&1.name))
 
   # Every dotted name, of either audience, that has this MCP name, in registry
-  # order. Which of them this audience may know is `known?/2`'s decision.
+  # order: tools' names, then dotted aliases (`orders.call` answers as `orders_call`,
+  # the form the collision check reserves for it). Which of them this audience may
+  # know is `known?/2`'s decision.
   defp candidates(mcp_name) do
-    live = for %Tool{name: name} <- Registry.all_tools(), do: name
+    live = for %Tool{} = tool <- Registry.all_tools(), name <- Tool.names(tool), do: name
     registered = ModuleRegistry.api_tool_names(:admin) ++ ModuleRegistry.api_tool_names(:public)
 
     (live ++ registered) |> Enum.uniq() |> Enum.filter(&(to_mcp(&1) == mcp_name))
