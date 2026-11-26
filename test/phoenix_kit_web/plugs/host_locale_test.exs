@@ -216,6 +216,16 @@ defmodule PhoenixKitWeb.Plugs.HostLocaleTest do
       end
     end
 
+    test "a percent-encoded segment is read as the router decodes it" do
+      {:cont, socket} = HostLocale.on_mount(:default, %{"locale" => "et"}, %{}, socket())
+      [hook] = socket.private.lifecycle.handle_params
+
+      {:cont, socket} =
+        hook.function.(%{"locale" => "et"}, "http://localhost/%65t/products", socket)
+
+      assert socket.assigns.current_locale == "et"
+    end
+
     test "a ?locale= query parameter is not a locale segment, as for the plug" do
       for value <- ["zz", "et"] do
         {:cont, socket} = HostLocale.on_mount(:default, %{"locale" => value}, %{}, socket())

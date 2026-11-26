@@ -205,8 +205,10 @@ defmodule PhoenixKitWeb.Plugs.HostLocale do
   # The segment from the route's path parameters only, never from the query string.
   defp path_segment(socket, uri, params, opts) do
     %URI{path: path, host: host} = URI.parse(uri)
+    # Decoded, as the router decodes the path it matches (`/%65t/...` is `/et/...`).
+    segments = for segment <- String.split(path || "/", "/", trim: true), do: URI.decode(segment)
 
-    case Phoenix.Router.route_info(socket.router, "GET", path || "/", host) do
+    case Phoenix.Router.route_info(socket.router, "GET", segments, host) do
       %{path_params: path_params} -> path_params[opts.param]
       _no_route -> if is_map(params), do: params[opts.param]
     end
