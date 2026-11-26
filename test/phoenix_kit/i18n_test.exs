@@ -176,6 +176,14 @@ defmodule PhoenixKit.I18nTest do
       url = I18n.localized_url(%{current_path: "//evil.com/x?locale=et"}, "en", strategy: :query)
       refute String.starts_with?(url, "//")
     end
+
+    test "strategy :query survives a query that does not decode" do
+      for path <- ["/products?q=%", "/products?q=%ZZ&x=1", "/products?q=%E0%A4%A"] do
+        url = I18n.localized_url(%{current_path: path}, "et", strategy: :query)
+        assert %URI{path: "/products", query: query} = URI.parse(url)
+        assert URI.decode_query(query)["locale"] == "et"
+      end
+    end
   end
 
   describe "sibling dialects" do

@@ -369,20 +369,20 @@ defmodule PhoenixKit.I18n do
   defp run_builder(:path, _segment, lang, context, opts) do
     Routes.locale_switch_path(current_path(context, opts), lang.locale,
       prefix: false,
-      current_locale: current_language(context).code
+      current_locale: current_segment(context)
     )
   end
 
   defp run_builder(:kit, _segment, lang, context, opts) do
     Routes.locale_switch_path(current_path(context, opts), lang.locale,
-      current_locale: current_language(context).code
+      current_locale: current_segment(context)
     )
   end
 
   defp run_builder(:query, segment, _lang, context, opts) do
     param = to_string(Keyword.get(opts, :query_param, "locale"))
     uri = URI.parse(current_path(context, opts))
-    query = URI.decode_query(uri.query || "")
+    query = decode_query(uri.query)
 
     query =
       case segment do
@@ -392,6 +392,25 @@ defmodule PhoenixKit.I18n do
 
     query = if query == %{}, do: nil, else: URI.encode_query(query)
     URI.to_string(%{uri | path: uri.path || "/", query: query})
+  end
+
+  # The query is the visitor's: one that does not decode (`?q=%`) is left out of the
+  # links rather than crashing the page that renders them.
+  defp decode_query(nil), do: %{}
+
+  defp decode_query(query) do
+    URI.decode_query(query)
+  rescue
+    ArgumentError -> %{}
+  end
+
+  # The locale segment as the current URL spells it (`HostLocale` records `ET` for
+  # `/ET/...`), so `:path` / `:kit` replace that spelling, else the language's own.
+  defp current_segment(context) do
+    case assigns_of(context)[:phoenix_kit_locale_segment] do
+      segment when is_binary(segment) -> segment
+      _ -> current_language(context).code
+    end
   end
 
   defp maybe_absolute(url, opts) do
