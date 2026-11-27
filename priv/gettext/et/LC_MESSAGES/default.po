@@ -29660,11 +29660,6 @@ msgstr "Tühi kasutab ühist piirangut. Arv asendab selle selle võtme jaoks, k�
 
 #: lib/phoenix_kit_web/live/settings/api.html.heex
 #, elixir-autogen, elixir-format
-msgid "Empty uses the shared limit. A number holds this key below it; it never lifts the key above the shared limit."
-msgstr "Tühi kasutab ühist piirangut. Arv hoiab selle võtme sellest allpool; ühisest piirangust kõrgemale see võtit ei tõsta."
-
-#: lib/phoenix_kit_web/live/settings/api.html.heex
-#, elixir-autogen, elixir-format
 msgid "Rate limit of this key"
 msgstr "Selle võtme päringute piirang"
 

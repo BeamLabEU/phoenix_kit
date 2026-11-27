@@ -29650,11 +29650,6 @@ msgstr "Vide utilise la limite commune. Un nombre la remplace pour cette clé, p
 
 #: lib/phoenix_kit_web/live/settings/api.html.heex
 #, elixir-autogen, elixir-format
-msgid "Empty uses the shared limit. A number holds this key below it; it never lifts the key above the shared limit."
-msgstr "Vide utilise la limite commune. Un nombre maintient cette clé en dessous ; il ne la place jamais au-dessus de la limite commune."
-
-#: lib/phoenix_kit_web/live/settings/api.html.heex
-#, elixir-autogen, elixir-format
 msgid "Rate limit of this key"
 msgstr "Limite de débit de cette clé"
 

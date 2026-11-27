@@ -29641,11 +29641,6 @@ msgstr ""
 
 #: lib/phoenix_kit_web/live/settings/api.html.heex
 #, elixir-autogen, elixir-format
-msgid "Empty uses the shared limit. A number holds this key below it; it never lifts the key above the shared limit."
-msgstr ""
-
-#: lib/phoenix_kit_web/live/settings/api.html.heex
-#, elixir-autogen, elixir-format
 msgid "Rate limit of this key"
 msgstr ""
 

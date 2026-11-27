@@ -29728,11 +29728,6 @@ msgstr "Порожньо — використовується спільний �
 
 #: lib/phoenix_kit_web/live/settings/api.html.heex
 #, elixir-autogen, elixir-format
-msgid "Empty uses the shared limit. A number holds this key below it; it never lifts the key above the shared limit."
-msgstr "Порожнє значення — спільний ліміт. Число тримає цей ключ нижче нього; вище за спільний ліміт воно ключ не піднімає."
-
-#: lib/phoenix_kit_web/live/settings/api.html.heex
-#, elixir-autogen, elixir-format
 msgid "Rate limit of this key"
 msgstr "Ліміт запитів цього ключа"
 

@@ -29659,11 +29659,6 @@ msgstr "Vacío usa el límite compartido. Un número lo sustituye para esta clav
 
 #: lib/phoenix_kit_web/live/settings/api.html.heex
 #, elixir-autogen, elixir-format
-msgid "Empty uses the shared limit. A number holds this key below it; it never lifts the key above the shared limit."
-msgstr "Vacío usa el límite compartido. Un número mantiene esta clave por debajo; nunca la eleva por encima del límite compartido."
-
-#: lib/phoenix_kit_web/live/settings/api.html.heex
-#, elixir-autogen, elixir-format
 msgid "Rate limit of this key"
 msgstr "Límite de frecuencia de esta clave"
 

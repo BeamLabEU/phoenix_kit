@@ -29734,11 +29734,6 @@ msgstr "Puste używa wspólnego limitu. Liczba zastępuje go dla tego klucza, wy
 
 #: lib/phoenix_kit_web/live/settings/api.html.heex
 #, elixir-autogen, elixir-format
-msgid "Empty uses the shared limit. A number holds this key below it; it never lifts the key above the shared limit."
-msgstr "Puste oznacza wspólny limit. Liczba utrzymuje ten klucz poniżej niego; nigdy nie podnosi go ponad wspólny limit."
-
-#: lib/phoenix_kit_web/live/settings/api.html.heex
-#, elixir-autogen, elixir-format
 msgid "Rate limit of this key"
 msgstr "Limit zapytań tego klucza"
 

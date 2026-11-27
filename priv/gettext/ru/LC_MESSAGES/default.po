@@ -29748,11 +29748,6 @@ msgstr "Пусто — используется общий лимит. Числ�
 
 #: lib/phoenix_kit_web/live/settings/api.html.heex
 #, elixir-autogen, elixir-format
-msgid "Empty uses the shared limit. A number holds this key below it; it never lifts the key above the shared limit."
-msgstr "Пустое значение — общий лимит. Число держит этот ключ ниже него; выше общего лимита оно ключ не поднимает."
-
-#: lib/phoenix_kit_web/live/settings/api.html.heex
-#, elixir-autogen, elixir-format
 msgid "Rate limit of this key"
 msgstr "Лимит запросов этого ключа"
 

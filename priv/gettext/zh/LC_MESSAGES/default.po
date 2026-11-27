@@ -29670,11 +29670,6 @@ msgstr "留空则使用共享限制。数字会为此密钥替换它，可高可
 
 #: lib/phoenix_kit_web/live/settings/api.html.heex
 #, elixir-autogen, elixir-format
-msgid "Empty uses the shared limit. A number holds this key below it; it never lifts the key above the shared limit."
-msgstr "留空则使用共享限制。填写数字会让此密钥低于共享限制；绝不会让它高于共享限制。"
-
-#: lib/phoenix_kit_web/live/settings/api.html.heex
-#, elixir-autogen, elixir-format
 msgid "Rate limit of this key"
 msgstr "此密钥的速率限制"
 
