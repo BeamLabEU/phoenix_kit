@@ -217,9 +217,13 @@ defmodule PhoenixKit.MixProject do
       # pastes as its text, so a list in it becomes a list, and arrowing into a
       # list item with a nested list no longer flattens that list into the
       # item's line in hybrid mode. A host with 0.13.0-0.13.2 locked keeps
-      # them through `mix deps.update phoenix_kit` otherwise.
+      # them through `mix deps.update phoenix_kit` otherwise. Within 0.13 the
+      # floor is 0.13.5: the stylesheet leaf.js adds carries the page's CSP
+      # nonce (`config :phoenix_kit, csp_nonce_assign_key:`); without it a
+      # nonce-based `style-src` drops it and the editor has no CSS. 0.13.4
+      # keeps the toolbar steady while typing.
       {:leaf,
-       "~> 0.4.1 or ~> 0.5.0 or ~> 0.6.0 or ~> 0.7.0 or ~> 0.8.0 or ~> 0.9.0 or ~> 0.10.0 or ~> 0.11.0 or ~> 0.12.0 or ~> 0.13.3"},
+       "~> 0.4.1 or ~> 0.5.0 or ~> 0.6.0 or ~> 0.7.0 or ~> 0.8.0 or ~> 0.9.0 or ~> 0.10.0 or ~> 0.11.0 or ~> 0.12.0 or ~> 0.13.5"},
 
       # Markdown → HTML (comrak). Declared here in core so every module shares
       # one resolved version instead of each pulling its own and risking
@@ -383,7 +387,12 @@ defmodule PhoenixKit.MixProject do
       # rendered it, which etcher 0.28's offline mode rebuilds a page from when
       # there is no connection (`phoenix_kit_boards` boards work offline). On
       # 0.16 the rebuild has nothing to start from and the page stays a spinner.
-      {:fresco, "~> 0.17.0"},
+      #
+      # 0.17.1 within it: the stylesheet fresco.js adds carries the page's CSP
+      # nonce, and the media viewer passes `style_nonce` (the canvas's inline
+      # styles then go out as `data-fresco-style`, which a nonce-based
+      # `style-src` does not block). An older fresco rejects the attribute.
+      {:fresco, "~> 0.17.1"},
       # 0.3.12 is the first tessera that admits fresco 0.17 (0.3.11 was the
       # first to admit 0.16, 0.3.10 0.15, 0.3.9 0.14): with an older one locked,
       # `mix deps.update phoenix_kit` cannot resolve the new fresco at all, and
@@ -429,7 +438,10 @@ defmodule PhoenixKit.MixProject do
       # is said once the server has confirmed it. 0.29.1 adds
       # `Etcher.offline.beforeLogout`, `forget`, and `pending` for clearing a
       # device's offline copies on logout.
-      {:etcher, "~> 0.29.2"},
+      #
+      # 0.29.3 within it: etcher's stylesheet carries the page's CSP nonce; a
+      # nonce-based `style-src` dropped it, and annotation had no styling.
+      {:etcher, "~> 0.29.3"},
 
       # QR device-handoff login ("scan to sign in" on the login page).
       #
