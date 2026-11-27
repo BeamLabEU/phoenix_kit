@@ -243,6 +243,40 @@ defmodule PhoenixKitWeb.Plugs.HostLocaleTest do
       end
     end
 
+    test "mount reads the path parameters, not the query, so mount and render agree" do
+      :ok = HostLocale.attach_mount_uri()
+
+      mount_at = fn uri, params ->
+        :telemetry.execute([:phoenix, :live_view, :mount, :start], %{}, %{uri: uri})
+        {:cont, socket} = HostLocale.on_mount(:default, params, %{}, socket())
+        socket.assigns.current_locale
+      end
+
+      # The connected mount: the URL comes from LiveView's mount telemetry.
+      assert mount_at.("http://localhost/products?locale=et", %{"locale" => "et"}) == "en-US"
+      assert mount_at.("http://localhost/et/products", %{"locale" => "et"}) == "et"
+      assert mount_at.("http://localhost/ru/products?locale=et", %{"locale" => "ru"}) == "ru"
+
+      :telemetry.execute([:phoenix, :live_view, :mount, :start], %{}, %{
+        uri: "http://localhost/zz/products"
+      })
+
+      assert_raise HostLocale.NotFoundError, fn ->
+        HostLocale.on_mount(:default, %{"locale" => "zz"}, %{}, socket())
+      end
+
+      # The dead render: the request itself.
+      dead = fn path_params, params ->
+        conn = %Plug.Conn{path_params: path_params}
+        socket = put_in(socket().private[:connect_info], conn)
+        {:cont, socket} = HostLocale.on_mount(:default, params, %{}, socket)
+        socket.assigns.current_locale
+      end
+
+      assert dead.(%{}, %{"locale" => "et"}) == "en-US"
+      assert dead.(%{"locale" => "ru"}, %{"locale" => "ru"}) == "ru"
+    end
+
     test "a nested live_render view keeps the strict decision at mount" do
       assert_raise HostLocale.NotFoundError, fn ->
         HostLocale.on_mount(:default, %{"locale" => "zz"}, %{}, %{socket() | router: nil})
