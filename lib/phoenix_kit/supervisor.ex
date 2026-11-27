@@ -15,6 +15,8 @@ defmodule PhoenixKit.Supervisor do
     ReconcileJob
   }
 
+  alias PhoenixKitWeb.Plugs.HostLocale
+
   def start_link(init_arg) do
     Supervisor.start_link(__MODULE__, init_arg, name: __MODULE__)
   end
@@ -24,7 +26,7 @@ defmodule PhoenixKit.Supervisor do
     # A primary Logger filter, so the host's endpoint needs no option for it.
     RequestLog.install()
     # The URL of a LiveView mount, for `PhoenixKitWeb.Plugs.HostLocale`'s on_mount.
-    PhoenixKitWeb.Plugs.HostLocale.attach_mount_uri()
+    HostLocale.attach_mount_uri()
     update_mode = Application.get_env(:phoenix_kit, :update_mode, false)
     children = build_children(update_mode)
     Supervisor.init(children, strategy: :one_for_one)

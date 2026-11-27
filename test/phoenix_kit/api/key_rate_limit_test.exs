@@ -12,8 +12,10 @@ defmodule PhoenixKit.API.KeyRateLimitTest do
   import PhoenixKit.API.KeyTestSupport
 
   alias PhoenixKit.Activity.Entry
+  alias PhoenixKit.API.Config
   alias PhoenixKit.API.Keys
   alias PhoenixKit.API.RateLimit
+  alias PhoenixKit.Users.RateLimiter.Backend
 
   setup do
     wait_for_window_room()
@@ -61,14 +63,14 @@ defmodule PhoenixKit.API.KeyRateLimitTest do
   describe "the total for all keys (api_total_rate_per_min)" do
     # One bucket for every key: start each case with it empty.
     setup do
-      PhoenixKit.Users.RateLimiter.Backend.set("api:admin:total", 60_000, 0)
-      on_exit(fn -> PhoenixKit.Users.RateLimiter.Backend.set("api:admin:total", 60_000, 0) end)
+      Backend.set("api:admin:total", 60_000, 0)
+      on_exit(fn -> Backend.set("api:admin:total", 60_000, 0) end)
       :ok
     end
 
     test "unset, keys are limited only by their own buckets, as before" do
       set_limit("api_admin_rate_per_min", 3)
-      assert PhoenixKit.API.Config.admin_total_per_min() == nil
+      assert Config.admin_total_per_min() == nil
       a = UUIDv7.generate()
       b = UUIDv7.generate()
 
