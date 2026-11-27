@@ -1252,7 +1252,10 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
       %{
         "disabled_tools" => text(params["disabled_tools"], ""),
         "mcp_allowed_origins" => text(params["mcp_allowed_origins"], ""),
-        "admin_total_per_min" => text(params["admin_total_per_min"], "")
+        # A form that does not send the field (a tab opened before it existed) keeps
+        # the total as it is rather than clearing it.
+        "admin_total_per_min" =>
+          text(params["admin_total_per_min"], total_text(Config.admin_total_per_min()))
       },
       fn {field, _setting, _name}, acc -> Map.put(acc, field, text(params[field], "")) end
     )

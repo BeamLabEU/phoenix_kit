@@ -105,6 +105,13 @@ defmodule PhoenixKitWeb.Live.Settings.ApiLimitsTest do
 
     assert Config.admin_total_per_min() == 5000
 
+    # A form that does not send the field (a tab opened before it existed) keeps it.
+    render_submit(view, "save_limits", %{
+      "limits" => Map.delete(params(%{}), "admin_total_per_min")
+    })
+
+    assert Config.admin_total_per_min() == 5000
+
     save(view, %{"admin_total_per_min" => ""})
     assert Config.admin_total_per_min() == nil
   end
