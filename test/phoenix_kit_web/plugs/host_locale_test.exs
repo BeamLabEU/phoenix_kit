@@ -257,6 +257,16 @@ defmodule PhoenixKitWeb.Plugs.HostLocaleTest do
       assert mount_at.("http://localhost/et/products", %{"locale" => "et"}) == "et"
       assert mount_at.("http://localhost/ru/products?locale=et", %{"locale" => "ru"}) == "ru"
 
+      # A URL serves the one mount it was recorded for: a later mount without its own
+      # event does not reuse it.
+      :telemetry.execute([:phoenix, :live_view, :mount, :start], %{}, %{
+        uri: "http://localhost/ru/products"
+      })
+
+      {:cont, _} = HostLocale.on_mount(:default, %{"locale" => "ru"}, %{}, socket())
+      {:cont, socket} = HostLocale.on_mount(:default, %{"locale" => "zz"}, %{}, socket())
+      assert socket.assigns.current_locale == "en-US"
+
       :telemetry.execute([:phoenix, :live_view, :mount, :start], %{}, %{
         uri: "http://localhost/zz/products"
       })

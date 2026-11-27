@@ -195,7 +195,8 @@ defmodule PhoenixKitWeb.Plugs.HostLocale do
         {path_params[opts.param], opts}
 
       _connected ->
-        case Process.get(@mount_uri_key) do
+        # Taken, not read: a URL belongs to the one mount it was recorded for.
+        case Process.delete(@mount_uri_key) do
           uri when is_binary(uri) -> {path_segment(socket, uri, params, opts), opts}
           _unknown -> {if(is_map(params), do: params[opts.param]), %{opts | on_unknown: :primary}}
         end
