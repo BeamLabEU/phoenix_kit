@@ -32,7 +32,7 @@ defmodule PhoenixKit.API.Actor do
       field its tool declares (`PhoenixKit.API.Tool`'s `:client_token`); `nil` when the tool
       declares none or the caller sent none. The raw token is never kept.
     * `rate_limit_per_minute` - the key's own limit (`PhoenixKit.API.Keys.Key`, V238), or
-      `nil`: the shared limit. Only ever lowers the shared limit (`PhoenixKit.API.RateLimit`).
+      `nil`: the shared limit. Replaces the shared limit for the key (`PhoenixKit.API.RateLimit`).
     * `ip` - the address the request came from, as a string.
 
   The default is the least-privileged value: anonymous, no scopes, not personal, no approval. (A

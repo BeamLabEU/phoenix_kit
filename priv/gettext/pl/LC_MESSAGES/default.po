@@ -29729,6 +29729,11 @@ msgstr "Własny limit zapytań na minutę (opcjonalnie)"
 
 #: lib/phoenix_kit_web/live/settings/api.html.heex
 #, elixir-autogen, elixir-format
+msgid "Empty uses the shared limit. A number replaces it for this key, higher or lower; the total for all keys, when set, still applies."
+msgstr "Puste używa wspólnego limitu. Liczba zastępuje go dla tego klucza, wyższa lub niższa; łączny limit wszystkich kluczy, jeśli ustawiony, nadal obowiązuje."
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
 msgid "Empty uses the shared limit. A number holds this key below it; it never lifts the key above the shared limit."
 msgstr "Puste oznacza wspólny limit. Liczba utrzymuje ten klucz poniżej niego; nigdy nie podnosi go ponad wspólny limit."
 
@@ -29751,6 +29756,16 @@ msgstr "Link konfiguracyjny zaakceptowany: konto zarejestrowane tutaj zostanie w
 #, elixir-autogen, elixir-format
 msgid "This setup link is not valid. Use the most recent link from the server log."
 msgstr "Ten link konfiguracyjny jest nieprawidłowy. Użyj najnowszego linku z dziennika serwera."
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Calls per minute, all keys together (optional)"
+msgstr "Wywołania na minutę, wszystkie klucze razem (opcjonalnie)"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "No total limit"
+msgstr "Bez łącznego limitu"
 
 #: lib/phoenix_kit_web/components/account_menu.ex:69
 #: lib/phoenix_kit_web/components/core/theme_controller.ex:179

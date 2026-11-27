@@ -703,6 +703,16 @@
               value={@limits_params["admin_per_min"]}
             />
             <.input
+              id="api-limit-admin-total-per-min"
+              name="limits[admin_total_per_min]"
+              type="text"
+              inputmode="numeric"
+              wrap_label
+              label={gettext("Calls per minute, all keys together (optional)")}
+              placeholder={gettext("No total limit")}
+              value={@limits_params["admin_total_per_min"]}
+            />
+            <.input
               id="api-limit-public-token-per-min"
               name="limits[public_token_per_min]"
               type="text"
@@ -985,7 +995,7 @@
       />
       <p class="text-xs text-base-content/60 -mt-2">
         {gettext(
-          "Empty uses the shared limit. A number holds this key below it; it never lifts the key above the shared limit."
+          "Empty uses the shared limit. A number replaces it for this key, higher or lower; the total for all keys, when set, still applies."
         )}
       </p>
     </form>
@@ -1104,7 +1114,7 @@
       />
       <p class="text-xs text-base-content/60">
         {gettext(
-          "Empty uses the shared limit. A number holds this key below it; it never lifts the key above the shared limit."
+          "Empty uses the shared limit. A number replaces it for this key, higher or lower; the total for all keys, when set, still applies."
         )}
       </p>
     </form>

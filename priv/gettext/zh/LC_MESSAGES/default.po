@@ -29665,6 +29665,11 @@ msgstr "每分钟自有速率限制（可选）"
 
 #: lib/phoenix_kit_web/live/settings/api.html.heex
 #, elixir-autogen, elixir-format
+msgid "Empty uses the shared limit. A number replaces it for this key, higher or lower; the total for all keys, when set, still applies."
+msgstr "留空则使用共享限制。数字会为此密钥替换它，可高可低；如设置了所有密钥的总限制，仍然适用。"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
 msgid "Empty uses the shared limit. A number holds this key below it; it never lifts the key above the shared limit."
 msgstr "留空则使用共享限制。填写数字会让此密钥低于共享限制；绝不会让它高于共享限制。"
 
@@ -29687,6 +29692,16 @@ msgstr "设置链接已接受：您在此注册的账户将成为网站的所有
 #, elixir-autogen, elixir-format
 msgid "This setup link is not valid. Use the most recent link from the server log."
 msgstr "此设置链接无效。请使用服务器日志中最新的链接。"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Calls per minute, all keys together (optional)"
+msgstr "每分钟调用次数，所有密钥合计（可选）"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "No total limit"
+msgstr "无总限制"
 
 #: lib/phoenix_kit_web/components/account_menu.ex:69
 #: lib/phoenix_kit_web/components/core/theme_controller.ex:179

@@ -29655,6 +29655,11 @@ msgstr "Oma päringute piirang minutis (valikuline)"
 
 #: lib/phoenix_kit_web/live/settings/api.html.heex
 #, elixir-autogen, elixir-format
+msgid "Empty uses the shared limit. A number replaces it for this key, higher or lower; the total for all keys, when set, still applies."
+msgstr "Tühi kasutab ühist piirangut. Arv asendab selle selle võtme jaoks, kõrgema või madalamaga; kõigi võtmete koguarv kehtib, kui see on määratud."
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
 msgid "Empty uses the shared limit. A number holds this key below it; it never lifts the key above the shared limit."
 msgstr "Tühi kasutab ühist piirangut. Arv hoiab selle võtme sellest allpool; ühisest piirangust kõrgemale see võtit ei tõsta."
 
@@ -29677,6 +29682,16 @@ msgstr "Seadistuslink on vastu võetud: siin registreeritud kontost saab saidi o
 #, elixir-autogen, elixir-format
 msgid "This setup link is not valid. Use the most recent link from the server log."
 msgstr "See seadistuslink ei kehti. Kasuta serveri logist kõige uuemat linki."
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Calls per minute, all keys together (optional)"
+msgstr "Päringuid minutis, kõik võtmed kokku (valikuline)"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "No total limit"
+msgstr "Kogupiirangut pole"
 
 #: lib/phoenix_kit_web/components/account_menu.ex:69
 #: lib/phoenix_kit_web/components/core/theme_controller.ex:179

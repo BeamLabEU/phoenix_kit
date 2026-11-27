@@ -29645,6 +29645,11 @@ msgstr "Limite di frequenza proprio al minuto (facoltativo)"
 
 #: lib/phoenix_kit_web/live/settings/api.html.heex
 #, elixir-autogen, elixir-format
+msgid "Empty uses the shared limit. A number replaces it for this key, higher or lower; the total for all keys, when set, still applies."
+msgstr "Vuoto usa il limite condiviso. Un numero lo sostituisce per questa chiave, più alto o più basso; il totale di tutte le chiavi, se impostato, si applica comunque."
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
 msgid "Empty uses the shared limit. A number holds this key below it; it never lifts the key above the shared limit."
 msgstr "Vuoto usa il limite condiviso. Un numero tiene questa chiave al di sotto; non la porta mai sopra il limite condiviso."
 
@@ -29667,6 +29672,16 @@ msgstr "Link di configurazione accettato: l'account che registri qui diventerà 
 #, elixir-autogen, elixir-format
 msgid "This setup link is not valid. Use the most recent link from the server log."
 msgstr "Questo link di configurazione non è valido. Usa il link più recente dal log del server."
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Calls per minute, all keys together (optional)"
+msgstr "Chiamate al minuto, tutte le chiavi insieme (facoltativo)"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "No total limit"
+msgstr "Nessun limite totale"
 
 #: lib/phoenix_kit_web/components/account_menu.ex:69
 #: lib/phoenix_kit_web/components/core/theme_controller.ex:179

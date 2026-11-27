@@ -29645,6 +29645,11 @@ msgstr "Limite de débit propre par minute (facultatif)"
 
 #: lib/phoenix_kit_web/live/settings/api.html.heex
 #, elixir-autogen, elixir-format
+msgid "Empty uses the shared limit. A number replaces it for this key, higher or lower; the total for all keys, when set, still applies."
+msgstr "Vide utilise la limite commune. Un nombre la remplace pour cette clé, plus haute ou plus basse ; le total de toutes les clés, s'il est défini, s'applique toujours."
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
 msgid "Empty uses the shared limit. A number holds this key below it; it never lifts the key above the shared limit."
 msgstr "Vide utilise la limite commune. Un nombre maintient cette clé en dessous ; il ne la place jamais au-dessus de la limite commune."
 
@@ -29667,6 +29672,16 @@ msgstr "Lien de configuration accepté : le compte que vous créez ici deviendra
 #, elixir-autogen, elixir-format
 msgid "This setup link is not valid. Use the most recent link from the server log."
 msgstr "Ce lien de configuration n'est pas valide. Utilisez le lien le plus récent du journal du serveur."
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Calls per minute, all keys together (optional)"
+msgstr "Appels par minute, toutes les clés ensemble (facultatif)"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "No total limit"
+msgstr "Pas de limite totale"
 
 #: lib/phoenix_kit_web/components/account_menu.ex:69
 #: lib/phoenix_kit_web/components/core/theme_controller.ex:179

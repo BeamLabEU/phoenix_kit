@@ -4,9 +4,9 @@ defmodule PhoenixKit.Migrations.Postgres.V238 do
 
   **`phoenix_kit_api_keys.rate_limit_per_minute`** (integer, nullable, `> 0` when set) —
   the cost units a minute this key may spend. NULL (every existing key) is the shared
-  limit, `api_admin_rate_per_min`, exactly as before. A set value never raises a key above
-  the shared limit: the key's bucket is limited to the smaller of the two, so issuing keys
-  cannot multiply what the API serves.
+  limit, `api_admin_rate_per_min`, exactly as before. A set value replaces the shared limit
+  for that key, higher or lower; the optional `api_total_rate_per_min` setting caps all keys
+  together.
 
   ## Locks
 

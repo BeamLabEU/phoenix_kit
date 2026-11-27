@@ -1517,8 +1517,9 @@ defmodule PhoenixKit.API.Keys do
   @doc """
   Sets the key's own rate limit (`rate_limit_per_minute`, V238): a positive integer up to
   1,000,000 cost units a minute, or `nil` for the shared limit `api_admin_rate_per_min`.
-  The key's bucket is limited to the smaller of the two (`PhoenixKit.API.RateLimit`), so
-  this can only hold a key below the shared limit, never lift it above.
+  A set value replaces the shared limit for this key, higher or lower
+  (`PhoenixKit.API.RateLimit.check_admin/3`); the optional `api_total_rate_per_min` still
+  bounds all keys together.
 
   The same rules as `update_scopes/3`: `editor_scope` must be able to manage the key
   (`can_manage?/2`, on the locked, re-read row), else `{:error, :forbidden}`; a hidden OAuth

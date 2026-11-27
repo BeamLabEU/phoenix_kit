@@ -1,8 +1,9 @@
 defmodule PhoenixKit.API.KeyRateLimitTest do
   @moduledoc """
-  A key's own rate limit (`rate_limit_per_minute`, V238): it only ever lowers the shared
-  `api_admin_rate_per_min`; `nil` (every existing key) is the shared limit exactly as
-  before; `Keys.update_rate_limit/3` checks who may set it and what values it takes; the
+  A key's own rate limit (`rate_limit_per_minute`, V238): it replaces the shared
+  `api_admin_rate_per_min` for the key, higher or lower, and the optional
+  `api_total_rate_per_min` caps all keys together; `nil` (every existing key) is the shared
+  limit exactly as before; `Keys.update_rate_limit/3` checks who may set it and what values it takes; the
   limit reaches the actor a request carries.
   """
   use PhoenixKit.DataCase, async: false
@@ -45,14 +46,67 @@ defmodule PhoenixKit.API.KeyRateLimitTest do
       assert header_value(headers, "retry-after") == retry_after
     end
 
-    test "a higher key limit never lifts the key above the shared one" do
+    test "a higher key limit lifts the key above the shared one" do
       set_limit("api_admin_rate_per_min", 2)
       key_uuid = UUIDv7.generate()
 
-      assert {:ok, headers} = RateLimit.check_admin(key_uuid, 1, 1_000)
-      assert header_value(headers, "ratelimit-limit") == 2
-      assert {:ok, _} = RateLimit.check_admin(key_uuid, 1, 1_000)
-      assert {:error, _, _} = RateLimit.check_admin(key_uuid, 1, 1_000)
+      assert {:ok, headers} = RateLimit.check_admin(key_uuid, 1, 4)
+      assert header_value(headers, "ratelimit-limit") == 4
+
+      for _ <- 1..3, do: assert({:ok, _} = RateLimit.check_admin(key_uuid, 1, 4))
+      assert {:error, _, _} = RateLimit.check_admin(key_uuid, 1, 4)
+    end
+  end
+
+  describe "the total for all keys (api_total_rate_per_min)" do
+    # One bucket for every key: start each case with it empty.
+    setup do
+      PhoenixKit.Users.RateLimiter.Backend.set("api:admin:total", 60_000, 0)
+      on_exit(fn -> PhoenixKit.Users.RateLimiter.Backend.set("api:admin:total", 60_000, 0) end)
+      :ok
+    end
+
+    test "unset, keys are limited only by their own buckets, as before" do
+      set_limit("api_admin_rate_per_min", 3)
+      assert PhoenixKit.API.Config.admin_total_per_min() == nil
+      a = UUIDv7.generate()
+      b = UUIDv7.generate()
+
+      for key <- [a, b], _ <- 1..3, do: assert({:ok, _} = RateLimit.check_admin(key, 1))
+      assert {:error, _, _} = RateLimit.check_admin(a, 1)
+    end
+
+    test "set, it caps every key together, own limits included" do
+      set_limit("api_admin_rate_per_min", 100)
+      set_limit("api_total_rate_per_min", 3)
+      a = UUIDv7.generate()
+      b = UUIDv7.generate()
+
+      assert {:ok, headers} = RateLimit.check_admin(a, 1, 1_000)
+      # The headers describe the tighter bucket: the total.
+      assert header_value(headers, "ratelimit-limit") == 3
+      assert {:ok, _} = RateLimit.check_admin(b, 1)
+      assert {:ok, _} = RateLimit.check_admin(a, 1, 1_000)
+
+      assert {:error, retry_after, headers} = RateLimit.check_admin(b, 1)
+      assert retry_after in 1..60
+      assert header_value(headers, "ratelimit-limit") == 3
+    end
+
+    test "a call the total has no room for does not use up the key's own bucket" do
+      set_limit("api_admin_rate_per_min", 2)
+      set_limit("api_total_rate_per_min", 1)
+      a = UUIDv7.generate()
+      b = UUIDv7.generate()
+
+      assert {:ok, _} = RateLimit.check_admin(b, 1)
+      assert {:error, _, _} = RateLimit.check_admin(a, 1)
+
+      put_setting("api_total_rate_per_min", "")
+      # a's bucket was never charged: both of its units are still there.
+      assert {:ok, _} = RateLimit.check_admin(a, 1)
+      assert {:ok, _} = RateLimit.check_admin(a, 1)
+      assert {:error, _, _} = RateLimit.check_admin(a, 1)
     end
   end
 

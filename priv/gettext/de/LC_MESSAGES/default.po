@@ -29645,6 +29645,11 @@ msgstr "Eigenes Ratenlimit pro Minute (optional)"
 
 #: lib/phoenix_kit_web/live/settings/api.html.heex
 #, elixir-autogen, elixir-format
+msgid "Empty uses the shared limit. A number replaces it for this key, higher or lower; the total for all keys, when set, still applies."
+msgstr "Leer verwendet das gemeinsame Limit. Eine Zahl ersetzt es für diesen Schlüssel, höher oder niedriger; das Gesamtlimit aller Schlüssel gilt weiterhin, wenn es gesetzt ist."
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
 msgid "Empty uses the shared limit. A number holds this key below it; it never lifts the key above the shared limit."
 msgstr "Leer bedeutet das gemeinsame Limit. Eine Zahl hält diesen Schlüssel darunter; über das gemeinsame Limit hebt sie ihn nie."
 
@@ -29667,6 +29672,16 @@ msgstr "Einrichtungslink akzeptiert: Das Konto, das Sie hier registrieren, wird 
 #, elixir-autogen, elixir-format
 msgid "This setup link is not valid. Use the most recent link from the server log."
 msgstr "Dieser Einrichtungslink ist ungültig. Verwenden Sie den neuesten Link aus dem Serverprotokoll."
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Calls per minute, all keys together (optional)"
+msgstr "Aufrufe pro Minute, alle Schlüssel zusammen (optional)"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "No total limit"
+msgstr "Kein Gesamtlimit"
 
 #: lib/phoenix_kit_web/components/account_menu.ex:69
 #: lib/phoenix_kit_web/components/core/theme_controller.ex:179

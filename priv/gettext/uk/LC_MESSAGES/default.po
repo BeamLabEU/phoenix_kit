@@ -29723,6 +29723,11 @@ msgstr "Власний ліміт запитів за хвилину (необо
 
 #: lib/phoenix_kit_web/live/settings/api.html.heex
 #, elixir-autogen, elixir-format
+msgid "Empty uses the shared limit. A number replaces it for this key, higher or lower; the total for all keys, when set, still applies."
+msgstr "Порожньо — використовується спільний ліміт. Число замінює його для цього ключа, вище чи нижче; загальний ліміт для всіх ключів, якщо заданий, і далі діє."
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
 msgid "Empty uses the shared limit. A number holds this key below it; it never lifts the key above the shared limit."
 msgstr "Порожнє значення — спільний ліміт. Число тримає цей ключ нижче нього; вище за спільний ліміт воно ключ не піднімає."
 
@@ -29745,6 +29750,16 @@ msgstr "Посилання для налаштування прийнято: о�
 #, elixir-autogen, elixir-format
 msgid "This setup link is not valid. Use the most recent link from the server log."
 msgstr "Це посилання для налаштування недійсне. Використайте найновіше посилання з журналу сервера."
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Calls per minute, all keys together (optional)"
+msgstr "Викликів за хвилину, усі ключі разом (необов'язково)"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "No total limit"
+msgstr "Без загального ліміту"
 
 #: lib/phoenix_kit_web/components/account_menu.ex:69
 #: lib/phoenix_kit_web/components/core/theme_controller.ex:179

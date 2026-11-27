@@ -1234,7 +1234,8 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
         @limit_fields,
         %{
           "disabled_tools" => Config.encode_list(Config.disabled_tools()),
-          "mcp_allowed_origins" => Config.encode_list(Config.mcp_allowed_origins())
+          "mcp_allowed_origins" => Config.encode_list(Config.mcp_allowed_origins()),
+          "admin_total_per_min" => total_text(Config.admin_total_per_min())
         },
         fn {field, _setting, name}, acc ->
           Map.put(acc, field, Integer.to_string(Map.fetch!(limits, name)))
@@ -1244,13 +1245,14 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
     socket |> assign(:limits_params, params) |> assign(:limits_errors, [])
   end
 
-  # Only the eight fields of the form survive, each a string.
+  # Only the fields of the form survive, each a string.
   defp normalize_limit_params(params) do
     Enum.reduce(
       @limit_fields,
       %{
         "disabled_tools" => text(params["disabled_tools"], ""),
-        "mcp_allowed_origins" => text(params["mcp_allowed_origins"], "")
+        "mcp_allowed_origins" => text(params["mcp_allowed_origins"], ""),
+        "admin_total_per_min" => text(params["admin_total_per_min"], "")
       },
       fn {field, _setting, _name}, acc -> Map.put(acc, field, text(params[field], "")) end
     )
@@ -1276,6 +1278,8 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
         {setting, name, parse_limit(params[field])}
       end)
 
+    total = parse_total(params["admin_total_per_min"])
+
     errors =
       Enum.reject(
         [
@@ -1293,7 +1297,9 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
                 "Origins look like https://example.com: a scheme and a host, without a path."
               )
           ),
-          if(Enum.all?(numbers, fn {_setting, _name, parsed} -> parsed != :error end),
+          if(
+            Enum.all?(numbers, fn {_setting, _name, parsed} -> parsed != :error end) and
+              total != :error,
             do: nil,
             else: gettext("Every limit must be a whole number from 1 to 1000000.")
           )
@@ -1306,6 +1312,7 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
        %{
          tools: tools,
          origins: origins,
+         total: elem(total, 1),
          numbers: for({setting, name, {:ok, number}} <- numbers, do: {setting, name, number})
        }}
     else
@@ -1319,6 +1326,17 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
       _ -> :error
     end
   end
+
+  # The total for all keys is optional: empty is no total cap.
+  defp parse_total(value) do
+    case String.trim(value) do
+      "" -> {:ok, nil}
+      text -> parse_limit(text)
+    end
+  end
+
+  defp total_text(nil), do: ""
+  defp total_text(total), do: Integer.to_string(total)
 
   defp tool_name?(name), do: Tool.valid_name?(name)
 
@@ -1345,6 +1363,8 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
       end)
 
     list_changes = [
+      {"api_total_rate_per_min", total_text(wanted.total),
+       wanted.total != Config.admin_total_per_min()},
       {"api_disabled_tools", Config.encode_list(wanted.tools),
        wanted.tools != Config.disabled_tools()},
       {"api_mcp_allowed_origins", Config.encode_list(wanted.origins),

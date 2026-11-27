@@ -318,6 +318,22 @@ defmodule PhoenixKit.API.Config do
     :exit, _ -> default
   end
 
+  @doc """
+  The optional cap on what all API keys together may spend a minute, in cost units
+  (`api_total_rate_per_min`), or `nil` (the default, unset or not a positive whole
+  number): no total cap. Checked in addition to each key's own bucket
+  (`PhoenixKit.API.RateLimit.check_admin/3`), so keys with their own, higher limits
+  can still be bounded as a whole.
+  """
+  @spec admin_total_per_min() :: pos_integer() | nil
+  def admin_total_per_min do
+    limit("api_total_rate_per_min")
+  rescue
+    _ -> nil
+  catch
+    :exit, _ -> nil
+  end
+
   @doc "Largest request body the API accepts, in bytes (2 MB)."
   @spec max_body_bytes() :: 2_097_152
   def max_body_bytes, do: @max_body_bytes
