@@ -75,6 +75,10 @@ defmodule PhoenixKit.Modules.Storage.RemovalGuard do
   equivalent check in its own transaction): the database, not this callback,
   is the last word.
 
+  The file access guard (`PhoenixKit.Modules.Storage.AccessGuard`, asked before a
+  file is served) fails closed the same way: a guard that raises, exits or answers
+  something unexpected refuses, there with the 404 of a missing file.
+
   ## What it does not cover
 
   The guard stands in the media browser's events. It is not asked by the

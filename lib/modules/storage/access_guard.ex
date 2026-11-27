@@ -66,10 +66,12 @@ defmodule PhoenixKit.Modules.Storage.AccessGuard do
 
   ## Fails closed
 
-  A guard that raises, exits, throws or answers anything else is a `:deny`
-  for that request, and the log names the guard and the exception's module
-  (never the request). With no guard (the default) nothing is called and
-  every file is served as it always was.
+  As `PhoenixKit.Modules.Storage.RemovalGuard` does for removals, and on purpose
+  (a protected file must not leak because its guard broke): a guard that raises,
+  exits, throws or answers anything else is a `:deny` for that request, so a
+  broken guard 404s every file it is asked about until it is fixed. The log
+  names the guard and the exception's module, never the request. With no guard
+  (the default) nothing is called and every file is served as it always was.
   """
 
   require Logger
