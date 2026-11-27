@@ -100,4 +100,15 @@ defmodule PhoenixKitWeb.Components.ThemeControllerScriptTest do
     assert html =~ "systemPair = { light: 'phoenix-light', dark: 'phoenix-dark' }"
     refute html =~ "<script>x</script>"
   end
+
+  test "keeps the saved choice stamped and tells inline options apart by it" do
+    html = render_script()
+
+    assert html =~ "setAttribute('data-theme-choice', theme)"
+    # aria-pressed follows the choice, not what "system" resolves to.
+    assert html =~ "inline-option"
+    assert html =~ "String(targets.includes(theme))"
+    # A picker patched in later asks to be synced; the script answers.
+    assert html =~ "addEventListener('phoenix_kit:theme-sync'"
+  end
 end

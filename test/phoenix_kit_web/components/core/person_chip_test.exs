@@ -2,8 +2,9 @@ defmodule PhoenixKitWeb.Components.Core.PersonChipTest do
   @moduledoc """
   `<.person_chip>`: one look for a person in text and in lists (a mention, a
   task's assignees). Spans only, so it can sit in a paragraph; neutral and
-  never underlined; a face from this site's storage or initials, never a
-  third party's; a uuid makes it open the person's card.
+  never underlined; the person's picture by the rule of every face
+  (`user_avatar`: uploaded with its crop, OAuth, Gravatar) over their
+  initials; a uuid makes it open the person's card.
   """
 
   use ExUnit.Case, async: true
@@ -54,15 +55,80 @@ defmodule PhoenixKitWeb.Components.Core.PersonChipTest do
     assert html =~ ~s(tabindex="0")
   end
 
-  test "a person with only an OAuth or Gravatar picture shows initials, never a third party" do
+  # Max, 2026-11-26: one person, one face, wherever they are shown; the
+  # chip used to show initials where the picker showed their picture.
+  test "the face follows user_avatar: an OAuth picture over the initials" do
     html =
       render_component(&UserInfo.person_chip/1,
         person: person(%{custom_fields: %{"oauth_avatar_url" => "https://lh3.example/a.png"}})
       )
 
-    refute html =~ "lh3.example"
-    refute html =~ "gravatar"
-    refute html =~ "<img"
+    assert html =~ ~s(src="https://lh3.example/a.png")
+    assert html =~ ">AK<"
+    refute html =~ "<div"
+  end
+
+  test "with only an email, Gravatar (a transparent picture when there is none)" do
+    refute render_component(&UserInfo.person_chip/1, person: person()) =~ "gravatar"
+    scope = %PhoenixKit.Users.Auth.Scope{cached_permissions: MapSet.new(["users"])}
+    html = render_component(&UserInfo.person_chip/1, person: person(), scope: scope)
+
+    assert html =~ "gravatar.com/avatar/"
+    assert html =~ "d=blank"
+    assert html =~ ">AK<"
+  end
+
+  test "an uploaded picture is placed by its stored crop" do
+    file = "0198e004-2265-7000-8000-000000000000"
+
+    html =
+      render_component(&UserInfo.person_chip/1,
+        person:
+          person(%{
+            custom_fields: %{
+              "avatar_file_uuid" => file,
+              "avatar_crop" => %{"x" => 0.5, "y" => 0.5, "zoom" => 2, "ar" => 1}
+            }
+          })
+      )
+
+    assert html =~ "/#{file}/"
+    assert html =~ "width:200.00%"
+    assert html =~ "left:-50.00%"
+    refute html =~ "object-cover"
+    refute html =~ "<div"
+  end
+
+  test "an uploaded picture without a crop covers the face" do
+    file = "0198e004-2265-7000-8000-000000000000"
+
+    html =
+      render_component(&UserInfo.person_chip/1,
+        person: person(%{custom_fields: %{"avatar_file_uuid" => file}})
+      )
+
+    assert html =~ "/#{file}/"
+    assert html =~ "object-cover"
+  end
+
+  test "avatar_brief gives the same picture and the crop's style" do
+    file = "0198e004-2265-7000-8000-000000000000"
+
+    brief =
+      UserInfo.avatar_brief(
+        person(%{
+          custom_fields: %{
+            "avatar_file_uuid" => file,
+            "avatar_crop" => %{"x" => 0.5, "y" => 0.5, "zoom" => 2, "ar" => 1}
+          }
+        }),
+        "Anna Kask"
+      )
+
+    assert brief.url =~ "/#{file}/"
+    assert brief.style =~ "width:200.00%"
+    assert brief.initials == "AK"
+    assert %{url: nil, style: nil} = UserInfo.avatar_brief(nil, "Someone")
   end
 
   test "no uuid: no card to open" do

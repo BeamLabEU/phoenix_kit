@@ -55,7 +55,7 @@ defmodule PhoenixKit.Mentions.Users do
     |> order_by([user: u], asc: u.username, asc: u.email)
     |> limit(^limit)
     |> repo().all()
-    |> Enum.map(&to_result(&1, show_email?))
+    |> Enum.map(&to_result(&1, opts[:scope]))
   rescue
     _ -> []
   catch
@@ -131,7 +131,7 @@ defmodule PhoenixKit.Mentions.Users do
   # searcher who manages users (the person card's rule, Max 2026-11-25):
   # the title deliberately degrades to a local part, and printing the full
   # address under it for everyone gave back what that was protecting.
-  defp to_result(%User{} = user, show_email?) do
+  defp to_result(%User{} = user, scope) do
     name = display_name(user)
 
     %{
@@ -139,8 +139,8 @@ defmodule PhoenixKit.Mentions.Users do
       type: "user",
       uuid: user.uuid,
       title: name,
-      subtitle: subtitle(user, show_email?),
-      avatar: UserInfo.avatar_brief(user, name)
+      subtitle: subtitle(user, show_email?(scope)),
+      avatar: UserInfo.avatar_brief(user, name, scope)
     }
   end
 

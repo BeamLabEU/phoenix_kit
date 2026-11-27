@@ -29397,3 +29397,9 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "Covers sign-in, registration, magic link, password reset, email confirmation and QR sign-in pages. Shown only when Multiple languages is turned on and more than one language is enabled. Turn it off for a site that serves one language per domain."
 msgstr ""
+
+#: lib/phoenix_kit_web/components/account_menu.ex:69
+#: lib/phoenix_kit_web/components/core/theme_controller.ex:179
+#, elixir-autogen, elixir-format
+msgid "Theme"
+msgstr ""

@@ -115,6 +115,7 @@ defmodule PhoenixKitWeb.Components.Core.MentionText do
         piece={piece}
         allow_request={@allow_request}
         users={@mentioned_users}
+        scope={@scope}
       />
     <% end %></span>
     """
@@ -140,6 +141,7 @@ defmodule PhoenixKitWeb.Components.Core.MentionText do
   # One rendered fragment: either a run of ordinary text or a resolved
   # mention. Kept as its own component so the three mention states are
   # readable side by side rather than nested in a comprehension.
+  attr :scope, :any, required: true
   attr :piece, :any, required: true
   attr :allow_request, :boolean, required: true
   attr :users, :map, default: %{}
@@ -157,6 +159,7 @@ defmodule PhoenixKitWeb.Components.Core.MentionText do
     ~H"""
     <.person_chip
       person={@person}
+      scope={@scope}
       name={@info[:title]}
       uuid={@token.uuid}
       href={@info[:path] && href(@info)}

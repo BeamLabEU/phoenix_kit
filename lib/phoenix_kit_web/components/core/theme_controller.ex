@@ -7,6 +7,7 @@ defmodule PhoenixKitWeb.Components.Core.ThemeController do
   """
 
   use Phoenix.Component
+  use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias Phoenix.LiveView.JS
   alias PhoenixKit.ThemeConfig
@@ -40,7 +41,7 @@ defmodule PhoenixKitWeb.Components.Core.ThemeController do
 
   attr :mode, :atom,
     default: :auto,
-    values: [:auto, :dropdown, :toggle],
+    values: [:auto, :dropdown, :toggle, :inline],
     doc: """
     :auto renders a toggle when the theme list is exactly two concrete
     themes of DIFFERING base (one light, one dark) and a dropdown otherwise;
@@ -49,6 +50,11 @@ defmodule PhoenixKitWeb.Components.Core.ThemeController do
     sun/moon semantics over two themes of the same base are false. (A :cycle
     mode was considered and rejected: hidden state, no accessibility story,
     and it makes configuration ORDER behavioural.)
+
+    :inline is a group of icon buttons, one per theme, every choice in view:
+    for a SHORT list inside something that is already a menu (the account
+    menu's System / Light / Dark row), where a dropdown would open a menu
+    inside a menu. Never chosen by :auto.
     """
 
   attr :rest, :global
@@ -65,6 +71,9 @@ defmodule PhoenixKitWeb.Components.Core.ThemeController do
         dropdown_themes |> Enum.map(&toggle_base(&1.value)) |> Enum.uniq() |> length() == 2
 
     case {assigns.mode, pair?} do
+      {:inline, _} ->
+        theme_inline(assigns)
+
       {:toggle, false} ->
         raise ArgumentError,
               "theme_controller mode: :toggle needs exactly two concrete themes, " <>
@@ -147,6 +156,80 @@ defmodule PhoenixKitWeb.Components.Core.ThemeController do
   end
 
   defp toggle_base(theme), do: Map.get(ThemeConfig.base_map(), theme, "light")
+
+  # A group of toggle buttons. Which one is chosen is CSS, keyed off
+  # html[data-theme-choice] — the SAVED choice ("system" or a theme's name),
+  # stamped before the first paint by ThemeBootstrap and kept by the theme
+  # script. Not html[data-theme]: that is the theme in effect, and cannot tell
+  # "system, which is dark right now" from "dark". And not a class the script
+  # toggles: a LiveView patch of the menu would take it off again until the
+  # next navigation.
+  #
+  # For assistive technology the script sets aria-pressed. The buttons ask
+  # LiveView to leave that attribute alone, or a patch of the menu would
+  # announce all three as not pressed, and they ask the script to stamp it
+  # when they appear (phoenix_kit:theme-sync): a row that arrives in a patch
+  # comes after the script's own start. Toggle buttons, not role="radio": a
+  # radio group promises one tab stop and arrow keys, and these are three
+  # ordinary buttons, each reached by Tab and pressed with Enter or Space.
+  defp theme_inline(assigns) do
+    ~H"""
+    <div class={["flex items-center", @class]} id={@id} {@rest}>
+      {Phoenix.HTML.raw(inline_choice_css(@dropdown_themes))}
+      <div class="join" role="group" aria-label={gettext("Theme")}>
+        <button
+          :for={theme <- @dropdown_themes}
+          type="button"
+          aria-pressed="false"
+          aria-label={theme.label}
+          title={theme.label}
+          phx-mounted={
+            JS.ignore_attributes(["aria-pressed"]) |> JS.dispatch("phoenix_kit:theme-sync")
+          }
+          phx-click={JS.dispatch("phx:set-theme", detail: %{theme: theme.value})}
+          data-phx-theme={theme.value}
+          data-theme-target={theme.value}
+          data-theme-role="inline-option"
+          data-theme-option={theme.value}
+          class="btn btn-sm join-item px-2.5"
+        >
+          <%= cond do %>
+            <% theme.type == :system -> %>
+              <.icon_system class="size-4" />
+            <% toggle_base(theme.value) == "dark" -> %>
+              <.icon name="hero-moon" class="size-4" />
+            <% true -> %>
+              <.icon name="hero-sun" class="size-4" />
+          <% end %>
+        </button>
+      </div>
+    </div>
+    """
+  end
+
+  # One rule per offered theme: CSS has no "these two attributes are equal".
+  # Names are safe to interpolate for the reason given at toggle_icon_css/1.
+  defp inline_choice_css(themes) do
+    selectors =
+      for %{value: value} <- themes, value =~ ~r/\A[a-z0-9_-]+\z/ do
+        ~s(html[data-theme-choice="#{value}"] [data-theme-option="#{value}"])
+      end
+
+    if selectors == [] do
+      ""
+    else
+      # A plain string, not HEEx: the nonce is interpolated, never `nonce={…}`.
+      """
+      <style#{PhoenixKitWeb.CSP.attr(:style)}>
+        #{Enum.join(selectors, ",\n  ")} {
+          background-color: var(--color-primary);
+          border-color: var(--color-primary);
+          color: var(--color-primary-content);
+        }
+      </style>
+      """
+    end
+  end
 
   defp theme_dropdown(assigns) do
     ~H"""

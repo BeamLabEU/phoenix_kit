@@ -29516,3 +29516,9 @@ msgstr "Открыть профиль"
 #, elixir-autogen, elixir-format
 msgid "Couldn't load this person."
 msgstr "Не удалось загрузить этого человека."
+
+#: lib/phoenix_kit_web/components/account_menu.ex:69
+#: lib/phoenix_kit_web/components/core/theme_controller.ex:179
+#, elixir-autogen, elixir-format
+msgid "Theme"
+msgstr "Тема"
