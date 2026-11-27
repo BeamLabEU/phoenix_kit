@@ -32,6 +32,16 @@
   {"lib/mix/tasks/phoenix_kit.consolidate_wrappers.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.repair.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.integrations.rotate_key.ex", :unknown_function},
+  # The console tasks and the patch ledger run only under Mix (Mix.shell/0, Mix.raise/1,
+  # Mix.Task.run/2), like the install and update tasks above.
+  {"lib/mix/tasks/phoenix_kit.settings.ex", :unknown_function},
+  {"lib/mix/tasks/phoenix_kit.modules.ex", :unknown_function},
+  {"lib/phoenix_kit/console/boot.ex", :unknown_function},
+  {"lib/phoenix_kit/install/install_defaults.ex", :unknown_function},
+  {"lib/phoenix_kit/install/oban_config.ex", :unknown_function},
+  {"lib/phoenix_kit/install/patch_ledger.ex", :unknown_function},
+  # unknown/1 ends in halt_with_error/1 (Mix.raise), which Dialyzer cannot see.
+  {"lib/mix/tasks/phoenix_kit.settings.ex", :no_return},
 
   # Mix.Task behaviour callbacks (expected in Mix tasks)
   # Note: Mix.Task behaviour info is not available to Dialyzer (compile-time only)
@@ -43,6 +53,8 @@
   {"lib/mix/tasks/phoenix_kit.gen.migration.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.media.reorganize.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.create_owner.ex", :callback_info_missing, 1},
+  {"lib/mix/tasks/phoenix_kit.settings.ex", :callback_info_missing, 1},
+  {"lib/mix/tasks/phoenix_kit.modules.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.storage.backfill_capture_dates.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.cdn.check_origin.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.install.ex", :callback_info_missing, 2},

@@ -319,7 +319,7 @@ if Code.ensure_loaded?(Igniter) do
           :ok
 
         {:error, {meta, message, token}} ->
-          line = if is_list(meta), do: Keyword.get(meta, :line), else: meta
+          line = Keyword.get(meta, :line)
           broken_before? = match?({:error, _}, Code.string_to_quoted(original))
 
           {:error,
