@@ -7259,6 +7259,17 @@ function pkMentionFace(av) {
     return "webm";
   }
 
+  // The type a clip is uploaded as: the recording's own, without
+  // `;codecs=opus` (no part of what a server matches on), and when the
+  // browser names none, the type of the extension the clip is given. A clip
+  // sent with no type is judged by its name alone, and a host whose `accept`
+  // lists `audio/*` but not `.webm` refused it: "recording-….webm: File
+  // type not allowed" (Max, 2026-11-27).
+  function clipType(blobType) {
+    const type = String(blobType || "").split(";")[0].trim();
+    return type || "audio/" + extensionFor(type);
+  }
+
   function errorReason(error) {
     const name = error && error.name;
     return name === "NotAllowedError" || name === "SecurityError" ? "denied" : "unavailable";
@@ -7541,8 +7552,7 @@ function pkMentionFace(av) {
       if (this.format === "wav_16k") {
         return new File([await toWav(blob)], base + ".wav", {type: "audio/wav"});
       }
-      // Without `;codecs=opus`, which is no part of the type a server matches on.
-      const type = blob.type.split(";")[0];
+      const type = clipType(blob.type);
       return new File([blob], base + "." + extensionFor(type), {type: type});
     },
 
@@ -7573,6 +7583,7 @@ function pkMentionFace(av) {
     module.exports.clock = clock;
     module.exports.meterLevel = meterLevel;
     module.exports.extensionFor = extensionFor;
+    module.exports.clipType = clipType;
     module.exports.errorReason = errorReason;
     module.exports.canRecord = canRecord;
     module.exports.recordingName = recordingName;

@@ -66,6 +66,7 @@ const {
   clock,
   meterLevel,
   extensionFor,
+  clipType,
   errorReason,
   canRecord,
 } = require("../../priv/static/assets/phoenix_kit.js");
@@ -128,6 +129,16 @@ test("extensionFor names the file so the upload's accept takes it", () => {
   assert.equal(extensionFor("audio/aac"), "mp4");
   assert.equal(extensionFor(""), "webm");
   assert.equal(extensionFor(undefined), "webm");
+});
+
+test("clipType: the recording's type without codecs, audio/webm when it names none", () => {
+  assert.equal(clipType("audio/webm;codecs=opus"), "audio/webm");
+  assert.equal(clipType("audio/ogg; codecs=opus"), "audio/ogg");
+  assert.equal(clipType("video/webm"), "video/webm");
+  // Unnamed: the type of the extension the file gets, so an `accept` of
+  // `audio/*` takes it (it was sent with no type at all).
+  assert.equal(clipType(""), "audio/webm");
+  assert.equal(clipType(undefined), "audio/webm");
 });
 
 test("errorReason tells a refusal from a missing microphone", () => {
