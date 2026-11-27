@@ -102,6 +102,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       MissingIgniter,
       OAuthConfig,
       ObanConfig,
+      PatchLedger,
       PrefixConfig,
       RateLimiterConfig,
       RepoDetection,
@@ -137,6 +138,12 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
     @impl Igniter.Mix.Task
     def igniter(igniter) do
+      # A project that already has `.phoenix_kit.exs` keeps what it declined
+      # (`PatchLedger.with_existing/2`); a fresh one installs as always.
+      PatchLedger.with_existing(fn -> install_pipeline(igniter) end)
+    end
+
+    defp install_pipeline(igniter) do
       opts = igniter.args.options
 
       igniter

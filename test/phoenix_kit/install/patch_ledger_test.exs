@@ -207,6 +207,27 @@ defmodule PhoenixKit.Install.PatchLedgerTest do
       assert out =~ "--repair-patch oban_queues:sitemap"
     end
 
+    test "install reads an existing ledger and records nothing; without one it is as before",
+         %{root: root} do
+      backfill = fn ->
+        capture_io(fn ->
+          send(self(), {:result, ObanConfig.ensure_declared_queues(@host, "my_app", @declared)})
+        end)
+      end
+
+      PatchLedger.with_existing(backfill, root)
+      assert_received {:result, added}
+      assert added =~ "sitemap: 5"
+      refute File.exists?(ledger_file(root))
+
+      PatchLedger.save(%{patches: %{"oban_queues:sitemap" => :declined}}, root)
+      before = File.read!(ledger_file(root))
+      PatchLedger.with_existing(backfill, root)
+      assert_received {:result, @host}
+      refute PatchLedger.active?()
+      assert File.read!(ledger_file(root)) == before
+    end
+
     test "the update's first pass reads the ledger and the flags, and records nothing",
          %{root: root} do
       PatchLedger.save(%{patches: %{"oban_queues:sitemap" => :applied}}, root)

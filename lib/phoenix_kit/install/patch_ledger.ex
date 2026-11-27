@@ -146,7 +146,7 @@ defmodule PhoenixKit.Install.PatchLedger do
 
   `opts` takes `:skip_patch` and `:repair_patch` (lists of IDs). Raises on an
   unknown ID or a non-declinable one. Until `begin/2` is called (unit tests,
-  the installer), `decide/3` answers as if there were no ledger and nothing
+  an install without a ledger), `decide/3` answers as if there were no ledger and nothing
   is recorded.
   """
   @spec begin(keyword(), Path.t()) :: :ok
@@ -165,6 +165,27 @@ defmodule PhoenixKit.Install.PatchLedger do
     })
 
     :ok
+  end
+
+  @doc """
+  Runs `fun` with the ledger at `root` read, when there is one, and records
+  nothing: `mix phoenix_kit.install` on a project that already has a
+  `.phoenix_kit.exs` leaves out what it declines, as an update does. Without
+  a ledger file, or inside a run already begun, `fun` runs as it is.
+  """
+  @spec with_existing((-> result), Path.t()) :: result when result: term()
+  def with_existing(fun, root \\ File.cwd!()) when is_function(fun, 0) do
+    if active?() or not File.exists?(Path.join(root, @file_name)) do
+      fun.()
+    else
+      begin([], root)
+
+      try do
+        fun.()
+      after
+        abandon()
+      end
+    end
   end
 
   @doc "Whether a run is in progress."
