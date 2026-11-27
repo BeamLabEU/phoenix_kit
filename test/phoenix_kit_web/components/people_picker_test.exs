@@ -92,6 +92,7 @@ defmodule PhoenixKitWeb.Components.PeoplePickerTest do
          can_edit: Map.get(session, "can_edit", true),
          can_remove: session["can_remove"] || false,
          max: session["max"],
+         stacked: session["stacked"] || false,
          changes: 0,
          tags: %{{"person", "p1"} => ["You", %{label: "Project owner", tone: :info}]}
        )}
@@ -112,6 +113,7 @@ defmodule PhoenixKitWeb.Components.PeoplePickerTest do
           can_edit={@can_edit}
           can_remove={@can_remove}
           tags={@tags}
+          stacked={@stacked}
           viewer_uuid="viewer"
         />
       </form>
@@ -166,6 +168,21 @@ defmodule PhoenixKitWeb.Components.PeoplePickerTest do
     # A crafted add is refused all the same.
     view |> with_target("#pp") |> render_click("toggle", %{"kind" => "person", "uuid" => "p4"})
     assert keys(view) == "person:p3"
+  end
+
+  # Max, 2026-11-27: a dialog's recipients sat two to a row, each as wide
+  # as its text; `stacked` gives one full-width card per person.
+  test "stacked: one full-width card per row", %{conn: conn} do
+    {:ok, view, _html} = open(conn, %{"keys" => [{"person", "p1"}, {"person", "p2"}]})
+    assert has_element?(view, "#pp-chips.flex-wrap")
+    refute has_element?(view, "#pp-chip-person-p1.w-full")
+
+    {:ok, view, _html} =
+      open(conn, %{"keys" => [{"person", "p1"}, {"person", "p2"}], "stacked" => true})
+
+    assert has_element?(view, "#pp-chips.flex-col")
+    assert has_element?(view, "#pp-chip-person-p1.w-full")
+    assert has_element?(view, "#pp-chip-person-p2.w-full")
   end
 
   test "without can_edit or can_remove, a chip has no ×", %{conn: conn} do

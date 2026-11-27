@@ -59,6 +59,10 @@ defmodule PhoenixKitWeb.Components.PeoplePicker do
       tone:}`, tone `:neutral` (default), `:info`, `:success`, `:warning`.
     * `label`, `placeholder`, `me_label` ("Add me"; nil hides the button),
       `class`.
+    * `stacked` — false (default): cards side by side, as wide as their
+      text; true: one full-width card per row, the remove button at the
+      right edge, for a list of people read one by one (a dialog's
+      recipients with their tags). (Not `layout`: LiveView reserves it.)
 
   The search field belongs to no form (its `form` attribute names none), so
   typing in it never sends the surrounding form's `phx-change` and Enter
@@ -114,6 +118,7 @@ defmodule PhoenixKitWeb.Components.PeoplePicker do
       |> assign_new(:placeholder, fn -> nil end)
       |> assign_new(:me_label, fn -> gettext("Add me") end)
       |> assign_new(:class, fn -> nil end)
+      |> assign_new(:stacked, fn -> false end)
       |> assign(:viewer_uuid, assigns[:viewer_uuid] || viewer_from(assigns) || was_viewer)
       |> ensure_options_stream()
       # The optional callbacks are probed with `function_exported?/3`, which
@@ -564,7 +569,11 @@ defmodule PhoenixKitWeb.Components.PeoplePicker do
       </div>
 
       <%!-- The choice: a card each, in the order added. --%>
-      <div :if={@selected != []} id={"#{@id}-chips"} class="flex flex-wrap gap-2">
+      <div
+        :if={@selected != []}
+        id={"#{@id}-chips"}
+        class={if @stacked, do: "flex flex-col gap-2", else: "flex flex-wrap gap-2"}
+      >
         <.chip
           :for={key <- @selected}
           id={@id}
@@ -573,6 +582,7 @@ defmodule PhoenixKitWeb.Components.PeoplePicker do
           tags={Map.get(@tags, key, [])}
           removable={removable?(assigns)}
           myself={@myself}
+          wide={@stacked}
         />
       </div>
       <p :if={@selected == [] and not @can_edit} class="text-sm text-base-content/60">
@@ -761,6 +771,7 @@ defmodule PhoenixKitWeb.Components.PeoplePicker do
   attr :tags, :list, default: []
   attr :removable, :boolean, default: false
   attr :myself, :any, required: true
+  attr :wide, :boolean, default: false
 
   defp chip(assigns) do
     {kind, uuid} = assigns.key
@@ -772,10 +783,13 @@ defmodule PhoenixKitWeb.Components.PeoplePicker do
     <div
       id={"#{@id}-chip-#{@kind}-#{@uuid}"}
       data-kind={@kind}
-      class="flex items-center gap-2 rounded-box border border-base-300 py-1.5 pl-2 pr-1 min-w-0 max-w-full"
+      class={[
+        "flex items-center gap-2 rounded-box border border-base-300 py-1.5 pl-2 pr-1 min-w-0 max-w-full",
+        @wide && "w-full"
+      ]}
     >
       <.face row={@row} size="sm" />
-      <div class="min-w-0">
+      <div class={["min-w-0", @wide && "flex-1"]}>
         <div class="truncate font-medium text-sm">
           {(@row && @row.label) || gettext("No longer listed")}
         </div>
