@@ -14,7 +14,9 @@ defmodule PhoenixKitWeb.Components.ThemeBootstrap do
   (phoenix-* plus host `:theme_definitions`) plus a synchronous script that
   reads the saved choice, resolves `"system"` from `ThemeConfig.system_pair/0`
   — the CONFIGURED pair, not hardcoded `phoenix-*` names — and stamps
-  `data-theme` plus `color-scheme` on `<html>` before the first paint. The
+  `data-theme` plus `color-scheme` on `<html>` before the first paint, and
+  the saved choice itself as `data-theme-choice` (`"system"` or a theme's
+  name), which the inline picker's CSS marks the chosen button from. The
   palettes travel with the stamp: a script-only bootstrap on a host layout
   (or the standalone admin shell) used to paint `phoenix-dark` +
   `color-scheme: dark` over daisyUI's light variables until a later `<style>`
@@ -81,6 +83,9 @@ defmodule PhoenixKitWeb.Components.ThemeBootstrap do
           var resolved = resolve(theme);
           var el = document.documentElement;
           el.setAttribute('data-theme', resolved);
+          // The saved CHOICE next to the theme in effect: a picker that lists
+          // "system" beside the themes marks the chosen one with CSS from this.
+          el.setAttribute('data-theme-choice', theme && theme !== 'system' ? theme : 'system');
           el.style.colorScheme = BASES[resolved] || 'light';
         }
 

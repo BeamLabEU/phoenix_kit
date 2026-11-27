@@ -79,6 +79,9 @@
       var resolved = resolve(theme);
       var el = document.documentElement;
       el.setAttribute('data-theme', resolved);
+      // The saved CHOICE next to the theme in effect: a picker that lists
+      // "system" beside the themes marks the chosen one with CSS from this.
+      el.setAttribute('data-theme-choice', theme && theme !== 'system' ? theme : 'system');
       el.style.colorScheme = BASES[resolved] || 'light';
     }
 
@@ -108,7 +111,7 @@
 </script>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="csrf-token" content="aVtYIxwRIAYfBFV3MAcWHR8XczkLJhMxDm1gfKLaLO6-osx0iU7Q3Cux">
+    <meta name="csrf-token" content="Nx86B04BDUMDHihnMTAPTB9EGSkTJEEhNntVyrD03HDWRzCzLuNmeG5d">
     
     <title data-default="Acme Admin">
       Dashboard
@@ -1190,7 +1193,7 @@
 
       
       <li>
-        <a href="/phoenix_kit/users/log-out" data-method="delete" data-csrf="aVtYIxwRIAYfBFV3MAcWHR8XczkLJhMxDm1gfKLaLO6-osx0iU7Q3Cux" data-to="/phoenix_kit/users/log-out" class="flex items-center gap-3 text-error hover:bg-error hover:text-error-content">
+        <a href="/phoenix_kit/users/log-out" data-method="delete" data-csrf="Nx86B04BDUMDHihnMTAPTB9EGSkTJEEhNntVyrD03HDWRzCzLuNmeG5d" data-to="/phoenix_kit/users/log-out" class="flex items-center gap-3 text-error hover:bg-error hover:text-error-content">
           <svg width="24" height="24" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
 </svg>
@@ -1676,6 +1679,11 @@
         el.style.colorScheme = themeBaseMap[resolved] || 'light';
       });
 
+      // The choice itself ("system" or a theme's name), as ThemeBootstrap
+      // stamps it before the first paint: the inline picker's CSS marks
+      // the chosen button from it, which no LiveView patch can undo.
+      document.documentElement.setAttribute('data-theme-choice', theme);
+
       document.querySelectorAll('[data-theme-current-label]').forEach((el) => {
         el.textContent = themeLabels[theme] || toTitle(theme);
       });
@@ -1697,6 +1705,10 @@
           const isDark = resolved === btn.dataset.themeDark;
           btn.setAttribute('aria-pressed', String(isDark));
           btn.dataset.phxTheme = isDark ? btn.dataset.themeLight : btn.dataset.themeDark;
+        } else if (btn.dataset.themeRole === 'inline-option') {
+          // The choice, not what it resolves to: with "system" chosen on
+          // a dark OS, "dark" is in effect but was not picked.
+          btn.setAttribute('aria-pressed', String(targets.includes(theme)));
         } else if (btn.dataset.themeRole === 'dropdown-option') {
           btn.classList.toggle('bg-base-200', isActive);
           btn.classList.toggle('ring-2', isActive);
@@ -1759,6 +1771,10 @@
       // visibility) back to its SSR defaults. Re-stamp after every
       // completed navigation/patch.
       window.addEventListener('phx:page-loading-stop', () => apply(storage.get() || 'system'));
+
+      // A picker that arrived in a patch, after all of the above ran: its
+      // elements ask for the saved choice to be reflected into them.
+      window.addEventListener('phoenix_kit:theme-sync', () => apply(storage.get() || 'system'));
 
       // Theme selections: every picker element (dropdown options and the
       // pair toggle alike) dispatches phx:set-theme itself via

@@ -79,4 +79,13 @@ defmodule PhoenixKitWeb.Components.ThemeBootstrapTest do
     assert html =~ ~s(var LIGHT = 'phoenix-light')
     refute html =~ "<script>x</script>"
   end
+
+  test "stamps the saved choice next to the theme in effect" do
+    # What the inline picker's CSS marks the chosen button from: "system" when
+    # nothing is saved, else the saved theme's name.
+    html = render_bootstrap()
+
+    assert html =~ "data-theme-choice"
+    assert html =~ "theme && theme !== 'system' ? theme : 'system'"
+  end
 end

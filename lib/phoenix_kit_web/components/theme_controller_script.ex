@@ -115,6 +115,11 @@ defmodule PhoenixKitWeb.Components.ThemeControllerScript do
             el.style.colorScheme = themeBaseMap[resolved] || 'light';
           });
 
+          // The choice itself ("system" or a theme's name), as ThemeBootstrap
+          // stamps it before the first paint: the inline picker's CSS marks
+          // the chosen button from it, which no LiveView patch can undo.
+          document.documentElement.setAttribute('data-theme-choice', theme);
+
           document.querySelectorAll('[data-theme-current-label]').forEach((el) => {
             el.textContent = themeLabels[theme] || toTitle(theme);
           });
@@ -136,6 +141,10 @@ defmodule PhoenixKitWeb.Components.ThemeControllerScript do
               const isDark = resolved === btn.dataset.themeDark;
               btn.setAttribute('aria-pressed', String(isDark));
               btn.dataset.phxTheme = isDark ? btn.dataset.themeLight : btn.dataset.themeDark;
+            } else if (btn.dataset.themeRole === 'inline-option') {
+              // The choice, not what it resolves to: with "system" chosen on
+              // a dark OS, "dark" is in effect but was not picked.
+              btn.setAttribute('aria-pressed', String(targets.includes(theme)));
             } else if (btn.dataset.themeRole === 'dropdown-option') {
               btn.classList.toggle('bg-base-200', isActive);
               btn.classList.toggle('ring-2', isActive);
@@ -198,6 +207,10 @@ defmodule PhoenixKitWeb.Components.ThemeControllerScript do
           // visibility) back to its SSR defaults. Re-stamp after every
           // completed navigation/patch.
           window.addEventListener('phx:page-loading-stop', () => apply(storage.get() || 'system'));
+
+          // A picker that arrived in a patch, after all of the above ran: its
+          // elements ask for the saved choice to be reflected into them.
+          window.addEventListener('phoenix_kit:theme-sync', () => apply(storage.get() || 'system'));
 
           // Theme selections: every picker element (dropdown options and the
           // pair toggle alike) dispatches phx:set-theme itself via

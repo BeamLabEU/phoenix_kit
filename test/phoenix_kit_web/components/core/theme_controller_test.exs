@@ -172,4 +172,96 @@ defmodule PhoenixKitWeb.Components.Core.ThemeControllerTest do
       assert html =~ ~s(data-theme-role="dropdown-option")
     end
   end
+
+  describe "mode: :inline" do
+    defp render_inline(themes) do
+      render_component(&ThemeController.theme_controller/1,
+        themes: themes,
+        id: "t",
+        mode: :inline
+      )
+    end
+
+    test "every choice is a button in view, system included: no menu inside a menu" do
+      html = render_inline(["system", "phoenix-light", "phoenix-dark"])
+
+      assert length(String.split(html, ~s(data-theme-role="inline-option"))) == 4
+      refute html =~ "<details"
+      refute html =~ ~s(data-theme-role="dropdown-option")
+      # Toggle buttons in a named group, not a radio group: a radio group
+      # promises one tab stop and arrow keys.
+      assert html =~ ~s(role="group")
+      refute html =~ ~s(role="radio")
+      assert length(String.split(html, ~s(aria-pressed="false"))) == 4
+      # LiveView leaves the script-set state alone when it patches the menu.
+      assert html =~ "ignore_attrs"
+      # ...and a row that arrives in a patch asks the script for its state.
+      assert html =~ "phoenix_kit:theme-sync"
+
+      # The same click contract as the other shapes.
+      for theme <- ["system", "phoenix-light", "phoenix-dark"] do
+        assert html =~ ~s(data-phx-theme="#{theme}")
+        assert html =~ ~s(data-theme-option="#{theme}")
+      end
+
+      assert html =~ "phx:set-theme"
+    end
+
+    test "each button says what it is: its name, and a sun or a moon by the theme's base" do
+      doc =
+        ["system", "phoenix-light", "phoenix-dark"]
+        |> render_inline()
+        |> LazyHTML.from_fragment()
+
+      button = fn theme -> LazyHTML.query(doc, ~s(button[data-theme-option="#{theme}"])) end
+      icons = fn theme -> theme |> button.() |> LazyHTML.to_html() end
+
+      assert LazyHTML.attribute(button.("system"), "aria-label") == ["System"]
+      assert LazyHTML.attribute(button.("phoenix-light"), "aria-label") == ["Phoenix Light"]
+      assert LazyHTML.attribute(button.("phoenix-dark"), "aria-label") == ["Phoenix Dark"]
+
+      assert icons.("phoenix-light") =~ "hero-sun"
+      refute icons.("phoenix-light") =~ "hero-moon"
+      assert icons.("phoenix-dark") =~ "hero-moon"
+      refute icons.("phoenix-dark") =~ "hero-sun"
+      refute icons.("system") =~ "hero-sun"
+      refute icons.("system") =~ "hero-moon"
+    end
+
+    test "the chosen one is marked by CSS from the SAVED choice, not the theme in effect" do
+      # html[data-theme] cannot tell "system, dark right now" from "dark", and a
+      # class toggled by script is undone by the next LiveView patch of the menu.
+      html = render_inline(["system", "phoenix-light", "phoenix-dark"])
+
+      for theme <- ["system", "phoenix-light", "phoenix-dark"] do
+        assert html =~
+                 ~s(html[data-theme-choice="#{theme}"] [data-theme-option="#{theme}"])
+      end
+
+      refute html =~ ~s(html[data-theme=")
+    end
+
+    test "the group's name is translated in every shipped language" do
+      for locale <- ~w(de es et fr it pl ru uk zh) do
+        label =
+          Gettext.with_locale(PhoenixKitWeb.Gettext, locale, fn ->
+            Gettext.gettext(PhoenixKitWeb.Gettext, "Theme")
+          end)
+
+        assert label not in ["", "Theme"], "no #{locale} translation of \"Theme\""
+      end
+    end
+
+    test "its style tag takes the page's CSP nonce" do
+      Process.put({PhoenixKitWeb.CSP, :nonces}, %{style: "n0nce"})
+
+      assert render_inline(["system", "phoenix-light", "phoenix-dark"]) =~
+               ~s(<style nonce="n0nce">)
+    end
+
+    test ":auto never picks it" do
+      refute render_picker(["system", "phoenix-light", "phoenix-dark"]) =~
+               ~s(data-theme-role="inline-option")
+    end
+  end
 end

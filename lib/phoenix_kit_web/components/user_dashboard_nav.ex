@@ -81,6 +81,14 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
     * `:show_language_switcher` — include the in-menu language list (default `true`).
       Set `false` when the host renders a standalone switcher elsewhere to avoid
       a duplicate. Applies to both the signed-in and guest states.
+    * `:show_theme_switcher` — include the "Theme" row (default `false`): follow the
+      system, or the light or the dark theme of the configured pair
+      (`PhoenixKitWeb.Components.AccountMenu.theme_section/1`). Off unless asked
+      for, because only the host knows whether its own pages are styled for both
+      themes; a host whose pages follow `data-theme` (its root layout renders
+      `PhoenixKitWeb.Components.ThemeBootstrap`) turns it on, and its visitors
+      get a way to choose that does not go through the admin area. Applies to
+      both the signed-in and guest states.
     * `:guest_links` — which guest links may appear, e.g.
       `[:login, :register, :reset, :magic_link]` (default: all). Links are also
       gated by the `allow_registration` / `magic_link_login_enabled` settings, so
@@ -111,6 +119,7 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
   attr(:admin_edit_url, :string, default: nil)
   attr(:admin_edit_label, :string, default: nil)
   attr(:show_language_switcher, :boolean, default: true)
+  attr(:show_theme_switcher, :boolean, default: false)
   attr(:guest_links, :list, default: [:login, :register, :reset, :magic_link])
 
   attr(:authenticated_links, :list,
@@ -214,6 +223,11 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
             language_urls={@language_urls}
           />
 
+          <PhoenixKitWeb.Components.AccountMenu.theme_section
+            :if={@show_theme_switcher}
+            id="pk-account-menu-theme"
+          />
+
           <PhoenixKitWeb.Components.Core.OrganizationSwitcher.organization_switcher
             id="dashboard-organization-switcher"
             scope={@scope}
@@ -277,6 +291,7 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
         language_urls={@language_urls}
         guest_links={@guest_links}
         show_language_switcher={@show_language_switcher}
+        show_theme_switcher={@show_theme_switcher}
       />
     <% end %>
     """
@@ -291,6 +306,7 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
   attr(:language_urls, :any, default: nil)
   attr(:guest_links, :list, required: true)
   attr(:show_language_switcher, :boolean, required: true)
+  attr(:show_theme_switcher, :boolean, default: false)
 
   defp guest_dropdown(assigns) do
     assigns = assign(assigns, :links, visible_guest_links(assigns.guest_links))
@@ -337,6 +353,11 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
           current_locale={@current_locale}
           current_host={@current_host}
           language_urls={@language_urls}
+        />
+
+        <PhoenixKitWeb.Components.AccountMenu.theme_section
+          :if={@show_theme_switcher}
+          id="pk-account-menu-theme"
         />
       </ul>
     </div>

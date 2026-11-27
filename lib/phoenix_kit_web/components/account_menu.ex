@@ -10,9 +10,11 @@ defmodule PhoenixKitWeb.Components.AccountMenu do
       knowing its English word.
     * `accounts_section/1` — the signed-in accounts, with switch and remove.
     * `add_account_modal/1` — the "Add account" dialog, OAuth buttons included.
+    * `theme_section/1` — the "Theme" row: System, light, dark.
 
-  The menus around them differ (the admin menu has the theme switch and the
-  role badge, the other the guest links), so they stay two menus.
+  The menus around them differ (the admin header has its own theme picker
+  beside the menu and the role badge, the other the guest links), so they
+  stay two menus.
   """
 
   use Phoenix.Component
@@ -21,14 +23,56 @@ defmodule PhoenixKitWeb.Components.AccountMenu do
   alias PhoenixKit.Handoff
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
+  alias PhoenixKit.ThemeConfig
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.OAuthAvailability
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Components.Core.Icons
   alias PhoenixKitWeb.Components.Core.LanguageSwitcher
+  alias PhoenixKitWeb.Components.Core.ThemeController
+  alias PhoenixKitWeb.Components.ThemeControllerScript
 
   import PhoenixKitWeb.Components.Core.Input, only: [input: 1]
   import PhoenixKitWeb.Components.Core.TurnstileWidget, only: [turnstile_widget: 1]
+
+  @doc """
+  The "Theme" row of an account menu: follow the system, or the light or the
+  dark theme, every choice in view.
+
+  The two themes are the pair "system" resolves to
+  (`PhoenixKit.ThemeConfig.system_pair/0`), whatever longer list the admin
+  header's picker offers: a menu row has room for a three-way choice, not for
+  a catalogue. The choice is the browser's (`localStorage`), the same one every
+  other theme picker of the kit reads and writes, so it is offered to a
+  visitor who is not signed in too.
+
+  Renders `PhoenixKitWeb.Components.ThemeControllerScript` with it, which a
+  page needs once for the buttons to do anything; that script is idempotent,
+  so a layout that already renders it loses nothing. A script that arrives in
+  a LiveView patch does not run, so a host with pages that have NO menu, from
+  which a visitor can live-navigate to one that has it, renders the script in
+  its root layout as well.
+  """
+  attr :id, :string, required: true, doc: "unique on the page"
+
+  def theme_section(assigns) do
+    {light, dark} = ThemeConfig.system_pair()
+    assigns = assign(assigns, :themes, ["system", light, dark])
+
+    ~H"""
+    <div class="divider my-0"></div>
+    <%!-- Not an <li>: a menu item would light up as a whole on hover and
+         press, and this row is three buttons of its own. --%>
+    <div class="flex items-center justify-between gap-3 px-3 py-1.5" data-account-menu-theme>
+      <span class="flex items-center gap-3 text-sm">
+        <PhoenixKitWeb.Components.Core.Icon.icon name="hero-swatch" class="w-4 h-4" />
+        <span>{gettext("Theme")}</span>
+      </span>
+      <ThemeController.theme_controller mode={:inline} themes={@themes} id={@id} />
+    </div>
+    <ThemeControllerScript.theme_controller_script />
+    """
+  end
 
   @doc """
   The languages a menu offers: each enabled language with its `:label` (its
