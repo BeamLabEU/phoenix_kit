@@ -238,6 +238,11 @@ defmodule PhoenixKit.Integration.Users.FirstOwnerTest do
       assert log =~ "did not prove the right"
     end
 
+    test "an explicit denial still applies under the open sign-up policy" do
+      put_policy(:open)
+      refute Setup.grant_first_owner?(:deny, Repo)
+    end
+
     test "the token is single use: a second grant with it is refused" do
       {:ok, token} = Setup.generate_setup_token()
       claim = %{setup_token: token, local: false}
@@ -373,11 +378,11 @@ defmodule PhoenixKit.Integration.Users.FirstOwnerTest do
   end
 
   describe "claim/4" do
-    test "local only on a dev server, a loopback host and a loopback or unknown peer" do
+    test "local only on a dev server, a loopback host and a known loopback peer" do
       assert Setup.claim(nil, "localhost", "127.0.0.1", dev: true).local
-      assert Setup.claim(nil, "127.0.0.1", nil, dev: true).local
+      refute Setup.claim(nil, "127.0.0.1", nil, dev: true).local
       assert Setup.claim(nil, "[::1]", "::1", dev: true).local
-      assert Setup.claim(nil, "app.localhost", "unknown", dev: true).local
+      refute Setup.claim(nil, "app.localhost", "unknown", dev: true).local
 
       refute Setup.claim(nil, "localhost", "127.0.0.1", dev: false).local
       refute Setup.claim(nil, "example.com", "127.0.0.1", dev: true).local
@@ -455,10 +460,7 @@ defmodule PhoenixKit.Integration.Users.FirstOwnerTest do
       assert token_row_count() == 0
     end
 
-    # The Owner is committed before the token cleanup runs. A cleanup that
-    # raised (a dropped connection) took the generated password with it, and
-    # a retry answered :owner_exists.
-    test "a failing token cleanup after the commit still returns the generated password" do
+    test "a failing token cleanup rolls back the Owner grant and allows a retry" do
       Repo.query!("""
       CREATE FUNCTION pk_test_refuse_token_delete() RETURNS trigger AS $$
       BEGIN RAISE EXCEPTION 'cleanup failed'; END $$ LANGUAGE plpgsql
@@ -473,14 +475,14 @@ defmodule PhoenixKit.Integration.Users.FirstOwnerTest do
       {:ok, _token} = Setup.generate_setup_token()
       address = email()
 
-      log =
-        capture_log(fn ->
-          send(self(), Setup.create_owner(address))
-        end)
+      assert_raise Postgrex.Error, ~r/cleanup failed/, fn -> Setup.create_owner(address) end
+      refute Auth.get_user_by_email(address)
+      assert token_row_count() == 1
 
-      assert_received {:ok, %{user: %{email: ^address}, created: true, password: password}}
+      Repo.query!("DROP TRIGGER pk_test_refuse_token_delete ON phoenix_kit_settings")
+      assert {:ok, %{created: true, password: password}} = Setup.create_owner(address)
       assert is_binary(password)
-      assert log =~ "could not clear the setup token"
+      assert token_row_count() == 0
     end
 
     test "uses a given password" do

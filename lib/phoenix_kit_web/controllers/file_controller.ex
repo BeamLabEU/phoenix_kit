@@ -501,7 +501,7 @@ defmodule PhoenixKitWeb.FileController do
     with {:ok, user} <- require_user(conn.assigns[:phoenix_kit_current_user]),
          {:ok, file} <- get_servable_file(conn, file_uuid),
          {:ok, file} <- authorize_file_read(file, user) do
-      info_response(conn, file, user, params["locale"])
+      info_response(no_store(conn), file, user, params["locale"])
     else
       {:error, :no_user} ->
         conn

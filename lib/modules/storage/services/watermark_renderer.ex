@@ -19,6 +19,7 @@ defmodule PhoenixKit.Modules.Storage.WatermarkRenderer do
   require Logger
 
   alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.AnnotationThumbnail
   alias PhoenixKit.Modules.Storage.ImageProcessor
   alias PhoenixKit.Modules.Storage.VariantSets
   alias PhoenixKit.Modules.Storage.Watermark
@@ -114,6 +115,7 @@ defmodule PhoenixKit.Modules.Storage.WatermarkRenderer do
       args =
         ImageProcessor.limit_args() ++
           [input, "+repage"] ++
+          AnnotationThumbnail.font_args(layers) ++
           layers ++ ["+repage", "-quality", Integer.to_string(quality), "#{format}:#{out}"]
 
       run_convert(args, out, path)

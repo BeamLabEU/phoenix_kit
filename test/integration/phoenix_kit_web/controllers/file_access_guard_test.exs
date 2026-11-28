@@ -78,7 +78,7 @@ defmodule PhoenixKitWeb.FileAccessGuardTest do
         "password" => "ValidPassword123!"
       })
 
-    %{guarded: store!(owner, "guarded #{n}"), other: store!(owner, "other #{n}")}
+    %{owner: owner, guarded: store!(owner, "guarded #{n}"), other: store!(owner, "other #{n}")}
   end
 
   defp store!(owner, content) do
@@ -167,6 +167,19 @@ defmodule PhoenixKitWeb.FileAccessGuardTest do
     assert [control] = Plug.Conn.get_resp_header(conn, "cache-control")
     assert control =~ "no-store"
     refute control =~ "public"
+  end
+
+  test "authorized metadata with signed links stays private", %{guarded: file, owner: owner} do
+    config_guard()
+    answer(file, :private)
+
+    conn =
+      conn(:get, "/")
+      |> Plug.Conn.assign(:phoenix_kit_current_user, owner)
+      |> FileController.info(%{"file_uuid" => file.uuid})
+
+    assert conn.status == 200
+    assert Plug.Conn.get_resp_header(conn, "cache-control") == ["private, no-store"]
   end
 
   test "a guard that raises or answers something else fails closed, logging no request data",

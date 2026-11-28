@@ -89,8 +89,7 @@ defmodule PhoenixKit.Users.Setup do
 
   @typedoc """
   The `:first_owner` option of `Auth.register_user/3`: `:allow` (trusted code:
-  the first user becomes Owner), `:deny` (never, unless the policy is
-  `:open`), or a request's `t:claim/0`.
+  the first user becomes Owner), `:deny` (never), or a request's `t:claim/0`.
   """
   @type first_owner :: :allow | :deny | claim()
 
@@ -152,7 +151,7 @@ defmodule PhoenixKit.Users.Setup do
 
   `local` is true only under the `:auto` policy, on a dev server, for a request
   addressed to a loopback name (`localhost`, `*.localhost`, `127.0.0.0/8`,
-  `::1`) whose client address is loopback or unknown. The host name alone is
+  `::1`) whose client address is known to be loopback. The host name alone is
   not trusted: it is the client's to write. The dev check is what keeps a
   production node whose proxy rewrites `Host` to `127.0.0.1` out of it.
   `opts[:dev]` overrides the dev check (tests).
@@ -163,7 +162,7 @@ defmodule PhoenixKit.Users.Setup do
 
     %{
       setup_token: normalize_token(setup_token),
-      local: policy() == :auto and dev? and loopback_host?(host) and loopback_or_unknown?(peer)
+      local: policy() == :auto and dev? and loopback_host?(host) and loopback_ip?(peer)
     }
   end
 
@@ -190,11 +189,6 @@ defmodule PhoenixKit.Users.Setup do
 
   def loopback_host?(_), do: false
 
-  defp loopback_or_unknown?(nil), do: true
-  defp loopback_or_unknown?("unknown"), do: true
-  defp loopback_or_unknown?(peer) when is_binary(peer), do: loopback_ip?(peer)
-  defp loopback_or_unknown?(_), do: false
-
   defp loopback_ip?(address) when is_binary(address) do
     case :inet.parse_address(String.to_charlist(address)) do
       {:ok, {127, _, _, _}} -> true
@@ -203,6 +197,8 @@ defmodule PhoenixKit.Users.Setup do
       _ -> false
     end
   end
+
+  defp loopback_ip?(_), do: false
 
   # Runtime, not compile time: Mix compiles dependencies in :prod whatever the
   # host runs, and `Mix` is absent from a release.
@@ -265,8 +261,8 @@ defmodule PhoenixKit.Users.Setup do
   def grant_first_owner?(first_owner, repo) do
     cond do
       first_owner == :allow -> true
-      policy() == :open -> true
       first_owner == :deny -> false
+      policy() == :open -> true
       first_owner.local -> true
       true -> consume_setup_token(first_owner.setup_token, repo)
     end
@@ -455,8 +451,12 @@ defmodule PhoenixKit.Users.Setup do
         {user, created?, password} = owner_account!(repo, email, given_password)
 
         case Roles.grant_owner(user) do
-          {:ok, owner} -> {owner, created?, password}
-          {:error, reason} -> repo.rollback(reason)
+          {:ok, owner} ->
+            clear_setup_token(repo)
+            {owner, created?, password}
+
+          {:error, reason} ->
+            repo.rollback(reason)
         end
       end)
 
@@ -464,8 +464,6 @@ defmodule PhoenixKit.Users.Setup do
       {:ok, {user, created?, password}} ->
         # The Owner is committed: nothing after this may lose the generated
         # password, which exists nowhere else (a retry answers :owner_exists).
-        after_owner_created(fn -> clear_setup_token(repo) end, "clear the setup token")
-
         if created?,
           do:
             after_owner_created(

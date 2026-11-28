@@ -289,6 +289,8 @@ defmodule PhoenixKit.API.Keys do
   defp key_changeset(attrs, owner, creator_uuid) do
     attrs
     |> base_changeset()
+    |> Ecto.Changeset.cast(attrs, [:rate_limit_per_minute])
+    |> validate_rate_limit()
     |> Ecto.Changeset.put_change(:user_uuid, owner.uuid)
     |> Ecto.Changeset.put_change(:created_by_uuid, creator_uuid)
   end
@@ -300,11 +302,9 @@ defmodule PhoenixKit.API.Keys do
       :scopes,
       :requires_approval,
       :allowed_ips,
-      :expires_at,
-      :rate_limit_per_minute
+      :expires_at
     ])
     |> Ecto.Changeset.validate_required([:name])
-    |> validate_rate_limit()
     |> Ecto.Changeset.validate_length(:name, max: @max_name_length)
     |> drop_nil_changes([:scopes, :allowed_ips, :requires_approval])
     |> normalize_scopes()
@@ -1521,7 +1521,7 @@ defmodule PhoenixKit.API.Keys do
   (`PhoenixKit.API.RateLimit.check_admin/3`); the optional `api_total_rate_per_min` still
   bounds all keys together.
 
-  The same rules as `update_scopes/3`: `editor_scope` must be able to manage the key
+  Rate-limit changes require the `api` permission and `editor_scope` must be able to manage the key
   (`can_manage?/2`, on the locked, re-read row), else `{:error, :forbidden}`; a hidden OAuth
   row is `{:error, :oauth_key}`, a revoked key `{:error, :revoked}`, a missing one
   `{:error, :not_found}`; anything else than `nil` or an integer in range is
@@ -1535,7 +1535,8 @@ defmodule PhoenixKit.API.Keys do
   def update_rate_limit(%Key{uuid: uuid}, limit, %Scope{} = editor_scope) do
     result =
       repo().transaction(fn ->
-        with :ok <- check_rate_limit(limit),
+        with :ok <- authorize_creator(editor_scope),
+             :ok <- check_rate_limit(limit),
              {:ok, current} <- lock(uuid),
              :ok <- check_not_oauth(current),
              :ok <- if(can_manage?(editor_scope, current), do: :ok, else: {:error, :forbidden}),

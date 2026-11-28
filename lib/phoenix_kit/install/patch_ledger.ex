@@ -101,6 +101,14 @@ defmodule PhoenixKit.Install.PatchLedger do
          {%{} = map, _} <- Code.eval_quoted(quoted) do
       case Map.get(map, :patches, %{}) do
         patches when is_map(patches) ->
+          Enum.each(patches, fn
+            {id, outcome} when is_binary(id) and outcome in [:applied, :declined] ->
+              :ok
+
+            _ ->
+              Mix.raise("#{path}: expected string patch IDs with :applied or :declined outcomes")
+          end)
+
           Map.put(map, :patches, patches)
 
         other ->

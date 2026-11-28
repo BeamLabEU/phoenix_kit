@@ -129,7 +129,7 @@ registration that proves nothing; the proof is the one-time setup token from the
 log (`/users/register?setup=TOKEN`, consumed by the grant, hashed in the setting
 `first_owner_setup_token_hash`, replaced at every boot while there is no Owner) or, under
 `:auto`, a dev server (`Mix.env() == :dev`) reached at a loopback host from a loopback
-(or unknown) peer. Each door builds its claim with `Setup.claim_from_socket/2` in
+peer. Each door builds its claim with `Setup.claim_from_socket/2` in
 `mount/3` (the peer is readable only there) or `Setup.claim_from_conn/2`, and passes it
 as `first_owner:` to `Auth.register_user/3`.
 
@@ -142,8 +142,7 @@ as `first_owner:` to `Auth.register_user/3`.
   `Roles.ensure_first_user_is_owner/2` under the Owner-role lock, which consumes the
   token. A token lost to a race there (rotated or spent between the two checks) is
   refused like no token: `ensure_first_user_is_owner/2` answers
-  `{:error, :setup_required}` and `register_user/3` deletes the account it had just
-  inserted, so the address stays free for the real setup.
+  `{:error, :setup_required}` and the registration transaction rolls back the insert, so the address stays free for the real setup.
 - The boot task writes its token under the same lock (`Setup.refresh_setup_token/0`),
   so no token is minted after another node committed the first Owner.
 - The console: `mix phoenix_kit.create_owner EMAIL` / `Setup.create_owner/2`.

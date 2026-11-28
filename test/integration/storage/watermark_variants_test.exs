@@ -357,6 +357,12 @@ defmodule PhoenixKit.Modules.Storage.WatermarkVariantsTest do
                )
     end
 
+    test "a trashed logo cannot be used in a public rendition", ctx do
+      logo = store_logo!(ctx, "blue")
+      {:ok, _} = Storage.trash_file(logo)
+      assert {:error, :logo_not_found} = VariantSets.watermark_logo(logo.uuid)
+    end
+
     test "a logo that has become private since it was saved is not drawn", ctx do
       logo = store_logo!(ctx, "blue")
       corner_logo!(ctx, logo)

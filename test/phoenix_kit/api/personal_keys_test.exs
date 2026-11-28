@@ -95,6 +95,14 @@ defmodule PhoenixKit.API.PersonalKeysTest do
       refute inspect(entry.metadata) =~ secret
     end
 
+    test "a personal key holder cannot set a rate-limit override at creation or afterward" do
+      {_user, _role, scope} = holder()
+      {key, _token} = personal!(scope, %{rate_limit_per_minute: 500})
+      assert is_nil(key.rate_limit_per_minute)
+      assert {:error, :forbidden} = Keys.update_rate_limit(key, 500, scope)
+      assert is_nil(Repo.get!(Key, key.uuid).rate_limit_per_minute)
+    end
+
     test "the impersonation flag is required and has no default" do
       {_user, _role, scope} = holder()
 

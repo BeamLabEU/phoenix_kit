@@ -138,6 +138,16 @@ defmodule PhoenixKit.Install.PatchLedgerTest do
       assert_raise Mix.Error, ~r/must be a map/, fn -> PatchLedger.load(root) end
     end
 
+    test "rejects malformed patch entries before applying updates", %{root: root} do
+      for patches <- [%{"module_js_seed" => :decline}, %{module_js_seed: :declined}] do
+        File.write!(ledger_file(root), inspect(%{patches: patches}))
+
+        assert_raise Mix.Error, ~r/expected string patch IDs/, fn ->
+          PatchLedger.begin([], root)
+        end
+      end
+    end
+
     test "the first run records what is present; a run with nothing new writes nothing",
          %{root: root} do
       PatchLedger.begin([], root)
