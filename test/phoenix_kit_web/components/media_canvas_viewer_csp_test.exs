@@ -59,8 +59,15 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerCspTest do
     refute tag =~ ~r/data-fresco-stage[^>]*\sstyle="/
     refute html =~ ~r/<img[^>]*data-fresco-canvas-img[^>]*\sstyle="/
 
-    for [nonce] <- Regex.scan(~r/<style nonce="([^"]*)"/, html, capture: :all_but_first) do
-      assert nonce == "STY"
-    end
+    assert html =~ ~s(<style nonce="STY">)
+
+    board_html =
+      render_html(%{
+        file: nil,
+        board: %{target_uuid: file_uuid()},
+        viewer_canvas: Fresco.Canvas.new(width: 800, height: 600, background: "#ffffff")
+      })
+
+    assert canvas_tag(board_html) =~ ~r/data-fresco-stage[^>]*\sdata-fresco-style="/
   end
 end

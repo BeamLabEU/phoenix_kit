@@ -1913,6 +1913,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
               also what a burn of it is composed on. --%>
         <Fresco.canvas
           id={"media-zoom-" <> @board.target_uuid}
+          style_nonce={PhoenixKitWeb.CSP.nonce(:style)}
           canvas={@viewer_canvas}
           class="w-full h-full lg:rounded"
           invert_two_finger_pan={@invert_two_finger_pan}
