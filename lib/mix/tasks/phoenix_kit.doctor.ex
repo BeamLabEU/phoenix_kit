@@ -3109,7 +3109,21 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
   # prefix). 1.7 told hosts to declare the sitemap routes themselves; the kit
   # took that over, so an upgraded host can declare the same path twice. `/mcp`
   # and the API catalog are new: a host route for either is shadowed or shadows.
-  @kit_root_paths ~w(/llms.txt /sitemap.xml /sitemap.html /sitemaps/:filename /sitemap.xsl /mcp /.well-known/api-catalog)
+  # The sitemap stylesheets land under the host's own static `/assets` prefix,
+  # and the OAuth metadata documents under `/.well-known` (the protected
+  # resource's path ends in the kit's prefix, so it is matched by its start).
+  @kit_root_paths ~w(/llms.txt /sitemap.xml /sitemap.html /sitemaps/:filename /sitemap.xsl
+                     /assets/sitemap/:style /assets/sitemap-index/:style /mcp
+                     /.well-known/api-catalog /.well-known/oauth-authorization-server)
+
+  @kit_root_path_prefixes ["/.well-known/oauth-protected-resource/"]
+
+  @doc false
+  def kit_root_path?(path) when is_binary(path) do
+    path in @kit_root_paths or String.starts_with?(path, @kit_root_path_prefixes)
+  end
+
+  def kit_root_path?(_path), do: false
 
   @doc false
   # Pure: one finding per kit root path declared more than once WITH different
@@ -3130,7 +3144,7 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
 
     get_findings =
       routes
-      |> Enum.filter(&(&1.verb == :get and &1.path in @kit_root_paths))
+      |> Enum.filter(&(&1.verb == :get and kit_root_path?(&1.path)))
       |> Enum.group_by(& &1.path)
       |> Enum.sort_by(fn {path, _} -> path end)
       |> Enum.flat_map(fn {path, [winner | rest] = declared} ->
@@ -3202,10 +3216,15 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
       "Delete the one you no longer want#{pre_2_hint(path)}."
   end
 
-  # `/mcp` and the API catalog are new in 2.0; only the sitemap paths can be a
-  # copy of a route the kit did not yet declare.
-  defp pre_2_hint(path) when path in ["/mcp", "/.well-known/api-catalog"], do: ""
-  defp pre_2_hint(_path), do: " — usually a pre-2.0 copy of PhoenixKit's route"
+  # `/mcp`, the API catalog and the OAuth documents are new in 2.0 or later;
+  # only the paths 1.7 told hosts to declare can be a copy of a route the kit
+  # did not yet declare.
+  @pre_2_host_paths ~w(/llms.txt /sitemap.xml /sitemap.html /sitemaps/:filename /sitemap.xsl)
+
+  defp pre_2_hint(path) when path in @pre_2_host_paths,
+    do: " — usually a pre-2.0 copy of PhoenixKit's route"
+
+  defp pre_2_hint(_path), do: ""
 
   defp route_label(route, true) do
     case Map.get(route, :plug_opts) do

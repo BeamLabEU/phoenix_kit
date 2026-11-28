@@ -2,6 +2,9 @@
   # Mix functions are only available during Mix compilation context
   {"lib/mix/tasks/phoenix_kit.gen.migration.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.media.reorganize.ex", :unknown_function},
+  {"lib/mix/tasks/phoenix_kit.create_owner.ex", :unknown_function},
+  # Mix.env/0 read at runtime (absent from a release, guarded by function_exported?)
+  {"lib/phoenix_kit/users/setup.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.storage.backfill_capture_dates.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.cdn.check_origin.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.doctor.ex", :unknown_function},
@@ -17,6 +20,7 @@
   {"lib/phoenix_kit/install/migration_strategy.ex", :unknown_function},
   {"lib/phoenix_kit/install/missing_igniter.ex", :unknown_function},
   {"lib/phoenix_kit/install/js_integration.ex", :unknown_function},
+  {"lib/phoenix_kit/install/asset_rebuild.ex", :unknown_function},
   {"lib/phoenix_kit/install/viewer_libraries.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.status.ex", :unknown_function},
   {"lib/phoenix_kit/migrations/postgres.ex", :unknown_function},
@@ -28,6 +32,16 @@
   {"lib/mix/tasks/phoenix_kit.consolidate_wrappers.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.repair.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.integrations.rotate_key.ex", :unknown_function},
+  # The console tasks and the patch ledger run only under Mix (Mix.shell/0, Mix.raise/1,
+  # Mix.Task.run/2), like the install and update tasks above.
+  {"lib/mix/tasks/phoenix_kit.settings.ex", :unknown_function},
+  {"lib/mix/tasks/phoenix_kit.modules.ex", :unknown_function},
+  {"lib/phoenix_kit/console/boot.ex", :unknown_function},
+  {"lib/phoenix_kit/install/install_defaults.ex", :unknown_function},
+  {"lib/phoenix_kit/install/oban_config.ex", :unknown_function},
+  {"lib/phoenix_kit/install/patch_ledger.ex", :unknown_function},
+  # unknown/1 ends in halt_with_error/1 (Mix.raise), which Dialyzer cannot see.
+  {"lib/mix/tasks/phoenix_kit.settings.ex", :no_return},
 
   # Mix.Task behaviour callbacks (expected in Mix tasks)
   # Note: Mix.Task behaviour info is not available to Dialyzer (compile-time only)
@@ -38,6 +52,9 @@
   {"lib/mix/tasks/phoenix_kit.release_check.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.gen.migration.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.media.reorganize.ex", :callback_info_missing, 1},
+  {"lib/mix/tasks/phoenix_kit.create_owner.ex", :callback_info_missing, 1},
+  {"lib/mix/tasks/phoenix_kit.settings.ex", :callback_info_missing, 1},
+  {"lib/mix/tasks/phoenix_kit.modules.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.storage.backfill_capture_dates.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.cdn.check_origin.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.install.ex", :callback_info_missing, 2},
@@ -55,6 +72,10 @@
   {"lib/mix/tasks/phoenix_kit.integrations.rotate_key.ex", :callback_info_missing, 1},
 
   # Publishing module (extracted) — dynamic dispatch through publishing_module() helper
+  # Phoenix.LiveView.JS is @opaque-ish (`ops: internal()`); JS.dispatch/3 with a
+  # `detail:` map widens the success typing, so the documented JS.t() contract of
+  # PhotoGallery.open/2,3 reads as violated. Same shape as audio_recorder's start/2.
+  ~r/lib\/phoenix_kit_web\/components\/core\/photo_gallery\.ex:.*contract_with_opaque/,
   # Ecto.Multi opaque type false positives (code works correctly)
   ~r/lib\/phoenix_kit\/users\/auth\.ex:.*call_without_opaque/,
 

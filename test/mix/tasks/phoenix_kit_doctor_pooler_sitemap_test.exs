@@ -126,6 +126,43 @@ defmodule Mix.Tasks.PhoenixKit.DoctorPoolerSitemapTest do
       assert catalog =~ "GET /.well-known/api-catalog is declared 2 times"
     end
 
+    test "the sitemap stylesheets and the OAuth metadata documents are checked too" do
+      routes = [
+        route("/assets/sitemap/:style", HostWeb.StaticController),
+        route("/assets/sitemap/:style", PhoenixKit.Modules.Sitemap.Web.Controller),
+        route("/assets/sitemap-index/:style", HostWeb.StaticController),
+        route("/assets/sitemap-index/:style", PhoenixKit.Modules.Sitemap.Web.Controller),
+        route("/.well-known/oauth-authorization-server", HostWeb.OAuthController),
+        route("/.well-known/oauth-authorization-server", PhoenixKitWeb.OAuth.MetadataController),
+        route(
+          "/.well-known/oauth-protected-resource/phoenix_kit/mcp/admin",
+          HostWeb.OAuthController
+        ),
+        route(
+          "/.well-known/oauth-protected-resource/phoenix_kit/mcp/admin",
+          PhoenixKitWeb.OAuth.MetadataController
+        )
+      ]
+
+      findings = Doctor.duplicate_root_route_findings(routes)
+      assert length(findings) == 4
+
+      for path <- [
+            "/assets/sitemap/:style",
+            "/assets/sitemap-index/:style",
+            "/.well-known/oauth-authorization-server",
+            "/.well-known/oauth-protected-resource/phoenix_kit/mcp/admin"
+          ] do
+        assert Enum.any?(findings, &(&1 =~ "GET #{path} is declared 2 times")), path
+      end
+    end
+
+    test "a host's own /assets or /.well-known path is not a kit path" do
+      refute Doctor.kit_root_path?("/assets/app.css")
+      refute Doctor.kit_root_path?("/.well-known/security.txt")
+      assert Doctor.kit_root_path?("/.well-known/oauth-protected-resource/mcp/admin")
+    end
+
     test "the pre-2.0 hint is for the sitemap paths only" do
       routes = [
         route("/sitemap.xml", HostWeb.SitemapController),

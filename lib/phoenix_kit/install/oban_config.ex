@@ -18,7 +18,6 @@ if Code.ensure_loaded?(Igniter) do
     use PhoenixKit.Install.IgniterCompat
 
     # Mix functions only available at compile-time during installation
-    @dialyzer {:nowarn_function, update_existing_oban_config: 3}
     @dialyzer {:nowarn_function, ensure_queue: 4}
     @dialyzer {:nowarn_function, ensure_declared_queues: 3}
     @dialyzer {:nowarn_function, insert_queue: 4}
@@ -55,12 +54,16 @@ if Code.ensure_loaded?(Igniter) do
     @dialyzer {:nowarn_function, report_scheduled: 2}
     @dialyzer {:nowarn_function, add_lifeline_plugin: 2}
     @dialyzer {:nowarn_function, update_content: 2}
+    @dialyzer {:nowarn_function, update_content_quiet: 2}
+    @dialyzer {:nowarn_function, patched_content: 4}
+    @dialyzer {:nowarn_function, patch_oban_config: 2}
 
     alias Igniter.Libs.Phoenix
     alias Igniter.Project.Application
     alias PhoenixKit.Install.ConfigSplice
     alias PhoenixKit.Install.ConfigVerify
     alias PhoenixKit.Install.IgniterHelpers
+    alias PhoenixKit.Install.PatchLedger
     alias PhoenixKit.Migrations.Repair.Environment
 
     # Lifeline rescues purely by elapsed time, with no check that the node
@@ -89,10 +92,14 @@ if Code.ensure_loaded?(Igniter) do
     Updated igniter with Oban configuration and notices.
     """
     def add_oban_configuration(igniter, prefix \\ nil) do
+      config_existed? = oban_config_exists?(igniter)
+      {igniter, result} = patch_oban_config(igniter, prefix)
+
       igniter
-      |> add_oban_config(prefix)
+      |> report_patch(result)
+      |> manual_block_on_failure(result, config_existed?)
+      |> Igniter.assign(:phoenix_kit_oban_patch, result)
       |> maybe_warn_missing_oban_prefix(prefix)
-      |> add_oban_configuration_notice()
     end
 
     @doc """
@@ -213,71 +220,185 @@ if Code.ensure_loaded?(Igniter) do
       _ -> false
     end
 
-    # Clean up broken Oban config syntax from previous failed updates
-    # NOTE: Previously this function attempted to fix syntax issues with greedy
-    # regexes, but they could corrupt valid commented config. The regexes have
-    # been removed as they caused more harm than good. If syntax issues occur
-    # from failed updates, they should be fixed manually or with more targeted
-    # approaches.
-    defp cleanup_oban_config_syntax do
-      :ok
-    end
+    # A block that could not be ADDED leaves the host without Oban: spell out
+    # the whole block to paste.
+    defp manual_block_on_failure(igniter, {:error, _}, false),
+      do: add_manual_config_notice(igniter, get_repo_module(igniter))
 
-    # Add Oban configuration to config.exs
-    defp add_oban_config(igniter, prefix) do
-      # First, clean up any broken syntax from previous failed updates
-      cleanup_oban_config_syntax()
+    defp manual_block_on_failure(igniter, _result, _existed?), do: igniter
 
-      # Get parent app name and repo
+    @typedoc "What the Oban patch did to config.exs."
+    @type patch_result ::
+            {:ok, :added | :changed | :unchanged} | {:error, %{required(atom()) => term()}}
+
+    @doc """
+    The Oban patch of config.exs: adds the block when it is missing, or
+    backfills an existing one (queues, cron, Pruner, Lifeline — see
+    `update_content/2`). Returns the igniter and what happened:
+
+      * `{:ok, :added}` — a new block was written;
+      * `{:ok, :changed}` / `{:ok, :unchanged}` — an existing block;
+      * `{:error, reason}` — nothing was written: the edited text would not
+        parse, or the edit raised. `reason` has `:file`, `:line`, `:message`
+        and `:snippet`; the problem is also listed in the closing manual-steps
+        summary.
+
+    The new text is parsed BEFORE it reaches the file, and the outcome is
+    reported in exactly one line by the caller (`report_patch/2`), so a run
+    can no longer print a failure and a success for the same edit.
+    """
+    @spec patch_oban_config(Igniter.t(), String.t() | nil) :: {Igniter.t(), patch_result()}
+    def patch_oban_config(igniter, prefix) do
       app_name = IgniterHelpers.get_parent_app_name(igniter)
       repo_module = get_repo_module(igniter)
-
-      # Prefixed installs put oban_jobs into the named schema (V27), so Oban
-      # must be pointed at it — without this it looks for public.oban_jobs.
-      prefix_line =
-        if prefix in [nil, "public"] do
-          ""
-        else
-          "\n  prefix: \"#{prefix}\","
-        end
+      path = "config/config.exs"
 
       try do
-        Igniter.update_file(igniter, "config/config.exs", fn source ->
-          content = Rewrite.Source.get(source, :content)
+        igniter = Igniter.include_or_create_file(igniter, path, "import Config\n")
+        content = igniter.rewrite |> Rewrite.source!(path) |> Rewrite.Source.get(:content)
 
-          # Check if Oban config already exists (with more robust detection)
-          if oban_config_already_exists?(content, app_name) do
-            # Update existing config to add posts queue and cron plugin
-            update_existing_oban_config(source, content, app_name)
-          else
-            # Find insertion point before import_config statements
-            oban_config =
-              fresh_oban_config(
-                app_name,
-                repo_module,
-                prefix_line <> notifier_line(repo_config(app_name, repo_module))
-              )
+        {outcome, candidate} = patched_content(content, app_name, repo_module, prefix)
 
-            insertion_point = find_import_config_location(content)
+        case parse_check(candidate, content, path) do
+          :ok when candidate == content ->
+            {igniter, {:ok, :unchanged}}
 
-            updated_content =
-              case insertion_point do
-                {:before_import, before_content, after_content} ->
-                  # Insert before import_config
-                  before_content <> oban_config <> "\n" <> after_content
+          :ok ->
+            igniter =
+              Igniter.update_file(igniter, path, fn source ->
+                Rewrite.Source.update(source, :content, candidate)
+              end)
 
-                :append_to_end ->
-                  # No import_config found, append to end
-                  content <> oban_config
-              end
+            {igniter, {:ok, outcome}}
 
-            Rewrite.Source.update(source, :content, updated_content)
-          end
-        end)
+          {:error, reason} ->
+            {igniter, {:error, reason}}
+        end
       rescue
         e ->
-          IO.warn("Failed to add Oban configuration: #{inspect(e)}")
-          add_manual_config_notice(igniter, repo_module)
+          {igniter,
+           {:error, %{file: path, line: nil, message: Exception.message(e), snippet: nil}}}
+      end
+    end
+
+    # The whole new config.exs text, and whether the block was added or an
+    # existing one updated. Pure apart from the progress lines.
+    defp patched_content(content, app_name, repo_module, prefix) do
+      if oban_config_already_exists?(content, app_name) do
+        Mix.shell().info("🔍 Updating existing Oban configuration for :#{app_name}...")
+        {:changed, update_content_quiet(content, app_name)}
+      else
+        # Prefixed installs put oban_jobs into the named schema (V27), so Oban
+        # must be pointed at it — without this it looks for public.oban_jobs.
+        prefix_line = if prefix in [nil, "public"], do: "", else: "\n  prefix: \"#{prefix}\","
+
+        oban_config =
+          fresh_oban_config(
+            app_name,
+            repo_module,
+            prefix_line <> notifier_line(repo_config(app_name, repo_module))
+          )
+
+        case find_import_config_location(content) do
+          {:before_import, before_content, after_content} ->
+            {:added, before_content <> oban_config <> "\n" <> after_content}
+
+          :append_to_end ->
+            {:added, content <> oban_config}
+        end
+      end
+    end
+
+    # A candidate that does not parse is refused with where it breaks. When
+    # the file did not parse before the edit either, say so: the edit is not
+    # the cause, and the fix is the host's.
+    @doc false
+    def parse_check(candidate, original, path) do
+      case Code.string_to_quoted(candidate, columns: true) do
+        {:ok, _} ->
+          :ok
+
+        {:error, {meta, message, token}} ->
+          line = Keyword.get(meta, :line)
+          broken_before? = match?({:error, _}, Code.string_to_quoted(original))
+
+          {:error,
+           %{
+             file: path,
+             line: line,
+             message:
+               format_parse_message(message, token) <>
+                 if(broken_before?,
+                   do: " (the file did not parse before PhoenixKit's edit either)",
+                   else: ""
+                 ),
+             snippet: snippet(candidate, line)
+           }}
+      end
+    end
+
+    defp format_parse_message({prefix, suffix}, token), do: "#{prefix}#{token}#{suffix}"
+    defp format_parse_message(message, token), do: "#{message}#{token}"
+
+    defp snippet(_content, nil), do: nil
+
+    defp snippet(content, line) do
+      content
+      |> String.split("\n")
+      |> Enum.with_index(1)
+      |> Enum.filter(fn {_text, n} -> n in (line - 2)..(line + 2)//1 end)
+      |> Enum.map_join("\n", fn {text, n} ->
+        marker = if n == line, do: ">", else: " "
+        "#{marker} #{String.pad_leading(Integer.to_string(n), 4)} | #{text}"
+      end)
+    end
+
+    @doc """
+    The one line that reports `patch_oban_config/2`'s result (as an Igniter
+    notice or warning). On `{:error, _}` the problem is also recorded for the
+    closing manual-steps summary.
+    """
+    @spec report_patch(Igniter.t(), patch_result()) :: Igniter.t()
+    def report_patch(igniter, {:ok, :added}) do
+      Igniter.add_notice(
+        igniter,
+        "⚙️  Oban configuration added to config.exs (restart a running server to apply)"
+      )
+    end
+
+    def report_patch(igniter, {:ok, :changed}) do
+      Igniter.add_notice(
+        igniter,
+        "⚙️  Oban configuration updated in config.exs (restart a running server to apply)" <>
+          pending_suffix()
+      )
+    end
+
+    def report_patch(igniter, {:ok, :unchanged}) do
+      Igniter.add_notice(igniter, "✅ Oban configuration already up to date" <> pending_suffix())
+    end
+
+    def report_patch(igniter, {:error, reason}) do
+      where = if reason.line, do: "#{reason.file}:#{reason.line}", else: reason.file
+
+      record_manual_step(
+        "The Oban configuration in #{where} was NOT updated: #{reason.message}",
+        List.wrap(reason.snippet) ++
+          ["Fix the file and run mix phoenix_kit.update again; nothing else was skipped."]
+      )
+
+      Igniter.add_warning(
+        igniter,
+        "⚠️  Oban configuration NOT updated (#{where}): #{reason.message}" <>
+          if(reason.snippet, do: "\n" <> reason.snippet, else: "") <>
+          "\n   Left as it was; listed again at the end of the update."
+      )
+    end
+
+    defp pending_suffix do
+      case manual_step_count() do
+        0 -> ""
+        n -> " — #{n} step(s) need you, listed at the end of the update"
       end
     end
 
@@ -368,12 +489,6 @@ if Code.ensure_loaded?(Igniter) do
       """
     end
 
-    # Update existing Oban configuration to add posts/sitemap queues and cron plugin
-    defp update_existing_oban_config(source, content, app_name) do
-      Mix.shell().info("🔍 Updating existing Oban configuration for :#{app_name}...")
-      Rewrite.Source.update(source, :content, update_content(content, app_name))
-    end
-
     @doc """
     The whole backfill of an existing Oban block, on content: queues, cron
     plugin and entries, Pruner retention, Lifeline. Public so it can be tested
@@ -385,6 +500,23 @@ if Code.ensure_loaded?(Igniter) do
     """
     @spec update_content(String.t(), atom() | String.t()) :: String.t()
     def update_content(content, app_name) do
+      updated = update_content_quiet(content, app_name)
+
+      cond do
+        ConfigSplice.oban_disabled?(content, app_name) ->
+          updated
+
+        ConfigSplice.option_off?(content, app_name, :plugins) ->
+          report_update(content, updated, "queues checked; plugins are switched off")
+
+        true ->
+          report_update(content, updated)
+      end
+    end
+
+    # The backfill without its closing line: the patch reports once, after
+    # the result has parsed (`report_patch/2`).
+    defp update_content_quiet(content, app_name) do
       cond do
         ConfigSplice.oban_disabled?(content, app_name) ->
           Mix.shell().info(
@@ -400,7 +532,7 @@ if Code.ensure_loaded?(Igniter) do
             "  ℹ️  Oban plugins are switched off (`plugins: false`) — no cron, Lifeline or Pruner entries to add"
           )
 
-          report_update(content, updated, "queues checked; plugins are switched off")
+          updated
 
         true ->
           # Every queue PhoenixKit or an installed module declares
@@ -418,7 +550,7 @@ if Code.ensure_loaded?(Igniter) do
             |> ensure_lifeline_plugin(app_name)
 
           note_nested_block(content, app_name)
-          report_update(content, updated)
+          updated
       end
     end
 
@@ -505,7 +637,10 @@ if Code.ensure_loaded?(Igniter) do
     def ensure_declared_queues(content, app_name, declared \\ nil) do
       {declared, conflicts} =
         case declared do
-          nil -> PhoenixKit.ObanQueues.resolve()
+          # Only the queues of packages that are installed: the fallback entry
+          # for a package the host does not have (`ObanQueues.required/2`) is
+          # a queue nothing can enqueue into.
+          nil -> PhoenixKit.ObanQueues.resolve() |> then(fn {d, c} -> {required(d), c} end)
           list -> {list, []}
         end
 
@@ -521,10 +656,60 @@ if Code.ensure_loaded?(Igniter) do
         content
       else
         Enum.reduce(declared, content, fn spec, acc ->
-          ensure_queue(acc, app_name, Atom.to_string(spec.name), spec.limit)
+          ensure_ledgered_queue(acc, app_name, Atom.to_string(spec.name), spec.limit)
         end)
       end
     end
+
+    defp required(declared), do: PhoenixKit.ObanQueues.required(declared)
+
+    defp queue_declined?(%{name: name}) do
+      id = "oban_queues:#{name}"
+      PatchLedger.skip?(id) or PatchLedger.declined?(id)
+    end
+
+    defp queue_on_disk?(app_name, queue) do
+      case File.read("config/config.exs") do
+        {:ok, content} -> queue_configured?(content, app_name, queue)
+        _ -> false
+      end
+    end
+
+    # Each queue is patch `oban_queues:<name>` in `PhoenixKit.Install.PatchLedger`:
+    # a queue the host removed after an earlier update, declined with
+    # `--skip-patch`, or marked `# phoenix_kit:skip oban_queues:<name>` is not
+    # added back. An existing queue is never removed or changed.
+    defp ensure_ledgered_queue(content, app_name, queue, limit) do
+      id = "oban_queues:" <> queue
+
+      case PatchLedger.decide(id, queue_configured?(content, app_name, queue), content) do
+        :present ->
+          Mix.shell().info("  ℹ️  #{queue} queue already configured")
+          content
+
+        :apply ->
+          updated = ensure_queue(content, app_name, queue, limit)
+
+          # Recorded only if config.exs on disk shows it when the ledger is
+          # written: this edit sits in Igniter's buffer until the run's
+          # changes are accepted.
+          if queue_configured?(updated, app_name, queue),
+            do: PatchLedger.record(id, :applied, fn -> queue_on_disk?(app_name, queue) end)
+
+          updated
+
+        {:declined, reason} ->
+          Mix.shell().info("  ↷ Left out the #{queue} queue (#{declined_why(id, reason)})")
+          content
+      end
+    end
+
+    defp declined_why(id, :flag), do: "--skip-patch #{id}"
+    defp declined_why(id, :marker), do: "phoenix_kit:skip #{id} marker"
+    defp declined_why(_id, :ledger), do: "declined in #{PatchLedger.file_name()}"
+
+    defp declined_why(id, :removed),
+      do: "removed after an earlier update; --repair-patch #{id} adds it back"
 
     @doc false
     # `queues: false`, `queues: []` — Oban's two spellings of "this node runs
@@ -542,7 +727,18 @@ if Code.ensure_loaded?(Igniter) do
     # The queue lines of a freshly generated Oban block, one per declared
     # queue, with who asked for it. The comma goes BEFORE the comment — after
     # it, it would be part of the comment and the list would not parse.
-    def generated_queue_lines(declared \\ PhoenixKit.ObanQueues.declared()) do
+    #
+    # The default leaves out a queue the host declined (`--skip-patch oban_queues[:name]` or
+    # `:declined` in `.phoenix_kit.exs`): a missing block is required configuration, its
+    # queues are not. A queue recorded as applied is written back, since the whole block
+    # went, not that queue.
+    def generated_queue_lines(declared \\ nil) do
+      declared =
+        declared ||
+          PhoenixKit.ObanQueues.declared()
+          |> PhoenixKit.ObanQueues.required()
+          |> Enum.reject(&queue_declined?/1)
+
       last = length(declared) - 1
 
       declared
@@ -1981,28 +2177,6 @@ if Code.ensure_loaded?(Igniter) do
     end
 
     # Add notice about Oban configuration
-    defp add_oban_configuration_notice(igniter) do
-      if oban_config_exists?(igniter) do
-        Igniter.add_notice(
-          igniter,
-          """
-          ⚙️  Oban configured for background jobs (file processing, sitemap, newsletters)
-             If queues were added/updated, restart your server to apply changes.
-          """
-          |> String.trim()
-        )
-      else
-        Igniter.add_notice(
-          igniter,
-          """
-          ⚙️  Oban configuration added to config.exs
-             (restart a running server to apply)
-          """
-          |> String.trim()
-        )
-      end
-    end
-
     @doc """
     Adds Oban to the parent application's supervision tree.
 

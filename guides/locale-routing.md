@@ -149,3 +149,152 @@ language satisfies it just as well as a path segment.
 
 Both would make PhoenixKit carry two routing models, and every URL it builds
 — email links, sitemaps, social cards — would have to support both.
+
+## Host locale routes
+
+A host can serve its own pages under the languages the kit serves, with the
+kit's Languages settings (Admin → Settings → Languages) as the one list:
+`PhoenixKitWeb.Plugs.HostLocale` validates the segment, and `PhoenixKit.I18n`
+builds the links. All of it is opt-in; the kit never mounts a `/:locale` scope
+for the host.
+
+### The router
+
+```elixir
+defmodule MyAppWeb.Router do
+  use MyAppWeb, :router
+  import PhoenixKitWeb.Integration
+
+  pipeline :host_locale do
+    plug PhoenixKitWeb.Plugs.HostLocale, gettext: MyAppWeb.Gettext
+  end
+
+  # 1. Everything with a fixed first segment comes first.
+  scope "/", MyAppWeb do
+    pipe_through :browser
+    get "/health", HealthController, :show
+  end
+
+  phoenix_kit_routes()
+
+  # 2. The localized pages come last.
+  scope "/", MyAppWeb do
+    pipe_through [:browser, :host_locale]
+
+    live_session :localized,
+      on_mount: [{PhoenixKitWeb.Plugs.HostLocale, gettext: MyAppWeb.Gettext}] do
+      # The primary language, when the site serves it without a segment
+      live "/", HomeLive
+      live "/products/:slug", ProductLive.Show
+
+      # Every language that carries a segment
+      scope "/:locale" do
+        live "/", HomeLive
+        live "/products/:slug", ProductLive.Show
+      end
+    end
+  end
+end
+```
+
+The plug and the hook take the same options: `param:` (default `"locale"`),
+`on_unknown: :not_found | :primary`, `on_primary_segment: :redirect | :serve`
+(plug only) and `gettext:` (the host's backends to set too).
+
+What a request gets:
+
+| Request | Answer |
+|---|---|
+| `/et/products/x`, Estonian served | rendered in Estonian; Gettext, `@current_locale` (`"et"` or `"et-EE"`, as configured), `@current_locale_base`, `@current_language` set |
+| `/products/x` | the primary language |
+| `/en/products/x`, English is the prefixless primary | 302 to `/products/x` (`on_primary_segment: :serve` renders it) |
+| `/ET/products/x`, `/en-US/products/x` | 302 to the canonical segment (307 for a POST) |
+| `/de/products/x`, German not served | 404 (`HostLocale.NotFoundError`, rendered by the host's error view); `on_unknown: :primary` renders the primary language instead |
+
+On a single-language site (multi-language support off) the primary is the
+only language and is always prefixless, so `/:locale` URLs either redirect to
+the clean path (the primary's own code) or 404.
+
+### ⚠️ The scope-ordering trap
+
+Phoenix matches routes in the order they are declared, and `:locale` matches
+any segment. A wide localized scope declared **before** `phoenix_kit_routes()`
+or a fixed-prefix scope takes those paths for itself:
+
+```elixir
+# WRONG — "/:locale" is first, so "/admin" is HomeLive with locale "admin",
+# and "/assets/app.css" is a page with locale "assets"
+scope "/:locale", MyAppWeb do
+  pipe_through [:browser, :host_locale]
+  live "/", HomeLive
+  live "/*path", PageLive
+end
+
+phoenix_kit_routes()
+```
+
+With `HostLocale` in front the mistake shows up as a 404 on `/admin` rather
+than as a page rendered in a language called "admin", and the plug logs a
+warning naming this section the first time a kit path (the admin segment, the
+kit's `url_prefix`, `assets`, `api`, …) is captured. The fix is always the
+order: fixed-prefix scopes and `phoenix_kit_routes()` first, the `/:locale`
+scope last. Static files are served by the endpoint before the router, so
+only a path `Plug.Static` does not cover (a missing file) reaches the router —
+another reason to keep the catch-all last.
+
+Do not reuse `:phoenix_kit_locale_validation` for these scopes: that pipeline
+looks for the segment right after the kit's `url_prefix` and redirects unknown
+codes, where `HostLocale` reads the route's own `:locale` and answers 404.
+
+### Links, hreflang and the switcher
+
+The kit does not guess how a host's URL is shaped. Every builder takes the
+host's function — called with the language's URL segment, or `nil` for a
+prefixless primary — or names a strategy explicitly:
+
+```elixir
+url = fn
+  nil -> ~p"/products/#{product.slug}"
+  locale -> ~p"/#{locale}/products/#{product.slug}"
+end
+
+PhoenixKit.I18n.enabled_locales()                       # ["en", "et", "ru"]
+PhoenixKit.I18n.localized_url(socket, "et", url: url)   # "/et/products/tool"
+PhoenixKit.I18n.hreflang_links(socket, url: url)        # [%{hreflang: "en", href: "https://…"}, …, x-default]
+PhoenixKit.I18n.language_links(socket, url: url)        # [%{code, name, native_name, url, current?, …}]
+
+# The current page with its leading segment replaced (same path in every language)
+PhoenixKit.I18n.language_links(socket, strategy: :path)
+# ?locale=et instead of a path segment
+PhoenixKit.I18n.language_links(socket, strategy: :query)
+```
+
+A per-language slug (`/et/tooted/…`, `/ru/produkty/…`) is exactly why the
+builder is the host's: look the slug up inside the function.
+
+In templates:
+
+```heex
+<%!-- root layout <head> --%>
+<.hreflang_tags url={@locale_url} />
+
+<%!-- the host's own switcher markup --%>
+<.language_switcher_items :let={link} url={@locale_url} current_locale={@current_locale}
+  class="flex gap-2">
+  <.link navigate={link.url} class={link.current? && "font-bold"} hreflang={link.hreflang}>
+    {link.native_name || link.name}
+  </.link>
+</.language_switcher_items>
+```
+
+Both components live in `PhoenixKitWeb.Components.Core.LanguageSwitcher`
+(import it, or call them by module). `language_switcher_items` also takes an
+`:item` slot, precomputed `links`, `strategy`, `hide_current` and `tag`
+(default `nav`); with no slot it renders plain `<a>` links. The daisyUI
+switchers (`language_switcher_dropdown` and friends) are unchanged.
+
+`hreflang_links/2` returns the same `%{hreflang:, href:}` shape a sitemap
+`UrlEntry`'s `alternates` uses, so a host sitemap source can pass it through.
+Hrefs are absolute: a path is put on `:base_url` (default `Routes.base_url/0`,
+the site URL the kit puts in emails); a builder that returns absolute URLs (a
+domain per language) is used as is.

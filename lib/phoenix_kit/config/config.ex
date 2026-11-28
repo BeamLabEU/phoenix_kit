@@ -29,7 +29,11 @@ defmodule PhoenixKit.Config do
   - `:from_email` - Default sender email address for notifications
   - `:from_name` - Default sender name for notifications (default: "PhoenixKit")
   - `:users_module` - User schema module (default: PhoenixKit.Users.Auth.User)
-  - `:project_title` - Project/application name displayed in dashboard header (default: "PhoenixKit")
+  - `:project_title` - Project/application name shown in the admin and dashboard
+    headers, e-mails, `/llms.txt` and the API documents (default: "PhoenixKit").
+    A string, or `:host_app` to use the host application's humanized OTP app
+    name (`:my_shop` → "My Shop"). Read it through `project_title/0`; the
+    Settings value (admin panel) still wins over both (`Settings.get_project_title/0`).
   - `:project_title_suffix` - Suffix appended to title (default: "Dashboard", set to "" to remove)
   - `:project_logo` - URL or path to logo image for dashboard header (optional, use SVG with currentColor for theme support)
   - `:project_icon` - Heroicon name when no logo image (default: "hero-home")
@@ -910,6 +914,19 @@ defmodule PhoenixKit.Config do
   end
 
   @doc """
+  Whether a root file of a switched-off module answers `404` even where it used to answer
+  anyway (`config :phoenix_kit, hide_disabled_routes: true`; default `false`). Today that is
+  the sitemap's stylesheets and its `sitemap.html` redirect while the Sitemap module is off;
+  every other root file already answers `404` while its module is off. Runtime config: it is
+  read on each request. It answers from the kit's route, so the path is not freed for the
+  host: `phoenix_kit_routes(root: ...)` does that (see `PhoenixKitWeb.Integration`).
+  """
+  @spec hide_disabled_routes?() :: boolean()
+  def hide_disabled_routes? do
+    get_boolean(:hide_disabled_routes, false)
+  end
+
+  @doc """
   Whether the host has said anything at all about `:user_dashboard_enabled`.
 
   Distinguishes "took the new default" from "explicitly chose `false`", which
@@ -945,6 +962,53 @@ defmodule PhoenixKit.Config do
   @spec default_locale() :: String.t()
   def default_locale do
     get_string(:default_locale, "en-US")
+  end
+
+  @doc """
+  The configured project title: the place `config :phoenix_kit, :project_title`
+  is read.
+
+    * a non-empty string → that string;
+    * `:host_app` → the host application's OTP app name, humanized
+      (`:my_shop` → `"My Shop"`, see `humanize_app_name/1`), or `"PhoenixKit"`
+      when the host app cannot be told;
+    * unset or anything else → `"PhoenixKit"` (the default every existing
+      install has always had).
+
+  `mix phoenix_kit.install` writes the humanized name as a string for a new
+  app; an upgraded host keeps what it had. The admin panel's Settings value
+  overrides this at runtime (`PhoenixKit.Settings.get_project_title/0`).
+  """
+  @spec project_title() :: String.t()
+  def project_title do
+    case Application.get_env(:phoenix_kit, :project_title) do
+      title when is_binary(title) and title != "" ->
+        title
+
+      :host_app ->
+        case get_parent_app() do
+          app when is_atom(app) and not is_nil(app) -> humanize_app_name(app)
+          _ -> "PhoenixKit"
+        end
+
+      _ ->
+        "PhoenixKit"
+    end
+  end
+
+  @doc """
+  An OTP app name as a title: `:my_shop` → `"My Shop"`, `"acme_web"` → `"Acme Web"`.
+
+      iex> PhoenixKit.Config.humanize_app_name(:my_shop)
+      "My Shop"
+  """
+  @spec humanize_app_name(atom() | String.t()) :: String.t()
+  def humanize_app_name(app) when is_atom(app), do: humanize_app_name(Atom.to_string(app))
+
+  def humanize_app_name(app) when is_binary(app) do
+    app
+    |> String.split(~r/[_\-\s]+/, trim: true)
+    |> Enum.map_join(" ", &String.capitalize/1)
   end
 
   @doc """

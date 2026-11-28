@@ -33,6 +33,25 @@ defmodule PhoenixKit.Modules.Storage.RemoteFetch do
   `Accept` header, `*/*` unless given) and `protocols:` (Mint's list of protocols for the
   connection, `[:http1, :http2]` unless given; a caller that fetches from a stranger's server and
   needs nothing from HTTP/2 passes `[:http1]`).
+
+  ## Choosing the address: `resolver:`
+
+  `resolver:` replaces the public-address check with the caller's own: a one-argument function
+  called with every hop's host (the first URL's and each redirect's), returning `{:ok, ip}` (the
+  address to connect to) or `{:error, reason}` (the download stops with that reason). Use it to
+  let an allowlisted host through and send everything else to
+  `PhoenixKit.Utils.PublicAddress.resolve_public/1`:
+
+      resolver: fn host ->
+        if host in allowed_hosts(),
+          do: resolve_any(host),
+          else: PhoenixKit.Utils.PublicAddress.resolve_public(host)
+      end
+
+  Whatever it returns is connected to as is, so a resolver that answers an internal address for a
+  stranger's host undoes the protection this module exists for. The connection still uses the
+  original name for `Host`, SNI and certificate checks. `:unsafe_resolver` is the old name of
+  this option and still works; `resolver:` wins when both are given.
   """
 
   alias PhoenixKit.Utils.PublicAddress
@@ -99,10 +118,9 @@ defmodule PhoenixKit.Modules.Storage.RemoteFetch do
     end
   end
 
-  # `:unsafe_resolver` exists for this module's own tests (a local server on
-  # 127.0.0.1); nothing else should pass it.
+  # `:unsafe_resolver` is the old name of `:resolver`, kept for callers that pass it.
   defp resolve(host, opts) do
-    case opts[:unsafe_resolver] do
+    case opts[:resolver] || opts[:unsafe_resolver] do
       fun when is_function(fun, 1) -> fun.(host)
       _ -> PublicAddress.resolve_public(host)
     end

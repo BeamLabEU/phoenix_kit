@@ -55,6 +55,8 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         $ mix phoenix_kit.update --skip-assets
         $ mix phoenix_kit.update -y
         $ mix phoenix_kit.update --no-start
+        $ mix phoenix_kit.update --migrate-only
+        $ mix phoenix_kit.update --dry-run
 
     ## When the application will not start (`--no-start`)
 
@@ -69,10 +71,28 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     `--no-start` runs the two steps that need no application: it generates the
     chain step-up migration (`mix phoenix_kit.gen.migration` reads the current
     version off the migration FILENAMES, never the database) and applies it
-    with `mix ecto.migrate`, which starts the repo alone. Configuration repair,
+    with `mix ecto.migrate`, which starts the repo alone. Before generating, it
+    starts the repo the same way to read the installed version, and refuses a
+    database below this release's floor like the full update does. Configuration repair,
     asset rebuild and module migrations are skipped and reported — every one of
     them needs the app. Run the full `mix phoenix_kit.update` once the host
     boots again.
+
+    ## Database only (`--migrate-only`)
+
+    The default update boots the whole host application, which starts the
+    host's own children too: pollers, bots, a Telegram `getUpdates` loop that
+    then conflicts with the copy already running in production.
+    `--migrate-only` starts only the repo (`Ecto.Migrator.with_repo/3`): it
+    refuses a database below the floor, writes the PhoenixKit step-up
+    migration from the version the database reports, writes an Oban schema
+    step-up when one is due, runs `mix ecto.migrate`, then writes and runs the
+    installed modules' migrations and checks their versions. No project file
+    other than those migrations is touched, and nothing is prompted. The
+    default (no flag) is unchanged, and `--no-start` keeps its meaning. A repo
+    configured with `start_apps_before_migration:` gets those applications
+    started first, as `mix ecto.migrate` does: leave the host app out of that
+    list for `--migrate-only` to keep it stopped.
 
     ## Options
 
@@ -86,6 +106,56 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       * `--yes` / `-y` - Skip confirmation prompts and run migrations automatically
       * `--no-start` - Migrate the database without starting the host
         application. See "When the application will not start" above.
+      * `--migrate-only` - Run every database step — PhoenixKit's step-up,
+        Oban's schema, the installed modules' migrations (their files are
+        written too) — with only the repo started. See "Database only" below.
+      * `--install-root-theme` - Add the theme bootstrap to the host's ROOT
+        layout (opt-in; see "Theme bootstrap" below).
+      * `--remove-root-theme` - Remove a kit-marked theme bootstrap from the
+        root layout and record `theme_bootstrap` as declined.
+      * `--skip-patch ID` - Decline an optional project edit and record it
+        in `.phoenix_kit.exs` (repeatable). See "The patch ledger" below.
+      * `--repair-patch ID` - Apply an optional edit again although the
+        ledger says it was removed or declined (repeatable).
+      * `--dry-run` - Show what would change and write nothing: Igniter
+        prints the diff of every project file it would edit, and the steps
+        that write outside Igniter (app.css, the vendored JS, the asset
+        rebuild, migrations and module migration files) are listed and
+        skipped. The application still starts, to read the database.
+
+    A database below this release's migration floor is refused before
+    anything is written (no project edit, no migration file); the message
+    names the bridge release to install first. The one exception is a run
+    whose config.exs lacks the Ueberauth, Hammer or Oban configuration: that
+    configuration is added first, and nothing else, because the version can
+    only be read once the app starts with it.
+
+    ## Theme bootstrap
+
+    The update no longer puts `PhoenixKitWeb.Components.ThemeBootstrap` in
+    your root layout: the kit's admin pages and auth pages stamp the saved
+    theme themselves (`PhoenixKitWeb.Components.LayoutWrapper`), and a root
+    copy stamped `data-theme` on your public site as well. A snippet an
+    earlier update injected stays where it is (nothing is removed
+    automatically); `--remove-root-theme` removes it when it carries the
+    kit's marker comment. `--install-root-theme` adds it, for a site that
+    wants its public pages to follow the kit's saved theme.
+
+    ## The patch ledger (`.phoenix_kit.exs`)
+
+    The optional edits this task makes to your project have stable IDs
+    (`module_js_seed`, `oban_queues` / `oban_queues:<queue>`,
+    `daisyui_themes`, `css_sources_import`, `theme_bootstrap`), and the
+    task records in `.phoenix_kit.exs` which it applied and which you
+    declined. Commit the file. An edit recorded as applied that you later
+    remove is treated as declined — not re-added — and listed at the end of
+    the run with the `--repair-patch ID` hint. `--skip-patch ID` and an
+    inline marker (`# phoenix_kit:skip ID`, `<%!-- phoenix_kit:skip ID --%>`)
+    decline one up front. The first run without a ledger behaves exactly as
+    before and records what is present. Required configuration and
+    security-relevant edits (`body_guard`) are never declinable. Oban
+    queues are added only for packages that are installed, and an existing
+    queue is never removed. Details: `PhoenixKit.Install.PatchLedger`.
 
     ## Examples
 
@@ -103,6 +173,25 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
         # Force update with automatic migration
         mix phoenix_kit.update --force -y
+
+    ## Upgrading across releases
+
+    Stop the application first (or run this on a separate checkout): the task
+    compiles and boots the app, and recompiling a `_build/prod` that a running
+    server loads from restarts it onto half-upgraded code.
+
+    The `..._phoenix_kit_update_vNN_to_vMM.exs` file this writes calls
+    `PhoenixKit.Migrations.up_to!(MM, ...)`: a no-op on a database already at
+    MM or later, a `BelowFloorError` naming the bridge release on one below
+    this release's floor, and a `TargetAheadError` under a pin whose chain
+    stops before MM. It still needs a release that accepts NN: apply it on
+    every environment before moving the pin on. (Files written by earlier
+    releases call `PhoenixKit.Migrations.up(version: MM)` and are left as they
+    are; they raise the same two errors.) From 1.7.x the route is `1.7.236`
+    (until V135), then
+    `2.65.0` (until V225), then 3.x — see the "Upgrading to PhoenixKit 3.0"
+    guide (`guides/upgrading-to-3.0.md`), which also lists the settings keys
+    and functions renamed on the way.
 
     ## Version Management
 
@@ -130,6 +219,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       AssetRebuild,
       BasicConfiguration,
       BootHook,
+      ChildOrder,
       Common,
       ConfigVerify,
       CssIntegration,
@@ -143,6 +233,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       MigrationStrategy,
       MissingIgniter,
       ObanConfig,
+      PatchLedger,
       PrefixConfig,
       RateLimiterConfig,
       TestFixturesIntegration
@@ -151,8 +242,12 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     alias PhoenixKit.Migrations.Modules, as: MigrationModules
     alias PhoenixKit.Migrations.Postgres, as: MigrationsPostgres
     alias PhoenixKit.ObanSchema
-    # NOTE: Do NOT alias PhoenixKit.Utils.Routes here — it depends on
-    # application config that isn't available during mix task execution.
+    alias PhoenixKit.Users.Roles
+    # NOTE: PhoenixKit.Utils.Routes depends on application config that isn't
+    # always available during mix task execution: use only `path/2` with
+    # `locale: :none` (reads the `url_prefix` config, nothing else), and
+    # only through `app_path/1`, which falls back when that fails.
+    alias PhoenixKit.Utils.Routes
 
     @shortdoc "Updates PhoenixKit to the latest version"
 
@@ -168,7 +263,13 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           force: :boolean,
           skip_assets: :boolean,
           yes: :boolean,
-          no_start: :boolean
+          no_start: :boolean,
+          migrate_only: :boolean,
+          dry_run: :boolean,
+          skip_patch: :keep,
+          repair_patch: :keep,
+          install_root_theme: :boolean,
+          remove_root_theme: :boolean
         ],
         aliases: [
           p: :prefix,
@@ -183,21 +284,46 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     def igniter(igniter) do
       opts = igniter.args.options
 
-      # Handle --status flag
-      if opts[:status] do
-        show_status(opts)
-        igniter
-      else
-        igniter
-        |> BasicConfiguration.add_basic_config()
-        |> AdminLabelConfig.add_admin_label_options()
-        |> ApplicationSupervisor.add_supervisor()
-        |> BootHook.add_boot_hook()
-        |> MailerConfig.repair_runtime_import_order()
-        |> EndpointIntegration.add_pdfjs_static_mount()
-        |> EndpointIntegration.add_body_guard()
-        |> perform_igniter_update(opts)
+      cond do
+        opts[:status] ->
+          show_status(opts)
+          igniter
+
+        # The first pass (config.exs lacks Ueberauth/Hammer/Oban) runs before
+        # the app can start, so nothing can know yet whether the database is
+        # below this release's floor. It adds that configuration and nothing
+        # else: the layout, app.js, mix.exs, application.ex and endpoint edits
+        # wait for the second pass, which refuses a below-floor database
+        # before making them.
+        Process.get(:phoenix_kit_config_status, :ok) == :missing ->
+          igniter
+          |> add_missing_configuration(opts)
+          |> IgniterHelpers.tidy_messages()
+
+        true ->
+          igniter
+          |> BasicConfiguration.add_basic_config()
+          |> AdminLabelConfig.add_admin_label_options()
+          |> ApplicationSupervisor.add_supervisor()
+          |> BootHook.add_boot_hook()
+          |> MailerConfig.repair_runtime_import_order()
+          |> EndpointIntegration.add_pdfjs_static_mount()
+          |> EndpointIntegration.add_body_guard()
+          |> perform_igniter_update(opts)
+          |> IgniterHelpers.tidy_messages()
       end
+    end
+
+    # The first pass: only the config.exs entries `check_required_configuration/0`
+    # found missing.
+    defp add_missing_configuration(igniter, opts) do
+      prefix = PrefixConfig.resolve_prefix(opts)
+
+      igniter
+      |> PrefixConfig.add_prefix_configuration(opts[:prefix])
+      |> validate_and_fix_ueberauth_config()
+      |> validate_and_add_hammer_config()
+      |> ObanConfig.add_oban_configuration(prefix)
     end
 
     # Override run/1 to handle post-igniter interactive migration and asset rebuild
@@ -222,7 +348,16 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
               force: :boolean,
               skip_assets: :boolean,
               yes: :boolean,
-              no_start: :boolean
+              no_start: :boolean,
+              migrate_only: :boolean,
+              # Igniter's own global switch (it shows the diff and writes
+              # nothing); declared here too so the post-Igniter steps, which
+              # write outside Igniter, can honour it.
+              dry_run: :boolean,
+              skip_patch: :keep,
+              repair_patch: :keep,
+              install_root_theme: :boolean,
+              remove_root_theme: :boolean
             ],
             aliases: [
               p: :prefix,
@@ -232,11 +367,23 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
             ]
           )
 
+        # A bad patch ID stops the run before anything starts.
+        Enum.each([:skip_patch, :repair_patch], fn key ->
+          opts |> elem(0) |> Keyword.get_values(key) |> PatchLedger.validate_ids!()
+        end)
+
+        # The Igniter pass: the first pass runs it inside the ledger window, the
+        # second hands it to `full_update/2` (which decides whether it runs at all).
+        igniter_pass = fn -> super(argv) end
+
         # If --status flag, handle directly and exit
         cond do
           Keyword.get(elem(opts, 0), :status) ->
             show_status(elem(opts, 0))
             :ok
+
+          Keyword.get(elem(opts, 0), :migrate_only) ->
+            migrate_only_update(elem(opts, 0))
 
           Keyword.get(elem(opts, 0), :no_start) ->
             schema_only_update(elem(opts, 0))
@@ -256,56 +403,18 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
                 # Store config status in Process dictionary for igniter/1 to read
                 Process.put(:phoenix_kit_config_status, :missing)
                 show_missing_config_message(argv)
-                super(argv)
+                result = first_pass_with_ledger(elem(opts, 0), igniter_pass)
 
-                # Automatic restart instead of manual prompt
-                Mix.shell().info("""
-
-                ✅ Configuration added successfully!
-                🔄 Automatically restarting to complete the update...
-                """)
-
-                # Clean Process dictionary for fresh state
                 Process.delete(:phoenix_kit_config_status)
-                Process.put(:phoenix_kit_retry_pass, true)
 
-                # Recursive call with same arguments
-                run(argv)
+                after_first_pass(elem(opts, 0), result, argv)
 
               {:ok, _} ->
                 # Second pass (automatic or manual): Configuration exists, safe to start app
                 # Store config status in Process dictionary for igniter/1 to read
                 Process.put(:phoenix_kit_config_status, :ok)
 
-                # Cap the Ecto pool to 2 connections so we don't saturate PgBouncer
-                # when the production app is already running.
-                #
-                # The sequencing is critical:
-                # 1. Run app.config first — this evaluates config/runtime.exs (which
-                #    reads POOL_SIZE env and sets pool_size: N in Application env).
-                # 2. THEN override pool_size to 2 via Application.put_env, after
-                #    runtime.exs has already run and can no longer overwrite us.
-                # 3. THEN start app — app.config won't run again (Mix tracks ran tasks),
-                #    so Ecto initialises the pool with our capped pool_size: 2.
-                Mix.Task.run("app.config")
-                cap_repo_pool_size_for_update(2)
-
-                # Tell PhoenixKit.Supervisor to skip Dashboard.Registry,
-                # OAuthConfigLoader, and module workers so they don't compete
-                # for the 2 available DB connections during startup.
-                Application.put_env(:phoenix_kit, :update_mode, true)
-
-                Mix.Task.run("app.start")
-
-                # Verify database is reachable before running update
-                DbConnectionCheck.ensure_connected!()
-
-                result = super(argv)
-                finish_update(elem(opts, 0))
-
-                # Clean retry flag
-                Process.delete(:phoenix_kit_retry_pass)
-                result
+                run_second_pass(elem(opts, 0), igniter_pass)
 
               {:missing, true} ->
                 # Safety: Configuration still missing after retry
@@ -327,7 +436,214 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       end
     end
 
-    # Display message about missing configuration
+    @doc false
+    # The second pass, in the order that keeps a refused or previewed run from
+    # touching the host:
+    #
+    #   1. start the app (capped pool, `update_mode`) and check the database
+    #   2. refuse a database below this release's floor — BEFORE the Igniter
+    #      pass, which edits config.exs/application.ex/the root layout, and
+    #      before the post-Igniter steps, which write CSS, vendored JS and
+    #      migration files. A refused run used to leave all of that behind,
+    #      and a second run after the bridge wrote a duplicate set.
+    #   3. the Igniter pass (`run/1`'s `super/1`; with `--dry-run` Igniter
+    #      shows its diff and writes nothing)
+    #   4. the post-Igniter steps — skipped under `--dry-run`, which lists them
+    #
+    # `steps` replaces any of the four (tests observe what runs).
+    def full_update(opts, steps \\ %{}) do
+      steps = Map.merge(default_full_update_steps(), steps)
+
+      steps.start_app.()
+      refuse_below_floor!(opts, steps.installation_status)
+      # The patch ledger (`.phoenix_kit.exs`): read after the refusal, so a
+      # refused run neither reads nor writes it.
+      PatchLedger.begin(opts, steps.root)
+
+      try do
+        result = steps.igniter.()
+
+        if Keyword.get(opts, :dry_run, false) do
+          report_dry_run(opts)
+        else
+          finish_with_ledger(opts, steps.finish)
+        end
+
+        result
+      after
+        PatchLedger.abandon()
+      end
+    end
+
+    # The ledger is written even when the migration step raises (a declined
+    # migration ends in Mix.raise/1): the project edits it records were made.
+    defp finish_with_ledger(opts, finish) do
+      finish.(opts)
+    after
+      PatchLedger.flush()
+
+      case PatchLedger.summary() do
+        "" -> :ok
+        summary -> Mix.shell().info(summary)
+      end
+    end
+
+    defp default_full_update_steps do
+      %{
+        start_app: &start_app_for_update/0,
+        installation_status: &Common.check_installation_status/1,
+        igniter: fn -> raise ArgumentError, "the Igniter pass is run/1's super/1" end,
+        finish: &finish_update/1,
+        root: File.cwd!()
+      }
+    end
+
+    defp start_app_for_update do
+      # Cap the Ecto pool to 2 connections so we don't saturate PgBouncer
+      # when the production app is already running.
+      #
+      # The sequencing is critical:
+      # 1. Run app.config first — this evaluates config/runtime.exs (which
+      #    reads POOL_SIZE env and sets pool_size: N in Application env).
+      # 2. THEN override pool_size to 2 via Application.put_env, after
+      #    runtime.exs has already run and can no longer overwrite us.
+      # 3. THEN start app — app.config won't run again (Mix tracks ran tasks),
+      #    so Ecto initialises the pool with our capped pool_size: 2.
+      Mix.Task.run("app.config")
+      cap_repo_pool_size_for_update(2)
+
+      # Tell PhoenixKit.Supervisor to skip Dashboard.Registry,
+      # OAuthConfigLoader, and module workers so they don't compete
+      # for the 2 available DB connections during startup.
+      Application.put_env(:phoenix_kit, :update_mode, true)
+
+      Mix.Task.run("app.start")
+
+      # Verify database is reachable before running update
+      DbConnectionCheck.ensure_connected!()
+    end
+
+    # Only a readable version below the floor refuses here. Every other status
+    # (not installed, unknown, unreachable) keeps its own message from the
+    # Igniter pass's `handle_installation_status/5`, which writes no migration
+    # for any of them.
+    defp refuse_below_floor!(opts, installation_status) do
+      prefix = PrefixConfig.resolve_prefix(opts)
+      floor_version = MigrationsPostgres.minimum_version()
+
+      case installation_status.(prefix) do
+        {:current_version, current} when current > 0 and current < floor_version ->
+          # The first pass (missing Ueberauth/Hammer/Oban config) runs before
+          # the app can start, so it cannot know the version yet.
+          changed =
+            if Process.get(:phoenix_kit_retry_pass, false),
+              do: unfinished_after_first_pass(),
+              else: "Nothing was changed."
+
+          Mix.raise(below_floor_message(current, floor_version) <> "\n" <> changed)
+
+        _ ->
+          :ok
+      end
+    end
+
+    # What `--dry-run` skipped after Igniter's preview: everything below writes
+    # outside Igniter, so its diff cannot show it.
+    defp report_dry_run(opts) do
+      assets =
+        if Keyword.get(opts, :skip_assets, false),
+          do: "",
+          else: "\n  • the asset rebuild (mix assets.build or its fallbacks)"
+
+      Mix.shell().info("""
+
+      🔍 Dry run (--dry-run): nothing was written. The diff above is every
+      change to your project files; these steps were skipped too:
+        • the daisyUI theme switch in app.css and the vendored
+          phoenix_kit.js bundle in priv/static/assets/vendor/#{assets}
+        • the Oban schema check, the migration run and the module
+          migration files#{dry_run_module_lines(opts)}
+
+      Run the same command without --dry-run to apply.
+      """)
+    end
+
+    # Read-only: which module migration files the real run would write.
+    defp dry_run_module_lines(opts) do
+      prefix = PrefixConfig.resolve_prefix(opts)
+
+      case [prefix: prefix] |> MigrationModules.list() |> MigrationModules.pending() do
+        [] ->
+          ""
+
+        pending ->
+          Enum.map_join(pending, "", fn entry ->
+            "\n      #{entry.name}: V#{pad_version(entry.installed)} → V#{pad_version(entry.target)}"
+          end)
+      end
+    rescue
+      _ -> ""
+    catch
+      :exit, _ -> ""
+    end
+
+    defp run_second_pass(opts, igniter_pass) do
+      full_update(opts, %{igniter: igniter_pass})
+    after
+      # Clean retry flag
+      Process.delete(:phoenix_kit_retry_pass)
+    end
+
+    @doc false
+    # The first pass backfills an existing Oban block's queues too, so it reads the
+    # patch ledger (`.phoenix_kit.exs`) and `--skip-patch` / `--repair-patch` like the
+    # full update: a queue the host declined or removed is not written back. It records
+    # nothing; the second pass reads the file again and records what is present then.
+    def first_pass_with_ledger(opts, pass, root \\ File.cwd!()) do
+      PatchLedger.begin(opts, root)
+
+      try do
+        pass.()
+      after
+        PatchLedger.abandon()
+      end
+    end
+
+    # After the first pass added the missing configuration: restart into the
+    # second pass, or — under --dry-run, where nothing was written and the
+    # second pass would find the same configuration missing — stop here.
+    defp after_first_pass(opts, result, argv) do
+      if Keyword.get(opts, :dry_run, false) do
+        Mix.shell().info("""
+
+        🔍 Dry run (--dry-run): the configuration above would be added
+        first; nothing was written. The rest of the update runs only
+        once that configuration exists — run without --dry-run to add
+        it, then preview the remaining steps with --dry-run again.
+        """)
+
+        result
+      else
+        # Automatic restart instead of manual prompt
+        Mix.shell().info("""
+
+        ✅ Configuration added (step 1 of 2).
+        🔄 Automatically restarting for step 2 — the update is not finished
+           until it completes.
+        """)
+
+        Process.put(:phoenix_kit_retry_pass, true)
+
+        # Recursive call with same arguments
+        run(argv)
+      end
+    end
+
+    # Display message about missing configuration. The second pass follows in
+    # the same invocation (`after_first_pass/3` re-enters `run/1`), but it can
+    # still stop (a below-floor database, a declined prompt, an interrupt):
+    # the first pass alone leaves e.g. Oban configured with no Oban child in
+    # the supervisor, so the message says the update is in two parts.
     defp show_missing_config_message(argv) do
       Mix.shell().info("""
 
@@ -338,11 +654,24 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       - Hammer (rate limiting)
       - Oban (background jobs for file processing)
 
-      This configuration will be added now.
-
-      After this completes, please run the update command again:
+      Step 1 of 2: this configuration will be added now. Step 2 (the
+      supervisor, layout, endpoint and migration changes) then runs
+      automatically. If the update stops before step 2 finishes, it is NOT
+      complete: run it again with
         mix phoenix_kit.update #{Enum.join(argv, " ")}
       """)
+    end
+
+    # What a refusal in the second pass says when the first pass wrote the
+    # missing configuration: the host is half-updated (Oban configured, but no
+    # Oban child in its supervisor yet) until a later run completes.
+    defp unfinished_after_first_pass do
+      """
+      Only the missing configuration added above was written. The update is
+      NOT finished: the supervisor (Oban child), layout, endpoint and migration
+      changes were not applied, so Oban jobs will not run on this host yet.
+      Run `mix phoenix_kit.update` again once the database is at the floor.\
+      """
     end
 
     # Check if all required configuration exists
@@ -465,27 +794,35 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       # (aggregate file, script tag). Picks up the feature on hosts installed
       # before it existed.
       igniter = JsIntegration.ensure_module_js_integration(igniter)
-      igniter = JsIntegration.ensure_theme_bootstrap(igniter)
+      igniter = root_theme(igniter, opts)
       igniter = TestFixturesIntegration.ensure_conn_case_import(igniter)
 
-      # Check if this is the first pass (config missing) or second pass (config exists)
-      config_status = Process.get(:phoenix_kit_config_status, :ok)
+      # Second pass only (the first stops at `add_missing_configuration/2`):
+      # configuration exists and the app is started, so the version is readable.
+      handle_installation_status(
+        Common.check_installation_status(prefix),
+        igniter,
+        prefix,
+        force,
+        opts
+      )
+    end
 
-      case config_status do
-        :missing ->
-          # First pass: Only add configuration, skip migration creation
-          # Migration will be created in second pass after app is started
+    @doc false
+    # The theme bootstrap in the host's ROOT layout is opt-in: the kit's admin
+    # and auth pages stamp the theme themselves, and a root copy re-themes the
+    # host's public site. A snippet an earlier update injected is left in
+    # place; `--remove-root-theme` takes a kit-marked one out.
+    def root_theme(igniter, opts) do
+      cond do
+        opts[:remove_root_theme] ->
+          JsIntegration.remove_theme_bootstrap(igniter)
+
+        opts[:install_root_theme] == true or PatchLedger.repair?("theme_bootstrap") ->
+          JsIntegration.ensure_theme_bootstrap(igniter)
+
+        true ->
           igniter
-
-        :ok ->
-          # Second pass: Configuration exists, app is started, proceed with migration
-          handle_installation_status(
-            Common.check_installation_status(prefix),
-            igniter,
-            prefix,
-            force,
-            opts
-          )
       end
     end
 
@@ -581,64 +918,11 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
            force,
            opts
          ) do
-      # An update implies an existing installation, so the schema exists —
-      # never ask the chain to create it (CREATE SCHEMA fails for
-      # low-privilege roles even with IF NOT EXISTS).
-      create_schema = false
-
-      # Generate timestamp and migration file name using Ecto format
-      timestamp = Common.generate_timestamp()
-      action = if force, do: "force_update", else: "update"
-
-      # Create padded version variables for shorter strings
-      current_version_padded = Common.pad_version(current_version)
-      target_version_padded = Common.pad_version(target_version)
-
-      migration_name =
-        "#{timestamp}_phoenix_kit_#{action}_v#{current_version_padded}_to_v#{target_version_padded}.exs"
-
-      # Generate module name
-      module_name =
-        "PhoenixKit#{String.capitalize(action)}V#{current_version_padded}ToV#{target_version_padded}"
-
-      # Create migration content
-      # @disable_ddl_transaction is critical: without it, Ecto wraps the entire
-      # migration in a single transaction.  ALTER TABLE requires AccessExclusiveLock,
-      # which blocks (and is blocked by) every other connection on the table.
-      # A long-running transaction holding such locks on dozens of tables will deadlock
-      # with the production app's normal queries — even on an empty database.
-      # With DDL transaction disabled each statement auto-commits, so locks are held
-      # only for milliseconds per ALTER TABLE.  PhoenixKit migrations are already
-      # fully idempotent (IF NOT EXISTS / IF EXISTS guards), so partial runs are safe.
-      migration_content = """
-      defmodule Ecto.Migrations.#{module_name} do
-        @moduledoc false
-        use Ecto.Migration
-
-        @disable_ddl_transaction true
-
-        def up do
-          # PhoenixKit Update Migration: V#{current_version_padded} -> V#{target_version_padded}
-          PhoenixKit.Migrations.up([
-            prefix: "#{prefix}",
-            version: #{target_version},
-            create_schema: #{create_schema}
-          ])
-        end
-
-        def down do
-          # Rollback PhoenixKit to V#{current_version_padded}
-          PhoenixKit.Migrations.down([
-            prefix: "#{prefix}",
-            version: #{current_version}
-          ])
-        end
-      end
-      """
+      {migration_name, migration_content} =
+        update_migration(prefix, current_version, target_version, force)
 
       # Check for existing migration with same version range to prevent duplicates
-      existing_pattern =
-        "phoenix_kit_#{action}_v#{current_version_padded}_to_v#{target_version_padded}.exs"
+      existing_pattern = update_migration_suffix(current_version, target_version, force)
 
       existing_migration =
         Path.wildcard("priv/repo/migrations/*#{existing_pattern}")
@@ -660,6 +944,72 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         |> add_migration_created_notice(migration_name, current_version, target_version)
         |> add_post_igniter_instructions(opts)
       end
+    end
+
+    @doc false
+    # The core step-up migration: `{file name, content}`. Pure.
+    #
+    # `@disable_ddl_transaction` is critical: without it, Ecto wraps the entire
+    # migration in a single transaction. ALTER TABLE requires AccessExclusiveLock,
+    # which blocks (and is blocked by) every other connection on the table. A
+    # long-running transaction holding such locks on dozens of tables deadlocks
+    # with the production app's normal queries — even on an empty database. With
+    # DDL transaction disabled each statement auto-commits. PhoenixKit migrations
+    # are idempotent (IF NOT EXISTS / IF EXISTS guards), so partial runs are safe.
+    #
+    # An update implies an existing installation, so the schema exists — never
+    # ask the chain to create it (CREATE SCHEMA fails for low-privilege roles
+    # even with IF NOT EXISTS).
+    #
+    # The file calls the floor-aware `up_to!/2`: a no-op on a database already
+    # at the target, a BelowFloorError naming the bridge below the floor.
+    def update_migration(prefix, current_version, target_version, force) do
+      action = if force, do: "force_update", else: "update"
+      current_padded = Common.pad_version(current_version)
+      target_padded = Common.pad_version(target_version)
+
+      name =
+        "#{Common.generate_timestamp()}_" <>
+          update_migration_suffix(current_version, target_version, force)
+
+      module_name = "PhoenixKit#{String.capitalize(action)}V#{current_padded}ToV#{target_padded}"
+
+      content = """
+      defmodule Ecto.Migrations.#{module_name} do
+        @moduledoc false
+        use Ecto.Migration
+
+        @disable_ddl_transaction true
+
+        def up do
+          # PhoenixKit Update Migration: V#{current_padded} -> V#{target_padded}
+          # A no-op on a database already at V#{target_padded} or later; below the
+          # release floor it raises naming the bridge release (up_to!/2).
+          PhoenixKit.Migrations.up_to!(#{target_version},
+            prefix: "#{prefix}",
+            create_schema: false
+          )
+        end
+
+        def down do
+          # Rollback PhoenixKit to V#{current_padded}
+          PhoenixKit.Migrations.down([
+            prefix: "#{prefix}",
+            version: #{current_version}
+          ])
+        end
+      end
+      """
+
+      {name, content}
+    end
+
+    @doc false
+    def update_migration_suffix(current_version, target_version, force) do
+      action = if force, do: "force_update", else: "update"
+
+      "phoenix_kit_#{action}_v#{Common.pad_version(current_version)}" <>
+        "_to_v#{Common.pad_version(target_version)}.exs"
     end
 
     # Add notices for different scenarios
@@ -688,12 +1038,20 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     # `PhoenixKit.Migrations.BelowFloorError`'s message
     # (this path never touches the DB again, so it can't raise that
     # exception directly — it names the same bridge instructions instead).
+    #
+    # Normally unreachable now: `full_update/2` refuses a below-floor database
+    # before the Igniter pass starts. Kept for a caller that runs `igniter/1`
+    # on its own, as an issue so Igniter writes none of the pass's changes.
     defp add_below_floor_notice(igniter, current_version, floor_version) do
+      Igniter.add_issue(igniter, below_floor_message(current_version, floor_version))
+    end
+
+    @doc false
+    def below_floor_message(current_version, floor_version) do
       current_padded = Common.pad_version(current_version)
       floor_padded = Common.pad_version(floor_version)
 
-      notice = """
-
+      """
       ❌ PhoenixKit database is at V#{current_padded}, below this release's floor
       (V#{floor_padded}) — this release's chain no longer carries the migration
       modules below the floor, so it cannot generate a migration that would
@@ -704,8 +1062,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       THEN move the dependency pin to this release and run
       mix phoenix_kit.update again.
       """
-
-      Igniter.add_warning(igniter, notice)
     end
 
     defp bridge_name(version), do: "PhoenixKit #{version}"
@@ -766,7 +1122,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           After update completes:
             1. Run migrations if not done automatically: mix ecto.migrate
             2. Restart your Phoenix server: mix phx.server
-            3. Visit your application: #{build_app_path(opts, "/users/register")}
+            3. #{next_step_line()}
           """
 
       Igniter.add_notice(igniter, final_instructions)
@@ -1050,7 +1406,48 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
                                 and module migrations, which all need the
                                 application. Re-run the full update after.
 
+        --migrate-only          Run only the database steps, with only the
+                                repo started (the host app does not boot):
+                                core step-up, Oban schema, module migrations
+                                (files written, then migrated). No prompt;
+                                config, layout and assets are left alone.
+
+        --dry-run               Show what would change, write nothing
+                                Igniter prints the diff of the project
+                                files it would edit; the asset rebuild,
+                                vendored JS, migrations and module
+                                migration files are listed and skipped
+
+        --install-root-theme    Put the theme bootstrap (pre-paint theme
+                                stamp) in your ROOT layout, so your public
+                                pages follow the saved theme too. Not done
+                                otherwise: the admin and auth pages carry
+                                their own.
+
+        --remove-root-theme     Remove a theme bootstrap an earlier update
+                                put in the root layout (only the kit-marked
+                                one) and record it as declined
+
+        --skip-patch ID         Decline an optional project edit (repeatable)
+                                and record it in .phoenix_kit.exs, so later
+                                runs leave it out too. IDs: module_js_seed,
+                                oban_queues (or oban_queues:<queue>),
+                                daisyui_themes, css_sources_import,
+                                theme_bootstrap. Required and security
+                                edits (body_guard, …) cannot be declined.
+                                An inline marker does the same:
+                                # phoenix_kit:skip ID  /  <%!-- phoenix_kit:skip ID --%>
+
+        --repair-patch ID       Apply an optional edit again although the
+                                ledger says it was removed or declined
+
         -h, --help              Show this help message
+
+      PATCH LEDGER (.phoenix_kit.exs — commit it)
+        The update records which optional edits it made (applied) and which
+        you declined. One you remove after an update is not added back; the
+        run lists it with the --repair-patch hint. The first run without the
+        file behaves as before and records what is present.
 
       EXAMPLES
         # Update PhoenixKit to latest version (uses default "public" schema)
@@ -1105,8 +1502,9 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         2. Restart your Phoenix server:
            mix phx.server
 
-        3. Visit your application:
-           http://localhost:4000/phoenix_kit/users/register
+        3. Create the first Owner (a fresh install has none, and public sign-up
+           does not make one):
+           mix phoenix_kit.create_owner you@example.com
 
       CI/CD USAGE
         For automated deployments, use the --yes flag to skip prompts:
@@ -1600,6 +1998,32 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     # update does — configuration repair, asset rebuild, module migrations —
     # is deliberately skipped and reported, because all of it needs the app.
     defp schema_only_update(opts) do
+      if Keyword.get(opts, :dry_run, false) do
+        Mix.shell().info("""
+
+        🔍 Dry run (--dry-run --no-start): nothing was written or migrated.
+        Without --dry-run this would run, in order:
+
+            mix phoenix_kit.gen.migration#{if opts[:prefix], do: " --prefix #{opts[:prefix]}", else: ""}
+            mix ecto.migrate
+
+        and skip configuration repair, assets and module migrations.
+        """)
+      else
+        run_schema_only_update(opts)
+      end
+
+      :ok
+    end
+
+    @doc false
+    # `steps` replaces any of the four (tests observe what runs). The floor is
+    # checked before the migration file is generated: below it,
+    # `phoenix_kit.gen.migration` (which reads only filenames) wrote a step-up
+    # that `ecto.migrate` then failed with a raw BelowFloorError.
+    def run_schema_only_update(opts, steps \\ %{}) do
+      steps = Map.merge(default_schema_only_steps(), steps)
+
       Mix.shell().info("""
 
       🔧 PhoenixKit update — schema only (--no-start)
@@ -1612,11 +2036,12 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       # Loads config/*.exs (including runtime.exs) and compiles, without
       # starting any application — `--prefix` still resolves through
       # `config :phoenix_kit, :prefix` below.
-      Mix.Task.run("app.config")
+      steps.app_config.()
+      refuse_below_floor!(opts, steps.installation_status)
 
       gen_args = if opts[:prefix], do: ["--prefix", opts[:prefix]], else: []
-      Mix.Task.run("phoenix_kit.gen.migration", gen_args)
-      Mix.Task.run("ecto.migrate")
+      steps.gen_migration.(gen_args)
+      steps.migrate.()
 
       Mix.shell().info("""
 
@@ -1635,8 +2060,158 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
           mix phoenix_kit.update
       """)
+    end
+
+    defp default_schema_only_steps do
+      %{
+        app_config: fn -> Mix.Task.run("app.config") end,
+        installation_status: &schema_only_installation_status/1,
+        gen_migration: &Mix.Task.run("phoenix_kit.gen.migration", &1),
+        migrate: fn -> Mix.Task.run("ecto.migrate") end
+      }
+    end
+
+    # `--migrate-only`: every database step of the full update — core's
+    # step-up, Oban's schema, the module migrations (files written, then
+    # migrated) — with only the repo started. Nothing of the host app boots:
+    # no pollers, bots or Telegram getUpdates competing with the running app,
+    # and no Igniter pass (configuration, layout, assets are left alone).
+    defp migrate_only_update(opts) do
+      if Keyword.get(opts, :dry_run, false) do
+        Mix.shell().info("""
+
+        🔍 Dry run (--dry-run --migrate-only): nothing was written or migrated.
+        Without --dry-run this would start only the repo and, in order:
+          • refuse a database below this release's floor
+          • write the PhoenixKit step-up migration (if behind)
+          • write an Oban schema step-up (if behind)
+          • run mix ecto.migrate
+          • write and run the migrations of installed PhoenixKit modules
+        """)
+      else
+        run_migrate_only_update(opts)
+      end
 
       :ok
+    end
+
+    @doc false
+    # `steps` replaces any of the steps (tests observe what runs, and that
+    # the app is never started).
+    def run_migrate_only_update(opts, steps \\ %{}) do
+      steps = Map.merge(default_migrate_only_steps(), steps)
+      prefix = PrefixConfig.resolve_prefix(opts)
+
+      Mix.shell().info("""
+
+      🔧 PhoenixKit update — database only (--migrate-only)
+
+      Starting only the repo (not #{Mix.Project.config()[:app]}) to run PhoenixKit's,
+      Oban's and the installed modules' migrations.
+      """)
+
+      steps.app_config.()
+
+      steps.with_repo.(fn ->
+        status = steps.installation_status.(prefix)
+        refuse_below_floor!(opts, fn _prefix -> status end)
+        steps.core_migration.(status, prefix)
+
+        run_schema_steps(opts, %{
+          stage_oban: steps.stage_oban,
+          migrate: fn _opts -> steps.migrate.() end,
+          verify_oban: steps.verify_oban,
+          modules: steps.modules
+        })
+      end)
+
+      Mix.shell().info("""
+
+      ✅ Database migrations done. Not run (they need the application or edit
+      project files): configuration repair, layout/JS/CSS integration, the
+      asset rebuild. Run the full `mix phoenix_kit.update` for those when the
+      app can start.
+      """)
+    end
+
+    defp default_migrate_only_steps do
+      %{
+        app_config: fn -> Mix.Task.run("app.config") end,
+        with_repo: &with_host_repo/1,
+        installation_status: &Common.check_installation_status/1,
+        core_migration: &write_core_migration_file/2,
+        stage_oban: &stage_oban_schema_migrations/1,
+        migrate: fn -> migrate_host_repo() end,
+        verify_oban: &verify_oban_schema_migrations/1,
+        modules: &run_module_migrations/1
+      }
+    end
+
+    # The repo PhoenixKit uses, started on its own (`Ecto.Migrator.with_repo/3`
+    # starts the adapter's applications and the repo, nothing else, and stops
+    # the repo afterwards). `ecto.migrate` inside reuses it.
+    defp with_host_repo(fun) do
+      repo = resolve_host_repo_module() || PhoenixKit.RepoHelper.repo()
+
+      case Ecto.Migrator.with_repo(repo, fn _repo -> fun.() end, pool_size: 2) do
+        {:ok, result, _apps} -> result
+        {:error, reason} -> Mix.raise("Could not start #{inspect(repo)}: #{inspect(reason)}")
+      end
+    end
+
+    @doc false
+    # The core step-up file for `--migrate-only`, from the version the
+    # DATABASE reports (the full update writes the same file through Igniter;
+    # `--no-start` reads filenames instead). Same name, same content, same
+    # duplicate guard as `create_update_migration_with_igniter/6`.
+    def write_core_migration_file({:current_version, current}, prefix) do
+      target = Common.current_version()
+
+      if current < target do
+        {name, content} = update_migration(prefix, current, target, false)
+        dir = Path.join(["priv", "repo", "migrations"])
+
+        existing =
+          Path.wildcard(Path.join(dir, "*" <> update_migration_suffix(current, target, false)))
+
+        case existing do
+          [file | _] ->
+            Mix.shell().info("  Migration already exists: #{file} (reused)")
+
+          [] ->
+            File.mkdir_p!(dir)
+            File.write!(Path.join(dir, name), content)
+            Mix.shell().info("📦 PhoenixKit Update Migration Created: #{name}")
+        end
+      else
+        Mix.shell().info("✅ PhoenixKit is already up to date (V#{Common.pad_version(current)}).")
+      end
+    end
+
+    def write_core_migration_file({:not_installed}, prefix) do
+      Mix.raise(
+        "No PhoenixKit installation found at schema prefix #{inspect(prefix)} — " <>
+          "--migrate-only updates an existing install (pass --prefix if it lives elsewhere)."
+      )
+    end
+
+    def write_core_migration_file(other, _prefix) do
+      Mix.raise(
+        "Cannot read the installed PhoenixKit version (#{inspect(other)}); " <>
+          "run mix phoenix_kit.doctor."
+      )
+    end
+
+    # Starts the repo alone, as `ecto.migrate` is about to, to read the
+    # installed version. A repo that will not start is left to `ecto.migrate`
+    # to report.
+    defp schema_only_installation_status(prefix) do
+      case Ecto.Migrator.with_repo(PhoenixKit.RepoHelper.repo(), fn _repo ->
+             Common.check_installation_status(prefix)
+           end) do
+        {:ok, status, _apps} -> status
+        {:error, reason} -> {:unreachable, reason}
+      end
     end
 
     defp show_status(opts) do
@@ -1677,10 +2252,14 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     # Advisory only — the host owns its daisyUI; PhoenixKit's
     # modals rely on daisyUI >= DaisyUI.minimum_version() for correct modal
     # scrollbar-gutter handling (see PhoenixKit.Install.DaisyUI).
+    #
+    # The heads-up band prints once per {kit, daisyUI} version pair (kept in
+    # the patch ledger, written with the rest of it); below the gutter fix it
+    # prints every run.
     defp warn_if_daisyui_outdated do
-      case DaisyUI.check() do
-        {:outdated, version} -> Mix.shell().info(DaisyUI.outdated_warning(version))
-        _ -> :ok
+      case DaisyUI.notice_once() do
+        nil -> :ok
+        warning -> Mix.shell().info(warning)
       end
     end
 
@@ -1705,7 +2284,10 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       end
     end
 
-    # Update CSS integration during PhoenixKit updates
+    # Update CSS integration during PhoenixKit updates. Two optional patches
+    # (`PhoenixKit.Install.PatchLedger`): `daisyui_themes` (themes: false →
+    # all) and `css_sources_import` (the generated sources @import). A host
+    # that undid either after an earlier update keeps it undone.
     defp update_css_integration do
       css_paths = [
         "assets/css/app.css",
@@ -1719,72 +2301,113 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           :ok
 
         css_path ->
-          # Update CSS file to enable daisyUI themes if disabled
-          content = File.read!(css_path)
-          existing = CssIntegration.check_existing_integration(content)
+          original = File.read!(css_path)
 
           content =
-            if existing.daisyui_themes_disabled do
-              pattern = ~r/@plugin\s+(["'][^"']*daisyui["'])\s*\{([^}]*themes:\s*)false([^}]*)\}/
+            original
+            |> enable_daisyui_themes(css_path)
+            |> add_css_sources_import(css_path)
 
-              updated =
-                String.replace(content, pattern, fn match ->
-                  String.replace(match, ~r/(themes:\s*)false/, "\\1all")
-                end)
-
-              Mix.shell().info("""
-
-              ✅ Updated daisyUI configuration to enable all themes!
-              File: #{css_path}
-              Changed: themes: false → themes: all
-              """)
-
-              updated
-            else
-              content
-            end
-
-          # Ensure auto-generated CSS sources import is present
-          content =
-            if String.contains?(content, "_phoenix_kit_sources.css") do
-              content
-            else
-              updated =
-                String.replace(
-                  content,
-                  ~r/(@source\s+["'][^"']*phoenix_kit["'];)/,
-                  "\\1\n@import \"./_phoenix_kit_sources.css\";",
-                  global: false
-                )
-
-              Mix.shell().info("""
-
-              ✅ Added auto-generated CSS sources import!
-              File: #{css_path}
-              Added: @import "./_phoenix_kit_sources.css";
-              """)
-
-              updated
-            end
-
-          File.write!(css_path, content)
+          if content != original, do: File.write!(css_path, content)
 
           # Ensure the generated CSS sources file exists so @import doesn't fail
-          generated_path = Path.join(Path.dirname(css_path), "_phoenix_kit_sources.css")
-
-          unless File.exists?(generated_path) do
-            File.write!(generated_path, """
-            /* Auto-generated by PhoenixKit — do not edit manually.
-               Regenerated on each compilation from css_sources/0 callbacks. */
-            """)
-
-            Mix.shell().info("✅ Created #{generated_path} (will be updated on next compilation)")
-          end
+          if String.contains?(content, "_phoenix_kit_sources.css"),
+            do: ensure_css_sources_file(css_path)
       end
     rescue
       error ->
         # Non-critical error - log and continue
         Mix.shell().info("ℹ️  Could not update CSS integration: #{inspect(error)}")
+    end
+
+    @doc false
+    def enable_daisyui_themes(content, css_path) do
+      disabled? = CssIntegration.check_existing_integration(content).daisyui_themes_disabled
+
+      case PatchLedger.decide("daisyui_themes", not disabled?, content) do
+        :apply ->
+          pattern = ~r/@plugin\s+(["'][^"']*daisyui["'])\s*\{([^}]*themes:\s*)false([^}]*)\}/
+
+          updated =
+            String.replace(content, pattern, fn match ->
+              String.replace(match, ~r/(themes:\s*)false/, "\\1all")
+            end)
+
+          if updated != content do
+            # Recorded only if app.css on disk shows it when the ledger is written: a write
+            # that fails leaves `themes: false`, which the next run would read as removed.
+            PatchLedger.record("daisyui_themes", :applied, fn ->
+              not CssIntegration.check_existing_integration(File.read!(css_path)).daisyui_themes_disabled
+            end)
+
+            Mix.shell().info("""
+
+            ✅ Updated daisyUI configuration to enable all themes!
+            File: #{css_path}
+            Changed: themes: false → themes: all
+            """)
+          end
+
+          updated
+
+        {:declined, reason} ->
+          Mix.shell().info(JsIntegration.declined_notice("daisyui_themes", reason))
+          content
+
+        :present ->
+          content
+      end
+    end
+
+    @doc false
+    def add_css_sources_import(content, css_path) do
+      present? = String.contains?(content, "_phoenix_kit_sources.css")
+
+      case PatchLedger.decide("css_sources_import", present?, content) do
+        :apply ->
+          updated =
+            String.replace(
+              content,
+              ~r/(@source\s+["'][^"']*phoenix_kit["'];)/,
+              "\\1\n@import \"./_phoenix_kit_sources.css\";",
+              global: false
+            )
+
+          if updated != content do
+            PatchLedger.record("css_sources_import", :applied, fn ->
+              css_path |> File.read!() |> String.contains?("_phoenix_kit_sources.css")
+            end)
+
+            Mix.shell().info("""
+
+            ✅ Added auto-generated CSS sources import!
+            File: #{css_path}
+            Added: @import "./_phoenix_kit_sources.css";
+            """)
+          end
+
+          updated
+
+        {:declined, reason} ->
+          Mix.shell().info(JsIntegration.declined_notice("css_sources_import", reason))
+          content
+
+        :present ->
+          content
+      end
+    end
+
+    defp ensure_css_sources_file(css_path) do
+      generated_path = Path.join(Path.dirname(css_path), "_phoenix_kit_sources.css")
+
+      unless File.exists?(generated_path) do
+        File.write!(generated_path, """
+        /* Auto-generated by PhoenixKit — do not edit manually.
+           Regenerated on each compilation from css_sources/0 callbacks. */
+        """)
+
+        Mix.shell().info("✅ Created #{generated_path} (will be updated on next compilation)")
+      end
     end
 
     # Check if migration can be run interactively
@@ -1809,7 +2432,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     end
 
     # Execute migration with feedback
-    defp run_migration_with_feedback(opts) do
+    defp run_migration_with_feedback(_opts) do
       Mix.shell().info("\n⏳ Running database migration...")
 
       try do
@@ -1836,7 +2459,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         end
 
         Mix.shell().info("\n✅ Migration completed successfully!")
-        show_update_success_notice(opts)
+        show_update_success_notice()
       rescue
         error ->
           Mix.shell().info("\n⚠️  Migration failed: #{Exception.message(error)}")
@@ -1854,24 +2477,56 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     # Not a plain "success" while config edits are still waiting on the host:
     # the closing "Manual steps needed" block follows, and this line must not
     # read as the last word before it.
-    defp show_update_success_notice(opts) do
+    defp show_update_success_notice do
       case ObanConfig.manual_step_count() do
         0 ->
           Mix.shell().info("""
-          🎉 PhoenixKit updated successfully! Visit: #{build_app_path(opts, "/users/register")}
+          🎉 PhoenixKit updated successfully! #{next_step_line()}
           """)
 
         n ->
           Mix.shell().info("""
-          PhoenixKit updated — #{n} manual step(s) below. Visit: #{build_app_path(opts, "/users/register")}
+          PhoenixKit updated — #{n} manual step(s) below. #{next_step_line()}
           """)
       end
     end
 
-    defp build_app_path(opts, path) do
-      prefix = if is_list(opts), do: opts[:prefix] || "public", else: "public"
-      base = if prefix == "public", do: "", else: "/#{prefix}"
-      "#{base}#{path}"
+    @doc false
+    # The closing pointer: the admin area when an Owner exists, the console
+    # task when none does (public sign-up no longer makes the first registrant
+    # the Owner, see `PhoenixKit.Users.Setup`), both when the count cannot be
+    # read. Paths carry the configured `url_prefix` (`Routes.path/2`) — the
+    # earlier `--prefix` (a database schema) was never a URL.
+    @spec next_step_line(:none | :exists | :unknown) :: String.t()
+    def next_step_line(owner_state \\ owner_state()) do
+      case owner_state do
+        :exists ->
+          "Visit: #{app_path("/admin")}"
+
+        :none ->
+          "This site has no Owner yet — create it with: " <>
+            "mix phoenix_kit.create_owner you@example.com"
+
+        :unknown ->
+          "Visit: #{app_path("/admin")} " <>
+            "(no Owner yet? mix phoenix_kit.create_owner you@example.com)"
+      end
+    end
+
+    defp owner_state do
+      if Roles.count_active_owners() > 0, do: :exists, else: :none
+    rescue
+      _ -> :unknown
+    catch
+      :exit, _ -> :unknown
+    end
+
+    # See the note at the aliases. A config that cannot be read falls back to
+    # the default prefix.
+    defp app_path(path) do
+      Routes.path(path, locale: :none)
+    rescue
+      _ -> "/phoenix_kit" <> path
     end
 
     # Resolve the host application's Ecto repo module name as a string.
@@ -2182,10 +2837,18 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
             igniter
 
           {:needs_fix, reason} ->
-            # Order is incorrect, attempt to fix using Igniter API
-            igniter
-            |> fix_application_supervisor_order(app_name, reason)
-            |> add_supervisor_ordering_fixed_notice(reason)
+            # Order is incorrect: rewrite the list only when its shape is
+            # one the line-based rewrite understands, otherwise say what to
+            # move and leave the file alone.
+            case reorder_supervisors(content, app_name) do
+              {:ok, fixed_content} ->
+                igniter
+                |> fix_application_supervisor_order(app_file, fixed_content)
+                |> add_supervisor_ordering_fixed_notice(reason)
+
+              :unsafe ->
+                add_supervisor_ordering_manual_notice(igniter, app_file, reason)
+            end
 
           :cannot_determine ->
             # Cannot determine order (unusual setup), skip silently
@@ -2295,18 +2958,41 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     # Fix the supervisor ordering using manual reordering
     # Note: We can't use Igniter.Project.Application.add_new_child to reorder existing children,
     # so we need to manually reorder the children list
-    defp fix_application_supervisor_order(igniter, app_name, _reason) do
-      app_file = "lib/#{app_name}/application.ex"
-
+    defp fix_application_supervisor_order(igniter, app_file, fixed_content) do
       Igniter.update_file(igniter, app_file, fn source ->
-        content = Rewrite.Source.get(source, :content)
-        fixed_content = reorder_supervisors(content, app_name)
         Rewrite.Source.update(source, :content, fixed_content)
       end)
     end
 
-    # Reorder supervisors in application.ex to correct order
-    defp reorder_supervisors(content, app_name) do
+    @doc false
+    # Reorders the supervisors of `application.ex` — `{:ok, content}`, or
+    # `:unsafe` when the children list is not one plain `children = [ ... ]`
+    # holding every line it would move (a list built with `++`, a child
+    # spread over several lines, a list it cannot find). The rewrite is
+    # line-based, so on any other shape it could duplicate or drop a child:
+    # the host's file is then left exactly as it is. The result must also
+    # parse and keep the same children, or it is `:unsafe` too.
+    def reorder_supervisors(content, app_name) do
+      with :literal <- ChildOrder.list_shape(content),
+           {:ok, fixed} <- reorder_supervisor_lines(content, app_name),
+           true <- fixed != content,
+           true <- same_children?(content, fixed) do
+        {:ok, fixed}
+      else
+        _ -> :unsafe
+      end
+    end
+
+    defp same_children?(before, after_reorder) do
+      with {:ok, old_children} <- ChildOrder.ordered_children(before),
+           {:ok, new_children} <- ChildOrder.ordered_children(after_reorder) do
+        Enum.sort(old_children) == Enum.sort(new_children)
+      else
+        _ -> false
+      end
+    end
+
+    defp reorder_supervisor_lines(content, app_name) do
       lines = String.split(content, "\n")
 
       # Convert snake_case app_name to PascalCase module name
@@ -2319,11 +3005,18 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       {oban_line, oban_index} =
         extract_supervisor(lines, ~r/\{Oban,|Application\.get_env\(:#{app_name}, Oban\)/)
 
-      # Determine children list boundaries
+      # Determine children list boundaries. No `children = [` line (the list
+      # opens on the next line, or is built some other way) used to reach
+      # `find_children_list_end/2` as `nil + 1` — an ArithmeticError.
       children_start = find_children_list_start(lines)
-      children_end = find_children_list_end(lines, children_start)
 
-      if is_integer(children_start) and is_integer(children_end) do
+      children_end =
+        if is_integer(children_start), do: find_children_list_end(lines, children_start)
+
+      supervisor_indexes = Enum.reject([repo_index, pk_index, oban_index], &is_nil/1)
+
+      if is_integer(children_start) and is_integer(children_end) and
+           Enum.all?(supervisor_indexes, &(&1 in (children_start + 2)..children_end//1)) do
         # Build new children list with correct order
         supervisors = %{
           repo: {repo_line, repo_index},
@@ -2334,10 +3027,11 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         new_lines =
           rebuild_children_list(lines, children_start, children_end, supervisors)
 
-        Enum.join(new_lines, "\n")
+        {:ok, Enum.join(new_lines, "\n")}
       else
-        # Cannot find children list boundaries, return unchanged
-        content
+        # A line to move sits outside the list this found (or no list was
+        # found): rewriting would duplicate or lose a child.
+        :unsafe
       end
     end
 
@@ -2449,6 +3143,22 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       end
     end
 
+    defp add_supervisor_ordering_manual_notice(igniter, app_file, reason) do
+      Igniter.add_warning(igniter, """
+      ⚠️  The children list in #{app_file} looks misordered (#{reason}), but it is
+         not a single plain `children = [ ... ]` list (it is built with `++`, a
+         child spans several lines, or the list could not be found), so it was
+         NOT changed. Reorder it by hand to:
+
+           1. YourApp.Repo
+           2. PhoenixKit.Supervisor   (before the Endpoint)
+           3. YourAppWeb.Endpoint
+           4. {Oban, ...}
+
+         `mix phoenix_kit.doctor` checks the order afterwards.
+      """)
+    end
+
     # Add notice about supervisor ordering being fixed
     defp add_supervisor_ordering_fixed_notice(igniter, reason) do
       notice = """
@@ -2472,17 +3182,15 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     end
 
     defp validate_and_add_oban_config(igniter, prefix) do
-      config_exists = ObanConfig.oban_config_exists?(igniter)
       supervisor_exists = ObanConfig.oban_supervisor_exists?(igniter)
 
       # Always call add_oban_configuration - it handles both:
       # - Adding new configuration if missing
       # - Adding any declared queue (PhoenixKit.ObanQueues) the existing
       #   configuration is missing, without changing limits already set
-      igniter =
-        igniter
-        |> ObanConfig.add_oban_configuration(prefix)
-        |> maybe_add_oban_config_notice(config_exists)
+      # and reports the result in one line (ObanConfig.report_patch/2): an
+      # edit that would not parse is skipped and listed in the closing summary.
+      igniter = ObanConfig.add_oban_configuration(igniter, prefix)
 
       # Check and add supervisor separately
       if supervisor_exists do
@@ -2492,51 +3200,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         |> ObanConfig.add_oban_supervisor()
         |> add_oban_supervisor_added_notice()
       end
-    end
-
-    # Add appropriate notice based on whether config existed
-    defp maybe_add_oban_config_notice(igniter, config_existed) do
-      if config_existed do
-        # Config existed, might have been updated with new queues
-        add_oban_config_updated_notice(igniter)
-      else
-        # Config was newly added
-        add_oban_config_added_notice(igniter)
-      end
-    end
-
-    # Add notice about Oban configuration being added
-    defp add_oban_config_added_notice(igniter) do
-      notice = """
-      ⚠️  Added missing Oban configuration to config.exs
-         IMPORTANT: Restart your server if it's currently running.
-         Without Oban, the storage system cannot process uploaded files.
-      """
-
-      Igniter.add_notice(igniter, String.trim(notice))
-    end
-
-    # Add notice about Oban configuration being updated with new queues
-    defp add_oban_config_updated_notice(igniter) do
-      headline =
-        case ObanConfig.manual_step_count() do
-          0 ->
-            "⚙️  Oban configuration verified/updated in config.exs"
-
-          n ->
-            "⚙️  Oban configuration checked in config.exs — #{n} step(s) need you (listed below)"
-        end
-
-      notice = """
-      #{headline}
-         Any queue PhoenixKit or an installed module declares was added if it
-         was missing (existing limits are never changed). Cron entries that
-         installed modules declare were added the same way; an entry you
-         commented out of the crontab is left out.
-         IMPORTANT: If your server is running, restart it to apply changes.
-      """
-
-      Igniter.add_notice(igniter, String.trim(notice))
     end
 
     # Add notice about Oban supervisor being added

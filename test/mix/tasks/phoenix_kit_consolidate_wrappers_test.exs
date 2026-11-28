@@ -150,6 +150,37 @@ defmodule Mix.Tasks.PhoenixKit.ConsolidateWrappersTest do
                 %{prefix: "auth", create_schema: true, up_version: 89, down_version: 27}}
     end
 
+    test "the up_to!/2 wrappers update and gen.migration write today" do
+      for module_ns <- ["Ecto.Migrations", "MyApp.Repo.Migrations"] do
+        content = """
+        defmodule #{module_ns}.PhoenixKitUpdateV236ToV238 do
+          @moduledoc false
+          use Ecto.Migration
+
+          @disable_ddl_transaction true
+
+          def up do
+            PhoenixKit.Migrations.up_to!(238,
+              prefix: "auth",
+              create_schema: false
+            )
+          end
+
+          def down do
+            PhoenixKit.Migrations.down(
+              prefix: "auth",
+              version: 236
+            )
+          end
+        end
+        """
+
+        assert CW.classify(content) ==
+                 {:wrapper,
+                  %{prefix: "auth", create_schema: false, up_version: 238, down_version: 236}}
+      end
+    end
+
     test "a plain consumer migration is foreign" do
       assert CW.classify(foreign_content()) == :foreign
     end

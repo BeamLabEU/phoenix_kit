@@ -150,6 +150,8 @@ defmodule PhoenixKit.API.Keys do
   @personal_rights ["api_personal_keys", "api"]
   # Every entry is parsed again on each request that presents the key.
   @max_allowed_ips 100
+  # The largest own limit a key may have (cost units a minute), as for the shared limits.
+  @max_rate_limit 1_000_000
 
   # --- Creating ----------------------------------------------------------
 
@@ -157,8 +159,9 @@ defmodule PhoenixKit.API.Keys do
   Creates a key for `owner` on behalf of the person behind `creator_scope`.
 
   `attrs` takes `name` (required), `scopes`, `requires_approval`, `allowed_ips`
-  (CIDR blocks or bare addresses; stored in canonical form) and `expires_at`,
-  with atom or string keys (not mixed).
+  (CIDR blocks or bare addresses; stored in canonical form), `expires_at` and
+  `rate_limit_per_minute` (`nil` for the shared limit, else 1 to 1,000,000; see
+  `update_rate_limit/3`), with atom or string keys (not mixed).
 
   Returns the stored key and the token, which exists nowhere else and is never
   shown again.
@@ -286,13 +289,21 @@ defmodule PhoenixKit.API.Keys do
   defp key_changeset(attrs, owner, creator_uuid) do
     attrs
     |> base_changeset()
+    |> Ecto.Changeset.cast(attrs, [:rate_limit_per_minute])
+    |> validate_rate_limit()
     |> Ecto.Changeset.put_change(:user_uuid, owner.uuid)
     |> Ecto.Changeset.put_change(:created_by_uuid, creator_uuid)
   end
 
   defp base_changeset(attrs) do
     %Key{}
-    |> Ecto.Changeset.cast(attrs, [:name, :scopes, :requires_approval, :allowed_ips, :expires_at])
+    |> Ecto.Changeset.cast(attrs, [
+      :name,
+      :scopes,
+      :requires_approval,
+      :allowed_ips,
+      :expires_at
+    ])
     |> Ecto.Changeset.validate_required([:name])
     |> Ecto.Changeset.validate_length(:name, max: @max_name_length)
     |> drop_nil_changes([:scopes, :allowed_ips, :requires_approval])
@@ -300,6 +311,13 @@ defmodule PhoenixKit.API.Keys do
     |> normalize_allowed_ips()
     |> Ecto.Changeset.validate_length(:allowed_ips, max: @max_allowed_ips)
     |> validate_future_expiry()
+  end
+
+  defp validate_rate_limit(changeset) do
+    Ecto.Changeset.validate_number(changeset, :rate_limit_per_minute,
+      greater_than: 0,
+      less_than_or_equal_to: @max_rate_limit
+    )
   end
 
   # An explicit nil (JSON `null`, an empty form value) means "the default".
@@ -884,6 +902,7 @@ defmodule PhoenixKit.API.Keys do
       scope: scope,
       personal: key.personal,
       requires_approval: key.requires_approval,
+      rate_limit_per_minute: key.rate_limit_per_minute,
       ip: ip
     }
   end
@@ -1280,6 +1299,7 @@ defmodule PhoenixKit.API.Keys do
       scopes: key.scopes,
       requires_approval: key.requires_approval and not key.personal,
       allowed_ips: key.allowed_ips,
+      rate_limit_per_minute: key.rate_limit_per_minute,
       expires_at: if(key.personal, do: PersonalKeysConfig.latest_expiry(), else: key.expires_at),
       personal: key.personal,
       prefix: prefix,
@@ -1493,6 +1513,75 @@ defmodule PhoenixKit.API.Keys do
   end
 
   defp now, do: DateTime.truncate(DateTime.utc_now(), :second)
+
+  @doc """
+  Sets the key's own rate limit (`rate_limit_per_minute`, V238): a positive integer up to
+  1,000,000 cost units a minute, or `nil` for the shared limit `api_admin_rate_per_min`.
+  A set value replaces the shared limit for this key, higher or lower
+  (`PhoenixKit.API.RateLimit.check_admin/3`); the optional `api_total_rate_per_min` still
+  bounds all keys together.
+
+  Rate-limit changes require the `api` permission and `editor_scope` must be able to manage the key
+  (`can_manage?/2`, on the locked, re-read row), else `{:error, :forbidden}`; a hidden OAuth
+  row is `{:error, :oauth_key}`, a revoked key `{:error, :revoked}`, a missing one
+  `{:error, :not_found}`; anything else than `nil` or an integer in range is
+  `{:error, :invalid_rate_limit}` (zero and negative numbers included). On a change the
+  cached row is dropped on every node and a permanent `api.key_rate_limit_updated` entry
+  (`from` / `to`) is written; saving the value the key has changes and logs nothing.
+  """
+  @spec update_rate_limit(Key.t(), pos_integer() | nil, Scope.t()) ::
+          {:ok, Key.t()}
+          | {:error, :forbidden | :invalid_rate_limit | :revoked | :not_found | :oauth_key}
+  def update_rate_limit(%Key{uuid: uuid}, limit, %Scope{} = editor_scope) do
+    result =
+      repo().transaction(fn ->
+        with :ok <- authorize_creator(editor_scope),
+             :ok <- check_rate_limit(limit),
+             {:ok, current} <- lock(uuid),
+             :ok <- check_not_oauth(current),
+             :ok <- if(can_manage?(editor_scope, current), do: :ok, else: {:error, :forbidden}),
+             :ok <- check_not_revoked(current) do
+          write_rate_limit(current, limit)
+        else
+          {:error, reason} -> repo().rollback(reason)
+        end
+      end)
+
+    case result do
+      {:ok, {:unchanged, current}} ->
+        {:ok, current}
+
+      {:ok, {:updated, current, updated}} ->
+        Cache.invalidate(updated.prefix)
+
+        log("api.key_rate_limit_updated", updated, editor_scope.user.uuid, %{
+          "from" => current.rate_limit_per_minute,
+          "to" => updated.rate_limit_per_minute
+        })
+
+        {:ok, updated}
+
+      {:error, _reason} = error ->
+        error
+    end
+  end
+
+  defp check_rate_limit(nil), do: :ok
+
+  defp check_rate_limit(limit) when is_integer(limit) and limit > 0 and limit <= @max_rate_limit,
+    do: :ok
+
+  defp check_rate_limit(_limit), do: {:error, :invalid_rate_limit}
+
+  defp write_rate_limit(%Key{rate_limit_per_minute: limit} = current, limit),
+    do: {:unchanged, current}
+
+  defp write_rate_limit(%Key{} = current, limit) do
+    case current |> Ecto.Changeset.change(rate_limit_per_minute: limit) |> repo().update() do
+      {:ok, updated} -> {:updated, current, updated}
+      {:error, reason} -> repo().rollback(reason)
+    end
+  end
 
   # --- Access ------------------------------------------------------------
 

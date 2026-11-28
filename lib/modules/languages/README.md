@@ -15,7 +15,7 @@ Languages is **core and always on** — not a toggleable feature module. It has 
 
 `Languages.primary_language_code/0` is the site's language whether the switch is on or off — use it instead of `get_default_language/0` plus a fallback of your own (that function is `nil` while the switch is off). It resolves: the request-scoped override and the configured default (switch on) → the default stored in `languages_config` (kept while off; `set_primary_language/1` writes it) → the runtime `config :phoenix_kit, default_locale` (default `"en-US"`). `Settings.get_content_language/0` and `Routes.get_default_admin_locale/0` read it.
 
-`Languages.single_language?/0` (`single_language_safe?/0` for URL emission) is the switch-off test. Locale-routing rules for both modes: `guides/locale-routing.md`.
+`Languages.single_language?/0` (`single_language_safe?/0` for URL emission) is the switch-off test. Locale-routing rules for both modes: `guides/locale-routing.md`. A host's own `/:locale` pages: `PhoenixKitWeb.Plugs.HostLocale` and `PhoenixKit.I18n` (same guide, "Host locale routes").
 
 ⚠️ **A menu or switcher reads `get_enabled_languages/0`, never `get_display_languages/0`.** The latter returns hardcoded defaults while the switch is off (a legacy preview list) — languages the site does not serve, so a switcher built from it links to routes that do not exist.
 

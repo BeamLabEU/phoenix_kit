@@ -20,7 +20,12 @@ defmodule PhoenixKit.Install.IgniterCompat do
     Rewrite.Source
   ]
 
-  @modules @igniter_modules ++ @rewrite_modules
+  # PhoenixKit's own helpers that are compiled only with igniter present.
+  @kit_igniter_modules [
+    PhoenixKit.Install.IgniterHelpers
+  ]
+
+  @modules @igniter_modules ++ @rewrite_modules ++ @kit_igniter_modules
 
   defmacro __using__(_opts) do
     quote do

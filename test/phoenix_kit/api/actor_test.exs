@@ -32,6 +32,7 @@ defmodule PhoenixKit.API.ActorTest do
                :requires_approval,
                :awaiting_approval,
                :client_token_hash,
+               :rate_limit_per_minute,
                :ip
              ])
   end

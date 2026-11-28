@@ -10,7 +10,8 @@ defmodule PhoenixKit.API.REST do
   forward, so the routes are:
 
     * `POST /<tool>` runs a tool; the body is the tool's input as one JSON
-      object. A tool name has a dot in it (`catalogue.set_prices`);
+      object. A tool name has a dot in it (`catalogue.set_prices`), except an undotted
+      name of a host tool (`call_endpoint`), and an alias of a tool runs that tool;
     * `GET /` lists the tools the caller may use, with their schemas;
     * `GET /openapi.json` is the generated OpenAPI 3.1 document of the tools the
       caller may use.

@@ -29421,12 +29421,271 @@ msgstr ""
 msgid "Open profile"
 msgstr "Abrir perfil"
 
-
 #: lib/phoenix_kit_web/components/core/user_info.ex:431
 #: lib/phoenix_kit_web/components/core/user_info.ex:438
 #, elixir-autogen, elixir-format
 msgid "Couldn't load this person."
 msgstr "No se pudo cargar a esta persona."
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "Photo gallery"
+msgstr "Galería de fotos"
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "carousel"
+msgstr "carrusel"
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "slide"
+msgstr "diapositiva"
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "Previous photo"
+msgstr "Foto anterior"
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "Next photo"
+msgstr "Foto siguiente"
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "%{n} / %{count}"
+msgstr "%{n} / %{count}"
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "Photo %{n} of %{count}"
+msgstr "Foto %{n} de %{count}"
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "Open photo %{n} of %{count}: %{alt}"
+msgstr "Abrir foto %{n} de %{count}: %{alt}"
+
+#: lib/phoenix_kit_web/components/core/photo_gallery.ex
+#, elixir-autogen, elixir-format
+msgid "Open photo %{n} of %{count}"
+msgstr "Abrir foto %{n} de %{count}"
+
+#: lib/phoenix_kit_web/components/core/file_upload.ex
+#, elixir-autogen, elixir-format
+msgid "Edit photo before upload"
+msgstr "Editar la foto antes de subirla"
+
+#: lib/phoenix_kit_web/components/core/file_upload.ex
+#, elixir-autogen, elixir-format
+msgid "Drag on the photo to crop it."
+msgstr "Arrastra sobre la foto para recortarla."
+
+#: lib/phoenix_kit_web/components/core/file_upload.ex
+#, elixir-autogen, elixir-format
+msgid "Upload original"
+msgstr "Subir original"
+
+#: lib/phoenix_kit_web/components/core/file_upload.ex
+#, elixir-autogen, elixir-format
+msgid "Upload"
+msgstr "Subir"
+
+#: lib/phoenix_kit_web/components/core/form_draft.ex
+#, elixir-autogen, elixir-format
+msgid "Restore your unsaved draft?"
+msgstr "¿Restaurar el borrador no guardado?"
+
+#: lib/modules/storage/web/renditions_component.ex:489
+#, elixir-autogen, elixir-format
+msgid "Watermark"
+msgstr "Marca de agua"
+
+#: lib/modules/storage/web/renditions_component.ex:493
+#, elixir-autogen, elixir-format
+msgid "Drawn on the image renditions you choose when they are made. The original upload is never watermarked, and renditions left unticked stay clean. Saving remakes the affected renditions in the background."
+msgstr "Se dibuja en las variantes de imagen que elijas al crearlas. El original subido nunca lleva marca de agua y las variantes sin marcar quedan limpias. Al guardar, las variantes afectadas se rehacen en segundo plano."
+
+#: lib/modules/storage/web/renditions_component.ex:507
+#, elixir-autogen, elixir-format
+msgid "Watermark this profile's renditions"
+msgstr "Añadir marca de agua a las variantes de este perfil"
+
+#: lib/modules/storage/web/renditions_component.ex:512
+#, elixir-autogen, elixir-format
+msgid "Style"
+msgstr "Estilo"
+
+#: lib/modules/storage/web/renditions_component.ex:514
+#, elixir-autogen, elixir-format
+msgid "Strip along the bottom"
+msgstr "Franja en la parte inferior"
+
+#: lib/modules/storage/web/renditions_component.ex:515
+#, elixir-autogen, elixir-format
+msgid "Mark in a corner"
+msgstr "Marca en una esquina"
+
+#: lib/modules/storage/web/renditions_component.ex:526
+#, elixir-autogen, elixir-format
+msgid "Logo (a stored image's file ID, optional)"
+msgstr "Logotipo (ID de archivo de una imagen almacenada, opcional)"
+
+#: lib/modules/storage/web/renditions_component.ex:531
+#, elixir-autogen, elixir-format
+msgid "In the text, {site_url} becomes the site's address and {site_name} its name. Leave the text blank for a logo alone."
+msgstr "En el texto, {site_url} se convierte en la dirección del sitio y {site_name} en su nombre. Deja el texto vacío para usar solo un logotipo."
+
+#: lib/modules/storage/web/renditions_component.ex:538
+#, elixir-autogen, elixir-format
+msgid "Corner"
+msgstr "Esquina"
+
+#: lib/modules/storage/web/renditions_component.ex:540
+#, elixir-autogen, elixir-format
+msgid "Bottom right"
+msgstr "Abajo a la derecha"
+
+#: lib/modules/storage/web/renditions_component.ex:541
+#, elixir-autogen, elixir-format
+msgid "Bottom left"
+msgstr "Abajo a la izquierda"
+
+#: lib/modules/storage/web/renditions_component.ex:542
+#, elixir-autogen, elixir-format
+msgid "Top right"
+msgstr "Arriba a la derecha"
+
+#: lib/modules/storage/web/renditions_component.ex:543
+#, elixir-autogen, elixir-format
+msgid "Top left"
+msgstr "Arriba a la izquierda"
+
+#: lib/modules/storage/web/renditions_component.ex:549
+#, elixir-autogen, elixir-format
+msgid "Width (% of the picture)"
+msgstr "Ancho (% de la imagen)"
+
+#: lib/modules/storage/web/renditions_component.ex:556
+#, elixir-autogen, elixir-format
+msgid "Opacity (%)"
+msgstr "Opacidad (%)"
+
+#: lib/modules/storage/web/renditions_component.ex:563
+#, elixir-autogen, elixir-format
+msgid "Margin (% of the width)"
+msgstr "Margen (% del ancho)"
+
+#: lib/modules/storage/web/renditions_component.ex:570
+#, elixir-autogen, elixir-format
+msgid "Position"
+msgstr "Posición"
+
+#: lib/modules/storage/web/renditions_component.ex:572
+#, elixir-autogen, elixir-format
+msgid "Below the picture (the rendition gets taller)"
+msgstr "Debajo de la imagen (la variante queda más alta)"
+
+#: lib/modules/storage/web/renditions_component.ex:573
+#, elixir-autogen, elixir-format
+msgid "Over the bottom of the picture"
+msgstr "Sobre la parte inferior de la imagen"
+
+#: lib/modules/storage/web/renditions_component.ex:579
+#, elixir-autogen, elixir-format
+msgid "Height (% of the width)"
+msgstr "Altura (% del ancho)"
+
+#: lib/modules/storage/web/renditions_component.ex:585
+#, elixir-autogen, elixir-format
+msgid "Background colour"
+msgstr "Color de fondo"
+
+#: lib/modules/storage/web/renditions_component.ex:591
+#, elixir-autogen, elixir-format
+msgid "Background opacity (%, over the picture only)"
+msgstr "Opacidad del fondo (%, solo sobre la imagen)"
+
+#: lib/modules/storage/web/renditions_component.ex:598
+#, elixir-autogen, elixir-format
+msgid "Text colour"
+msgstr "Color del texto"
+
+#: lib/modules/storage/web/renditions_component.ex:604
+#, elixir-autogen, elixir-format
+msgid "Renditions that get the watermark"
+msgstr "Variantes que llevan la marca de agua"
+
+#: lib/modules/storage/web/renditions_component.ex:634
+#, elixir-autogen, elixir-format
+msgid "Save watermark"
+msgstr "Guardar marca de agua"
+
+#: lib/modules/storage/web/renditions_component.ex:198
+#, elixir-autogen, elixir-format
+msgid "Watermark saved"
+msgstr "Marca de agua guardada"
+
+#: lib/phoenix_kit_web/live/settings/api.ex
+#, elixir-autogen, elixir-format
+msgid "The rate limit was saved."
+msgstr "Se guardó el límite de frecuencia."
+
+#: lib/phoenix_kit_web/live/settings/api.ex
+#, elixir-autogen, elixir-format
+msgid "The rate limit must be a whole number from 1 to 1000000, or empty."
+msgstr "El límite de frecuencia debe ser un número entero de 1 a 1000000, o quedar vacío."
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Own limit: %{limit} a minute"
+msgstr "Límite propio: %{limit} por minuto"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Rate limit"
+msgstr "Límite de frecuencia"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Own rate limit a minute (optional)"
+msgstr "Límite de frecuencia propio por minuto (opcional)"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Empty uses the shared limit. A number replaces it for this key, higher or lower; the total for all keys, when set, still applies."
+msgstr "Vacío usa el límite compartido. Un número lo sustituye para esta clave, más alto o más bajo; el total de todas las claves, si está definido, sigue aplicándose."
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Rate limit of this key"
+msgstr "Límite de frecuencia de esta clave"
+
+#: lib/phoenix_kit_web/users/registration.ex
+#, elixir-autogen, elixir-format
+msgid "This site already has an owner. The setup link is no longer needed."
+msgstr "Este sitio ya tiene un propietario. El enlace de configuración ya no es necesario."
+
+#: lib/phoenix_kit_web/users/registration.ex
+#, elixir-autogen, elixir-format
+msgid "Setup link accepted: the account you register here becomes the site's owner."
+msgstr "Enlace de configuración aceptado: la cuenta que registre aquí será la propietaria del sitio."
+
+#: lib/phoenix_kit_web/users/registration.ex
+#, elixir-autogen, elixir-format
+msgid "This setup link is not valid. Use the most recent link from the server log."
+msgstr "Este enlace de configuración no es válido. Use el enlace más reciente del registro del servidor."
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Calls per minute, all keys together (optional)"
+msgstr "Llamadas por minuto, todas las claves juntas (opcional)"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "No total limit"
+msgstr "Sin límite total"
 
 #: lib/phoenix_kit_web/components/account_menu.ex:69
 #: lib/phoenix_kit_web/components/core/theme_controller.ex:179

@@ -149,9 +149,9 @@ defmodule Mix.Tasks.PhoenixKit.Gen.Migration do
 
       def up do
         # PhoenixKit Update Migration: V#{from_version} -> V#{to_version}
-        PhoenixKit.Migrations.up(
+        # A no-op on a database already at V#{to_version} or later (up_to!/2).
+        PhoenixKit.Migrations.up_to!(#{to_version},
           prefix: "#{prefix}",
-          version: #{to_version},
           create_schema: #{create_schema}
         )
       end

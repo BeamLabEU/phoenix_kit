@@ -1239,8 +1239,6 @@ defmodule PhoenixKitWeb.Users.UserForm do
       %{"actor_role" => "admin"}
       |> maybe_put_role_diff("added", added)
       |> maybe_put_role_diff("removed", removed)
-      |> Map.put("roles_from", Enum.join(Enum.sort(current_roles), ", "))
-      |> Map.put("roles_to", Enum.join(Enum.sort(new_roles), ", "))
 
     PhoenixKit.Activity.log(%{
       action: "user.roles_updated",
@@ -1250,7 +1248,12 @@ defmodule PhoenixKitWeb.Users.UserForm do
       resource_type: "user",
       resource_uuid: user.uuid,
       target_uuid: user.uuid,
-      metadata: metadata
+      metadata: metadata,
+      changes:
+        PhoenixKit.Activity.changes(
+          %{roles: Enum.sort(current_roles)},
+          %{roles: Enum.sort(new_roles)}
+        )
     })
   end
 

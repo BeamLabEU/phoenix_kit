@@ -238,7 +238,7 @@ defmodule PhoenixKit.Modules.Storage.AnnotationThumbnail do
     end
   end
 
-  defp text_draw?(arg), do: is_binary(arg) and String.starts_with?(arg, "text ")
+  defp text_draw?(arg), do: is_binary(arg) and String.starts_with?(arg, ["text ", "label:"])
 
   # The font for labels: `config :phoenix_kit, :annotation_font` (a font name
   # ImageMagick lists, or a font file path), else the first of

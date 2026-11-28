@@ -78,6 +78,16 @@ defmodule PhoenixKitWeb.AdminRouteDedupTest do
     def render(assigns), do: ~H"<div>host-only</div>"
   end
 
+  # A host tab written with the documented RELATIVE path ("analytics").
+  # Lives in this file for the reason in the moduledoc: one file sets
+  # `:admin_dashboard_tabs` at compile time.
+  defmodule HostRelativeLive do
+    @moduledoc false
+    use Phoenix.LiveView
+    @impl true
+    def render(assigns), do: ~H"<div>host-relative</div>"
+  end
+
   defmodule ModuleOnlyLive do
     @moduledoc false
     use Phoenix.LiveView
@@ -207,6 +217,12 @@ defmodule PhoenixKitWeb.AdminRouteDedupTest do
       label: "Host-only",
       path: "/admin/host-only-probe",
       live_view: {PhoenixKitWeb.AdminRouteDedupTest.HostOnlyLive, :index}
+    },
+    %{
+      id: :dedup_probe_host_relative_tab,
+      label: "Host (relative path)",
+      path: "relative-host-probe",
+      live_view: {PhoenixKitWeb.AdminRouteDedupTest.HostRelativeLive, :index}
     }
   ])
 
@@ -311,5 +327,22 @@ defmodule PhoenixKitWeb.AdminRouteDedupTest do
   test "distinct user_dashboard_tabs paths from different modules are left alone" do
     assert length(routes_ending_in("/dashboard/first-dashboard-only-probe")) == 2
     assert length(routes_ending_in("/dashboard/second-dashboard-only-probe")) == 2
+  end
+
+  test "a host tab with a relative path is routed under /admin, where the sidebar links it" do
+    matches = routes_ending_in("relative-host-probe")
+
+    assert length(matches) == 2,
+           "expected 2 routes (one per URL shape), found #{inspect(Enum.map(matches, & &1.path))}"
+
+    assert Enum.all?(matches, &String.ends_with?(&1.path, "/admin/relative-host-probe")),
+           "routed outside /admin: #{inspect(Enum.map(matches, & &1.path))}"
+  end
+
+  # The guard itself (any failure answers "recompile") cannot be provoked from
+  # here without unloading PhoenixKit; this pins that the generated function
+  # still compiles in a host router and answers a boolean.
+  test "the router's __mix_recompile__?/0 answers a boolean" do
+    assert is_boolean(DedupProbeRouter.__mix_recompile__?())
   end
 end

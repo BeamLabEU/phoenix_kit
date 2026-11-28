@@ -40,6 +40,7 @@ if Code.ensure_loaded?(Ueberauth) do
     alias PhoenixKit.Users.Auth
     alias PhoenixKit.Users.Auth.Scope
     alias PhoenixKit.Users.OAuth
+    alias PhoenixKit.Users.Setup
     alias PhoenixKit.Utils.IpAddress
     alias PhoenixKit.Utils.Routes
     alias PhoenixKitWeb.Users.Auth, as: UserAuth
@@ -259,7 +260,8 @@ if Code.ensure_loaded?(Ueberauth) do
       opts = [
         track_geolocation: track_geolocation,
         ip_address: ip_address,
-        referral_code: referral_code
+        referral_code: referral_code,
+        first_owner: Setup.claim_from_conn(conn)
       ]
 
       case OAuth.handle_oauth_callback(auth, opts) do

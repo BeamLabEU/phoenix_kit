@@ -90,7 +90,16 @@ database layer for email templates and the deprecated shop names of the machine 
 **V225 (PhoenixKit 2.65.0)** before it upgrades; 3.0 refuses a lower database. In short: pin `== 2.65.0` and run
 `mix phoenix_kit.update` until it reports V225, export any email templates you edited
 (`mix phoenix_kit_emails.templates.export`), then update core and all installed modules together and run
-`mix phoenix_kit.update` again. The full recipe is in [Upgrading to PhoenixKit 3.0](guides/upgrading-to-3.0.md).
+`mix phoenix_kit.update` again. The full recipe is in [Upgrading to PhoenixKit 3.0](guides/upgrading-to-3.0.md)
+(also in the Hex package, under `deps/phoenix_kit/guides/`).
+
+**From 1.7.x** there is one route, walked by every database (dev, test, staging, production) in turn:
+`== 1.7.236` until V135, then `== 2.65.0` until V225, then 3.x, running `mix phoenix_kit.update` at each pin. Stop the
+app first (or upgrade a separate checkout); never recompile a `_build/prod` a running server loads from. The step
+migrations each pin writes only work with that pin, so apply them everywhere before moving on. Settings keys and
+functions renamed on the way (`Scope.user_id/1` is `user_uuid/1`; `tickets_*` are `customer_support_*`; the two `seo_*`
+keys are `crawlers_*`) are listed in the guide's
+[Renamed and removed since 1.7](guides/upgrading-to-3.0.md#renamed-and-removed-since-17).
 
 ## Upgrading to 2.0 (historical)
 
@@ -332,6 +341,10 @@ mix igniter.install phoenix_kit --prefix "auth" --create-schema
 
 # Specify custom router file path
 mix igniter.install phoenix_kit --router-path lib/my_app_web/router.ex
+
+# Behind a reverse proxy: believe X-Forwarded-For only from these peers
+# (repeatable; without it the installer asks, default "no proxy" = [])
+mix igniter.install phoenix_kit --trusted-proxy 127.0.0.1/8 --trusted-proxy ::1/128
 ```
 
 The same flags work with `mix phoenix_kit.install` if the dep is already in your project.
@@ -382,6 +395,7 @@ For full control, skip the installer entirely:
 3. Configure repository: `config :phoenix_kit, repo: MyApp.Repo`
 4. Add `phoenix_kit_routes()` to your router
 5. Run `mix ecto.migrate`
+6. Create the first Owner: `mix phoenix_kit.create_owner you@example.com`
 
 ## Quick Start
 
@@ -391,6 +405,51 @@ Visit these URLs after installation:
 - `http://localhost:4000/{prefix}/users/log-in` - User login
 
 Where `{prefix}` is your configured PhoenixKit URL prefix (default: `/phoenix_kit`).
+
+### The first Owner
+
+A fresh install has no Owner, and **public sign-up does not make one**: on a
+public URL that would hand the site to whoever registers first. Create it in
+one of these ways:
+
+```bash
+# From the project (generates a password and prints it once):
+mix phoenix_kit.create_owner you@example.com
+
+# In a running release (rpc runs inside the node, so the repo is up):
+bin/my_app rpc 'PhoenixKit.Users.Setup.create_owner("you@example.com") |> IO.inspect()'
+```
+
+Or open the one-time setup link the server logs at boot while there is no
+Owner (`{prefix}/users/register?setup=…`) and register through it. On a dev
+server reached at `localhost`, the first account registered becomes the Owner
+as before. The rule is configurable:
+
+```elixir
+config :phoenix_kit, first_owner: :auto   # default: setup link, console, or dev on localhost
+config :phoenix_kit, first_owner: :token  # setup link or console only, also in dev
+config :phoenix_kit, first_owner: :open   # old behaviour: the first registrant is Owner
+```
+
+Details: `PhoenixKit.Users.Setup` and `mix help phoenix_kit.create_owner`.
+
+### Settings and modules from the console
+
+With nobody to sign in yet (or from a script), the same validation as the admin pages:
+
+```bash
+mix phoenix_kit.settings list
+mix phoenix_kit.settings get project_title
+mix phoenix_kit.settings set project_title "Acme Print"
+mix phoenix_kit.settings set oauth_github_client_secret --stdin < secret.txt
+mix phoenix_kit.modules list
+mix phoenix_kit.modules enable crawlers      # disable works the same way
+```
+
+Only the keys the settings forms own are accepted, and secrets are never printed. The
+tasks start the repo and a few kit processes, not your application; with `MIX_ENV=prod`
+a write needs `--yes`. In a release, call `PhoenixKit.Console` through `rpc`
+(`bin/my_app rpc 'PhoenixKit.Console.module_enable("crawlers") |> IO.inspect()'`).
 
 ## Configuration
 
@@ -496,6 +555,28 @@ proxy_set_header X-Forwarded-Proto $scheme;
 
 See [OAuth Setup Guide](guides/oauth-and-magic-link-setup.md) for details.
 
+### llms.txt sections from your app
+
+`/llms.txt` (Crawlers module) is the project title and the text an admin typed on
+Settings → Crawlers. Your app can add sections of its own, built per request:
+
+```elixir
+config :phoenix_kit, llms_txt_sections: {MyApp.LlmsTxt, :sections}
+
+defmodule MyApp.LlmsTxt do
+  # ctx: %{base_url: "https://shop.example", host: "shop.example", locale: "en"}
+  def sections(%{base_url: base}) do
+    [%{title: "Products", body: "- [Catalogue](#{base}/products)"}]
+  end
+end
+```
+
+Return markdown or a list of `%{title:, body:}`. The call has a deadline
+(`llms_txt_sections_timeout`, 2000 ms); a failure is logged and the file is served
+without the sections. Answers are cached per host and language for five minutes
+(`llms_txt_sections_ttl`). Unset, the file is exactly as before. Details:
+`PhoenixKit.Modules.Crawlers.LlmsTxt`.
+
 ### Advanced Options
 
 - Custom URL prefix: `phoenix_kit_routes("/authentication")`
@@ -534,10 +615,44 @@ See [OAuth Setup Guide](guides/oauth-and-magic-link-setup.md) for details.
 - `GET {prefix}/admin/modules` - Enable/disable modules
 - `GET {prefix}/admin/settings` - Settings (see "Built-in Admin Interface" below)
 
+### Files at the site root
+
+Crawlers and AI tools look for some files at the site root, so the kit declares them
+there as well as under `{prefix}`: `/llms.txt`, `/sitemap.xml` (+ `/sitemap.html`,
+`/sitemaps/*`, `/sitemap.xsl`), `/assets/sitemap*/:style`, `GET /mcp` (the public API
+guide) and `/.well-known/*` (API catalog, OAuth metadata). Choose which ones:
+
+```elixir
+phoenix_kit_routes()                                # default, root: :all (as before)
+phoenix_kit_routes(root: [:sitemap, :llms])         # groups: :mcp, :llms, :sitemap, :well_known, :sitemap_assets
+phoenix_kit_routes(root: false)                     # none at the root
+```
+
+A group left out is not declared at all, which is the only way to serve that path from
+your own router after `phoenix_kit_routes()`. While a module is off, its files answer
+`404` (from the kit's route, so the path stays the kit's); with
+`config :phoenix_kit, hide_disabled_routes: true` (written by `mix phoenix_kit.install`
+for new apps, off for upgraded ones) the sitemap's stylesheets and old `sitemap.html`
+redirect do too. Details: `PhoenixKitWeb.Integration`, "Files at the site root".
+
 ### Machine API (when switched on)
 
 - `{prefix}/api/admin/v1`, `{prefix}/api/public/v1` - REST, each with an `openapi.json`
 - `POST {prefix}/mcp/admin`, `POST {prefix}/mcp/public` - MCP for AI agents
+
+Each key can carry its own rate limit (Settings → API → the key's "Rate limit"); it only
+ever lowers the shared limit for that key. For your own routes:
+
+```elixir
+plug PhoenixKit.Plugs.RateLimit, bucket: :partner_api, key: :ip, limit: {60, :minute}
+```
+
+`key:` is `:ip`, `:user` or `&MyApp.fun/1`; over the limit the plug answers `429` with
+`retry-after`. Counters are per node (ETS); a fault of the plug lets the request
+through. Details: `PhoenixKit.Plugs.RateLimit`.
+
+Host tools may keep undotted names (`call_endpoint`) and declare `aliases:`, checked
+for collisions at boot: `PhoenixKit.API.Tool`, "Undotted names and aliases".
 
 Companion packages register their own routes under `{prefix}/admin/*` automatically through module discovery.
 
@@ -599,7 +714,7 @@ installed, so a core-only app carries no tables it does not use. The main ones:
 
 ### System Roles
 
-- **Owner** - Full system access (first user)
+- **Owner** - Full system access (see [The first Owner](#the-first-owner))
 - **Admin** - Management privileges
 - **User** - Standard access (default)
 

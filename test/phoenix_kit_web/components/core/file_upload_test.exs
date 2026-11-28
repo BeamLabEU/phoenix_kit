@@ -107,4 +107,62 @@ defmodule PhoenixKitWeb.Components.Core.FileUploadTest do
       assert html =~ "12.4 MB"
     end
   end
+
+  describe "edit_images" do
+    test "off by default: no editor, no hook around the input" do
+      upload = %Phoenix.LiveView.UploadConfig{ref: "phx-upload-1", name: :photos, entries: []}
+      assigns = %{upload: upload}
+
+      for variant <- ["full", "button"] do
+        assigns = Map.put(assigns, :variant, variant)
+        html = render(~H|<.file_upload upload={@upload} variant={@variant} />|)
+        refute html =~ "PkUploadEdit"
+        refute html =~ "data-pk-edit-dialog"
+      end
+    end
+
+    test "wraps the drop zone and the input in the PkUploadEdit hook with its dialog" do
+      upload = %Phoenix.LiveView.UploadConfig{ref: "phx-upload-1", name: :photos, entries: []}
+      assigns = %{upload: upload}
+
+      html = render(~H|<.file_upload upload={@upload} edit_images />|)
+
+      assert html =~ ~s(id="pk-upload-edit-phx-upload-1")
+      assert html =~ ~s(phx-hook="PkUploadEdit")
+      assert html =~ ~s(data-upload-name="photos")
+      assert html =~ ~s(<dialog id="pk-upload-edit-phx-upload-1-dialog")
+      assert html =~ ~s(phx-update="ignore")
+      assert html =~ "Edit photo before upload"
+      assert html =~ ~s(data-pk-edit-rotate="90")
+      assert html =~ ~s(data-pk-edit-rotate="-90")
+      assert html =~ ~s(data-pk-edit-flip)
+      assert html =~ ~s(data-pk-edit-aspect="16/9")
+      assert html =~ ~s(data-pk-edit-apply)
+      assert html =~ ~s(data-pk-edit-original)
+      assert html =~ ~s(data-pk-edit-skip)
+      # Where the editor says it could not save the edit (hidden until then).
+      assert html =~ ~r/<p data-pk-edit-error hidden role="alert"/
+
+      # The hook element holds both the drop target and the file input.
+      [_, inside] = String.split(html, ~s(phx-hook="PkUploadEdit"), parts: 2)
+      [before_dialog, _] = String.split(inside, "<dialog", parts: 2)
+      assert before_dialog =~ ~s(phx-drop-target="phx-upload-1")
+      assert before_dialog =~ ~s(type="file")
+
+      # Buttons only inside the upload's form: a field would ride its phx-change.
+      [_, dialog] = String.split(html, "<dialog", parts: 2)
+      refute dialog =~ "<input"
+      refute dialog =~ "<select"
+    end
+
+    test "the button variant wraps its input too" do
+      upload = %Phoenix.LiveView.UploadConfig{ref: "phx-upload-1", name: :photos, entries: []}
+      assigns = %{upload: upload}
+
+      html = render(~H|<.file_upload upload={@upload} variant="button" edit_images />|)
+
+      [_, inside] = String.split(html, ~s(phx-hook="PkUploadEdit"), parts: 2)
+      assert inside =~ ~s(type="file")
+    end
+  end
 end

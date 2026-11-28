@@ -35,6 +35,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiLimitsTest do
     %{
       "disabled_tools" => "",
       "mcp_allowed_origins" => "",
+      "admin_total_per_min" => "",
       "preauth_fail_per_min" => Integer.to_string(limits.preauth_fail_per_min),
       "admin_per_min" => Integer.to_string(limits.admin_per_min),
       "public_token_per_min" => Integer.to_string(limits.public_token_per_min),
@@ -83,6 +84,36 @@ defmodule PhoenixKitWeb.Live.Settings.ApiLimitsTest do
              view,
              ~s(#api-limit-new-rows-global-hour[value="#{limits.new_rows_global_hour}"])
            )
+  end
+
+  test "the total for all keys is optional: empty is none, a number caps, zero is refused",
+       %{conn: conn, admin: admin} do
+    {:ok, view, _html} = live(conn, @path)
+    assert has_element?(view, ~s(#api-limit-admin-total-per-min[value=""]))
+    assert Config.admin_total_per_min() == nil
+
+    # Saving the form as it stands writes no total.
+    save(view, %{})
+    refute "api_total_rate_per_min" in changed_settings(admin)
+
+    save(view, %{"admin_total_per_min" => "5000"})
+    assert Config.admin_total_per_min() == 5000
+    assert has_element?(view, ~s(#api-limit-admin-total-per-min[value="5000"]))
+
+    assert save(view, %{"admin_total_per_min" => "0"}) =~
+             "Every limit must be a whole number from 1 to 1000000."
+
+    assert Config.admin_total_per_min() == 5000
+
+    # A form that does not send the field (a tab opened before it existed) keeps it.
+    render_submit(view, "save_limits", %{
+      "limits" => Map.delete(params(%{}), "admin_total_per_min")
+    })
+
+    assert Config.admin_total_per_min() == 5000
+
+    save(view, %{"admin_total_per_min" => ""})
+    assert Config.admin_total_per_min() == nil
   end
 
   test "the card names the limits without a module in them", %{conn: conn} do

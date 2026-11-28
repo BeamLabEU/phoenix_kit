@@ -437,7 +437,8 @@ defmodule PhoenixKit.Install.MigrationStrategy do
   # resolved sign-up path (which the notice can only describe generically).
   defp show_success_notice do
     IO.puts("""
-    🗄️  PhoenixKit tables created. Sign-up lives at: #{Routes.path("/users/register")}
+    🗄️  PhoenixKit tables created. Sign-up lives at: #{Routes.path("/users/register", locale: :none)}
+       Create the first Owner with: mix phoenix_kit.create_owner you@example.com
     """)
   end
 

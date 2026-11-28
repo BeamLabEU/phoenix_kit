@@ -8607,56 +8607,9 @@
   window.PhoenixKitImageEditor = true;
   window.PhoenixKitAdminHooks = window.PhoenixKitAdminHooks || {};
 
-  function clamp(v, lo, hi) {
-    return Math.min(hi, Math.max(lo, v));
-  }
-
-  // The rectangle spanned by two points (percent of the frame), kept inside
-  // the frame. `aspect` is [w, h] in pixels and `frame` the frame's pixel
-  // size: the rectangle then has that shape, grown from `start` toward
-  // `end` and shrunk (not distorted) where it would leave the frame.
-  function imageEditorRect(start, end, aspect, frame) {
-    var a = { x: clamp(start.x, 0, 100), y: clamp(start.y, 0, 100) };
-    var b = { x: clamp(end.x, 0, 100), y: clamp(end.y, 0, 100) };
-
-    if (!aspect || !frame) {
-      return {
-        x: Math.min(a.x, b.x),
-        y: Math.min(a.y, b.y),
-        w: Math.abs(b.x - a.x),
-        h: Math.abs(b.y - a.y)
-      };
-    }
-
-    var ratio = aspect[0] / aspect[1];
-    var dirX = b.x < a.x ? -1 : 1;
-    var dirY = b.y < a.y ? -1 : 1;
-    // Room from the start point to the frame edge in the drag direction, px.
-    var roomW = ((dirX < 0 ? a.x : 100 - a.x) / 100) * frame[0];
-    var roomH = ((dirY < 0 ? a.y : 100 - a.y) / 100) * frame[1];
-
-    var wPx = (Math.abs(b.x - a.x) / 100) * frame[0];
-    var hPx = (Math.abs(b.y - a.y) / 100) * frame[1];
-    // The larger side of the drag decides the size.
-    if (wPx / ratio >= hPx) {
-      hPx = wPx / ratio;
-    } else {
-      wPx = hPx * ratio;
-    }
-    // Shrink to fit, keeping the shape.
-    var fit = Math.min(1, wPx > 0 ? roomW / wPx : 1, hPx > 0 ? roomH / hPx : 1);
-    wPx *= fit;
-    hPx *= fit;
-
-    var w = (wPx / frame[0]) * 100;
-    var h = (hPx / frame[1]) * 100;
-    return {
-      x: dirX < 0 ? a.x - w : a.x,
-      y: dirY < 0 ? a.y - h : a.y,
-      w: w,
-      h: h
-    };
-  }
+  // The crop / area geometry lives in phoenix_kit.js, shared with the
+  // photo editor of `<.file_upload edit_images>` (PkUploadEdit).
+  var imageEditorRect = window.PhoenixKitInternals.imageEditorRect;
 
   // Whether an image of natural size `natural` shows the recorded `size`
   // turned a quarter: its shape matches the swapped size clearly better than

@@ -73,6 +73,42 @@ defmodule PhoenixKitWeb.Integration do
   - /admin/users/live_sessions, /admin/users/sessions
   - /admin/settings, /admin/modules
 
+  ## Files at the site root
+
+  Some files live at the site root (for a kit mounted under a prefix, the same files are also at the
+  prefix; for a kit mounted at `/` they are only there). `phoenix_kit_routes(root: ...)`
+  chooses which groups are declared:
+
+  | group | paths |
+  |---|---|
+  | `:llms` | `/llms.txt` |
+  | `:sitemap` | `/sitemap.xml`, `/sitemap.html`, `/sitemaps/:filename`, `/sitemap.xsl` |
+  | `:sitemap_assets` | `/assets/sitemap/:style`, `/assets/sitemap-index/:style` |
+  | `:mcp` | `GET /mcp` (the public API guide) and the `405` for its other methods |
+  | `:well_known` | `/.well-known/api-catalog`, `/.well-known/oauth-authorization-server`, `/.well-known/oauth-protected-resource/...` |
+
+      phoenix_kit_routes()                              # root: :all, every group (as before)
+      phoenix_kit_routes(root: [:sitemap, :llms])       # only these at the root
+      phoenix_kit_routes(root: false)                   # none at the root
+
+  The value must be a literal (`:all`, `false` or a list of the groups above); anything else
+  is a compile error. A group left out is not declared at all, so the host's own route for
+  that path answers even when it is declared after `phoenix_kit_routes()`. **This is the only
+  way to give a path back to the host:** the runtime switches below answer `404` from the
+  kit's route, which still shadows a host route declared later. Leaving out `:well_known`
+  stops OAuth clients of the admin MCP endpoint from finding the authorization server, and
+  leaving out `:sitemap_assets` unstyles the sitemap in a browser (the XML still works).
+  Under a prefix the prefixed copies stay (`/phoenix_kit/sitemap.xml`, ...); the
+  `/mcp/admin` and `/mcp/public` servers and the REST API are not root files and stay too.
+
+  Each of those files already answers `404` while its module is off (Crawlers for
+  `/llms.txt`, Sitemap for the sitemap files, the public API for `/mcp` and the API catalog,
+  OAuth for its documents), except the sitemap's stylesheets and its old `sitemap.html`
+  redirect. `config :phoenix_kit, hide_disabled_routes: true` makes those answer `404` too
+  while the Sitemap module is off (read through the settings cache on every request, so a
+  toggle takes effect at once). It is off by default; `mix phoenix_kit.install` writes it as
+  `true` for a new application.
+
   ## Configuration
 
   You can disable the user dashboard by setting the environment variable in your config:
@@ -106,6 +142,7 @@ defmodule PhoenixKitWeb.Integration do
   """
 
   alias PhoenixKit.API.Paths
+  alias PhoenixKit.Dashboard.Tab
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb
 
@@ -318,7 +355,7 @@ defmodule PhoenixKitWeb.Integration do
   #
   # The discovery documents live at the site root, as `/.well-known/api-catalog` does: for a
   # root-mounted install in the kit's own scope, for a prefixed one in a root scope, never both.
-  defp generate_oauth_routes(url_prefix) do
+  defp generate_oauth_routes(url_prefix, root_groups) do
     quote do
       scope unquote(url_prefix), PhoenixKitWeb do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
@@ -347,7 +384,7 @@ defmodule PhoenixKitWeb.Integration do
         post "/oauth/register", OAuth.RegisterController, :create, log: false
       end
 
-      unquote(oauth_metadata_routes(url_prefix))
+      unquote(oauth_metadata_routes(url_prefix, root_groups))
     end
   end
 
@@ -380,7 +417,13 @@ defmodule PhoenixKitWeb.Integration do
   # their own (no alias, like `root_sitemap_routes/1`), and in a root-mounted install in the
   # kit's scope. The protected resource's document is the path variant of RFC 9728: the
   # well-known segment, then the path of the resource (prefix included).
-  defp oauth_metadata_routes(url_prefix) do
+  defp oauth_metadata_routes(url_prefix, root_groups) do
+    if :well_known in root_groups,
+      do: oauth_metadata_routes!(url_prefix),
+      else: quote(do: nil)
+  end
+
+  defp oauth_metadata_routes!(url_prefix) do
     resource_path =
       case url_prefix do
         prefix when prefix in ["/", ""] -> Paths.mcp_path(:admin)
@@ -418,7 +461,7 @@ defmodule PhoenixKitWeb.Integration do
   end
 
   # Helper function to generate basic scope routes
-  defp generate_basic_scope(url_prefix) do
+  defp generate_basic_scope(url_prefix, root_groups) do
     quote do
       # The locale pipeline gives a prefixless request the primary language,
       # as on the prefixless pages: the primary language's sign-in and
@@ -574,22 +617,12 @@ defmodule PhoenixKitWeb.Integration do
       # Sitemap routes - public XML/XSL endpoints, no session/CSRF/auto_setup needed
       # llms.txt rides along: same public, session-free shape, and policy files
       # must stay fetchable even by bots the Crawlers module blocks.
+      #
+      # In a root-mounted install these ARE the root files, so the `root:` option of
+      # `phoenix_kit_routes/1` applies to them; under a prefix they are all declared.
       scope unquote(url_prefix) do
-        get "/llms.txt", PhoenixKit.Modules.Crawlers.Web.Controller, :llms_txt,
-          metadata: %{sitemap: false}
-
-        get "/sitemap.xml", PhoenixKit.Modules.Sitemap.Web.Controller, :xml
-        get "/sitemap.html", PhoenixKit.Modules.Sitemap.Web.Controller, :html
-        get "/sitemaps/:filename", PhoenixKit.Modules.Sitemap.Web.Controller, :module_sitemap
-        get "/sitemap.xsl", PhoenixKit.Modules.Sitemap.Web.Controller, :xsl_stylesheet
-        get "/assets/sitemap/:style", PhoenixKit.Modules.Sitemap.Web.Controller, :xsl_stylesheet
-
-        get "/assets/sitemap-index/:style",
-            PhoenixKit.Modules.Sitemap.Web.Controller,
-            :xsl_index_stylesheet
-
-        unquote(api_guide_routes())
-        unquote(api_catalog_route(url_prefix))
+        unquote(file_routes(kit_scope_groups(url_prefix, root_groups)))
+        unquote(api_catalog_route(url_prefix, root_groups))
       end
 
       # The same endpoints at the site root. Crawlers look for /sitemap.xml,
@@ -603,7 +636,7 @@ defmodule PhoenixKitWeb.Integration do
       # It cannot shadow a host route either: Plug.Static runs before the
       # router, and host routes declared before `phoenix_kit_routes()` bind
       # first. `mix phoenix_kit.doctor` reports which layer actually answers.
-      unquote(root_sitemap_routes(url_prefix))
+      unquote(root_sitemap_routes(url_prefix, root_groups))
 
       # Shop public routes are generated via generate_shop_public_routes/1 helper
       # This supports locale-prefixed URLs (/:locale/shop/...) with language switching
@@ -1441,7 +1474,6 @@ defmodule PhoenixKitWeb.Integration do
   end
 
   defp collect_module_tabs(mod, callback) do
-    alias PhoenixKit.Dashboard.Tab
     context = tab_callback_context(callback)
 
     if function_exported?(mod, callback, 0) do
@@ -1513,9 +1545,14 @@ defmodule PhoenixKitWeb.Integration do
     end
   end
 
+  # A relative `path:` ("analytics", the documented style) resolves under
+  # `/admin` exactly as the sidebar resolves it (`Tab.resolve_path/2`); it
+  # used to be routed as written, outside the admin area, with Phoenix's
+  # "router paths should begin with a forward slash" warning.
   defp tab_to_route(tab) do
     {module, action} = tab.live_view
     path = tab[:path] || raise "Tab #{tab[:id]} has :live_view but no :path"
+    path = Tab.resolve_path_string(path, :admin)
     route_opts = if tab[:id], do: [as: tab[:id]], else: []
 
     quote do
@@ -1981,30 +2018,105 @@ defmodule PhoenixKitWeb.Integration do
   # `scope "/" do` carries NO alias on purpose — with one, the fully-qualified
   # controller resolves as `HostWeb.PhoenixKit.Modules.Sitemap.Web.Controller`
   # and 404s at compile time in a way that reads like a missing module.
-  defp root_sitemap_routes(url_prefix) when url_prefix in ["/", ""] do
+  defp root_sitemap_routes(url_prefix, _root_groups) when url_prefix in ["/", ""] do
     quote do
     end
   end
 
-  defp root_sitemap_routes(_url_prefix) do
+  defp root_sitemap_routes(_url_prefix, []) do
+    quote do
+    end
+  end
+
+  defp root_sitemap_routes(_url_prefix, root_groups) do
     quote do
       scope "/" do
+        unquote(file_routes(root_groups))
+        unquote(api_catalog_route(:root, root_groups))
+      end
+    end
+  end
+
+  # The root groups of `phoenix_kit_routes/1` (see the moduledoc).
+  @root_groups [:mcp, :llms, :sitemap, :well_known, :sitemap_assets]
+
+  @doc false
+  # The `root:` option of `phoenix_kit_routes/1` as the list of groups to declare. Raises
+  # `ArgumentError` (a compile error in the host router) for anything else.
+  @spec root_groups!(keyword()) :: [atom()]
+  def root_groups!(opts) when is_list(opts) do
+    case Keyword.get(opts, :root, :all) do
+      :all ->
+        @root_groups
+
+      false ->
+        []
+
+      groups when is_list(groups) ->
+        case Enum.reject(groups, &(&1 in @root_groups)) do
+          [] ->
+            Enum.filter(@root_groups, &(&1 in groups))
+
+          unknown ->
+            raise ArgumentError,
+                  "phoenix_kit_routes(root: ...) got unknown group(s) #{inspect(unknown)}; " <>
+                    "the groups are #{inspect(@root_groups)}"
+        end
+
+      other ->
+        raise ArgumentError,
+              "phoenix_kit_routes(root: ...) takes :all, false or a list of " <>
+                "#{inspect(@root_groups)}, got #{inspect(other)}"
+    end
+  end
+
+  def root_groups!(other) do
+    raise ArgumentError,
+          "phoenix_kit_routes/1 takes a keyword list such as [root: false], got #{inspect(other)}"
+  end
+
+  # The groups the kit's own scope declares: under a prefix all of them (they are not at the
+  # root there), at the root the chosen ones.
+  defp kit_scope_groups(url_prefix, root_groups) when url_prefix in ["/", ""], do: root_groups
+  defp kit_scope_groups(_url_prefix, _root_groups), do: @root_groups
+
+  # The files of the groups in `groups`, minus the API catalog (`api_catalog_route/2`).
+  defp file_routes(groups) do
+    llms =
+      quote do
         get "/llms.txt", PhoenixKit.Modules.Crawlers.Web.Controller, :llms_txt,
           metadata: %{sitemap: false}
+      end
 
+    sitemap =
+      quote do
         get "/sitemap.xml", PhoenixKit.Modules.Sitemap.Web.Controller, :xml
         get "/sitemap.html", PhoenixKit.Modules.Sitemap.Web.Controller, :html
         get "/sitemaps/:filename", PhoenixKit.Modules.Sitemap.Web.Controller, :module_sitemap
         get "/sitemap.xsl", PhoenixKit.Modules.Sitemap.Web.Controller, :xsl_stylesheet
+      end
+
+    sitemap_assets =
+      quote do
         get "/assets/sitemap/:style", PhoenixKit.Modules.Sitemap.Web.Controller, :xsl_stylesheet
 
         get "/assets/sitemap-index/:style",
             PhoenixKit.Modules.Sitemap.Web.Controller,
             :xsl_index_stylesheet
-
-        unquote(api_guide_routes())
-        unquote(api_catalog_route(:root))
       end
+
+    blocks =
+      for {group, block} <- [
+            llms: llms,
+            sitemap: sitemap,
+            sitemap_assets: sitemap_assets,
+            mcp: api_guide_routes()
+          ],
+          group in groups,
+          do: block
+
+    quote do
+      (unquote_splicing(blocks))
     end
   end
 
@@ -2022,17 +2134,21 @@ defmodule PhoenixKitWeb.Integration do
   # RFC 9727 wants the API catalog at the site root: the root scope of a
   # prefixed install, the kit scope of a root-mounted one, never both and
   # never under a prefix.
-  defp api_catalog_route(:root) do
-    quote do
-      get "/.well-known/api-catalog", PhoenixKitWeb.Controllers.ApiDiscovery, :api_catalog,
-        metadata: %{sitemap: false}
+  defp api_catalog_route(:root, root_groups) do
+    if :well_known in root_groups do
+      quote do
+        get "/.well-known/api-catalog", PhoenixKitWeb.Controllers.ApiDiscovery, :api_catalog,
+          metadata: %{sitemap: false}
+      end
+    else
+      quote(do: nil)
     end
   end
 
-  defp api_catalog_route(url_prefix) when url_prefix in ["/", ""],
-    do: api_catalog_route(:root)
+  defp api_catalog_route(url_prefix, root_groups) when url_prefix in ["/", ""],
+    do: api_catalog_route(:root, root_groups)
 
-  defp api_catalog_route(_url_prefix) do
+  defp api_catalog_route(_url_prefix, _root_groups) do
     quote do
     end
   end
@@ -2102,7 +2218,16 @@ defmodule PhoenixKitWeb.Integration do
     )
   end
 
-  defmacro phoenix_kit_routes do
+  @doc """
+  Declares every PhoenixKit route. `opts`:
+
+    * `:root` - which files the kit declares at the site root: `:all` (default, as
+      before), `false`, or a list of `:mcp`, `:llms`, `:sitemap`, `:well_known`,
+      `:sitemap_assets`. See "Files at the site root" in the moduledoc.
+  """
+  defmacro phoenix_kit_routes(opts \\ []) do
+    root_groups = root_groups!(opts)
+
     # OAuth configuration is handled by PhoenixKit.Workers.OAuthConfigLoader
     # which runs synchronously during supervisor startup
     # No need for async spawn() here anymore
@@ -2226,6 +2351,13 @@ defmodule PhoenixKitWeb.Integration do
       # compiled without the routes until something unrelated forced a
       # recompile — which is the whole reason the setting is worth having now
       # that it defaults to `false`.
+      #
+      # Every call below is into the PhoenixKit that is installed NOW, which
+      # need not be the one that compiled this router: after pinning back to
+      # an older release (an aborted upgrade) a function may be gone, and an
+      # UndefinedFunctionError here killed `mix compile` with no hint (the
+      # way out was `rm -rf _build/<env>/lib/<app>`). Any failure answers
+      # "recompile", which rebuilds the router against the installed release.
       @doc false
       def __mix_recompile__? do
         unquote(current_hash) != PhoenixKit.ModuleDiscovery.module_hash_fast() or
@@ -2236,6 +2368,10 @@ defmodule PhoenixKitWeb.Integration do
             PhoenixKit.Config.user_dashboard_enabled?() or
           unquote(:erlang.phash2(PhoenixKit.ProfileSettingsTab.config_entries())) !=
             :erlang.phash2(PhoenixKit.ProfileSettingsTab.config_entries())
+      rescue
+        _ -> true
+      catch
+        _, _ -> true
       end
 
       # Compile-time dependency on each route module (see the comment at
@@ -2249,7 +2385,7 @@ defmodule PhoenixKitWeb.Integration do
       unquote(generate_pipelines())
 
       # Generate basic routes scope
-      unquote(generate_basic_scope(url_prefix))
+      unquote(generate_basic_scope(url_prefix, root_groups))
 
       # The machine API. Literal-rooted (`/api/...`), so it belongs with the
       # surfaces declared BEFORE the `/:locale`-rooted ones below: a later
@@ -2260,7 +2396,7 @@ defmodule PhoenixKitWeb.Integration do
 
       # The authorization server of the MCP endpoint (`/oauth/...`). Literal-rooted like the
       # machine API above, so it too stays ahead of every `/:locale`-rooted surface.
-      unquote(generate_oauth_routes(url_prefix))
+      unquote(generate_oauth_routes(url_prefix, root_groups))
 
       # The cross-domain handoff (`/handoff/...`): literal-rooted too, so ahead of every
       # `/:locale`-rooted surface.

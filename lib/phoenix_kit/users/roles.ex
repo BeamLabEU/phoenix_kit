@@ -52,6 +52,7 @@ defmodule PhoenixKit.Users.Roles do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   import Ecto.Query, warn: false
+  require Logger
   alias Ecto.Adapters.SQL
   alias PhoenixKit.Admin.Events
   alias PhoenixKit.RepoHelper
@@ -62,6 +63,7 @@ defmodule PhoenixKit.Users.Roles do
   alias PhoenixKit.Users.{Role, RoleAssignment, ScopeNotifier}
   alias PhoenixKit.Users.Sessions
   alias PhoenixKit.Users.Sessions.Revocation
+  alias PhoenixKit.Users.Setup
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Multilang
 
@@ -880,6 +882,11 @@ defmodule PhoenixKit.Users.Roles do
   - `opts`: Options for role assignment
     - `:make_first_owner` (default: true) - Make first user without roles an Owner
 
+  Operator code (a migration, a console), not a public door: when no active
+  Owner exists it makes the oldest roleless active user the Owner without a
+  setup token. Users who signed up through PhoenixKit always hold a role, so a
+  public registrant is never picked here.
+
   ## Returns
 
   - `{:ok, stats}` with assignment statistics
@@ -952,14 +959,24 @@ defmodule PhoenixKit.Users.Roles do
   Concurrent registrations are serialized by a row lock on the Owner role row,
   taken only while no active Owner exists yet — see the transaction body.
 
+  While no active Owner exists, whether `user` becomes it is decided by the
+  `:first_owner` option (`PhoenixKit.Users.Setup`): `:allow` (the default for a
+  direct call — trusted code) grants it; a request's claim grants it only with
+  a valid setup token (consumed here) or as the local dev case; `:deny` never
+  does (unless `config :phoenix_kit, first_owner: :open`). A user who is not
+  granted Owner gets the default role, like every later registrant.
+
   ## Parameters
 
   - `user`: The user to potentially make Owner
+  - `opts`: `:first_owner` — see above
 
   ## Returns
 
   - `{:ok, :owner}` if user became Owner
   - `{:ok, :user}` if user became regular User
+  - `{:error, :setup_required}` when no active Owner exists and a request's
+    claim no longer proves the right (nothing is assigned)
   - `{:error, reason}` on failure
 
   ## Examples
@@ -967,10 +984,11 @@ defmodule PhoenixKit.Users.Roles do
       iex> ensure_first_user_is_owner(user)
       {:ok, :owner}
   """
-  def ensure_first_user_is_owner(%User{} = user) do
+  def ensure_first_user_is_owner(%User{} = user, opts \\ []) do
     repo = RepoHelper.repo()
 
     roles = Role.system_roles()
+    first_owner = Keyword.get(opts, :first_owner, :allow)
 
     repo.transaction(fn ->
       # Once an active Owner exists the answer can never flip to "you are the
@@ -983,30 +1001,80 @@ defmodule PhoenixKit.Users.Roles do
           count -> count
         end
 
-      case owner_count do
-        0 ->
-          # No active owners exist, make this user Owner
-          case assign_role_internal(user, roles.owner) do
-            {:ok, _assignment} ->
-              # Activate and confirm first owner
-              activate_first_owner(user, :owner, repo)
+      if owner_count == 0 and Setup.grant_first_owner?(first_owner, repo) do
+        # No active owners exist and the grant is allowed: make this user Owner
+        case assign_role_internal(user, roles.owner) do
+          {:ok, _assignment} ->
+            Setup.clear_setup_token(repo)
+            # Activate and confirm first owner
+            activate_first_owner(user, :owner, repo)
 
-            {:error, reason} ->
-              repo.rollback(reason)
-          end
+          {:error, reason} ->
+            repo.rollback(reason)
+        end
+      else
+        # A request's claim reaches here with no Owner only when its proof
+        # went stale after `Setup.check_registration/1` let it in (the token
+        # was rotated or spent in between). The caller removes the account it
+        # just inserted: a plain account would hold the address the setup
+        # link was meant for.
+        if owner_count == 0 and is_map(first_owner) and Setup.policy() != :open,
+          do: repo.rollback(:setup_required)
 
-        count when is_integer(count) and count > 0 ->
-          # Active owners exist, assign default role
-          default_role_name = default_role_for_new_users()
+        if owner_count == 0 do
+          Logger.warning(
+            "PhoenixKit: no active Owner exists and #{user.uuid} did not prove the right to " <>
+              "become it; given the default role. Create the Owner with " <>
+              "`mix phoenix_kit.create_owner` or the setup link in the boot log."
+          )
+        end
 
-          case assign_role_internal(user, default_role_name) do
-            {:ok, _assignment} ->
-              String.to_atom(String.downcase(default_role_name))
-
-            {:error, reason} ->
-              repo.rollback(reason)
-          end
+        assign_default_role(user, repo)
       end
+    end)
+  end
+
+  defp assign_default_role(user, repo) do
+    default_role_name = default_role_for_new_users()
+
+    case assign_role_internal(user, default_role_name) do
+      {:ok, _assignment} ->
+        String.to_atom(String.downcase(default_role_name))
+
+      {:error, reason} ->
+        repo.rollback(reason)
+    end
+  end
+
+  @doc false
+  # For `PhoenixKit.Users.Setup.create_owner/2`, inside its transaction: the
+  # active-Owner count taken under the same Owner-role lock as
+  # `ensure_first_user_is_owner/2`, so a console grant and a registration
+  # cannot both mint "the first" Owner.
+  @spec count_active_owners_locked() :: non_neg_integer()
+  def count_active_owners_locked do
+    count_active_owners_by_name(RepoHelper.repo(), Role.system_roles().owner, lock: true)
+  end
+
+  @doc false
+  # Operator tooling only (`PhoenixKit.Users.Setup.create_owner/2`): gives
+  # `user` the Owner role (kept if already held), activates and confirms it.
+  # No actor check — whoever runs code on the server is the operator.
+  @spec grant_owner(User.t()) :: {:ok, User.t()} | {:error, term()}
+  def grant_owner(%User{} = user) do
+    repo = RepoHelper.repo()
+    roles = Role.system_roles()
+
+    repo.transaction(fn ->
+      unless user_has_role?(user, roles.owner) do
+        case assign_role_internal(user, roles.owner) do
+          {:ok, _assignment} -> :ok
+          {:error, reason} -> repo.rollback(reason)
+        end
+      end
+
+      activate_first_owner(user, :owner, repo)
+      repo.get!(User, user.uuid)
     end)
   end
 

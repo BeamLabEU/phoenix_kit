@@ -679,6 +679,12 @@ defmodule PhoenixKit.Modules.Sitemap do
 
       iex> PhoenixKit.Modules.Sitemap.regenerate(scope)
       {:ok, %{index_xml: "<?xml ...", modules: [...], total_urls: 150}}
+
+  While the Crawlers `noindex` switch is on, the sitemap is deliberately
+  empty and the result says why:
+
+      iex> PhoenixKit.Modules.Sitemap.regenerate(scope)
+      {:ok, %{index_xml: "<?xml ...", modules: [], total_urls: 0, reason: :no_index}}
   """
   @spec regenerate(any()) :: {:ok, map()} | {:error, any()}
   def regenerate(scope \\ nil) do

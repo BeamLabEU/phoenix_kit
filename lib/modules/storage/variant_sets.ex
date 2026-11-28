@@ -39,7 +39,8 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
     DimensionOptions,
     Library,
     VariantGenerator,
-    VariantSet
+    VariantSet,
+    Watermark
   }
 
   alias PhoenixKit.Modules.Storage.File, as: StorageFile
@@ -230,7 +231,7 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
   end
 
   defp do_update_variant_set(set, attrs, opts) do
-    changeset = VariantSet.changeset(set, attrs)
+    changeset = set |> VariantSet.changeset(attrs) |> validate_watermark_logo()
 
     transact(fn ->
       with {:ok, updated} <- repo().update(changeset) do
@@ -250,7 +251,10 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
           "storage_variant_set",
           set.uuid,
           opts,
-          Audit.changes(changeset, @audited_fields),
+          Map.merge(
+            Audit.changes(changeset, @audited_fields),
+            watermark_change(changeset, set)
+          ),
           %{"name" => set.name}
         )
 
@@ -258,6 +262,159 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
 
       error ->
         error
+    end
+  end
+
+  # The watermark is an embedded struct: written to the history as its fields.
+  defp watermark_change(
+         %Ecto.Changeset{changes: %{watermark: _}, data: before},
+         %VariantSet{} = set
+       ),
+       do: %{
+         "watermark" => %{
+           "from" => watermark_map(before.watermark),
+           "to" => watermark_map(set.watermark)
+         }
+       }
+
+  defp watermark_change(_changeset, _set), do: %{}
+
+  defp watermark_map(nil), do: nil
+
+  defp watermark_map(%Watermark{} = watermark) do
+    watermark
+    |> Map.from_struct()
+    |> Map.new(fn {key, value} -> {Atom.to_string(key), value} end)
+  end
+
+  @doc """
+  Saves a set's watermark (`PhoenixKit.Modules.Storage.Watermark`): the same
+  as `update_variant_set/3` with only `watermark` in the attributes. A change
+  bumps the set's revision, and the reconciler remakes the sizes whose pixels
+  it changes (the sizes it adds to or takes off, and every watermarked one
+  when its look changes); the others stay as they are.
+  """
+  @spec update_watermark(VariantSet.t(), map(), keyword()) ::
+          {:ok, VariantSet.t()} | {:error, Ecto.Changeset.t() | :not_found}
+  def update_watermark(%VariantSet{} = set, attrs, opts \\ []) do
+    update_variant_set(set, %{"watermark" => attrs}, opts)
+  end
+
+  @doc """
+  The watermark `dimension` gets from its set, or nil: what
+  `VariantGenerator` puts in the size's virtual `watermark` field before it
+  makes or checks the size.
+  """
+  @spec watermark_for(VariantSet.t() | nil, Dimension.t()) :: Watermark.t() | nil
+  def watermark_for(%VariantSet{watermark: watermark}, %Dimension{} = dimension),
+    do: Watermark.for_size(watermark, dimension)
+
+  def watermark_for(_set, _dimension), do: nil
+
+  # An enabled watermark's logo must be one the site may show to anyone
+  # (`watermark_logo/1`): its pixels go into public renditions.
+  defp validate_watermark_logo(
+         %Ecto.Changeset{changes: %{watermark: %Ecto.Changeset{valid?: true} = watermark}} =
+           changeset
+       ) do
+    uuid = Ecto.Changeset.get_field(watermark, :logo_file_uuid)
+
+    with true <- Ecto.Changeset.get_field(watermark, :enabled) and not is_nil(uuid),
+         {:error, reason} <- watermark_logo(uuid) do
+      watermark = Ecto.Changeset.add_error(watermark, :logo_file_uuid, logo_error(reason))
+      %{changeset | changes: Map.put(changeset.changes, :watermark, watermark), valid?: false}
+    else
+      _ -> changeset
+    end
+  end
+
+  defp validate_watermark_logo(changeset), do: changeset
+
+  defp logo_error(:logo_not_found), do: "no stored file has this ID"
+  defp logo_error(:logo_not_an_image), do: "must be an image"
+
+  defp logo_error(:logo_not_public),
+    do: "must be in a site library everyone can see (not a user's or a hidden one)"
+
+  @doc """
+  The stored file `uuid` names, when a watermark may draw it as its logo:
+  an image (not system-managed, not in the trash) in a library whose files
+  anyone may see. A user's library and a private one (a hidden system library,
+  one trashed or suspended, one open to signed-in users only) are refused,
+  by the rule of the site's listings (`Libraries.user_or_hidden_among/1`):
+  the logo's pixels go into renditions served to everyone. Checked when the
+  watermark is saved and again when it is drawn.
+  """
+  @spec watermark_logo(term()) ::
+          {:ok, StorageFile.t()}
+          | {:error, :logo_not_found | :logo_not_an_image | :logo_not_public}
+  def watermark_logo(uuid) do
+    with {:ok, uuid} <- cast_logo_uuid(uuid),
+         %StorageFile{} = file <- repo().get(StorageFile, uuid) || {:error, :logo_not_found},
+         :ok <- logo_image(file),
+         :ok <- logo_public(file) do
+      {:ok, file}
+    end
+  end
+
+  defp cast_logo_uuid(uuid) do
+    case Ecto.UUID.cast(uuid) do
+      {:ok, uuid} -> {:ok, uuid}
+      :error -> {:error, :logo_not_found}
+    end
+  end
+
+  defp logo_image(%StorageFile{status: "trashed"}), do: {:error, :logo_not_found}
+
+  defp logo_image(%StorageFile{file_type: "image", system_managed: false}), do: :ok
+  defp logo_image(_file), do: {:error, :logo_not_an_image}
+
+  defp logo_public(%StorageFile{library_uuid: library_uuid}) do
+    if Libraries.user_or_hidden_among([library_uuid]) == [],
+      do: :ok,
+      else: {:error, :logo_not_public}
+  end
+
+  @doc """
+  `watermark` with its logo's content checksum (`Watermark.logo_checksum`, the
+  logo file's `file_checksum`) filled in, so that the spec hash follows the
+  logo's pixels and not only its file uuid. Nil when there is no logo, or no
+  such file.
+  """
+  @spec with_logo_checksum(Watermark.t()) :: Watermark.t()
+  def with_logo_checksum(%Watermark{logo_file_uuid: nil} = watermark),
+    do: %{watermark | logo_checksum: nil}
+
+  def with_logo_checksum(%Watermark{logo_file_uuid: uuid} = watermark) do
+    checksum =
+      repo().one(from(f in StorageFile, where: f.uuid == ^uuid, select: f.file_checksum))
+
+    %{watermark | logo_checksum: checksum}
+  end
+
+  @doc false
+  # A size renamed: its place in the set's watermark follows it. Called by
+  # `Storage.update_dimension/3` in the same transaction.
+  @spec rename_watermark_size(term(), String.t(), String.t()) :: :ok
+  def rename_watermark_size(set_uuid, old_name, new_name) do
+    case get_variant_set(set_uuid) do
+      %VariantSet{watermark: %Watermark{dimensions: names} = watermark} = set ->
+        if old_name in names do
+          renamed = Enum.map(names, &if(&1 == old_name, do: new_name, else: &1))
+
+          set
+          |> Ecto.Changeset.change()
+          |> Ecto.Changeset.put_embed(:watermark, %{
+            Map.from_struct(watermark)
+            | dimensions: Enum.uniq(renamed)
+          })
+          |> repo().update!()
+        end
+
+        :ok
+
+      _ ->
+        :ok
     end
   end
 
@@ -821,7 +978,8 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
   The spec hash of the variant `dimension` makes in `format` (its own
   format when not given; nil keeps the original's). Only what changes the
   pixels counts: width, height, quality, format and whether the aspect
-  ratio is kept — plus `@pipeline`, the version of the rendering rules
+  ratio is kept, the watermark the size carries (its virtual `watermark`
+  field, V237) — plus `@pipeline`, the version of the rendering rules
   themselves.
 
   V205 stamped existing instances with the `v1` text in SQL
@@ -842,6 +1000,7 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
     |> Kernel.<>(crop_part(d))
     |> Kernel.<>(fit_part(d))
     |> Kernel.<>(alpha_part(format))
+    |> Kernel.<>(watermark_part(d))
     |> then(&:crypto.hash(:md5, &1))
     |> Base.encode16(case: :lower)
   end
@@ -870,6 +1029,14 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
   end
 
   defp alpha_part(_format), do: ""
+
+  # A watermarked size (the generator puts the set's watermark in the size's
+  # virtual field) has other pixels; an unwatermarked one adds nothing, so every
+  # hash made before watermarks is unchanged.
+  defp watermark_part(%Dimension{watermark: %Watermark{} = watermark}),
+    do: "|wm=" <> Watermark.hash_text(watermark)
+
+  defp watermark_part(_d), do: ""
 
   @doc false
   # The pipeline-1 text V205 stamped in SQL, kept so its migration test can

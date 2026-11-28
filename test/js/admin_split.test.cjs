@@ -44,7 +44,7 @@ const PUBLIC = `LibraryLoadNotice CookieConsent FlashAutoDismiss TimezoneOffset 
   SelectOnMount TimeAgo CopyToClipboard FadeOut PreserveScroll InfiniteScroll PageSizeAutoFit
   MaintenanceCountdown PkShiftEnter PkUrlMirror PhoenixKitUrlState PkCheckboxIndeterminate PkDateInput
   PkChartCrosshair ViewportPopover Leaf FrescoViewer FrescoCanvas TesseraLayer EtcherLayer
-  MentionInput UploadStats UploadGuard AudioRecorder PasskeySignIn PasskeyRegister Turnstile PkFitHeight
+  MentionInput UploadStats UploadGuard PkUploadEdit FormDraft AudioRecorder PasskeySignIn PasskeyRegister Turnstile PkFitHeight
   PkResizable`.split(/\s+/);
 
 const ADMIN = `SortableGrid MediaImageZoom MarkdownEditor InstantViewer ViewerKeydown ViewerPaneFit
@@ -79,7 +79,7 @@ const plain = (v) => JSON.parse(JSON.stringify(v));
 // ── The inventory ──────────────────────────────────────────────────────────
 
 test("the two lists are disjoint and together are the 82 hooks the bundle has", () => {
-  assert.equal(PUBLIC.length, 40);
+  assert.equal(PUBLIC.length, 42);
   assert.equal(ADMIN.length, 42);
   assert.deepEqual(PUBLIC.filter((n) => ADMIN.includes(n)), []);
 });
@@ -237,7 +237,17 @@ test("a size budget keeps the public file public", () => {
   // adoptStyle, the consent widget's stylesheet moved out of the HTML string,
   // and the approved script keeping its nonce. 343 780 B, so 340 KiB =
   // 348 160 B leaves ~4.3 KB).
-  assert.ok(publicBytes < 340 * 1024, "phoenix_kit.js is " + publicBytes + " bytes");
+  // -> 392 (three opt-in public components, ~50 KB with their notes:
+  // `<.photo_gallery>`'s lightbox (~20 KB), `<.file_upload edit_images>`'s
+  // PkUploadEdit with the crop geometry moved here from the admin ImageEditor
+  // (~15 KB) and the FormDraft hook (~11 KB); all render on public pages.
+  // ~395 500 B, so 392 KiB = 401 408 B leaves ~5.9 KB).
+  // -> 400 (the review fixes of those three, ~6.4 KB with their notes: the
+  // lightbox letting go when LiveView removes it and re-clamping a zoom on
+  // resize; the upload editor's loading lock, flip-aware turn, encode-failure
+  // message and multi-file hand-over; the draft keeping only edited fields.
+  // 401 898 B, so 400 KiB = 409 600 B leaves ~7.5 KB).
+  assert.ok(publicBytes < 400 * 1024, "phoenix_kit.js is " + publicBytes + " bytes");
   assert.ok(adminBytes > publicBytes / 2, "the admin file is where the weight went");
 });
 

@@ -16,6 +16,8 @@ defmodule PhoenixKitWeb.Users.Registration do
   alias PhoenixKit.Users.Invitations
   alias PhoenixKit.Users.OAuthAvailability
   alias PhoenixKit.Users.Referrals
+  alias PhoenixKit.Users.Roles
+  alias PhoenixKit.Users.Setup
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
@@ -85,6 +87,12 @@ defmodule PhoenixKitWeb.Users.Registration do
       # Extract and store IP address during mount for later use
       ip_address = IpAddress.extract_from_socket(socket)
 
+      # Who may become the first Owner (`PhoenixKit.Users.Setup`): built here,
+      # because the peer address is only readable during mount. The `setup`
+      # parameter is the one-time link the boot log prints on an install
+      # without an Owner.
+      first_owner_claim = Setup.claim_from_socket(socket, params["setup"])
+
       seo = AuthSEO.seo_assigns("/users/register")
 
       # Support return_to query param for post-registration redirect
@@ -107,6 +115,8 @@ defmodule PhoenixKitWeb.Users.Registration do
         |> assign(referral_code: nil)
         |> assign(referral_code_error: nil)
         |> assign(user_ip_address: ip_address)
+        |> assign(first_owner_claim: first_owner_claim)
+        |> put_setup_flash(first_owner_claim)
         |> assign(magic_link_registration_enabled: magic_link_registration_enabled)
         |> assign(show_username: show_username)
         |> assign(account_type_mode: account_type_mode)
@@ -135,6 +145,38 @@ defmodule PhoenixKitWeb.Users.Registration do
   # An anonymous visitor's request: counted against the site-wide sign-up cap,
   # and the address's domain is asked for in DNS.
   @public_door [site_wide: true, check_email_domain: true]
+
+  defp door_opts(socket),
+    do: [{:first_owner, socket.assigns[:first_owner_claim]} | @public_door]
+
+  # Only a link that carries a setup token is answered: a plain visit to the
+  # page says nothing about whether the site has an Owner.
+  defp put_setup_flash(socket, %{setup_token: token}) when is_binary(token) do
+    cond do
+      Roles.count_active_owners() > 0 ->
+        put_flash(
+          socket,
+          :error,
+          gettext("This site already has an owner. The setup link is no longer needed.")
+        )
+
+      Setup.setup_token_valid?(token) ->
+        put_flash(
+          socket,
+          :info,
+          gettext("Setup link accepted: the account you register here becomes the site's owner.")
+        )
+
+      true ->
+        put_flash(
+          socket,
+          :error,
+          gettext("This setup link is not valid. Use the most recent link from the server log.")
+        )
+    end
+  end
+
+  defp put_setup_flash(socket, _claim), do: socket
 
   # The email is sent while typed, so the username made from it follows live;
   # its error waits until the visitor leaves the field.
@@ -240,9 +282,9 @@ defmodule PhoenixKitWeb.Users.Registration do
         # Use appropriate registration function based on geolocation setting
         registration_result =
           if track_geolocation do
-            Auth.register_user_with_geolocation(user_params, ip_address, @public_door)
+            Auth.register_user_with_geolocation(user_params, ip_address, door_opts(socket))
           else
-            Auth.register_user(user_params, ip_address, @public_door)
+            Auth.register_user(user_params, ip_address, door_opts(socket))
           end
 
         case registration_result do

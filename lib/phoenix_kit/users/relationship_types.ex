@@ -139,10 +139,12 @@ defmodule PhoenixKit.Users.RelationshipTypes do
   @spec update_type(RelationshipType.t(), map(), keyword()) ::
           {:ok, RelationshipType.t()} | {:error, Ecto.Changeset.t()}
   def update_type(%RelationshipType{} = type, attrs, opts \\ []) do
+    before = hydrate(type)
+
     type
     |> RelationshipType.update_changeset(stringify_keys(attrs))
     |> repo().update()
-    |> log_on_ok("relationship_type.updated", opts)
+    |> log_on_ok("relationship_type.updated", Keyword.put(opts, :changed_from, before))
   end
 
   @doc "Archives a type: no new links, every existing link and session intact."
@@ -333,6 +335,11 @@ defmodule PhoenixKit.Users.RelationshipTypes do
 
   defp stringify_keys(map), do: Map.new(map, fn {key, value} -> {to_string(key), value} end)
 
+  # Fields an update reports as "what changed". The names are the
+  # primary-language ones; `data` (every translation) is left out, it would only
+  # repeat them as a JSON blob.
+  @logged_fields [:name, :inverse_name, :position, :status]
+
   defp log_on_ok({:ok, %RelationshipType{} = type} = ok, action, opts) do
     PhoenixKit.Activity.log(%{
       action: action,
@@ -341,11 +348,21 @@ defmodule PhoenixKit.Users.RelationshipTypes do
       actor_uuid: Keyword.get(opts, :actor_uuid),
       resource_type: @resource_type,
       resource_uuid: type.uuid,
-      metadata: %{"key" => type.key}
+      metadata: %{"key" => type.key},
+      changes: logged_changes(type, Keyword.get(opts, :changed_from))
     })
 
     ok
   end
 
   defp log_on_ok(error, _action, _opts), do: error
+
+  defp logged_changes(_type, nil), do: nil
+
+  # The saved struct keeps the virtual names as cast; read them back from `data`
+  # so both sides are judged the same way.
+  defp logged_changes(type, before) do
+    later = hydrate(%{type | name: nil, inverse_name: nil})
+    {before, later, only: @logged_fields}
+  end
 end
