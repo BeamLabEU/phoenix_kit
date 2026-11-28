@@ -704,7 +704,8 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
           resource_type: "user",
           resource_uuid: updated_user.uuid,
           target_uuid: updated_user.uuid,
-          metadata: %{"status" => status_text, "actor_role" => "admin"}
+          metadata: %{"status" => status_text, "actor_role" => "admin"},
+          changes: {user, updated_user, only: [:is_active]}
         })
 
         flash_msg =
@@ -786,8 +787,6 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
       %{"actor_role" => "admin"}
       |> maybe_put_role_diff("added", added)
       |> maybe_put_role_diff("removed", removed)
-      |> Map.put("roles_from", Enum.join(Enum.sort(current_roles), ", "))
-      |> Map.put("roles_to", Enum.join(Enum.sort(new_roles), ", "))
 
     PhoenixKit.Activity.log(%{
       action: "user.roles_updated",
@@ -797,7 +796,12 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
       resource_type: "user",
       resource_uuid: user.uuid,
       target_uuid: user.uuid,
-      metadata: metadata
+      metadata: metadata,
+      changes:
+        PhoenixKit.Activity.changes(
+          %{roles: Enum.sort(current_roles)},
+          %{roles: Enum.sort(new_roles)}
+        )
     })
   end
 

@@ -73,6 +73,15 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
         ],
         total_urls: 150
       }}
+
+  While the Crawlers module's `noindex` directive is on (and the sitemap is
+  not exempted from it), the result is an empty sitemap and carries
+  `reason: :no_index`, so a caller can tell "the site asked not to be
+  indexed" from "the sources found nothing":
+
+      {:ok, %{index_xml: "<?xml ...<urlset...", modules: [], total_urls: 0, reason: :no_index}}
+
+  A normal run has no `:reason` key.
   """
   @spec generate_all(keyword()) :: {:ok, map()} | {:error, any()}
   def generate_all(opts \\ []) do
@@ -89,11 +98,18 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
     xsl_style = Keyword.get(opts, :xsl_style, "table")
     xsl_enabled = Keyword.get(opts, :xsl_enabled, true)
 
+    if Sitemap.flat_mode?() and streaming_sources() != [] do
+      Logger.warning(
+        "Sitemap: flat mode is on, but streaming source(s) #{inspect(streaming_sources())} " <>
+          "cannot be written into one sorted <urlset>; generating in index mode instead"
+      )
+    end
+
     cond do
       crawlers_no_index?() and not sitemap_exempt_from_no_index?() ->
         do_generate_no_index(xsl_style, xsl_enabled)
 
-      Sitemap.flat_mode?() ->
+      flat_mode?() ->
         do_generate_flat(base_url, opts, get_sources(), xsl_style, xsl_enabled)
 
       true ->
@@ -117,7 +133,10 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
   # it cannot fire on its own, and the meta directive itself is untouched by
   # it — so the lockstep still holds for every install that hasn't set it.
   defp do_generate_no_index(xsl_style, xsl_enabled) do
-    Logger.debug("Sitemap: crawlers_no_index active — publishing empty sitemap")
+    Logger.info(
+      "Sitemap: publishing an empty sitemap (0 URLs) because the Crawlers noindex " <>
+        "switch is on; turn it off, or exempt the sitemap from it, to list URLs"
+    )
 
     xml = build_urlset_xml([], xsl_style, xsl_enabled)
     FileStorage.save_index(xml)
@@ -132,7 +151,7 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
 
     cleanup_stale_domain_dirs()
 
-    {:ok, %{index_xml: xml, modules: [], total_urls: 0}}
+    {:ok, %{index_xml: xml, modules: [], total_urls: 0, reason: :no_index}}
   end
 
   # Defensive: never let a Crawlers lookup error break sitemap generation.
@@ -217,6 +236,13 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
 
       per_host =
         DomainMode.rebuild_for_domains(entries ++ domain_static_entries(opts, base_url), base_url)
+
+      if streaming_sources() != [] do
+        Logger.info(
+          "Sitemap: streaming sources #{inspect(streaming_sources())} are not included " <>
+            "in per-domain sitemaps (domain files are built from collected lists)"
+        )
+      end
 
       for {host, host_entries} <- per_host do
         write_domain_files(host, host_entries, xsl_style, xsl_enabled)
@@ -355,6 +381,34 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
      }}
   end
 
+  @doc """
+  Whether the sitemap is generated (and served) as one flat `<urlset>`.
+
+  `PhoenixKit.Modules.Sitemap.flat_mode?/0` (Router Discovery on), unless an
+  enabled source implements `stream/1`: a stream cannot be sorted and merged
+  into one file, so its presence switches generation to index mode (see
+  "Streaming sources" in `PhoenixKit.Modules.Sitemap.Sources.Source`).
+  """
+  @spec flat_mode?() :: boolean()
+  def flat_mode? do
+    Sitemap.flat_mode?() and streaming_sources() == []
+  end
+
+  # Enabled sources that implement `stream/1`.
+  defp streaming_sources do
+    Enum.filter(get_sources(), fn source ->
+      Source.valid_source?(source) and Source.streaming?(source) and safe_enabled?(source)
+    end)
+  end
+
+  defp safe_enabled?(source) do
+    source.enabled?() == true
+  rescue
+    _ -> false
+  catch
+    :exit, _ -> false
+  end
+
   # ── Per-module generation ──────────────────────────────────────────
 
   @doc """
@@ -387,18 +441,183 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
     # Check for sub-sitemaps (per-group splitting)
     case Source.get_sub_sitemaps(source_module, opts) do
       nil ->
-        # Single file: collect all entries for this source
-        entries = collect_source_entries(source_module, opts)
-        build_and_save_module_files(entries, base_filename, xsl_style, xsl_enabled)
+        if Source.streaming?(source_module) do
+          # Read lazily, chunk by chunk — never the whole source in memory
+          source_module
+          |> stream_source_entries(opts)
+          |> write_streamed_module_files(source_module, base_filename, xsl_style, xsl_enabled)
+        else
+          # Single file: collect all entries for this source
+          entries = collect_source_entries(source_module, opts)
+          build_and_save_module_files(entries, base_filename, xsl_style, xsl_enabled)
+        end
 
       sub_maps when is_list(sub_maps) ->
-        # Per-group files
+        # Per-group files; a group whose entries are not a list is streamed
         sub_maps
-        |> Enum.flat_map(fn {group_name, entries} ->
-          filename = "#{base_filename}-#{group_name}"
-          build_and_save_module_files(entries, filename, xsl_style, xsl_enabled)
+        |> Enum.flat_map(fn
+          {group_name, entries} when is_list(entries) ->
+            filename = "#{base_filename}-#{group_name}"
+            build_and_save_module_files(entries, filename, xsl_style, xsl_enabled)
+
+          {group_name, entries} ->
+            filename = "#{base_filename}-#{group_name}"
+            write_streamed_module_files(entries, source_module, filename, xsl_style, xsl_enabled)
         end)
     end
+  end
+
+  # The source's entries as one lazy stream: one `stream/1` call per enabled
+  # language (with the same language opts `collect/1` gets), concatenated.
+  # Nothing is grouped across languages — a streamed entry carries its own
+  # alternates.
+  defp stream_source_entries(source_module, opts) do
+    languages = get_languages()
+
+    per_language_opts =
+      if length(languages) > 1 do
+        Enum.map(languages, &language_opts(opts, &1, languages))
+      else
+        [opts]
+      end
+
+    Stream.flat_map(per_language_opts, fn language_opts ->
+      case Source.safe_stream(source_module, language_opts) do
+        {:ok, stream} -> stream
+        :skip -> []
+      end
+    end)
+  end
+
+  # Writes a stream as numbered files of at most @max_urls_per_file entries,
+  # one chunk at a time, inside the source's repo transaction (Repo.stream
+  # needs one open while it is read). Holds at most two chunks: the one
+  # waiting to be written and the next, which decides whether the first is
+  # `filename` (only chunk) or `filename-1` (one of several) — the same names
+  # `build_and_save_module_files/4` gives a collected source.
+  #
+  # A failure while reading drops every file of this name for this run, like
+  # a `collect/1` that raises.
+  defp write_streamed_module_files(enumerable, source_module, filename, xsl_style, xsl_enabled) do
+    write = fn ->
+      {last, count, infos} =
+        enumerable
+        |> Stream.chunk_every(@max_urls_per_file)
+        |> Enum.reduce({nil, 0, []}, fn chunk, {pending, index, infos} ->
+          infos =
+            if pending,
+              do: [write_chunk(pending, "#{filename}-#{index}", xsl_style, xsl_enabled) | infos],
+              else: infos
+
+          {Enum.uniq_by(chunk, & &1.loc), index + 1, infos}
+        end)
+
+      infos =
+        case {last, count} do
+          {nil, _} ->
+            []
+
+          {chunk, 1} ->
+            [write_chunk(chunk, filename, xsl_style, xsl_enabled)]
+
+          {chunk, index} ->
+            Enum.reverse([
+              write_chunk(chunk, "#{filename}-#{index}", xsl_style, xsl_enabled) | infos
+            ])
+        end
+
+      delete_other_files(filename, infos)
+      infos
+    end
+
+    infos = in_stream_transaction(Source.stream_repo(source_module), write)
+
+    Logger.debug(
+      "Sitemap: Streamed #{Enum.reduce(infos, 0, &(&1.url_count + &2))} entries " <>
+        "from #{inspect(source_module)} into #{length(infos)} file(s)"
+    )
+
+    infos
+  rescue
+    error ->
+      drop_streamed_files(source_module, filename, error)
+  catch
+    :exit, reason ->
+      drop_streamed_files(source_module, filename, {:exit, reason})
+  end
+
+  defp in_stream_transaction(nil, fun), do: fun.()
+
+  defp in_stream_transaction(repo, fun) do
+    {:ok, result} = repo.transaction(fun, timeout: :infinity)
+    result
+  end
+
+  # Streamed files are written to disk only, not into the ETS cache: nothing
+  # serves module XML from the cache, and caching millions of URLs' worth of
+  # XML would put back in memory what streaming kept out of it.
+  defp write_chunk(chunk, filename, xsl_style, xsl_enabled) do
+    xml = build_urlset_xml(chunk, xsl_style, xsl_enabled)
+
+    case FileStorage.save_module(filename, xml) do
+      :ok -> :ok
+      {:error, reason} -> raise "could not write #{filename}.xml: #{inspect(reason)}"
+    end
+
+    %SitemapFile{
+      filename: filename,
+      url_count: length(chunk),
+      lastmod: latest_lastmod(chunk)
+    }
+  end
+
+  defp drop_streamed_files(source_module, filename, reason) do
+    Logger.warning(
+      "Sitemap: Streaming source #{inspect(source_module)} failed while writing " <>
+        "#{filename}.xml: #{inspect(reason)} — its files are left out of this run"
+    )
+
+    delete_other_files(filename, [])
+    []
+  end
+
+  # Deletes the files of `filename` (bare or numbered) that this run did not
+  # write: a source that shrank from three files to two, or switched between
+  # one file and several, left the others on disk — and index mode serves
+  # every module file there is.
+  #
+  # A file that is another known source's own bare file is left alone: a host
+  # source may name itself `products-2` (`source_name/0` is any atom and
+  # `sitemap_filename/0` any string), and its `sitemap-products-2.xml` has the
+  # shape of `sitemap-products`'s second chunk. Without the guard, `products`
+  # shrinking to one file deleted the other source's sitemap.
+  defp delete_other_files(filename, infos) do
+    written = MapSet.new(infos, & &1.filename)
+    numbered = ~r/^#{Regex.escape(filename)}-\d+$/
+    others = MapSet.delete(known_source_filenames(), filename)
+
+    for file <- FileStorage.list_module_files(),
+        file == filename or Regex.match?(numbered, file),
+        not MapSet.member?(written, file),
+        not MapSet.member?(others, file) do
+      FileStorage.delete_module(file)
+    end
+
+    :ok
+  end
+
+  # The base filename of every configured source; one whose callbacks raise
+  # names nothing.
+  defp known_source_filenames do
+    get_sources()
+    |> Enum.flat_map(&source_filename/1)
+    |> MapSet.new()
+  end
+
+  defp source_filename(source) do
+    if Source.valid_source?(source), do: [Source.get_sitemap_filename(source)], else: []
+  rescue
+    _ -> []
   end
 
   # Collect entries for a single source using multilingual collection
@@ -415,9 +634,13 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
 
   # Build urlset XML, auto-split at 50k, save files, return module_info list
   defp build_and_save_module_files(entries, filename, xsl_style, xsl_enabled) do
+    infos = save_module_files(entries, filename, xsl_style, xsl_enabled)
+    delete_other_files(filename, infos)
+    infos
+  end
+
+  defp save_module_files(entries, filename, xsl_style, xsl_enabled) do
     if entries == [] do
-      # Clean up any existing file for empty source
-      FileStorage.delete_module(filename)
       []
     else
       if length(entries) > @max_urls_per_file do
@@ -556,17 +779,54 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
 
             :error ->
               entries = collect_all_entries(opts)
-              HtmlGenerator.generate(opts, entries, cache_key)
+              HtmlGenerator.generate(html_opts(opts, base_url), entries, cache_key)
           end
         else
           entries = collect_all_entries(opts)
-          HtmlGenerator.generate(opts, entries, cache_key, cache: false)
+          HtmlGenerator.generate(html_opts(opts, base_url), entries, cache_key, cache: false)
         end
     end
   end
 
+  # A streaming source is never listed URL by URL in the HTML sitemap (that
+  # would materialise it); the page links its XML files instead, with the
+  # URL counts recorded by the last generation.
+  defp html_opts(opts, base_url) do
+    Keyword.put(opts, :streamed_files, streamed_files(base_url))
+  end
+
+  defp streamed_files(base_url) do
+    case Enum.map(streaming_sources(), &Source.get_sitemap_filename/1) do
+      [] ->
+        []
+
+      bases ->
+        normalized_base = String.trim_trailing(base_url, "/")
+        prefix = PhoenixKit.Config.get_url_prefix()
+        normalized_prefix = if prefix == "/", do: "", else: prefix
+
+        for %{"filename" => filename} = stat <- Sitemap.get_module_stats(),
+            is_binary(filename),
+            Enum.any?(bases, &(filename == &1 or String.starts_with?(filename, &1 <> "-"))) do
+          %{
+            filename: filename,
+            url_count: stat["url_count"],
+            loc: "#{normalized_base}#{normalized_prefix}/sitemaps/#{filename}.xml"
+          }
+        end
+        |> Enum.sort_by(& &1.filename)
+    end
+  rescue
+    _ -> []
+  catch
+    :exit, _ -> []
+  end
+
   @doc """
   Collects URL entries from all enabled sources.
+
+  Streaming sources (`stream/1`) are not collected here — see
+  `PhoenixKit.Modules.Sitemap.Sources.Source.safe_collect/2`.
 
   When the Languages module is enabled, automatically collects entries for all
   enabled languages and adds hreflang alternate links.
@@ -690,19 +950,12 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
 
   defp collect_multilingual_entries(opts, sources, languages) do
     base_url = Keyword.get(opts, :base_url)
-    all_language_codes = Enum.map(languages, & &1.code)
 
     entries_by_language =
       languages
       |> Task.async_stream(
         fn lang ->
-          language_opts =
-            opts ++
-              [
-                language: lang.code,
-                is_default_language: lang.is_default,
-                all_languages: all_language_codes
-              ]
+          language_opts = language_opts(opts, lang, languages)
 
           entries =
             sources
@@ -725,9 +978,15 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
           acc
       end)
 
+    # A source is called once per language and should return only that
+    # language's entries. One that ignores `:language` (written while
+    # Languages was off) returns everything on every call, so the same `loc`
+    # arrives once per language; collapsed here, or every alternate below
+    # would be listed once per language too.
     all_entries =
       entries_by_language
       |> Enum.flat_map(fn {_lang, entries} -> entries end)
+      |> UrlEntry.dedupe_by_loc()
 
     non_default_codes =
       languages
@@ -758,6 +1017,7 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
             lang_code = extract_language_from_entry(entry, base_url)
             %{hreflang: lang_code, href: entry.loc}
           end)
+          |> Enum.uniq()
 
         alternates =
           if default_entry do
@@ -781,6 +1041,15 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
     end)
     |> UrlEntry.dedupe_by_loc()
     |> Enum.sort_by(& &1.loc)
+  end
+
+  defp language_opts(opts, lang, languages) do
+    opts ++
+      [
+        language: lang.code,
+        is_default_language: lang.is_default,
+        all_languages: Enum.map(languages, & &1.code)
+      ]
   end
 
   defp extract_language_from_entry(entry, base_url) do

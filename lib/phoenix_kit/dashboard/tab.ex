@@ -757,13 +757,18 @@ defmodule PhoenixKit.Dashboard.Tab do
   Empty strings resolve to the context root (e.g., `""` + `:admin` → `"/admin"`).
   """
   @spec resolve_path(t(), :admin | :settings | :user_dashboard) :: t()
-  def resolve_path(%__MODULE__{path: "/" <> _} = tab, _context), do: tab
-
-  def resolve_path(%__MODULE__{path: ""} = tab, context),
-    do: %{tab | path: context_to_prefix(context)}
-
   def resolve_path(%__MODULE__{path: path} = tab, context),
-    do: %{tab | path: "#{context_to_prefix(context)}/#{path}"}
+    do: %{tab | path: resolve_path_string(path, context)}
+
+  @doc """
+  The same rule as `resolve_path/2`, for a bare path string — used where a
+  tab is still a config map (the router's `:admin_dashboard_tabs` routes, the
+  admin fallback redirect), so a relative path lands where the sidebar links.
+  """
+  @spec resolve_path_string(String.t(), :admin | :settings | :user_dashboard) :: String.t()
+  def resolve_path_string("/" <> _ = path, _context), do: path
+  def resolve_path_string("", context), do: context_to_prefix(context)
+  def resolve_path_string(path, context), do: "#{context_to_prefix(context)}/#{path}"
 
   defp context_to_prefix(:admin), do: "/admin"
   defp context_to_prefix(:settings), do: "/admin/settings"

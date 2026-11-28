@@ -1838,6 +1838,14 @@ defmodule PhoenixKit.Modules.Storage do
     |> repo().update()
     |> tap(&if(Map.drop(changeset.changes, [:order]) != %{}, do: size_changed(&1)))
     |> tap(fn
+      {:ok, updated} when updated.name != dimension.name ->
+        # The set's watermark names its sizes: a renamed one keeps its place there.
+        VariantSets.rename_watermark_size(updated.variant_set_uuid, dimension.name, updated.name)
+
+      _ ->
+        :ok
+    end)
+    |> tap(fn
       {:ok, updated} ->
         Audit.log_update(
           "storage.variant_set.size_updated",

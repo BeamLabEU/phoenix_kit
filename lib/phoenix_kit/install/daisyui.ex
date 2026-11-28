@@ -17,7 +17,11 @@ defmodule PhoenixKit.Install.DaisyUI do
   does not manage or replace it; it only **checks** it.
   `mix phoenix_kit.install`, `mix phoenix_kit.update`, and
   `mix phoenix_kit.doctor` warn when the host's copy is older than
-  `minimum_version/0`, with upgrade instructions.
+  `minimum_version/0`, with upgrade instructions. Install and update print
+  the heads-up (`:behind`) once per kit/daisyUI version pair, remembered in
+  `.phoenix_kit.exs` (`outdated_notice/4`); a copy below
+  `gutter_fix_version/0` is warned about on every run, and the doctor always
+  reports.
 
   Why the minimum matters: daisyUI < 5.1 reserves the modal scrollbar gutter
   UNCONDITIONALLY while a modal/drawer is open, which either leaves a phantom
@@ -197,6 +201,68 @@ defmodule PhoenixKit.Install.DaisyUI do
   def outdated_warning(version, path \\ host_path()) when is_binary(version) do
     source = source(path)
     warning(severity(version), version, label(source), steps(source))
+  end
+
+  @doc """
+  The outdated-daisyUI warning `mix phoenix_kit.install` / `update` print, or
+  `nil` when there is nothing to say.
+
+  Below `gutter_fix_version/0` (`:broken`) it is returned on every run. In the
+  `:behind` band — a fresh `mix phx.new` app lands there — it is returned
+  once per `{kit version, detected daisyUI version}` pair: `remembered` is the
+  pair already shown (from the patch ledger, `.phoenix_kit.exs`), and a new
+  kit release or a different daisyUI shows it again.
+
+  Returns `{warning | nil, pair_to_remember | nil}`.
+  """
+  @spec outdated_notice(
+          :ok | {:outdated, String.t()} | :unversioned | :missing,
+          String.t(),
+          map() | nil,
+          Path.t()
+        ) :: {String.t() | nil, map() | nil}
+  def outdated_notice(check, kit_version, remembered, path \\ host_path())
+
+  def outdated_notice({:outdated, version}, kit_version, remembered, path) do
+    pair = %{kit: kit_version, daisyui: version}
+
+    cond do
+      severity(version) == :broken -> {outdated_warning(version, path), nil}
+      remembered == pair -> {nil, nil}
+      true -> {outdated_warning(version, path), pair}
+    end
+  end
+
+  def outdated_notice(_check, _kit_version, _remembered, _path), do: {nil, nil}
+
+  @doc """
+  `outdated_notice/4` for the project in the current directory, remembering
+  the pair in the patch ledger (`PhoenixKit.Install.PatchLedger`) unless
+  `remember?` is false (a dry run).
+  """
+  @spec notice_once(boolean()) :: String.t() | nil
+  def notice_once(remember? \\ true) do
+    alias PhoenixKit.Install.PatchLedger
+
+    kit = to_string(Application.spec(:phoenix_kit, :vsn) || "")
+    remembered = safe(fn -> PatchLedger.get(:daisyui_notice) end)
+
+    case outdated_notice(check(), kit, remembered) do
+      {warning, nil} ->
+        warning
+
+      {warning, pair} ->
+        if remember?, do: safe(fn -> PatchLedger.put(:daisyui_notice, pair) end)
+        warning
+    end
+  end
+
+  # An unreadable ledger must not hide the warning or stop the run over a
+  # notice; it is reported where the ledger is actually needed.
+  defp safe(fun) do
+    fun.()
+  rescue
+    _ -> nil
   end
 
   @doc "How the daisyUI copy is named in messages, by `source/1`."

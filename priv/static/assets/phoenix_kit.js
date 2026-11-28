@@ -37,6 +37,8 @@
  *     LibraryLoadNotice
  *   - MentionInput ............ @ and # menu in plain textareas
  *   - UploadStats, UploadGuard  Transfer line under an upload bar; leave-page guard
+ *   - PkUploadEdit ............ Crop/turn a photo before upload (<.file_upload edit_images>)
+ *   - FormDraft ............... Opt-in drafts of a form's fields in the browser
  *   - AudioRecorder ........... Microphone recorder behind <.audio_recorder>
  *   - PasskeySignIn, PasskeyRegister  Passkeys of the sign-in page and the Security tab
  *   - Turnstile ............... Cloudflare bot check on the public sign-up, magic-link,
@@ -8297,4 +8299,1410 @@ if (typeof window !== "undefined" && !(window.__pkBundleLoads > 1)) {
     module.exports.crosshairStep = crosshairStep;
     module.exports.crosshairText = crosshairText;
   }
+})();
+
+// ---------------------------------------------------------------------------
+// PHOTO GALLERY — the client half of `<.photo_gallery>`
+// (PhoenixKitWeb.Components.Core.PhotoGallery).
+//
+// Delegated, not a hook: the component renders on controller pages too.
+//
+//   [data-pk-gallery-root]            one gallery (its id is the gallery's)
+//   [data-pk-gallery-open="2"]        a click opens photo 2 (inside the root,
+//                                     or anywhere with data-pk-gallery="<id>")
+//   "pk:photo-gallery-open" event     on the root, detail {index}
+//                                     (PhotoGallery.open/3, a JS.dispatch)
+//   "phx:pk:photo-gallery-open"       push_event(socket, …, %{id:, index:})
+//
+// The lightbox is a native <dialog> (showModal: the page behind is inert, so
+// the focus cannot leave it). What moves — the strip of slides, a zoomed
+// photo, the drag-down — is style on elements under a phx-update="ignore"
+// container, so a LiveView patch never undoes it. Every listener of an open
+// gallery is added on open and removed on close.
+// ---------------------------------------------------------------------------
+(function () {
+  if (typeof window !== "undefined" && window.__pkBundleLoads > 1) return;
+  if (typeof window === "undefined") return;
+
+  var SWIPE_COMMIT = 0.25;   // of the width, to settle on a neighbour
+  var FLICK = 0.35;          // px/ms — a quick flick settles too
+  var DISMISS_COMMIT = 0.18; // of the height, to close by dragging down
+  var DISMISS_FLICK = 0.5;   // px/ms
+  var AXIS_SLOP = 8;         // px before a drag picks a direction
+  var TAP_SLOP = 10;         // px a tap may wander
+  var DOUBLE_TAP_MS = 300;
+  var DOUBLE_TAP_SCALE = 2.5;
+  var EASE = "cubic-bezier(0.22, 0.8, 0.25, 1)";
+  var SLIDE_MS = 300;
+
+  // ── Pure helpers (exported for test/js/photo_gallery.test.cjs) ─────────
+
+  function galleryClamp(index, count) {
+    if (!(count > 0)) return 0;
+    index = Math.round(Number(index) || 0);
+    return Math.max(0, Math.min(count - 1, index));
+  }
+
+  // "x" or "y" once the pointer has moved past the slop, else null.
+  function galleryAxis(dx, dy, slop) {
+    var ax = Math.abs(dx), ay = Math.abs(dy);
+    if (Math.max(ax, ay) < (slop == null ? AXIS_SLOP : slop)) return null;
+    return ax >= ay ? "x" : "y";
+  }
+
+  // Past the first or the last photo the strip gives way only a little.
+  function galleryRubber(dx, index, count) {
+    if ((index <= 0 && dx > 0) || (index >= count - 1 && dx < 0)) return dx * 0.35;
+    return dx;
+  }
+
+  // Where a horizontal drag of dx px (negative: towards the next photo),
+  // let go at vx px/ms, settles.
+  function gallerySwipeTarget(index, count, dx, vx, width) {
+    var far = Math.abs(dx) > (width || 1) * SWIPE_COMMIT;
+    var flick = Math.abs(vx) > FLICK && Math.abs(dx) > TAP_SLOP && (vx < 0) === (dx < 0);
+    if (!far && !flick) return galleryClamp(index, count);
+    return galleryClamp(index + (dx < 0 ? 1 : -1), count);
+  }
+
+  // Whether a downward drag of dy px, let go at vy px/ms, closes the lightbox.
+  function galleryDismiss(dy, vy, height) {
+    if (dy <= 0) return false;
+    return dy > (height || 1) * DISMISS_COMMIT || (vy > DISMISS_FLICK && dy > 30);
+  }
+
+  // The backdrop fades as the photo is dragged away.
+  function galleryDismissOpacity(dy, height) {
+    var h = height || 1;
+    return Math.max(0.15, 1 - Math.abs(dy) / (h * 0.6));
+  }
+
+  // A zoom {scale, x, y} (x, y: px the photo's centre is moved) kept so the
+  // photo, `w` × `h` at scale 1, covers what it can of a `vw` × `vh` box.
+  function galleryClampPan(z, w, h, vw, vh) {
+    var maxX = Math.max(0, (w * z.scale - vw) / 2);
+    var maxY = Math.max(0, (h * z.scale - vh) / 2);
+    return {
+      scale: z.scale,
+      x: Math.max(-maxX, Math.min(maxX, z.x)),
+      y: Math.max(-maxY, Math.min(maxY, z.y))
+    };
+  }
+
+  // Zoom to `scale` (clamped to 1…max) keeping the point (px, py) — measured
+  // from the photo's unzoomed centre — under the pointer.
+  function galleryZoomAt(z, scale, px, py, max) {
+    var s = Math.max(1, Math.min(max || 4, scale));
+    var k = s / z.scale;
+    if (s === 1) return { scale: 1, x: 0, y: 0 };
+    return { scale: s, x: px - (px - z.x) * k, y: py - (py - z.y) * k };
+  }
+
+  function galleryWheelScale(scale, deltaY, deltaMode) {
+    var per = deltaMode === 1 ? 0.05 : deltaMode === 2 ? 0.5 : 0.002;
+    var d = Math.max(-300, Math.min(300, deltaY));
+    return scale * Math.exp(-d * per);
+  }
+
+  function galleryDoubleTapScale(scale, max) {
+    return scale > 1.01 ? 1 : Math.min(DOUBLE_TAP_SCALE, max || 4);
+  }
+
+  // What a key does; ← and → swap on a right-to-left page.
+  function galleryKeyAction(key, rtl) {
+    switch (key) {
+      case "ArrowLeft": return rtl ? "next" : "prev";
+      case "ArrowRight": return rtl ? "prev" : "next";
+      case "Home": return "first";
+      case "End": return "last";
+      case "+": case "=": return "zoomIn";
+      case "-": case "_": return "zoomOut";
+      case "0": return "reset";
+      default: return null;
+    }
+  }
+
+  // The photos to load now: the one shown and its neighbours.
+  function galleryNeighbours(index, count) {
+    var out = [];
+    for (var i = index - 1; i <= index + 1; i++) if (i >= 0 && i < count) out.push(i);
+    return out;
+  }
+
+  function galleryFormat(template, n, count) {
+    return String(template || "{n} / {count}").replace("{n}", n).replace("{count}", count);
+  }
+
+  if (typeof module === "object" && module.exports) {
+    module.exports.photoGallery = {
+      clamp: galleryClamp, axis: galleryAxis, rubber: galleryRubber,
+      swipeTarget: gallerySwipeTarget, dismiss: galleryDismiss,
+      dismissOpacity: galleryDismissOpacity, clampPan: galleryClampPan,
+      zoomAt: galleryZoomAt, wheelScale: galleryWheelScale,
+      doubleTapScale: galleryDoubleTapScale, keyAction: galleryKeyAction,
+      neighbours: galleryNeighbours, format: galleryFormat
+    };
+  }
+
+  if (typeof document === "undefined" || !document.addEventListener) return;
+
+  // ── The lightbox ────────────────────────────────────────────────────────
+
+  function reducedMotion() {
+    return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  }
+
+  function isRtl(el) {
+    var d = el && el.closest && el.closest("[dir]");
+    return !!d && String(d.getAttribute("dir")).toLowerCase() === "rtl";
+  }
+
+  function Gallery(root) {
+    this.root = root;
+    this.index = 0;
+    this.z = { scale: 1, x: 0, y: 0 };
+    this.pointers = {};
+    this.gesture = null;
+    this.lastTap = null;
+    this.opener = null;
+    this.listeners = null;
+  }
+
+  Gallery.prototype.parts = function() {
+    var dialog = this.root.querySelector("[data-pk-gallery-dialog]");
+    var stage = dialog && dialog.querySelector("[data-pk-gallery-stage]");
+    if (!stage) return null;
+    return {
+      dialog: dialog,
+      stage: stage,
+      viewport: stage.querySelector("[data-pk-gallery-viewport]"),
+      track: stage.querySelector("[data-pk-gallery-track]"),
+      backdrop: stage.querySelector("[data-pk-gallery-backdrop]"),
+      slides: stage.querySelectorAll("[data-pk-gallery-slide]"),
+      count: stage.querySelectorAll("[data-pk-gallery-slide]").length
+    };
+  };
+
+  Gallery.prototype.maxZoom = function() {
+    var m = parseFloat(this.root.getAttribute("data-pk-gallery-max-zoom"));
+    return m >= 1 ? m : 4;
+  };
+
+  Gallery.prototype.open = function(index, opener) {
+    var p = this.parts();
+    if (!p || !p.count) return;
+    this.p = p;
+    this.opener = opener || document.activeElement;
+    this.rtl = isRtl(this.root);
+    if (!p.dialog.open) {
+      if (typeof p.dialog.showModal === "function") p.dialog.showModal();
+      else p.dialog.setAttribute("open", "");
+      this.bind();
+    }
+    this.go(index, false);
+    var close = p.stage.querySelector("[data-pk-gallery-close]");
+    if (close && close.focus) close.focus({ preventScroll: true });
+  };
+
+  Gallery.prototype.bind = function() {
+    var self = this, p = this.p;
+    var ctl = typeof AbortController === "function" ? new AbortController() : null;
+    var list = [];
+    function on(el, type, fn, opts) {
+      if (!el) return;
+      opts = opts || {};
+      if (ctl) opts.signal = ctl.signal;
+      el.addEventListener(type, fn, opts);
+      list.push([el, type, fn, opts]);
+    }
+    on(p.viewport, "pointerdown", function(e) { self.down(e); });
+    on(p.viewport, "pointermove", function(e) { self.move(e); });
+    on(p.viewport, "pointerup", function(e) { self.up(e); });
+    on(p.viewport, "pointercancel", function(e) { self.up(e, true); });
+    on(p.viewport, "wheel", function(e) { self.wheel(e); }, { passive: false });
+    on(p.viewport, "dragstart", function(e) { e.preventDefault(); });
+    on(p.stage, "click", function(e) { self.click(e); });
+    on(p.dialog, "keydown", function(e) { self.key(e); });
+    // Esc: the dialog's own cancel. Closed however it was: tidy up.
+    on(p.dialog, "close", function() { self.closed(); });
+    on(window, "resize", function() { if (!self.gone()) self.resized(); });
+    // Removed while open (a live navigation or a patch) fires no `close`:
+    // watch for the dialog leaving the page and tidy up then.
+    var mo = null;
+    if (typeof MutationObserver === "function" && document.body) {
+      mo = new MutationObserver(function() { self.gone(); });
+      mo.observe(document.body, { childList: true, subtree: true });
+    }
+    this.listeners = { ctl: ctl, list: list, mo: mo };
+  };
+
+  // True (and the lightbox torn down) once its dialog is no longer in the page.
+  Gallery.prototype.gone = function() {
+    var d = this.p && this.p.dialog;
+    if (!d || d.isConnected !== false) return false;
+    this.closed();
+    return true;
+  };
+
+  Gallery.prototype.unbind = function() {
+    var l = this.listeners;
+    this.listeners = null;
+    if (!l) return;
+    if (l.mo) l.mo.disconnect();
+    if (l.ctl) { l.ctl.abort(); return; }
+    l.list.forEach(function(x) { x[0].removeEventListener(x[1], x[2], x[3]); });
+  };
+
+  Gallery.prototype.close = function() {
+    var p = this.p;
+    if (p && p.dialog.open && typeof p.dialog.close === "function") p.dialog.close();
+    else this.closed();
+  };
+
+  Gallery.prototype.closed = function() {
+    this.unbind();
+    this.resetZoom(false);
+    this.dragY(0, false);
+    this.pointers = {};
+    this.gesture = null;
+    if (this.p && this.p.dialog.hasAttribute("open") && typeof this.p.dialog.close !== "function") {
+      this.p.dialog.removeAttribute("open");
+    }
+    var back = this.opener;
+    this.opener = null;
+    if (back && back.isConnected !== false && back.focus) back.focus({ preventScroll: true });
+  };
+
+  Gallery.prototype.width = function() {
+    return (this.p && this.p.viewport && this.p.viewport.clientWidth) || window.innerWidth || 1;
+  };
+
+  Gallery.prototype.height = function() {
+    return (this.p && this.p.viewport && this.p.viewport.clientHeight) || window.innerHeight || 1;
+  };
+
+  Gallery.prototype.transition = function(el, animate, prop) {
+    el.style.transition = animate && !reducedMotion() ? (prop || "transform") + " " + SLIDE_MS + "ms " + EASE : "none";
+  };
+
+  Gallery.prototype.layout = function(animate, offset) {
+    var t = this.p && this.p.track;
+    if (!t) return;
+    this.transition(t, animate);
+    var x = -this.index * this.width() + (offset || 0);
+    t.style.transform = "translate3d(" + x + "px,0,0)";
+  };
+
+  // A new viewport: the strip moves with it and a zoomed photo is kept
+  // within the new bounds (the old pan could leave it off-screen).
+  Gallery.prototype.resized = function() {
+    this.layout(false);
+    if (this.z.scale > 1) this.applyZoom(this.z, false);
+  };
+
+  Gallery.prototype.go = function(index, animate) {
+    var p = this.p;
+    if (!p) return;
+    var next = galleryClamp(index, p.count);
+    var changed = next !== this.index;
+    if (changed) this.resetZoom(false);
+    this.index = next;
+    this.layout(animate !== false);
+    var near = galleryNeighbours(next, p.count);
+    p.slides.forEach(function(slide, i) {
+      var on = i === next;
+      if (on) { slide.removeAttribute("aria-hidden"); slide.removeAttribute("inert"); }
+      else { slide.setAttribute("aria-hidden", "true"); slide.setAttribute("inert", ""); }
+      if (near.indexOf(i) !== -1) {
+        var img = slide.querySelector("img");
+        if (img && img.getAttribute("loading") === "lazy") img.setAttribute("loading", "eager");
+      }
+    });
+    p.stage.setAttribute("data-index", String(next));
+    p.stage.querySelectorAll("[data-pk-gallery-caption],[data-pk-gallery-actions]").forEach(function(el) {
+      var i = parseInt(el.getAttribute("data-pk-gallery-caption") || el.getAttribute("data-pk-gallery-actions"), 10);
+      el.hidden = i !== next;
+    });
+    var counter = p.stage.querySelector("[data-pk-gallery-counter]");
+    if (counter) counter.textContent = galleryFormat(counter.getAttribute("data-template"), next + 1, p.count);
+    var prev = p.stage.querySelector("[data-pk-gallery-prev]");
+    var fwd = p.stage.querySelector("[data-pk-gallery-next]");
+    if (prev) prev.disabled = next === 0;
+    if (fwd) fwd.disabled = next === p.count - 1;
+    var live = p.stage.querySelector("[data-pk-gallery-live]");
+    if (live && changed) live.textContent = p.slides[next].getAttribute("aria-label") || "";
+  };
+
+  Gallery.prototype.img = function() {
+    var slide = this.p && this.p.slides[this.index];
+    return slide && slide.querySelector("[data-pk-gallery-img]");
+  };
+
+  // The photo's size at scale 1 and its unzoomed centre on screen.
+  Gallery.prototype.base = function() {
+    var img = this.img();
+    if (!img) return null;
+    var r = img.getBoundingClientRect();
+    var s = this.z.scale;
+    return {
+      w: r.width / s, h: r.height / s,
+      cx: r.left + r.width / 2 - this.z.x, cy: r.top + r.height / 2 - this.z.y
+    };
+  };
+
+  Gallery.prototype.applyZoom = function(z, animate) {
+    var img = this.img();
+    var b = this.base();
+    if (b) z = galleryClampPan(z, b.w, b.h, this.width(), this.height());
+    this.z = z;
+    if (!img) return;
+    this.transition(img, animate);
+    img.style.transform = z.scale === 1 ? "" : "translate3d(" + z.x + "px," + z.y + "px,0) scale(" + z.scale + ")";
+    img.style.cursor = z.scale > 1 ? "grab" : "";
+  };
+
+  Gallery.prototype.zoomTo = function(scale, clientX, clientY, animate) {
+    var b = this.base();
+    if (!b) return;
+    var px = clientX == null ? 0 : clientX - b.cx;
+    var py = clientY == null ? 0 : clientY - b.cy;
+    this.applyZoom(galleryZoomAt(this.z, scale, px, py, this.maxZoom()), animate);
+  };
+
+  Gallery.prototype.resetZoom = function(animate) {
+    var img = this.img();
+    this.z = { scale: 1, x: 0, y: 0 };
+    if (img) { this.transition(img, animate); img.style.transform = ""; img.style.cursor = ""; }
+  };
+
+  Gallery.prototype.dragY = function(dy, animate) {
+    var p = this.p;
+    if (!p) return;
+    var slide = p.slides[this.index];
+    var box = slide && slide.querySelector("[data-pk-gallery-zoom]");
+    if (box) {
+      this.transition(box, animate);
+      box.style.transform = dy ? "translate3d(0," + dy + "px,0) scale(" + (1 - Math.min(0.25, Math.abs(dy) / (this.height() * 3))) + ")" : "";
+    }
+    if (p.backdrop) {
+      this.transition(p.backdrop, animate, "opacity");
+      p.backdrop.style.opacity = dy ? String(galleryDismissOpacity(dy, this.height())) : "";
+    }
+  };
+
+  // ── Pointers ────────────────────────────────────────────────────────────
+
+  function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+  function mid(a, b) { return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; }
+  function pts(map) { return Object.keys(map).map(function(k) { return map[k]; }); }
+
+  Gallery.prototype.down = function(e) {
+    if (e.button && e.button !== 0) return;
+    if (e.target && e.target.closest && e.target.closest("a,button,input,textarea,select,label")) return;
+    this.pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+    try { this.p.viewport.setPointerCapture(e.pointerId); } catch (_) { /* not capturable */ }
+    var list = pts(this.pointers);
+    var now = e.timeStamp || Date.now();
+    if (list.length >= 2) {
+      var c = mid(list[0], list[1]);
+      this.layout(false);
+      this.dragY(0, false);
+      this.gesture = { kind: "pinch", d0: dist(list[0], list[1]) || 1, c0: c, z0: this.z, base: this.base() };
+    } else {
+      this.gesture = {
+        kind: "drag", axis: null, x0: e.clientX, y0: e.clientY, t0: now,
+        lx: e.clientX, ly: e.clientY, lt: now, vx: 0, vy: 0, z0: this.z,
+        onImg: !!(e.target && e.target.closest && e.target.closest("[data-pk-gallery-img]")),
+        moved: false
+      };
+    }
+  };
+
+  Gallery.prototype.move = function(e) {
+    if (!this.pointers[e.pointerId]) return;
+    this.pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var g = this.gesture;
+    if (!g) return;
+    e.preventDefault();
+    if (g.kind === "pinch") {
+      var list = pts(this.pointers);
+      if (list.length < 2 || !g.base) return;
+      var c = mid(list[0], list[1]);
+      var scale = g.z0.scale * dist(list[0], list[1]) / g.d0;
+      var z = galleryZoomAt(g.z0, scale, g.c0.x - g.base.cx, g.c0.y - g.base.cy, this.maxZoom());
+      z.x += c.x - g.c0.x;
+      z.y += c.y - g.c0.y;
+      if (z.scale === 1) { z.x = 0; z.y = 0; }
+      this.applyZoom(z, false);
+      return;
+    }
+    var now = e.timeStamp || Date.now();
+    var dt = Math.max(1, now - g.lt);
+    g.vx = (e.clientX - g.lx) / dt;
+    g.vy = (e.clientY - g.ly) / dt;
+    g.lx = e.clientX; g.ly = e.clientY; g.lt = now;
+    var dx = e.clientX - g.x0, dy = e.clientY - g.y0;
+    if (Math.abs(dx) > TAP_SLOP || Math.abs(dy) > TAP_SLOP) g.moved = true;
+    if (g.z0.scale > 1) {
+      this.applyZoom({ scale: g.z0.scale, x: g.z0.x + dx, y: g.z0.y + dy }, false);
+      return;
+    }
+    if (!g.axis) g.axis = galleryAxis(dx, dy);
+    if (g.axis === "x") this.layout(false, galleryRubber(dx, this.index, this.p.count));
+    else if (g.axis === "y") this.dragY(dy > 0 ? dy : dy * 0.2, false);
+  };
+
+  Gallery.prototype.up = function(e, cancelled) {
+    if (!this.pointers[e.pointerId]) return;
+    delete this.pointers[e.pointerId];
+    var g = this.gesture;
+    if (!g) return;
+    if (g.kind === "pinch") {
+      // One finger stays down: nothing more until both are lifted.
+      if (pts(this.pointers).length) { this.gesture = null; return; }
+      this.gesture = null;
+      if (this.z.scale < 1.02) this.resetZoom(true);
+      return;
+    }
+    this.gesture = null;
+    var dx = e.clientX - g.x0, dy = e.clientY - g.y0;
+    if (cancelled) { this.layout(true); this.dragY(0, true); return; }
+    if (g.axis === "x" && g.z0.scale === 1) {
+      this.go(gallerySwipeTarget(this.index, this.p.count, dx, g.vx, this.width()), true);
+      this.suppressClick = true;
+      return;
+    }
+    if (g.axis === "y" && g.z0.scale === 1) {
+      this.suppressClick = true;
+      if (galleryDismiss(dy, g.vy, this.height())) this.close();
+      else this.dragY(0, true);
+      return;
+    }
+    if (g.moved) { this.suppressClick = true; return; }
+    // A tap: twice on the photo zooms there, once beside it closes.
+    var now = e.timeStamp || Date.now();
+    var last = this.lastTap;
+    if (g.onImg) {
+      if (last && now - last.t < DOUBLE_TAP_MS && Math.hypot(e.clientX - last.x, e.clientY - last.y) < TAP_SLOP * 3) {
+        this.lastTap = null;
+        this.zoomTo(galleryDoubleTapScale(this.z.scale, this.maxZoom()), e.clientX, e.clientY, true);
+      } else {
+        this.lastTap = { t: now, x: e.clientX, y: e.clientY };
+      }
+    } else if (this.z.scale === 1) {
+      this.close();
+    }
+  };
+
+  Gallery.prototype.wheel = function(e) {
+    e.preventDefault();
+    this.zoomTo(galleryWheelScale(this.z.scale, e.deltaY, e.deltaMode), e.clientX, e.clientY, false);
+  };
+
+  Gallery.prototype.click = function(e) {
+    var t = e.target;
+    if (this.suppressClick) { this.suppressClick = false; if (t && t.closest && t.closest("[data-pk-gallery-viewport]")) return; }
+    if (!t || !t.closest) return;
+    if (t.closest("[data-pk-gallery-close]")) { e.preventDefault(); this.close(); }
+    else if (t.closest("[data-pk-gallery-prev]")) { e.preventDefault(); this.go(this.index - 1, true); }
+    else if (t.closest("[data-pk-gallery-next]")) { e.preventDefault(); this.go(this.index + 1, true); }
+  };
+
+  Gallery.prototype.key = function(e) {
+    var t = e.target;
+    if (t && t.closest && t.closest("input,textarea,select,[contenteditable]")) return;
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    var a = galleryKeyAction(e.key, this.rtl);
+    if (!a) return;
+    e.preventDefault();
+    if (a === "prev") this.go(this.index - 1, true);
+    else if (a === "next") this.go(this.index + 1, true);
+    else if (a === "first") this.go(0, true);
+    else if (a === "last") this.go(this.p.count - 1, true);
+    else if (a === "zoomIn") this.zoomTo(this.z.scale * 1.5, null, null, true);
+    else if (a === "zoomOut") this.zoomTo(this.z.scale / 1.5, null, null, true);
+    else if (a === "reset") this.resetZoom(true);
+  };
+
+  function galleryFor(root) {
+    if (!root) return null;
+    if (!root._pkGallery) root._pkGallery = new Gallery(root);
+    return root._pkGallery;
+  }
+
+  function rootOf(el) {
+    if (!el || !el.closest) return null;
+    var named = el.getAttribute && el.getAttribute("data-pk-gallery");
+    if (named) {
+      var r = document.getElementById(named);
+      if (r && r.hasAttribute("data-pk-gallery-root")) return r;
+    }
+    return el.closest("[data-pk-gallery-root]");
+  }
+
+  document.addEventListener("click", function(e) {
+    var btn = e.target && e.target.closest && e.target.closest("[data-pk-gallery-open]");
+    if (!btn) return;
+    var g = galleryFor(rootOf(btn));
+    if (!g) return;
+    e.preventDefault();
+    g.open(parseInt(btn.getAttribute("data-pk-gallery-open"), 10) || 0, btn);
+  });
+
+  document.addEventListener("pk:photo-gallery-open", function(e) {
+    var g = galleryFor(e.target && e.target.closest && e.target.closest("[data-pk-gallery-root]"));
+    if (g) g.open((e.detail && parseInt(e.detail.index, 10)) || 0, document.activeElement);
+  });
+
+  window.addEventListener("phx:pk:photo-gallery-open", function(e) {
+    var id = e.detail && e.detail.id;
+    var root = typeof id === "string" && id ? document.getElementById(id) : null;
+    if (root && root.hasAttribute("data-pk-gallery-root")) {
+      galleryFor(root).open(parseInt(e.detail.index, 10) || 0, document.activeElement);
+    }
+  });
+})();
+
+// ---------------------------------------------------------------------------
+// PkUploadEdit — `<.file_upload edit_images>`: crop, turn and flip a photo
+// in the browser before it is uploaded.
+//
+// The hook wraps the live file input (and its drop zone). A selection or a
+// drop is taken in the capture phase, before LiveView's window listeners see
+// it; each JPEG/PNG/WebP is shown in the dialog the component rendered; the
+// results go to LiveView through the hook's `upload(name, files)`, as if the
+// person had chosen them. Anything else goes up untouched.
+//
+// The crop geometry (`imageEditorRect`) is the stored-image editor's
+// (ImageEditor in phoenix_kit_admin.js reads it from PhoenixKitInternals).
+// ---------------------------------------------------------------------------
+(function () {
+  if (typeof window !== "undefined" && window.__pkBundleLoads > 1) return;
+  if (typeof window === "undefined") return;
+  window.PhoenixKitHooks = window.PhoenixKitHooks || {};
+
+  function clamp(v, lo, hi) {
+    return Math.min(hi, Math.max(lo, v));
+  }
+
+  // The rectangle spanned by two points (percent of the frame), kept inside
+  // the frame. `aspect` is [w, h] in pixels and `frame` the frame's pixel
+  // size: the rectangle then has that shape, grown from `start` toward
+  // `end` and shrunk (not distorted) where it would leave the frame.
+  function imageEditorRect(start, end, aspect, frame) {
+    var a = { x: clamp(start.x, 0, 100), y: clamp(start.y, 0, 100) };
+    var b = { x: clamp(end.x, 0, 100), y: clamp(end.y, 0, 100) };
+
+    if (!aspect || !frame) {
+      return {
+        x: Math.min(a.x, b.x),
+        y: Math.min(a.y, b.y),
+        w: Math.abs(b.x - a.x),
+        h: Math.abs(b.y - a.y)
+      };
+    }
+
+    var ratio = aspect[0] / aspect[1];
+    var dirX = b.x < a.x ? -1 : 1;
+    var dirY = b.y < a.y ? -1 : 1;
+    // Room from the start point to the frame edge in the drag direction, px.
+    var roomW = ((dirX < 0 ? a.x : 100 - a.x) / 100) * frame[0];
+    var roomH = ((dirY < 0 ? a.y : 100 - a.y) / 100) * frame[1];
+
+    var wPx = (Math.abs(b.x - a.x) / 100) * frame[0];
+    var hPx = (Math.abs(b.y - a.y) / 100) * frame[1];
+    // The larger side of the drag decides the size.
+    if (wPx / ratio >= hPx) {
+      hPx = wPx / ratio;
+    } else {
+      wPx = hPx * ratio;
+    }
+    // Shrink to fit, keeping the shape.
+    var fit = Math.min(1, wPx > 0 ? roomW / wPx : 1, hPx > 0 ? roomH / hPx : 1);
+    wPx *= fit;
+    hPx *= fit;
+
+    var w = (wPx / frame[0]) * 100;
+    var h = (hPx / frame[1]) * 100;
+    return {
+      x: dirX < 0 ? a.x - w : a.x,
+      y: dirY < 0 ? a.y - h : a.y,
+      w: w,
+      h: h
+    };
+  }
+
+  window.PhoenixKitInternals = window.PhoenixKitInternals || {};
+  window.PhoenixKitInternals.imageEditorRect = imageEditorRect;
+
+  // ── Pure helpers (exported for test/js/upload_edit.test.cjs) ───────────
+
+  var EDITABLE = ["image/jpeg", "image/png", "image/webp"];
+  // Every dialog button but Remove: off while a photo decodes.
+  var EDIT_CONTROLS = "[data-pk-edit-rotate],[data-pk-edit-flip],[data-pk-edit-aspect]," +
+    "[data-pk-edit-reset],[data-pk-edit-original],[data-pk-edit-apply]";
+
+  function uploadEditable(file) {
+    return !!file && EDITABLE.indexOf(String(file.type).toLowerCase()) !== -1;
+  }
+
+  // A quarter turn more (dir 90) or less (-90), kept in 0…270.
+  function uploadEditRotate(rotation, dir) {
+    return (((rotation + dir) % 360) + 360) % 360;
+  }
+
+  // The stored turn after the person turns the picture on screen by `dir`
+  // (90 = clockwise). The transform mirrors after it turns, and a mirror
+  // reverses a turn, so with the mirror on the stored turn goes the other
+  // way: what is shown always turns the way the button says.
+  function uploadEditTurn(rotation, flip, dir) {
+    return uploadEditRotate(rotation, flip ? -dir : dir);
+  }
+
+  // The picture's size once turned.
+  function uploadEditDims(w, h, rotation) {
+    return rotation === 90 || rotation === 270 ? [h, w] : [w, h];
+  }
+
+  // The canvas transform drawing a `w` × `h` source turned `rotation`
+  // degrees clockwise, mirrored when `flip`, at `scale`, with the frame's
+  // point (ox, oy) — in turned, unscaled pixels — at the canvas origin.
+  function uploadEditMatrix(w, h, rotation, flip, scale, ox, oy) {
+    var m;
+    if (rotation === 90) m = [0, 1, -1, 0, h, 0];
+    else if (rotation === 180) m = [-1, 0, 0, -1, w, h];
+    else if (rotation === 270) m = [0, -1, 1, 0, 0, w];
+    else m = [1, 0, 0, 1, 0, 0];
+    if (flip) {
+      var W = uploadEditDims(w, h, rotation)[0];
+      m = [-m[0], m[1], -m[2], m[3], W - m[4], m[5]];
+    }
+    var s = scale || 1;
+    return [m[0] * s, m[1] * s, m[2] * s, m[3] * s, (m[4] - (ox || 0)) * s, (m[5] - (oy || 0)) * s];
+  }
+
+  // A crop in percent of the turned frame as whole pixels inside it; the
+  // whole frame when there is none (or it is too small to mean anything).
+  function uploadEditCropPixels(rect, W, H) {
+    if (!rect || rect.w < 0.5 || rect.h < 0.5) return { x: 0, y: 0, w: W, h: H };
+    var x = clamp(Math.round(rect.x / 100 * W), 0, W - 1);
+    var y = clamp(Math.round(rect.y / 100 * H), 0, H - 1);
+    var w = clamp(Math.round(rect.w / 100 * W), 1, W - x);
+    var h = clamp(Math.round(rect.h / 100 * H), 1, H - y);
+    return { x: x, y: y, w: w, h: h };
+  }
+
+  // The largest crop of `aspect` ([w, h]) centred in a `W` × `H` frame, in percent.
+  function uploadEditCenteredCrop(aspect, W, H) {
+    if (!aspect) return null;
+    var ratio = aspect[0] / aspect[1];
+    var w = W, h = W / ratio;
+    if (h > H) { h = H; w = H * ratio; }
+    var pw = w / W * 100, ph = h / H * 100;
+    return { x: (100 - pw) / 2, y: (100 - ph) / 2, w: pw, h: ph };
+  }
+
+  function uploadEditAspect(value) {
+    if (!value) return null;
+    var parts = String(value).split("/").map(Number);
+    return parts.length === 2 && parts[0] > 0 && parts[1] > 0 ? parts : null;
+  }
+
+  // Whether an `accept` attribute ("" when none) lets a PNG through.
+  function uploadEditAcceptsPng(accept) {
+    var list = String(accept || "").split(",").map(function (x) { return x.trim().toLowerCase(); }).filter(Boolean);
+    if (!list.length) return true;
+    return list.some(function (x) { return x === ".png" || x === "image/png" || x === "image/*" || x === "*/*"; });
+  }
+
+  // What the encoded edit goes up as — {type, name} — or null when it cannot
+  // go up: no blob (a canvas too large to encode), or a type other than the
+  // one asked for. A browser without a WebP encoder answers PNG; that PNG is
+  // the edit, so it goes up named .png when the input accepts PNG.
+  function uploadEditEncoded(blob, type, name, accept) {
+    if (!blob) return null;
+    if (!blob.type || blob.type === type) return { type: type, name: name };
+    if (type === "image/webp" && blob.type === "image/png" && uploadEditAcceptsPng(accept)) {
+      var base = String(name || "photo").replace(/\.[^./\\]*$/, "");
+      return { type: "image/png", name: (base || "photo") + ".png" };
+    }
+    return null;
+  }
+
+  // Whether anything was changed at all: an unchanged photo goes up as it was.
+  function uploadEditChanged(state) {
+    return !!state && (state.rotation !== 0 || !!state.flip || !!(state.crop && state.crop.w >= 0.5 && state.crop.h >= 0.5));
+  }
+
+  if (typeof module === "object" && module.exports) {
+    module.exports.imageEditorRect = imageEditorRect;
+    module.exports.uploadEdit = {
+      editable: uploadEditable, rotate: uploadEditRotate, turn: uploadEditTurn, dims: uploadEditDims,
+      matrix: uploadEditMatrix, cropPixels: uploadEditCropPixels,
+      centeredCrop: uploadEditCenteredCrop, aspect: uploadEditAspect,
+      changed: uploadEditChanged, encoded: uploadEditEncoded, acceptsPng: uploadEditAcceptsPng
+    };
+  }
+
+  // ── The hook ────────────────────────────────────────────────────────────
+
+  window.PhoenixKitHooks.PkUploadEdit = {
+    mounted() {
+      var self = this;
+      this._queue = [];
+      this._done = [];
+      this._passing = false;
+
+      // A selection from the file chooser.
+      this._onInput = function (e) {
+        if (self._passing) return;
+        var input = e.target;
+        if (!input || input.type !== "file" || !self.el.contains(input)) return;
+        e.stopPropagation();
+        var files = Array.prototype.slice.call(input.files || []);
+        // The same selection fires `input` and then `change`; take it once.
+        try { input.value = ""; } catch (_) { /* read-only in old browsers */ }
+        if (files.length) self._take(files);
+      };
+      // A drop on the drop zone, before LiveView tracks it.
+      this._onDrop = function (e) {
+        var zone = e.target && e.target.closest && e.target.closest("[phx-drop-target],[data-phx-drop-target]");
+        var files = e.dataTransfer && e.dataTransfer.files;
+        if (!zone || !files || !files.length) return;
+        e.preventDefault();
+        e.stopPropagation();
+        zone.classList.remove("phx-drop-target-active");
+        self._take(Array.prototype.slice.call(files));
+      };
+
+      this.el.addEventListener("input", this._onInput, true);
+      this.el.addEventListener("change", this._onInput, true);
+      this.el.addEventListener("drop", this._onDrop, true);
+      this._bindDialog();
+    },
+
+    destroyed() {
+      this.el.removeEventListener("input", this._onInput, true);
+      this.el.removeEventListener("change", this._onInput, true);
+      this.el.removeEventListener("drop", this._onDrop, true);
+      this._release();
+    },
+
+    _input() {
+      return this.el.querySelector('input[type="file"]');
+    },
+
+    _take(files) {
+      var input = this._input();
+      // Several files on a single-entry input (a drop: the chooser cannot
+      // pick more than one): hand LiveView the whole drop, unedited, so its
+      // max_entries rule rejects it with :too_many_files as it would
+      // without the editor, instead of quietly keeping only the first.
+      if (input && !input.hasAttribute("multiple") && files.length > 1) {
+        this._handOver(files);
+        return;
+      }
+      this._queue = this._queue.concat(files);
+      if (!this._current) this._next();
+    },
+
+    _next() {
+      while (this._queue.length && !uploadEditable(this._queue[0])) this._done.push(this._queue.shift());
+      if (!this._queue.length) {
+        this._closeDialog();
+        this._send();
+        return;
+      }
+      this._edit(this._queue.shift());
+    },
+
+    _send() {
+      var files = this._done;
+      this._done = [];
+      this._handOver(files);
+    },
+
+    _handOver(files) {
+      if (!files.length) return;
+      this._passing = true;
+      try {
+        this.upload(this.el.dataset.uploadName, files);
+      } finally {
+        this._passing = false;
+      }
+    },
+
+    _dialog() {
+      return this.el.querySelector("[data-pk-edit-dialog]");
+    },
+
+    _bindDialog() {
+      var self = this;
+      var d = this._dialog();
+      if (!d || d._pkUploadEdit) return;
+      d._pkUploadEdit = true;
+      d.addEventListener("click", function (e) {
+        var t = e.target && e.target.closest ? e.target.closest("button") : null;
+        if (!t || !self._current) return;
+        e.preventDefault();
+        // Until the photo shown is the current one, only Remove works: the
+        // dialog may still show the previous photo.
+        if (!self._img && !t.hasAttribute("data-pk-edit-skip")) return;
+        var s = self._state;
+        if (!t.hasAttribute("data-pk-edit-apply") && !t.hasAttribute("data-pk-edit-original") &&
+          !t.hasAttribute("data-pk-edit-skip")) self._failed(false);
+        if (t.hasAttribute("data-pk-edit-rotate")) {
+          s.rotation = uploadEditTurn(s.rotation, s.flip, parseInt(t.getAttribute("data-pk-edit-rotate"), 10) || 0);
+          s.crop = null;
+          self._draw();
+          if (s.aspect) self._setCrop(uploadEditCenteredCrop(s.aspect, self._frame[0], self._frame[1]));
+        } else if (t.hasAttribute("data-pk-edit-flip")) {
+          s.flip = !s.flip;
+          t.setAttribute("aria-pressed", String(s.flip));
+          if (s.crop) s.crop = { x: 100 - s.crop.x - s.crop.w, y: s.crop.y, w: s.crop.w, h: s.crop.h };
+          self._draw();
+        } else if (t.hasAttribute("data-pk-edit-aspect")) {
+          s.aspect = uploadEditAspect(t.getAttribute("data-pk-edit-aspect"));
+          d.querySelectorAll("[data-pk-edit-aspect]").forEach(function (b) {
+            b.setAttribute("aria-pressed", String(b === t));
+          });
+          self._setCrop(uploadEditCenteredCrop(s.aspect, self._frame[0], self._frame[1]));
+        } else if (t.hasAttribute("data-pk-edit-reset")) {
+          self._resetState();
+          self._draw();
+        } else if (t.hasAttribute("data-pk-edit-skip")) {
+          self._finish(null);
+        } else if (t.hasAttribute("data-pk-edit-original")) {
+          self._finish(self._current);
+        } else if (t.hasAttribute("data-pk-edit-apply")) {
+          self._apply();
+        }
+      });
+      // Esc closes the dialog: the photo is not uploaded (nothing goes up
+      // that the person did not confirm).
+      d.addEventListener("cancel", function (e) {
+        e.preventDefault();
+        if (self._current) self._finish(null);
+      });
+
+      var frame = d.querySelector("[data-pk-edit-frame]");
+      if (!frame) return;
+      frame.addEventListener("pointerdown", function (e) {
+        if (!self._current || !self._img || (e.button && e.button !== 0)) return;
+        e.preventDefault();
+        self._box = frame.getBoundingClientRect();
+        self._start = self._point(e);
+        try { frame.setPointerCapture(e.pointerId); } catch (_) { /* not capturable */ }
+      });
+      frame.addEventListener("pointermove", function (e) {
+        if (!self._start) return;
+        self._showCrop(self._rectTo(self._point(e)));
+      });
+      var end = function (e) {
+        if (!self._start) return;
+        var rect = self._rectTo(self._point(e));
+        self._start = null;
+        // A click, not a drag: keep what was there.
+        if (rect.w < 0.5 || rect.h < 0.5) { self._showCrop(self._state.crop); return; }
+        self._setCrop(rect);
+        // A new crop is a new edit: a smaller one may encode where the last failed.
+        self._failed(false);
+      };
+      frame.addEventListener("pointerup", end);
+      frame.addEventListener("pointercancel", function () {
+        self._start = null;
+        self._showCrop(self._state && self._state.crop);
+      });
+    },
+
+    _point(e) {
+      var b = this._box;
+      return { x: (e.clientX - b.left) / b.width * 100, y: (e.clientY - b.top) / b.height * 100 };
+    },
+
+    _rectTo(end) {
+      return imageEditorRect(this._start, end, this._state.aspect, this._frame);
+    },
+
+    _setCrop(rect) {
+      this._state.crop = rect;
+      this._showCrop(rect);
+    },
+
+    _showCrop(rect) {
+      var d = this._dialog();
+      var box = d && d.querySelector("[data-pk-edit-crop]");
+      if (!box) return;
+      if (!rect || rect.w < 0.5 || rect.h < 0.5) { box.hidden = true; return; }
+      box.hidden = false;
+      box.style.left = rect.x + "%";
+      box.style.top = rect.y + "%";
+      box.style.width = rect.w + "%";
+      box.style.height = rect.h + "%";
+    },
+
+    _resetState() {
+      this._state = { rotation: 0, flip: false, crop: null, aspect: null };
+      var d = this._dialog();
+      if (!d) return;
+      d.querySelectorAll("[data-pk-edit-aspect]").forEach(function (b) {
+        b.setAttribute("aria-pressed", String(b.getAttribute("data-pk-edit-aspect") === ""));
+      });
+      var flip = d.querySelector("[data-pk-edit-flip]");
+      if (flip) flip.setAttribute("aria-pressed", "false");
+    },
+
+    _edit(file) {
+      var self = this;
+      var d = this._dialog();
+      if (!d || typeof URL === "undefined" || !URL.createObjectURL) {
+        this._done.push(file);
+        this._next();
+        return;
+      }
+      this._current = file;
+      this._img = null;
+      this._failed(false);
+      this._resetState();
+      this._loading(true);
+      var name = d.querySelector("[data-pk-edit-name]");
+      if (name) name.textContent = file.name || "";
+      var progress = d.querySelector("[data-pk-edit-progress]");
+      if (progress) {
+        var total = this._done.length + this._queue.length + 1;
+        progress.textContent = total > 1 ? (this._done.length + 1) + " / " + total : "";
+      }
+      this._release();
+      this._url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () {
+        if (self._current !== file) return;
+        self._img = img;
+        self._loading(false);
+        self._draw();
+        if (!d.open && typeof d.showModal === "function") d.showModal();
+      };
+      // A picture the browser cannot draw goes up as it is.
+      img.onerror = function () {
+        if (self._current === file) self._finish(file);
+      };
+      img.src = this._url;
+    },
+
+    // While the next photo decodes: the previous preview is cleared and
+    // everything but Remove is disabled, so nothing is confirmed unseen.
+    _loading(on) {
+      var d = this._dialog();
+      if (!d) return;
+      d.querySelectorAll(EDIT_CONTROLS).forEach(function (b) { b.disabled = on; });
+      var frame = d.querySelector("[data-pk-edit-frame]");
+      if (frame && frame.setAttribute) frame.setAttribute("aria-busy", String(on));
+      if (!on) return;
+      this._showCrop(null);
+      var canvas = d.querySelector("[data-pk-edit-canvas]");
+      var ctx = canvas && canvas.getContext && canvas.getContext("2d");
+      if (ctx) {
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    },
+
+    // The preview: the whole turned frame, fitted to at most 1600px across.
+    _draw() {
+      var d = this._dialog();
+      var canvas = d && d.querySelector("[data-pk-edit-canvas]");
+      var img = this._img;
+      if (!canvas || !img) return;
+      var s = this._state;
+      var dims = uploadEditDims(img.naturalWidth, img.naturalHeight, s.rotation);
+      this._frame = dims;
+      var scale = Math.min(1, 1600 / Math.max(dims[0], dims[1]));
+      canvas.width = Math.max(1, Math.round(dims[0] * scale));
+      canvas.height = Math.max(1, Math.round(dims[1] * scale));
+      var ctx = canvas.getContext("2d");
+      var m = uploadEditMatrix(img.naturalWidth, img.naturalHeight, s.rotation, s.flip, scale, 0, 0);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.setTransform(m[0], m[1], m[2], m[3], m[4], m[5]);
+      ctx.drawImage(img, 0, 0);
+      this._showCrop(s.crop);
+    },
+
+    _apply() {
+      var self = this;
+      var file = this._current, img = this._img, s = this._state;
+      if (!img) return;
+      if (!uploadEditChanged(s)) { this._finish(file); return; }
+      var dims = uploadEditDims(img.naturalWidth, img.naturalHeight, s.rotation);
+      var c = uploadEditCropPixels(s.crop, dims[0], dims[1]);
+      var out = document.createElement("canvas");
+      out.width = c.w;
+      out.height = c.h;
+      var ctx = out.getContext("2d");
+      var m = uploadEditMatrix(img.naturalWidth, img.naturalHeight, s.rotation, s.flip, 1, c.x, c.y);
+      ctx.setTransform(m[0], m[1], m[2], m[3], m[4], m[5]);
+      ctx.drawImage(img, 0, 0);
+      var type = file.type === "image/png" || file.type === "image/webp" ? file.type : "image/jpeg";
+      var input = this._input();
+      var accept = input && input.getAttribute ? input.getAttribute("accept") : "";
+      out.toBlob(function (blob) {
+        if (self._current !== file) return;
+        var as = uploadEditEncoded(blob, type, file.name, accept);
+        // Not saved: say so, and let the person choose Upload original or
+        // Remove rather than dropping the edit without a word.
+        if (!as) { self._failed(true); return; }
+        var edited;
+        try {
+          edited = new File([blob], as.name, { type: as.type, lastModified: Date.now() });
+        } catch (_) {
+          edited = blob;
+          edited.name = as.name;
+        }
+        self._finish(edited);
+      }, type, 0.92);
+    },
+
+    // The "could not save the edit" message, with Upload off while it shows
+    // (another change — a smaller crop — may encode, and turns it back on).
+    _failed(on) {
+      var d = this._dialog();
+      if (!d) return;
+      var msg = d.querySelector("[data-pk-edit-error]");
+      if (msg) msg.hidden = !on;
+      var apply = d.querySelector("[data-pk-edit-apply]");
+      if (apply) apply.disabled = on;
+    },
+
+    _finish(result) {
+      this._failed(false);
+      if (result) this._done.push(result);
+      this._current = null;
+      this._img = null;
+      this._release();
+      this._next();
+    },
+
+    _closeDialog() {
+      var d = this._dialog();
+      if (d && d.open && typeof d.close === "function") d.close();
+    },
+
+    _release() {
+      if (this._url && typeof URL !== "undefined" && URL.revokeObjectURL) URL.revokeObjectURL(this._url);
+      this._url = null;
+    }
+  };
+})();
+
+// ---------------------------------------------------------------------------
+// FormDraft — opt-in drafts of a form's fields in the browser
+// (PhoenixKitWeb.Components.Core.FormDraft, `<.simple_form draft>`).
+//
+//   data-draft-key        what it is stored under (default: path + form id)
+//   data-draft-storage    "local" (default) | "session"
+//   data-draft-exclude    "name,other" — never stored
+//   data-draft-ttl        seconds a draft is offered for
+//   data-draft-event      ask the server first: {restore: true|false} or {}
+//
+// Saved (debounced) on input/change, offered back on mount through the bar
+// `<.form_draft_bar>` renders, cleared when a submitted form leaves the page
+// or the server pushes "pk:form-draft" {id, action: "clear"}.
+// ---------------------------------------------------------------------------
+(function () {
+  if (typeof window !== "undefined" && window.__pkBundleLoads > 1) return;
+  if (typeof window === "undefined") return;
+  window.PhoenixKitHooks = window.PhoenixKitHooks || {};
+
+  var PREFIX = "pk:draft:";
+  var SAVE_MS = 400;
+  var SKIP_TYPES = ["password", "hidden", "file", "submit", "button", "reset", "image"];
+
+  // ── Pure helpers (exported for test/js/form_draft.test.cjs) ────────────
+
+  function draftExcludeList(value) {
+    return String(value || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean);
+  }
+
+  // "email" matches "email" and "user[email]"; "user[email]" only itself.
+  function draftNameExcluded(name, exclude) {
+    for (var i = 0; i < exclude.length; i++) {
+      var x = exclude[i];
+      if (name === x) return true;
+      if (x.indexOf("[") === -1 && new RegExp("\\[" + x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\](\\[\\])?$").test(name)) return true;
+    }
+    return false;
+  }
+
+  function draftEligible(el, exclude) {
+    if (!el || !el.name || el.disabled) return false;
+    var tag = String(el.tagName || "").toUpperCase();
+    if (tag !== "INPUT" && tag !== "TEXTAREA" && tag !== "SELECT") return false;
+    var type = String(el.type || "").toLowerCase();
+    if (SKIP_TYPES.indexOf(type) !== -1) return false;
+    if (el.name.charAt(0) === "_" || /csrf/i.test(el.name)) return false;
+    if (el.hasAttribute && el.hasAttribute("data-draft-skip")) return false;
+    return !draftNameExcluded(el.name, exclude || []);
+  }
+
+  // {name: value}: a string, or a list for checkboxes and multiple selects.
+  function draftSerialize(elements, exclude) {
+    var out = {};
+    for (var i = 0; i < elements.length; i++) {
+      var el = elements[i];
+      if (!draftEligible(el, exclude)) continue;
+      var type = String(el.type || "").toLowerCase();
+      if (type === "checkbox") {
+        if (!Array.isArray(out[el.name])) out[el.name] = [];
+        if (el.checked) out[el.name].push(el.value == null ? "on" : String(el.value));
+      } else if (type === "radio") {
+        if (!(el.name in out)) out[el.name] = null;
+        if (el.checked) out[el.name] = String(el.value);
+      } else if (type === "select-multiple" || (String(el.tagName).toUpperCase() === "SELECT" && el.multiple)) {
+        var vals = [];
+        for (var j = 0; j < el.options.length; j++) if (el.options[j].selected) vals.push(String(el.options[j].value));
+        out[el.name] = vals;
+      } else {
+        out[el.name] = el.value == null ? "" : String(el.value);
+      }
+    }
+    return out;
+  }
+
+  function draftEqual(a, b) {
+    return JSON.stringify(sortKeys(a || {})) === JSON.stringify(sortKeys(b || {}));
+  }
+
+  function sameValue(a, b) {
+    return JSON.stringify(a === undefined ? null : a) === JSON.stringify(b === undefined ? null : b);
+  }
+
+  // The fields of `current` named in `names` (the ones the person edited)
+  // that differ from `initial` (what was rendered). Only these are kept, so
+  // a field the person never touched takes whatever the server renders
+  // when the draft is restored.
+  function draftPick(current, initial, names) {
+    var out = {};
+    for (var i = 0; i < names.length; i++) {
+      var n = names[i];
+      if (Object.prototype.hasOwnProperty.call(current, n) && !sameValue(current[n], initial[n])) out[n] = current[n];
+    }
+    return out;
+  }
+
+  // Whether every field of a draft already has its value in `current`:
+  // nothing to restore.
+  function draftCovered(fields, current) {
+    return Object.keys(fields).every(function (n) { return sameValue(fields[n], current[n]); });
+  }
+
+  function sortKeys(o) {
+    var out = {};
+    Object.keys(o).sort().forEach(function (k) { out[k] = o[k]; });
+    return out;
+  }
+
+  // Puts `fields` back; returns the elements whose value changed.
+  function draftApply(elements, fields, exclude) {
+    var changed = [];
+    for (var i = 0; i < elements.length; i++) {
+      var el = elements[i];
+      if (!draftEligible(el, exclude) || !Object.prototype.hasOwnProperty.call(fields, el.name)) continue;
+      var v = fields[el.name];
+      var type = String(el.type || "").toLowerCase();
+      if (type === "checkbox") {
+        var on = Array.isArray(v) && v.indexOf(el.value == null ? "on" : String(el.value)) !== -1;
+        if (el.checked !== on) { el.checked = on; changed.push(el); }
+      } else if (type === "radio") {
+        var pick = v === String(el.value);
+        if (el.checked !== pick) { el.checked = pick; changed.push(el); }
+      } else if (type === "select-multiple" || (String(el.tagName).toUpperCase() === "SELECT" && el.multiple)) {
+        var any = false;
+        for (var j = 0; j < el.options.length; j++) {
+          var sel = Array.isArray(v) && v.indexOf(String(el.options[j].value)) !== -1;
+          if (el.options[j].selected !== sel) { el.options[j].selected = sel; any = true; }
+        }
+        if (any) changed.push(el);
+      } else if (typeof v === "string" && el.value !== v) {
+        el.value = v;
+        changed.push(el);
+      }
+    }
+    return changed;
+  }
+
+  function draftKey(pathname, formId, key) {
+    return PREFIX + (key ? String(key) : String(pathname || "") + "#" + String(formId || ""));
+  }
+
+  // A stored draft, or null when it is missing, unreadable or too old.
+  function draftParse(raw, now, ttlSeconds) {
+    if (!raw) return null;
+    var d;
+    try { d = JSON.parse(raw); } catch (_) { return null; }
+    if (!d || d.v !== 1 || typeof d.t !== "number" || !d.fields || typeof d.fields !== "object") return null;
+    var ttl = ttlSeconds > 0 ? ttlSeconds * 1000 : 7 * 24 * 3600 * 1000;
+    if (now - d.t > ttl || d.t > now + 60000) return null;
+    return d;
+  }
+
+  if (typeof module === "object" && module.exports) {
+    module.exports.formDraft = {
+      excludeList: draftExcludeList, nameExcluded: draftNameExcluded,
+      eligible: draftEligible, serialize: draftSerialize, equal: draftEqual,
+      apply: draftApply, key: draftKey, parse: draftParse,
+      pick: draftPick, covered: draftCovered
+    };
+  }
+
+  // ── The hook ────────────────────────────────────────────────────────────
+
+  function store(kind) {
+    try {
+      var s = kind === "session" ? window.sessionStorage : window.localStorage;
+      return s || null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  window.PhoenixKitHooks.FormDraft = {
+    mounted() {
+      var self = this;
+      this._key = draftKey(window.location && window.location.pathname, this.el.id, this.el.dataset.draftKey);
+      this._store = store(this.el.dataset.draftStorage);
+      this._initial = this._snapshot();
+      // Names of the fields the person changed: the only ones a draft keeps.
+      this._dirty = {};
+      this._pending = null;
+      this._submitted = false;
+
+      this._onEdit = function (e) {
+        if (!e.target || !draftEligible(e.target, self._excluded())) return;
+        self._dirty[e.target.name] = true;
+        // Typing after a submit means that submit did not end the editing.
+        self._submitted = false;
+        clearTimeout(self._timer);
+        self._timer = setTimeout(function () { self._save(); }, SAVE_MS);
+      };
+      this._onSubmit = function () {
+        self._save();
+        self._submitted = true;
+      };
+      this.el.addEventListener("input", this._onEdit);
+      this.el.addEventListener("change", this._onEdit);
+      this.el.addEventListener("submit", this._onSubmit);
+
+      this._onBar = function (e) {
+        var t = e.target && e.target.closest && e.target.closest("[data-pk-draft-restore],[data-pk-draft-discard]");
+        if (!t) return;
+        e.preventDefault();
+        if (t.hasAttribute("data-pk-draft-restore")) self._restore();
+        else self._discard();
+      };
+      this._bar = this._findBar();
+      if (this._bar) this._bar.addEventListener("click", this._onBar);
+
+      this.handleEvent("pk:form-draft", function (p) {
+        if (!p || p.id !== self.el.id) return;
+        if (p.action === "clear" || p.action === "discard") self._discard();
+        else if (p.action === "restore") self._restore();
+      });
+
+      this._offer();
+    },
+
+    destroyed() {
+      clearTimeout(this._timer);
+      this.el.removeEventListener("input", this._onEdit);
+      this.el.removeEventListener("change", this._onEdit);
+      this.el.removeEventListener("submit", this._onSubmit);
+      if (this._bar) this._bar.removeEventListener("click", this._onBar);
+      // Submitted and gone: the save went through (a failed one re-renders
+      // the form in place). A form that leaves unsubmitted keeps its draft.
+      if (this._submitted) this._remove();
+    },
+
+    _findBar() {
+      var id = this.el.id;
+      return this.el.querySelector('[data-pk-draft-bar="' + id + '"]') ||
+        (id ? document.getElementById(id + "-draft-bar") : null);
+    },
+
+    // Read on every use, not cached at mount: a patch can change it.
+    _excluded() {
+      return draftExcludeList(this.el.dataset.draftExclude);
+    },
+
+    _snapshot() {
+      return draftSerialize(this.el.elements || [], this._excluded());
+    },
+
+    _read() {
+      if (!this._store) return null;
+      var raw = null;
+      try { raw = this._store.getItem(this._key); } catch (_) { return null; }
+      var d = draftParse(raw, Date.now(), parseInt(this.el.dataset.draftTtl, 10));
+      if (!d && raw) this._remove();
+      return d;
+    },
+
+    _save() {
+      if (!this._store || this._pending) return;
+      var fields = draftPick(this._snapshot(), this._initial, Object.keys(this._dirty));
+      if (!Object.keys(fields).length) { this._remove(); return; }
+      try {
+        this._store.setItem(this._key, JSON.stringify({ v: 1, t: Date.now(), fields: fields }));
+      } catch (_) { /* full or blocked: no draft */ }
+    },
+
+    _remove() {
+      if (!this._store) return;
+      try { this._store.removeItem(this._key); } catch (_) { /* blocked */ }
+    },
+
+    _offer() {
+      var self = this;
+      var d = this._read();
+      if (!d) return;
+      if (draftCovered(d.fields, this._initial)) { this._remove(); return; }
+      this._pending = d;
+      var event = this.el.dataset.draftEvent;
+      if (event) {
+        this.pushEvent(event, { id: this.el.id, saved_at: d.t, fields: Object.keys(d.fields) }, function (reply) {
+          if (!self._pending) return;
+          if (reply && reply.restore === true) self._restore();
+          else if (reply && reply.restore === false) self._discard();
+          else self._prompt(true);
+        });
+      } else {
+        this._prompt(true);
+      }
+    },
+
+    _prompt(show) {
+      var p = this._bar && this._bar.querySelector("[data-pk-draft-prompt]");
+      if (p) p.hidden = !show;
+    },
+
+    _restore() {
+      var d = this._pending || this._read();
+      this._pending = null;
+      this._prompt(false);
+      if (!d) return;
+      var changed = draftApply(this.el.elements || [], d.fields, this._excluded());
+      var dirty = this._dirty;
+      Object.keys(d.fields).forEach(function (n) { dirty[n] = true; });
+      // One input event: LiveView sends the whole form to phx-change.
+      if (changed.length && typeof Event === "function") {
+        changed[0].dispatchEvent(new Event("input", { bubbles: true }));
+      }
+      this._save();
+    },
+
+    _discard() {
+      this._pending = null;
+      this._prompt(false);
+      this._remove();
+    }
+  };
 })();

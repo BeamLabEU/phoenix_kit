@@ -894,6 +894,25 @@ defmodule PhoenixKit.Module do
   @callback file_references() :: [{String.t(), Ecto.Query.dynamic_expr()}]
 
   @doc """
+  Whether a stored file may be served to the person asking: this module's
+  file access guard (`PhoenixKit.Modules.Storage.AccessGuard`, which has the
+  whole contract). Called with the `%PhoenixKit.Modules.Storage.File{}` and
+  the request's `Plug.Conn` before the kit's file routes serve it (every
+  variant, the info and unedited endpoints, the image tiles), for every
+  registered module, switched on or off.
+
+  Answers `:allow` (no objection: served as without a guard), `:private`
+  (this person may see it: served `private, no-store`, never as a redirect to
+  a bucket URL) or `:deny` (the 404 a missing file gets). Any `:deny` of any
+  guard wins. Answer `:allow` fast for a file that is not this module's. A
+  raise or any other answer is a `:deny`. A module with no files of its own
+  to protect skips the callback; one that must compile against an older core
+  defines it without `@impl`.
+  """
+  @callback file_access_guard(file :: struct(), conn :: Plug.Conn.t()) ::
+              :allow | :private | :deny
+
+  @doc """
   The manifest of this module's own tables, so `mix phoenix_kit.repair` and
   `mix phoenix_kit.doctor` can check and repair them.
 
@@ -1195,6 +1214,7 @@ defmodule PhoenixKit.Module do
     email_templates: 0,
     media_reorganizer: 0,
     file_references: 0,
+    file_access_guard: 2,
     expected_schema: 0,
     job_kinds: 0,
     api_tools: 0,

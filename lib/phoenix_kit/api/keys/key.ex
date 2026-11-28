@@ -25,6 +25,10 @@ defmodule PhoenixKit.API.Keys.Key do
       refuses it, and every listing, count and edit of keys leaves it out. `nil` for every
       other key.
     * `last_used_at`, `last_used_ip` - written at most once a minute.
+    * `rate_limit_per_minute` - the key's own limit, in cost units a minute (V238), or `nil`
+      (every key made before it): the shared limit `api_admin_rate_per_min`. A value
+      replaces that limit for the key, higher or lower; the optional
+      `api_total_rate_per_min` caps all keys together (`PhoenixKit.API.RateLimit.check_admin/3`).
 
   This module is the schema only. Creating, verifying, revoking and rotating keys is
   `PhoenixKit.API.Keys`.
@@ -51,6 +55,7 @@ defmodule PhoenixKit.API.Keys.Key do
     field :last_used_ip, :string
     field :personal, :boolean, default: false
     field :oauth_grant_uuid, UUIDv7
+    field :rate_limit_per_minute, :integer
 
     belongs_to :user, User, foreign_key: :user_uuid, references: :uuid, type: UUIDv7
     belongs_to :created_by, User, foreign_key: :created_by_uuid, references: :uuid, type: UUIDv7

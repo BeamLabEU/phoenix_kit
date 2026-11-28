@@ -111,6 +111,40 @@ defmodule PhoenixKit.Users.RelationshipTypesTest do
   end
 
   describe "update_type/3" do
+    test "logs what changed" do
+      type = type!()
+
+      {:ok, _} = RelationshipTypes.update_type(type, %{name: "Renamed", position: 7})
+
+      [entry] =
+        Repo.all(
+          from(e in Entry,
+            where: e.action == "relationship_type.updated" and e.resource_uuid == ^type.uuid
+          )
+        )
+
+      assert entry.metadata["key"] == type.key
+
+      assert entry.metadata["changes"] == %{
+               "name" => %{"from" => "Staff", "to" => "Renamed"},
+               "position" => %{"from" => type.position, "to" => 7}
+             }
+    end
+
+    test "an update that moves nothing logs no changes" do
+      type = type!()
+      {:ok, _} = RelationshipTypes.update_type(type, %{name: "Staff"})
+
+      [entry] =
+        Repo.all(
+          from(e in Entry,
+            where: e.action == "relationship_type.updated" and e.resource_uuid == ^type.uuid
+          )
+        )
+
+      refute Map.has_key?(entry.metadata, "changes")
+    end
+
     test "changes names, order and status" do
       type = type!()
 

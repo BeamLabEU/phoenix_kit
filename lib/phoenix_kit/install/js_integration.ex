@@ -28,6 +28,8 @@ defmodule PhoenixKit.Install.JsIntegration do
   require Logger
 
   alias Mix.Tasks.Compile.PhoenixKitJsSources
+  alias PhoenixKit.Install.IgniterHelpers
+  alias PhoenixKit.Install.PatchLedger
 
   # Igniter is optional (see mix.exs) and this module cannot be guarded away
   # like the `PhoenixKit.Install.*` helpers — `mix phoenix_kit.assets.rebuild`
@@ -60,16 +62,21 @@ defmodule PhoenixKit.Install.JsIntegration do
     |> add_script_tag_to_layout()
     |> add_hooks_to_app_js()
     |> ensure_module_js_integration()
-    |> ensure_theme_bootstrap()
   end
 
   @doc """
-  Ensures the host root layout stamps the saved theme before first paint.
+  Puts the theme bootstrap in the host's ROOT layout, so every page rendered
+  with it — the host's public site included — gets the saved theme stamped
+  before first paint. **Opt-in** (`--install-root-theme` on
+  `mix phoenix_kit.install` / `mix phoenix_kit.update`, or
+  `--repair-patch theme_bootstrap`): neither task calls it otherwise. The
+  kit's own admin and auth pages carry their own stamp
+  (`PhoenixKitWeb.Components.LayoutWrapper`), so they need none of this.
+  A snippet an earlier release injected is left where it is;
+  `remove_theme_bootstrap/1` takes a kit-marked one out.
 
-  Renders `PhoenixKitWeb.Components.ThemeBootstrap` at the top of `<head>`.
-  Without it, admin pages served under the host's root layout paint in the
-  default theme and swap after load — the one page class the kit's own
-  layouts (which all render the bootstrap themselves) cannot cover.
+  Patch `theme_bootstrap` in `PhoenixKit.Install.PatchLedger`: an inline
+  `phoenix_kit:skip theme_bootstrap` marker or `--skip-patch` still declines it.
 
   Skipped when the layout already renders the component. A stock
   `phx:theme` script (phx.new 1.8) is NOT a substitute: it treats
@@ -92,9 +99,15 @@ defmodule PhoenixKit.Install.JsIntegration do
         content = File.read!(layout_path)
 
         case theme_bootstrap_plan(content) do
-          :already_present -> igniter
-          :host_managed -> host_managed_notice(igniter, layout_path, content)
-          _ -> inject_theme_bootstrap(igniter, layout_path, content)
+          :already_present ->
+            PatchLedger.record("theme_bootstrap", :applied)
+            igniter
+
+          :host_managed ->
+            host_managed_notice(igniter, layout_path, content)
+
+          _ ->
+            add_root_theme_bootstrap(igniter, layout_path, content)
         end
 
       {:error, :not_found} ->
@@ -109,6 +122,74 @@ defmodule PhoenixKit.Install.JsIntegration do
           """
         )
     end
+  end
+
+  # `--skip-patch theme_bootstrap` or the inline marker still wins over the
+  # opt-in flag.
+  defp add_root_theme_bootstrap(igniter, layout_path, content) do
+    if PatchLedger.skip?("theme_bootstrap") or PatchLedger.marker?(content, "theme_bootstrap") do
+      Igniter.add_notice(igniter, declined_notice("theme_bootstrap", :flag))
+    else
+      igniter = inject_theme_bootstrap(igniter, layout_path, content)
+
+      unless IgniterHelpers.dry_run?(igniter),
+        do: PatchLedger.record("theme_bootstrap", :applied)
+
+      igniter
+    end
+  end
+
+  @doc """
+  Takes the kit's theme bootstrap out of the host's root layout — only a
+  snippet PhoenixKit put there, recognised by its marker comment
+  (`<%!-- PhoenixKit theme bootstrap: pre-paint theme stamp --%>`) directly
+  above the component. A bootstrap the host wrote itself, without the
+  marker, is left alone and reported. Records `theme_bootstrap` as declined,
+  so later updates leave the layout as it is now.
+  """
+  def remove_theme_bootstrap(igniter) do
+    case find_existing_file(root_layout_paths()) do
+      {:ok, layout_path} ->
+        content = File.read!(layout_path)
+
+        case remove_theme_bootstrap_from(content) do
+          {:ok, updated} ->
+            unless IgniterHelpers.dry_run?(igniter),
+              do: PatchLedger.record("theme_bootstrap", :declined)
+
+            replace_host_file(
+              igniter,
+              layout_path,
+              updated,
+              "the PhoenixKit theme bootstrap"
+            )
+
+          :not_found ->
+            Igniter.add_notice(
+              igniter,
+              "ℹ️  No kit-marked theme bootstrap in #{layout_path}; nothing removed." <>
+                if(String.contains?(content, "ThemeBootstrap"),
+                  do: " (A ThemeBootstrap without the kit's marker is yours; left alone.)",
+                  else: ""
+                )
+            )
+        end
+
+      {:error, :not_found} ->
+        Igniter.add_notice(igniter, "ℹ️  Could not find the root layout; nothing removed.")
+    end
+  end
+
+  @doc false
+  # Pure: the layout without the kit-marked bootstrap (the marker line and the
+  # component line right after it), or `:not_found`.
+  def remove_theme_bootstrap_from(content) do
+    pattern =
+      ~r/^[ \t]*#{Regex.escape(@bootstrap_marker)}[ \t]*\r?\n[ \t]*<PhoenixKitWeb\.Components\.ThemeBootstrap\.theme_bootstrap\s*\/>[ \t]*\r?\n?/m
+
+    if Regex.match?(pattern, content),
+      do: {:ok, Regex.replace(pattern, content, "", global: false)},
+      else: :not_found
   end
 
   # Where the bootstrap should land. Public so the placement rules can be
@@ -221,11 +302,12 @@ defmodule PhoenixKit.Install.JsIntegration do
     updated = inject_theme_bootstrap_into(content)
 
     if updated != content do
-      File.write!(layout_path, updated)
-
-      Igniter.add_notice(
+      write_host_file(
         igniter,
-        "✅ Added the PhoenixKit theme bootstrap (pre-paint theme stamp) to #{layout_path}"
+        layout_path,
+        updated,
+        "the PhoenixKit theme bootstrap (pre-paint theme stamp)",
+        theme_opt_out_hint()
       )
     else
       Igniter.add_warning(
@@ -255,9 +337,66 @@ defmodule PhoenixKit.Install.JsIntegration do
   installed before this feature pick it up on their next update.
   """
   def ensure_module_js_integration(igniter) do
+    case module_js_decision() do
+      {:declined, reason} ->
+        Igniter.add_notice(igniter, declined_notice("module_js_seed", reason))
+
+      _ ->
+        igniter
+        |> seed_modules_js_file()
+        |> add_modules_script_tag_to_layout()
+        |> record_module_js()
+    end
+  end
+
+  # The patch ledger (`PhoenixKit.Install.PatchLedger`) decides on the layout's
+  # state: the tag is the patch, the seeded file follows it. No layout found:
+  # nothing to decide, the notice below says what to add by hand.
+  defp module_js_decision do
+    case find_existing_file(root_layout_paths()) do
+      {:ok, layout_path} ->
+        content = File.read!(layout_path)
+
+        PatchLedger.decide(
+          "module_js_seed",
+          String.contains?(content, @modules_filename),
+          content
+        )
+
+      {:error, :not_found} ->
+        :no_layout
+    end
+  end
+
+  defp record_module_js(igniter) do
+    with false <- IgniterHelpers.dry_run?(igniter),
+         {:ok, layout_path} <- find_existing_file(root_layout_paths()),
+         true <- String.contains?(File.read!(layout_path), @modules_filename) do
+      PatchLedger.record("module_js_seed", :applied)
+    end
+
     igniter
-    |> seed_modules_js_file()
-    |> add_modules_script_tag_to_layout()
+  end
+
+  defp root_layout_paths do
+    [
+      "lib/#{Mix.Phoenix.otp_app()}_web/components/layouts/root.html.heex",
+      "lib/#{Mix.Phoenix.otp_app()}_web/templates/layout/root.html.heex"
+    ]
+  end
+
+  @doc false
+  # One line for a patch the ledger, a flag or an inline marker declined.
+  def declined_notice(id, reason) do
+    why =
+      case reason do
+        :flag -> "--skip-patch #{id}"
+        :marker -> "the phoenix_kit:skip #{id} marker"
+        :ledger -> "declined in #{PatchLedger.file_name()}"
+        :removed -> "removed after an earlier update"
+      end
+
+    "↷ Left out #{id} (#{why}); mix phoenix_kit.update --repair-patch #{id} adds it back"
   end
 
   @doc """
@@ -404,12 +543,7 @@ defmodule PhoenixKit.Install.JsIntegration do
       )
 
     if updated != content do
-      File.write!(layout_path, updated)
-
-      Igniter.add_notice(
-        igniter,
-        "✅ Added PhoenixKit JS hooks script tag to #{layout_path}"
-      )
+      write_host_file(igniter, layout_path, updated, "the PhoenixKit JS hooks script tag")
     else
       Igniter.add_warning(
         igniter,
@@ -456,11 +590,11 @@ defmodule PhoenixKit.Install.JsIntegration do
             )
 
           if updated != content do
-            File.write!(app_js_path, updated)
-
-            Igniter.add_notice(
+            write_host_file(
               igniter,
-              "✅ Added PhoenixKitHooks spread to LiveSocket hooks in assets/js/app.js"
+              app_js_path,
+              updated,
+              "the PhoenixKitHooks spread to the LiveSocket hooks"
             )
           else
             add_hooks_manual_notice(igniter)
@@ -477,11 +611,11 @@ defmodule PhoenixKit.Install.JsIntegration do
             )
 
           if updated != content do
-            File.write!(app_js_path, updated)
-
-            Igniter.add_notice(
+            write_host_file(
               igniter,
-              "✅ Added PhoenixKitHooks to LiveSocket configuration in assets/js/app.js"
+              app_js_path,
+              updated,
+              "PhoenixKitHooks to the LiveSocket configuration"
             )
           else
             add_hooks_manual_notice(igniter)
@@ -516,26 +650,74 @@ defmodule PhoenixKit.Install.JsIntegration do
   defp seed_modules_js_file(igniter) do
     dest = Path.join([File.cwd!(), "priv", "static", "assets", "vendor", @modules_filename])
 
-    if File.exists?(dest) do
-      igniter
-    else
-      with :ok <- File.mkdir_p(Path.dirname(dest)),
-           :ok <-
-             File.write(
-               dest,
-               "/* Auto-generated by PhoenixKit — populated on first compile. */\n"
-             ) do
+    cond do
+      File.exists?(dest) ->
         igniter
-      else
-        {:error, reason} ->
-          Igniter.add_warning(
-            igniter,
-            "⚠️  Could not seed #{@modules_filename} (#{inspect(reason)}). " <>
-              "It will be created on the next `mix compile`."
-          )
-      end
+
+      IgniterHelpers.dry_run?(igniter) ->
+        Igniter.add_notice(igniter, "🔍 Dry run: would seed #{dest} (not written)")
+
+      true ->
+        seed_modules_js_file(igniter, dest)
     end
   end
+
+  defp seed_modules_js_file(igniter, dest) do
+    with :ok <- File.mkdir_p(Path.dirname(dest)),
+         :ok <-
+           File.write(
+             dest,
+             "/* Auto-generated by PhoenixKit — populated on first compile. */\n"
+           ) do
+      igniter
+    else
+      {:error, reason} ->
+        Igniter.add_warning(
+          igniter,
+          "⚠️  Could not seed #{@modules_filename} (#{inspect(reason)}). " <>
+            "It will be created on the next `mix compile`."
+        )
+    end
+  end
+
+  defp replace_host_file(igniter, path, content, what) do
+    if IgniterHelpers.dry_run?(igniter) do
+      Igniter.add_notice(igniter, "🔍 Dry run: would remove #{what} from #{path} (not written)")
+    else
+      File.write!(path, content)
+      Igniter.add_notice(igniter, "✅ Removed #{what} from #{path}")
+    end
+  end
+
+  # These splices write straight to disk rather than through Igniter's buffer
+  # (several of them read the same root layout back), so Igniter's
+  # `--dry-run` cannot stop them: under it, describe the change instead.
+  defp write_host_file(igniter, path, content, what, hint \\ "") do
+    if IgniterHelpers.dry_run?(igniter) do
+      Igniter.add_notice(igniter, "🔍 Dry run: would add #{what} to #{path} (not written)#{hint}")
+    else
+      File.write!(path, content)
+      Igniter.add_notice(igniter, "✅ Added #{what} to #{path}#{hint}")
+    end
+  end
+
+  # The bootstrap stamps `data-theme` on every page of the layout, the host's
+  # public pages included. A host whose own theme handling went unrecognised
+  # (NordAPI's script) needs to know how to keep the kit out for good —
+  # otherwise every update puts it back.
+  defp theme_opt_out_hint do
+    """
+
+       It stamps data-theme on every page rendered with this layout. If your
+       site sets its own theme, delete the two added lines and put this in
+       <head> instead; mix phoenix_kit.update then leaves the layout alone:
+
+           #{@host_managed_marker}\
+    """
+  end
+
+  @doc false
+  def host_managed_marker, do: @host_managed_marker
 
   # Add the (stable) aggregate-module-hooks <script> tag to the root layout,
   # after phoenix_kit.js (so it augments window.PhoenixKitHooks) and before app.js.
@@ -608,8 +790,7 @@ defmodule PhoenixKit.Install.JsIntegration do
       end
 
     if updated != content do
-      File.write!(layout_path, updated)
-      Igniter.add_notice(igniter, "✅ Added module-hooks script tag to #{layout_path}")
+      write_host_file(igniter, layout_path, updated, "the module-hooks script tag")
     else
       Igniter.add_warning(
         igniter,

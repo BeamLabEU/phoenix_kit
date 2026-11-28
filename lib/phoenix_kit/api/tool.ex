@@ -9,7 +9,16 @@ defmodule PhoenixKit.API.Tool do
   ## Fields
 
     * `:name` - `"<namespace>.<verb>_<noun>"`, lowercase, stable (`"catalogue.set_prices"`),
-      at most 100 characters.
+      at most 100 characters. A tool of the **host application** may instead have an
+      undotted name, `[A-Za-z0-9_-]+` (`"call_endpoint"`), so an existing MCP server can move
+      onto the kit without renaming its tools for its clients; PhoenixKit's own packages keep
+      the dotted form. An undotted name is shown as it is on MCP, REST and OpenAPI. See
+      "Undotted names and aliases" below for the rules both share.
+    * `:aliases` - other names the tool answers to (`["callEndpoint", "orders.call"]`),
+      each a dotted or an undotted name as above, default `[]`. A call by an alias runs the
+      tool under its own name: the alias is resolved before the key's scopes, the owner's
+      rights, the rate limit, confirmations and the request log see the call, so all of
+      them see the real name. Listings (`tools/list`, `GET /`, OpenAPI) show only the name.
     * `:audience` - `:admin` (a key with scopes) or `:public` (no key).
     * `:scope` - the scope a key must carry, `"<module>.<resource>:<action>"`. `nil` for
       public tools and for core's own `system.*` tools, which every valid key may call. A
@@ -95,12 +104,27 @@ defmodule PhoenixKit.API.Tool do
 
   A tool returned from `api_tools/0` that fails `validate/1` is ignored with one warning
   per module; the module's other tools still work.
+
+  ## Undotted names and aliases
+
+  Every name and alias of every tool, together with its MCP form (`.` read as `_`), goes
+  through one collision check, `PhoenixKit.ModuleRegistry.check_api_tool_names!/1`, when the
+  registry starts and when a module is registered or the modules are rescanned. It raises
+  `ArgumentError`, naming both tools, when an undotted name or an alias is already the name,
+  the MCP name or an alias of another tool of the same audience, and when one begins with a
+  reserved namespace: `system` (core's) or the namespace of a dotted tool that another module
+  declares (`catalogue_...` while a module declares `catalogue.*`), so a later release of
+  that package cannot collide with it. Two dotted names that share an MCP name (`a.b_c`,
+  `a_b.c`) keep the older rule: `PhoenixKit.API.ToolLint` reports them and the first one
+  wins at run time.
   """
 
   alias PhoenixKit.API.ControlFields
   alias PhoenixKit.API.Validator
 
   @name_pattern ~r/\A[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*\z/
+  # An undotted name, for the tools of a host application ("Undotted names and aliases").
+  @plain_name_pattern ~r/\A[A-Za-z0-9_-]+\z/
   # A confirmation or an approval keeps the name in a `varchar(120)`; the cap leaves room.
   @name_max 100
   @audiences [:admin, :public]
@@ -124,6 +148,7 @@ defmodule PhoenixKit.API.Tool do
     :output_schema,
     :handler,
     :module,
+    aliases: [],
     annotations: @default_annotations,
     danger: nil,
     replay: true,
@@ -197,6 +222,7 @@ defmodule PhoenixKit.API.Tool do
   def validate(%__MODULE__{} = tool) do
     checks = [
       &check_name/1,
+      &check_aliases/1,
       &check_audience/1,
       &check_handler/1,
       &check_rights/1,
@@ -228,6 +254,33 @@ defmodule PhoenixKit.API.Tool do
     Enum.filter(List.wrap(credentials) ++ [client_token], &is_binary/1)
   end
 
+  @doc """
+  True when `name` is a valid tool name or alias: dotted (`"catalogue.set_prices"`) or
+  undotted (`"call_endpoint"`), at most 100 characters.
+  """
+  @spec valid_name?(term()) :: boolean()
+  def valid_name?(name) when is_binary(name),
+    do: byte_size(name) <= @name_max and (dotted_name?(name) or plain_name?(name))
+
+  def valid_name?(_name), do: false
+
+  @doc ~S|True for an undotted name (`"call_endpoint"`).|
+  @spec plain_name?(term()) :: boolean()
+  def plain_name?(name) when is_binary(name), do: Regex.match?(@plain_name_pattern, name)
+  def plain_name?(_name), do: false
+
+  defp dotted_name?(name), do: Regex.match?(@name_pattern, name)
+
+  @doc "The name of `tool` followed by its aliases."
+  @spec names(t()) :: [String.t()]
+  def names(%__MODULE__{name: name, aliases: aliases}), do: [name | List.wrap(aliases)]
+
+  @doc "True when `name` is the name or one of the aliases of `tool`."
+  @spec answers_to?(t(), String.t()) :: boolean()
+  def answers_to?(%__MODULE__{name: name}, name), do: true
+  def answers_to?(%__MODULE__{aliases: aliases}, name) when is_list(aliases), do: name in aliases
+  def answers_to?(%__MODULE__{}, _name), do: false
+
   @doc "True for core's own `system.*` tools."
   @spec system?(t()) :: boolean()
   def system?(%__MODULE__{name: name}) when is_binary(name),
@@ -258,9 +311,10 @@ defmodule PhoenixKit.API.Tool do
 
   defp check_name(%{name: name}) do
     cond do
-      not (is_binary(name) and Regex.match?(@name_pattern, name)) ->
+      not (is_binary(name) and (dotted_name?(name) or plain_name?(name))) ->
         [
-          "name must look like \"namespace.verb_noun\" (lowercase letters, digits, underscores), got #{inspect(name)}"
+          "name must look like \"namespace.verb_noun\" (lowercase letters, digits, underscores), " <>
+            "or be an undotted name of letters, digits, \"_\" and \"-\", got #{inspect(name)}"
         ]
 
       byte_size(name) > @name_max ->
@@ -270,6 +324,27 @@ defmodule PhoenixKit.API.Tool do
         []
     end
   end
+
+  defp check_aliases(%{aliases: aliases} = tool) when is_list(aliases) do
+    cond do
+      not Enum.all?(aliases, &valid_name?/1) ->
+        [
+          "aliases must be dotted or undotted tool names of at most #{@name_max} characters, got #{inspect(aliases)}"
+        ]
+
+      aliases != Enum.uniq(aliases) ->
+        ["aliases must not repeat a name, got #{inspect(aliases)}"]
+
+      tool.name in aliases ->
+        ["aliases must not repeat the tool's own name #{inspect(tool.name)}"]
+
+      true ->
+        []
+    end
+  end
+
+  defp check_aliases(%{aliases: aliases}),
+    do: ["aliases must be a list of tool names, got #{inspect(aliases)}"]
 
   defp check_audience(%{audience: audience}) when audience in @audiences, do: []
 

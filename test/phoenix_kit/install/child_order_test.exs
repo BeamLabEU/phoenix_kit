@@ -170,4 +170,48 @@ defmodule PhoenixKit.Install.ChildOrderTest do
                ChildOrder.ordered_children(source)
     end
   end
+
+  describe "a children list joined with ++ (NordAPI's shape)" do
+    @concatenated """
+    defmodule MyApp.Application do
+      use Application
+
+      def start(_type, _args) do
+        children =
+          [
+            MyApp.Repo,
+            PhoenixKit.Supervisor,
+            MyAppWeb.Endpoint
+          ] ++ dev_children() ++ [{Oban, Application.fetch_env!(:my_app, Oban)}]
+
+        Supervisor.start_link(children, strategy: :one_for_one)
+      end
+
+      defp dev_children, do: []
+    end
+    """
+
+    test "is read as its literal parts, the call counting as one unknown child" do
+      assert {:ok, [MyApp.Repo, PhoenixKit.Supervisor, MyAppWeb.Endpoint, nil, Oban]} =
+               ChildOrder.ordered_children(@concatenated)
+    end
+
+    test "check/2 judges the order instead of reporting no children list" do
+      assert {:ok, _detail} = ChildOrder.check(@concatenated, MyApp.Repo)
+    end
+
+    test "a misordering across the parts is still caught" do
+      source = String.replace(@concatenated, "    MyApp.Repo,\n", "")
+      source = String.replace(source, "dev_children() ++", "dev_children() ++ [MyApp.Repo] ++")
+
+      assert {:misordered, [PhoenixKit.Supervisor]} = ChildOrder.check(source, MyApp.Repo)
+    end
+
+    test "list_shape/1 tells the shapes apart" do
+      assert ChildOrder.list_shape(@concatenated) == :concatenated
+      assert ChildOrder.list_shape(app("      MyApp.Repo")) == :literal
+      assert ChildOrder.list_shape("defmodule X do\nend") == :none
+      assert ChildOrder.list_shape("not elixir (") == :none
+    end
+  end
 end

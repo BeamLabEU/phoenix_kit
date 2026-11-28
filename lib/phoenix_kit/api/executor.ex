@@ -1135,7 +1135,7 @@ defmodule PhoenixKit.API.Executor do
 
   defp rate_limit(%{audience: :admin, actor: actor} = state) do
     actor.key_uuid
-    |> RateLimit.check_admin(cost(state.tool, state.input))
+    |> RateLimit.check_admin(cost(state.tool, state.input), actor.rate_limit_per_minute)
     |> limited(state)
   end
 
@@ -1378,13 +1378,20 @@ defmodule PhoenixKit.API.Executor do
   # `charged?` stays false: a refusal writes no audit entry. A session that could
   # not act at all (gone, blocked) has no actor and pays nothing.
   defp refused(
-         %{audience: :admin, charged?: false, actor: %Actor{kind: :key, key_uuid: key_uuid}} =
+         %{
+           audience: :admin,
+           charged?: false,
+           actor: %Actor{kind: :key, key_uuid: key_uuid} = actor
+         } =
            state,
          code,
          detail,
          context
        ),
-       do: key_uuid |> RateLimit.check_admin(1) |> refusal_charged(state, code, detail, context)
+       do:
+         key_uuid
+         |> RateLimit.check_admin(1, actor.rate_limit_per_minute)
+         |> refusal_charged(state, code, detail, context)
 
   defp refused(
          %{audience: :admin, charged?: false, actor: %Actor{kind: :user, user_uuid: user_uuid}} =

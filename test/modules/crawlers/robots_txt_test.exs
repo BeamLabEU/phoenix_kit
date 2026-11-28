@@ -50,6 +50,52 @@ defmodule PhoenixKit.Modules.Crawlers.RobotsTxtTest do
     end
   end
 
+  describe "build_for/2 with :extra" do
+    test "a list of lines becomes the rules of the User-agent: * group, replacing the empty Disallow" do
+      out =
+        RobotsTxt.build_for([:ai_training],
+          extra: ["Disallow: /phoenix_kit/", "Disallow: /dev/"],
+          sitemap_url: "https://example.com/sitemap.xml"
+        )
+
+      assert out =~ "User-agent: *\nDisallow: /phoenix_kit/\nDisallow: /dev/\n"
+      refute out =~ ~r/^Disallow:$/m
+
+      # The * group still leads, the blocked groups and the Sitemap line follow.
+      [star_group | _] = String.split(out, "\n\n")
+      assert star_group =~ "User-agent: *"
+      refute star_group =~ "GPTBot"
+
+      assert out
+             |> String.trim_trailing()
+             |> String.ends_with?("Sitemap: https://example.com/sitemap.xml")
+    end
+
+    test "a string is split into lines; blank lines and surrounding spaces are dropped" do
+      out = RobotsTxt.build_for([], extra: "  Disallow: /a/\n\n\r\nAllow: /a/public\n")
+      assert out =~ "User-agent: *\nDisallow: /a/\nAllow: /a/public\n"
+    end
+
+    test "comments alone keep the empty Disallow so the group still has a rule" do
+      out = RobotsTxt.build_for([], extra: "# hello")
+      assert out =~ "User-agent: *\nDisallow:\n# hello\n"
+    end
+
+    test "nil, an empty string or an empty list change nothing" do
+      plain = RobotsTxt.build_for([], [])
+
+      for empty <- [nil, "", [], ["", "  "]] do
+        assert RobotsTxt.build_for([], extra: empty) == plain
+      end
+    end
+
+    test "a User-agent line raises instead of silently joining the * group" do
+      assert_raise ArgumentError, ~r/User-agent/, fn ->
+        RobotsTxt.build_for([], extra: ["user-agent: Foo", "Disallow: /x"])
+      end
+    end
+  end
+
   describe "the registry it renders from" do
     test "every group has at least one bot and unique tokens overall" do
       all_tokens = Enum.flat_map(Bots.groups(), fn g -> Enum.map(g.bots, & &1.token) end)

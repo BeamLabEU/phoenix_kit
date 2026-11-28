@@ -180,7 +180,9 @@ defmodule Mix.Tasks.PhoenixKit.ConsolidateWrappers do
   @consolidated_module "PhoenixKitConsolidated"
   @consolidated_slug "phoenix_kit_consolidated"
 
-  @up_call_re ~r/PhoenixKit\.Migrations\.up\(/
+  # `up_to!(N, opts)` is what `mix phoenix_kit.update` writes since the
+  # floor-aware entry point; older wrappers call `up(version: N, ...)`.
+  @up_call_re ~r/PhoenixKit\.Migrations\.up(?:_to!)?\(/
   @down_call_re ~r/PhoenixKit\.Migrations\.down\(/
 
   @impl Mix.Task
@@ -465,7 +467,7 @@ defmodule Mix.Tasks.PhoenixKit.ConsolidateWrappers do
   end
 
   defp extract_version(args) do
-    case Regex.run(~r/version:\s*(\d+)/, args) do
+    case Regex.run(~r/version:\s*(\d+)/, args) || Regex.run(~r/\A\s*(\d+)\s*(?:,|\z)/, args) do
       [_, digits] -> String.to_integer(digits)
       nil -> nil
     end

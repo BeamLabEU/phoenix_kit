@@ -7,7 +7,19 @@ defmodule PhoenixKit.Migrations.Postgres do
 
   ## Migration Versions
 
-  ### V236 - Cross-domain handoff ⚡ LATEST
+  ### V238 - A rate limit of its own on an API key ⚡ LATEST
+
+  `phoenix_kit_api_keys.rate_limit_per_minute` (integer, nullable, `> 0`): a key's own limit in cost units a
+  minute (`PhoenixKit.API.RateLimit`). NULL is the shared limit, so every existing key is unchanged; a set value
+  replaces the shared limit for that key (the optional `api_total_rate_per_min` caps all keys). Additive, no backfill.
+
+  ### V237 - A watermark on a variant set
+
+  `phoenix_kit_variant_sets.watermark` (jsonb, nullable): what the set stamps on the renditions it names
+  (`PhoenixKit.Modules.Storage.Watermark`): a strip along the bottom or a mark in a corner, with text and/or a
+  logo. NULL is no watermark, so every existing set is unchanged. Additive, no backfill.
+
+  ### V236 - Cross-domain handoff
 
   One table for `PhoenixKit.Handoff`: `phoenix_kit_handoff_tokens`, the short-lived (60 seconds), single-use rows that
   carry a visitor from one of the site's domains to another. The raw token is never stored (`token_hash`, unique);
@@ -1116,7 +1128,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   alias PhoenixKit.Migrations.Repair.Environment
 
   @initial_version 135
-  @current_version 236
+  @current_version 238
 
   # Core 3.0 no longer creates or changes any module's table (plan
   # `dev_docs/plans/2026-10-25-module-table-ownership.md`, step 8): V135..V225
@@ -1192,6 +1204,17 @@ defmodule PhoenixKit.Migrations.Postgres do
     opts = with_defaults(opts, @current_version)
     acquire_chain_lock!()
     initial = migrated_version(opts)
+
+    # A step file written by a later release than the one pinned now asks for
+    # versions this chain does not have: say which release it needs, rather
+    # than fail on a missing `V…` module half-way through. A database already
+    # there needs nothing (`:noop` below).
+    if opts.version > @current_version and initial < opts.version do
+      raise PhoenixKit.Migrations.TargetAheadError,
+        target: opts.version,
+        chain_version: @current_version,
+        db_version: initial
+    end
 
     plan = plan_up(initial, opts.version, @initial_version, @minimum_upgrade_version)
 

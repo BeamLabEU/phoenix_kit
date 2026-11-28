@@ -541,7 +541,7 @@ defmodule PhoenixKit.MixProject do
       maintainers: ["BeamLab EU"],
       licenses: ["MIT"],
       links: %{"GitHub" => @source_url},
-      files: ~w(lib priv mix.exs README.md LICENSE CHANGELOG.md),
+      files: ~w(lib priv guides mix.exs README.md LICENSE CHANGELOG.md),
       # `files` takes whatever is on disk under priv/, gitignored or not, and
       # the sitemap generator writes into priv/static — so a checkout whose
       # test suite had run shipped the domain-mode test's

@@ -82,7 +82,7 @@ defmodule PhoenixKitWeb.Live.Settings do
       |> assign(:primary_language_name, primary_language_name())
       |> assign(
         :project_title,
-        merged_settings["project_title"] || PhoenixKit.Config.get(:project_title, "PhoenixKit")
+        merged_settings["project_title"] || PhoenixKit.Config.project_title()
       )
 
     {:ok, socket}
@@ -166,7 +166,7 @@ defmodule PhoenixKitWeb.Live.Settings do
           |> assign(
             :project_title,
             updated_settings["project_title"] ||
-              PhoenixKit.Config.get(:project_title, "PhoenixKit")
+              PhoenixKit.Config.project_title()
           )
           |> put_flash(:info, gettext("Settings reset to defaults successfully"))
 
@@ -267,7 +267,7 @@ defmodule PhoenixKitWeb.Live.Settings do
       |> assign(:saving, false)
       |> assign(
         :project_title,
-        updated_settings["project_title"] || PhoenixKit.Config.get(:project_title, "PhoenixKit")
+        updated_settings["project_title"] || PhoenixKit.Config.project_title()
       )
       |> put_flash(:info, gettext("Settings updated successfully"))
 

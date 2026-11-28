@@ -31,6 +31,8 @@ defmodule PhoenixKit.API.Actor do
     * `client_token_hash` - the hash of the client token an anonymous public caller sent in the
       field its tool declares (`PhoenixKit.API.Tool`'s `:client_token`); `nil` when the tool
       declares none or the caller sent none. The raw token is never kept.
+    * `rate_limit_per_minute` - the key's own limit (`PhoenixKit.API.Keys.Key`, V238), or
+      `nil`: the shared limit. Replaces the shared limit for the key (`PhoenixKit.API.RateLimit`).
     * `ip` - the address the request came from, as a string.
 
   The default is the least-privileged value: anonymous, no scopes, not personal, no approval. (A
@@ -53,6 +55,7 @@ defmodule PhoenixKit.API.Actor do
             requires_approval: false,
             awaiting_approval: false,
             client_token_hash: nil,
+            rate_limit_per_minute: nil,
             ip: nil
 
   @type t :: %__MODULE__{
@@ -67,6 +70,7 @@ defmodule PhoenixKit.API.Actor do
           requires_approval: boolean(),
           awaiting_approval: boolean(),
           client_token_hash: String.t() | nil,
+          rate_limit_per_minute: pos_integer() | nil,
           ip: String.t() | nil
         }
 end

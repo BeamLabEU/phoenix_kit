@@ -127,6 +127,7 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
   alias PhoenixKit.API.PersonalKeysConfig
   alias PhoenixKit.API.Registry
   alias PhoenixKit.API.ServiceUsers
+  alias PhoenixKit.API.Tool
   alias PhoenixKit.ModuleRegistry
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
@@ -182,6 +183,7 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
       |> assign(:revoke_confirmation, %{show: false})
       |> assign(:rotate_form, %{show: false})
       |> assign(:scopes_form, %{show: false})
+      |> assign(:rate_limit_form, %{show: false})
       |> assign(:show_service_user_form, false)
       |> assign(:service_user_params, default_service_user_params())
       |> assign(:service_user_errors, [])
@@ -455,6 +457,55 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
         _ ->
           socket
           |> assign(:scopes_form, %{show: false})
+          |> put_flash(:error, gettext("That key was not found."))
+      end
+    end)
+  end
+
+  # ── A key's own rate limit ─────────────────────────────────────────
+
+  def handle_event("request_edit_rate_limit", %{"uuid" => uuid}, socket) do
+    with_access(socket, fn socket ->
+      key = find_key(socket, uuid)
+
+      cond do
+        is_nil(key) or not live?(key) ->
+          put_flash(socket, :error, gettext("That key was not found."))
+
+        Keys.can_manage?(scope(socket), key) ->
+          assign(socket, :rate_limit_form, %{
+            show: true,
+            uuid: key.uuid,
+            name: key.name,
+            value: rate_limit_text(key.rate_limit_per_minute),
+            errors: []
+          })
+
+        true ->
+          refuse(socket)
+      end
+    end)
+  end
+
+  def handle_event("cancel_edit_rate_limit", _params, socket) do
+    {:noreply, assign(socket, :rate_limit_form, %{show: false})}
+  end
+
+  # The key is the one stored when the dialog was opened, found again through the
+  # person's own key list; the params carry only the number.
+  def handle_event("save_key_rate_limit", %{"key_rate_limit" => form}, socket)
+      when is_map(form) do
+    with_access(socket, fn socket ->
+      uuid = Map.get(socket.assigns.rate_limit_form, :uuid)
+      raw = text(form["value"], "")
+
+      case uuid && find_key(socket, uuid) do
+        %{} = key ->
+          save_rate_limit(socket, key, raw)
+
+        _ ->
+          socket
+          |> assign(:rate_limit_form, %{show: false})
           |> put_flash(:error, gettext("That key was not found."))
       end
     end)
@@ -765,11 +816,12 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
       "scopes" => [],
       "allowed_ips" => "",
       "expires_on" => "",
+      "rate_limit" => "",
       "requires_approval" => false
     }
   end
 
-  # Only the five fields of the form survive; each has the type the code below
+  # Only the six fields of the form survive; each has the type the code below
   # expects, whatever the client sent.
   defp normalize_key_params(params) do
     %{
@@ -778,6 +830,7 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
       "scopes" => string_list(params["scopes"]),
       "allowed_ips" => text(params["allowed_ips"], ""),
       "expires_on" => text(params["expires_on"], ""),
+      "rate_limit" => text(params["rate_limit"], ""),
       "requires_approval" => params["requires_approval"] in ["true", "on", true]
     }
   end
@@ -837,10 +890,10 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
     with {:ok, owner} <- resolve_owner(socket, params["owner"]),
          :ok <- check_scopes(params["scopes"], Keys.allowed_scopes_for(owner)),
          {:ok, expires_at} <- parse_expiry(params["expires_on"]),
+         {:ok, rate_limit} <- parse_rate_limit(params["rate_limit"]),
+         attrs = Map.put(key_attrs(params, expires_at), "rate_limit_per_minute", rate_limit),
          {:ok, key, token} <-
-           Keys.create_key(owner, scope(socket), key_attrs(params, expires_at),
-             impersonated: socket.assigns.impersonated
-           ) do
+           Keys.create_key(owner, scope(socket), attrs, impersonated: socket.assigns.impersonated) do
       socket
       |> close_key_form()
       |> assign(:new_token, %DisplayToken{value: token})
@@ -869,6 +922,46 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
     end
   end
 
+  # Empty is the shared limit; anything else must be a whole number from 1 to 1,000,000.
+  defp parse_rate_limit(value) do
+    case String.trim(value) do
+      "" ->
+        {:ok, nil}
+
+      trimmed ->
+        case Integer.parse(trimmed) do
+          {number, ""} when number in 1..1_000_000 -> {:ok, number}
+          _ -> {:error, :invalid_rate_limit}
+        end
+    end
+  end
+
+  defp rate_limit_text(nil), do: ""
+  defp rate_limit_text(limit), do: Integer.to_string(limit)
+
+  defp save_rate_limit(socket, key, raw) do
+    with :ok <- check_manageable(socket, key),
+         {:ok, limit} <- parse_rate_limit(raw),
+         {:ok, _key} <- Keys.update_rate_limit(key, limit, scope(socket)) do
+      socket
+      |> assign(:rate_limit_form, %{show: false})
+      |> assign_state()
+      |> put_flash(:info, gettext("The rate limit was saved."))
+    else
+      {:error, reason} when reason in [:revoked, :not_found] ->
+        socket
+        |> assign(:rate_limit_form, %{show: false})
+        |> put_flash(:error, gettext("That key was not found."))
+
+      {:error, reason} ->
+        assign(
+          socket,
+          :rate_limit_form,
+          Map.merge(socket.assigns.rate_limit_form, %{value: raw, errors: error_messages(reason)})
+        )
+    end
+  end
+
   defp key_attrs(params, expires_at) do
     %{
       "name" => String.trim(params["name"]),
@@ -884,6 +977,9 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
 
   defp error_messages(reason) when reason in [:scope_not_allowed, :invalid_scopes],
     do: [gettext("Some of the chosen scopes are not available to that owner.")]
+
+  defp error_messages(:invalid_rate_limit),
+    do: [gettext("The rate limit must be a whole number from 1 to 1000000, or empty.")]
 
   defp error_messages(:bad_expiry),
     do: [gettext("The expiry date must be a date from today on.")]
@@ -1138,7 +1234,8 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
         @limit_fields,
         %{
           "disabled_tools" => Config.encode_list(Config.disabled_tools()),
-          "mcp_allowed_origins" => Config.encode_list(Config.mcp_allowed_origins())
+          "mcp_allowed_origins" => Config.encode_list(Config.mcp_allowed_origins()),
+          "admin_total_per_min" => total_text(Config.admin_total_per_min())
         },
         fn {field, _setting, name}, acc ->
           Map.put(acc, field, Integer.to_string(Map.fetch!(limits, name)))
@@ -1148,13 +1245,17 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
     socket |> assign(:limits_params, params) |> assign(:limits_errors, [])
   end
 
-  # Only the eight fields of the form survive, each a string.
+  # Only the fields of the form survive, each a string.
   defp normalize_limit_params(params) do
     Enum.reduce(
       @limit_fields,
       %{
         "disabled_tools" => text(params["disabled_tools"], ""),
-        "mcp_allowed_origins" => text(params["mcp_allowed_origins"], "")
+        "mcp_allowed_origins" => text(params["mcp_allowed_origins"], ""),
+        # A form that does not send the field (a tab opened before it existed) keeps
+        # the total as it is rather than clearing it.
+        "admin_total_per_min" =>
+          text(params["admin_total_per_min"], total_text(Config.admin_total_per_min()))
       },
       fn {field, _setting, _name}, acc -> Map.put(acc, field, text(params[field], "")) end
     )
@@ -1180,6 +1281,8 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
         {setting, name, parse_limit(params[field])}
       end)
 
+    total = parse_total(params["admin_total_per_min"])
+
     errors =
       Enum.reject(
         [
@@ -1197,7 +1300,9 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
                 "Origins look like https://example.com: a scheme and a host, without a path."
               )
           ),
-          if(Enum.all?(numbers, fn {_setting, _name, parsed} -> parsed != :error end),
+          if(
+            Enum.all?(numbers, fn {_setting, _name, parsed} -> parsed != :error end) and
+              total != :error,
             do: nil,
             else: gettext("Every limit must be a whole number from 1 to 1000000.")
           )
@@ -1210,6 +1315,7 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
        %{
          tools: tools,
          origins: origins,
+         total: elem(total, 1),
          numbers: for({setting, name, {:ok, number}} <- numbers, do: {setting, name, number})
        }}
     else
@@ -1224,9 +1330,18 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
     end
   end
 
-  defp tool_name?(name) do
-    String.length(name) <= 100 and Regex.match?(~r/\A[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*\z/, name)
+  # The total for all keys is optional: empty is no total cap.
+  defp parse_total(value) do
+    case String.trim(value) do
+      "" -> {:ok, nil}
+      text -> parse_limit(text)
+    end
   end
+
+  defp total_text(nil), do: ""
+  defp total_text(total), do: Integer.to_string(total)
+
+  defp tool_name?(name), do: Tool.valid_name?(name)
 
   # An origin is a scheme and a host (and maybe a port): no path, query or login.
   defp origin?(value) do
@@ -1251,6 +1366,8 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
       end)
 
     list_changes = [
+      {"api_total_rate_per_min", total_text(wanted.total),
+       wanted.total != Config.admin_total_per_min()},
       {"api_disabled_tools", Config.encode_list(wanted.tools),
        wanted.tools != Config.disabled_tools()},
       {"api_mcp_allowed_origins", Config.encode_list(wanted.origins),

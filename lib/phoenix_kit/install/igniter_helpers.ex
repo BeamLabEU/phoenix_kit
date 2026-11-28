@@ -29,6 +29,51 @@ if Code.ensure_loaded?(Igniter) do
     alias Igniter.Project.Module, as: IgniterModule
 
     @doc """
+    Whether the task was started with Igniter's `--dry-run`.
+
+    Igniter honours the flag for every change made through its buffer; a step
+    that writes to disk directly (the root-layout and `app.js` splices in
+    `PhoenixKit.Install.JsIntegration`) must ask this first and only describe
+    the change.
+    """
+    @spec dry_run?(Igniter.t()) :: boolean()
+    def dry_run?(%{args: %{options: options, argv: argv}}) do
+      Keyword.get(List.wrap(options), :dry_run, false) == true or
+        "--dry-run" in List.wrap(argv)
+    end
+
+    def dry_run?(_igniter), do: false
+
+    @doc """
+    Trims the blank lines around every notice, warning and issue.
+
+    Igniter prints each one as `"* " <> message`, so a message written as a
+    heredoc that starts with an empty line (most of the kit's do) came out as
+    a bare `* ` bullet with the text on the lines below it. Run last in a
+    task's `igniter/1`. Non-string entries (an exception as a warning) are
+    left as they are; messages that become identical are kept once.
+    """
+    @spec tidy_messages(Igniter.t()) :: Igniter.t()
+    def tidy_messages(igniter) do
+      %{
+        igniter
+        | notices: tidy_list(igniter.notices),
+          warnings: tidy_list(igniter.warnings),
+          issues: tidy_list(igniter.issues)
+      }
+    end
+
+    defp tidy_list(messages) do
+      messages
+      |> Enum.map(fn
+        message when is_binary(message) -> String.trim(message)
+        other -> other
+      end)
+      |> Enum.reject(&(&1 == ""))
+      |> Enum.uniq()
+    end
+
+    @doc """
     Gets the parent application name (atom) from the Igniter project.
 
     Uses Igniter's application detection to determine the OTP application name.

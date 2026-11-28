@@ -45,6 +45,7 @@ defmodule PhoenixKit.ModuleRegistry do
   use GenServer
 
   alias PhoenixKit.API.ControlFields
+  alias PhoenixKit.API.CoreTools
   alias PhoenixKit.API.Problem
   alias PhoenixKit.API.Tool
   alias PhoenixKit.Dashboard.Tab
@@ -71,8 +72,13 @@ defmodule PhoenixKit.ModuleRegistry do
   @doc "Register a module that implements PhoenixKit.Module behaviour."
   @spec register(module()) :: :ok
   def register(module) when is_atom(module) do
-    GenServer.call(__MODULE__, {:register, module})
+    __MODULE__ |> GenServer.call({:register, module}) |> raise_refused()
   end
+
+  # The API tool-name check (`check_api_tool_names!/1`) refuses a module in the server
+  # without crashing it; the caller raises.
+  defp raise_refused({:refused, %ArgumentError{} = error}), do: raise(error)
+  defp raise_refused(reply), do: reply
 
   @doc "Unregister a module."
   @spec unregister(module()) :: :ok
@@ -105,7 +111,7 @@ defmodule PhoenixKit.ModuleRegistry do
   @spec rescan() :: {:ok, [module()]}
   @spec rescan(timeout()) :: {:ok, [module()]}
   def rescan(timeout \\ @rescan_timeout) do
-    GenServer.call(__MODULE__, :rescan, timeout)
+    __MODULE__ |> GenServer.call(:rescan, timeout) |> raise_refused()
   end
 
   @doc "Returns all registered module atoms."
@@ -778,24 +784,24 @@ defmodule PhoenixKit.ModuleRegistry do
   def init(_opts) do
     modules = load_modules()
     validate_modules(modules)
+    # Boot fails here, with a message naming both tools, when an undotted API tool name or
+    # an alias collides or takes a reserved namespace.
+    check_api_tool_names!(modules)
     :persistent_term.put(@pterm_key, modules)
     {:ok, %{modules: modules}}
   end
 
   @impl true
   def handle_call({:register, module}, _from, %{modules: modules} = state) do
-    if module in modules do
-      {:reply, :ok, state}
-    else
-      validate_module(module, modules)
-      updated = modules ++ [module]
-      :persistent_term.put(@pterm_key, updated)
-      invalidate_module_derived_caches()
-      # Not part of `invalidate_module_derived_caches/0`: `rescan/0` calls that
-      # right after `load_modules/0` has refreshed the scan cache and must not
-      # wipe it.
-      PhoenixKit.ModuleDiscovery.clear_cache()
-      {:reply, :ok, %{state | modules: updated}}
+    cond do
+      module in modules ->
+        {:reply, :ok, state}
+
+      (refused = api_names_refused(modules ++ [module])) != nil ->
+        {:reply, {:refused, refused}, state}
+
+      true ->
+        register_new(module, state)
     end
   end
 
@@ -815,18 +821,44 @@ defmodule PhoenixKit.ModuleRegistry do
         {:reply, {:ok, []}, state}
 
       new_modules ->
-        Enum.each(new_modules, &validate_module(&1, known))
-        updated = known ++ new_modules
-        :persistent_term.put(@pterm_key, updated)
-        invalidate_module_derived_caches()
-
-        Logger.info(
-          "[ModuleRegistry] Late-discovered #{length(new_modules)} module(s): " <>
-            inspect(new_modules)
-        )
-
-        {:reply, {:ok, new_modules}, %{state | modules: updated}}
+        case api_names_refused(known ++ new_modules) do
+          nil -> absorb_new_modules(new_modules, state)
+          refused -> {:reply, {:refused, refused}, state}
+        end
     end
+  end
+
+  defp register_new(module, %{modules: modules} = state) do
+    validate_module(module, modules)
+    updated = modules ++ [module]
+    :persistent_term.put(@pterm_key, updated)
+    invalidate_module_derived_caches()
+    # Not part of `invalidate_module_derived_caches/0`: `rescan/0` calls that
+    # right after `load_modules/0` has refreshed the scan cache and must not
+    # wipe it.
+    PhoenixKit.ModuleDiscovery.clear_cache()
+    {:reply, :ok, %{state | modules: updated}}
+  end
+
+  defp absorb_new_modules(new_modules, %{modules: known} = state) do
+    Enum.each(new_modules, &validate_module(&1, known))
+    updated = known ++ new_modules
+    :persistent_term.put(@pterm_key, updated)
+    invalidate_module_derived_caches()
+
+    Logger.info(
+      "[ModuleRegistry] Late-discovered #{length(new_modules)} module(s): " <>
+        inspect(new_modules)
+    )
+
+    {:reply, {:ok, new_modules}, %{state | modules: updated}}
+  end
+
+  defp api_names_refused(modules) do
+    check_api_tool_names!(modules)
+    nil
+  rescue
+    error in ArgumentError -> error
   end
 
   # ============================================================================
@@ -992,6 +1024,117 @@ defmodule PhoenixKit.ModuleRegistry do
   end
 
   @doc """
+  The one collision check of API tool names and aliases (`PhoenixKit.API.Tool`, "Undotted
+  names and aliases"), over the tools every module of `modules` declares (switched on or
+  off) plus core's. Raises `ArgumentError` listing every problem:
+
+    * an undotted name or an alias that is already the name, the MCP name (`.` read as
+      `_`) or an alias of another tool of the same audience;
+    * an undotted name or an alias in a reserved namespace: `system` (core's), or the
+      namespace of a dotted tool another module declares (`catalogue_x`, `catalogue-x` or
+      `catalogue.x` while another module declares `catalogue.*`), compared without case.
+
+  Dotted names alone keep the older rule (`PhoenixKit.API.ToolLint` reports two that share
+  an MCP name), so a set of tools without undotted names or aliases always passes. Runs when
+  the registry starts (the host does not boot), in `register/1` and in `rescan/1` (the
+  module is refused and the call raises).
+  """
+  @spec check_api_tool_names!([module()]) :: :ok
+  def check_api_tool_names!(modules \\ all_modules()) when is_list(modules) do
+    tools = Enum.flat_map(modules, &module_api_tools/1) ++ core_api_tools()
+
+    case api_name_problems(tools) do
+      [] ->
+        :ok
+
+      problems ->
+        raise ArgumentError,
+              "[ModuleRegistry] API tool names collide (see PhoenixKit.API.Tool, " <>
+                "\"Undotted names and aliases\"):\n  * " <> Enum.join(problems, "\n  * ")
+    end
+  end
+
+  defp core_api_tools do
+    CoreTools.tools()
+  rescue
+    _ -> []
+  end
+
+  @doc false
+  # Public for `PhoenixKit.API.ToolLint`, which runs the same check in a module's tests.
+  # `reserved: false` leaves out the namespace rule, which needs to know each tool's module.
+  @spec api_name_problems([Tool.t()], keyword()) :: [String.t()]
+  def api_name_problems(tools, opts \\ []) do
+    tools = Enum.uniq_by(tools, &{&1.module, &1.audience, &1.name})
+
+    if Keyword.get(opts, :reserved, true),
+      do: collision_problems(tools) ++ reserved_problems(tools),
+      else: collision_problems(tools)
+  end
+
+  # Every form a tool answers to: each name, and its MCP form. A form is "claimed" when it
+  # comes from an undotted name or an alias, the two things the newer rule is about.
+  defp answer_forms(%Tool{} = tool) do
+    Enum.flat_map(Tool.names(tool), fn name ->
+      claimed? = name != tool.name or not String.contains?(name, ".")
+      for form <- Enum.uniq([name, String.replace(name, ".", "_")]), do: {form, claimed?}
+    end)
+  end
+
+  defp collision_problems(tools) do
+    tools
+    |> Enum.flat_map(fn tool ->
+      for {form, claimed?} <- answer_forms(tool), do: {{tool.audience, form}, {tool, claimed?}}
+    end)
+    |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
+    |> Enum.sort()
+    |> Enum.flat_map(fn {{audience, form}, entries} ->
+      owners = entries |> Enum.map(&tool_ref(elem(&1, 0))) |> Enum.uniq()
+
+      if length(owners) > 1 and Enum.any?(entries, &elem(&1, 1)) do
+        ["#{form} (#{audience}) is a name, MCP name or alias of " <> Enum.join(owners, " and ")]
+      else
+        []
+      end
+    end)
+  end
+
+  defp reserved_problems(tools) do
+    for tool <- tools,
+        name <- claimed_names(tool),
+        ns <- List.wrap(reserved_namespace(name, tool, tools)),
+        uniq: true do
+      "#{name} of #{tool_ref(tool)} is in the reserved namespace #{inspect(ns)}"
+    end
+  end
+
+  defp claimed_names(%Tool{name: name, aliases: aliases}) do
+    if String.contains?(name, "."), do: List.wrap(aliases), else: [name | List.wrap(aliases)]
+  end
+
+  defp reserved_namespace(name, tool, tools) do
+    reserved =
+      for(
+        other <- tools,
+        other.module != tool.module or is_nil(other.module),
+        String.contains?(other.name, "."),
+        do: other.name |> String.split(".", parts: 2) |> hd() |> String.downcase()
+      )
+      |> Enum.uniq()
+      |> then(&["system" | &1])
+
+    downcased = String.downcase(name)
+
+    Enum.find(reserved, fn ns ->
+      downcased == ns or
+        Enum.any?(["_", "-", "."], &String.starts_with?(downcased, ns <> &1))
+    end)
+  end
+
+  defp tool_ref(%Tool{module: nil, name: name}), do: "#{name} (core)"
+  defp tool_ref(%Tool{module: mod, name: name}), do: "#{name} (#{inspect(mod)})"
+
+  @doc """
   True when a registered module that is switched **off** declares the API tool `name` for
   `audience`.
 
@@ -1006,7 +1149,7 @@ defmodule PhoenixKit.ModuleRegistry do
     (all_modules() -- enabled_modules())
     |> Enum.reject(&api_hidden?(&1, hidden_keys))
     |> Enum.flat_map(&module_api_tools/1)
-    |> Enum.any?(&(&1.name == name and &1.audience == audience))
+    |> Enum.any?(&(&1.audience == audience and Tool.answers_to?(&1, name)))
   end
 
   @doc """

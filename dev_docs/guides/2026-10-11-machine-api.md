@@ -137,6 +137,10 @@ The public audience has two buckets per call: one per client token (when the too
 
 A module that creates rows for a caller without a key charges a shared quota: `PhoenixKit.API.RateLimit.check_new_rows/1` (`:ok` or `{:error, retry_after_seconds}`) counts a new row against `api_public_new_rows_per_ip_hour` (per client network) and `api_public_new_rows_global_hour` (all clients). The module calls it when it creates the row; core never does. The quota is one for every module, not one per module.
 
+**A key's own limit (V238).** Every admin key has its own bucket, limited by the shared `api_admin_rate_per_min`. A key can also carry `rate_limit_per_minute` (Settings -> API, the key's "Rate limit" action; `Keys.update_rate_limit/3`; `create_key/4` takes it too): it then **replaces** the shared limit for that key, higher or lower. To bound what all keys together may spend, set `api_total_rate_per_min` (Settings -> API, "Calls per minute, all keys together"; empty, the default, is no total cap): every key's call is then charged to one shared bucket too, and a call it has no room for is refused before the key's own bucket is charged. Empty (`nil`, every key made before V238) is the shared limit, exactly as before. Zero and negative values are refused (by `Keys` and by a CHECK in the database). A rotated key keeps its limit; every change is a permanent `api.key_rate_limit_updated` activity entry.
+
+**The host's own routes.** `plug PhoenixKit.Plugs.RateLimit, bucket: :partner_api, key: :ip | :user | &Mod.fun/1, limit: {60, :minute}` limits any route of the host on the same ETS counters (per node; the moduledoc has the options). Over the limit it answers `429` with `retry-after`; a fault of its own (a key function that raises, an unreachable counter) lets the request through with a logged warning.
+
 A call that is refused before the limiter (an unknown, hidden, forbidden or disabled-module admin tool) costs one unit, over REST and MCP alike, and answers the same refusal (`404` or `403`), or `429` once the key's budget is spent; it writes no audit entry. A key therefore cannot loop on invented tool names for free.
 
 ## Declaring tools (module authors)
@@ -251,6 +255,33 @@ defmodule MyApp.API.Tools do
   defp handler(name, fun), do: {Module.concat(__MODULE__, name), fun}
 end
 ```
+
+#### Undotted names and aliases (moving an existing MCP server)
+
+A host tool may keep the name its clients already call: an **undotted** name of letters,
+digits, `_` and `-` (`call_endpoint`, `callEndpoint`) is accepted for it, and `aliases:` lists
+further names the tool answers to (dotted or not). PhoenixKit's own packages keep dotted names.
+
+```elixir
+PhoenixKit.API.Tool.new!(
+  name: "call_endpoint",
+  aliases: ["callEndpoint", "orders.call"],
+  # ...audience, scope, permission, handler as above
+)
+```
+
+An alias is resolved before anything else looks at the call, so the key's scopes, the owner's
+rights, the rate limit, confirmations, approvals and the log all see the tool's own name.
+Listings (`tools/list`, `GET /`, OpenAPI) show only the name.
+
+Every name and alias goes through one collision check (`ModuleRegistry.check_api_tool_names!/1`)
+when the registry starts, and in `ModuleRegistry.register/1` and `rescan/1`. It raises with both
+tools named, so the host does not boot with a clash, when an undotted name or an alias is already
+another tool's name, MCP name (`.` read as `_`) or alias in the same audience, or when it starts
+with a reserved namespace: `system`, or the namespace of a dotted tool another module declares
+(`catalogue_x` while a package declares `catalogue.*`). Dotted names alone keep the older rule
+(ToolLint reports two that share an MCP name; the first one wins at run time), so an install
+without undotted names or aliases is unchanged.
 
 - `module_name/0` is what admins read: name it after what the tools do.
 - Without `permission_metadata/0` the module has no card on the Modules page and no permission key of its own. A tool uses a key the host already has, or one it registers at start with `PhoenixKit.Users.Permissions.register_custom_key/2`; pass `auto_grant_admin: false` unless every Admin should get it.

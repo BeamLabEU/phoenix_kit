@@ -500,6 +500,32 @@ stops serving them, and the ones made stay stored.
   with its gain map (scaled so SDR white, 203 nits, is 1.0). Anything that fails, a
   missing `vix` or `uhdrsave` (libvips 8.17+) included, makes the tone-mapped SDR poster
   instead. PQ and Dolby Vision profile 5 sources keep the SDR poster.
+- **A watermark on chosen renditions** (V237, `Storage.Watermark`, drawn by
+  `WatermarkRenderer`). A set's `watermark` (a JSON column, NULL = none) is a
+  **strip** along the bottom (`below` the picture, which makes the rendition
+  taller and covers nothing, or `over` its bottom, with a background opacity) or a
+  **corner** mark (corner, width share, opacity, margin), with a text
+  (`{site_url}`, `{site_name}`) and/or a logo (a stored image's uuid, read from
+  its original), and the names of the sizes that get it. Only still renditions of
+  an image are drawn on, after they are made; the original, the other sizes, video
+  renditions, PDF thumbnails and animations that stay animated are not.
+  `VariantGenerator` puts the watermark into each size's virtual `watermark`
+  field, which is part of its spec hash, so a change (saved with
+  `VariantSets.update_watermark/3`, which bumps the revision) remakes only the
+  sizes whose pixels change. A watermarked size is never an HDR rendition, and
+  gets a key of its own (`_wm<hash>`). ImageMagick runs with the pinned decoder
+  and the usual limits; the text is escaped for `label:` (no `%` escapes, no
+  `@file`). A watermark that cannot be drawn (a missing logo, a failing
+  ImageMagick) leaves the clean rendition, recorded under the clean spec hash,
+  with an error in the log; the next check of the set's files tries again. The
+  text is hashed as written: a new site address reaches existing renditions on
+  "Check every file". The logo counts by its content too (its file's
+  `file_checksum`, `Watermark.logo_checksum`), so a logo edited in place reaches
+  them on that check as well. ⚠️ The logo must be an image anyone may see
+  (`VariantSets.watermark_logo/1`: not in a user library or a private one, by the
+  rule of `Libraries.user_or_hidden_among/1`), since its pixels go into public
+  renditions: refused when saved, and again when drawn (then the clean rendition
+  and a logged `logo_refused`). Admin: the Watermark card of a rendition profile.
 - **Cropping around the subject** (V210, `Storage.FocalPoint`). A fixed image
   rendition (a box the photo is scaled to fill and cropped to) has a
   `crop_mode`: `center` (the default: every existing rendition) or `focus`, which
@@ -818,6 +844,13 @@ like an upload (`:library_uuid`, `:allowed_types` — default `["image/"]` —,
 `:filename`). It blocks for the whole download: call it from a Task or a
 job, never a LiveView event handler.
 
+- **A host or a module can refuse to serve a file**:
+  `config :phoenix_kit, :file_access_guard, {MyApp.Files, :access}` (or a list),
+  or a module's optional `file_access_guard/2` callback, is asked by
+  `/file/...` (every variant), the info and unedited endpoints and the tiles.
+  It answers `:allow`, `:private` (served `private, no-store`, never redirected
+  to a bucket URL) or `:deny` (the 404 of a missing file). Contract:
+  `PhoenixKit.Modules.Storage.AccessGuard`.
 - **The fetch never reaches the server's own network.**
   `Storage.RemoteFetch.download/2` allows https only (`allow_http:`), ports
   80/443 (`allowed_ports:`), resolves the host once, requires every address
@@ -825,8 +858,11 @@ job, never a LiveView event handler.
   address it checked; redirects are followed by hand and re-checked; the body
   is capped (`max_bytes`, 25 MB) within one `timeout` (15 s). A network with
   its own internal ranges (a NAT64 prefix that is not `64:ff9b::/96`) lists
-  them in `config :phoenix_kit, :blocked_ip_ranges, ["…/96"]`. Never fetch a
-  user-supplied URL with a plain HTTP client.
+  them in `config :phoenix_kit, :blocked_ip_ranges, ["…/96"]`. A caller with
+  its own allowlist (a LAN host it trusts) passes `resolver: fn host -> … end`,
+  called for every hop's host and answering `{:ok, ip}` or `{:error, reason}`
+  (see the `RemoteFetch` moduledoc; `:unsafe_resolver` is its old name). Never
+  fetch a user-supplied URL with a plain HTTP client.
 - **The stored type comes from the bytes** (`Storage.Sniff`), not the
   response's `Content-Type` or the name; an unknown or disallowed type is
   `{:error, :unsupported_type}`. The stored name is the URL's last path

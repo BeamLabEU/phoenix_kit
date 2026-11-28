@@ -44,6 +44,15 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       config.exs and test.exs), baked into the generated migration, and
       written into the generated Oban config as `prefix:`.
     * `--create-schema` - Create schema if using custom prefix (default: true for non-public prefixes)
+    * `--install-root-theme` - Also put `PhoenixKitWeb.Components.ThemeBootstrap`
+      in the root layout, so the host's public pages follow the kit's saved
+      theme. Off by default: the kit's admin and auth pages stamp the theme
+      themselves.
+    * `--trusted-proxy CIDR` - A reverse proxy whose `X-Forwarded-For` /
+      `X-Real-IP` headers may be believed (repeatable). Written as
+      `config :phoenix_kit, trusted_proxies: [...]`. Without the flag the
+      installer asks in a terminal (default: no proxy, which writes `[]`);
+      with no terminal it writes nothing. See `PhoenixKit.Install.InstallDefaults`.
 
     ## Auto-detection
 
@@ -54,6 +63,8 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     - Find main router using Phoenix conventions (MyAppWeb.Router)
     - Configure Swoosh.Adapters.Local for development in config/dev.exs
     - Provide production mailer setup instructions
+    - Name the site after the app: `config :phoenix_kit, project_title: "My App"`
+      (humanized OTP app name; an existing entry is kept)
     - On a new installation, give stored credentials a dedicated encryption key:
       generated in config/dev.exs and config/test.exs, read from
       `PHOENIX_KIT_INTEGRATIONS_ENCRYPTION_KEY` in the `:prod` block of
@@ -82,6 +93,8 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       Deprecations,
       EncryptionKeyConfig,
       EndpointIntegration,
+      IgniterHelpers,
+      InstallDefaults,
       JsIntegration,
       LayoutConfig,
       MailerConfig,
@@ -89,6 +102,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       MissingIgniter,
       OAuthConfig,
       ObanConfig,
+      PatchLedger,
       PrefixConfig,
       RateLimiterConfig,
       RepoDetection,
@@ -110,7 +124,9 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           repo: :string,
           prefix: :string,
           create_schema: :boolean,
-          skip_assets: :boolean
+          skip_assets: :boolean,
+          trusted_proxy: :keep,
+          install_root_theme: :boolean
         ],
         aliases: [
           r: :router_path,
@@ -122,15 +138,24 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
     @impl Igniter.Mix.Task
     def igniter(igniter) do
+      # A project that already has `.phoenix_kit.exs` keeps what it declined
+      # (`PatchLedger.with_existing/2`); a fresh one installs as always.
+      PatchLedger.with_existing(fn -> install_pipeline(igniter) end)
+    end
+
+    defp install_pipeline(igniter) do
       opts = igniter.args.options
 
       igniter
       |> BasicConfiguration.add_basic_config()
+      |> BasicConfiguration.add_new_app_defaults()
       |> AdminLabelConfig.add_admin_label_options()
       |> RepoDetection.add_phoenix_kit_configuration(opts[:repo])
       |> PrefixConfig.add_prefix_configuration(opts[:prefix])
       |> MailerConfig.add_mailer_configuration()
       |> RateLimiterConfig.add_rate_limiter_configuration()
+      |> InstallDefaults.add_trusted_proxies(opts[:trusted_proxy] || [])
+      |> InstallDefaults.add_project_title()
       |> OAuthConfig.add_oauth_configuration()
       |> EncryptionKeyConfig.add_encryption_key()
       |> ObanConfig.add_oban_configuration(PrefixConfig.resolve_prefix(opts))
@@ -144,6 +169,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       ])
       |> CssIntegration.add_automatic_css_integration()
       |> JsIntegration.add_js_integration()
+      |> maybe_install_root_theme(opts)
       |> warn_if_daisyui_outdated()
       |> warn_user_dashboard_deprecated()
       |> RouterIntegration.add_router_integration(opts[:router_path])
@@ -154,6 +180,16 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       |> MigrationStrategy.create_phoenix_kit_migration_only(opts)
       |> add_completion_notice(opts)
       |> queue_post_install(opts)
+      |> IgniterHelpers.tidy_messages()
+    end
+
+    # The theme bootstrap in the host's root layout is opt-in: the kit's own
+    # admin and auth pages stamp the theme themselves, and a root copy would
+    # re-theme the host's public site too.
+    defp maybe_install_root_theme(igniter, opts) do
+      if opts[:install_root_theme],
+        do: JsIntegration.ensure_theme_bootstrap(igniter),
+        else: igniter
     end
 
     # The migration prompt and asset rebuild have to happen AFTER the file
@@ -290,6 +326,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
             # Clean up retry flag on successful completion
             Process.delete(:phoenix_kit_retry_pass)
             Process.delete(@migrate_answer_key)
+            InstallDefaults.forget_answers()
             result
 
           {:missing, true} ->
@@ -309,6 +346,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
             Process.delete(:phoenix_kit_retry_pass)
             Process.delete(@migrate_answer_key)
+            InstallDefaults.forget_answers()
             :error
         end
       end
@@ -360,6 +398,19 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         --skip-assets           Skip automatic asset rebuild check
                                 Default: false
 
+        --install-root-theme    Also put the theme bootstrap (pre-paint
+                                theme stamp) in your root layout, so your
+                                public pages follow the saved theme. The
+                                admin and auth pages carry their own.
+
+        --trusted-proxy CIDR    A reverse proxy whose X-Forwarded-For header
+                                is believed (repeatable), e.g.
+                                --trusted-proxy 127.0.0.1/8 --trusted-proxy 10.0.0.0/8
+                                Written as config :phoenix_kit, trusted_proxies:.
+                                Without it the installer asks (default: no
+                                proxy, which writes trusted_proxies: []);
+                                with no terminal it writes nothing.
+
         -h, --help              Show this help message
 
       EXAMPLES
@@ -410,8 +461,10 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         2. Start your Phoenix server:
            mix phx.server
 
-        3. Visit registration page:
-           http://localhost:4000/phoenix_kit/users/register
+        3. Create the first Owner:
+           mix phoenix_kit.create_owner you@example.com
+           (in dev on localhost, the first account registered at
+           http://localhost:4000/phoenix_kit/users/register becomes it too)
 
         4. Check the install:
            mix phoenix_kit.doctor
@@ -522,13 +575,14 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     # PhoenixKit relies on the host's vendored daisyUI being reasonably modern
     # (modal scrollbar-gutter handling; see PhoenixKit.Install.DaisyUI). The
     # host owns that file — we only warn, never touch it.
+    #
+    # The heads-up band (a fresh phx.new app is in it) prints once per
+    # {kit, daisyUI} version pair, remembered in .phoenix_kit.exs; not
+    # remembered on a dry run, which writes nothing.
     defp warn_if_daisyui_outdated(igniter) do
-      case DaisyUI.check() do
-        {:outdated, version} ->
-          Igniter.add_warning(igniter, DaisyUI.outdated_warning(version))
-
-        _ ->
-          igniter
+      case DaisyUI.notice_once(not IgniterHelpers.dry_run?(igniter)) do
+        nil -> igniter
+        warning -> Igniter.add_warning(igniter, warning)
       end
     end
 
@@ -570,7 +624,8 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         ✅ PhoenixKit ready! Next:
           • mix ecto.migrate (only if you skipped the migration prompt above)
           • mix phx.server
-          • Visit /users/register (or with your configured URL prefix)
+          • mix phoenix_kit.create_owner you@example.com (the first Owner; in dev on
+            localhost, registering at <url_prefix>/users/register also makes it)
           • mix phoenix_kit.doctor
         #{prefix_note}
         """

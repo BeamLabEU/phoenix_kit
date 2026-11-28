@@ -787,6 +787,129 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
     """
   end
 
+  @doc """
+  A language switcher with the host's own markup: one slot render per served
+  language, nothing styled.
+
+  The data is `PhoenixKit.I18n.language_links/2`
+  (`%{code, locale, base, hreflang, name, native_name, flag, url, current?,
+  primary?}`). Pass it as `links`, or let the component build it from `url`
+  (the host's URL builder) or `strategy` plus the current page. The kit does
+  not guess a host URL: without `links`, `url` or `strategy` it raises.
+
+      <.language_switcher_items :let={link} url={&localized_product_url(&1, @product)}
+        current_locale={@current_locale} class="flex gap-3">
+        <a href={link.url} hreflang={link.hreflang} aria-current={link.current? && "true"}>
+          {link.native_name || link.name}
+        </a>
+      </.language_switcher_items>
+
+      <.language_switcher_items links={@language_links} tag="ul">
+        <:item :let={link}><li><.link navigate={link.url}>{link.code}</.link></li></:item>
+      </.language_switcher_items>
+
+  Without a slot it renders plain `<a>` links (no classes). The daisyUI
+  switchers above are unchanged.
+  """
+  attr(:links, :list, default: nil, doc: "Precomputed `PhoenixKit.I18n.language_links/2`")
+  attr(:context, :any, default: nil, doc: "A conn, socket or assigns map to read the page from")
+  attr(:url, :any, default: nil, doc: "The host's URL builder, `fn segment_or_nil -> url end`")
+  attr(:strategy, :atom, default: nil, values: [nil, :path, :query, :kit])
+  attr(:current_locale, :string, default: nil, doc: "The page's language (dialect or segment)")
+  attr(:current_path, :string, default: nil, doc: "The current path, for `strategy`")
+  attr(:hide_current, :boolean, default: false)
+  attr(:tag, :string, default: "nav", doc: "The wrapping element")
+  attr(:class, :any, default: nil)
+  attr(:rest, :global)
+  slot(:item, doc: "Rendered once per language, with the link map as its argument")
+  slot(:inner_block, doc: "Same as `:item`, when no `:item` slot is given")
+
+  def language_switcher_items(assigns) do
+    assigns = assign(assigns, :links, items_links(assigns))
+
+    ~H"""
+    <.dynamic_tag tag_name={@tag} class={@class} {@rest}>
+      <%= for link <- @links do %>
+        <%= cond do %>
+          <% @item != [] -> %>
+            {render_slot(@item, link)}
+          <% @inner_block != [] -> %>
+            {render_slot(@inner_block, link)}
+          <% true -> %>
+            <a
+              href={link.url}
+              hreflang={link.hreflang}
+              lang={link.hreflang}
+              aria-current={if(link.current?, do: "true")}
+            >
+              {link.native_name || link.name}
+            </a>
+        <% end %>
+      <% end %>
+    </.dynamic_tag>
+    """
+  end
+
+  defp items_links(%{links: links}) when is_list(links), do: links
+
+  defp items_links(assigns) do
+    context =
+      assigns.context ||
+        %{current_locale: assigns.current_locale, current_path: assigns.current_path}
+
+    opts =
+      [
+        url: assigns.url,
+        strategy: assigns.strategy,
+        current: assigns.current_locale,
+        current_path: assigns.current_path,
+        hide_current: assigns.hide_current
+      ]
+      |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+
+    PhoenixKit.I18n.language_links(context, opts)
+  end
+
+  @doc """
+  `<link rel="alternate" hreflang>` tags for the current page, one per served
+  language plus `x-default`, from `PhoenixKit.I18n.hreflang_links/2`. For the
+  `<head>` of the host's root layout. Nothing on a single-language site.
+
+      <.hreflang_tags url={&localized_product_url(&1, @product)} />
+      <.hreflang_tags links={@hreflang_links} />
+  """
+  attr(:links, :list, default: nil, doc: "Precomputed `PhoenixKit.I18n.hreflang_links/2`")
+  attr(:context, :any, default: nil)
+  attr(:url, :any, default: nil, doc: "The host's URL builder")
+  attr(:strategy, :atom, default: nil, values: [nil, :path, :query, :kit])
+  attr(:current_path, :string, default: nil)
+  attr(:base_url, :string, default: nil, doc: "Put on paths; default `Routes.base_url/0`")
+
+  def hreflang_tags(assigns) do
+    assigns = assign(assigns, :links, hreflang_tag_links(assigns))
+
+    ~H"""
+    <link :for={link <- @links} rel="alternate" hreflang={link.hreflang} href={link.href} />
+    """
+  end
+
+  defp hreflang_tag_links(%{links: links}) when is_list(links), do: links
+
+  defp hreflang_tag_links(assigns) do
+    context = assigns.context || %{current_path: assigns.current_path}
+
+    opts =
+      [
+        url: assigns.url,
+        strategy: assigns.strategy,
+        current_path: assigns.current_path,
+        base_url: assigns.base_url
+      ]
+      |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+
+    PhoenixKit.I18n.hreflang_links(context, opts)
+  end
+
   # Chains JS.hide commands to hide all continent language panels
   defp hide_all_continent_panels(js, continent_groups) do
     Enum.reduce(continent_groups, js, fn {continent, _}, acc ->

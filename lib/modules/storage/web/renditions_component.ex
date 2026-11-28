@@ -24,7 +24,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
   use PhoenixKitWeb, :live_component
 
   alias PhoenixKit.Modules.Storage
-  alias PhoenixKit.Modules.Storage.{Dimension, VariantSet, VariantSets}
+  alias PhoenixKit.Modules.Storage.{Dimension, VariantSet, VariantSets, Watermark}
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Actor
 
@@ -65,6 +65,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
     |> assign(:set_libraries, VariantSets.libraries_using(set.uuid))
     |> assign(:missing_slots, VariantSets.missing_standard_slots(set.uuid))
     |> assign(:set_form, to_form(VariantSet.changeset(set, %{})))
+    |> assign(:watermark_form, watermark_form(set.watermark || %Watermark{}, %{}))
     |> assign(:dimensions, pinned(Storage.list_dimensions(set.uuid)))
   end
 
@@ -184,6 +185,31 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
     end
   end
 
+  # The watermark form follows what is chosen (the strip's or the corner's
+  # fields) without saving.
+  def handle_event("change_watermark", %{"watermark" => params}, socket) do
+    current = socket.assigns.set.watermark || %Watermark{}
+    {:noreply, assign(socket, :watermark_form, watermark_form(current, params, :validate))}
+  end
+
+  def handle_event("save_watermark", %{"watermark" => params}, socket) do
+    case VariantSets.update_watermark(socket.assigns.set, params, actor(socket)) do
+      {:ok, _set} ->
+        {:noreply, socket |> reload() |> flash(:info, gettext("Watermark saved"))}
+
+      {:error, %Ecto.Changeset{changes: %{watermark: %Ecto.Changeset{} = watermark}}} ->
+        {:noreply,
+         assign(
+           socket,
+           :watermark_form,
+           to_form(%{watermark | action: :validate}, as: :watermark)
+         )}
+
+      {:error, _reason} ->
+        {:noreply, socket |> reload() |> flash(:error, gettext("Could not save"))}
+    end
+  end
+
   def handle_event("delete_set", _params, socket) do
     case VariantSets.delete_variant_set(socket.assigns.set, actor(socket)) do
       {:ok, _} ->
@@ -222,6 +248,15 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
         {:noreply, flash(socket, :error, gettext("Could not save"))}
     end
   end
+
+  defp watermark_form(watermark, params, action \\ nil) do
+    changeset = Watermark.changeset(watermark, params)
+    to_form(if(action, do: %{changeset | action: action}, else: changeset), as: :watermark)
+  end
+
+  # The image renditions of the set, the ones a watermark can go on.
+  defp watermark_sizes(dimensions),
+    do: dimensions |> Enum.filter(&(&1.applies_to in ["image", "both"])) |> Enum.map(& &1.name)
 
   defp first_error(%Ecto.Changeset{errors: [{field, {message, _}} | _]}),
     do: "#{Phoenix.Naming.humanize(field)} #{message}"
@@ -441,6 +476,162 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
                 class="btn btn-outline btn-error btn-sm ml-auto"
               >
                 <.icon name="hero-trash" class="w-4 h-4" /> {gettext("Delete profile")}
+              </button>
+            </div>
+          </.form>
+        </div>
+      </div>
+
+      <%!-- Watermark (V237): drawn on the chosen image renditions, never the original --%>
+      <div id={"#{@id}-watermark"} class="card bg-base-100 shadow-sm mb-6">
+        <div class="card-body">
+          <h2 class="card-title text-lg">
+            <.icon name="hero-sparkles" class="w-6 h-6 mr-2" /> {gettext("Watermark")}
+          </h2>
+          <p class="text-sm text-base-content/70">
+            {gettext(
+              "Drawn on the image renditions you choose when they are made. The original upload is never watermarked, and renditions left unticked stay clean. Saving remakes the affected renditions in the background."
+            )}
+          </p>
+          <.form
+            for={@watermark_form}
+            id={"#{@id}-watermark-form-#{@set.uuid}"}
+            phx-change="change_watermark"
+            phx-submit="save_watermark"
+            phx-target={@myself}
+            class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2"
+          >
+            <div class="md:col-span-2">
+              <.checkbox
+                field={@watermark_form[:enabled]}
+                label={gettext("Watermark this profile's renditions")}
+              />
+            </div>
+            <.select
+              field={@watermark_form[:mode]}
+              label={gettext("Style")}
+              options={[
+                {gettext("Strip along the bottom"), "strip"},
+                {gettext("Mark in a corner"), "corner"}
+              ]}
+            />
+            <.input
+              field={@watermark_form[:text]}
+              label={gettext("Text")}
+              maxlength={Watermark.max_text()}
+              placeholder="{site_url}"
+            />
+            <.input
+              field={@watermark_form[:logo_file_uuid]}
+              label={gettext("Logo (a stored image's file ID, optional)")}
+              placeholder="00000000-0000-0000-0000-000000000000"
+            />
+            <p class="text-xs text-base-content/60 md:pt-8">
+              {gettext(
+                "In the text, {site_url} becomes the site's address and {site_name} its name. Leave the text blank for a logo alone."
+              )}
+            </p>
+
+            <%= if Phoenix.HTML.Form.input_value(@watermark_form, :mode) == "corner" do %>
+              <.select
+                field={@watermark_form[:corner]}
+                label={gettext("Corner")}
+                options={[
+                  {gettext("Bottom right"), "bottom_right"},
+                  {gettext("Bottom left"), "bottom_left"},
+                  {gettext("Top right"), "top_right"},
+                  {gettext("Top left"), "top_left"}
+                ]}
+              />
+              <.input
+                type="number"
+                field={@watermark_form[:mark_size_percent]}
+                label={gettext("Width (% of the picture)")}
+                min="5"
+                max="50"
+              />
+              <.input
+                type="number"
+                field={@watermark_form[:opacity]}
+                label={gettext("Opacity (%)")}
+                min="10"
+                max="100"
+              />
+              <.input
+                type="number"
+                field={@watermark_form[:margin_percent]}
+                label={gettext("Margin (% of the width)")}
+                min="0"
+                max="20"
+              />
+            <% else %>
+              <.select
+                field={@watermark_form[:strip_position]}
+                label={gettext("Position")}
+                options={[
+                  {gettext("Below the picture (the rendition gets taller)"), "below"},
+                  {gettext("Over the bottom of the picture"), "over"}
+                ]}
+              />
+              <.input
+                type="number"
+                field={@watermark_form[:strip_height_percent]}
+                label={gettext("Height (% of the width)")}
+                min="2"
+                max="20"
+              />
+              <.input
+                field={@watermark_form[:background_color]}
+                label={gettext("Background colour")}
+                placeholder="#ffffff"
+              />
+              <.input
+                type="number"
+                field={@watermark_form[:background_opacity]}
+                label={gettext("Background opacity (%, over the picture only)")}
+                min="0"
+                max="100"
+              />
+            <% end %>
+            <.input
+              field={@watermark_form[:text_color]}
+              label={gettext("Text colour")}
+              placeholder="#333333"
+            />
+
+            <fieldset class="fieldset md:col-span-2">
+              <legend class="fieldset-legend font-semibold">
+                {gettext("Renditions that get the watermark")}
+              </legend>
+              <input type="hidden" name="watermark[dimensions][]" value="" />
+              <div class="flex flex-wrap gap-4">
+                <label
+                  :for={name <- watermark_sizes(@dimensions)}
+                  class="label cursor-pointer gap-2"
+                >
+                  <input
+                    type="checkbox"
+                    class="checkbox checkbox-sm"
+                    name="watermark[dimensions][]"
+                    value={name}
+                    checked={
+                      name in (Phoenix.HTML.Form.input_value(@watermark_form, :dimensions) || [])
+                    }
+                  />
+                  <span>{name}</span>
+                </label>
+              </div>
+              <p
+                :for={{msg, _} <- Keyword.get_values(@watermark_form.errors, :dimensions)}
+                class="text-error text-sm"
+              >
+                {msg}
+              </p>
+            </fieldset>
+
+            <div class="md:col-span-2">
+              <button type="submit" class="btn btn-primary btn-sm">
+                {gettext("Save watermark")}
               </button>
             </div>
           </.form>

@@ -15,6 +15,8 @@ defmodule PhoenixKit.Supervisor do
     ReconcileJob
   }
 
+  alias PhoenixKitWeb.Plugs.HostLocale
+
   def start_link(init_arg) do
     Supervisor.start_link(__MODULE__, init_arg, name: __MODULE__)
   end
@@ -23,6 +25,8 @@ defmodule PhoenixKit.Supervisor do
   def init(_init_arg) do
     # A primary Logger filter, so the host's endpoint needs no option for it.
     RequestLog.install()
+    # The URL of a LiveView mount, for `PhoenixKitWeb.Plugs.HostLocale`'s on_mount.
+    HostLocale.attach_mount_uri()
     update_mode = Application.get_env(:phoenix_kit, :update_mode, false)
     children = build_children(update_mode)
     Supervisor.init(children, strategy: :one_for_one)
@@ -108,6 +112,12 @@ defmodule PhoenixKit.Supervisor do
         {PhoenixKit.Cache, name: :login_country_lookups, ttl: :timer.hours(24)},
         id: :login_country_lookups_cache
       ),
+      # The host's `/llms.txt` sections (`llms_txt_sections`), per host and locale; each entry
+      # carries its own expiry (`PhoenixKit.Modules.Crawlers.LlmsTxt`).
+      Supervisor.child_spec(
+        {PhoenixKit.Cache, name: :llms_txt_sections, ttl: :timer.minutes(5)},
+        id: :llms_txt_sections_cache
+      ),
       # API key rows (`PhoenixKit.API.Keys`), for 60 seconds, so that verifying a
       # bearer token is not a query per request. Owner rights are never cached.
       # The second child drops a row when another node revokes or rotates the key.
@@ -140,6 +150,16 @@ defmodule PhoenixKit.Supervisor do
       %{
         id: :oban_queue_check,
         start: {Task, :start_link, [__MODULE__, :oban_boot_checks, []]},
+        restart: :temporary
+      },
+      # Once per boot: while there is no active Owner, replace the one-time
+      # setup token and log the link that registers the Owner (see
+      # PhoenixKit.Users.Setup). Delayed a little so the line lands after the
+      # endpoint's own start-up lines; silent under `first_owner: :open`, in
+      # tests, and when the database cannot be read.
+      %{
+        id: :first_owner_setup,
+        start: {Task, :start_link, [PhoenixKit.Users.Setup, :announce_at_boot, []]},
         restart: :temporary
       },
       # Once per boot: queue the storage location backfill (V204) while any

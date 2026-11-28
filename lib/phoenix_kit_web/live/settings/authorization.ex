@@ -70,7 +70,7 @@ defmodule PhoenixKitWeb.Live.Settings.Authorization do
       |> assign(:saving, false)
       |> assign(
         :project_title,
-        merged_settings["project_title"] || PhoenixKit.Config.get(:project_title, "PhoenixKit")
+        merged_settings["project_title"] || PhoenixKit.Config.project_title()
       )
       # The domain passkeys are made for, named next to the switch.
       |> assign(:passkey_domain, Passkeys.relying_party().rp_id)

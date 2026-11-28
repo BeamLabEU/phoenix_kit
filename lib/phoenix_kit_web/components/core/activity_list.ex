@@ -199,7 +199,29 @@ defmodule PhoenixKitWeb.Components.Core.ActivityList do
   # same reason the detail page does it: `Activity` has no Gettext backend,
   # and its own "changed" would reach every locale in English.
   defp summarize_change(%{"changed" => true}), do: gettext("changed")
-  defp summarize_change(change), do: Activity.humanize_metadata_value(change)
+
+  # One line holds up to three changes, so each side is cut short here; the
+  # entry's page shows both in full. A blank side reads as a dash, not as a
+  # gap before the arrow.
+  defp summarize_change(%{"from" => from, "to" => to}),
+    do: "#{summary_side(from)} → #{summary_side(to)}"
+
+  defp summarize_change(change), do: change |> Activity.humanize_metadata_value() |> clip()
+
+  defp summary_side(value) do
+    case value |> Activity.humanize_metadata_value() |> String.trim() do
+      "" -> "—"
+      text -> clip(text)
+    end
+  end
+
+  @summary_side_length 60
+
+  defp clip(text) do
+    if String.length(text) > @summary_side_length,
+      do: String.slice(text, 0, @summary_side_length) <> "…",
+      else: text
+  end
 
   defp more_label(count) when count > 0, do: "+#{count}"
   defp more_label(_count), do: nil

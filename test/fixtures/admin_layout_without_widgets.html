@@ -58,6 +58,7 @@
     // One instance per page — a host layout and a kit layout can
     // both render this; a second copy would double the storage listener.
     if (window.__pkThemeBootstrap) return;
+    
     window.__pkThemeBootstrap = true;
 
     var KEY = 'phx:theme';
@@ -111,7 +112,7 @@
 </script>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="csrf-token" content="Nx86B04BDUMDHihnMTAPTB9EGSkTJEEhNntVyrD03HDWRzCzLuNmeG5d">
+    <meta name="csrf-token" content="dztxUnYiJxcjI1h6PB0bJl5NPVUZHQAB5W731AIpZD0MuTYOk4dms-Jh">
     
     <title data-default="Acme Admin">
       Dashboard
@@ -183,6 +184,7 @@
   window.addEventListener("phx:page-loading-start",function(e){if(e.detail&&e.detail.kind==="initial")e.stopImmediatePropagation()},true);
 </script>
 
+
 <style data-phoenix-kit-themes>
   [data-theme=phoenix-dark]
 {
@@ -234,6 +236,63 @@
   color-scheme: light;
 }
 </style>
+<script>
+  (function () {
+    // One instance per page — a host layout and a kit layout can
+    // both render this; a second copy would double the storage listener.
+    if (window.__pkThemeBootstrap) return;
+    
+    window.__pkThemeBootstrap = true;
+
+    var KEY = 'phx:theme';
+    var LEGACY_KEY = 'phoenix_kit_theme';
+    var LIGHT = 'phoenix-light';
+    var DARK = 'phoenix-dark';
+    var BASES = {"corporate":"light","pastel":"light","abyss":"dark","retro":"light","nord":"dark","black":"dark","lemonade":"light","synthwave":"dark","night":"dark","business":"dark","lofi":"light","valentine":"light","autumn":"light","sunset":"dark","dark":"dark","aqua":"light","phoenix-dark":"dark","wireframe":"light","light":"light","coffee":"dark","dracula":"dark","phoenix-light":"light","bumblebee":"light","fantasy":"light","forest":"dark","cmyk":"light","cupcake":"light","luxury":"dark","acid":"light","garden":"light","winter":"light","silk":"light","emerald":"light","caramellatte":"light","cyberpunk":"light","dim":"dark","halloween":"dark"};
+
+    function resolve(theme) {
+      if (!theme || theme === 'system') {
+        return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+          ? DARK
+          : LIGHT;
+      }
+      return theme;
+    }
+
+    function apply(theme) {
+      var resolved = resolve(theme);
+      var el = document.documentElement;
+      el.setAttribute('data-theme', resolved);
+      // The saved CHOICE next to the theme in effect: a picker that lists
+      // "system" beside the themes marks the chosen one with CSS from this.
+      el.setAttribute('data-theme-choice', theme && theme !== 'system' ? theme : 'system');
+      el.style.colorScheme = BASES[resolved] || 'light';
+    }
+
+    var saved = null;
+    try {
+      saved = localStorage.getItem(KEY);
+      // The deleted static phoenix_kit_themes.js wrote this older key.
+      // Promote it once so an upgrade does not reset the saved choice.
+      if (!saved) {
+        var legacy = localStorage.getItem(LEGACY_KEY);
+        if (legacy) {
+          saved = legacy;
+          localStorage.setItem(KEY, legacy);
+        }
+      }
+    } catch (e) {
+      /* storage blocked: fall through to system */
+    }
+
+    apply(saved);
+
+    // A theme picked in another tab follows into this one.
+    window.addEventListener('storage', function (e) {
+      if (e.key === KEY || e.key === LEGACY_KEY) apply(e.newValue);
+    });
+  })();
+</script>
 <style>
   /* Custom sidebar control for desktop - override lg:drawer-open grid layout when closed */
   @media (min-width: 1024px) {
@@ -1193,7 +1252,7 @@
 
       
       <li>
-        <a href="/phoenix_kit/users/log-out" data-method="delete" data-csrf="Nx86B04BDUMDHihnMTAPTB9EGSkTJEEhNntVyrD03HDWRzCzLuNmeG5d" data-to="/phoenix_kit/users/log-out" class="flex items-center gap-3 text-error hover:bg-error hover:text-error-content">
+        <a href="/phoenix_kit/users/log-out" data-method="delete" data-csrf="dztxUnYiJxcjI1h6PB0bJl5NPVUZHQAB5W731AIpZD0MuTYOk4dms-Jh" data-to="/phoenix_kit/users/log-out" class="flex items-center gap-3 text-error hover:bg-error hover:text-error-content">
           <svg width="24" height="24" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
 </svg>

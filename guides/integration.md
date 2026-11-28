@@ -138,7 +138,50 @@ checks the setup (configuration, assets, hooks, Oban) and says what to fix.
 | `admin_path` | string | "/admin" | Top-level segment of the admin area, inside `url_prefix` |
 | `layout` | tuple | PhoenixKit default | `{LayoutModule, :template}` |
 | `root_layout` | tuple | PhoenixKit default | Root layout for pages |
+| `project_title` | string or `:host_app` | "PhoenixKit" | The site's name in the admin header, e-mails, `/llms.txt` and the API documents. `:host_app` uses your OTP app name, humanized (`:my_shop` → "My Shop"). `mix phoenix_kit.install` writes the humanized name for a new app; the admin panel's Settings value wins over this |
 | `secret_key_base` | string | your Endpoint's | Secret behind signed tokens and, without `integrations_encryption_key`, the secret the key for stored integration credentials is derived from. See below |
+
+### What your layouts receive
+
+Your two layouts see different things on a PhoenixKit page.
+
+**The `:app` layout** (`layout:` / `layouts_module:`) is called by
+`LayoutWrapper.app_layout/1`. It gets a fixed set of assigns, never the kit
+page's own assigns. A kit list page's `:page` (its pagination number), `:form`
+or `:loading` does not reach it, so your layout can declare `attr :page` or
+read `@page` for its own purpose. It receives:
+
+- the content: `@inner_content` and the `inner_block` slot (use either);
+- `flash`, `current_path`, `current_host`, `current_locale`,
+  `content_language`, `page_title`, `page_subtitle`, `page_section`,
+  `page_section_path`, `page_crumbs`, `page_title_switcher`, `page_action`,
+  `project_title`, `crawlers_no_index`, `admin_edit_url`, `admin_edit_label`,
+  `socket` (when the page passed one);
+- the user: `phoenix_kit_current_scope`, `phoenix_kit_current_user`, and
+  `current_user` (the scope's user, for `phx.gen.auth`-style layouts). With
+  `config :phoenix_kit, host_anonymous_scope: {Mod, :fun, args}`, a signed-out
+  visitor also gets your own `current_scope`;
+- `phoenix_kit_integrated` (`true`), `phoenix_kit_version`,
+  `phoenix_version_info`;
+- every key of the page's `module_assigns`, as a top-level assign. This is how
+  a module hands your layout something extra, e.g. publishing's
+  `phoenix_kit_publishing_translations` and `og`. A module key never replaces
+  one of the assigns above;
+- a few keys used by the kit's own chrome (`toolbar`, `action`, `from_layout`,
+  `pk_pending_invitations`, `show_admin_panel_label`, `show_page_descriptions`,
+  `dev_environment`, `module_assigns`). Don't build on them.
+
+Admin pages and, by default, the sign-in pages don't call your `:app` layout
+at all.
+
+**The root layout** is different. Phoenix renders it with **every** assign of
+the page: all of a kit LiveView's socket assigns on the first (dead) render, or
+all of a kit controller's `conn.assigns`. PhoenixKit does not filter them. That
+is how a root layout reads `@page_title`, `@url_path` or `@og`, but it also means
+a kit page's generic assigns (`:page`, `:form`, `:filters`…) arrive there. In a
+root layout, read your own per-page data under a name of your own (`:seo`,
+`:my_app_page`) and use `assigns[:key]` rather than declaring attrs, so a kit
+page that happens to use the same name can't break it.
 
 ### `secret_key_base` and stored credentials
 
@@ -286,7 +329,15 @@ loopback or private peer.
   proxy. The first request that relies on this logs one warning per VM.
 - **A list.** Headers are believed only when the peer is inside one of the
   blocks, public or private. A malformed entry matches nothing.
-- **`[]`.** Nobody is trusted.
+- **`[]`.** Nobody is trusted: the client is the peer. This is the explicit
+  "clients connect directly" answer, and it silences the warning.
+
+`mix phoenix_kit.install` settles it for a new app: `--trusted-proxy CIDR`
+(repeatable) writes exactly those blocks; without the flag it asks in a
+terminal whether the app runs behind a reverse proxy. The default answer, no,
+writes `[]`; yes writes the loopback blocks (`127.0.0.1/8`, `::1/128`) and
+offers the private ranges as a separate choice. With no terminal and no flag
+nothing is written. `mix phoenix_kit.update` never writes this key.
 
 Set it in production to the address(es) your proxy connects from. The same rule
 covers LiveView sockets (`client_address_from_socket/1`).

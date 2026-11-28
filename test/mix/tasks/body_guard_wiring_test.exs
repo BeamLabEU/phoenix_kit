@@ -17,17 +17,41 @@ defmodule Mix.Tasks.PhoenixKit.BodyGuardWiringTest do
     {"lib/mix/tasks/phoenix_kit.update.ex", "update"}
   ]
 
-  # Remote calls `EndpointIntegration.<fun>` made inside `def igniter(igniter)`.
+  # Remote calls `EndpointIntegration.<fun>` made inside `def igniter(igniter)`,
+  # or inside a private function of the task that `igniter/1` calls (install
+  # runs its pipeline from `install_pipeline/1`, inside `PatchLedger.with_existing/2`).
   defp endpoint_calls(path) do
     {:ok, ast} = path |> File.read!() |> Code.string_to_quoted()
 
-    {_ast, calls} =
-      Macro.prewalk(ast, [], fn
-        {:def, _, [{:igniter, _, [_]}, [do: body]]} = node, acc -> {node, calls_in(body) ++ acc}
+    {_ast, bodies} =
+      Macro.prewalk(ast, %{}, fn
+        {kind, _, [{name, _, args}, [do: body]]} = node, acc
+        when kind in [:def, :defp] and is_atom(name) and is_list(args) ->
+          {node, Map.update(acc, name, [body], &[body | &1])}
+
+        node, acc ->
+          {node, acc}
+      end)
+
+    igniter_bodies = Map.get(bodies, :igniter, [])
+
+    reached =
+      igniter_bodies
+      |> Enum.flat_map(&local_calls/1)
+      |> Enum.uniq()
+      |> Enum.flat_map(&Map.get(bodies, &1, []))
+
+    Enum.flat_map(igniter_bodies ++ reached, &calls_in/1)
+  end
+
+  defp local_calls(body) do
+    {_body, names} =
+      Macro.prewalk(body, [], fn
+        {name, _, args} = node, acc when is_atom(name) and is_list(args) -> {node, [name | acc]}
         node, acc -> {node, acc}
       end)
 
-    calls
+    names
   end
 
   defp calls_in(body) do

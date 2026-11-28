@@ -9,6 +9,7 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistration do
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.MagicLinkRegistration
   alias PhoenixKit.Users.Referrals
+  alias PhoenixKit.Users.Setup
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Users.Auth, as: WebAuth
   alias PhoenixKitWeb.Users.BotCheck
@@ -83,6 +84,8 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistration do
          |> assign(:token, token)
          |> assign(:email, email)
          |> assign(:ip_address, ip_address)
+         # Mount is the only place the peer is readable (`PhoenixKit.Users.Setup`).
+         |> assign(:first_owner_claim, Setup.claim_from_socket(socket, nil))
          |> assign(:account_type_mode, account_type_mode)
          |> assign(:referral_codes_enabled, referral_codes_config.enabled)
          |> assign(:referral_codes_required, referral_codes_config.required)
@@ -158,7 +161,8 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistration do
         case MagicLinkRegistration.complete_registration(
                socket.assigns.token,
                user_params,
-               socket.assigns.ip_address
+               socket.assigns.ip_address,
+               first_owner: socket.assigns[:first_owner_claim]
              ) do
           {:ok, user} ->
             changeset = Auth.change_user_registration(user)

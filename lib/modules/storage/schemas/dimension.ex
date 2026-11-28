@@ -101,6 +101,7 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
           options: PhoenixKit.Modules.Storage.DimensionOptions.t(),
           alternative_formats: [String.t()],
           order: integer(),
+          watermark: PhoenixKit.Modules.Storage.Watermark.t() | nil,
           variant_set_uuid: UUIDv7.t() | nil,
           inserted_at: DateTime.t() | nil,
           updated_at: DateTime.t() | nil
@@ -126,6 +127,11 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
 
     field :alternative_formats, {:array, :string}, default: []
     field :order, :integer, default: 0
+
+    # The set's watermark when this size carries it (V237), put here by
+    # `VariantGenerator` for an image's sizes: never stored with the size, but part
+    # of its spec hash (`VariantSets.spec_hash/2`).
+    field :watermark, :any, virtual: true
 
     # The variant set the size belongs to (V205). The column defaults to the
     # Default set, so a writer that names none lands there;

@@ -3,6 +3,7 @@ defmodule PhoenixKitWeb.Components.ThemeBootstrapTest do
 
   import Phoenix.LiveViewTest
 
+  alias PhoenixKitWeb.Components.LayoutWrapper
   alias PhoenixKitWeb.Components.ThemeBootstrap
 
   setup do
@@ -87,5 +88,41 @@ defmodule PhoenixKitWeb.Components.ThemeBootstrapTest do
 
     assert html =~ "data-theme-choice"
     assert html =~ "theme && theme !== 'system' ? theme : 'system'"
+  end
+
+  describe "if_unset" do
+    test "off by default: stamps whatever the page has" do
+      refute render_bootstrap() =~ "hasAttribute('data-theme')"
+    end
+
+    test "yields to a theme the page already carries" do
+      html = render_component(&ThemeBootstrap.theme_bootstrap/1, %{if_unset: true})
+
+      assert html =~ "if (document.documentElement.hasAttribute('data-theme')) return;"
+      # it still brings the palettes
+      assert html =~ "data-phoenix-kit-themes"
+    end
+  end
+
+  describe "the kit's own layouts carry it (no host root snippet needed)" do
+    test "the auth layout stamps first, yielding to a host theme script" do
+      html =
+        render_component(&LayoutWrapper.auth_layout/1, %{
+          flash: %{},
+          inner_block: [%{inner_block: fn _, _ -> "body" end}]
+        })
+
+      assert html =~ "window.__pkThemeBootstrap"
+      assert html =~ "hasAttribute('data-theme')"
+    end
+
+    test "the admin shell renders the full bootstrap in its chrome" do
+      source = File.read!("lib/phoenix_kit_web/components/layout_wrapper.ex")
+
+      [_, chrome] =
+        Regex.run(~r/PhoenixKit Admin Layout --%>(.*?)<style nonce/s, source)
+
+      assert chrome =~ "<PhoenixKitWeb.Components.ThemeBootstrap.theme_bootstrap />"
+    end
   end
 end

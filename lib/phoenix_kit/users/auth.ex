@@ -87,6 +87,7 @@ defmodule PhoenixKit.Users.Auth do
     Referrals,
     Role,
     Roles,
+    Setup,
     WelcomeEmail
   }
 
@@ -463,8 +464,9 @@ defmodule PhoenixKit.Users.Auth do
   Registers a user with automatic role assignment.
 
   Role assignment is handled by Elixir application logic:
-  - First user receives Owner role
-  - Subsequent users receive User role
+  - While no active Owner exists, the first user receives the Owner role only
+    when allowed — see `:first_owner` below and `PhoenixKit.Users.Setup`
+  - Other users receive the default role
   - Uses database transactions to prevent race conditions
 
   This function includes rate limiting protection to prevent spam account creation.
@@ -480,6 +482,13 @@ defmodule PhoenixKit.Users.Auth do
     * `:check_email_domain` - `true` for the same kind of request: the
       address's domain is asked for in DNS and a domain that cannot receive
       mail is refused (`PhoenixKit.Users.EmailDomain.check/1`). Default `false`.
+    * `:first_owner` - who may become the first Owner while none exists
+      (`PhoenixKit.Users.Setup`): `:allow` (trusted code: seeds, fixtures),
+      `:deny`, or a request's claim (`Setup.claim_from_socket/2`,
+      `Setup.claim_from_conn/2`). With a claim that proves nothing — no valid
+      setup token, not a local dev request — the registration is **refused**
+      while there is no Owner. Default: the public claim when `:site_wide` is
+      true, else `:allow`.
     * `:rate_limit` - `false` skips the limiter altogether. Only for a caller
       whose request was already limited and whose address is already proven:
       the completion of a mailed registration link, charged when the link was
@@ -507,9 +516,14 @@ defmodule PhoenixKit.Users.Auth do
     case registration_rate_limit(email, ip_address, attrs, opts) do
       :ok ->
         # After the limiter: a refused request must not cost a DNS lookup.
-        case registration_email_domain(email, opts) do
-          :ok ->
-            do_register_user(attrs)
+        first_owner = Setup.resolve(opts)
+
+        with :ok <- Setup.check_registration(first_owner),
+             :ok <- registration_email_domain(email, opts) do
+          do_register_user(attrs, first_owner: first_owner)
+        else
+          {:error, :setup_required} ->
+            {:error, setup_required_refusal(attrs)}
 
           {:error, :no_mail_host} ->
             {:error,
@@ -529,6 +543,16 @@ defmodule PhoenixKit.Users.Auth do
            dgettext_noop("errors", "Too many registration attempts. Please try again later.")
          )}
     end
+  end
+
+  defp setup_required_refusal(attrs) do
+    registration_refusal(
+      attrs,
+      dgettext_noop(
+        "errors",
+        "This site has no owner yet, so sign-up is closed. Its operator creates the owner with the setup link printed in the server log, or with mix phoenix_kit.create_owner."
+      )
+    )
   end
 
   # A refusal made before any insert. The action is what makes a form show the
@@ -623,7 +647,10 @@ defmodule PhoenixKit.Users.Auth do
       {:error, %Ecto.Changeset{}}
   """
   def admin_create_user(attrs, %User{uuid: actor_uuid}) when is_map(attrs) do
-    with {:ok, user} <- do_register_user(attrs, created_by_uuid: actor_uuid) do
+    # `:deny`: an admin is not an Owner, so a user an admin adds never becomes
+    # the first Owner (`PhoenixKit.Users.Setup`).
+    with {:ok, user} <-
+           do_register_user(attrs, created_by_uuid: actor_uuid, first_owner: :deny) do
       admit_admin_created(user)
     end
   end
@@ -646,24 +673,90 @@ defmodule PhoenixKit.Users.Auth do
     end
   end
 
-  defp do_register_user(attrs, opts \\ []) do
+  defp do_register_user(attrs, opts) do
+    first_owner = Keyword.get(opts, :first_owner, :allow)
+
+    result =
+      if is_map(first_owner),
+        do: register_with_claim(attrs, opts),
+        else: insert_and_assign_role(attrs, opts, false)
+
+    case result do
+      {:ok, user, role_type} ->
+        # Log successful role assignment for security audit (`:none`: the
+        # failure was logged where it happened)
+        if role_type != :none,
+          do:
+            Logger.info(
+              "PhoenixKit: User #{user.uuid} (#{user.email}) assigned #{role_type} role"
+            )
+
+        # Broadcast user creation event
+        Events.broadcast_user_created(user)
+
+        {:ok, user}
+
+      {:error, :setup_required} ->
+        {:error, setup_required_refusal(attrs)}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:error, changeset}
+
+      {:error, reason} ->
+        Logger.error("PhoenixKit: Registration could not assign a role: #{inspect(reason)}")
+
+        {:error,
+         registration_refusal(
+           attrs,
+           dgettext_noop("errors", "Registration could not be completed. Please try again.")
+         )}
+    end
+  end
+
+  # A request's claim (a public door): the insert and the grant share one
+  # transaction. A claim whose proof went stale after
+  # `Setup.check_registration/1` (the token rotated or spent in between) makes
+  # the locked grant refuse, and the refusal rolls the insert back: the account
+  # is never visible, so `create_owner` cannot promote it in between and
+  # nothing has to be deleted afterwards (a compensating delete could remove a
+  # row promoted in that gap, or fail and still report a refusal).
+  #
+  # While no Owner exists the Owner-role lock is taken before the insert: the
+  # order `create_owner` uses (lock, then the account), so the two cannot
+  # deadlock on the address's unique index. With an Owner present no lock is
+  # taken, as before.
+  defp register_with_claim(attrs, opts) do
+    Repo.transaction(fn ->
+      if Roles.count_active_owners() == 0, do: Roles.count_active_owners_locked()
+
+      case insert_and_assign_role(attrs, opts, true) do
+        {:ok, user, role_type} -> {user, role_type}
+        {:error, reason} -> Repo.rollback(reason)
+      end
+    end)
+    |> case do
+      {:ok, {user, role_type}} -> {:ok, user, role_type}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp insert_and_assign_role(attrs, opts, in_claim_transaction?) do
     case %User{}
          |> User.registration_changeset(attrs)
          |> Ecto.Changeset.put_change(:created_by_uuid, Keyword.get(opts, :created_by_uuid))
          |> Repo.insert() do
       {:ok, user} ->
         # Safely assign Owner role to first user, User role to others
-        case Roles.ensure_first_user_is_owner(user) do
+        case Roles.ensure_first_user_is_owner(user,
+               first_owner: Keyword.get(opts, :first_owner, :allow)
+             ) do
           {:ok, role_type} ->
-            # Log successful role assignment for security audit
-            Logger.info(
-              "PhoenixKit: User #{user.uuid} (#{user.email}) assigned #{role_type} role"
-            )
+            {:ok, user, role_type}
 
-            # Broadcast user creation event
-            Events.broadcast_user_created(user)
-
-            {:ok, user}
+          {:error, :setup_required} ->
+            # Only a request's claim is refused, inside
+            # `register_with_claim/2`'s transaction, which rolls the insert back.
+            {:error, :setup_required}
 
           {:error, reason} ->
             # Role assignment failed - this is critical
@@ -671,9 +764,10 @@ defmodule PhoenixKit.Users.Auth do
               "PhoenixKit: Failed to assign role to user #{user.uuid}: #{inspect(reason)}"
             )
 
-            # User was created but role assignment failed
-            # In production, you might want to delete the user or mark as needs_role_assignment
-            {:ok, user}
+            # Inside a claim's transaction the error rolls the account back
+            # (the inner transaction's rollback has already aborted it); for
+            # trusted callers the account stays, as it always has.
+            if in_claim_transaction?, do: {:error, reason}, else: {:ok, user, :none}
         end
 
       {:error, changeset} ->

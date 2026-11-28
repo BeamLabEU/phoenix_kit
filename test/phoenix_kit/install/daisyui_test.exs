@@ -152,6 +152,45 @@ defmodule PhoenixKit.Install.DaisyUITest do
     end
   end
 
+  describe "outdated_notice/4 (once per kit/daisyUI pair)" do
+    test "the heads-up band is shown once, then remembered" do
+      {warning, pair} = DaisyUI.outdated_notice({:outdated, "5.5.20"}, "3.1.0", nil, "x")
+      assert warning =~ "heads-up"
+      assert pair == %{kit: "3.1.0", daisyui: "5.5.20"}
+
+      assert DaisyUI.outdated_notice({:outdated, "5.5.20"}, "3.1.0", pair, "x") == {nil, nil}
+    end
+
+    test "a new kit release or a different daisyUI shows it again" do
+      seen = %{kit: "3.1.0", daisyui: "5.5.20"}
+
+      assert {w1, %{kit: "3.2.0"}} =
+               DaisyUI.outdated_notice({:outdated, "5.5.20"}, "3.2.0", seen, "x")
+
+      assert {w2, %{daisyui: "5.5.21"}} =
+               DaisyUI.outdated_notice({:outdated, "5.5.21"}, "3.1.0", seen, "x")
+
+      assert w1 && w2
+    end
+
+    test "below the gutter fix it warns every time and remembers nothing" do
+      seen = %{kit: "3.1.0", daisyui: "5.0.35"}
+      {warning, pair} = DaisyUI.outdated_notice({:outdated, "5.0.35"}, "3.1.0", seen, "x")
+      assert warning =~ "Upgrading is the fix"
+      assert pair == nil
+    end
+
+    test "nothing to say for a current, unversioned or missing copy" do
+      for check <- [:ok, :unversioned, :missing] do
+        assert DaisyUI.outdated_notice(check, "3.1.0", nil, "x") == {nil, nil}
+      end
+    end
+
+    test "the minimum stays 5.6.0" do
+      assert DaisyUI.minimum_version() == "5.6.0"
+    end
+  end
+
   defp write_bundle(root, dir, version) do
     dir = Path.join([root | dir])
     File.mkdir_p!(dir)

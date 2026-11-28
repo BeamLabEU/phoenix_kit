@@ -72,13 +72,37 @@ defmodule PhoenixKit.Install.ChildOrder do
   `nil` for a spec whose module can't be read cheaply (e.g. a `%{}` map spec).
   Returns `:error` if no children list can be found.
   """
+  #
+  # A list joined with `++` (`children = [Repo, Endpoint] ++ dev_children()`)
+  # is read as its literal parts in order; a part that is not a literal list
+  # (a function call, a variable) counts as one unreadable child (`nil`).
   @spec ordered_children(String.t()) :: {:ok, [child()]} | :error
   def ordered_children(source) when is_binary(source) do
     with {:ok, ast} <- Code.string_to_quoted(source),
-         [list | _] <- children_lists(ast) do
+         [{_shape, list} | _] <- children_lists(ast) do
       {:ok, Enum.map(list, &child_head_module/1)}
     else
       _ -> :error
+    end
+  end
+
+  @doc """
+  How the first children list in `source` is written:
+
+    * `:literal` — one plain list (`children = [ ... ]`), the only shape a
+      line-based rewrite of the list can handle safely;
+    * `:concatenated` — joined with `++` from more than one part;
+    * `:none` — no children list could be found (or the source does not parse).
+
+  `mix phoenix_kit.update` reorders the list only when it is `:literal`.
+  """
+  @spec list_shape(String.t()) :: :literal | :concatenated | :none
+  def list_shape(source) when is_binary(source) do
+    with {:ok, ast} <- Code.string_to_quoted(source),
+         [{shape, _list} | _] <- children_lists(ast) do
+      shape
+    else
+      _ -> :none
     end
   end
 
@@ -88,15 +112,29 @@ defmodule PhoenixKit.Install.ChildOrder do
   # shapes the Phoenix generator and hand-written apps use:
   #   children = [ ... ]
   #   Supervisor.start_link([ ... ], opts)
+  # Each entry is `{shape, children}` (see `list_shape/1`).
   defp children_lists(ast) do
     {_ast, acc} = Macro.prewalk(ast, [], fn node, acc -> {node, collect_list(node, acc)} end)
-    acc |> Enum.reverse() |> Enum.map(fn {_pos, list} -> list end)
+    acc |> Enum.reverse() |> Enum.map(fn {_pos, entry} -> entry end)
   end
 
   # `children = [ ... ]`
   defp collect_list({:=, meta, [{:children, _, ctx}, list]}, acc)
        when is_atom(ctx) and is_list(list),
-       do: [{meta[:line] || 0, list} | acc]
+       do: [{meta[:line] || 0, {:literal, list}} | acc]
+
+  # `children = [ ... ] ++ more_children()` — at least one literal part.
+  defp collect_list({:=, meta, [{:children, _, ctx}, {:++, _, _} = concat]}, acc)
+       when is_atom(ctx) do
+    parts = concat_parts(concat)
+
+    if Enum.any?(parts, &is_list/1) do
+      list = Enum.flat_map(parts, fn part -> if is_list(part), do: part, else: [nil] end)
+      [{meta[:line] || 0, {:concatenated, list}} | acc]
+    else
+      acc
+    end
+  end
 
   # `Supervisor.start_link([ ... ], opts)`
   defp collect_list(
@@ -104,9 +142,13 @@ defmodule PhoenixKit.Install.ChildOrder do
          acc
        )
        when is_list(list),
-       do: [{meta[:line] || 0, list} | acc]
+       do: [{meta[:line] || 0, {:literal, list}} | acc]
 
   defp collect_list(_node, acc), do: acc
+
+  # `a ++ b ++ c` parses right-nested; flatten it to its operands in order.
+  defp concat_parts({:++, _, [left, right]}), do: concat_parts(left) ++ concat_parts(right)
+  defp concat_parts(other), do: [other]
 
   # ── Reading a child spec's head module ──────────────────────────────
 
